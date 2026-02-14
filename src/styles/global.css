@@ -34,6 +34,18 @@
   --font-body: 'Lora', Georgia, serif;
   --font-display: 'Special Elite', 'Courier Prime', 'Courier New', monospace;
   --font-mono: 'Courier Prime', 'Courier New', monospace;
+  --font-name: 'Amarna', 'Special Elite', serif;
+}
+
+/* ─────────────────────────────────────────────────
+   Self-hosted Fonts
+   ───────────────────────────────────────────────── */
+
+@font-face {
+  font-family: 'Amarna';
+  src: url('/fonts/Amarna-Variable.ttf') format('truetype');
+  font-weight: 100 700;
+  font-display: swap;
 }
 
 /* ─────────────────────────────────────────────────
@@ -50,12 +62,6 @@ body {
   font-family: var(--font-body);
   color: var(--color-ink);
   background-color: var(--color-paper);
-  background-image: radial-gradient(
-    circle,
-    var(--color-ink-faint) 0.8px,
-    transparent 0.8px
-  );
-  background-size: 20px 20px;
   line-height: 1.65;
 }
 
