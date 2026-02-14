@@ -16,11 +16,11 @@ const { title, description } = Astro.props;
   <head>
     <Head title={title} description={description} />
   </head>
-  <body class="min-h-screen flex flex-col relative z-0">
+  <body class="min-h-screen flex flex-col" style="isolation: isolate;">
     <DotGrid client:load />
     <a href="#main-content" class="skip-to-content">Skip to content</a>
     <Nav />
-    <main id="main-content" class="relative z-10 flex-1 max-w-4xl mx-auto w-full px-4 py-8">
+    <main id="main-content" class="flex-1 max-w-4xl mx-auto w-full px-4 py-8">
       <slot />
     </main>
     <Footer />

@@ -56,12 +56,12 @@ html {
   font-size: 16px;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  background-color: var(--color-paper);
 }
 
 body {
   font-family: var(--font-body);
   color: var(--color-ink);
-  background-color: var(--color-paper);
   line-height: 1.65;
 }
 
