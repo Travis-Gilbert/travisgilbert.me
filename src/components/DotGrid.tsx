@@ -14,8 +14,8 @@ const TWO_PI = Math.PI * 2;
 
 export default function DotGrid({
   dotSpacing = 20,
-  dotRadius = 0.5,
-  dotColor = 'rgba(160, 154, 144, 0.35)',
+  dotRadius = 0.75,
+  dotColor = 'rgba(160, 154, 144, 0.5)',
   influenceRadius = 100,
   repulsionStrength = 25,
   springStiffness = 0.15,
@@ -226,7 +226,10 @@ export default function DotGrid({
       aria-hidden="true"
       style={{
         position: 'fixed',
-        inset: '0',
+        top: '0',
+        left: '0',
+        width: '100%',
+        height: '100%',
         zIndex: 0,
         pointerEvents: 'none',
       }}
