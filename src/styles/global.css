@@ -296,122 +296,134 @@ blockquote {
 }
 
 /* ─────────────────────────────────────────────────
-   Project Timeline
-   Migrated from Astro scoped <style> in ProjectTimeline.astro
+   Project Timeline — Evidence Organizer Style
+   Three-column layout: gutter | dot+line | content
    ───────────────────────────────────────────────── */
 
-.timeline {
+.ptl {
   position: relative;
-  padding-left: 2.5rem;
 }
 
-.timeline::before {
+/* Each entry: date header + row */
+.ptl-entry {
+  padding-bottom: 1.5rem;
+}
+.ptl-entry:last-child {
+  padding-bottom: 0;
+}
+
+/* Full date header above each entry */
+.ptl-date-header {
+  padding-left: 6rem; /* gutter(4rem) + dot-col(2rem) */
+  padding-bottom: 0.5rem;
+  padding-top: 0.5rem;
+}
+
+/* Three-column row: gutter | dot | content */
+.ptl-row {
+  display: flex;
+  align-items: flex-start;
+  position: relative;
+}
+
+/* Left gutter: short date label */
+.ptl-gutter {
+  width: 4rem;
+  flex-shrink: 0;
+  padding-top: 0.375rem;
+  text-align: right;
+  padding-right: 0.75rem;
+}
+
+/* Dot column with vertical line */
+.ptl-dot-col {
+  width: 2rem;
+  flex-shrink: 0;
+  display: flex;
+  justify-content: center;
+  position: relative;
+}
+
+/* Vertical timeline line */
+.ptl-dot-col::before {
   content: '';
   position: absolute;
-  left: 0.4375rem;
-  top: 0.875rem;
-  bottom: 0.875rem;
+  top: 0;
+  bottom: 0;
+  left: 50%;
+  transform: translateX(-50%);
   width: 2px;
   background-color: var(--color-border);
 }
 
-.timeline-year-group {
-  margin-bottom: 1.5rem;
+/* Extend line above first and below last entry */
+.ptl-entry:first-child .ptl-dot-col::before {
+  top: 0.5rem;
 }
-.timeline-year-group:last-child {
-  margin-bottom: 0;
-}
-
-.timeline-year-marker {
-  position: relative;
-  display: flex;
-  align-items: center;
-  gap: 0.75rem;
-  padding: 0.25rem 0 0.5rem;
-  margin-left: -2.5rem;
+.ptl-entry:last-child .ptl-dot-col::before {
+  bottom: calc(100% - 0.75rem);
 }
 
-.timeline-dot {
-  position: absolute;
-  left: -2.5rem;
-  width: 0.5625rem;
-  height: 0.5625rem;
+/* The dot itself */
+.ptl-dot {
+  width: 0.625rem;
+  height: 0.625rem;
   border-radius: 50%;
-  background-color: var(--color-border);
   border: 2px solid var(--color-paper);
-  top: 50%;
-  transform: translateY(-50%);
+  position: relative;
   z-index: 1;
+  margin-top: 0.5rem;
   flex-shrink: 0;
 }
 
-.timeline-dot--year {
-  position: relative;
-  left: 0;
-  width: 0.875rem;
-  height: 0.875rem;
-  background-color: var(--color-terracotta);
-  border: 2px solid var(--color-paper);
-  top: auto;
-  transform: none;
-}
-
-.timeline-item {
-  position: relative;
-  padding: 0.25rem 0;
-}
-
-.timeline-item .timeline-dot {
-  top: 0.875rem;
-}
-
-.timeline-summary {
+/* Clickable summary row */
+.ptl-summary {
   display: flex;
-  align-items: baseline;
-  gap: 0.5rem;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.75rem;
+  width: 100%;
   cursor: pointer;
-  list-style: none;
-  padding: 0.375rem 0;
-  transition: color 0.15s ease;
+  background: none;
+  border: none;
+  padding: 0.25rem 0;
+  font: inherit;
+  color: inherit;
+  text-align: left;
 }
 
-.timeline-summary::-webkit-details-marker {
-  display: none;
-}
-
-.timeline-summary:hover {
+.ptl-summary:hover .font-title {
   color: var(--color-terracotta);
 }
 
-.timeline-summary:focus-visible {
+.ptl-summary:focus-visible {
   outline: 2px solid var(--color-terracotta);
   outline-offset: 2px;
   border-radius: 4px;
 }
 
-.timeline-caret {
-  transition: transform 0.2s ease;
-  flex-shrink: 0;
-  align-self: center;
-}
-
-.timeline-details[open] > .timeline-summary .timeline-caret {
-  transform: rotate(90deg);
-}
-
-.timeline-content {
-  margin-top: 0.375rem;
-  margin-left: 1.5rem;
-  padding: 1rem 1.25rem;
-  border: 1px solid var(--color-border);
-  border-radius: 0.75rem;
-  background-color: rgba(250, 246, 241, 0.8);
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
+/* Expanded detail area — subtle divider, no card */
+.ptl-detail {
+  margin-top: 0.75rem;
+  padding-top: 0.75rem;
+  border-top: 1px solid var(--color-border);
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .timeline-caret {
+  .ptl-chevron {
     transition: none;
+  }
+}
+
+/* Stack gutter under content on mobile */
+@media (max-width: 640px) {
+  .ptl-date-header {
+    padding-left: 3rem;
+  }
+  .ptl-gutter {
+    display: none;
+  }
+  .ptl-dot-col {
+    width: 1.5rem;
   }
 }

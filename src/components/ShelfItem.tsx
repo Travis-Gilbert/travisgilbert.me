@@ -30,7 +30,7 @@ export default function ShelfItem({
 }: ShelfItemProps) {
   return (
     <RoughBox padding={20}>
-      <div className="bg-surface flex flex-col gap-2">
+      <div className="flex flex-col gap-2">
         <div className="flex items-start justify-between gap-2">
           <div>
             <h3 className="text-base font-title font-bold m-0">

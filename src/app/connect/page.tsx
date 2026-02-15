@@ -25,7 +25,7 @@ export default function ConnectPage() {
 
       <div className="max-w-xl space-y-8">
         <RoughBox padding={24}>
-          <div className="bg-surface">
+          <div>
             <h2 className="font-title text-lg font-bold mb-4">Find me</h2>
             <ul className="space-y-3 list-none p-0 m-0">
               <li className="flex items-center gap-3">

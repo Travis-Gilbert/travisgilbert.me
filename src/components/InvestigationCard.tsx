@@ -24,7 +24,7 @@ export default function InvestigationCard({
 
   return (
     <RoughBox padding={0}>
-      <div className="bg-surface overflow-hidden group">
+      <div className="overflow-hidden group">
         <Link href={href} className="block no-underline text-ink hover:text-ink">
           <div className="md:flex">
             {/* Thumbnail */}

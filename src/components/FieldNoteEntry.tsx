@@ -20,7 +20,7 @@ export default function FieldNoteEntry({
 }: FieldNoteEntryProps) {
   return (
     <RoughBox padding={20}>
-      <div className="bg-surface group">
+      <div className="group">
         <Link href={href} className="block no-underline text-ink hover:text-ink">
           <div className="flex flex-col gap-2">
             <DateStamp date={date} />

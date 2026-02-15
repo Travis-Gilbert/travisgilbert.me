@@ -26,7 +26,7 @@ export default function ProjectCard({
 }: ProjectCardProps) {
   return (
     <RoughBox padding={20}>
-      <div className="bg-surface flex flex-col gap-2">
+      <div className="flex flex-col gap-2">
         <div>
           <h3 className="text-lg font-title font-bold m-0">{title}</h3>
           <p className="text-sm text-ink-secondary m-0 font-mono">
