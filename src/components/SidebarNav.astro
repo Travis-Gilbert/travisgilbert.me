@@ -1,0 +1,313 @@
+---
+import NavIcon from './NavIcon.astro';
+import CaretRightThin from 'phosphor-astro/CaretRightThin.astro';
+import { getCollection } from 'astro:content';
+
+const currentPath = Astro.url.pathname;
+
+// Query content collections for child items
+const investigations = (await getCollection('investigations'))
+  .filter(i => !i.data.draft)
+  .sort((a, b) => b.data.date.valueOf() - a.data.date.valueOf());
+
+const fieldNotes = (await getCollection('field-notes'))
+  .filter(n => !n.data.draft)
+  .sort((a, b) => b.data.date.valueOf() - a.data.date.valueOf());
+
+const projects = (await getCollection('projects'))
+  .filter(p => !p.data.draft)
+  .sort((a, b) => a.data.order - b.data.order);
+
+// Build navigation sections
+interface NavChild {
+  href: string;
+  title: string;
+}
+
+interface NavSection {
+  href: string;
+  label: string;
+  iconName: string;
+  children?: NavChild[];
+}
+
+const contentSections: NavSection[] = [
+  {
+    href: '/investigations',
+    label: 'Investigations',
+    iconName: 'investigations',
+    children: investigations.map(i => ({
+      href: `/investigations/${i.id}`,
+      title: i.data.title,
+    })),
+  },
+  {
+    href: '/field-notes',
+    label: 'Field Notes',
+    iconName: 'field-notes',
+    children: fieldNotes.map(n => ({
+      href: `/field-notes/${n.id}`,
+      title: n.data.title,
+    })),
+  },
+  {
+    href: '/projects',
+    label: 'Projects',
+    iconName: 'projects',
+    children: projects.map(p => ({
+      href: '/projects',
+      title: p.data.title,
+    })),
+  },
+  {
+    href: '/shelf',
+    label: 'Shelf',
+    iconName: 'shelf',
+  },
+];
+
+const utilitySections: NavSection[] = [
+  { href: '/toolkit', label: 'Toolkit', iconName: 'toolkit' },
+  { href: '/colophon', label: 'Colophon', iconName: 'colophon' },
+  { href: '/connect', label: 'Connect', iconName: 'connect' },
+];
+
+// Helper: does the current path match this section or any of its children?
+function sectionContainsCurrentPath(section: NavSection): boolean {
+  if (currentPath === section.href || currentPath === section.href + '/') return true;
+  if (currentPath.startsWith(section.href + '/')) return true;
+  if (section.children) {
+    return section.children.some(c =>
+      currentPath === c.href || currentPath === c.href + '/'
+    );
+  }
+  return false;
+}
+
+function isActive(href: string): boolean {
+  if (href === '/') return currentPath === '/';
+  // Exact match or starts with (for child pages)
+  return currentPath === href || currentPath === href + '/' || currentPath.startsWith(href + '/');
+}
+---
+
+<nav class="sidebar-nav" aria-label="Site navigation">
+  {/* Content sections with expandable children */}
+  <ul class="sidebar-list">
+    {contentSections.map((section) => {
+      const hasChildren = section.children && section.children.length > 0;
+      const isOpen = sectionContainsCurrentPath(section);
+      const sectionActive = isActive(section.href);
+
+      return hasChildren ? (
+        <li class="sidebar-section">
+          <details open={isOpen} class="sidebar-details">
+            <summary class:list={[
+              'sidebar-link sidebar-link--parent',
+              { 'sidebar-link--active': sectionActive && !section.children?.some(c => isActive(c.href)) }
+            ]}>
+              <NavIcon name={section.iconName} class="w-4 h-4 flex-shrink-0" />
+              <span class="sidebar-link-label">{section.label}</span>
+              <CaretRightThin class="sidebar-chevron w-3.5 h-3.5 ml-auto flex-shrink-0 text-ink-faint" />
+            </summary>
+            <ul class="sidebar-children">
+              {section.children!.map((child) => (
+                <li>
+                  <a
+                    href={child.href}
+                    class:list={[
+                      'sidebar-child-link',
+                      { 'sidebar-child-link--active': isActive(child.href) }
+                    ]}
+                  >
+                    {child.title}
+                  </a>
+                </li>
+              ))}
+            </ul>
+          </details>
+        </li>
+      ) : (
+        <li class="sidebar-section">
+          <a
+            href={section.href}
+            class:list={[
+              'sidebar-link',
+              { 'sidebar-link--active': sectionActive }
+            ]}
+          >
+            <NavIcon name={section.iconName} class="w-4 h-4 flex-shrink-0" />
+            <span class="sidebar-link-label">{section.label}</span>
+          </a>
+        </li>
+      );
+    })}
+  </ul>
+
+  {/* Separator */}
+  <hr class="sidebar-separator" />
+
+  {/* Utility pages (leaf links only) */}
+  <ul class="sidebar-list">
+    {utilitySections.map((section) => (
+      <li class="sidebar-section">
+        <a
+          href={section.href}
+          class:list={[
+            'sidebar-link',
+            { 'sidebar-link--active': isActive(section.href) }
+          ]}
+        >
+          <NavIcon name={section.iconName} class="w-4 h-4 flex-shrink-0" />
+          <span class="sidebar-link-label">{section.label}</span>
+        </a>
+      </li>
+    ))}
+  </ul>
+</nav>
+
+<style>
+  /* Sidebar nav container */
+  .sidebar-nav {
+    padding: 1.5rem 1rem;
+  }
+
+  .sidebar-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+  }
+
+  .sidebar-section {
+    margin-bottom: 0.125rem;
+  }
+
+  /* Separator between content and utility sections */
+  .sidebar-separator {
+    border: none;
+    border-top: 1px solid var(--color-border);
+    margin: 0.75rem 0;
+  }
+
+  /* --- Section links (parent + leaf) --- */
+  .sidebar-link {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.5rem 0.75rem;
+    border-radius: 0.5rem;
+    font-family: var(--font-mono);
+    font-size: 0.6875rem; /* 11px */
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--color-ink-secondary);
+    text-decoration: none;
+    cursor: pointer;
+    transition: color 0.15s ease, background-color 0.15s ease;
+    position: relative;
+  }
+
+  .sidebar-link:hover {
+    color: var(--color-terracotta);
+    background-color: rgba(180, 90, 45, 0.05);
+  }
+
+  .sidebar-link--active {
+    color: var(--color-terracotta);
+    font-weight: 700;
+  }
+
+  /* Active highlight line */
+  .sidebar-link--active::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    top: 0.25rem;
+    bottom: 0.25rem;
+    width: 2px;
+    background-color: var(--color-terracotta);
+    border-radius: 1px;
+  }
+
+  /* --- Details/Summary for expandable sections --- */
+  .sidebar-details {
+    /* reset */
+  }
+
+  .sidebar-link--parent {
+    list-style: none;
+  }
+
+  .sidebar-link--parent::-webkit-details-marker {
+    display: none;
+  }
+
+  /* Chevron rotation */
+  .sidebar-chevron {
+    transition: transform 0.2s ease;
+  }
+
+  .sidebar-details[open] > .sidebar-link--parent .sidebar-chevron {
+    transform: rotate(90deg);
+  }
+
+  /* --- Child links --- */
+  .sidebar-children {
+    list-style: none;
+    margin: 0;
+    padding: 0.125rem 0 0.25rem 1.75rem; /* indent under icon */
+  }
+
+  .sidebar-child-link {
+    display: block;
+    padding: 0.3125rem 0.75rem;
+    border-radius: 0.375rem;
+    font-family: var(--font-body);
+    font-size: 0.8125rem; /* 13px */
+    line-height: 1.4;
+    color: var(--color-ink-secondary);
+    text-decoration: none;
+    transition: color 0.15s ease, background-color 0.15s ease;
+    position: relative;
+    /* Truncate long titles */
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .sidebar-child-link:hover {
+    color: var(--color-terracotta);
+    background-color: rgba(180, 90, 45, 0.05);
+  }
+
+  .sidebar-child-link--active {
+    color: var(--color-terracotta);
+    font-weight: 600;
+  }
+
+  /* Active highlight line on child */
+  .sidebar-child-link--active::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    top: 0.1875rem;
+    bottom: 0.1875rem;
+    width: 2px;
+    background-color: var(--color-terracotta);
+    border-radius: 1px;
+  }
+
+  /* Focus styles */
+  .sidebar-link:focus-visible,
+  .sidebar-child-link:focus-visible {
+    outline: 2px solid var(--color-terracotta);
+    outline-offset: 1px;
+  }
+
+  /* Reduced motion */
+  @media (prefers-reduced-motion: reduce) {
+    .sidebar-chevron {
+      transition: none;
+    }
+  }
+</style>

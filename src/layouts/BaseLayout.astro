@@ -1,6 +1,7 @@
 ---
 import Head from '../components/Head.astro';
-import Nav from '../components/Nav.astro';
+import TopBar from '../components/TopBar.astro';
+import SidebarNav from '../components/SidebarNav.astro';
 import Footer from '../components/Footer.astro';
 import DotGrid from '../components/DotGrid.tsx';
 
@@ -20,12 +21,80 @@ const { title, description } = Astro.props;
   <body class="min-h-screen flex flex-col" style="isolation: isolate;">
     <DotGrid client:load />
     <a href="#main-content" class="skip-to-content">Skip to content</a>
-    <Nav />
-    <!-- Content begins. No CMS was harmed in the making of this site. -->
-    <main id="main-content" class="flex-1 max-w-4xl mx-auto w-full px-4 py-8">
-      <slot />
-    </main>
+    <TopBar />
+
+    <!-- Sidebar + Content grid -->
+    <div class="flex-1 flex max-w-6xl mx-auto w-full">
+      <!-- Desktop sidebar -->
+      <aside class="hidden lg:block w-60 flex-shrink-0 border-r border-border sticky top-[3.25rem] h-[calc(100vh-3.25rem)] overflow-y-auto">
+        <SidebarNav />
+      </aside>
+
+      <!-- Main content -->
+      <main id="main-content" class="flex-1 min-w-0 px-6 py-8">
+        <slot />
+      </main>
+    </div>
+
     <Footer />
+
+    <!-- Mobile sidebar drawer (hidden by default, slides in from left) -->
+    <div id="sidebar-drawer" class="fixed inset-0 z-[60] hidden lg:hidden">
+      <!-- Backdrop -->
+      <div id="sidebar-backdrop" class="absolute inset-0 bg-ink/30 backdrop-blur-sm" />
+      <!-- Drawer panel -->
+      <div id="sidebar-panel" class="absolute inset-y-0 left-0 w-72 bg-paper border-r border-border overflow-y-auto shadow-lg transform transition-transform duration-200">
+        <!-- Close button -->
+        <div class="flex items-center justify-between px-4 py-3 border-b border-border">
+          <a href="/" class="text-lg text-ink no-underline" style="font-family: var(--font-name); font-weight: 400;">
+            Travis Gilbert
+          </a>
+          <button
+            id="sidebar-close"
+            class="p-2 bg-transparent border-none cursor-pointer text-ink-secondary hover:text-terracotta"
+            aria-label="Close navigation"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 256 256" fill="currentColor">
+              <path d="M205.66,194.34a8,8,0,0,1-11.32,11.32L128,139.31,61.66,205.66a8,8,0,0,1-11.32-11.32L116.69,128,50.34,61.66A8,8,0,0,1,61.66,50.34L128,116.69l66.34-66.35a8,8,0,0,1,11.32,11.32L139.31,128Z" />
+            </svg>
+          </button>
+        </div>
+        <!-- Same sidebar nav content -->
+        <SidebarNav />
+      </div>
+    </div>
+
+    <script is:inline>
+      // Mobile sidebar drawer toggle
+      const toggle = document.getElementById('sidebar-toggle');
+      const drawer = document.getElementById('sidebar-drawer');
+      const backdrop = document.getElementById('sidebar-backdrop');
+      const closeBtn = document.getElementById('sidebar-close');
+
+      function openDrawer() {
+        drawer?.classList.remove('hidden');
+        toggle?.setAttribute('aria-expanded', 'true');
+        document.body.style.overflow = 'hidden';
+      }
+
+      function closeDrawer() {
+        drawer?.classList.add('hidden');
+        toggle?.setAttribute('aria-expanded', 'false');
+        document.body.style.overflow = '';
+      }
+
+      toggle?.addEventListener('click', openDrawer);
+      backdrop?.addEventListener('click', closeDrawer);
+      closeBtn?.addEventListener('click', closeDrawer);
+
+      // Close on Escape key
+      document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape' && !drawer?.classList.contains('hidden')) {
+          closeDrawer();
+        }
+      });
+    </script>
+
     <script is:inline>
       console.log(
         '%c\n  ████████╗  ██████╗ \n  ╚══██╔══╝ ██╔════╝ \n     ██║    ██║  ███╗\n     ██║    ██║   ██║\n     ██║    ╚██████╔╝\n     ╚═╝     ╚═════╝ \n',

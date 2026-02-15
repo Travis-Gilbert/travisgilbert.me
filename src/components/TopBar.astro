@@ -1,0 +1,26 @@
+---
+// TopBar — slim header with logo and mobile sidebar toggle.
+// Desktop: logo only (navigation lives in SidebarNav).
+// Mobile (<lg): logo + hamburger button that triggers the mobile drawer.
+---
+
+<header class="sticky top-0 z-50 bg-paper/95 backdrop-blur-sm border-b border-border">
+  <div class="max-w-6xl mx-auto px-4 py-3 flex items-center justify-between">
+    <!-- Site title / logo -->
+    <a href="/" class="text-xl text-ink no-underline hover:text-terracotta transition-colors" style="font-family: var(--font-name); font-weight: 400;">
+      Travis Gilbert
+    </a>
+
+    <!-- Mobile sidebar toggle (hidden on lg+) -->
+    <button
+      id="sidebar-toggle"
+      class="lg:hidden flex flex-col gap-1.5 p-2 bg-transparent border-none cursor-pointer"
+      aria-label="Toggle navigation menu"
+      aria-expanded="false"
+    >
+      <span class="block w-5 h-0.5 bg-ink transition-transform" />
+      <span class="block w-5 h-0.5 bg-ink transition-opacity" />
+      <span class="block w-5 h-0.5 bg-ink transition-transform" />
+    </button>
+  </div>
+</header>

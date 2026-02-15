@@ -1,6 +1,6 @@
 ---
 import BaseLayout from '../layouts/BaseLayout.astro';
-import ProjectCard from '../components/ProjectCard.astro';
+import ProjectTimeline from '../components/ProjectTimeline.astro';
 import Briefcase from 'phosphor-astro/Briefcase.astro';
 import { getCollection } from 'astro:content';
 
@@ -18,16 +18,15 @@ const projects = (await getCollection('projects'))
     <p class="text-ink-secondary mb-8">Professional work and community projects.</p>
   </section>
 
-  <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-    {projects.map((project) => (
-      <ProjectCard
-        title={project.data.title}
-        role={project.data.role}
-        description={project.data.description}
-        year={project.data.year}
-        urls={project.data.urls}
-        tags={project.data.tags}
-      />
-    ))}
-  </div>
+  <ProjectTimeline
+    projects={projects.map((p) => ({
+      title: p.data.title,
+      role: p.data.role,
+      description: p.data.description,
+      year: p.data.year,
+      date: p.data.date,
+      urls: p.data.urls,
+      tags: p.data.tags,
+    }))}
+  />
 </BaseLayout>

@@ -4,7 +4,7 @@ import InvestigationCard from '../../components/InvestigationCard.astro';
 import FieldNoteEntry from '../../components/FieldNoteEntry.astro';
 import ShelfItem from '../../components/ShelfItem.astro';
 import ProjectCard from '../../components/ProjectCard.astro';
-import TagThin from 'phosphor-astro/TagThin.astro';
+import Tag from 'phosphor-astro/Tag.astro';
 import { getCollection } from 'astro:content';
 import { slugifyTag } from '../../lib/slugify';
 
@@ -75,7 +75,7 @@ const totalCount = investigations.length + fieldNotes.length + shelfItems.length
   <section class="py-8">
     <p class="font-mono text-xs uppercase tracking-widest text-terracotta mb-2">Tag</p>
     <h1 class="font-title text-3xl md:text-4xl font-bold mb-2 flex items-center gap-3">
-      <TagThin class="w-8 h-8 text-terracotta" />
+      <Tag class="w-8 h-8 text-terracotta" />
       {displayName}
     </h1>
     <p class="text-ink-secondary">{totalCount} item{totalCount !== 1 ? 's' : ''}</p>

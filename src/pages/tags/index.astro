@@ -1,6 +1,6 @@
 ---
 import BaseLayout from '../../layouts/BaseLayout.astro';
-import TagThin from 'phosphor-astro/TagThin.astro';
+import Tag from 'phosphor-astro/Tag.astro';
 import { getCollection } from 'astro:content';
 import { slugifyTag } from '../../lib/slugify';
 
@@ -30,7 +30,7 @@ const sortedTags = Array.from(tagCounts.entries())
 <BaseLayout title="Tags — Travis Gilbert">
   <section class="py-8">
     <h1 class="font-title text-3xl md:text-4xl font-bold mb-2 flex items-center gap-3">
-      <TagThin class="w-8 h-8 text-terracotta" />
+      <Tag class="w-8 h-8 text-terracotta" />
       Tags
     </h1>
     <p class="text-ink-secondary mb-8">Browse content by topic.</p>
@@ -40,9 +40,8 @@ const sortedTags = Array.from(tagCounts.entries())
     {sortedTags.map(([slug, { display, count }]) => (
       <a
         href={`/tags/${slug}`}
-        class="inline-flex items-center gap-1.5 font-mono text-xs uppercase tracking-widest px-3 py-1.5 border border-border text-ink-secondary rounded-lg hover:border-terracotta hover:text-terracotta transition-colors no-underline"
+        class="inline-flex items-center font-mono text-xs uppercase tracking-widest px-3 py-1.5 border border-border text-ink-secondary rounded-lg hover:border-terracotta hover:text-terracotta transition-colors no-underline"
       >
-        <TagThin class="w-3.5 h-3.5" />
         {display}
         <span class="text-ink-faint">({count})</span>
       </a>

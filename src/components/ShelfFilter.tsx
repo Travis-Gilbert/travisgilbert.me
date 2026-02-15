@@ -24,15 +24,6 @@ const typeColors: Record<string, string> = {
   other: 'bg-code text-ink-secondary border-border',
 };
 
-// Inline Phosphor Tag Thin SVG (MIT licensed, ~200 bytes)
-function TagIcon() {
-  return (
-    <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 256 256" fill="currentColor" class="inline-block">
-      <path d="M246.66,123.56,201,55.13A15.94,15.94,0,0,0,187.72,48H40A16,16,0,0,0,24,64V192a16,16,0,0,0,16,16H187.72A16,16,0,0,0,201,200.87l45.63-68.44A8,8,0,0,0,246.66,123.56Z" />
-    </svg>
-  );
-}
-
 export default function ShelfFilter({ items }: Props) {
   const [activeFilter, setActiveFilter] = useState<string>('all');
 
@@ -98,9 +89,8 @@ export default function ShelfFilter({ items }: Props) {
                   <a
                     key={tag}
                     href={`/tags/${slugifyTag(tag)}`}
-                    class="inline-flex items-center gap-1 font-mono text-[10px] uppercase tracking-widest px-1.5 py-0.5 border border-border text-ink-faint rounded hover:border-terracotta hover:text-terracotta transition-colors no-underline"
+                    class="inline-flex items-center font-mono text-[10px] uppercase tracking-widest px-1.5 py-0.5 border border-border text-ink-faint rounded hover:border-terracotta hover:text-terracotta transition-colors no-underline"
                   >
-                    <TagIcon />
                     {tag}
                   </a>
                 ))}

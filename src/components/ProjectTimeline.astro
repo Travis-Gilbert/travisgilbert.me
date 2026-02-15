@@ -1,0 +1,229 @@
+---
+import TagList from './TagList.astro';
+import ArrowSquareOutThin from 'phosphor-astro/ArrowSquareOutThin.astro';
+import CaretRightThin from 'phosphor-astro/CaretRightThin.astro';
+
+interface ProjectUrl {
+  label: string;
+  url: string;
+}
+
+interface ProjectEntry {
+  title: string;
+  role: string;
+  description: string;
+  year: number;
+  date: Date;
+  urls: ProjectUrl[];
+  tags: string[];
+}
+
+interface Props {
+  projects: ProjectEntry[];
+}
+
+const { projects } = Astro.props;
+
+// Group projects by year (descending)
+const grouped = new Map<number, ProjectEntry[]>();
+for (const project of projects) {
+  const year = project.year;
+  if (!grouped.has(year)) {
+    grouped.set(year, []);
+  }
+  grouped.get(year)!.push(project);
+}
+// Sort within each year by date descending
+for (const [, yearProjects] of grouped) {
+  yearProjects.sort((a, b) => new Date(b.date).valueOf() - new Date(a.date).valueOf());
+}
+const yearGroups = Array.from(grouped.entries())
+  .sort((a, b) => b[0] - a[0]);
+---
+
+<div class="timeline">
+  {yearGroups.map(([year, yearProjects]) => (
+    <div class="timeline-year-group">
+      {/* Year marker */}
+      <div class="timeline-year-marker">
+        <span class="timeline-dot timeline-dot--year" />
+        <span class="font-mono text-sm uppercase tracking-widest text-terracotta font-bold">
+          {year}
+        </span>
+      </div>
+
+      {/* Projects in this year */}
+      {yearProjects.map((project) => (
+        <div class="timeline-item">
+          <span class="timeline-dot" />
+          <details class="timeline-details">
+            <summary class="timeline-summary">
+              <CaretRightThin class="timeline-caret w-4 h-4 text-ink-faint" />
+              <span class="font-title text-base font-bold text-ink">
+                {project.title}
+              </span>
+              <span class="font-mono text-xs text-ink-secondary">
+                {project.role}
+              </span>
+            </summary>
+            <div class="timeline-content">
+              <p class="text-sm text-ink-secondary m-0 mb-3">
+                {project.description}
+              </p>
+              {project.urls.length > 0 && (
+                <div class="flex flex-wrap gap-3 mb-3">
+                  {project.urls.map((link) => (
+                    <a
+                      href={link.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      class="inline-flex items-center gap-1 font-mono text-xs text-terracotta hover:text-terracotta-hover no-underline"
+                    >
+                      {link.label}
+                      <ArrowSquareOutThin class="w-3 h-3" />
+                    </a>
+                  ))}
+                </div>
+              )}
+              <TagList tags={project.tags} />
+            </div>
+          </details>
+        </div>
+      ))}
+    </div>
+  ))}
+</div>
+
+<style>
+  /* Timeline container */
+  .timeline {
+    position: relative;
+    padding-left: 2.5rem;
+  }
+
+  /* Vertical connector line */
+  .timeline::before {
+    content: '';
+    position: absolute;
+    left: 0.4375rem; /* 7px — centers on dot area */
+    top: 0.875rem;   /* start at first dot center */
+    bottom: 0.875rem;
+    width: 2px;
+    background-color: var(--color-border);
+  }
+
+  /* Year group spacing */
+  .timeline-year-group {
+    margin-bottom: 1.5rem;
+  }
+  .timeline-year-group:last-child {
+    margin-bottom: 0;
+  }
+
+  /* Year marker row */
+  .timeline-year-marker {
+    position: relative;
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.25rem 0 0.5rem;
+    margin-left: -2.5rem;
+  }
+
+  /* Dots — shared base */
+  .timeline-dot {
+    position: absolute;
+    left: -2.5rem;
+    width: 0.5625rem;  /* 9px */
+    height: 0.5625rem;
+    border-radius: 50%;
+    background-color: var(--color-border);
+    border: 2px solid var(--color-paper);
+    top: 50%;
+    transform: translateY(-50%);
+    z-index: 1;
+    flex-shrink: 0;
+  }
+
+  /* Year dot — larger, terracotta */
+  .timeline-dot--year {
+    position: relative;
+    left: 0;
+    width: 0.875rem;  /* 14px */
+    height: 0.875rem;
+    background-color: var(--color-terracotta);
+    border: 2px solid var(--color-paper);
+    top: auto;
+    transform: none;
+  }
+
+  /* Individual timeline item */
+  .timeline-item {
+    position: relative;
+    padding: 0.25rem 0;
+  }
+
+  .timeline-item .timeline-dot {
+    top: 0.875rem; /* align with summary text baseline */
+  }
+
+  /* Details reset */
+  .timeline-details {
+    /* clean slate */
+  }
+
+  /* Summary — collapsed header */
+  .timeline-summary {
+    display: flex;
+    align-items: baseline;
+    gap: 0.5rem;
+    cursor: pointer;
+    list-style: none;
+    padding: 0.375rem 0;
+    transition: color 0.15s ease;
+  }
+
+  .timeline-summary::-webkit-details-marker {
+    display: none;
+  }
+
+  .timeline-summary:hover {
+    color: var(--color-terracotta);
+  }
+
+  .timeline-summary:focus-visible {
+    outline: 2px solid var(--color-terracotta);
+    outline-offset: 2px;
+    border-radius: 4px;
+  }
+
+  /* Caret rotation */
+  .timeline-caret {
+    transition: transform 0.2s ease;
+    flex-shrink: 0;
+    align-self: center;
+  }
+
+  .timeline-details[open] > .timeline-summary .timeline-caret {
+    transform: rotate(90deg);
+  }
+
+  /* Expanded content card — semi-transparent with solid borders */
+  .timeline-content {
+    margin-top: 0.375rem;
+    margin-left: 1.5rem; /* indent past caret */
+    padding: 1rem 1.25rem;
+    border: 1px solid var(--color-border);
+    border-radius: 0.75rem;
+    background-color: rgba(250, 246, 241, 0.8); /* surface at 80% */
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+  }
+
+  /* Reduced motion */
+  @media (prefers-reduced-motion: reduce) {
+    .timeline-caret {
+      transition: none;
+    }
+  }
+</style>

@@ -1,5 +1,4 @@
 ---
-import TagThin from 'phosphor-astro/TagThin.astro';
 import { slugifyTag } from '../lib/slugify';
 
 interface Props {
@@ -15,9 +14,8 @@ const { tags } = Astro.props;
       <li>
         <a
           href={`/tags/${slugifyTag(tag)}`}
-          class="inline-flex items-center gap-1 font-mono text-[10px] uppercase tracking-widest px-2 py-0.5 border border-border text-ink-faint rounded hover:border-terracotta hover:text-terracotta transition-colors no-underline"
+          class="inline-flex items-center font-mono text-[10px] uppercase tracking-widest px-2 py-0.5 border border-border text-ink-faint rounded hover:border-terracotta hover:text-terracotta transition-colors no-underline"
         >
-          <TagThin class="w-3 h-3" />
           {tag}
         </a>
       </li>
