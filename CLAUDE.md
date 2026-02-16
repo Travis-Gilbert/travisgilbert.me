@@ -108,12 +108,11 @@ Tailwind > font-title class
 | Prop | Default | Description |
 |------|---------|-------------|
 | `tint` | `'neutral'` | Brand-color fill wash: `'terracotta'` / `'teal'` / `'gold'` / `'neutral'` |
-| `grid` | `true` | Blueprint grid lines (40px, opacity 0.35) inside card |
 | `elevated` | `true` | Warm brown box-shadow |
 | `hover` | `false` | Lift-on-hover animation (opt-in for linked cards) |
 | `stroke` | derived from `tint` | rough.js border color; auto-matches tint when not set |
 
-**Architecture:** Surface styles (tint, grid, shadow) go on the wrapper `<div>` via CSS classes. The canvas only draws the hand-drawn stroke. Stroke color is derived from `tint` via `tintStroke` map unless explicitly overridden.
+**Architecture:** Surface styles (tint, shadow) go on the wrapper `<div>` via CSS classes. The canvas only draws the hand-drawn stroke. Stroke color is derived from `tint` via `tintStroke` map unless explicitly overridden.
 
 **Color mapping:**
 
@@ -170,13 +169,12 @@ Used exclusively on the homepage featured investigation card. Two callouts max, 
 The site uses a layered texture system to create skeuomorphic depth:
 
 1. **Page level**: DotGrid canvas (spring physics) + paper grain (`body::after` SVG feTurbulence at 2.5%)
-2. **Card level**: Transparent tint fill + blueprint grid (`::before` at 35%) + warm shadow + rough.js colored stroke
+2. **Card level**: Transparent tint fill + warm shadow + rough.js colored stroke
 3. **Content level**: SectionLabel (monospace colored headers), TagList with tint-matched colors
 
 **Key CSS classes** (in `global.css`):
 - `.surface-elevated`: warm shadow only (no bg-color; tint handles fill)
 - `.surface-tint-{color}`: transparent brand-color wash
-- `.surface-grid`: blueprint grid overlay via `::before`
 - `.surface-hover`: lift animation with shadow transition
 
 ### Section Color Language
@@ -203,7 +201,7 @@ Vercel with native Next.js builder. Git integration auto-deploys on push to `mai
 |------|--------|
 | Astro to Next.js 15 migration | ✅ |
 | RoughBox site-wide card borders | ✅ |
-| Surface materiality layer (tints, grid, grain, shadows) | ✅ |
+| Surface materiality layer (tints, grain, shadows) | ✅ |
 | Card tint + colored borders | ✅ |
 | Section color system (labels, icons, tags) | ✅ |
 | Font system (7 fonts + CSS variable bridging) | ✅ |

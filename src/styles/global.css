@@ -125,24 +125,6 @@ body::after {
 .surface-tint-gold       { background-color: rgba(196, 154, 74, 0.05); }
 .surface-tint-neutral    { background-color: rgba(42, 36, 32, 0.025); }
 
-/* Blueprint grid overlay:for cards, not full pages */
-.surface-grid {
-  position: relative;
-}
-
-.surface-grid::before {
-  content: '';
-  position: absolute;
-  inset: 0;
-  background-image:
-    linear-gradient(var(--color-border-light) 1px, transparent 1px),
-    linear-gradient(90deg, var(--color-border-light) 1px, transparent 1px);
-  background-size: 40px 40px;
-  opacity: 0.35;
-  pointer-events: none;
-  border-radius: inherit;
-}
-
 /* Card hover lift:shadow deepens, subtle Y translate */
 .surface-hover {
   transition: box-shadow 0.2s ease, transform 0.2s ease;

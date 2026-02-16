@@ -30,8 +30,8 @@ export default function DotGrid({
   fadeEnd = 0.90,
   stiffness = 0.15,
   damping = 0.75,
-  influenceRadius = 75,
-  repulsionStrength = 14,
+  influenceRadius = 150,
+  repulsionStrength = 30,
 }: DotGridProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const animRef = useRef<number>(0);

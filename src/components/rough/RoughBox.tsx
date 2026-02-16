@@ -27,8 +27,6 @@ interface RoughBoxProps {
   strokeWidth?: number;
   stroke?: string;
   seed?: number;
-  /** Show blueprint grid lines inside card (default: true) */
-  grid?: boolean;
   /** Show warm shadow (default: true) */
   elevated?: boolean;
   /** Enable hover lift animation (default: false, opt-in for linked cards) */
@@ -44,7 +42,6 @@ export default function RoughBox({
   strokeWidth = 1,
   stroke,
   seed,
-  grid = true,
   elevated = true,
   hover = false,
   tint = 'neutral',
@@ -99,7 +96,6 @@ export default function RoughBox({
   const classes = [
     'relative',
     elevated ? 'surface-elevated' : '',
-    grid ? 'surface-grid' : '',
     hover ? 'surface-hover' : '',
     tintClass[tint],
   ]
