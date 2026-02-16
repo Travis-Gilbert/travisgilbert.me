@@ -3,6 +3,7 @@ import { Briefcase } from '@phosphor-icons/react/dist/ssr';
 import { getCollection } from '@/lib/content';
 import type { Project } from '@/lib/content';
 import ProjectTimeline from '@/components/ProjectTimeline';
+import SectionLabel from '@/components/SectionLabel';
 
 export const metadata: Metadata = {
   title: 'Projects',
@@ -18,8 +19,9 @@ export default function ProjectsPage() {
   return (
     <>
       <section className="py-8">
+        <SectionLabel color="gold">Project Archive</SectionLabel>
         <h1 className="font-title text-3xl md:text-4xl font-bold mb-2 flex items-center gap-3">
-          <Briefcase size={32} className="text-terracotta" />
+          <Briefcase size={32} className="text-gold" />
           Projects
         </h1>
         <p className="text-ink-secondary mb-8">

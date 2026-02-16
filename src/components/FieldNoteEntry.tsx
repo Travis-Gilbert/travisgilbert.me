@@ -19,7 +19,7 @@ export default function FieldNoteEntry({
   href,
 }: FieldNoteEntryProps) {
   return (
-    <RoughBox padding={20}>
+    <RoughBox padding={20} hover>
       <div className="group">
         <Link href={href} className="block no-underline text-ink hover:text-ink">
           <div className="flex flex-col gap-2">
@@ -36,7 +36,7 @@ export default function FieldNoteEntry({
         </Link>
         {tags.length > 0 && (
           <div className="pt-3">
-            <TagList tags={tags} />
+            <TagList tags={tags} tint="teal" />
           </div>
         )}
       </div>

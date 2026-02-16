@@ -59,7 +59,7 @@ export default function ShelfFilter({ items }: ShelfFilterProps) {
       {/* Items */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         {filtered.map((item) => (
-          <RoughBox key={item.title} padding={20}>
+          <RoughBox key={item.title} padding={20} hover>
             <div>
               <div className="flex items-start justify-between gap-2 mb-2">
                 <div>
@@ -101,7 +101,7 @@ export default function ShelfFilter({ items }: ShelfFilterProps) {
                     <a
                       key={tag}
                       href={`/tags/${slugifyTag(tag)}`}
-                      className="inline-flex items-center font-mono text-[10px] uppercase tracking-widest px-1.5 py-0.5 border border-border text-ink-faint rounded hover:border-terracotta hover:text-terracotta transition-colors no-underline"
+                      className="inline-flex items-center font-mono text-[10px] uppercase tracking-widest px-1.5 py-0.5 border border-gold/15 text-ink-faint bg-gold/[0.04] rounded hover:border-gold hover:text-gold transition-colors no-underline"
                     >
                       {tag}
                     </a>

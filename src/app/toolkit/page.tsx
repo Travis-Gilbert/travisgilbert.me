@@ -3,6 +3,7 @@ import { Wrench } from '@phosphor-icons/react/dist/ssr';
 import { getCollection, renderMarkdown } from '@/lib/content';
 import type { ToolkitEntry } from '@/lib/content';
 import RoughBox from '@/components/rough/RoughBox';
+import SectionLabel from '@/components/SectionLabel';
 
 export const metadata: Metadata = {
   title: 'Toolkit',
@@ -32,6 +33,7 @@ export default async function ToolkitPage() {
   return (
     <>
       <section className="py-8">
+        <SectionLabel color="terracotta">Workshop Tools</SectionLabel>
         <h1 className="font-title-alt text-3xl md:text-4xl font-semibold mb-2 flex items-center gap-3">
           <Wrench size={32} className="text-terracotta" />
           Toolkit

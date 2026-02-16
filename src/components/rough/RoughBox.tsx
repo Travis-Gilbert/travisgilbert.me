@@ -10,6 +10,12 @@ interface RoughBoxProps {
   strokeWidth?: number;
   stroke?: string;
   seed?: number;
+  /** Show blueprint grid lines inside card (default: true) */
+  grid?: boolean;
+  /** Show warm shadow + bg-surface (default: true) */
+  elevated?: boolean;
+  /** Enable hover lift animation (default: false — opt-in for linked cards) */
+  hover?: boolean;
 }
 
 export default function RoughBox({
@@ -19,6 +25,9 @@ export default function RoughBox({
   strokeWidth = 1,
   stroke = '#3A3632',
   seed,
+  grid = true,
+  elevated = true,
+  hover = false,
 }: RoughBoxProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -63,10 +72,20 @@ export default function RoughBox({
     return () => observer.disconnect();
   }, [roughness, strokeWidth, stroke, seed]);
 
+  // Build className string from props
+  const classes = [
+    'relative',
+    elevated ? 'surface-elevated' : '',
+    grid ? 'surface-grid' : '',
+    hover ? 'surface-hover' : '',
+  ]
+    .filter(Boolean)
+    .join(' ');
+
   return (
     <div
       ref={containerRef}
-      className="relative"
+      className={classes}
       style={{ padding: `${padding}px` }}
     >
       <canvas

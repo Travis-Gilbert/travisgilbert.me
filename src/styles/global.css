@@ -44,6 +44,11 @@
   /* Utility */
   --color-shadow: rgba(42, 36, 32, 0.08);
 
+  /* Warm Shadows — brown-tinted, not gray */
+  --shadow-warm-sm:  0 1px 2px rgba(42, 36, 32, 0.05);
+  --shadow-warm:     0 2px 8px rgba(42, 36, 32, 0.07), 0 1px 3px rgba(42, 36, 32, 0.04);
+  --shadow-warm-lg:  0 4px 16px rgba(42, 36, 32, 0.10), 0 2px 6px rgba(42, 36, 32, 0.05);
+
   /* Semantic */
   --color-success: #5A7A4A;
   --color-error: #A44A3A;
@@ -84,6 +89,67 @@ body {
   color: var(--color-ink);
   font-size: 1.0625rem; /* 17px per brand spec */
   line-height: 1.75;
+}
+
+/* ─────────────────────────────────────────────────
+   Global Paper Grain — Subtle noise for materiality
+   SVG feTurbulence applied as a fixed overlay.
+   Opacity 0.025 — barely visible but registers subconsciously.
+   ───────────────────────────────────────────────── */
+
+body::after {
+  content: '';
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  pointer-events: none;
+  opacity: 0.025;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='300' height='300'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='300' height='300' filter='url(%23n)' opacity='1'/%3E%3C/svg%3E");
+  background-repeat: repeat;
+}
+
+/* ─────────────────────────────────────────────────
+   Surface Utilities — Textured card surfaces
+   ───────────────────────────────────────────────── */
+
+/* Elevated surface with warm shadow */
+.surface-elevated {
+  background-color: var(--color-surface);
+  box-shadow: var(--shadow-warm-sm);
+}
+
+/* Blueprint grid overlay — for cards, not full pages */
+.surface-grid {
+  position: relative;
+}
+
+.surface-grid::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background-image:
+    linear-gradient(var(--color-border-light) 1px, transparent 1px),
+    linear-gradient(90deg, var(--color-border-light) 1px, transparent 1px);
+  background-size: 40px 40px;
+  opacity: 0.15;
+  pointer-events: none;
+  border-radius: inherit;
+}
+
+/* Card hover lift — shadow deepens, subtle Y translate */
+.surface-hover {
+  transition: box-shadow 0.2s ease, transform 0.2s ease;
+}
+
+.surface-hover:hover {
+  box-shadow: var(--shadow-warm);
+  transform: translateY(-1px);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .surface-hover:hover {
+    transform: none;
+  }
 }
 
 /* ─────────────────────────────────────────────────

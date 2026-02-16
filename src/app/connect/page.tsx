@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import { ChatCircle } from '@phosphor-icons/react/dist/ssr';
 import RoughLine from '@/components/rough/RoughLine';
 import RoughBox from '@/components/rough/RoughBox';
+import SectionLabel from '@/components/SectionLabel';
 
 export const metadata: Metadata = {
   title: 'Connect',
@@ -12,8 +13,9 @@ export default function ConnectPage() {
   return (
     <>
       <section className="py-8">
+        <SectionLabel color="teal">Open Channel</SectionLabel>
         <h1 className="font-title text-3xl md:text-4xl font-bold mb-2 flex items-center gap-3">
-          <ChatCircle size={32} className="text-terracotta" />
+          <ChatCircle size={32} className="text-teal" />
           Connect
         </h1>
         <p className="text-ink-secondary mb-8">

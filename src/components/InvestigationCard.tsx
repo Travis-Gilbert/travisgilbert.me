@@ -26,7 +26,7 @@ export default function InvestigationCard({
     : '';
 
   return (
-    <RoughBox padding={0}>
+    <RoughBox padding={0} hover>
       <div className="overflow-hidden group">
         <Link href={href} className="block no-underline text-ink hover:text-ink">
           <div className="md:flex">
@@ -55,7 +55,7 @@ export default function InvestigationCard({
         </Link>
         {tags.length > 0 && (
           <div className={`px-4 pb-4 ${hasThumbnail ? 'md:pl-[calc(16rem+1rem)]' : ''}`}>
-            <TagList tags={tags} />
+            <TagList tags={tags} tint="terracotta" />
           </div>
         )}
       </div>

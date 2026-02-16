@@ -3,6 +3,7 @@ import { MagnifyingGlass } from '@phosphor-icons/react/dist/ssr';
 import { getCollection } from '@/lib/content';
 import type { Investigation } from '@/lib/content';
 import InvestigationCard from '@/components/InvestigationCard';
+import SectionLabel from '@/components/SectionLabel';
 
 export const metadata: Metadata = {
   title: 'Investigations',
@@ -18,6 +19,7 @@ export default function InvestigationsPage() {
   return (
     <>
       <section className="py-8">
+        <SectionLabel color="terracotta">Investigation File</SectionLabel>
         <h1 className="font-title text-3xl md:text-4xl font-bold mb-2 flex items-center gap-3">
           <MagnifyingGlass size={32} className="text-terracotta" />
           Investigations

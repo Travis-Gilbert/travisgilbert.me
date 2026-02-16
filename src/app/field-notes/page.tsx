@@ -3,6 +3,7 @@ import { NotePencil } from '@phosphor-icons/react/dist/ssr';
 import { getCollection } from '@/lib/content';
 import type { FieldNote } from '@/lib/content';
 import FieldNoteEntry from '@/components/FieldNoteEntry';
+import SectionLabel from '@/components/SectionLabel';
 
 export const metadata: Metadata = {
   title: 'Field Notes',
@@ -18,8 +19,9 @@ export default function FieldNotesPage() {
   return (
     <>
       <section className="py-8">
+        <SectionLabel color="teal">Field Observation</SectionLabel>
         <h1 className="font-title text-3xl md:text-4xl font-bold mb-2 flex items-center gap-3">
-          <NotePencil size={32} className="text-terracotta" />
+          <NotePencil size={32} className="text-teal" />
           Field Notes
         </h1>
         <p className="text-ink-secondary mb-8">

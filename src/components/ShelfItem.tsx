@@ -29,7 +29,7 @@ export default function ShelfItem({
   tags,
 }: ShelfItemProps) {
   return (
-    <RoughBox padding={20}>
+    <RoughBox padding={20} hover>
       <div className="flex flex-col gap-2">
         <div className="flex items-start justify-between gap-2">
           <div>
@@ -58,7 +58,7 @@ export default function ShelfItem({
           </span>
         </div>
         <p className="text-sm text-ink-secondary m-0">{annotation}</p>
-        <TagList tags={tags} />
+        <TagList tags={tags} tint="gold" />
       </div>
     </RoughBox>
   );

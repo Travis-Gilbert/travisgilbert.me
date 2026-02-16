@@ -5,6 +5,7 @@ import type { Investigation, FieldNote, Project } from '@/lib/content';
 import InvestigationCard from '@/components/InvestigationCard';
 import FieldNoteEntry from '@/components/FieldNoteEntry';
 import ProjectCard from '@/components/ProjectCard';
+import SectionLabel from '@/components/SectionLabel';
 import RoughLine from '@/components/rough/RoughLine';
 import RoughUnderline from '@/components/rough/RoughUnderline';
 
@@ -48,6 +49,7 @@ export default function HomePage() {
       {/* Latest Investigations */}
       {investigations.length > 0 && (
         <section className="py-8">
+          <SectionLabel color="terracotta">Investigation File</SectionLabel>
           <h2 className="font-title text-2xl font-bold mb-6 flex items-center gap-2">
             <MagnifyingGlass size={24} className="text-terracotta" />
             Latest Investigations
@@ -81,8 +83,9 @@ export default function HomePage() {
       {/* Recent Field Notes */}
       {fieldNotes.length > 0 && (
         <section className="py-8">
+          <SectionLabel color="teal">Field Observation</SectionLabel>
           <h2 className="font-title text-2xl font-bold mb-6 flex items-center gap-2">
-            <NotePencil size={24} className="text-terracotta" />
+            <NotePencil size={24} className="text-teal" />
             Recent Field Notes
           </h2>
           <div className="space-y-4">
@@ -100,7 +103,7 @@ export default function HomePage() {
           <p className="mt-6">
             <Link
               href="/field-notes"
-              className="font-mono text-sm hover:text-terracotta-hover"
+              className="font-mono text-sm text-teal hover:text-teal/80"
             >
               All field notes &rarr;
             </Link>
@@ -113,8 +116,9 @@ export default function HomePage() {
         <>
           <RoughLine />
           <section className="py-8">
+            <SectionLabel color="gold">Project Archive</SectionLabel>
             <h2 className="font-title text-2xl font-bold mb-6 flex items-center gap-2">
-              <Briefcase size={24} className="text-terracotta" />
+              <Briefcase size={24} className="text-gold" />
               Projects
             </h2>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -133,7 +137,7 @@ export default function HomePage() {
             <p className="mt-6">
               <Link
                 href="/projects"
-                className="font-mono text-sm hover:text-terracotta-hover"
+                className="font-mono text-sm text-gold hover:text-gold/80"
               >
                 All projects &rarr;
               </Link>
