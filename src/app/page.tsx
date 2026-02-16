@@ -9,6 +9,7 @@ import MarginNote from '@/components/MarginNote';
 import RoughBox from '@/components/rough/RoughBox';
 import RoughLine from '@/components/rough/RoughLine';
 import RoughUnderline from '@/components/rough/RoughUnderline';
+import RoughCallout from '@/components/rough/RoughCallout';
 import ScrollReveal from '@/components/ScrollReveal';
 
 export default function HomePage() {
@@ -127,10 +128,7 @@ export default function HomePage() {
                     hover
                     tint="terracotta"
                   >
-                    <Link
-                      href={`/investigations/${investigation.slug}`}
-                      className="block no-underline text-ink hover:text-ink group"
-                    >
+                    <div className="group">
                       {hasThumbnail && (
                         <div className="w-full h-48 md:h-64 overflow-hidden">
                           <img
@@ -141,17 +139,29 @@ export default function HomePage() {
                           />
                         </div>
                       )}
-                      <div className="p-5 md:p-6">
+                      <div className="p-5 md:p-6 relative">
                         <DateStamp date={investigation.data.date} />
                         <h2 className="font-title text-xl md:text-2xl font-bold mt-2 mb-2 group-hover:text-terracotta transition-colors">
-                          {investigation.data.title}
+                          <Link
+                            href={`/investigations/${investigation.slug}`}
+                            className="no-underline text-ink hover:text-ink after:absolute after:inset-0 after:z-0"
+                          >
+                            {investigation.data.title}
+                          </Link>
                         </h2>
                         <p className="text-ink-secondary mb-3 max-w-prose">
                           {investigation.data.summary}
                         </p>
-                        <TagList tags={investigation.data.tags} tint="terracotta" />
+                        <div className="relative z-10">
+                          <TagList tags={investigation.data.tags} tint="terracotta" />
+                        </div>
+                        {investigation.data.callout && (
+                          <RoughCallout side="right" tint="terracotta" offsetY={8} seed={42}>
+                            {investigation.data.callout}
+                          </RoughCallout>
+                        )}
                       </div>
-                    </Link>
+                    </div>
                   </RoughBox>
                 );
               })}
@@ -201,9 +211,19 @@ export default function HomePage() {
                     )}
                   </Link>
                   {note.data.tags.length > 0 && (
-                    <div className="pt-3">
+                    <div className="pt-3 relative z-10">
                       <TagList tags={note.data.tags} tint="teal" />
                     </div>
+                  )}
+                  {note.data.callout && (
+                    <RoughCallout
+                      side={i % 2 === 0 ? 'left' : 'right'}
+                      tint="teal"
+                      offsetY={12}
+                      seed={100 + i}
+                    >
+                      {note.data.callout}
+                    </RoughCallout>
                   )}
                 </RoughBox>
               </ScrollReveal>

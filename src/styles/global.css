@@ -67,6 +67,7 @@
   --font-mono: var(--font-courier-prime), 'Courier New', monospace;
   --font-mono-alt: var(--font-space-mono), monospace;
   --font-name: var(--font-amarna), serif;
+  --font-handwritten: var(--font-caveat), 'Comic Sans MS', cursive;
 
   /* Legacy aliases (prevent breaking existing Tailwind classes) */
   --font-heading: var(--font-vollkorn), Georgia, serif;

@@ -23,6 +23,7 @@ export const investigationSchema = z.object({
   })).default([]),
   related: z.array(z.string()).default([]),
   draft: z.boolean().default(false),
+  callout: z.string().optional(),
 });
 
 export const fieldNoteSchema = z.object({
@@ -31,6 +32,7 @@ export const fieldNoteSchema = z.object({
   tags: z.array(z.string()).default([]),
   excerpt: z.string().max(300).optional(),
   draft: z.boolean().default(false),
+  callout: z.string().optional(),
 });
 
 export const shelfSchema = z.object({

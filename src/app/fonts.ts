@@ -1,4 +1,4 @@
-import { Vollkorn, Cabin, IBM_Plex_Sans, Courier_Prime, Space_Mono, Ysabeau } from 'next/font/google';
+import { Vollkorn, Cabin, IBM_Plex_Sans, Courier_Prime, Space_Mono, Ysabeau, Caveat } from 'next/font/google';
 import localFont from 'next/font/local';
 
 export const vollkorn = Vollkorn({
@@ -45,6 +45,13 @@ export const spaceMono = Space_Mono({
   weight: ['400', '700'],
 });
 
+export const caveat = Caveat({
+  subsets: ['latin'],
+  variable: '--font-caveat',
+  display: 'swap',
+  weight: ['400', '500', '600', '700'],
+});
+
 export const amarna = localFont({
   src: '../../public/fonts/Amarna-Variable.ttf',
   variable: '--font-amarna',
@@ -58,5 +65,6 @@ export const fontVariableClasses = [
   ysabeau.variable,
   courierPrime.variable,
   spaceMono.variable,
+  caveat.variable,
   amarna.variable,
 ].join(' ');

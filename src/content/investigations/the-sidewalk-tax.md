@@ -11,6 +11,7 @@ sources:
     url: "https://www.ada.gov/law-and-regs/design-standards/"
 related: []
 draft: false
+callout: "The one that started everything — 3 inches changed the world"
 ---
 
 In 1945, a group of disabled veterans returned to Kalamazoo, Michigan to find a city built to exclude them. Every curb was a wall. Every intersection was a dead end. What they did next would reshape the physical landscape of every American city.

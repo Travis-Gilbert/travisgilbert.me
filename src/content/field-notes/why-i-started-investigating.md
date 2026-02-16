@@ -3,6 +3,7 @@ title: "Why I started investigating"
 date: 2026-01-15
 tags: ["meta", "process", "design"]
 excerpt: "The origin story of this project — why design investigations, and why now."
+callout: "This is where it all started"
 draft: false
 ---
 
