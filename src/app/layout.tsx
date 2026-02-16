@@ -20,7 +20,7 @@ export const metadata: Metadata = {
     siteName: 'Travis Gilbert',
   },
   twitter: {
-    card: 'summary',
+    card: 'summary_large_image',
   },
   alternates: {
     types: {
@@ -48,7 +48,7 @@ export default function RootLayout({
         <TopNav />
         <main
           id="main-content"
-          className="flex-1 max-w-4xl mx-auto w-full px-6 py-8"
+          className="flex-1 max-w-4xl mx-auto w-full px-4 sm:px-6 py-6 sm:py-8"
         >
           {children}
         </main>

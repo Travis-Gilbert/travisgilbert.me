@@ -261,7 +261,7 @@ function RoleColumn({
           </span>
         </div>
         {role.description && (
-          <p className="font-body text-sm md:text-base text-ink-secondary m-0 pl-[22px] whitespace-nowrap">
+          <p className="font-body text-sm md:text-base text-ink-secondary m-0 pl-[22px]">
             {role.description}
           </p>
         )}

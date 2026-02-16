@@ -236,13 +236,21 @@ Decided during brainstorm: Radix Primitives + fully custom styling (no shadcn/ui
 See `docs/plans/2026-02-15-surface-materiality-layer-design.md` for surface materiality design.
 See `docs/plans/2026-02-16-projects-page-redesign.md` for projects column layout design.
 
-### Phase 3: Content + Polish (Not Started)
+### Phase 3: Content + Polish 🔄 In Progress
 
-- Additional content pages and investigations
-- Responsive polish and mobile refinements
-- Performance optimization (image loading, bundle size)
-- SEO and metadata refinements
-- Dark mode (design tokens already prepared in global.css)
+| Item | Status |
+|------|--------|
+| Mobile responsive polish (typography, spacing, breakpoints) | ✅ |
+| Caveat font trimmed to single weight (400 only) | ✅ |
+| Homepage custom metadata export | ✅ |
+| Tag page SEO descriptions | ✅ |
+| Open Graph image (`opengraph-image.tsx` via `ImageResponse`) | ✅ |
+| Twitter card upgraded to `summary_large_image` | ✅ |
+| Nav SketchIcons (replaced Phosphor in TopNav) | ✅ |
+| Nav/layout max-width alignment (both `max-w-4xl`) | ✅ |
+| ProjectColumns `whitespace-nowrap` overflow fix | ✅ |
+| Additional content pages and investigations | Not started |
+| Dark mode (design tokens already prepared in global.css) | Not started |
 
 ## Recent Decisions
 
@@ -271,6 +279,10 @@ See `docs/plans/2026-02-16-projects-page-redesign.md` for projects column layout
 | Section icons | SketchIcon (hand-drawn SVG) for pages, Phosphor for UI glyphs | Brand identity icons match rough.js aesthetic; utility icons stay crisp |
 | Radix integration | Accordion + Collapsible + ToggleGroup, fully custom styled | Headless primitives give accessibility for free; no shadcn visual opinions |
 | Evidence callouts | `.prose-investigations blockquote::before` with `:has()` selector | Only investigation articles get "NOTE" labels; semantic CSS, no component changes |
+| Nav icons | SketchIcon (hand-drawn SVG) replacing Phosphor in TopNav | Visual consistency: nav icons now match page header icons |
+| OG image | `opengraph-image.tsx` with `ImageResponse` (Satori) | Auto-generated at build, brand-consistent, no static PNG to maintain |
+| Mobile typography | Mobile-first base sizes with `@media (min-width: 640px)` scale-up | h1: 1.875rem base, 2.44rem at sm; prevents overflow on 320px screens |
+| Font weights | Caveat reduced from 4 weights to 1 (400) | Callouts only use regular weight; saves bandwidth |
 
 ## Gotchas
 
@@ -287,3 +299,5 @@ See `docs/plans/2026-02-16-projects-page-redesign.md` for projects column layout
 - **Zod schema backward compat**: When adding `callouts` array field, keep the existing singular `callout` field. Page component prefers array, falls back to singular
 - **ProjectColumns role slug with `&`**: `slugifyRole()` only strips whitespace, so `&` stays in slugs. If you ever add a URL-safe slugifier, the ROLE_CONFIG keys will break
 - **Date serialization across RSC boundary**: `projects/page.tsx` passes `.toISOString()` because Date objects can't cross the Server/Client Component boundary
+- **OG image via `opengraph-image.tsx`**: Next.js auto-injects `og:image` meta tag from this file. Do NOT also set `metadata.openGraph.images` in `layout.tsx` or it will conflict
+- **Satori (OG image) CSS limitations**: Only flexbox layout, no grid. Every element needs `display: 'flex'`. No `position: relative` on children without it

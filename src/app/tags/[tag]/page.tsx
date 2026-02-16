@@ -93,8 +93,14 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const tagMap = getAllTagData();
   const data = tagMap.get(tag);
   if (!data) return {};
+  const total =
+    data.investigations.length +
+    data.fieldNotes.length +
+    data.shelfItems.length +
+    data.projects.length;
   return {
     title: `Tagged "${data.displayName}"`,
+    description: `${total} item${total !== 1 ? 's' : ''} tagged "${data.displayName}" across investigations, field notes, projects, and the reference shelf.`,
   };
 }
 

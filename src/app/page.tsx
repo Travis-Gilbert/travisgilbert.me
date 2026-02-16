@@ -1,6 +1,13 @@
+import type { Metadata } from 'next';
 import Link from 'next/link';
 import { ArrowRight } from '@phosphor-icons/react/dist/ssr';
 import { getCollection } from '@/lib/content';
+
+export const metadata: Metadata = {
+  title: 'Travis Gilbert | Investigations, Projects, and Field Notes',
+  description:
+    'A creative workbench exploring how design decisions shape human outcomes. Research, field notes, and projects on infrastructure, policy, and the built environment.',
+};
 import type { Investigation, FieldNote, Project } from '@/lib/content';
 import DateStamp from '@/components/DateStamp';
 import TagList from '@/components/TagList';
@@ -49,7 +56,7 @@ export default function HomePage() {
           {/* Row 1: Name (left) + Content counters (right) */}
           <div className="flex items-baseline justify-between">
             <h1
-              className="text-[2.5rem] md:text-[2.75rem] m-0"
+              className="text-[2rem] sm:text-[2.5rem] md:text-[2.75rem] m-0"
               style={{ fontFamily: 'var(--font-name)', fontWeight: 400, lineHeight: 1.0 }}
             >
               Travis Gilbert
@@ -83,7 +90,7 @@ export default function HomePage() {
           Wider card, generous margins, pivoted callouts
           ═══════════════════════════════════════════════ */}
       {featured && (
-        <section className="py-8 md:py-12">
+        <section className="py-6 md:py-12">
           <ScrollReveal>
             <div className="lg:-mx-4 xl:-mx-8 relative">
               <RoughBox
@@ -94,7 +101,7 @@ export default function HomePage() {
               >
                 <div className="group">
                   {Boolean(featured.data.youtubeId) && (
-                    <div className="w-full h-48 md:h-72 overflow-hidden">
+                    <div className="w-full h-40 sm:h-48 md:h-72 overflow-hidden">
                       <img
                         src={`https://img.youtube.com/vi/${featured.data.youtubeId}/maxresdefault.jpg`}
                         alt={`Thumbnail for ${featured.data.title}`}
@@ -182,7 +189,7 @@ export default function HomePage() {
                   >
                     <div className="group">
                       {hasThumbnail && (
-                        <div className="w-full h-48 md:h-64 overflow-hidden">
+                        <div className="w-full h-36 sm:h-48 md:h-64 overflow-hidden">
                           <img
                             src={thumbnailUrl}
                             alt={`Thumbnail for ${investigation.data.title}`}

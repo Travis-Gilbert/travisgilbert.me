@@ -47,7 +47,7 @@ export default function TopNav() {
 
   return (
     <nav className="sticky top-0 z-50 bg-paper/95 backdrop-blur-sm border-b border-border">
-      <div className="max-w-5xl mx-auto px-4 py-3 flex items-center justify-between">
+      <div className="max-w-4xl mx-auto px-4 py-3 flex items-center justify-between">
         {/* Site title */}
         <Link
           href="/"
