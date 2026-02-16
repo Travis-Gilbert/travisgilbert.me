@@ -2,7 +2,7 @@
 title: "The Sidewalk Tax: How Curb Cuts Changed Everything"
 date: 2025-11-15
 summary: "A 3-inch ramp became one of the most impactful design decisions in urban history."
-youtubeId: "dQw4w9WgXcQ"
+youtubeId: ""
 tags: ["urban design", "accessibility", "policy"]
 sources:
   - title: "The Curb-Cut Effect"

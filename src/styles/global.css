@@ -300,10 +300,6 @@ blockquote {
    Three-column layout: gutter | dot+line | content
    ───────────────────────────────────────────────── */
 
-.ptl {
-  position: relative;
-}
-
 /* Each entry: date header + row */
 .ptl-entry {
   padding-bottom: 1.5rem;
@@ -335,7 +331,7 @@ blockquote {
   padding-right: 0.75rem;
 }
 
-/* Dot column with vertical line */
+/* Dot column — no per-column line; the continuous line is on .ptl */
 .ptl-dot-col {
   width: 2rem;
   flex-shrink: 0;
@@ -344,36 +340,32 @@ blockquote {
   position: relative;
 }
 
-/* Vertical timeline line */
-.ptl-dot-col::before {
+/* Continuous vertical timeline line — runs through the full .ptl container
+   so there are no gaps between entries (the date-header divs used to break it). */
+.ptl::before {
   content: '';
   position: absolute;
-  top: 0;
-  bottom: 0;
-  left: 50%;
-  transform: translateX(-50%);
+  /* Offset top to align with the first dot, bottom with the last */
+  top: 4.25rem;     /* first date-header height + dot offset */
+  bottom: 1.75rem;  /* last entry bottom padding + dot offset */
+  /* Align to the center of the dot column: gutter(4rem) + half dot-col(1rem) */
+  left: 5rem;
   width: 2px;
   background-color: var(--color-border);
 }
 
-/* Extend line above first and below last entry */
-.ptl-entry:first-child .ptl-dot-col::before {
-  top: 0.5rem;
-}
-.ptl-entry:last-child .ptl-dot-col::before {
-  bottom: calc(100% - 0.75rem);
-}
-
-/* The dot itself */
+/* The dot itself — larger and bolder for better role-color visibility */
 .ptl-dot {
-  width: 0.625rem;
-  height: 0.625rem;
+  width: 0.75rem;
+  height: 0.75rem;
   border-radius: 50%;
   border: 2px solid var(--color-paper);
   position: relative;
   z-index: 1;
   margin-top: 0.5rem;
   flex-shrink: 0;
+  /* Add a subtle ring so dots pop against the line */
+  box-shadow: 0 0 0 2px var(--color-paper);
 }
 
 /* Clickable summary row */
@@ -418,12 +410,16 @@ blockquote {
 /* Stack gutter under content on mobile */
 @media (max-width: 640px) {
   .ptl-date-header {
-    padding-left: 3rem;
+    padding-left: 2.5rem;
   }
   .ptl-gutter {
     display: none;
   }
   .ptl-dot-col {
     width: 1.5rem;
+  }
+  /* Reposition the continuous line for mobile (no gutter, narrower dot-col) */
+  .ptl::before {
+    left: 0.75rem; /* center of 1.5rem dot-col */
   }
 }

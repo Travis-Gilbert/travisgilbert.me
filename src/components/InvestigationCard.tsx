@@ -20,22 +20,27 @@ export default function InvestigationCard({
   tags,
   href,
 }: InvestigationCardProps) {
-  const thumbnailUrl = `https://img.youtube.com/vi/${youtubeId}/mqdefault.jpg`;
+  const hasThumbnail = Boolean(youtubeId);
+  const thumbnailUrl = hasThumbnail
+    ? `https://img.youtube.com/vi/${youtubeId}/mqdefault.jpg`
+    : '';
 
   return (
     <RoughBox padding={0}>
       <div className="overflow-hidden group">
         <Link href={href} className="block no-underline text-ink hover:text-ink">
           <div className="md:flex">
-            {/* Thumbnail */}
-            <div className="md:w-64 md:flex-shrink-0">
-              <img
-                src={thumbnailUrl}
-                alt={`Thumbnail for ${title}`}
-                className="w-full h-40 md:h-full object-cover"
-                loading="lazy"
-              />
-            </div>
+            {/* Thumbnail — only render when a video exists */}
+            {hasThumbnail && (
+              <div className="md:w-64 md:flex-shrink-0">
+                <img
+                  src={thumbnailUrl}
+                  alt={`Thumbnail for ${title}`}
+                  className="w-full h-40 md:h-full object-cover"
+                  loading="lazy"
+                />
+              </div>
+            )}
             {/* Content */}
             <div className="p-4 flex-1 flex flex-col gap-2">
               <DateStamp date={date} />
@@ -49,7 +54,7 @@ export default function InvestigationCard({
           </div>
         </Link>
         {tags.length > 0 && (
-          <div className="px-4 pb-4 md:pl-[calc(16rem+1rem)]">
+          <div className={`px-4 pb-4 ${hasThumbnail ? 'md:pl-[calc(16rem+1rem)]' : ''}`}>
             <TagList tags={tags} />
           </div>
         )}

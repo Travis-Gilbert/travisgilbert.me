@@ -12,6 +12,10 @@ export default function YouTubeEmbed({
   title = 'YouTube video',
 }: YouTubeEmbedProps) {
   const [playing, setPlaying] = useState(false);
+
+  // Don't render anything if no video ID is provided
+  if (!videoId) return null;
+
   const thumbnailUrl = `https://img.youtube.com/vi/${videoId}/maxresdefault.jpg`;
 
   if (playing) {

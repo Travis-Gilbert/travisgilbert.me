@@ -23,26 +23,28 @@ interface ProjectTimelineProps {
   projects: ProjectEntry[];
 }
 
+/** Short months for consistent SSR/CSR output (avoids toLocaleDateString
+ *  hydration mismatches caused by differing server vs browser locales). */
+const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+const DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+
 function formatDateShort(date: Date): string {
-  return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+  return `${MONTHS[date.getMonth()]} ${date.getDate()}`;
 }
 
 function formatDateFull(date: Date): string {
-  return date
-    .toLocaleDateString('en-US', {
-      weekday: 'short',
-      month: 'short',
-      day: 'numeric',
-      year: 'numeric',
-    })
-    .toUpperCase();
+  const day = DAYS[date.getDay()];
+  const month = MONTHS[date.getMonth()];
+  return `${day}, ${month} ${date.getDate()}, ${date.getFullYear()}`.toUpperCase();
 }
 
-/** Map roles to dot colors */
+/** Map roles to dot colors — chosen for contrast at small sizes against
+ *  the warm paper background. Gold replaces success-green for organizer
+ *  so all three dots are visually distinct even at 12px. */
 const roleDotColor: Record<string, string> = {
   builder: 'bg-teal',
   'project manager': 'bg-terracotta',
-  organizer: 'bg-success',
+  organizer: 'bg-gold',
 };
 
 function getDotColor(role: string): string {
