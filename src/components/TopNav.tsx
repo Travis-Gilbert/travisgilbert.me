@@ -13,7 +13,7 @@ interface NavLink {
 }
 
 const navLinks: NavLink[] = [
-  { href: '/investigations', label: 'On ...', icon: 'magnifying-glass' },
+  { href: '/investigations', label: 'On ...', icon: 'file-text' },
   { href: '/field-notes', label: 'Field Notes', icon: 'note-pencil' },
   { href: '/projects', label: 'Projects', icon: 'briefcase' },
   { href: '/toolkit', label: 'Toolkit', icon: 'wrench' },

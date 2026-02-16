@@ -17,6 +17,7 @@ interface SketchIconProps {
 
 type IconName =
   | 'magnifying-glass'
+  | 'file-text'
   | 'note-pencil'
   | 'briefcase'
   | 'wrench'
@@ -29,6 +30,9 @@ const ICON_PATHS: Record<IconName, string> = {
   // Magnifying glass: slightly wobbly circle + angled handle
   'magnifying-glass':
     'M14.2 6.5c4.2 0.3 7.3 3.6 7.1 7.8s-3.5 7.4-7.7 7.1c-4.2-0.3-7.4-3.7-7.1-7.9 0.3-4.1 3.5-7.3 7.7-7zm6.3 14.8l5.8 5.3',
+  // File with text lines: document page with slightly uneven lines
+  'file-text':
+    'M7.5 4.5h11.5l5.5 5.5v16.5c0 0.8-0.7 1.5-1.5 1.5H7.5c-0.8 0-1.5-0.7-1.5-1.5V6c0-0.8 0.7-1.5 1.5-1.5zM19 4.5v5.5h5.5M10.5 15h11m-11 4h8.5m-8.5 4h10',
   // Pencil on paper: folded corner + pencil line
   'note-pencil':
     'M6 4.5h15.5c1 0 1.8 0.8 1.8 1.8v19.2c0 1-0.8 1.8-1.8 1.8H8.5c-1 0-1.8-0.8-1.8-1.8V6.2c-0.1-0.9 0.7-1.7 1.7-1.7zm3 9.5h10m-10 4.5h7m7-14l-4.5 4.5',

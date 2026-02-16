@@ -6,7 +6,7 @@ import SectionLabel from '@/components/SectionLabel';
 import SketchIcon from '@/components/rough/SketchIcon';
 
 export const metadata: Metadata = {
-  title: 'Investigations',
+  title: 'On ...',
   description:
     'Video case files exploring how design decisions shape human outcomes.',
 };
@@ -21,8 +21,8 @@ export default function InvestigationsPage() {
       <section className="py-8">
         <SectionLabel color="terracotta">Investigation File</SectionLabel>
         <h1 className="font-title text-3xl md:text-4xl font-bold mb-2 flex items-center gap-3">
-          <SketchIcon name="magnifying-glass" size={32} color="var(--color-terracotta)" />
-          Investigations
+          <SketchIcon name="file-text" size={32} color="var(--color-terracotta)" />
+          On ...
         </h1>
         <p className="text-ink-secondary mb-8">
           Video case files exploring design decisions and their consequences.
