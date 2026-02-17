@@ -14,7 +14,7 @@ export const metadata: Metadata = {
     template: '%s | Travis Gilbert',
   },
   description:
-    'Investigating how design decisions shape human outcomes. Research, field notes, and projects at the intersection of design, policy, and technology.',
+    'Exploring how design decisions shape human outcomes. Essays, field notes, and projects on design, policy, and the built environment.',
   metadataBase: new URL('https://travisgilbert.com'),
   openGraph: {
     type: 'website',

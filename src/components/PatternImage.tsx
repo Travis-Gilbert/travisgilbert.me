@@ -87,12 +87,28 @@ export default function PatternImage({
       }
     }
 
+    // Layer 1.5: faint blueprint grid
+    ctx.strokeStyle = `rgba(${r}, ${g}, ${b}, 0.04)`;
+    ctx.lineWidth = 0.5;
+    for (let x = 0; x < w; x += 40) {
+      ctx.beginPath();
+      ctx.moveTo(x, 0);
+      ctx.lineTo(x, h);
+      ctx.stroke();
+    }
+    for (let y = 0; y < h; y += 40) {
+      ctx.beginPath();
+      ctx.moveTo(0, y);
+      ctx.lineTo(w, y);
+      ctx.stroke();
+    }
+
     // Layer 2: organic curves
     const lineCount = 3 + Math.floor(rand() * 4);
     for (let i = 0; i < lineCount; i++) {
       ctx.beginPath();
-      ctx.strokeStyle = `rgba(${r}, ${g}, ${b}, ${0.08 + rand() * 0.07})`;
-      ctx.lineWidth = 0.8 + rand() * 0.6;
+      ctx.strokeStyle = `rgba(${r}, ${g}, ${b}, ${0.10 + rand() * 0.08})`;
+      ctx.lineWidth = 1.0 + rand() * 0.6;
       const startX = rand() * w;
       const startY = rand() * h;
       ctx.moveTo(startX, startY);
@@ -111,8 +127,8 @@ export default function PatternImage({
       const cy = rand() * h;
       const radius = 30 + rand() * 80;
       ctx.beginPath();
-      ctx.strokeStyle = `rgba(${r}, ${g}, ${b}, ${0.05 + rand() * 0.04})`;
-      ctx.lineWidth = 0.6;
+      ctx.strokeStyle = `rgba(${r}, ${g}, ${b}, ${0.08 + rand() * 0.06})`;
+      ctx.lineWidth = 0.8;
       for (let a = 0; a < Math.PI * 2; a += 0.05) {
         const wobble = rand() * 6;
         const px = cx + (radius + wobble) * Math.cos(a);

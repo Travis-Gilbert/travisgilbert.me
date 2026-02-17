@@ -32,12 +32,14 @@ interface ProgressTrackerProps {
   stages: Stage[];
   currentStage: string;
   color?: string;
+  annotationCount?: number;
 }
 
 export default function ProgressTracker({
   stages,
   currentStage,
   color = 'var(--color-terracotta)',
+  annotationCount,
 }: ProgressTrackerProps) {
   const currentIdx = stages.findIndex((s) => s.key === currentStage);
 
@@ -93,6 +95,19 @@ export default function ProgressTracker({
           </div>
         );
       })}
+      {annotationCount != null && annotationCount > 0 && (
+        <span
+          className="font-mono ml-3"
+          style={{
+            fontSize: 9,
+            textTransform: 'uppercase',
+            letterSpacing: '0.06em',
+            color: 'var(--color-ink-light)',
+          }}
+        >
+          {annotationCount} margin note{annotationCount !== 1 ? 's' : ''}
+        </span>
+      )}
     </div>
   );
 }

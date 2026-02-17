@@ -1,6 +1,6 @@
 import type { Metadata } from 'next';
-import { getCollection } from '@/lib/content';
-import type { ShelfEntry } from '@/lib/content';
+import { getCollection, getEntry } from '@/lib/content';
+import type { ShelfEntry, Essay } from '@/lib/content';
 import ShelfFilter from '@/components/ShelfFilter';
 import SectionLabel from '@/components/SectionLabel';
 import DrawOnIcon from '@/components/rough/DrawOnIcon';
@@ -14,14 +14,21 @@ export const metadata: Metadata = {
 export default function ShelfPage() {
   const shelfItems = getCollection<ShelfEntry>('shelf')
     .sort((a, b) => b.data.date.valueOf() - a.data.date.valueOf())
-    .map((item) => ({
-      title: item.data.title,
-      creator: item.data.creator,
-      type: item.data.type,
-      annotation: item.data.annotation,
-      url: item.data.url,
-      tags: item.data.tags,
-    }));
+    .map((item) => {
+      const essay = item.data.connectedEssay
+        ? getEntry<Essay>('essays', item.data.connectedEssay)
+        : null;
+      return {
+        title: item.data.title,
+        creator: item.data.creator,
+        type: item.data.type,
+        annotation: item.data.annotation,
+        url: item.data.url,
+        tags: item.data.tags,
+        connectedEssayTitle: essay?.data.title,
+        connectedEssaySlug: essay?.slug,
+      };
+    });
 
   return (
     <>

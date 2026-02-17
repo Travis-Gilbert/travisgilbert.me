@@ -13,7 +13,7 @@ import ScrollReveal from '@/components/ScrollReveal';
 import CyclingTagline from '@/components/CyclingTagline';
 import ProgressTracker, { CompactTracker, ESSAY_STAGES, NOTE_STAGES } from '@/components/ProgressTracker';
 import PatternImage from '@/components/PatternImage';
-import NowPreview from '@/components/NowPreview';
+import NowPreviewCompact from '@/components/NowPreviewCompact';
 
 export const metadata: Metadata = {
   title: 'Travis Gilbert | Essays, Projects, and Field Notes',
@@ -51,34 +51,46 @@ export default function HomePage() {
   return (
     <div>
       {/* ═══════════════════════════════════════════════
-          Hero: Compact name + cycling tagline + inline counters
+          Hero: Breakout width, two-column (identity + /now snapshot)
+          Uses viewport-width technique to exceed parent max-w-4xl
           ═══════════════════════════════════════════════ */}
-      <section className="pt-8 md:pt-12 pb-2 md:pb-4 border-b border-border-light">
+      <section
+        className="relative w-[calc(100vw-2rem)] max-w-6xl left-1/2 -translate-x-1/2 px-4 sm:px-6 pt-8 md:pt-12 pb-4 md:pb-6 border-b border-border-light"
+      >
         <ScrollReveal>
-          <h1
-            className="text-[2rem] sm:text-[2.5rem] md:text-[2.75rem] m-0"
-            style={{ fontFamily: 'var(--font-name)', fontWeight: 400, lineHeight: 1.0 }}
-          >
-            Travis Gilbert
-          </h1>
+          <div className="flex flex-col lg:flex-row lg:items-end lg:justify-between gap-6 lg:gap-12">
+            {/* Left: identity */}
+            <div className="flex-1">
+              <h1
+                className="text-[2rem] sm:text-[2.5rem] md:text-[2.75rem] m-0"
+                style={{ fontFamily: 'var(--font-name)', fontWeight: 400, lineHeight: 1.0 }}
+              >
+                Travis Gilbert
+              </h1>
 
-          <div className="mt-1">
-            <CyclingTagline />
+              <div className="mt-1">
+                <CyclingTagline />
+              </div>
+
+              <p
+                className="font-mono text-ink-light mt-3"
+                style={{
+                  fontSize: 11,
+                  textTransform: 'uppercase',
+                  letterSpacing: '0.06em',
+                }}
+              >
+                {totalEssays} essay{totalEssays !== 1 ? 's' : ''} &middot;{' '}
+                {totalProjects} project{totalProjects !== 1 ? 's' : ''} &middot;{' '}
+                {totalFieldNotes} field note{totalFieldNotes !== 1 ? 's' : ''}
+              </p>
+            </div>
+
+            {/* Right: /now snapshot (compact) */}
+            <div className="lg:w-72 flex-shrink-0">
+              <NowPreviewCompact />
+            </div>
           </div>
-
-          {/* Counters: subtle inline text below tagline */}
-          <p
-            className="font-mono text-ink-light mt-3"
-            style={{
-              fontSize: 11,
-              textTransform: 'uppercase',
-              letterSpacing: '0.06em',
-            }}
-          >
-            {totalEssays} essay{totalEssays !== 1 ? 's' : ''} &middot;{' '}
-            {totalProjects} project{totalProjects !== 1 ? 's' : ''} &middot;{' '}
-            {totalFieldNotes} field note{totalFieldNotes !== 1 ? 's' : ''}
-          </p>
         </ScrollReveal>
       </section>
 
@@ -119,6 +131,7 @@ export default function HomePage() {
                       stages={ESSAY_STAGES}
                       currentStage={featured.data.stage || 'published'}
                       color="var(--color-terracotta)"
+                      annotationCount={featured.data.annotations?.length}
                     />
 
                     <div className="mt-4">
@@ -262,15 +275,6 @@ export default function HomePage() {
       )}
 
       {/* ═══════════════════════════════════════════════
-          /now preview: what Travis is currently focused on
-          ═══════════════════════════════════════════════ */}
-      <section className="py-2 md:py-6">
-        <ScrollReveal>
-          <NowPreview />
-        </ScrollReveal>
-      </section>
-
-      {/* ═══════════════════════════════════════════════
           Projects: Grid with role icons and scroll-reveal stagger
           ═══════════════════════════════════════════════ */}
       {projects.length > 0 && (
@@ -400,25 +404,39 @@ export default function HomePage() {
                         </p>
                       )}
                     </Link>
-                    {/* Handwritten callout */}
-                    {note.data.callout && (
-                      <div
-                        className="mt-2.5"
-                        style={{
-                          fontFamily: 'var(--font-annotation)',
-                          fontSize: 14,
-                          color: 'var(--color-teal)',
-                          opacity: 0.8,
-                        }}
-                      >
-                        {note.data.callout}
-                      </div>
-                    )}
+                    {/* Handwritten margin callout (outside Link, inside RoughBox) */}
+                    {(() => {
+                      const callouts = note.data.callouts ?? (note.data.callout ? [note.data.callout] : []);
+                      return callouts[0] ? (
+                        <RoughCallout
+                          side={i % 2 === 0 ? 'left' : 'right'}
+                          tint="teal"
+                          offsetY={12}
+                          seed={100 + i}
+                        >
+                          {callouts[0]}
+                        </RoughCallout>
+                      ) : null;
+                    })()}
                     {note.data.tags.length > 0 && (
                       <div className="pt-3 relative z-10">
                         <TagList tags={note.data.tags} tint="teal" />
                       </div>
                     )}
+                    {note.data.connectedTo && (() => {
+                      const parentEssay = getCollection<Essay>('essays').find(
+                        (e) => e.slug === note.data.connectedTo && !e.data.draft
+                      );
+                      if (!parentEssay) return null;
+                      return (
+                        <span
+                          className="block mt-1 font-mono text-teal opacity-70"
+                          style={{ fontSize: 9, textTransform: 'uppercase', letterSpacing: '0.06em' }}
+                        >
+                          Connected to: {parentEssay.data.title}
+                        </span>
+                      );
+                    })()}
                   </div>
                 </RoughBox>
               </ScrollReveal>

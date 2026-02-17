@@ -404,9 +404,9 @@ blockquote {
   .prose blockquote { padding: 1rem 1.25rem; }
 }
 
-/* Evidence callout labels:
+/* Note callout labels:
    Activated when a blockquote's first <strong> matches a known keyword.
-   Markdown convention: > **Evidence:** text here
+   Markdown convention: > **Note:** text here
    The label floats above the blockquote as a monospace tag. */
 
 .prose blockquote::before {
@@ -536,10 +536,29 @@ blockquote {
     right: calc(100% + 1.5rem);
     text-align: right;
   }
+
+  /* Tick mark connecting annotation to prose column */
+  .margin-annotation-anchor[data-annotation-side="right"]::before {
+    content: '';
+    position: absolute;
+    left: calc(100% + 0.25rem);
+    top: 6px;
+    width: 1rem;
+    border-top: 1px solid rgba(180, 90, 45, 0.3);
+  }
+
+  .margin-annotation-anchor[data-annotation-side="left"]::before {
+    content: '';
+    position: absolute;
+    right: calc(100% + 0.25rem);
+    top: 6px;
+    width: 1rem;
+    border-top: 1px solid rgba(180, 90, 45, 0.3);
+  }
 }
 
 /* ─────────────────────────────────────────────────
-   Project Timeline:Evidence Organizer Style
+   Project Timeline: Organizer Style
    Three-column layout: gutter | dot+line | content
    ───────────────────────────────────────────────── */
 

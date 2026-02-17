@@ -2,7 +2,6 @@ import fs from 'fs';
 import path from 'path';
 import matter from 'gray-matter';
 import Link from 'next/link';
-import RoughBox from './rough/RoughBox';
 
 interface NowData {
   updated: string;
@@ -37,34 +36,35 @@ const QUADRANTS: {
 ];
 
 /**
- * NowPreview: shows a snapshot of current focus areas in a 2x2 grid.
- * Data comes from src/content/now.md (single manually updated file).
- * Server Component: reads at build time.
+ * NowPreviewCompact: slim single-column /now snapshot for the homepage hero.
+ * No RoughBox wrapper. Subtle left border. Server Component.
+ * Only shows the four main values (no context lines, no "thinking about").
  */
-export default function NowPreview() {
+export default function NowPreviewCompact() {
   const data = getNowData();
   if (!data) return null;
 
   return (
-    <RoughBox padding={24} tint="neutral" elevated>
-      <span
-        className="font-mono block mb-3"
-        style={{
-          fontSize: 11,
-          textTransform: 'uppercase',
-          letterSpacing: '0.1em',
-          color: 'var(--color-ink-muted)',
-        }}
-      >
-        Right now
-      </span>
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+    <div className="pl-4 border-l-2 border-border-light">
+      <Link href="/now" className="no-underline group">
+        <span
+          className="font-mono block mb-2 text-ink-muted group-hover:text-terracotta transition-colors"
+          style={{
+            fontSize: 10,
+            textTransform: 'uppercase',
+            letterSpacing: '0.1em',
+          }}
+        >
+          Right now &rarr;
+        </span>
+      </Link>
+      <div className="flex flex-col gap-2">
         {QUADRANTS.map((q) => (
           <div key={q.field}>
             <span
-              className="font-mono block mb-1.5"
+              className="font-mono"
               style={{
-                fontSize: 10,
+                fontSize: 9,
                 textTransform: 'uppercase',
                 letterSpacing: '0.08em',
                 color: q.color,
@@ -72,18 +72,12 @@ export default function NowPreview() {
             >
               {q.label}
             </span>
-            <span className="font-title text-[15px] font-semibold text-ink">
+            <span className="font-title text-sm font-semibold text-ink block leading-snug">
               {data[q.field]}
             </span>
           </div>
         ))}
       </div>
-      <Link
-        href="/now"
-        className="block mt-4 font-mono text-[11px] uppercase tracking-widest text-ink-faint hover:text-terracotta transition-colors no-underline"
-      >
-        See more &rarr;
-      </Link>
-    </RoughBox>
+    </div>
   );
 }

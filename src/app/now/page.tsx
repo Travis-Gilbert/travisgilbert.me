@@ -9,9 +9,14 @@ import RoughBox from '@/components/rough/RoughBox';
 interface NowData {
   updated: string;
   researching: string;
+  researching_context?: string;
   reading: string;
+  reading_context?: string;
   building: string;
+  building_context?: string;
   listening: string;
+  listening_context?: string;
+  thinking?: string;
 }
 
 function getNowData(): NowData | null {
@@ -24,7 +29,7 @@ function getNowData(): NowData | null {
 
 const QUADRANTS: {
   label: string;
-  field: keyof Omit<NowData, 'updated'>;
+  field: keyof Omit<NowData, 'updated' | 'researching_context' | 'reading_context' | 'building_context' | 'listening_context' | 'thinking'>;
   color: string;
   description: string;
 }[] = [
@@ -102,12 +107,38 @@ export default function NowPage() {
             <span className="font-title text-lg font-semibold text-ink block mb-2">
               {data[q.field]}
             </span>
+            {data[`${q.field}_context` as keyof NowData] && (
+              <span className="block text-xs text-ink-secondary mt-0.5 leading-relaxed mb-2">
+                {data[`${q.field}_context` as keyof NowData]}
+              </span>
+            )}
             <span className="text-xs text-ink-secondary">
               {q.description}
             </span>
           </RoughBox>
         ))}
       </div>
+
+      {data.thinking && (
+        <div className="mt-8 max-w-2xl">
+          <RoughBox padding={20} tint="terracotta">
+            <span
+              className="font-mono block mb-1"
+              style={{
+                fontSize: 11,
+                textTransform: 'uppercase',
+                letterSpacing: '0.1em',
+                color: 'var(--color-terracotta)',
+              }}
+            >
+              Thinking about
+            </span>
+            <span className="font-title text-base font-semibold text-ink">
+              {data.thinking}
+            </span>
+          </RoughBox>
+        </div>
+      )}
 
       <p className="text-sm text-ink-faint mt-8 max-w-2xl">
         Inspired by <a href="https://nownownow.com/about" className="underline hover:text-terracotta">the /now page movement</a>.

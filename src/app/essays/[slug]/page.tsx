@@ -9,6 +9,7 @@ import YouTubeEmbed from '@/components/YouTubeEmbed';
 import RoughLine from '@/components/rough/RoughLine';
 import SourcesCollapsible from '@/components/SourcesCollapsible';
 import ProgressTracker, { ESSAY_STAGES } from '@/components/ProgressTracker';
+import ReadingProgress from '@/components/ReadingProgress';
 
 interface Props {
   params: Promise<{ slug: string }>;
@@ -38,6 +39,15 @@ export default async function EssayDetailPage({ params }: Props) {
   const html = injectAnnotations(rawHtml, entry.data.annotations ?? []);
   const readingTime = estimateReadingTime(entry.body);
 
+  // Prev/next navigation
+  const allEssays = getCollection<Essay>('essays')
+    .filter((e) => !e.data.draft)
+    .sort((a, b) => b.data.date.valueOf() - a.data.date.valueOf());
+
+  const currentIndex = allEssays.findIndex((e) => e.slug === slug);
+  const prevEssay = currentIndex < allEssays.length - 1 ? allEssays[currentIndex + 1] : null;
+  const nextEssay = currentIndex > 0 ? allEssays[currentIndex - 1] : null;
+
   // Resolve related field notes
   const allFieldNotes = getCollection<FieldNote>('field-notes')
     .filter((n) => !n.data.draft);
@@ -61,6 +71,8 @@ export default async function EssayDetailPage({ params }: Props) {
   }
 
   return (
+    <>
+    <ReadingProgress />
     <article className="py-8">
       <YouTubeEmbed
         videoId={entry.data.youtubeId}
@@ -85,6 +97,7 @@ export default async function EssayDetailPage({ params }: Props) {
           stages={ESSAY_STAGES}
           currentStage={entry.data.stage || 'published'}
           color="var(--color-terracotta)"
+          annotationCount={entry.data.annotations?.length}
         />
       </header>
 
@@ -101,43 +114,98 @@ export default async function EssayDetailPage({ params }: Props) {
         </>
       )}
 
-      {relatedNotes.length > 0 && (
-        <>
-          <RoughLine />
-          <section className="py-4">
-            <h2 className="font-mono text-[11px] uppercase tracking-[0.1em] text-teal mb-3">
-              Related Field Notes
-            </h2>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              {relatedNotes.map((note) => (
-                <Link
-                  key={note.slug}
-                  href={`/field-notes/${note.slug}`}
-                  className="block no-underline text-ink hover:text-teal p-3 rounded border border-teal/10 bg-teal/[0.03] transition-colors hover:border-teal/25 hover:bg-teal/[0.06]"
-                >
-                  <span className="block font-title text-sm font-semibold">
-                    {note.data.title}
-                  </span>
-                  {note.data.excerpt && (
-                    <span className="block text-xs text-ink-secondary mt-1 line-clamp-2">
-                      {note.data.excerpt}
-                    </span>
-                  )}
-                </Link>
-              ))}
-            </div>
-          </section>
-        </>
-      )}
+      {(() => {
+        const connectedNotes = allFieldNotes.filter(
+          (n) => n.data.connectedTo === slug
+        );
+        const connectedSlugs = new Set(connectedNotes.map((n) => n.slug));
+        const topicNotes = relatedNotes.filter((n) => !connectedSlugs.has(n.slug));
 
-      <nav className="py-4 border-t border-border mt-6">
-        <Link
-          href="/essays"
-          className="font-mono text-sm hover:text-terracotta-hover"
-        >
-          &larr; All essays
-        </Link>
+        if (connectedNotes.length === 0 && topicNotes.length === 0) return null;
+
+        return (
+          <>
+            <RoughLine />
+            <section className="py-4">
+              {connectedNotes.length > 0 && (
+                <>
+                  <h2 className="font-mono text-[11px] uppercase tracking-[0.1em] text-teal mb-3">
+                    Field notes that led to this essay
+                  </h2>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    {connectedNotes.map((note) => (
+                      <Link
+                        key={note.slug}
+                        href={`/field-notes/${note.slug}`}
+                        className="block no-underline text-ink hover:text-teal p-3 rounded border border-teal/10 bg-teal/[0.03] transition-colors hover:border-teal/25 hover:bg-teal/[0.06]"
+                      >
+                        <span className="block font-title text-sm font-semibold">
+                          {note.data.title}
+                        </span>
+                        {note.data.excerpt && (
+                          <span className="block text-xs text-ink-secondary mt-1 line-clamp-2">
+                            {note.data.excerpt}
+                          </span>
+                        )}
+                      </Link>
+                    ))}
+                  </div>
+                </>
+              )}
+
+              {topicNotes.length > 0 && (
+                <>
+                  <h2 className={`font-mono text-[11px] uppercase tracking-[0.1em] text-teal mb-3 ${connectedNotes.length > 0 ? 'mt-6' : ''}`}>
+                    {connectedNotes.length > 0 ? 'Related by topic' : 'Related Field Notes'}
+                  </h2>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    {topicNotes.map((note) => (
+                      <Link
+                        key={note.slug}
+                        href={`/field-notes/${note.slug}`}
+                        className="block no-underline text-ink hover:text-teal p-3 rounded border border-teal/10 bg-teal/[0.03] transition-colors hover:border-teal/25 hover:bg-teal/[0.06]"
+                      >
+                        <span className="block font-title text-sm font-semibold">
+                          {note.data.title}
+                        </span>
+                        {note.data.excerpt && (
+                          <span className="block text-xs text-ink-secondary mt-1 line-clamp-2">
+                            {note.data.excerpt}
+                          </span>
+                        )}
+                      </Link>
+                    ))}
+                  </div>
+                </>
+              )}
+            </section>
+          </>
+        );
+      })()}
+
+      <nav className="flex justify-between items-start gap-4 py-4 border-t border-border mt-6">
+        <div>
+          {prevEssay && (
+            <Link
+              href={`/essays/${prevEssay.slug}`}
+              className="font-mono text-sm hover:text-terracotta-hover"
+            >
+              &larr; {prevEssay.data.title}
+            </Link>
+          )}
+        </div>
+        <div className="text-right">
+          {nextEssay && (
+            <Link
+              href={`/essays/${nextEssay.slug}`}
+              className="font-mono text-sm hover:text-terracotta-hover"
+            >
+              {nextEssay.data.title} &rarr;
+            </Link>
+          )}
+        </div>
       </nav>
     </article>
+    </>
   );
 }

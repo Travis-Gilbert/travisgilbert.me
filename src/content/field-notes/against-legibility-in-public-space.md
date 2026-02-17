@@ -6,6 +6,7 @@ excerpt: "What if the push to make every public space 'readable' is actually era
 status: developing
 draft: false
 featured: true
+connectedTo: the-sidewalk-tax
 callouts:
   - "readable ≠ navigable"
   - "riffing on James Scott"

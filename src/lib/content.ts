@@ -50,6 +50,8 @@ export const fieldNoteSchema = z.object({
   status: z.enum(['observation', 'developing', 'connected']).optional(),
   /** Whether this note is featured on the homepage */
   featured: z.boolean().default(false),
+  /** Slug of the parent essay this note connects to */
+  connectedTo: z.string().optional(),
 });
 
 export const shelfSchema = z.object({
@@ -60,6 +62,8 @@ export const shelfSchema = z.object({
   url: z.string().url().optional(),
   date: z.coerce.date(),
   tags: z.array(z.string()).default([]),
+  /** Essay slug this source relates to */
+  connectedEssay: z.string().optional(),
 });
 
 export const toolkitSchema = z.object({

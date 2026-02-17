@@ -12,6 +12,8 @@ interface ShelfEntry {
   annotation: string;
   url?: string;
   tags: string[];
+  connectedEssayTitle?: string;
+  connectedEssaySlug?: string;
 }
 
 interface ShelfFilterProps {
@@ -104,6 +106,23 @@ export default function ShelfFilter({ items }: ShelfFilterProps) {
               <p className="text-sm text-ink-secondary m-0 mb-2">
                 {item.annotation}
               </p>
+              {item.connectedEssayTitle && item.connectedEssaySlug && (
+                <p className="m-0 mb-2">
+                  <span
+                    className="font-mono text-gold opacity-70"
+                    style={{ fontSize: 9, textTransform: 'uppercase', letterSpacing: '0.06em' }}
+                  >
+                    Referenced in:{' '}
+                  </span>
+                  <a
+                    href={`/essays/${item.connectedEssaySlug}`}
+                    className="font-mono no-underline hover:text-terracotta"
+                    style={{ fontSize: 9, textTransform: 'uppercase', letterSpacing: '0.06em', color: 'var(--color-terracotta)' }}
+                  >
+                    {item.connectedEssayTitle}
+                  </a>
+                </p>
+              )}
               {item.tags.length > 0 && (
                 <div className="flex flex-wrap gap-1">
                   {item.tags.map((tag) => (
