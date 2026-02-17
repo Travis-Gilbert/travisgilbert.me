@@ -22,7 +22,7 @@ Next.js 15 (App Router), React 19, Tailwind CSS v4 (`@tailwindcss/postcss`), rou
 | `src/app/layout.tsx` | Root layout (DotGrid, TopNav, Footer, metadata) |
 | `src/components/` | React components (Server + Client) |
 | `src/components/rough/` | Client Components for rough.js visuals (RoughBox, RoughLine, RoughUnderline) |
-| `src/content/` | Markdown content collections (investigations, field-notes, shelf, toolkit, projects, working-ideas) |
+| `src/content/` | Markdown content collections (essays, field-notes, shelf, toolkit, projects) |
 | `src/lib/content.ts` | Content loading: Zod schemas, `getCollection()`, `getEntry()`, `renderMarkdown()` |
 | `src/lib/slugify.ts` | Tag slug utility |
 | `src/components/SectionLabel.tsx` | Monospace colored section headers (terracotta/teal/gold) |
@@ -69,7 +69,8 @@ Most components are **Server Components** by default. Components needing browser
 | `ToolkitAccordion.tsx` | Radix Accordion with expand/collapse state |
 | `ProjectTimeline.tsx` | Timeline layout with interactive state |
 | `MarginNote.tsx` | Positioned margin annotations |
-| `SourcesCollapsible.tsx` | Radix Collapsible for investigation sources |
+| `SourcesCollapsible.tsx` | Radix Collapsible for essay sources |
+| `PatternImage.tsx` | Seeded generative canvas (3 layers: dots, curves, contours) |
 
 Server Components can import and render Client Components; children pass through as a slot without hydrating.
 
@@ -120,7 +121,7 @@ Tailwind > font-title class
 
 | Card Type | tint | stroke | fill opacity |
 |-----------|------|--------|-------------|
-| InvestigationCard | terracotta | `#B45A2D` | 4.5% |
+| EssayCard | terracotta | `#B45A2D` | 4.5% |
 | FieldNoteEntry | teal | `#2D5F6B` | 4% |
 | ShelfItem | gold | `#C49A4A` | 5% |
 | Toolkit boxes | terracotta | `#B45A2D` | 4.5% |
@@ -141,9 +142,44 @@ Tailwind > font-title class
 
 Used on homepage featured cards (investigation and working idea). Two callouts max per card, staggered on opposite sides.
 
-### Working Ideas Homepage Feature
+### ProgressTracker System
 
-Homepage displays one featured Working Idea (between "On ..." and "Projects" sections). Selection: prefers `featured: true` in frontmatter, falls back to most recent. Uses RoughBox with terracotta tint and two RoughPivotCallout annotations (right at offsetY=16, left at offsetY=72). Schema fields in `workingIdeaSchema`: `featured` (boolean, default false), `callouts` (string array, optional). Mirrors the investigation featured card pattern at smaller scale.
+`ProgressTracker` (`src/components/ProgressTracker.tsx`) visualizes content lifecycle stages. Two variants:
+
+| Variant | Usage | Visual |
+|---------|-------|--------|
+| `ProgressTracker` (default) | Homepage featured card | Connected dots with labels, 3 states (complete/current/upcoming) |
+| `CompactTracker` (named export) | Listing cards (EssayCard, FieldNoteEntry) | Dots only + single label for current stage |
+
+**Stage definitions** (also exported):
+- `ESSAY_STAGES`: research, drafting, production, published (4 stages, terracotta)
+- `NOTE_STAGES`: observation, developing, connected (3 stages, teal)
+
+Generic `stages` array prop; works for any content type. Both are Server Components (no client-side state).
+
+### PatternImage System
+
+`PatternImage` (`src/components/PatternImage.tsx`) is a Client Component that renders deterministic generative art on canvas. Used as visual fallback when essays have no YouTube thumbnail.
+
+**Three rendering layers:**
+1. Grid dots with radial fade from center
+2. Organic bezier curves with varying thickness
+3. Topographic contour lines
+
+**Props:** `seed` (string, determines pattern via PRNG), `height`, `color` (CSS custom property), `className`. Seed from slug ensures same essay always gets same pattern. DPR-aware canvas scaling.
+
+### NowPreview
+
+`NowPreview` (`src/components/NowPreview.tsx`) is a Server Component that reads `src/content/now.md` frontmatter. Displays a 2x2 grid of current activities (Researching, Reading, Building, Listening to) in a neutral RoughBox. Update by editing `src/content/now.md` frontmatter fields.
+
+### EssayCard Image Hierarchy
+
+EssayCard (`src/components/EssayCard.tsx`) uses a 3-tier image system:
+1. YouTube thumbnail (when `youtubeId` exists): left-side thumbnail in md:flex layout
+2. Curated image (future: `image` frontmatter field): not yet implemented
+3. PatternImage fallback: generative canvas header seeded from slug
+
+All variants show CompactTracker in the top-right corner alongside DateStamp.
 
 ### ProjectColumns Pattern
 
@@ -214,7 +250,7 @@ Vercel with native Next.js builder. Git integration auto-deploys on push to `mai
 | Content pipeline (gray-matter + remark + Zod) | ✅ |
 | Vercel deployment | ✅ Auto-deploys on push to main |
 
-### Phase 2: Micro-interactions + Page Redesigns 🔄 In Progress
+### Phase 2: Micro-interactions + Page Redesigns ✅ Complete
 
 | Item | Status |
 |------|--------|
@@ -223,7 +259,7 @@ Vercel with native Next.js builder. Git integration auto-deploys on push to `mai
 | RoughCallout editor's-notes callouts | ✅ |
 | Caveat handwritten font + `--font-annotation` token | ✅ |
 | RoughPivotCallout 45° leader-line callouts | ✅ |
-| Featured investigation promoted (no outer box, scale hierarchy) | ✅ |
+| Featured essay promoted (no outer box, scale hierarchy) | ✅ |
 | Projects page: role-based column layout (ProjectColumns) | ✅ |
 | Projects page: past-tense role labels, YouTube "Created" column | ✅ |
 | Homepage hero: compact name + CyclingTagline typewriter | ✅ |
@@ -235,16 +271,24 @@ Vercel with native Next.js builder. Git integration auto-deploys on push to `mai
 | DateStamp subtle color enhancement (terracotta-light) | ✅ |
 | Custom skeuomorphic icons (SketchIcon) replacing Phosphor on pages | ✅ |
 | Colophon no-dash rule enforcement | ✅ |
-| Working Ideas homepage feature with pivot callouts | ✅ |
 | SketchIcon overflow fix (`overflow="visible"` + `flex-shrink-0`) | ✅ |
 | DotGrid interaction tuning (influenceRadius=150, repulsionStrength=15) | ✅ |
 | Blueprint grid removal (CSS + RoughBox `grid` prop) | ✅ |
+| Taxonomy rename: investigations to essays, working-ideas merged into field-notes | ✅ |
+| ProgressTracker (full + compact variants) | ✅ |
+| PatternImage generative canvas fallback | ✅ |
+| NowPreview /now section on homepage | ✅ |
+| EssayCard + FieldNoteEntry compact trackers | ✅ |
+| Footer redesign with colophon link | ✅ |
+| Content schema updates (essay stage, field note status) | ✅ |
+| Redirects for old investigation/working-ideas URLs | ✅ |
 
 Decided during brainstorm: Radix Primitives + fully custom styling (no shadcn/ui).
 See `docs/plans/2026-02-15-surface-materiality-layer-design.md` for surface materiality design.
 See `docs/plans/2026-02-16-projects-page-redesign.md` for projects column layout design.
+See `docs/records/001-site-wide-redesign.md` for full redesign record with user stories.
 
-### Phase 3: Content + Polish 🔄 In Progress
+### Phase 3: Animations + Content + Polish 🔜 Next
 
 | Item | Status |
 |------|--------|
@@ -257,7 +301,12 @@ See `docs/plans/2026-02-16-projects-page-redesign.md` for projects column layout
 | Nav SketchIcons (replaced Phosphor in TopNav) | ✅ |
 | Nav/layout max-width alignment (both `max-w-4xl`) | ✅ |
 | ProjectColumns `whitespace-nowrap` overflow fix | ✅ |
-| Additional content pages and investigations | Not started |
+| DrawOnIcon animation (SVG stroke animation on scroll/hover) | Not started |
+| MarginAnnotation positioned handwritten notes | Not started |
+| Nav restructure: 5 items (Essays on.../Field Notes/Projects/Toolkit/Connect) | Not started |
+| Essay detail page: full ProgressTracker + related notes sidebar | Not started |
+| Field note detail page: CompactTracker in header | Not started |
+| Additional content pages and essays | Not started |
 | Dark mode (design tokens already prepared in global.css) | Not started |
 
 ## Recent Decisions
@@ -265,7 +314,7 @@ See `docs/plans/2026-02-16-projects-page-redesign.md` for projects column layout
 | Decision | Choice | Why |
 |----------|--------|-----|
 | UI library | Radix Primitives (not shadcn/ui) | Full custom styling over brand; shadcn opinionated defaults fight the aesthetic |
-| Section color system | terracotta=investigations, teal=field-notes, gold=projects | Creates wayfinding language; color tells you where you are on the site |
+| Section color system | terracotta=essays, teal=field-notes, gold=projects | Creates wayfinding language; color tells you where you are on the site |
 | No dashes | Colons, periods, parentheses, semicolons | User style preference; applies to all code, comments, and content |
 | Featured card hierarchy | Scale + negative space, no outer box | Double-bordered hero was visually cluttered; subtraction creates emphasis |
 | Projects layout | Role-based columns, not timeline | Communicates "types of work I do" rather than chronological history |
@@ -275,15 +324,19 @@ See `docs/plans/2026-02-16-projects-page-redesign.md` for projects column layout
 | Projects: column dividers | Dark charcoal (`#3A3632`) at 25% opacity, uniform | Per-role colored dividers looked uneven; single color creates aligned architectural lines |
 | Hero redesign | Compact name + cycling "On..." tagline | Tall static heroes create dead space; cycling tagline shows range and keeps hero alive |
 | Nav restructure | On ... / Field Notes / Projects / Toolkit / Connect | Shelf and Colophon folded into Toolkit; Projects promoted above Field Notes |
-| "Investigations" rename | "On ..." | Less institutional; signals essayistic depth; pattern reinforced by individual titles |
-| "Current Inquiry" rename | "Work in Progress" | Honest about content status; lowers pretension barrier; matches workbench framing |
+| "Essays on ..." naming | "On ..." prefix for essay section | Less institutional; signals essayistic depth; pattern reinforced by individual titles |
 | Section icons | SketchIcon (hand-drawn SVG) for pages, Phosphor for UI glyphs | Brand identity icons match rough.js aesthetic; utility icons stay crisp |
 | Evidence callouts | `.prose-investigations blockquote::before` with `:has()` selector | Only investigation articles get "NOTE" labels; semantic CSS, no component changes |
 | OG image | `opengraph-image.tsx` with `ImageResponse` (Satori) | Auto-generated at build, brand-consistent, no static PNG to maintain |
 | Mobile typography | Mobile-first base sizes with `@media (min-width: 640px)` scale-up | h1: 1.875rem base, 2.44rem at sm; prevents overflow on 320px screens |
 | Font weights | Caveat reduced from 4 weights to 1 (400) | Callouts only use regular weight; saves bandwidth |
 | SketchIcon overflow | `overflow="visible"` + `flex-shrink-0` on SVG | Strokes bleed past 32x32 viewBox at small sizes; flex containers squeeze icon width |
-| Homepage Working Ideas | Featured idea with RoughPivotCallout annotations | Mirrors investigation feature pattern; `featured` + `callouts` frontmatter fields |
+| Taxonomy rename | investigations to essays, working-ideas merged into field-notes | Less institutional naming; essays signals depth; field-notes consolidates shorter content |
+| ProgressTracker | Generic stages array, two variants (full + compact) | Same component serves essays (4 stages) and field notes (3 stages); avoids duplication |
+| PatternImage | Seeded PRNG canvas, 3 layers | Deterministic from slug so patterns are stable; fallback when no video/image exists |
+| NowPreview | Server Component reading now.md frontmatter | Single file to update; no database; build-time static; matches workbench "what I'm doing" framing |
+| Footer colophon | "How this site was built" link replaces coffee quip | Surfaces the colophon page; more useful than a joke |
+| EssayCard image fallback | YouTube > curated > PatternImage (3-tier) | Every card gets a visual header; PatternImage is zero-maintenance generative fallback |
 
 ## Gotchas
 
@@ -302,3 +355,5 @@ See `docs/plans/2026-02-16-projects-page-redesign.md` for projects column layout
 - **Date serialization across RSC boundary**: `projects/page.tsx` passes `.toISOString()` because Date objects can't cross the Server/Client Component boundary
 - **OG image via `opengraph-image.tsx`**: Next.js auto-injects `og:image` meta tag from this file. Do NOT also set `metadata.openGraph.images` in `layout.tsx` or it will conflict
 - **Satori (OG image) CSS limitations**: Only flexbox layout, no grid. Every element needs `display: 'flex'`. No `position: relative` on children without it
+- **PatternImage CSS color parsing**: Uses a temporary DOM element to resolve CSS custom properties (e.g., `var(--color-terracotta)`) to hex. Runs in useEffect so SSR returns empty canvas; hydration fills it
+- **ProgressTracker stage defaults**: EssayCard defaults missing `stage` to `'published'`; FieldNoteEntry only shows CompactTracker when `status` prop is present (graceful degradation for content without status field)
