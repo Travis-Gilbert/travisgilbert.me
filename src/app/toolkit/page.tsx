@@ -1,9 +1,11 @@
 import type { Metadata } from 'next';
+import Link from 'next/link';
 import { getCollection, renderMarkdown } from '@/lib/content';
 import type { ToolkitEntry } from '@/lib/content';
 import SectionLabel from '@/components/SectionLabel';
 import ToolkitAccordion from '@/components/ToolkitAccordion';
 import DrawOnIcon from '@/components/rough/DrawOnIcon';
+import { ArrowRight } from '@phosphor-icons/react/dist/ssr';
 
 export const metadata: Metadata = {
   title: 'Toolkit',
@@ -60,6 +62,21 @@ export default async function ToolkitPage() {
           </section>
         );
       })}
+
+      <section className="mb-12 border-t border-border pt-8">
+        <h2 className="font-title-alt text-2xl font-semibold mb-3">
+          Reference Shelf
+        </h2>
+        <p className="text-ink-secondary mb-4">
+          Books, articles, and sources that inform the work here. Annotated with notes on why each one matters.
+        </p>
+        <Link
+          href="/shelf"
+          className="inline-flex items-center gap-1.5 font-mono text-sm text-gold hover:text-gold/80 transition-colors"
+        >
+          Browse the shelf <ArrowRight size={14} weight="bold" />
+        </Link>
+      </section>
     </>
   );
 }

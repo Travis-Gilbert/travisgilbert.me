@@ -2,12 +2,13 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { getCollection, getEntry, renderMarkdown, injectAnnotations, estimateReadingTime } from '@/lib/content';
-import type { Essay, FieldNote, ContentEntry } from '@/lib/content';
+import type { Essay, FieldNote, ShelfEntry, ContentEntry } from '@/lib/content';
 import DateStamp from '@/components/DateStamp';
 import TagList from '@/components/TagList';
 import YouTubeEmbed from '@/components/YouTubeEmbed';
 import RoughLine from '@/components/rough/RoughLine';
 import SourcesCollapsible from '@/components/SourcesCollapsible';
+import type { ShelfAnnotation } from '@/components/SourcesCollapsible';
 import ProgressTracker, { ESSAY_STAGES } from '@/components/ProgressTracker';
 import ReadingProgress from '@/components/ReadingProgress';
 
@@ -70,6 +71,31 @@ export default async function EssayDetailPage({ params }: Props) {
       .slice(0, 4);
   }
 
+  // Cross-reference shelf entries with essay sources
+  const allShelf = getCollection<ShelfEntry>('shelf');
+  const sourceUrls = new Set(entry.data.sources.map((s) => s.url));
+  const shelfByUrl: Record<string, ShelfAnnotation> = {};
+  const shelfStandalone: ShelfAnnotation[] = [];
+
+  for (const item of allShelf) {
+    const toAnnotation = (matchedByUrl: boolean): ShelfAnnotation => ({
+      slug: item.slug,
+      title: item.data.title,
+      creator: item.data.creator,
+      annotation: item.data.annotation,
+      matchedByUrl,
+    });
+
+    const urlMatch = item.data.url && sourceUrls.has(item.data.url);
+    const essayMatch = item.data.connectedEssay === slug;
+
+    if (urlMatch && item.data.url) {
+      shelfByUrl[item.data.url] = toAnnotation(true);
+    } else if (essayMatch) {
+      shelfStandalone.push(toAnnotation(false));
+    }
+  }
+
   return (
     <>
     <ReadingProgress />
@@ -107,10 +133,14 @@ export default async function EssayDetailPage({ params }: Props) {
         dangerouslySetInnerHTML={{ __html: html }}
       />
 
-      {entry.data.sources.length > 0 && (
+      {(entry.data.sources.length > 0 || shelfStandalone.length > 0) && (
         <>
           <RoughLine />
-          <SourcesCollapsible sources={entry.data.sources} />
+          <SourcesCollapsible
+            sources={entry.data.sources}
+            shelfByUrl={shelfByUrl}
+            shelfStandalone={shelfStandalone}
+          />
         </>
       )}
 
