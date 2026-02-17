@@ -316,26 +316,15 @@ See `docs/records/001-site-wide-redesign.md` for full redesign record with user 
 | UI library | Radix Primitives (not shadcn/ui) | Full custom styling over brand; shadcn opinionated defaults fight the aesthetic |
 | Section color system | terracotta=essays, teal=field-notes, gold=projects | Creates wayfinding language; color tells you where you are on the site |
 | No dashes | Colons, periods, parentheses, semicolons | User style preference; applies to all code, comments, and content |
-| Featured card hierarchy | Scale + negative space, no outer box | Double-bordered hero was visually cluttered; subtraction creates emphasis |
-| Projects layout | Role-based columns, not timeline | Communicates "types of work I do" rather than chronological history |
 | Projects: no RoughBox | Inline rgba tinting with three states | RoughBox's fixed CSS classes can't handle dynamic rest/hover/expanded opacity |
-| Projects: past-tense roles | "Built & Designed", "Project Managed", "Organized", "Created" | Reads as accomplishments, not job titles; Builder + Designer merged |
-| Projects: no role pills | Removed horizontal pill bar | Column headers already convey the same information; pills were redundant |
-| Projects: column dividers | Dark charcoal (`#3A3632`) at 25% opacity, uniform | Per-role colored dividers looked uneven; single color creates aligned architectural lines |
-| Hero redesign | Compact name + cycling "On..." tagline | Tall static heroes create dead space; cycling tagline shows range and keeps hero alive |
 | Nav restructure | On ... / Field Notes / Projects / Toolkit / Connect | Shelf and Colophon folded into Toolkit; Projects promoted above Field Notes |
 | "Essays on ..." naming | "On ..." prefix for essay section | Less institutional; signals essayistic depth; pattern reinforced by individual titles |
 | Section icons | SketchIcon (hand-drawn SVG) for pages, Phosphor for UI glyphs | Brand identity icons match rough.js aesthetic; utility icons stay crisp |
 | Evidence callouts | `.prose-investigations blockquote::before` with `:has()` selector | Only investigation articles get "NOTE" labels; semantic CSS, no component changes |
 | OG image | `opengraph-image.tsx` with `ImageResponse` (Satori) | Auto-generated at build, brand-consistent, no static PNG to maintain |
-| Mobile typography | Mobile-first base sizes with `@media (min-width: 640px)` scale-up | h1: 1.875rem base, 2.44rem at sm; prevents overflow on 320px screens |
-| Font weights | Caveat reduced from 4 weights to 1 (400) | Callouts only use regular weight; saves bandwidth |
-| SketchIcon overflow | `overflow="visible"` + `flex-shrink-0` on SVG | Strokes bleed past 32x32 viewBox at small sizes; flex containers squeeze icon width |
 | Taxonomy rename | investigations to essays, working-ideas merged into field-notes | Less institutional naming; essays signals depth; field-notes consolidates shorter content |
 | ProgressTracker | Generic stages array, two variants (full + compact) | Same component serves essays (4 stages) and field notes (3 stages); avoids duplication |
 | PatternImage | Seeded PRNG canvas, 3 layers | Deterministic from slug so patterns are stable; fallback when no video/image exists |
-| NowPreview | Server Component reading now.md frontmatter | Single file to update; no database; build-time static; matches workbench "what I'm doing" framing |
-| Footer colophon | "How this site was built" link replaces coffee quip | Surfaces the colophon page; more useful than a joke |
 | EssayCard image fallback | YouTube > curated > PatternImage (3-tier) | Every card gets a visual header; PatternImage is zero-maintenance generative fallback |
 
 ## Gotchas
