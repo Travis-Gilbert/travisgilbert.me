@@ -522,18 +522,18 @@ blockquote {
 @media (min-width: 1280px) {
   .margin-annotation-anchor::after {
     position: absolute;
-    width: min(450px, calc(100vw - 65ch - 6rem));
+    width: min(450px, calc((100vw - 100%) / 2 - 3rem));
     top: 0;
   }
 
   /* Right-side annotation (default) */
   .margin-annotation-anchor[data-annotation-side="right"]::after {
-    left: calc(65ch + 1.5rem);
+    left: calc(100% + 1.5rem);
   }
 
   /* Left-side annotation */
   .margin-annotation-anchor[data-annotation-side="left"]::after {
-    right: calc(65ch + 1.5rem);
+    right: calc(100% + 1.5rem);
     text-align: right;
   }
 }
