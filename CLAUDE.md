@@ -108,7 +108,7 @@ Frontmatter-driven handwritten margin notes on essays, rendered entirely via CSS
 4. Annotations alternate right/left sides automatically
 
 **Responsive behavior:**
-- Desktop (xl+, 1280px): absolute positioned in margin beside prose, 150px wide, Caveat font
+- Desktop (xl+, 1280px): absolute positioned in margin beside prose via `left: calc(100% + 1.5rem)`, width `min(450px, calc((100vw - 100%) / 2 - 3rem))`, Caveat font
 - Mobile/tablet: inline block below paragraph with subtle terracotta border-top
 
 ### Font System
@@ -168,6 +168,8 @@ Tailwind > font-title class
 | `pivotDown` | `true` | Diagonal direction |
 
 Used on homepage featured cards (investigation and working idea). Two callouts max per card, staggered on opposite sides.
+
+**Outer wrapper requires explicit `width: 450`** on the absolutely positioned div. Without it, shrink-to-fit sizing collapses text to one word per line (`max-width` alone has no effect on absolute elements with no `width`).
 
 ### ProgressTracker System
 
@@ -231,7 +233,7 @@ All variants show CompactTracker in the top-right corner alongside DateStamp.
 
 **Column dividers:** 2px solid dark charcoal (`#3A3632`) at 25% opacity. Uniform color across all columns (not per-role) for visual alignment.
 
-**Content schema:** Projects have an optional `organization` field added to the Zod schema in `content.ts`. The `date` field is serialized to ISO string across the RSC boundary (Server Component passes `.toISOString()`, Client Component receives string).
+**Content schema:** Projects have an optional `organization` field added to the Zod schema in `content.ts`. Projects also have an optional `callout` field (string) for handwritten annotations on homepage cards. The `date` field is serialized to ISO string across the RSC boundary (Server Component passes `.toISOString()`, Client Component receives string).
 
 ### Surface Materiality System
 
@@ -380,7 +382,7 @@ See `docs/records/001-site-wide-redesign.md` for full redesign record with user 
 | DrawOnIcon vs SketchIcon | DrawOnIcon (animated) for 9 page headers, SketchIcon (static) for nav | Nav icons are always visible in sticky header; animation there would be distracting |
 | DrawOnIcon technique | `pathLength="1"` + CSS `stroke-dashoffset` transition | Avoids `getTotalLength()` JS measurement; works with SSR; single CSS transition does the work |
 | MarginAnnotation approach | Frontmatter array + CSS-only rendering (no Client Component) | Zero JS overhead; `::after` pseudo-elements + `attr()` read data attributes directly |
-| MarginAnnotation breakpoint | xl (1280px) for margin positioning, not lg (1024px) | At 1024px only ~128px margin space; at 1280px ~192px, comfortably fitting 150px annotations |
+| MarginAnnotation breakpoint | xl (1280px) for margin positioning, not lg (1024px) | At 1024px only ~128px margin space; at 1280px ~192px; width now responsive via min(450px, ...) |
 | Related field notes | Two-tier resolution: explicit `related` slugs, then shared-tag fallback | Curated relationships preferred; automatic fallback ensures no empty section |
 | Dark mode | Deferred to separate future effort | Tokens ready in global.css but scope was too large for Phase 3 |
 | Reading time | 200 WPM, `Math.ceil`, min 1 | Standard adult reading speed; ceiling prevents "0 min"; field notes conditional (>1 min only) |
@@ -415,3 +417,6 @@ See `docs/records/001-site-wide-redesign.md` for full redesign record with user 
 - **Reading time word count**: `estimateReadingTime()` splits on `/\s+/` which handles tabs, newlines, and multiple spaces in markdown. Always returns at least 1
 - **ConsoleEasterEgg dependency array**: All 5 props are in the `useEffect` dependency array. Since they're computed at build time (static), the effect runs exactly once per page load
 - **`pre code` word-break reset**: Inline `code` gets `word-break: break-word` but `pre code` resets to `normal` because code blocks should scroll horizontally, not wrap
+- **Absolute-positioned callout text needs explicit `width`**: `max-width` alone on absolute elements causes shrink-to-fit (one word per line). Both `RoughPivotCallout` and `RoughCallout` set `width: 450` on the outer wrapper div
+- **`overflow-hidden` clips absolute callouts**: Secondary essay cards had `overflow-hidden` on the `group` div which clipped `RoughCallout`. Only put `overflow-hidden` on image wrappers, not card-level containers that host absolute-positioned decorations
+- **CSS `ch` unit is font-relative in `::after`**: Margin annotation `::after` inherits `font-annotation` (Caveat), making `calc(65ch + ...)` resolve differently than `65ch` in the prose body font. Use `calc(100% + ...)` for font-agnostic positioning
