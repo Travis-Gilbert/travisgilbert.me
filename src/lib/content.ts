@@ -83,6 +83,7 @@ export const projectSchema = z.object({
   featured: z.boolean().default(false),
   draft: z.boolean().default(false),
   order: z.number().default(0),
+  callout: z.string().optional(),
 });
 
 // ─────────────────────────────────────────────────

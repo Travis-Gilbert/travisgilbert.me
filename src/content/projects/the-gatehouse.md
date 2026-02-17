@@ -12,4 +12,5 @@ tags: ["urban planning", "infrastructure", "architecture"]
 featured: true
 draft: false
 order: 2
+callout: "From vacant lot to occupied homes in 30 months"
 ---

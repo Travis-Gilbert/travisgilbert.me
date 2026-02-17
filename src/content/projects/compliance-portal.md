@@ -10,4 +10,5 @@ tags: ["software", "tools"]
 featured: true
 draft: false
 order: 1
+callout: "Replaced 47 spreadsheets with one dashboard"
 ---

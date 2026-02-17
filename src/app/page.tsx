@@ -330,6 +330,19 @@ export default function HomePage() {
                       <div className="pt-1">
                         <TagList tags={project.data.tags} tint="gold" />
                       </div>
+                      {project.data.callout && (
+                        <div
+                          className="mt-1"
+                          style={{
+                            fontFamily: 'var(--font-annotation)',
+                            fontSize: 14,
+                            color: 'var(--color-gold)',
+                            opacity: 0.8,
+                          }}
+                        >
+                          {project.data.callout}
+                        </div>
+                      )}
                     </div>
                   </div>
                 </RoughBox>
