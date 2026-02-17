@@ -391,6 +391,8 @@ See `docs/records/001-site-wide-redesign.md` for full redesign record with user 
 | Mobile focus trap | Tab wrapping + auto-focus first item + return focus to hamburger on close | WCAG-compliant modal behavior for mobile menu overlay |
 | ConsoleEasterEgg props | Layout computes stats at build time, passes as props | Server Component (layout) reads collections once; Client Component displays them |
 | Code block overflow | `max-width: 100%` + `word-break: break-word` on inline code | Prevents horizontal page scroll from long code strings on mobile |
+| Hero grid alignment | `1fr 118px 1fr` CSS Grid + `lg:pl-[128px]` | 118px matches RoughLine label width; 128px = (max-w-6xl minus max-w-4xl)/2 aligns name with content area |
+| NowPreviewCompact layout | 2x2 grid (grid-cols-2) not vertical stack | Horizontal rectangle keeps hero height compact (181px) while showing all 4 items |
 
 ## Gotchas
 
@@ -420,3 +422,4 @@ See `docs/records/001-site-wide-redesign.md` for full redesign record with user 
 - **Absolute-positioned callout text needs explicit `width`**: `max-width` alone on absolute elements causes shrink-to-fit (one word per line). Both `RoughPivotCallout` and `RoughCallout` set `width: 450` on the outer wrapper div
 - **`overflow-hidden` clips absolute callouts**: Secondary essay cards had `overflow-hidden` on the `group` div which clipped `RoughCallout`. Only put `overflow-hidden` on image wrappers, not card-level containers that host absolute-positioned decorations
 - **CSS `ch` unit is font-relative in `::after`**: Margin annotation `::after` inherits `font-annotation` (Caveat), making `calc(65ch + ...)` resolve differently than `65ch` in the prose body font. Use `calc(100% + ...)` for font-agnostic positioning
+- **Hero grid alignment math**: The `1fr 118px 1fr` grid in the hero (max-w-6xl, 1152px) aligns with the RoughLine label gap inside max-w-4xl (896px) because each hero `1fr` extends exactly `(1152-896)/2 = 128px` beyond the content area. The `lg:pl-[128px]` on the left column shifts the name to align with the content area's left edge. If either max-width changes, both values must be recalculated
