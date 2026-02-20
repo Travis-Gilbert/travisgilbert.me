@@ -25,66 +25,30 @@ Choosing your hero object:
 ESSAYS = [
 
     {
-        "slug": "parking-lot-problem",
+        "slug": "the-parking-lot-problem",
         "title": "The Parking Lot Problem",
-        "hero": "photos/cutouts/parking-structure.png",
+        "hero": "photos/cutouts/paved-paradise-book.png",
         "supports": [
-            "photos/cutouts/zoning-map.png",
-            "photos/cutouts/hamming-book.png",
-            "photos/cutouts/coffee-mug.png",
-            "photos/cutouts/new-yorker.png",
+            "photos/cutouts/conservatory-building.png",
+            "photos/cutouts/carriage-town-tote.png",
+            "photos/cutouts/people-painting.png",
+            "photos/cutouts/expressive-painting.png",
         ],
-        "strips": [
-            "photos/cutouts/flow-trip-strip.png",
-        ],
+        "strips": [],
         "ground": "olive",
     },
 
     {
-        "slug": "curb-extensions-pedestrian-safety",
-        "title": "The Curb Extension",
-        "hero": "photos/cutouts/sketchbook-open.png",
+        "slug": "the-sidewalk-tax",
+        "title": "The Sidewalk Tax",
+        "hero": "photos/cutouts/conservatory-building.png",
         "supports": [
-            "photos/cutouts/raspberry-pi.png",
-            "photos/cutouts/poetics-of-space-book.png",
-            "photos/cutouts/coffee-mug.png",
+            "photos/cutouts/paved-paradise-book.png",
+            "photos/cutouts/people-painting.png",
+            "photos/cutouts/carved-pumpkin.png",
         ],
-        "strips": [
-            "photos/cutouts/hamming-book-spine.png",
-            "photos/cutouts/newyorker-strip.png",
-        ],
+        "strips": [],
         "ground": "olive",
-    },
-
-    {
-        "slug": "wealth-inequality-built-environment",
-        "title": "Wealth Inequality and the Built Environment",
-        "hero": "photos/cutouts/utopia-of-rules-book.png",
-        "supports": [
-            "photos/cutouts/zoning-map.png",
-            "photos/cutouts/camera.png",
-            "photos/cutouts/notebook.png",
-            "photos/cutouts/hoto-toolkit.png",
-        ],
-        "strips": [
-            "photos/cutouts/flow-trip-strip.png",
-        ],
-        "ground": "olive",
-    },
-
-    {
-        "slug": "flint-water-design-failure",
-        "title": "Flint and Infrastructure Neglect",
-        "hero": "photos/cutouts/raspberry-pi.png",
-        "supports": [
-            "photos/cutouts/notebook-journal.png",
-            "photos/cutouts/glasses.png",
-            "photos/cutouts/coffee-mug.png",
-        ],
-        "strips": [
-            "photos/cutouts/hamming-book-spine.png",
-        ],
-        "ground": "dark",
     },
 
 ]

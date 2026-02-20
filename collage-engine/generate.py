@@ -30,7 +30,9 @@ from essay_configs import ESSAYS
 
 FULL_SIZE    = (1400, 875)   # final output (16:10-ish)
 PREVIEW_SIZE = (900,  562)   # quick preview for checking composition
-OUTPUT_DIR   = Path("public/collage")
+# Output to project-level public/collage/ (one directory up from collage-engine/)
+PROJECT_ROOT = Path(__file__).parent.parent
+OUTPUT_DIR   = PROJECT_ROOT / "public" / "collage"
 
 
 def generate_essay(config: dict, size: tuple, force: bool = False) -> bool:

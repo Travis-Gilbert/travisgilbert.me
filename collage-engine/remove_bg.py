@@ -30,6 +30,15 @@ import argparse
 from pathlib import Path
 
 
+def _register_heif():
+    """Register HEIF/HEIC support with Pillow (safe to call multiple times)."""
+    try:
+        import pillow_heif
+        pillow_heif.register_heif_opener()
+    except ImportError:
+        pass  # pillow-heif not installed; HEIC files will fail gracefully
+
+
 def remove_background(input_path: Path, output_path: Path) -> None:
     """Remove background from a single image file using rembg."""
     try:
@@ -41,10 +50,20 @@ def remove_background(input_path: Path, output_path: Path) -> None:
     from PIL import Image
     import io
 
+    _register_heif()
+
     print(f"Processing: {input_path.name}")
 
-    with open(input_path, "rb") as f:
-        input_data = f.read()
+    # HEIC files need to be opened via Pillow (with pillow-heif) and
+    # re-encoded to PNG bytes so rembg can process them.
+    if input_path.suffix.lower() in {".heic", ".heif"}:
+        img = Image.open(input_path).convert("RGB")
+        buf = io.BytesIO()
+        img.save(buf, format="PNG")
+        input_data = buf.getvalue()
+    else:
+        with open(input_path, "rb") as f:
+            input_data = f.read()
 
     output_data = remove(input_data)
     img = Image.open(io.BytesIO(output_data)).convert("RGBA")
