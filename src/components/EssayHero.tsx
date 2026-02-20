@@ -3,9 +3,13 @@
 /**
  * EssayHero: Full-bleed editorial header for essay detail pages.
  *
- * Renders a full viewport-width hero with either a YouTube thumbnail or
- * PatternImage as the background, overlaid with a warm dark wash and large
- * cream-colored typography. Mirrors the CollageHero's editorial aesthetic.
+ * Background priority (first match wins):
+ *   1. Collage image from the Python engine (`/collage/<slug>.jpg`)
+ *   2. YouTube thumbnail (via youtubeId)
+ *   3. PatternImage generative fallback
+ *
+ * Collage images already contain the dark ground, grain, and vignette,
+ * so the dark overlay is skipped when a collage is present.
  *
  * Reports its height to --hero-height so DotGrid renders cream dots over
  * the dark zone.
@@ -28,6 +32,8 @@ interface EssayHeroProps {
   /** TagList component passed as a slot */
   tags?: React.ReactNode;
   summary?: string;
+  /** Path to a pre-composited collage image (e.g. `/collage/my-essay.jpg`) */
+  collageImage?: string;
 }
 
 export default function EssayHero({
@@ -40,6 +46,7 @@ export default function EssayHero({
   progressTracker,
   tags,
   summary,
+  collageImage,
 }: EssayHeroProps) {
   const heroRef = useRef<HTMLDivElement>(null);
 
@@ -82,9 +89,19 @@ export default function EssayHero({
         width: '100vw',
       }}
     >
-      {/* Background layer: YouTube thumbnail or PatternImage */}
+      {/* Background layer: collage > YouTube thumbnail > PatternImage */}
       <div className="absolute inset-0">
-        {youtubeId ? (
+        {collageImage ? (
+          <Image
+            src={collageImage}
+            alt=""
+            fill
+            sizes="100vw"
+            className="object-cover object-top"
+            aria-hidden="true"
+            priority
+          />
+        ) : youtubeId ? (
           <Image
             src={`https://img.youtube.com/vi/${youtubeId}/maxresdefault.jpg`}
             alt=""
@@ -106,11 +123,13 @@ export default function EssayHero({
         )}
       </div>
 
-      {/* Dark overlay for text legibility */}
-      <div
-        className="absolute inset-0"
-        style={{ backgroundColor: 'var(--color-hero-overlay)' }}
-      />
+      {/* Dark overlay for text legibility (skipped for collage: ground is baked in) */}
+      {!collageImage && (
+        <div
+          className="absolute inset-0"
+          style={{ backgroundColor: 'var(--color-hero-overlay)' }}
+        />
+      )}
 
       {/* Subtle paper grain on the dark overlay */}
       <div

@@ -43,3 +43,9 @@ firebase-debug.log
 # Screenshots (dev artifacts)
 *.png
 !public/**/*.png
+
+# Collage engine reference materials (not project code)
+blake-cale-reference/
+Photos/
+Essay collage engine/
+*.textClipping

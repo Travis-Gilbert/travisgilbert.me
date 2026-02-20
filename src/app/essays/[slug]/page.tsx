@@ -1,4 +1,6 @@
 import type { Metadata } from 'next';
+import fs from 'node:fs';
+import nodePath from 'node:path';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { getCollection, getEntry, renderMarkdown, injectAnnotations, estimateReadingTime } from '@/lib/content';
@@ -98,6 +100,10 @@ export default async function EssayDetailPage({ params }: Props) {
     }
   }
 
+  // Detect pre-composited collage image from the Python engine
+  const collagePath = nodePath.join(process.cwd(), 'public', 'collage', `${slug}.jpg`);
+  const collageImage = fs.existsSync(collagePath) ? `/collage/${slug}.jpg` : undefined;
+
   return (
     <>
     <ArticleJsonLd
@@ -119,6 +125,7 @@ export default async function EssayDetailPage({ params }: Props) {
         youtubeId={entry.data.youtubeId}
         category={entry.data.tags[0]}
         summary={entry.data.summary}
+        collageImage={collageImage}
         tags={
           <TagList tags={entry.data.tags} tint="terracotta" inverted />
         }

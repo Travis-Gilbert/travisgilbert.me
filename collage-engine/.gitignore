@@ -1,0 +1,11 @@
+# Test outputs
+test_assets/
+test_collage_output.jpg
+
+# Photo workflow (large binaries)
+photos/raw/
+photos/cutouts/
+
+# Python
+__pycache__/
+*.pyc
