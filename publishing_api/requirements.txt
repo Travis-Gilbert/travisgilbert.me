@@ -1,0 +1,2 @@
+# Railway reads this file. Points to production requirements.
+-r requirements/production.txt

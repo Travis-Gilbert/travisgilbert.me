@@ -1,0 +1,101 @@
+{% extends "base.html" %}
+
+{% block title %}Edit Now Page{% endblock %}
+
+{% block content %}
+<div class="now-editor">
+    <header class="now-header">
+        <h1>Now Page</h1>
+        <p class="now-subtitle">What you're doing, reading, building, thinking about right now.</p>
+    </header>
+
+    <form method="post" class="now-form">
+        {% csrf_token %}
+
+        <div class="now-field-group">
+            <label for="{{ form.updated.id_for_label }}">Last Updated</label>
+            {{ form.updated }}
+        </div>
+
+        <div class="now-grid">
+            <div class="now-card">
+                <h3>Researching</h3>
+                {{ form.researching }}
+                {{ form.researching_context }}
+            </div>
+            <div class="now-card">
+                <h3>Reading</h3>
+                {{ form.reading }}
+                {{ form.reading_context }}
+            </div>
+            <div class="now-card">
+                <h3>Building</h3>
+                {{ form.building }}
+                {{ form.building_context }}
+            </div>
+            <div class="now-card">
+                <h3>Listening to</h3>
+                {{ form.listening }}
+                {{ form.listening_context }}
+            </div>
+        </div>
+
+        <div class="now-thinking">
+            <h3>Thinking About</h3>
+            {{ form.thinking }}
+        </div>
+
+        <div class="now-actions">
+            <button type="submit" class="btn btn-primary">Save</button>
+            {% if publish_url %}
+            <button
+                type="button"
+                class="btn btn-publish"
+                hx-post="{{ publish_url }}"
+                hx-target="#publish-toast"
+                hx-swap="innerHTML"
+                hx-on::after-request="handlePublishResponse(event)"
+            >
+                Publish Now Page
+            </button>
+            {% endif %}
+        </div>
+
+        {% if recent_publishes %}
+        <div class="publish-history">
+            <h3>Publish History</h3>
+            <ul>
+                {% for log in recent_publishes %}
+                <li class="{% if log.success %}publish-success{% else %}publish-fail{% endif %}">
+                    {{ log.created_at|date:"M j, g:i A" }}
+                    {% if log.success %} OK{% else %} FAILED{% endif %}
+                </li>
+                {% endfor %}
+            </ul>
+        </div>
+        {% endif %}
+    </form>
+</div>
+
+<script>
+function handlePublishResponse(event) {
+    const toast = document.getElementById('publish-toast');
+    while (toast.firstChild) toast.removeChild(toast.firstChild);
+    try {
+        const data = JSON.parse(event.detail.xhr.responseText);
+        if (data.success) {
+            toast.className = 'publish-toast publish-toast-success';
+            toast.textContent = 'Now page published!';
+        } else {
+            toast.className = 'publish-toast publish-toast-error';
+            toast.textContent = 'Publish failed: ' + (data.error || 'Unknown error');
+        }
+    } catch(e) {
+        toast.className = 'publish-toast publish-toast-error';
+        toast.textContent = 'Publish failed: Network error';
+    }
+    toast.style.display = 'block';
+    setTimeout(function() { toast.style.display = 'none'; }, 8000);
+}
+</script>
+{% endblock %}

@@ -1,0 +1,256 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}{% if is_new %}New{% else %}Edit{% endif %} {{ content_type|title }}{% endblock %}
+
+{% block content %}
+<div class="editor-layout">
+    <!-- Sidebar: metadata fields -->
+    <aside class="editor-sidebar">
+        <form method="post" id="content-form" class="editor-form">
+            {% csrf_token %}
+
+            <div class="sidebar-header">
+                <h2>{% if is_new %}New{% else %}Edit{% endif %} {{ content_type|title }}</h2>
+                {% if not is_new %}
+                <span class="save-indicator" id="save-indicator">Saved</span>
+                {% endif %}
+            </div>
+
+            <!-- Title (always first, prominent) -->
+            <div class="field-group field-group-title">
+                {{ form.title }}
+                {% if form.title.errors %}<span class="field-error">{{ form.title.errors.0 }}</span>{% endif %}
+            </div>
+
+            <!-- Slug -->
+            <div class="field-group">
+                <label for="{{ form.slug.id_for_label }}">Slug</label>
+                {{ form.slug }}
+            </div>
+
+            <!-- Date -->
+            <div class="field-group">
+                <label for="{{ form.date.id_for_label }}">Date</label>
+                {{ form.date }}
+            </div>
+
+            <!-- Summary/Excerpt (depends on content type) -->
+            {% if form.summary %}
+            <div class="field-group">
+                <label for="{{ form.summary.id_for_label }}">Summary</label>
+                {{ form.summary }}
+                <span class="field-count" data-max="200" data-field="{{ form.summary.id_for_label }}"></span>
+            </div>
+            {% endif %}
+            {% if form.excerpt %}
+            <div class="field-group">
+                <label for="{{ form.excerpt.id_for_label }}">Excerpt</label>
+                {{ form.excerpt }}
+            </div>
+            {% endif %}
+            {% if form.description %}
+            <div class="field-group">
+                <label for="{{ form.description.id_for_label }}">Description</label>
+                {{ form.description }}
+            </div>
+            {% endif %}
+
+            <!-- Content-type specific metadata -->
+            {% if form.stage %}
+            <div class="field-group">
+                <label for="{{ form.stage.id_for_label }}">Stage</label>
+                {{ form.stage }}
+            </div>
+            {% endif %}
+            {% if form.status %}
+            <div class="field-group">
+                <label for="{{ form.status.id_for_label }}">Status</label>
+                {{ form.status }}
+            </div>
+            {% endif %}
+            {% if form.youtube_id %}
+            <div class="field-group">
+                <label for="{{ form.youtube_id.id_for_label }}">YouTube ID</label>
+                {{ form.youtube_id }}
+            </div>
+            {% endif %}
+            {% if form.role %}
+            <div class="field-group">
+                <label for="{{ form.role.id_for_label }}">Role</label>
+                {{ form.role }}
+            </div>
+            {% endif %}
+            {% if form.creator %}
+            <div class="field-group">
+                <label for="{{ form.creator.id_for_label }}">Creator</label>
+                {{ form.creator }}
+            </div>
+            {% endif %}
+            {% if form.type %}
+            <div class="field-group">
+                <label for="{{ form.type.id_for_label }}">Type</label>
+                {{ form.type }}
+            </div>
+            {% endif %}
+            {% if form.year %}
+            <div class="field-group">
+                <label for="{{ form.year.id_for_label }}">Year</label>
+                {{ form.year }}
+            </div>
+            {% endif %}
+            {% if form.organization %}
+            <div class="field-group">
+                <label for="{{ form.organization.id_for_label }}">Organization</label>
+                {{ form.organization }}
+            </div>
+            {% endif %}
+            {% if form.callout %}
+            <div class="field-group">
+                <label for="{{ form.callout.id_for_label }}">Callout</label>
+                {{ form.callout }}
+            </div>
+            {% endif %}
+            {% if form.connected_to %}
+            <div class="field-group">
+                <label for="{{ form.connected_to.id_for_label }}">Connected To</label>
+                {{ form.connected_to }}
+            </div>
+            {% endif %}
+            {% if form.connected_essay %}
+            <div class="field-group">
+                <label for="{{ form.connected_essay.id_for_label }}">Connected Essay</label>
+                {{ form.connected_essay }}
+            </div>
+            {% endif %}
+            {% if form.url %}
+            <div class="field-group">
+                <label for="{{ form.url.id_for_label }}">URL</label>
+                {{ form.url }}
+            </div>
+            {% endif %}
+
+            <!-- Draft toggle -->
+            {% if form.draft %}
+            <div class="field-group field-group-toggle">
+                <label>
+                    {{ form.draft }}
+                    <span>Draft</span>
+                </label>
+            </div>
+            {% endif %}
+            {% if form.featured %}
+            <div class="field-group field-group-toggle">
+                <label>
+                    {{ form.featured }}
+                    <span>Featured</span>
+                </label>
+            </div>
+            {% endif %}
+
+            <!-- Hidden JSON fields (tags, sources, etc.) -->
+            {% for field in form.hidden_fields %}
+                {{ field }}
+            {% endfor %}
+
+            <!-- Action buttons -->
+            <div class="sidebar-actions">
+                <button type="submit" class="btn btn-primary">
+                    {% if is_new %}Create{% else %}Save{% endif %}
+                </button>
+                {% if not is_new and publish_url %}
+                <button
+                    type="button"
+                    class="btn btn-publish"
+                    hx-post="{{ publish_url }}"
+                    hx-target="#publish-toast"
+                    hx-swap="innerHTML"
+                    hx-on::after-request="handlePublishResponse(event)"
+                >
+                    Publish
+                </button>
+                {% endif %}
+            </div>
+
+            <!-- Publish history -->
+            {% if recent_publishes %}
+            <div class="publish-history">
+                <h3>Publish History</h3>
+                <ul>
+                    {% for log in recent_publishes %}
+                    <li class="{% if log.success %}publish-success{% else %}publish-fail{% endif %}">
+                        {{ log.created_at|date:"M j, g:i A" }}
+                        {% if log.success %} OK{% else %} FAILED{% endif %}
+                        {% if log.commit_url %}
+                        <a href="{{ log.commit_url }}" target="_blank" rel="noopener">
+                            {{ log.commit_sha|truncatechars:7 }}
+                        </a>
+                        {% endif %}
+                    </li>
+                    {% endfor %}
+                </ul>
+            </div>
+            {% endif %}
+        </form>
+    </aside>
+
+    <!-- Main writing area -->
+    <section class="editor-writing-area">
+        <div class="writing-surface">
+            <label for="editor-body" class="sr-only">Body</label>
+            {{ form.body }}
+        </div>
+    </section>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+// Auto-generate slug from title on new content
+{% if is_new %}
+document.querySelector('.field-title')?.addEventListener('input', function(e) {
+    const slugField = document.querySelector('.field-slug');
+    if (slugField && !slugField.dataset.manual) {
+        slugField.value = e.target.value
+            .toLowerCase()
+            .replace(/[^a-z0-9\s-]/g, '')
+            .replace(/\s+/g, '-')
+            .replace(/-+/g, '-')
+            .replace(/^-|-$/g, '');
+    }
+});
+document.querySelector('.field-slug')?.addEventListener('input', function() {
+    this.dataset.manual = 'true';
+});
+{% endif %}
+
+// Handle publish button response (safe DOM construction, no innerHTML)
+function handlePublishResponse(event) {
+    const toast = document.getElementById('publish-toast');
+    // Clear previous content safely
+    while (toast.firstChild) toast.removeChild(toast.firstChild);
+
+    try {
+        const data = JSON.parse(event.detail.xhr.responseText);
+        if (data.success) {
+            toast.className = 'publish-toast publish-toast-success';
+            toast.appendChild(document.createTextNode('Published! Commit: '));
+            const link = document.createElement('a');
+            link.href = data.commit_url;
+            link.target = '_blank';
+            link.rel = 'noopener';
+            link.textContent = data.commit_sha.substring(0, 7);
+            toast.appendChild(link);
+        } else {
+            toast.className = 'publish-toast publish-toast-error';
+            toast.textContent = 'Publish failed: ' + (data.error || 'Unknown error');
+        }
+    } catch(e) {
+        toast.className = 'publish-toast publish-toast-error';
+        toast.textContent = 'Publish failed: Network error';
+    }
+    toast.style.display = 'block';
+    setTimeout(function() { toast.style.display = 'none'; }, 8000);
+}
+</script>
+{% endblock %}

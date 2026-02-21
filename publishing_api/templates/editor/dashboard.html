@@ -1,0 +1,106 @@
+{% extends "base.html" %}
+{% block title %}Dashboard{% endblock %}
+
+{% block content %}
+<div class="dashboard">
+    <header class="dashboard-header">
+        <h1>Studio</h1>
+        <p class="dashboard-subtitle">Your publishing workspace</p>
+    </header>
+
+    <div class="dashboard-grid">
+        <!-- Quick create -->
+        <section class="dashboard-section quick-create">
+            <h2>Create</h2>
+            <div class="quick-create-grid">
+                <a href="{% url 'editor:essay-create' %}" class="quick-create-btn quick-create-essay">
+                    <span class="quick-create-icon">+</span>
+                    <span>New Essay</span>
+                </a>
+                <a href="{% url 'editor:field-note-create' %}" class="quick-create-btn quick-create-note">
+                    <span class="quick-create-icon">+</span>
+                    <span>New Field Note</span>
+                </a>
+                <a href="{% url 'editor:shelf-create' %}" class="quick-create-btn quick-create-shelf">
+                    <span class="quick-create-icon">+</span>
+                    <span>New Shelf Entry</span>
+                </a>
+                <a href="{% url 'editor:project-create' %}" class="quick-create-btn quick-create-project">
+                    <span class="quick-create-icon">+</span>
+                    <span>New Project</span>
+                </a>
+            </div>
+        </section>
+
+        <!-- Recent drafts -->
+        <section class="dashboard-section">
+            <h2>Drafts</h2>
+            <ul class="content-list">
+                {% for essay in essays %}
+                    {% if essay.draft %}
+                    <li class="content-item">
+                        <a href="{% url 'editor:essay-edit' slug=essay.slug %}">
+                            <span class="content-badge badge-essay">Essay</span>
+                            <span class="content-item-title">{{ essay.title }}</span>
+                            <span class="content-item-stage">{{ essay.get_stage_display }}</span>
+                        </a>
+                    </li>
+                    {% endif %}
+                {% endfor %}
+                {% for note in field_notes %}
+                    {% if note.draft %}
+                    <li class="content-item">
+                        <a href="{% url 'editor:field-note-edit' slug=note.slug %}">
+                            <span class="content-badge badge-note">Note</span>
+                            <span class="content-item-title">{{ note.title }}</span>
+                        </a>
+                    </li>
+                    {% endif %}
+                {% endfor %}
+                {% for project in projects %}
+                    {% if project.draft %}
+                    <li class="content-item">
+                        <a href="{% url 'editor:project-edit' slug=project.slug %}">
+                            <span class="content-badge badge-project">Project</span>
+                            <span class="content-item-title">{{ project.title }}</span>
+                        </a>
+                    </li>
+                    {% endif %}
+                {% endfor %}
+            </ul>
+        </section>
+
+        <!-- Recent publishes -->
+        <section class="dashboard-section">
+            <h2>Recent Publishes</h2>
+            <ul class="publish-log-list">
+                {% for log in recent_publishes %}
+                <li class="publish-log-item {% if log.success %}publish-success{% else %}publish-fail{% endif %}">
+                    <span class="publish-log-status">{% if log.success %}OK{% else %}FAILED{% endif %}</span>
+                    <span class="publish-log-title">{{ log.content_title }}</span>
+                    <time class="publish-log-time" datetime="{{ log.created_at|date:'c' }}">
+                        {{ log.created_at|date:"M j, g:i A" }}
+                    </time>
+                    {% if log.commit_url %}
+                    <a href="{{ log.commit_url }}" target="_blank" rel="noopener" class="publish-log-sha">
+                        {{ log.commit_sha|truncatechars:7 }}
+                    </a>
+                    {% endif %}
+                </li>
+                {% empty %}
+                <li class="publish-log-empty">Nothing published yet. Write something.</li>
+                {% endfor %}
+            </ul>
+        </section>
+
+        <!-- Now page shortcut -->
+        <section class="dashboard-section">
+            <h2>Now Page</h2>
+            {% if now_page %}
+            <p class="now-summary">Last updated: {{ now_page.updated|date:"M j, Y" }}</p>
+            {% endif %}
+            <a href="{% url 'editor:now-edit' %}" class="btn btn-secondary">Edit Now Page</a>
+        </section>
+    </div>
+</div>
+{% endblock %}

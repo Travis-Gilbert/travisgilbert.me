@@ -33,6 +33,7 @@ Next.js 15 (App Router), React 19, Tailwind CSS v4 (`@tailwindcss/postcss`), rou
 | `src/styles/global.css` | Design tokens, surface utilities, prose variants, timeline CSS |
 | `docs/plans/` | Design documents and implementation plans |
 | `public/fonts/` | Self-hosted Amarna variable font |
+| `publishing_api/` | Django Studio: writing interface and GitHub publish pipeline (see Record 002) |
 
 ## Development Commands
 
@@ -87,6 +88,7 @@ Most components are **Server Components** by default. Components needing browser
 | `MobileCommentList.tsx` | Below-article comment list for viewports narrower than xl |
 | `ReadingProgress.tsx` | Thin progress bar at top of viewport during article scroll |
 | `NowPreviewCompact.tsx` | 2x2 grid /now snapshot (Server Component reading `now.md`, but has `inverted` prop for hero) |
+| `StudioShortcut.tsx` | Invisible Ctrl+Shift+E handler; maps current path to Django Studio URL via `NEXT_PUBLIC_STUDIO_URL` |
 
 Server Components can import and render Client Components; children pass through as a slot without hydrating.
 
@@ -295,6 +297,10 @@ Vercel with native Next.js builder. Git integration auto-deploys on push to `mai
 
 Phases 1 through 4 (Foundation, Micro-interactions, Animations, Polish) are **all complete**. See `docs/records/001-site-wide-redesign.md` for full history.
 
+**Publishing API (Django Studio):** Scaffolded. All models, views, templates, publisher pipeline, and StudioShortcut integration are written. Django check passes (0 issues). Not yet deployed or tested end-to-end. See `docs/records/002-publishing-api.md`.
+
+**Next step:** Deploy publishing_api to Railway, create superuser, test publish pipeline with a draft essay, set `NEXT_PUBLIC_STUDIO_URL` in Vercel.
+
 **Remaining backlog:**
 - Additional content pages and essays (not started)
 - Dark mode (deferred; tokens ready in `global.css`)
@@ -318,10 +324,10 @@ Phases 1 through 4 (Foundation, Micro-interactions, Animations, Polish) are **al
 | Dark mode | Deferred to separate future effort | Tokens ready in global.css but scope was too large |
 | Collage hero aesthetic | Editorial collage (Blake Cale / The Atlantic), dark olive ground, cream serif type | Tactile, layered, uncontained; spec in `docs/plans/collage-hero-implementation-plan.md` |
 | DotGrid zone-aware rendering | Cream dots over hero zone, dark dots over parchment, 50px crossfade | Hero component reports height to `--hero-height` via ResizeObserver; DotGrid reads it |
-| Hero breakout technique | `margin-left: calc(-50vw + 50%); width: 100vw` | Simpler than `left-1/2 -translate-x-1/2`; only one technique per spec directive |
-| Hero grid alignment | `1fr 118px 1fr` CSS Grid + `lg:pl-[128px]` | 118px matches RoughLine label width; 128px = (max-w-6xl minus max-w-4xl)/2 |
-| `inverted` prop pattern | 4 components (CyclingTagline, NowPreviewCompact, TagList, ProgressTracker) | Consistent cream-on-dark rendering in hero zones without duplicating components |
 | Comment system | File-based JSON in `data/comments/`, reCAPTCHA v3, sticky notes in margin | Low-infrastructure reader engagement; matches the handwritten margin note aesthetic |
+| Publishing delivery | GitHub Contents API commits from Django (not runtime API or direct git) | Preserves SSG architecture; Vercel auto-deploys; no changes to Next.js data fetching |
+| Studio editor tech | Django templates + HTMX (not React SPA) | Avoids second SPA; HTMX gives interactivity; simpler than building API + React client |
+| Studio owner shortcut | Invisible keyboard shortcut Ctrl+Shift+E (not nav link or FAB) | Zero visual footprint for visitors; Django auth still protects the editor |
 
 ## Gotchas
 
@@ -352,3 +358,4 @@ Phases 1 through 4 (Foundation, Micro-interactions, Animations, Polish) are **al
 - **`overflow-hidden` clips absolute callouts**: Secondary essay cards had `overflow-hidden` on the `group` div which clipped `RoughCallout`. Only put `overflow-hidden` on image wrappers, not card-level containers that host absolute-positioned decorations
 - **CSS `ch` unit is font-relative in `::after`**: Margin annotation `::after` inherits `font-annotation` (Caveat), making `calc(65ch + ...)` resolve differently than `65ch` in the prose body font. Use `calc(100% + ...)` for font-agnostic positioning
 - **Hero grid alignment math**: The `1fr 118px 1fr` grid in the hero (max-w-6xl, 1152px) aligns with the RoughLine label gap inside max-w-4xl (896px) because each hero `1fr` extends exactly `(1152-896)/2 = 128px` beyond the content area. The `lg:pl-[128px]` on the left column shifts the name to align with the content area's left edge. If either max-width changes, both values must be recalculated
+- **StudioShortcut `NEXT_PUBLIC_STUDIO_URL`**: Defaults to `http://localhost:8000`. Must be set in Vercel environment when Django Studio is deployed to Railway. The `NEXT_PUBLIC_` prefix means the value is inlined at build time, not runtime

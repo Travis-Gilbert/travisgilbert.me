@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}Studio{% endblock %} · Travis Gilbert</title>
+    {% load static %}
+    <link rel="stylesheet" href="{% static 'css/studio.css' %}">
+    <script src="https://unpkg.com/htmx.org@2.0.4" defer></script>
+    {% block head %}{% endblock %}
+</head>
+<body class="studio-body">
+    <nav class="studio-nav">
+        <a href="{% url 'editor:dashboard' %}" class="nav-brand">Studio</a>
+        <div class="nav-links">
+            <a href="{% url 'editor:essay-list' %}" class="nav-link {% if content_type == 'essay' %}active{% endif %}">Essays</a>
+            <a href="{% url 'editor:field-note-list' %}" class="nav-link {% if content_type == 'field_note' %}active{% endif %}">Field Notes</a>
+            <a href="{% url 'editor:shelf-list' %}" class="nav-link {% if content_type == 'shelf' %}active{% endif %}">Shelf</a>
+            <a href="{% url 'editor:project-list' %}" class="nav-link {% if content_type == 'project' %}active{% endif %}">Projects</a>
+            <a href="{% url 'editor:now-edit' %}" class="nav-link {% if content_type == 'now' %}active{% endif %}">Now</a>
+        </div>
+        <div class="nav-user">
+            {{ request.user.username }}
+            <a href="{% url 'admin:logout' %}" class="nav-link">Sign out</a>
+        </div>
+    </nav>
+
+    <main class="studio-main">
+        {% if messages %}
+        <div class="messages">
+            {% for message in messages %}
+            <div class="message message-{{ message.tags }}">{{ message }}</div>
+            {% endfor %}
+        </div>
+        {% endif %}
+
+        {% block content %}{% endblock %}
+    </main>
+
+    <!-- Publish result toast (HTMX driven) -->
+    <div id="publish-toast" class="publish-toast" style="display: none;"></div>
+
+    <script src="{% static 'js/studio.js' %}"></script>
+    {% block scripts %}{% endblock %}
+</body>
+</html>

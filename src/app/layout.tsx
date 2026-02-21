@@ -4,6 +4,7 @@ import DotGrid from '@/components/DotGrid';
 import TopNav from '@/components/TopNav';
 import Footer from '@/components/Footer';
 import ConsoleEasterEgg from '@/components/ConsoleEasterEgg';
+import StudioShortcut from '@/components/StudioShortcut';
 import { PersonJsonLd, WebSiteJsonLd } from '@/components/JsonLd';
 import { getCollection } from '@/lib/content';
 import type { Essay, FieldNote, Project } from '@/lib/content';
@@ -74,6 +75,7 @@ export default function RootLayout({
           latestEssayTitle={latestEssay?.data.title ?? ''}
           latestEssaySlug={latestEssay?.slug ?? ''}
         />
+        <StudioShortcut />
       </body>
     </html>
   );

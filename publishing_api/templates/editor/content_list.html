@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+
+{% block title %}{{ content_type_plural }}{% endblock %}
+
+{% block content %}
+<div class="content-list-page">
+    <header class="list-header">
+        <h1>{{ content_type_plural }}</h1>
+        <a href="{{ new_url }}" class="btn btn-primary">+ New</a>
+    </header>
+
+    <ul class="content-list">
+        {% for item in items %}
+        <li class="content-item">
+            <a href="{% if content_type == 'essay' %}{% url 'editor:essay-edit' slug=item.slug %}{% elif content_type == 'field_note' %}{% url 'editor:field-note-edit' slug=item.slug %}{% elif content_type == 'shelf' %}{% url 'editor:shelf-edit' slug=item.slug %}{% elif content_type == 'project' %}{% url 'editor:project-edit' slug=item.slug %}{% endif %}">
+                <span class="content-item-title">{{ item.title }}</span>
+                <span class="content-item-date">{{ item.date|date:"M j, Y" }}</span>
+                {% if item.draft %}
+                <span class="content-badge badge-draft">Draft</span>
+                {% else %}
+                <span class="content-badge badge-published">Published</span>
+                {% endif %}
+                {% if item.stage %}
+                <span class="content-item-stage">{{ item.get_stage_display }}</span>
+                {% endif %}
+                {% if item.status %}
+                <span class="content-item-stage">{{ item.get_status_display }}</span>
+                {% endif %}
+            </a>
+        </li>
+        {% empty %}
+        <li class="content-list-empty">
+            No {{ content_type_plural|lower }} yet.
+            <a href="{{ new_url }}">Create one.</a>
+        </li>
+        {% endfor %}
+    </ul>
+</div>
+{% endblock %}
