@@ -1,2 +1,10 @@
-# Railway reads this file. Points to production requirements.
--r requirements/production.txt
+# Core
+Django>=5.1,<7.0
+PyYAML>=6.0
+requests>=2.31
+python-dotenv>=1.0
+
+# Production
+gunicorn>=21.2
+whitenoise>=6.6
+psycopg2-binary>=2.9
