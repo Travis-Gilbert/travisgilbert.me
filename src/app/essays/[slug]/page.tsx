@@ -18,7 +18,6 @@ import EssayHero from '@/components/EssayHero';
 import { computeConnections, positionConnections } from '@/lib/connectionEngine';
 import type { AllContent } from '@/lib/connectionEngine';
 import { ConnectionProvider } from '@/components/ConnectionContext';
-import ConnectionDots from '@/components/ConnectionDots';
 import ConnectionMap from '@/components/ConnectionMap';
 
 interface Props {
@@ -169,14 +168,7 @@ export default async function EssayDetailPage({ params }: Props) {
         className="prose prose-essays mt-8"
         contentType="essays"
         articleSlug={slug}
-        renderMarginContent={(proseRef) =>
-          positionedConnections.length > 0 ? (
-            <ConnectionDots
-              connections={positionedConnections}
-              proseRef={proseRef}
-            />
-          ) : null
-        }
+        positionedConnections={positionedConnections}
       />
 
       {(entry.data.sources.length > 0 || shelfStandalone.length > 0) && (

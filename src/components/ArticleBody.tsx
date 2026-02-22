@@ -11,16 +11,19 @@
  * dangerouslySetInnerHTML here is equivalent to the same usage in page.tsx.
  */
 
-import { useRef, type RefObject, type ReactNode } from 'react';
+import { useRef, type RefObject } from 'react';
 import ArticleComments from '@/components/ArticleComments';
+import ConnectionDots from '@/components/ConnectionDots';
 import type { ContentType } from '@/lib/comments';
+import type { PositionedConnection } from '@/lib/connectionEngine';
 
 interface ArticleBodyProps {
   html: string;
   className?: string;
   contentType: ContentType;
   articleSlug: string;
-  renderMarginContent?: (proseRef: RefObject<HTMLDivElement | null>) => ReactNode;
+  /** Serializable connection data (computed at build time in the Server Component) */
+  positionedConnections?: PositionedConnection[];
 }
 
 export default function ArticleBody({
@@ -28,7 +31,7 @@ export default function ArticleBody({
   className = 'prose',
   contentType,
   articleSlug,
-  renderMarginContent,
+  positionedConnections,
 }: ArticleBodyProps) {
   const proseRef = useRef<HTMLDivElement>(null);
 
@@ -41,7 +44,12 @@ export default function ArticleBody({
         // Content from trusted local .md files validated by Zod
         dangerouslySetInnerHTML={{ __html: html }}
       />
-      {renderMarginContent?.(proseRef)}
+      {positionedConnections && positionedConnections.length > 0 && (
+        <ConnectionDots
+          connections={positionedConnections}
+          proseRef={proseRef}
+        />
+      )}
       <ArticleComments
         proseRef={proseRef as RefObject<HTMLDivElement>}
         contentType={contentType}
