@@ -93,6 +93,8 @@ function hashSeed(str: string): number {
 
 const MAP_HEIGHT = 400;
 const ANCHOR_X = 60;
+const WEIGHT_ORDER: Record<string, number> = { heavy: 0, medium: 1, light: 2 };
+const RESIZE_DEBOUNCE_MS = 150;
 
 export default function ConnectionMap({
   essayTitle,
@@ -107,20 +109,30 @@ export default function ConnectionMap({
   const { highlightedId, toggleHighlight, setHighlightedId } =
     useConnectionHighlight();
 
-  // Measure container and compute positions
-  const layout = useCallback(() => {
+  // Measure container and compute positions (debounced for resize)
+  const layoutTimerRef = useRef<ReturnType<typeof setTimeout>>(null);
+
+  const layoutImmediate = useCallback(() => {
     if (!containerRef.current) return;
     const w = containerRef.current.clientWidth;
     setContainerW(w);
     setPositions(computeScatterPositions(connections, w, MAP_HEIGHT));
   }, [connections]);
 
+  const layoutDebounced = useCallback(() => {
+    if (layoutTimerRef.current) clearTimeout(layoutTimerRef.current);
+    layoutTimerRef.current = setTimeout(layoutImmediate, RESIZE_DEBOUNCE_MS);
+  }, [layoutImmediate]);
+
   useEffect(() => {
-    layout();
-    const observer = new ResizeObserver(layout);
+    layoutImmediate();
+    const observer = new ResizeObserver(layoutDebounced);
     if (containerRef.current) observer.observe(containerRef.current);
-    return () => observer.disconnect();
-  }, [layout]);
+    return () => {
+      observer.disconnect();
+      if (layoutTimerRef.current) clearTimeout(layoutTimerRef.current);
+    };
+  }, [layoutImmediate, layoutDebounced]);
 
   // Draw rough.js curves on canvas
   useEffect(() => {
@@ -280,13 +292,8 @@ export default function ConnectionMap({
             const isDimmed =
               highlightedId !== null && !isHighlighted;
 
-            const weightOrder: Record<string, number> = {
-              heavy: 0,
-              medium: 1,
-              light: 2,
-            };
             const staggerDelay =
-              (weightOrder[pos.connection.weight] ?? 2) * 200 + i * 100;
+              (WEIGHT_ORDER[pos.connection.weight] ?? 2) * 200 + i * 100;
 
             return (
               <button

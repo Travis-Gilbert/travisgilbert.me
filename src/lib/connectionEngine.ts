@@ -77,6 +77,7 @@ function resolveRelatedEssays(
   const results: Connection[] = [];
 
   for (const slug of relatedSlugs) {
+    // Skip self-references (an essay should not connect to itself)
     if (slug === essay.slug) continue;
     const match = allEssays.find((e) => e.slug === slug);
     if (!match) continue;
