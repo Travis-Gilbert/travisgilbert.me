@@ -7,7 +7,7 @@ import type { PositionedConnection } from '@/lib/connectionEngine';
 
 interface ConnectionDotsProps {
   connections: PositionedConnection[];
-  proseRef: RefObject<HTMLDivElement>;
+  proseRef: RefObject<HTMLDivElement | null>;
 }
 
 export default function ConnectionDots({

@@ -11,7 +11,7 @@
  * dangerouslySetInnerHTML here is equivalent to the same usage in page.tsx.
  */
 
-import { useRef, type RefObject } from 'react';
+import { useRef, type RefObject, type ReactNode } from 'react';
 import ArticleComments from '@/components/ArticleComments';
 import type { ContentType } from '@/lib/comments';
 
@@ -20,6 +20,7 @@ interface ArticleBodyProps {
   className?: string;
   contentType: ContentType;
   articleSlug: string;
+  renderMarginContent?: (proseRef: RefObject<HTMLDivElement | null>) => ReactNode;
 }
 
 export default function ArticleBody({
@@ -27,6 +28,7 @@ export default function ArticleBody({
   className = 'prose',
   contentType,
   articleSlug,
+  renderMarginContent,
 }: ArticleBodyProps) {
   const proseRef = useRef<HTMLDivElement>(null);
 
@@ -39,6 +41,7 @@ export default function ArticleBody({
         // Content from trusted local .md files validated by Zod
         dangerouslySetInnerHTML={{ __html: html }}
       />
+      {renderMarginContent?.(proseRef)}
       <ArticleComments
         proseRef={proseRef as RefObject<HTMLDivElement>}
         contentType={contentType}

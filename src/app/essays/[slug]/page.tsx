@@ -15,6 +15,11 @@ import ProgressTracker, { ESSAY_STAGES } from '@/components/ProgressTracker';
 import ReadingProgress from '@/components/ReadingProgress';
 import { ArticleJsonLd } from '@/components/JsonLd';
 import EssayHero from '@/components/EssayHero';
+import { computeConnections, positionConnections } from '@/lib/connectionEngine';
+import type { AllContent } from '@/lib/connectionEngine';
+import { ConnectionProvider } from '@/components/ConnectionContext';
+import ConnectionDots from '@/components/ConnectionDots';
+import ConnectionMap from '@/components/ConnectionMap';
 
 interface Props {
   params: Promise<{ slug: string }>;
@@ -104,8 +109,17 @@ export default async function EssayDetailPage({ params }: Props) {
   const collagePath = nodePath.join(process.cwd(), 'public', 'collage', `${slug}.jpg`);
   const collageImage = fs.existsSync(collagePath) ? `/collage/${slug}.jpg` : undefined;
 
+  // Connection engine: compute relationships at build time
+  const allContent: AllContent = {
+    essays: getCollection<Essay>('essays').filter((e) => !e.data.draft),
+    fieldNotes: allFieldNotes,
+    shelf: allShelf,
+  };
+  const engineConnections = computeConnections(entry, allContent);
+  const positionedConnections = positionConnections(engineConnections, html);
+
   return (
-    <>
+    <ConnectionProvider>
     <ArticleJsonLd
       title={entry.data.title}
       description={entry.data.summary}
@@ -155,6 +169,14 @@ export default async function EssayDetailPage({ params }: Props) {
         className="prose prose-essays mt-8"
         contentType="essays"
         articleSlug={slug}
+        renderMarginContent={(proseRef) =>
+          positionedConnections.length > 0 ? (
+            <ConnectionDots
+              connections={positionedConnections}
+              proseRef={proseRef}
+            />
+          ) : null
+        }
       />
 
       {(entry.data.sources.length > 0 || shelfStandalone.length > 0) && (
@@ -237,6 +259,17 @@ export default async function EssayDetailPage({ params }: Props) {
         );
       })()}
 
+      {/* Connection map: freeform scatter with rough.js curves */}
+      {engineConnections.length > 0 && (
+        <>
+          <RoughLine />
+          <ConnectionMap
+            essayTitle={entry.data.title}
+            connections={engineConnections}
+          />
+        </>
+      )}
+
       <nav className="flex justify-between items-start gap-4 py-4 border-t border-border mt-6">
         <div>
           {prevEssay && (
@@ -260,6 +293,6 @@ export default async function EssayDetailPage({ params }: Props) {
         </div>
       </nav>
     </article>
-    </>
+    </ConnectionProvider>
   );
 }
