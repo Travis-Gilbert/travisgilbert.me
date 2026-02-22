@@ -145,3 +145,32 @@ function resolveConnectedShelfEntries(
 
   return results;
 }
+
+// ─────────────────────────────────────────────────
+// Positioning
+// ─────────────────────────────────────────────────
+
+export function findMentionIndex(
+  connection: Connection,
+  html: string,
+): number | null {
+  const needle = connection.title.toLowerCase();
+  const segments = html.split('</p>');
+
+  for (let i = 0; i < segments.length - 1; i++) {
+    const plainText = segments[i].replace(/<[^>]*>/g, '').toLowerCase();
+    if (plainText.includes(needle)) return i + 1;
+  }
+
+  return null;
+}
+
+export function positionConnections(
+  connections: Connection[],
+  html: string,
+): PositionedConnection[] {
+  return connections.map((connection) => ({
+    connection,
+    paragraphIndex: findMentionIndex(connection, html),
+  }));
+}
