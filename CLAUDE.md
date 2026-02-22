@@ -46,6 +46,13 @@ npm run start      # Serve production build locally
 npm run lint       # Run Next.js linter
 ```
 
+```bash
+# Django Studio (from publishing_api/)
+python manage.py import_content             # Import all markdown into Django DB
+python manage.py import_content --dry-run   # Parse and report without writing
+python manage.py import_content --type essays  # Import one content type only
+```
+
 ## Content Workflow
 
 1. Create a `.md` file in the appropriate `src/content/` subdirectory
@@ -298,7 +305,7 @@ Vercel with native Next.js builder. Git integration auto-deploys on push to `mai
 
 Phases 1 through 4 (Foundation, Micro-interactions, Animations, Polish) are **all complete**. See `docs/records/001-site-wide-redesign.md` for full history.
 
-**Publishing API (Django Studio):** Scaffolded. All models, views, templates, publisher pipeline, and StudioShortcut integration are written. Django check passes (0 issues). Not yet deployed or tested end-to-end. See `docs/records/002-publishing-api.md`.
+**Publishing API (Django Studio):** Scaffolded. All models, views, templates, publisher pipeline, StudioShortcut integration, and `import_content` management command are written. Django check passes (0 issues). Existing content (22 files) can be imported into Django via `python manage.py import_content`. Not yet deployed or tested end-to-end. See `docs/records/002-publishing-api.md`.
 
 **Next step:** Deploy publishing_api to Railway, create superuser, test publish pipeline with a draft essay, set `NEXT_PUBLIC_STUDIO_URL` in Vercel.
 
