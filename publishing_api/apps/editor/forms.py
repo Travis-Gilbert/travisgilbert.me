@@ -53,9 +53,10 @@ class EssayForm(forms.ModelForm):
                 "class": "field-meta",
                 "placeholder": "YouTube video ID",
             }),
-            "callout": forms.TextInput(attrs={
-                "class": "field-meta",
-                "placeholder": "Handwritten callout text",
+            "callout": forms.Textarea(attrs={
+                "class": "field-summary",
+                "rows": 2,
+                "placeholder": "Callout text. Use [link text](url) for hyperlinks.",
             }),
             "stage": forms.Select(attrs={"class": "field-meta"}),
         }
@@ -104,6 +105,11 @@ class FieldNoteForm(forms.ModelForm):
             "connected_to": forms.TextInput(attrs={
                 "class": "field-meta",
                 "placeholder": "Parent essay slug",
+            }),
+            "callout": forms.Textarea(attrs={
+                "class": "field-summary",
+                "rows": 2,
+                "placeholder": "Callout text. Use [link text](url) for hyperlinks.",
             }),
         }
 
@@ -205,9 +211,10 @@ class ProjectForm(forms.ModelForm):
                 "id": "editor-body",
                 "placeholder": "Project details...",
             }),
-            "callout": forms.TextInput(attrs={
-                "class": "field-meta",
-                "placeholder": "Handwritten callout text",
+            "callout": forms.Textarea(attrs={
+                "class": "field-summary",
+                "rows": 2,
+                "placeholder": "Callout text. Use [link text](url) for hyperlinks.",
             }),
         }
 

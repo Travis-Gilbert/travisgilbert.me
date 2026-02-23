@@ -83,26 +83,26 @@ a:hover {
     display: flex;
     align-items: center;
     gap: 0;
-    padding: 0 1.5rem;
+    padding: 0 2rem;
     background: var(--studio-surface);
     border-bottom: 1px solid var(--studio-border);
     position: sticky;
     top: 0;
     z-index: 100;
-    height: 48px;
+    height: 96px;
 }
 
 .nav-brand {
     font-family: var(--font-mono);
-    font-size: 0.75rem;
+    font-size: 1rem;
     font-weight: 700;
-    letter-spacing: 0.08em;
+    letter-spacing: 0.1em;
     text-transform: uppercase;
     color: var(--studio-text);
-    padding-right: 1.25rem;
-    margin-right: 1.25rem;
+    padding-right: 1.75rem;
+    margin-right: 1.75rem;
     border-right: 1px solid var(--studio-border);
-    line-height: 48px;
+    line-height: 96px;
 }
 
 .nav-brand:hover {
@@ -117,10 +117,12 @@ a:hover {
 }
 
 .nav-link {
+    font-family: var(--font-mono);
     font-size: 0.8125rem;
+    letter-spacing: 0.03em;
     color: var(--studio-text-muted);
-    padding: 0 0.75rem;
-    line-height: 48px;
+    padding: 0 1rem;
+    line-height: 96px;
     border-bottom: 2px solid transparent;
     transition: color 0.15s, border-color 0.15s;
 }
@@ -133,22 +135,22 @@ a:hover {
 
 .nav-link.active {
     color: var(--studio-text);
-    font-weight: 600;
+    font-weight: 700;
     border-bottom-color: var(--studio-accent);
 }
 
 .nav-user {
-    font-size: 0.6875rem;
+    font-size: 0.75rem;
     font-family: var(--font-mono);
     color: var(--studio-text-faint);
     display: flex;
     align-items: center;
     gap: 0.75rem;
-    letter-spacing: 0.02em;
+    letter-spacing: 0.03em;
 }
 
 .nav-user .nav-link {
-    font-size: 0.6875rem;
+    font-size: 0.75rem;
     font-family: var(--font-mono);
     padding: 0 0.5rem;
     color: var(--studio-text-faint);
@@ -163,7 +165,7 @@ a:hover {
 .studio-main {
     max-width: 1200px;
     margin: 0 auto;
-    padding: 1.5rem;
+    padding: 2rem;
 }
 
 /* ─── Buttons ───────────────────────────────── */
@@ -173,9 +175,10 @@ a:hover {
     align-items: center;
     gap: 0.5rem;
     padding: 0.5rem 1rem;
-    font-size: 0.8125rem;
-    font-family: var(--font-body);
+    font-size: 0.75rem;
+    font-family: var(--font-mono);
     font-weight: 500;
+    letter-spacing: 0.03em;
     border: 1px solid var(--studio-border);
     border-radius: var(--studio-radius);
     cursor: pointer;
@@ -208,9 +211,10 @@ a:hover {
     color: #FFFFFF;
     border-color: var(--studio-accent);
     font-weight: 700;
-    font-size: 0.875rem;
+    font-size: 0.8125rem;
     padding: 0.625rem 1.5rem;
-    letter-spacing: 0.02em;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
     box-shadow: var(--studio-shadow);
 }
 
@@ -230,21 +234,16 @@ a:hover {
 .dashboard-header {
     display: flex;
     align-items: baseline;
-    gap: 1rem;
-    margin-bottom: 1.25rem;
-}
-
-.dashboard-header h1 {
-    font-family: var(--font-writing);
-    font-size: 1.5rem;
-    font-weight: 400;
+    gap: 0.75rem;
+    margin-bottom: 1.5rem;
+    padding-top: 0.5rem;
 }
 
 .dashboard-subtitle {
     color: var(--studio-text-faint);
-    font-size: 0.75rem;
+    font-size: 0.8125rem;
     font-family: var(--font-mono);
-    letter-spacing: 0.03em;
+    letter-spacing: 0.04em;
 }
 
 .dashboard-grid {
@@ -299,7 +298,9 @@ a:hover {
     padding: 0.625rem 0.875rem;
     border: 1px solid var(--studio-border);
     border-radius: var(--studio-radius);
-    font-size: 0.8125rem;
+    font-family: var(--font-mono);
+    font-size: 0.75rem;
+    letter-spacing: 0.03em;
     color: var(--studio-text);
     transition: all 0.15s;
     white-space: nowrap;
@@ -313,9 +314,9 @@ a:hover {
 
 .quick-create-icon {
     font-size: 1rem;
-    font-weight: 600;
     color: var(--studio-text-muted);
     line-height: 1;
+    font-style: normal;
 }
 
 .quick-create-essay:hover { border-color: var(--studio-accent); color: var(--studio-accent); }
@@ -368,7 +369,7 @@ a:hover {
 
 .content-item-title {
     flex: 1;
-    font-family: var(--font-writing);
+    font-family: var(--font-body);
     font-size: 0.9375rem;
 }
 
@@ -418,6 +419,7 @@ a:hover {
 .content-list-empty .empty-title {
     font-family: var(--font-writing);
     font-size: 1rem;
+    font-weight: 400;
     color: var(--studio-text);
     margin-bottom: 0.25rem;
 }
@@ -467,8 +469,8 @@ a:hover {
     display: grid;
     grid-template-columns: 300px 1fr;
     gap: 0;
-    min-height: calc(100vh - 48px);
-    margin: -1.5rem;
+    min-height: calc(100vh - 96px);
+    margin: -2rem;
 }
 
 @media (max-width: 900px) {
@@ -484,9 +486,9 @@ a:hover {
     border-right: 1px solid var(--studio-border);
     padding: 1.5rem;
     overflow-y: auto;
-    max-height: calc(100vh - 48px);
+    max-height: calc(100vh - 96px);
     position: sticky;
-    top: 48px;
+    top: 96px;
 }
 
 .sidebar-header {
@@ -618,6 +620,22 @@ a:hover {
     margin-top: 0.25rem;
 }
 
+.field-hint {
+    display: block;
+    font-size: 0.6875rem;
+    color: var(--studio-text-faint);
+    margin-top: 0.25rem;
+    font-family: var(--font-mono);
+    letter-spacing: 0.02em;
+}
+
+.field-hint code {
+    background: rgba(42, 40, 36, 0.05);
+    padding: 0.1em 0.3em;
+    border-radius: 3px;
+    font-size: 0.625rem;
+}
+
 select.field-meta {
     cursor: pointer;
 }
@@ -656,7 +674,7 @@ select.field-meta {
     border: none;
     outline: none;
     resize: none;
-    font-family: var(--font-writing);
+    font-family: var(--font-body);
     font-size: 1.0625rem;
     line-height: 1.75;
     color: var(--studio-text);
@@ -759,7 +777,7 @@ select.field-meta {
 
 .now-thinking textarea {
     width: 100%;
-    font-family: var(--font-writing);
+    font-family: var(--font-body);
     font-size: 1rem;
     line-height: 1.6;
     border: none;

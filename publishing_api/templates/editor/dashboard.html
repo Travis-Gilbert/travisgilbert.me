@@ -4,7 +4,6 @@
 {% block content %}
 <div class="dashboard">
     <header class="dashboard-header">
-        <h1>Studio</h1>
         <p class="dashboard-subtitle">Your publishing workspace</p>
     </header>
 
@@ -14,23 +13,23 @@
             <h2>Create</h2>
             <div class="quick-create-grid">
                 <a href="{% url 'editor:essay-create' %}" class="quick-create-btn quick-create-essay">
-                    <span class="quick-create-icon">+</span>
+                    <span class="quick-create-icon">✦</span>
                     <span>Essay</span>
                 </a>
                 <a href="{% url 'editor:field-note-create' %}" class="quick-create-btn quick-create-note">
-                    <span class="quick-create-icon">+</span>
+                    <span class="quick-create-icon">◆</span>
                     <span>Field Note</span>
                 </a>
                 <a href="{% url 'editor:shelf-create' %}" class="quick-create-btn quick-create-shelf">
-                    <span class="quick-create-icon">+</span>
+                    <span class="quick-create-icon">◉</span>
                     <span>Shelf Entry</span>
                 </a>
                 <a href="{% url 'editor:project-create' %}" class="quick-create-btn quick-create-project">
-                    <span class="quick-create-icon">+</span>
+                    <span class="quick-create-icon">⬢</span>
                     <span>Project</span>
                 </a>
                 <a href="{% url 'editor:now-edit' %}" class="quick-create-btn quick-create-now">
-                    <span class="quick-create-icon">&#x270E;</span>
+                    <span class="quick-create-icon">✎</span>
                     <span>Now Page</span>
                 </a>
             </div>

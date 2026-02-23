@@ -109,6 +109,7 @@
             <div class="field-group">
                 <label for="{{ form.callout.id_for_label }}">Callout</label>
                 {{ form.callout }}
+                <span class="field-hint">Supports <code>[link text](url)</code> for hyperlinks</span>
             </div>
             {% endif %}
             {% if form.connected_to %}
