@@ -206,3 +206,98 @@ export function positionConnections(
     };
   });
 }
+
+// ─────────────────────────────────────────────────
+// Thread pairs (for listing page thread lines)
+// ─────────────────────────────────────────────────
+
+export interface ThreadPair {
+  fromSlug: string;
+  toSlug: string;
+  type: ConnectionType;
+  color: string;
+  weight: ConnectionWeight;
+}
+
+/**
+ * Compute unique thread pairs across all content for listing page arcs.
+ * Deduplicates bidirectional relationships (A→B and B→A become one pair).
+ * Limited to `maxPairs` to prevent visual noise.
+ */
+export function computeThreadPairs(
+  content: AllContent,
+  maxPairs = 8,
+): ThreadPair[] {
+  const seen = new Set<string>();
+  const pairs: ThreadPair[] = [];
+
+  // Essay related (bidirectional)
+  for (const essay of content.essays) {
+    if (essay.data.draft) continue;
+    for (const relSlug of essay.data.related) {
+      if (relSlug === essay.slug) continue;
+      const target = content.essays.find((e) => e.slug === relSlug && !e.data.draft);
+      if (!target) continue;
+
+      const key = [essay.slug, relSlug].sort().join('::');
+      if (seen.has(key)) continue;
+      seen.add(key);
+
+      pairs.push({
+        fromSlug: essay.slug,
+        toSlug: relSlug,
+        type: 'essay',
+        color: TYPE_COLOR.essay,
+        weight: TYPE_WEIGHT.essay,
+      });
+    }
+  }
+
+  // Field note connectedTo (unidirectional: note → essay)
+  for (const note of content.fieldNotes) {
+    if (note.data.draft || !note.data.connectedTo) continue;
+    const target = content.essays.find(
+      (e) => e.slug === note.data.connectedTo && !e.data.draft,
+    );
+    if (!target) continue;
+
+    const key = [note.slug, note.data.connectedTo].sort().join('::');
+    if (seen.has(key)) continue;
+    seen.add(key);
+
+    pairs.push({
+      fromSlug: note.slug,
+      toSlug: note.data.connectedTo,
+      type: 'field-note',
+      color: TYPE_COLOR['field-note'],
+      weight: TYPE_WEIGHT['field-note'],
+    });
+  }
+
+  // Shelf connectedEssay (unidirectional: shelf → essay)
+  for (const entry of content.shelf) {
+    if (!entry.data.connectedEssay) continue;
+    const target = content.essays.find(
+      (e) => e.slug === entry.data.connectedEssay && !e.data.draft,
+    );
+    if (!target) continue;
+
+    const key = [entry.slug, entry.data.connectedEssay].sort().join('::');
+    if (seen.has(key)) continue;
+    seen.add(key);
+
+    pairs.push({
+      fromSlug: entry.slug,
+      toSlug: entry.data.connectedEssay,
+      type: 'shelf',
+      color: TYPE_COLOR.shelf,
+      weight: TYPE_WEIGHT.shelf,
+    });
+  }
+
+  // Sort by weight (heavy first) and limit
+  const WEIGHT_SORT: Record<string, number> = { heavy: 0, medium: 1, light: 2 };
+  pairs.sort((a, b) => (WEIGHT_SORT[a.weight] ?? 2) - (WEIGHT_SORT[b.weight] ?? 2));
+
+  return pairs.slice(0, maxPairs);
+}
