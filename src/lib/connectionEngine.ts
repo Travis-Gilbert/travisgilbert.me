@@ -21,7 +21,8 @@ export interface Connection {
 
 export interface PositionedConnection {
   connection: Connection;
-  paragraphIndex: number | null;
+  paragraphIndex: number;
+  mentionFound: boolean;
 }
 
 export interface AllContent {
@@ -196,8 +197,12 @@ export function positionConnections(
   connections: Connection[],
   html: string,
 ): PositionedConnection[] {
-  return connections.map((connection) => ({
-    connection,
-    paragraphIndex: findMentionIndex(connection, html) ?? FALLBACK_PARAGRAPH,
-  }));
+  return connections.map((connection) => {
+    const rawIndex = findMentionIndex(connection, html);
+    return {
+      connection,
+      paragraphIndex: rawIndex ?? FALLBACK_PARAGRAPH,
+      mentionFound: rawIndex !== null,
+    };
+  });
 }
