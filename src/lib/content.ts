@@ -5,6 +5,7 @@ import { remark } from 'remark';
 import remarkHtml from 'remark-html';
 import remarkGfm from 'remark-gfm';
 import { z } from 'zod';
+import type { PositionedConnection } from './connectionEngine';
 
 // ─────────────────────────────────────────────────
 // Zod Schemas
@@ -239,6 +240,77 @@ export function injectAnnotations(html: string, annotations: Annotation[]): stri
       const side = sideToggle % 2 === 0 ? 'right' : 'left';
       sideToggle++;
       injected += `<span class="margin-annotation-anchor" data-annotation-text="${escapeAttr(ann.text)}" data-annotation-side="${side}"></span>`;
+    }
+    return injected;
+  });
+}
+
+// ─────────────────────────────────────────────────
+// Connection callouts (inline, build-time)
+// ─────────────────────────────────────────────────
+
+/** Map connection type to its URL prefix */
+const TYPE_URL_PREFIX: Record<string, string> = {
+  essay: '/essays',
+  'field-note': '/field-notes',
+  shelf: '/shelf',
+};
+
+/** Map connection type to its display label */
+const TYPE_LABEL: Record<string, string> = {
+  essay: 'Essay',
+  'field-note': 'Field Note',
+  shelf: 'Shelf',
+};
+
+/**
+ * Inject inline connection callout blocks after paragraphs that mention
+ * connected content. Only processes connections where `mentionFound` is true.
+ *
+ * Follows the same `</p>` counting pattern as `injectAnnotations()`.
+ * Must be called AFTER `injectAnnotations()` to avoid shifting paragraph indices.
+ */
+export function injectConnectionCallouts(
+  html: string,
+  connections: PositionedConnection[],
+): string {
+  // Only process connections with a real mention
+  const mentionConnections = connections.filter((c) => c.mentionFound);
+  if (mentionConnections.length === 0) return html;
+
+  // Build a map of paragraph index to connections (sorted by weight)
+  const WEIGHT_ORDER: Record<string, number> = { heavy: 0, medium: 1, light: 2 };
+  const byParagraph = new Map<number, PositionedConnection[]>();
+
+  for (const pc of mentionConnections) {
+    const group = byParagraph.get(pc.paragraphIndex) || [];
+    group.push(pc);
+    byParagraph.set(pc.paragraphIndex, group);
+  }
+
+  // Sort each group by weight (heavy first)
+  for (const group of byParagraph.values()) {
+    group.sort(
+      (a, b) =>
+        (WEIGHT_ORDER[a.connection.weight] ?? 2) -
+        (WEIGHT_ORDER[b.connection.weight] ?? 2),
+    );
+  }
+
+  let paragraphIndex = 0;
+
+  return html.replace(/<\/p>/gi, (match) => {
+    paragraphIndex++;
+    const group = byParagraph.get(paragraphIndex);
+    if (!group) return match;
+
+    let injected = match;
+    for (const pc of group) {
+      const c = pc.connection;
+      const href = `${TYPE_URL_PREFIX[c.type] ?? ''}/${c.slug}`;
+      const label = TYPE_LABEL[c.type] ?? c.type;
+
+      injected += `<aside class="connection-callout" data-connection-type="${c.type}" data-connection-color="${c.color}"><a href="${escapeAttr(href)}" class="connection-callout-link"><span class="connection-callout-type">${escapeAttr(label)}</span><span class="connection-callout-title">${escapeAttr(c.title)}</span></a></aside>`;
     }
     return injected;
   });
