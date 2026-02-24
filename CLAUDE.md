@@ -35,6 +35,7 @@ Next.js 15 (App Router), React 19, Tailwind CSS v4 (`@tailwindcss/postcss`), rou
 | `docs/plans/` | Design documents and implementation plans |
 | `public/fonts/` | Self-hosted Amarna variable font |
 | `publishing_api/` | Django Studio: writing interface and GitHub publish pipeline (see Record 002) |
+| `publishing_api/apps/editor/widgets.py` | Custom form widgets: TagsWidget, SlugListWidget, JsonObjectListWidget for JSON field rendering |
 
 ## Development Commands
 
@@ -305,9 +306,9 @@ Vercel with native Next.js builder. Git integration auto-deploys on push to `mai
 
 Phases 1 through 4 (Foundation, Micro-interactions, Animations, Polish) are **all complete**. See `docs/records/001-site-wide-redesign.md` for full history.
 
-**Publishing API (Django Studio):** Scaffolded. All models, views, templates, publisher pipeline, StudioShortcut integration, and `import_content` management command are written. Django check passes (0 issues). Existing content (22 files) can be imported into Django via `python manage.py import_content`. Not yet deployed or tested end-to-end. See `docs/records/002-publishing-api.md`.
+**Publishing API (Django Studio):** Scaffolded. All models, views, templates, publisher pipeline, StudioShortcut integration, and `import_content` management command are written. Django check passes (0 issues). Existing content (22 files) can be imported into Django via `python manage.py import_content`. Bug fix applied: all JSON fields (tags, sources, urls, related, callouts, annotations) now have custom widgets and render in edit.html, preventing silent data loss on save. Not yet deployed or tested end-to-end. See `docs/records/002-publishing-api.md`.
 
-**Next step:** Deploy publishing_api to Railway, create superuser, test publish pipeline with a draft essay, set `NEXT_PUBLIC_STUDIO_URL` in Vercel.
+**Next step:** Deploy publishing_api to Railway, create superuser, test publish pipeline with a draft essay, set `NEXT_PUBLIC_STUDIO_URL` in Vercel. Consider design improvements for the Draftroom editor (richer split-pane, markdown preview, autosave).
 
 **Remaining backlog:**
 - Additional content pages and essays (not started)
@@ -336,6 +337,7 @@ Phases 1 through 4 (Foundation, Micro-interactions, Animations, Polish) are **al
 | Publishing delivery | GitHub Contents API commits from Django (not runtime API or direct git) | Preserves SSG architecture; Vercel auto-deploys; no changes to Next.js data fetching |
 | Studio editor tech | Django templates + HTMX (not React SPA) | Avoids second SPA; HTMX gives interactivity; simpler than building API + React client |
 | Studio owner shortcut | Invisible keyboard shortcut Ctrl+Shift+E (not nav link or FAB) | Zero visual footprint for visitors; Django auth still protects the editor |
+| JSON field widgets | Custom widgets (TagsWidget, JsonObjectListWidget) at widget layer, not form clean | Serialization in `format_value()`/`value_from_datadict()` keeps forms and views clean; avoids overriding `clean_*` methods |
 
 ## Gotchas
 
@@ -367,3 +369,5 @@ Phases 1 through 4 (Foundation, Micro-interactions, Animations, Polish) are **al
 - **CSS `ch` unit is font-relative in `::after`**: Margin annotation `::after` inherits `font-annotation` (Caveat), making `calc(65ch + ...)` resolve differently than `65ch` in the prose body font. Use `calc(100% + ...)` for font-agnostic positioning
 - **Hero grid alignment math**: The `1fr 118px 1fr` grid in the hero (max-w-6xl, 1152px) aligns with the RoughLine label gap inside max-w-4xl (896px) because each hero `1fr` extends exactly `(1152-896)/2 = 128px` beyond the content area. The `lg:pl-[128px]` on the left column shifts the name to align with the content area's left edge. If either max-width changes, both values must be recalculated
 - **StudioShortcut `NEXT_PUBLIC_STUDIO_URL`**: Defaults to `http://localhost:8000`. Must be set in Vercel environment when Django Studio is deployed to Railway. The `NEXT_PUBLIC_` prefix means the value is inlined at build time, not runtime
+- **Django JSONField silent data loss**: If a JSONField is in `Meta.fields` but not rendered in the template, Django treats absent POST data as empty and resets the field on save. Every JSONField must have both an explicit widget in the form AND a rendering slot in the template
+- **ShelfEntry uses `annotation` not `body`**: The main content field for ShelfEntry is `annotation` (textarea in writing area), not `body` like other content types. The edit.html template falls back: `{% if form.body %}...{% elif form.annotation %}...{% endif %}`
