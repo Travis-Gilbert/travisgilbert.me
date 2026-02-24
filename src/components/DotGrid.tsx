@@ -38,16 +38,16 @@ function mulberry32(seed: number): () => number {
 }
 
 export default function DotGrid({
-  dotRadius = 0.75,
+  dotRadius = 0.85,
   spacing = 20,
   dotColor = [160, 154, 144],
   dotOpacity = 0.5,
   fadeStart = 0.80,
   fadeEnd = 0.98,
-  stiffness = 0.15,
-  damping = 0.75,
-  influenceRadius = 200,
-  repulsionStrength = 15,
+  stiffness = 0.10,
+  damping = 0.92,
+  influenceRadius = 100,
+  repulsionStrength = 3,
   binaryDensity = 0.12,
 }: DotGridProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -302,6 +302,7 @@ export default function DotGrid({
         height: '100%',
         zIndex: -1,
         pointerEvents: 'none',
+        filter: 'blur(0.1px)',
       }}
     />
   );
