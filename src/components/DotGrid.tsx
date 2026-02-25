@@ -44,10 +44,10 @@ export default function DotGrid({
   dotOpacity = 0.5,
   fadeStart = 0.80,
   fadeEnd = 0.98,
-  stiffness = 0.10,
-  damping = 0.92,
+  stiffness = 0.35,
+  damping = 0.48,
   influenceRadius = 100,
-  repulsionStrength = 3,
+  repulsionStrength = 5,
   binaryDensity = 0.12,
 }: DotGridProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
