@@ -8,6 +8,7 @@ Usage:
 
 from django.core.management.base import BaseCommand
 
+from apps.mentions.models import Mention
 from apps.publisher.publish import publish_all
 from apps.research.models import ResearchThread, Source, SourceLink
 
@@ -26,9 +27,11 @@ class Command(BaseCommand):
         sources = Source.objects.public().count()
         links = SourceLink.objects.filter(source__public=True).count()
         threads = ResearchThread.objects.public().count()
+        mentions = Mention.objects.public().count()
 
         self.stdout.write(
-            f'Found {sources} public sources, {links} links, {threads} public threads.'
+            f'Found {sources} public sources, {links} links, '
+            f'{threads} public threads, {mentions} public mentions.'
         )
 
         if options['dry_run']:

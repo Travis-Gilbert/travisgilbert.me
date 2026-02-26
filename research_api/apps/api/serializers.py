@@ -1,6 +1,6 @@
 from rest_framework import serializers
 
-from apps.mentions.models import Webmention
+from apps.mentions.models import Mention, MentionSource
 from apps.research.models import (
     ResearchThread,
     Source,
@@ -79,13 +79,31 @@ class ResearchThreadListSerializer(serializers.ModelSerializer):
         ]
 
 
-class WebmentionSerializer(serializers.ModelSerializer):
+class MentionSourceSerializer(serializers.ModelSerializer):
+    mention_count = serializers.IntegerField(read_only=True)
+
     class Meta:
-        model = Webmention
+        model = MentionSource
         fields = [
-            'id', 'source_url', 'target_url',
-            'author_name', 'author_url', 'author_photo',
-            'content', 'mention_type',
-            'verified', 'verified_at',
-            'status', 'created_at',
+            'id', 'name', 'slug', 'domain', 'url',
+            'description', 'avatar_url', 'trusted',
+            'mention_count',
+        ]
+
+
+class MentionSerializer(serializers.ModelSerializer):
+    mention_source_name = serializers.CharField(
+        source='mention_source.name', read_only=True, default='',
+    )
+
+    class Meta:
+        model = Mention
+        fields = [
+            'id', 'source_url', 'source_title', 'source_excerpt',
+            'source_author', 'source_author_url', 'source_published',
+            'target_content_type', 'target_slug', 'target_url',
+            'mention_type', 'discovery_method',
+            'verified', 'verified_at', 'public', 'featured',
+            'mention_source', 'mention_source_name',
+            'created_at',
         ]

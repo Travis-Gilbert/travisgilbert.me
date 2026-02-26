@@ -91,6 +91,50 @@ def serialize_thread(thread, include_entries=True):
     return data
 
 
+def serialize_mention_source(ms):
+    """Serialize a MentionSource for static JSON."""
+    return {
+        'id': ms.id,
+        'name': ms.name,
+        'slug': ms.slug,
+        'domain': ms.domain,
+        'url': ms.url,
+        'description': ms.description,
+        'avatarUrl': ms.avatar_url,
+        'trusted': ms.trusted,
+    }
+
+
+def serialize_mention(mention):
+    """Serialize a Mention for static JSON."""
+    data = {
+        'id': mention.id,
+        'sourceUrl': mention.source_url,
+        'sourceTitle': mention.source_title,
+        'sourceExcerpt': mention.source_excerpt,
+        'sourceAuthor': mention.source_author,
+        'sourceAuthorUrl': mention.source_author_url,
+        'sourcePublished': (
+            mention.source_published.isoformat()
+            if mention.source_published else None
+        ),
+        'targetContentType': mention.target_content_type,
+        'targetSlug': mention.target_slug,
+        'targetUrl': mention.target_url,
+        'mentionType': mention.mention_type,
+        'featured': mention.featured,
+        'createdAt': mention.created_at.isoformat(),
+    }
+    # Include mention source metadata when available
+    if mention.mention_source:
+        data['mentionSource'] = {
+            'name': mention.mention_source.name,
+            'slug': mention.mention_source.slug,
+            'avatarUrl': mention.mention_source.avatar_url,
+        }
+    return data
+
+
 def serialize_backlinks(backlink_graph):
     """
     Serialize the backlink graph for static JSON.

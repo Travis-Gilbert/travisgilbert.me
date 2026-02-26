@@ -158,6 +158,13 @@ GITHUB_TOKEN = os.environ.get('GITHUB_TOKEN', '')
 GITHUB_REPO = os.environ.get('GITHUB_REPO', '')
 GITHUB_BRANCH = os.environ.get('GITHUB_BRANCH', 'main')
 
+# Webmention and webhooks
+
+WEBMENTION_TARGET_DOMAIN = os.environ.get(
+    'WEBMENTION_TARGET_DOMAIN', 'travisgilbert.com'
+)
+WEBHOOK_SECRET = os.environ.get('WEBHOOK_SECRET', '')
+
 # Production security (only when DEBUG is False)
 
 if not DEBUG:

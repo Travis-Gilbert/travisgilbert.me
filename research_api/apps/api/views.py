@@ -3,16 +3,17 @@ from rest_framework import viewsets
 from rest_framework.decorators import api_view
 from rest_framework.response import Response
 
-from apps.mentions.models import MentionStatus, Webmention
+from apps.mentions.models import Mention, MentionSource
 from apps.research.models import ResearchThread, Source, SourceLink
 from apps.research.services import get_backlinks
 
 from .serializers import (
+    MentionSerializer,
+    MentionSourceSerializer,
     ResearchThreadListSerializer,
     ResearchThreadSerializer,
     SourceLinkSerializer,
     SourceSerializer,
-    WebmentionSerializer,
 )
 
 
@@ -64,15 +65,35 @@ class ResearchThreadViewSet(viewsets.ReadOnlyModelViewSet):
         return ResearchThreadSerializer
 
 
-class WebmentionViewSet(viewsets.ReadOnlyModelViewSet):
-    """Public read-only API for approved webmentions."""
-    serializer_class = WebmentionSerializer
+class MentionSourceViewSet(viewsets.ReadOnlyModelViewSet):
+    """Public read-only API for known mention sources."""
+    serializer_class = MentionSourceSerializer
+    lookup_field = 'slug'
 
     def get_queryset(self):
-        qs = Webmention.objects.filter(status=MentionStatus.APPROVED)
-        target = self.request.query_params.get('target')
-        if target:
-            qs = qs.filter(target_url__contains=target)
+        return MentionSource.objects.annotate(
+            mention_count=Count('mentions'),
+        )
+
+
+class MentionViewSet(viewsets.ReadOnlyModelViewSet):
+    """Public read-only API for verified, public mentions."""
+    serializer_class = MentionSerializer
+
+    def get_queryset(self):
+        qs = Mention.objects.public().select_related('mention_source')
+        content_type = self.request.query_params.get('content_type')
+        slug = self.request.query_params.get('slug')
+        mention_type = self.request.query_params.get('type')
+        featured = self.request.query_params.get('featured')
+        if content_type:
+            qs = qs.filter(target_content_type=content_type)
+        if slug:
+            qs = qs.filter(target_slug=slug)
+        if mention_type:
+            qs = qs.filter(mention_type=mention_type)
+        if featured is not None:
+            qs = qs.filter(featured=featured.lower() in ('true', '1'))
         return qs
 
 

@@ -1,30 +1,28 @@
 from django.contrib import admin
 
-from .models import Webmention
+from .models import Mention, MentionSource
 
 
-@admin.register(Webmention)
-class WebmentionAdmin(admin.ModelAdmin):
-    list_display = ['source_url_short', 'target_path', 'mention_type', 'status', 'verified', 'created_at']
-    list_filter = ['status', 'mention_type', 'verified']
-    search_fields = ['source_url', 'target_url', 'author_name', 'content']
-    readonly_fields = ['created_at', 'updated_at', 'verified_at']
-    actions = ['approve_mentions', 'reject_mentions', 'mark_spam']
+@admin.register(MentionSource)
+class MentionSourceAdmin(admin.ModelAdmin):
+    list_display = ['name', 'domain', 'trusted', 'mention_count', 'created_at']
+    list_filter = ['trusted']
+    search_fields = ['name', 'domain', 'description']
+    readonly_fields = ['created_at', 'updated_at']
+    prepopulated_fields = {'slug': ('name',)}
+
     fieldsets = [
         (None, {
-            'fields': ['source_url', 'target_url', 'mention_type'],
+            'fields': ['name', 'slug', 'domain', 'url'],
         }),
-        ('Author', {
-            'fields': ['author_name', 'author_url', 'author_photo'],
+        ('Details', {
+            'fields': ['description', 'avatar_url'],
         }),
-        ('Content', {
-            'fields': ['content'],
-        }),
-        ('Verification', {
-            'fields': ['verified', 'verified_at'],
-        }),
-        ('Moderation', {
-            'fields': ['status'],
+        ('Trust', {
+            'fields': ['trusted'],
+            'description': (
+                'Trusted sources auto-verify and auto-publish their mentions.'
+            ),
         }),
         ('Timestamps', {
             'fields': ['created_at', 'updated_at'],
@@ -32,22 +30,80 @@ class WebmentionAdmin(admin.ModelAdmin):
         }),
     ]
 
-    @admin.display(description='Source')
+    @admin.display(description='Mentions')
+    def mention_count(self, obj):
+        return obj.mentions.count()
+
+
+@admin.register(Mention)
+class MentionAdmin(admin.ModelAdmin):
+    list_display = [
+        'source_url_short', 'target_slug', 'target_content_type',
+        'mention_type', 'discovery_method', 'verified', 'public',
+        'featured', 'created_at',
+    ]
+    list_filter = [
+        'mention_type', 'discovery_method', 'target_content_type',
+        'verified', 'public', 'featured',
+    ]
+    search_fields = [
+        'source_url', 'source_title', 'source_author',
+        'target_slug', 'source_excerpt',
+    ]
+    readonly_fields = ['created_at', 'updated_at', 'verified_at']
+    list_select_related = ['mention_source']
+    raw_id_fields = ['mention_source']
+    actions = ['verify_and_publish', 'make_public', 'make_private', 'toggle_featured']
+
+    fieldsets = [
+        ('Source (external page)', {
+            'fields': [
+                'source_url', 'source_title', 'source_excerpt',
+                'source_author', 'source_author_url', 'source_published',
+            ],
+        }),
+        ('Target (your content)', {
+            'fields': ['target_content_type', 'target_slug', 'target_url'],
+        }),
+        ('Classification', {
+            'fields': ['mention_type', 'discovery_method', 'mention_source'],
+        }),
+        ('Verification and Visibility', {
+            'fields': ['verified', 'verified_at', 'public', 'featured'],
+        }),
+        ('Webmention Extensions', {
+            'fields': ['webmention_vouch'],
+            'classes': ['collapse'],
+        }),
+        ('Timestamps', {
+            'fields': ['created_at', 'updated_at'],
+            'classes': ['collapse'],
+        }),
+    ]
+
+    @admin.display(description='Source URL')
     def source_url_short(self, obj):
-        """Truncate long URLs for the list display."""
         url = obj.source_url
         if len(url) > 60:
             return f'{url[:57]}...'
         return url
 
-    @admin.action(description='Approve selected mentions')
-    def approve_mentions(self, request, queryset):
-        queryset.update(status='approved')
+    @admin.action(description='Verify and publish selected mentions')
+    def verify_and_publish(self, request, queryset):
+        from django.utils import timezone as tz
+        now = tz.now()
+        queryset.update(verified=True, verified_at=now, public=True)
 
-    @admin.action(description='Reject selected mentions')
-    def reject_mentions(self, request, queryset):
-        queryset.update(status='rejected')
+    @admin.action(description='Make selected mentions public')
+    def make_public(self, request, queryset):
+        queryset.update(public=True)
 
-    @admin.action(description='Mark as spam')
-    def mark_spam(self, request, queryset):
-        queryset.update(status='spam')
+    @admin.action(description='Make selected mentions private')
+    def make_private(self, request, queryset):
+        queryset.update(public=False)
+
+    @admin.action(description='Toggle featured status')
+    def toggle_featured(self, request, queryset):
+        for mention in queryset:
+            mention.featured = not mention.featured
+            mention.save(update_fields=['featured', 'updated_at'])

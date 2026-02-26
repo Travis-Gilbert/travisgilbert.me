@@ -10,6 +10,7 @@ import logging
 
 from django.db.models import Count
 
+from apps.mentions.models import Mention
 from apps.research.models import ResearchThread, Source, SourceLink
 from apps.research.services import get_all_backlinks
 
@@ -32,6 +33,7 @@ def publish_all():
         src/data/research/links.json
         src/data/research/threads.json
         src/data/research/backlinks.json
+        src/data/research/mentions.json
 
     Returns:
         dict with keys: success, commit_sha, commit_url, error
@@ -55,6 +57,11 @@ def publish_all():
         .order_by('-started_date')
     )
     backlink_graph = get_all_backlinks()
+    mentions = list(
+        Mention.objects.public()
+        .select_related('mention_source')
+        .order_by('-created_at')
+    )
 
     # Serialize
     sources_json = serializers.to_json([
@@ -69,6 +76,9 @@ def publish_all():
     backlinks_json = serializers.to_json(
         serializers.serialize_backlinks(backlink_graph)
     )
+    mentions_json = serializers.to_json([
+        serializers.serialize_mention(m) for m in mentions
+    ])
 
     # Build file operations
     file_ops = [
@@ -76,16 +86,20 @@ def publish_all():
         {'path': f'{DATA_PREFIX}/links.json', 'content': links_json},
         {'path': f'{DATA_PREFIX}/threads.json', 'content': threads_json},
         {'path': f'{DATA_PREFIX}/backlinks.json', 'content': backlinks_json},
+        {'path': f'{DATA_PREFIX}/mentions.json', 'content': mentions_json},
     ]
 
     # Commit atomically
     result = publish_files(
         file_ops,
-        commit_message=f'data(research): publish {len(sources)} sources, {len(threads)} threads',
+        commit_message=(
+            f'data(research): publish {len(sources)} sources, '
+            f'{len(threads)} threads, {len(mentions)} mentions'
+        ),
     )
 
     # Write audit log
-    total_records = len(sources) + len(links) + len(threads)
+    total_records = len(sources) + len(links) + len(threads) + len(mentions)
     PublishLog.objects.create(
         data_type='full',
         record_count=total_records,
@@ -97,8 +111,9 @@ def publish_all():
 
     if result['success']:
         logger.info(
-            'Research data published: %s sources, %s links, %s threads. Commit: %s',
-            len(sources), len(links), len(threads), result['commit_sha'][:8],
+            'Research data published: %s sources, %s links, %s threads, %s mentions. Commit: %s',
+            len(sources), len(links), len(threads), len(mentions),
+            result['commit_sha'][:8],
         )
     else:
         logger.error('Research data publish failed: %s', result['error'])

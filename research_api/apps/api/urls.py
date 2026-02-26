@@ -9,7 +9,8 @@ router = DefaultRouter()
 router.register('sources', views.SourceViewSet, basename='source')
 router.register('links', views.SourceLinkViewSet, basename='link')
 router.register('threads', views.ResearchThreadViewSet, basename='thread')
-router.register('mentions', views.WebmentionViewSet, basename='mention')
+router.register('mention-sources', views.MentionSourceViewSet, basename='mention-source')
+router.register('mentions', views.MentionViewSet, basename='mention')
 
 urlpatterns = [
     path('', include(router.urls)),
