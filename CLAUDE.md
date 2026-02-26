@@ -20,7 +20,7 @@ Next.js 15 (App Router), React 19, Tailwind CSS v4 (`@tailwindcss/postcss`), rou
 |------|---------|
 | `src/app/` | App Router pages and layouts |
 | `src/app/fonts.ts` | All 7 font declarations (`next/font/google` + `next/font/local`) |
-| `src/app/layout.tsx` | Root layout (DotGrid, TopNav, Footer, metadata) |
+| `src/app/layout.tsx` | Root layout (DotGrid, TopNav, Footer, ArchitectureEasterEgg, metadata) |
 | `src/components/` | React components (Server + Client) |
 | `src/components/rough/` | Client Components for rough.js visuals (RoughBox, RoughLine, RoughUnderline) |
 | `src/content/` | Markdown content collections (essays, field-notes, shelf, toolkit, projects) |
@@ -34,8 +34,13 @@ Next.js 15 (App Router), React 19, Tailwind CSS v4 (`@tailwindcss/postcss`), rou
 | `src/styles/global.css` | Design tokens, surface utilities, prose variants, timeline CSS |
 | `docs/plans/` | Design documents and implementation plans |
 | `public/fonts/` | Self-hosted Amarna variable font |
-| `publishing_api/` | Django Studio: writing interface and GitHub publish pipeline (see Record 002) |
-| `publishing_api/apps/editor/widgets.py` | Custom form widgets: TagsWidget, SlugListWidget, JsonObjectListWidget for JSON field rendering |
+| `src/config/site.json` | Site configuration (tokens, nav, footer, SEO, pages); Django commits updates via GitHub API |
+| `src/lib/siteConfig.ts` | Zod-validated config loader with in-memory cache; `getSiteConfig()`, `getPageComposition()`, `getVisibleNav()` |
+| `src/lib/connectionEngine.ts` | Graph-based content relationship engine for ThreadLines and ConnectionDots |
+| `publishing_api/` | Django Studio: full site management control panel (content, tokens, nav, composition, SEO). See design doc in `docs/plans/` |
+| `publishing_api/apps/editor/widgets.py` | Custom form widgets: TagsWidget, SlugListWidget, StructuredListWidget, ColorPickerWidget, JsonObjectListWidget |
+| `publishing_api/apps/editor/context_processors.py` | Injects `studio_nav` context (content types, compose pages, settings links) into all templates |
+| `publishing_api/apps/publisher/github.py` | GitHub Contents API (single file) + Git Trees API (atomic multi-file commits) |
 
 ## Development Commands
 
@@ -56,9 +61,16 @@ python manage.py import_content --type essays  # Import one content type only
 
 ## Content Workflow
 
+**Manual (current):**
 1. Create a `.md` file in the appropriate `src/content/` subdirectory
 2. Fill in frontmatter matching the Zod schema in `src/lib/content.ts`
 3. Push to `main` (Vercel auto-deploys)
+
+**Via Django Studio (when deployed):**
+1. Create/edit content in Studio's editor (markdown toolbar, autosave, split-pane)
+2. Move through visual pipeline: Draft -> Review -> Published
+3. Studio commits `.md` to GitHub via Contents API; Vercel auto-deploys
+4. Site config changes (tokens, nav, SEO) commit to `src/config/site.json` via Git Trees API
 
 ## Architecture Notes
 
@@ -98,6 +110,9 @@ Most components are **Server Components** by default. Components needing browser
 | `ReadingProgress.tsx` | Thin progress bar at top of viewport during article scroll |
 | `NowPreviewCompact.tsx` | 2x2 grid /now snapshot (Server Component reading `now.md`, but has `inverted` prop for hero) |
 | `StudioShortcut.tsx` | Invisible Ctrl+Shift+E handler; maps current path to Django Studio URL via `NEXT_PUBLIC_STUDIO_URL` |
+| `ConnectionDots.tsx` | Interactive paragraph dots in essay margins; click to reveal connection threads; uses `connectionEngine` |
+| `ThreadLines.tsx` | rough.js canvas lines connecting related content paragraphs; reads `ThreadPair` data from connectionEngine |
+| `ArchitectureEasterEgg.tsx` | Hidden site map easter egg; 5-phase state machine (seed/connecting/expanding/open/collapsing), rough.js border, wobble SVG connectors, rAF animation loop |
 
 Server Components can import and render Client Components; children pass through as a slot without hydrating.
 
@@ -286,6 +301,17 @@ The site uses a layered texture system to create skeuomorphic depth:
 - `.surface-tint-{color}`: transparent brand-color wash
 - `.surface-hover`: lift animation with shadow transition
 
+### Site Configuration Cascade
+
+Four-layer system where each layer is optional and overrides the one above:
+
+1. **`global.css` defaults**: Hardcoded CSS custom properties (current source of truth)
+2. **`src/config/site.json`**: Design tokens, nav, footer, SEO (Django Studio commits updates here via GitHub API)
+3. **Page composition**: Per-page visual overrides (e.g., essays page uses terracotta accent, toolkit uses custom layout)
+4. **Content instance composition**: Per-item overrides via `composition` JSONField in frontmatter
+
+`src/lib/siteConfig.ts` loads `site.json` with Zod validation and in-memory caching. Falls back to `DEFAULT_CONFIG` (matching current hardcoded values) if file is missing or malformed. Components can progressively adopt `getSiteConfig()` and `getVisibleNav()` instead of hardcoded values.
+
 ### Section Color Language
 
 Each content type has a brand color that flows through labels, icons, tags, card tints, and borders:
@@ -306,14 +332,28 @@ Vercel with native Next.js builder. Git integration auto-deploys on push to `mai
 
 Phases 1 through 4 (Foundation, Micro-interactions, Animations, Polish) are **all complete**. See `docs/records/001-site-wide-redesign.md` for full history.
 
-**Publishing API (Django Studio):** Scaffolded. All models, views, templates, publisher pipeline, StudioShortcut integration, and `import_content` management command are written. Django check passes (0 issues). Existing content (22 files) can be imported into Django via `python manage.py import_content`. Bug fix applied: all JSON fields (tags, sources, urls, related, callouts, annotations) now have custom widgets and render in edit.html, preventing silent data loss on save. Not yet deployed or tested end-to-end. See `docs/records/002-publishing-api.md`.
+**Django Studio:** Full site management redesign complete. Transforms Studio from a content editor into a control panel for all visual and structural aspects of the site. See `docs/plans/2026-02-25-studio-redesign-design.md` for the design doc and `docs/records/002-publishing-api.md` for the original scaffold.
 
-**Next step:** Deploy publishing_api to Railway, create superuser, test publish pipeline with a draft essay, set `NEXT_PUBLIC_STUDIO_URL` in Vercel. Consider design improvements for the Draftroom editor (richer split-pane, markdown preview, autosave).
+Key capabilities:
+- Content CRUD for all 6 types (essays, field notes, shelf, projects, toolkit, now)
+- Design tokens editor (colors, fonts, spacing) with live preview
+- Nav editor with drag-to-reorder
+- Page composition editor (per-page visual overrides)
+- SEO settings (title template, description)
+- Publish log with status history
+- Visual status pipeline (draft/review/published) replacing checkbox + dropdown
+- Git Trees API for atomic multi-file commits
+- `import_content` management command imports all 24 content files (6 types)
+
+Django check passes (0 issues). Not yet deployed or tested end-to-end.
+
+**Next step:** Deploy publishing_api to Railway, create superuser, test publish pipeline with a draft essay, set `NEXT_PUBLIC_STUDIO_URL` in Vercel.
 
 **Remaining backlog:**
 - Additional content pages and essays (not started)
 - Dark mode (deferred; tokens ready in `global.css`)
 - Collage hero fragment library (desk item photography, `public/collage/`)
+- Component integration: TopNav, layout.tsx, CollageHero, DotGrid could consume siteConfig instead of hardcoded values
 
 ## Recent Decisions
 
@@ -325,19 +365,18 @@ Phases 1 through 4 (Foundation, Micro-interactions, Animations, Polish) are **al
 | Projects: no RoughBox | Inline rgba tinting with three states | RoughBox's fixed CSS classes can't handle dynamic rest/hover/expanded opacity |
 | Nav restructure | Essays on... / Field Notes / Projects / Toolkit / Shelf / Connect | 6 items; Shelf promoted to top-level nav; Colophon in footer only |
 | Section icons | SketchIcon (hand-drawn SVG) for pages, Phosphor for UI glyphs | Brand identity icons match rough.js aesthetic; utility icons stay crisp |
-| Taxonomy rename | investigations to essays, working-ideas merged into field-notes | Less institutional naming; essays signals depth; field-notes consolidates shorter content |
-| PatternImage | Seeded PRNG canvas, 3 layers | Deterministic from slug so patterns are stable; fallback when no video/image exists |
 | MarginAnnotation approach | Frontmatter array + CSS-only rendering (no Client Component) | Zero JS overhead; `::after` pseudo-elements + `attr()` read data attributes directly |
-| MarginAnnotation breakpoint | xl (1280px) for margin positioning, not lg (1024px) | At 1024px only ~128px margin space; at 1280px ~192px |
-| Related field notes | Two-tier resolution: explicit `related` slugs, then shared-tag fallback | Curated relationships preferred; automatic fallback ensures no empty section |
 | Dark mode | Deferred to separate future effort | Tokens ready in global.css but scope was too large |
-| Collage hero aesthetic | Editorial collage (Blake Cale / The Atlantic), dark olive ground, cream serif type | Tactile, layered, uncontained; spec in `docs/plans/collage-hero-implementation-plan.md` |
 | DotGrid zone-aware rendering | Cream dots over hero zone, dark dots over parchment, 50px crossfade | Hero component reports height to `--hero-height` via ResizeObserver; DotGrid reads it |
 | Comment system | File-based JSON in `data/comments/`, reCAPTCHA v3, sticky notes in margin | Low-infrastructure reader engagement; matches the handwritten margin note aesthetic |
-| Publishing delivery | GitHub Contents API commits from Django (not runtime API or direct git) | Preserves SSG architecture; Vercel auto-deploys; no changes to Next.js data fetching |
+| Publishing delivery | GitHub Contents API + Git Trees API (not runtime API or direct git) | SSG preserved; Trees API enables atomic multi-file commits (content + config together) |
 | Studio editor tech | Django templates + HTMX (not React SPA) | Avoids second SPA; HTMX gives interactivity; simpler than building API + React client |
 | Studio owner shortcut | Invisible keyboard shortcut Ctrl+Shift+E (not nav link or FAB) | Zero visual footprint for visitors; Django auth still protects the editor |
-| JSON field widgets | Custom widgets (TagsWidget, JsonObjectListWidget) at widget layer, not form clean | Serialization in `format_value()`/`value_from_datadict()` keeps forms and views clean; avoids overriding `clean_*` methods |
+| JSON field widgets | Custom widgets at widget layer, not form clean | Serialization in `format_value()`/`value_from_datadict()` keeps forms and views clean |
+| Site config cascade | global.css -> site.json -> page composition -> per-instance composition | Four optional layers; site works with zero config (hardcoded defaults are the fallback) |
+| Composition JSONField | Added to all content models (Essay, FieldNote, ShelfEntry, Project, ToolkitEntry) | Per-instance visual overrides without schema migration; loose `z.record()` in Zod |
+| Studio three-zone sidebar | Content / Compose / Settings navigation groups | Maps to the three concerns: writing, visual design, site-wide settings |
+| StructuredListWidget | Row-based JSON editing with add/remove/reorder | Replaces raw JSON textarea for nav items, sources, annotations; prevents syntax errors |
 
 ## Gotchas
 
@@ -366,8 +405,14 @@ Phases 1 through 4 (Foundation, Micro-interactions, Animations, Polish) are **al
 - **`pre code` word-break reset**: Inline `code` gets `word-break: break-word` but `pre code` resets to `normal` because code blocks should scroll horizontally, not wrap
 - **Absolute-positioned callout text needs explicit `width`**: `max-width` alone on absolute elements causes shrink-to-fit (one word per line). Both `RoughPivotCallout` and `RoughCallout` set `width: 450` on the outer wrapper div
 - **`overflow-hidden` clips absolute callouts**: Secondary essay cards had `overflow-hidden` on the `group` div which clipped `RoughCallout`. Only put `overflow-hidden` on image wrappers, not card-level containers that host absolute-positioned decorations
+- **Phase-aware overflow for hover labels**: ArchitectureEasterEgg uses `overflow: isExpanded ? 'hidden' : 'visible'` so the SITE.MAP hover label can extend below the 72px seed wrapper in seed phase, while expanded panel content stays clipped
+- **rAF never fires in headless Playwright**: Preview tool's headless browser doesn't trigger `requestAnimationFrame`. To test rAF-driven animations, use React fiber manipulation (`hook.queue.dispatch()`) to force state, or test in a real browser
 - **CSS `ch` unit is font-relative in `::after`**: Margin annotation `::after` inherits `font-annotation` (Caveat), making `calc(65ch + ...)` resolve differently than `65ch` in the prose body font. Use `calc(100% + ...)` for font-agnostic positioning
 - **Hero grid alignment math**: The `1fr 118px 1fr` grid in the hero (max-w-6xl, 1152px) aligns with the RoughLine label gap inside max-w-4xl (896px) because each hero `1fr` extends exactly `(1152-896)/2 = 128px` beyond the content area. The `lg:pl-[128px]` on the left column shifts the name to align with the content area's left edge. If either max-width changes, both values must be recalculated
 - **StudioShortcut `NEXT_PUBLIC_STUDIO_URL`**: Defaults to `http://localhost:8000`. Must be set in Vercel environment when Django Studio is deployed to Railway. The `NEXT_PUBLIC_` prefix means the value is inlined at build time, not runtime
 - **Django JSONField silent data loss**: If a JSONField is in `Meta.fields` but not rendered in the template, Django treats absent POST data as empty and resets the field on save. Every JSONField must have both an explicit widget in the form AND a rendering slot in the template
 - **ShelfEntry uses `annotation` not `body`**: The main content field for ShelfEntry is `annotation` (textarea in writing area), not `body` like other content types. The edit.html template falls back: `{% if form.body %}...{% elif form.annotation %}...{% endif %}`
+- **siteConfig.ts cache is process-scoped**: `_cached` lives in module scope. Works for SSG (single Node process builds all pages) but would need invalidation if ISR or runtime rendering is added
+- **site.json must be valid JSON or getSiteConfig() falls back silently**: Zod `.safeParse()` returns `DEFAULT_CONFIG` on any parse failure. Check server logs if config changes aren't appearing
+- **Composition field is `z.record(z.unknown()).optional()`**: Intentionally loose typing so Django can evolve composition schemas without requiring Next.js Zod changes. Consumers must validate the shape they expect
+- **ToolkitEntry has no date field**: Unlike other content types, toolkit entries use `category` + `order` for organization. The `_parse_toolkit` function defaults `stage` to `"published"` because existing content is already live
