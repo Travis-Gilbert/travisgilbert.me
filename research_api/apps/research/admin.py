@@ -6,6 +6,7 @@ to essays/field notes should be fast and require minimal clicks.
 """
 
 from django.contrib import admin
+from django.db.models import Count
 
 from .models import (
     ConnectionSuggestion,
@@ -99,9 +100,14 @@ class SourceAdmin(admin.ModelAdmin):
         }),
     ]
 
-    @admin.display(description='Links')
+    def get_queryset(self, request):
+        return super().get_queryset(request).annotate(
+            _link_count=Count('links'),
+        )
+
+    @admin.display(description='Links', ordering='_link_count')
     def link_count(self, obj):
-        return obj.links.count()
+        return obj._link_count
 
 
 @admin.register(SourceLink)
@@ -115,6 +121,7 @@ class SourceLinkAdmin(admin.ModelAdmin):
     list_filter = ['content_type', 'role']
     search_fields = ['source__title', 'content_slug', 'content_title']
     raw_id_fields = ['source']
+    list_select_related = ['source']
 
 
 @admin.register(ResearchThread)
@@ -146,9 +153,14 @@ class ResearchThreadAdmin(admin.ModelAdmin):
         }),
     ]
 
-    @admin.display(description='Entries')
+    def get_queryset(self, request):
+        return super().get_queryset(request).annotate(
+            _entry_count=Count('entries'),
+        )
+
+    @admin.display(description='Entries', ordering='_entry_count')
     def entry_count(self, obj):
-        return obj.entries.count()
+        return obj._entry_count
 
 
 @admin.register(ThreadEntry)

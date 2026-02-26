@@ -46,6 +46,9 @@ Next.js 15 (App Router), React 19, Tailwind CSS v4 (`@tailwindcss/postcss`), rou
 | `research_api/apps/mentions/` | Webmention model + W3C webhook receiver |
 | `research_api/apps/api/` | DRF read-only viewsets (sources, links, threads, mentions, backlinks) |
 | `research_api/apps/publisher/` | PublishLog model, GitHub API client, JSON serializers, publish orchestrator (commits to `src/data/research/`) |
+| `research_api/apps/research/recaptcha.py` | reCAPTCHA v3 server-side verification; single `verify_recaptcha()` returning `(passed, score)` tuple |
+| `research_api/apps/research/views.py` | Public submission endpoints (suggest source, suggest connection) with reCAPTCHA + approved suggestions read endpoint |
+| `research_api/apps/research/services.py` | `detect_content_type()` (essay vs field_note heuristic), `get_backlinks()`, `get_all_backlinks()` |
 
 ## Development Commands
 
@@ -361,7 +364,7 @@ Key capabilities:
 
 Django check passes (0 issues). Not yet deployed or tested end-to-end.
 
-**Research API:** Models redesigned with richer domain (13 source types, SourceLink roles, public/private annotations, geolocation, PublishLog audit trail). Django check passes (0 issues). Publishes static JSON to `src/data/research/`. Not yet deployed.
+**Research API:** Complete: models (13 source types, SourceLink roles, public/private annotations, geolocation), DRF read-only API (trail BFF, sources, threads, mentions, backlinks, graph), community submissions (suggest source/connection with reCAPTCHA v3), publish orchestrator (static JSON to `src/data/research/`), admin with annotated querysets. Architecture reviewed and all findings resolved. Django check passes (0 issues). Not yet deployed.
 
 **Next step:** Deploy both Django services to Railway (publishing_api + research_api), create superusers, test publish pipelines, set `NEXT_PUBLIC_STUDIO_URL` in Vercel.
 
@@ -398,6 +401,7 @@ Django check passes (0 issues). Not yet deployed or tested end-to-end.
 | PublishLog in publisher app (not research) | Audit trail model lives with the publish orchestrator | Semantic cohesion; publish.py creates the log entries, not research models |
 | private_annotation excluded from all serializers | Server-only field never exposed through API or published JSON | Author's private notes stay in Django admin; readers only see public_annotation |
 | Source.public + custom managers | `.public()` manager filters to `public=True` across API, publisher, and management commands | Two-layer access: admin sees everything, public sees only curated sources |
+| research_api: annotated admin querysets | `get_queryset` + `Count` annotation for all computed `list_display` columns | Prevents N+1 queries; `list_select_related` on SourceLinkAdmin for FK joins |
 
 ## Gotchas
 
@@ -439,4 +443,6 @@ Django check passes (0 issues). Not yet deployed or tested end-to-end.
 - **ToolkitEntry has no date field**: Unlike other content types, toolkit entries use `category` + `order` for organization. The `_parse_toolkit` function defaults `stage` to `"published"` because existing content is already live
 - **`python3 -m pip` required on this machine**: `pip` alone is not found. Use `python3 -m pip install` for all package installs
 - **Two Django services share patterns**: `research_api` mirrors `publishing_api` structure (single `config/settings.py`, `railway.toml`, requirements split, GitHub publisher). When updating one, check if the other needs the same change
-- **research_api publishes to `src/data/research/`**: Four JSON files (sources.json, links.json, threads.json, backlinks.json) committed atomically via Git Trees API. Next.js site reads these at build time
+- **research_api publishes to `src/data/research/`**: Five JSON files (sources.json, links.json, threads.json, backlinks.json) plus per-slug trail files, committed atomically via Git Trees API. Next.js site reads these at build time
+- **reCAPTCHA v3 tokens are single-use**: Google's `siteverify` consumes the token on first call; a second call returns `success: false, score: 0.0`. Never split verification and scoring into separate HTTP calls
+- **Content-type detection lives in `services.py`**: `detect_content_type(slug)` centralizes the essay-first/field_note-fallback heuristic. Used by trail API, backlinks API, and publisher

@@ -23,7 +23,7 @@ from apps.research.models import (
     SourceLink,
     ThreadEntry,
 )
-from apps.research.services import get_backlinks
+from apps.research.services import detect_content_type, get_backlinks
 
 from .serializers import (
     MentionSerializer,
@@ -54,17 +54,16 @@ def research_trail(request, slug):
     Tries essay first, then field_note. This covers the two content
     types that have research trails on the site.
     """
-    # Determine content type by checking which has source links
-    content_type = 'essay'
-    if not SourceLink.objects.filter(
-        content_type='essay', content_slug=slug,
-    ).exists():
-        content_type = 'field_note'
+    content_type = detect_content_type(slug)
 
-    # Sources linked to this content
+    # Sources linked to this content (public only at DB level)
     links = (
         SourceLink.objects
-        .filter(content_type=content_type, content_slug=slug)
+        .filter(
+            content_type=content_type,
+            content_slug=slug,
+            source__public=True,
+        )
         .select_related('source')
         .order_by('role', 'source__title')
     )
@@ -82,7 +81,6 @@ def research_trail(request, slug):
             'keyQuote': lnk.key_quote,
         }
         for lnk in links
-        if lnk.source.public
     ]
 
     # Backlinks (other content sharing sources with this one)
@@ -291,11 +289,7 @@ def backlinks_for_content(request, slug):
     Backlink connections for a content slug. Tries essay first,
     then field_note (same heuristic as research_trail).
     """
-    content_type = 'essay'
-    if not SourceLink.objects.filter(
-        content_type='essay', content_slug=slug,
-    ).exists():
-        content_type = 'field_note'
+    content_type = detect_content_type(slug)
 
     backlinks = get_backlinks(content_type, slug)
     return Response({

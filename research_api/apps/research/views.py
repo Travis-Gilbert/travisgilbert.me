@@ -17,7 +17,7 @@ from apps.research.models import (
     Source,
     SourceSuggestion,
 )
-from apps.research.recaptcha import get_recaptcha_score, verify_token
+from apps.research.recaptcha import verify_recaptcha
 
 
 # ---------------------------------------------------------------------------
@@ -107,22 +107,19 @@ def suggest_source(request):
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
     token = serializer.validated_data.pop('recaptcha_token', '')
-    if not verify_token(token):
+    passed, score = verify_recaptcha(token)
+    if not passed:
         return Response(
             {'error': 'Verification failed. Please try again.'},
             status=status.HTTP_400_BAD_REQUEST,
         )
-
-    # Get the score for flagging borderline submissions
-    score = get_recaptcha_score(token)
-    is_flagged = score < 0.3
 
     # Get IP for rate limiting and audit
     ip = _get_client_ip(request)
 
     suggestion = serializer.save(
         ip_address=ip,
-        is_flagged=is_flagged,
+        is_flagged=score < 0.3,
     )
 
     return Response(
@@ -160,13 +157,13 @@ def suggest_connection(request):
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
     token = serializer.validated_data.pop('recaptcha_token', '')
-    if not verify_token(token):
+    passed, score = verify_recaptcha(token)
+    if not passed:
         return Response(
             {'error': 'Verification failed. Please try again.'},
             status=status.HTTP_400_BAD_REQUEST,
         )
 
-    score = get_recaptcha_score(token)
     ip = _get_client_ip(request)
 
     suggestion = serializer.save(

@@ -1,4 +1,5 @@
 from django.contrib import admin
+from django.db.models import Count
 
 from .models import Mention, MentionSource
 
@@ -30,9 +31,14 @@ class MentionSourceAdmin(admin.ModelAdmin):
         }),
     ]
 
-    @admin.display(description='Mentions')
+    def get_queryset(self, request):
+        return super().get_queryset(request).annotate(
+            _mention_count=Count('mentions'),
+        )
+
+    @admin.display(description='Mentions', ordering='_mention_count')
     def mention_count(self, obj):
-        return obj.mentions.count()
+        return obj._mention_count
 
 
 @admin.register(Mention)

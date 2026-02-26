@@ -1,5 +1,5 @@
 """
-Backlink computation service.
+Research computation services.
 
 Backlinks are computed, not stored. Two content pieces are backlinked
 when they share at least one Source via SourceLink. This avoids
@@ -9,6 +9,25 @@ synchronization overhead for a small-scale personal site.
 from collections import defaultdict
 
 from .models import SourceLink
+
+
+def detect_content_type(slug: str) -> str:
+    """
+    Determine whether a slug refers to an essay or field note.
+
+    Checks for the presence of SourceLinks with content_type='essay' first.
+    Falls back to 'field_note'. These are the two content types that carry
+    research trails on the site.
+
+    This heuristic is used by the trail API endpoint, the backlinks endpoint,
+    and the publish_trail function. Centralizing it here keeps the fallback
+    logic in one place.
+    """
+    if SourceLink.objects.filter(
+        content_type='essay', content_slug=slug,
+    ).exists():
+        return 'essay'
+    return 'field_note'
 
 
 def get_backlinks(content_type, content_slug):

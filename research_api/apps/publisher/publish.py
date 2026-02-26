@@ -18,7 +18,7 @@ from django.db.models import Count, Prefetch
 
 from apps.mentions.models import Mention
 from apps.research.models import ResearchThread, Source, SourceLink, ThreadEntry
-from apps.research.services import get_all_backlinks, get_backlinks
+from apps.research.services import detect_content_type, get_all_backlinks, get_backlinks
 
 from . import serializers
 from .github import publish_files
@@ -220,17 +220,16 @@ def publish_trail(slug):
     """
     logger.info('Publishing trail for %s...', slug)
 
-    # Determine content type (essay first, field_note fallback)
-    content_type = 'essay'
-    if not SourceLink.objects.filter(
-        content_type='essay', content_slug=slug,
-    ).exists():
-        content_type = 'field_note'
+    content_type = detect_content_type(slug)
 
-    # Sources linked to this content
+    # Sources linked to this content (public only at DB level)
     links = (
         SourceLink.objects
-        .filter(content_type=content_type, content_slug=slug)
+        .filter(
+            content_type=content_type,
+            content_slug=slug,
+            source__public=True,
+        )
         .select_related('source')
         .order_by('role', 'source__title')
     )
@@ -248,7 +247,6 @@ def publish_trail(slug):
             'keyQuote': lnk.key_quote,
         }
         for lnk in links
-        if lnk.source.public
     ]
 
     # Backlinks
