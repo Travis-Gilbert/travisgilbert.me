@@ -12,7 +12,7 @@ Personal "creative workbench" site: a living record of work, interests, and thin
 
 ## Tech Stack
 
-Next.js 15 (App Router), React 19, Tailwind CSS v4 (`@tailwindcss/postcss`), rough.js, rough-notation, `next/font` (Google + local), Zod, gray-matter + remark, Django 5.x (publishing_api + research_api), DRF
+Next.js 15 (App Router), React 19, Tailwind CSS v4 (`@tailwindcss/postcss`), rough.js, rough-notation, `next/font` (Google + local), Zod, gray-matter + remark, Django 5.x (publishing_api + research_api), DRF, django-cotton, django-crispy-forms (`studio` pack), django-tailwind, django-template-partials
 
 ## Key Directories
 
@@ -41,6 +41,9 @@ Next.js 15 (App Router), React 19, Tailwind CSS v4 (`@tailwindcss/postcss`), rou
 | `publishing_api/apps/editor/widgets.py` | Custom form widgets: TagsWidget, SlugListWidget, StructuredListWidget, ColorPickerWidget, JsonObjectListWidget |
 | `publishing_api/apps/editor/context_processors.py` | Injects `studio_nav` context (content types, compose pages, settings links) into all templates |
 | `publishing_api/apps/publisher/github.py` | GitHub Contents API (single file) + Git Trees API (atomic multi-file commits) |
+| `publishing_api/templates/cotton/` | 7 Cotton components: card, btn, badge, section_label, toast, stage_pill, field |
+| `publishing_api/crispy_studio/` | Custom crispy-forms template pack (`studio`): field, fieldset, input, select, textarea, checkbox templates |
+| `publishing_api/theme/` | django-tailwind theme app: `static_src/` with brand tokens config, Tailwind input CSS |
 | `research_api/` | Django research API: source tracking, backlinks, Webmention receiver, DRF read-only API. Sibling service to publishing_api |
 | `research_api/apps/research/` | Source, SourceLink, ResearchThread, ThreadEntry models + backlink computation service |
 | `research_api/apps/mentions/` | Webmention model + W3C webhook receiver |
@@ -65,6 +68,13 @@ npm run lint       # Run Next.js linter
 python manage.py import_content             # Import all markdown into Django DB
 python manage.py import_content --dry-run   # Parse and report without writing
 python manage.py import_content --type essays  # Import one content type only
+```
+
+```bash
+# Django Studio dev server (from publishing_api/)
+python manage.py runserver               # Dev server on port 8000
+python manage.py tailwind start          # Tailwind CSS watch mode (run in parallel)
+python manage.py tailwind build          # Production Tailwind build
 ```
 
 ```bash
@@ -349,7 +359,7 @@ Vercel with native Next.js builder. Git integration auto-deploys on push to `mai
 
 Phases 1 through 4 (Foundation, Micro-interactions, Animations, Polish) are **all complete**. See `docs/records/001-site-wide-redesign.md` for full history.
 
-**Django Studio:** Full site management redesign complete. Transforms Studio from a content editor into a control panel for all visual and structural aspects of the site. See `docs/plans/2026-02-25-studio-redesign-design.md` for the design doc and `docs/records/002-publishing-api.md` for the original scaffold.
+**Django Studio:** Full site management control panel. Brand component library redesign complete: all 12 templates rewritten with Cotton components + Tailwind utility classes, 10 custom widgets updated, crispy-forms `studio` template pack, FormHelper layouts on all 10 forms. See `docs/plans/2026-02-25-studio-redesign-design.md` for the design doc and `docs/records/002-publishing-api.md` for the original scaffold.
 
 Key capabilities:
 - Content CRUD for all 6 types (essays, field notes, shelf, projects, toolkit, now)
@@ -362,7 +372,7 @@ Key capabilities:
 - Git Trees API for atomic multi-file commits
 - `import_content` management command imports all 24 content files (6 types)
 
-Django check passes (0 issues). Not yet deployed or tested end-to-end.
+Django check passes (0 issues). Brand component library deployed to main. Not yet deployed to Railway or tested end-to-end.
 
 **Research API:** Complete: models (13 source types, SourceLink roles, public/private annotations, geolocation), DRF read-only API (trail BFF, sources, threads, mentions, backlinks, graph), community submissions (suggest source/connection with reCAPTCHA v3), publish orchestrator (static JSON to `src/data/research/`), admin with annotated querysets. Architecture reviewed and all findings resolved. Django check passes (0 issues). Not yet deployed.
 
@@ -397,11 +407,8 @@ Django check passes (0 issues). Not yet deployed or tested end-to-end.
 | StructuredListWidget | Row-based JSON editing with add/remove/reorder | Replaces raw JSON textarea for nav items, sources, annotations; prevents syntax errors |
 | Backlinks as computed data | `get_backlinks()` derives from SourceLink joins (no Backlink model) | Avoids sync overhead; cheap for single-user scale; backlink graph published as static JSON |
 | research_api: admin as authoring UI | Django admin with rich fieldsets and inlines (no custom Studio editor) | Simpler than publishing_api's HTMX Studio; source tracking is data entry, not content editing |
-| SourceLink replaces ContentReference | Clearer name for the Source-to-content join table | "Link" is more intuitive than "Reference"; content_types narrowed to essay/field_note |
-| PublishLog in publisher app (not research) | Audit trail model lives with the publish orchestrator | Semantic cohesion; publish.py creates the log entries, not research models |
-| private_annotation excluded from all serializers | Server-only field never exposed through API or published JSON | Author's private notes stay in Django admin; readers only see public_annotation |
 | Source.public + custom managers | `.public()` manager filters to `public=True` across API, publisher, and management commands | Two-layer access: admin sees everything, public sees only curated sources |
-| research_api: annotated admin querysets | `get_queryset` + `Count` annotation for all computed `list_display` columns | Prevents N+1 queries; `list_select_related` on SourceLinkAdmin for FK joins |
+| Studio UI library | django-cotton + django-crispy-forms + django-tailwind (replacing 600+ line custom studio.css) | Declarative components, consistent form rendering, utility-first CSS with brand tokens; eliminates all custom CSS |
 
 ## Gotchas
 
@@ -437,6 +444,7 @@ Django check passes (0 issues). Not yet deployed or tested end-to-end.
 - **StudioShortcut `NEXT_PUBLIC_STUDIO_URL`**: Defaults to `http://localhost:8000`. Must be set in Vercel environment when Django Studio is deployed to Railway. The `NEXT_PUBLIC_` prefix means the value is inlined at build time, not runtime
 - **Django JSONField silent data loss**: If a JSONField is in `Meta.fields` but not rendered in the template, Django treats absent POST data as empty and resets the field on save. Every JSONField must have both an explicit widget in the form AND a rendering slot in the template
 - **ShelfEntry uses `annotation` not `body`**: The main content field for ShelfEntry is `annotation` (textarea in writing area), not `body` like other content types. The edit.html template falls back: `{% if form.body %}...{% elif form.annotation %}...{% endif %}`
+- **Django `.defer()` validates field existence at query time**: Unlike `.only()`, `.defer("field_that_doesnt_exist")` raises `FieldDoesNotExist` when the queryset is evaluated. When deferring fields across heterogeneous models (e.g., ShelfEntry has `annotation` not `body`), use per-model defer tuples instead of a shared skip list
 - **siteConfig.ts cache is process-scoped**: `_cached` lives in module scope. Works for SSG (single Node process builds all pages) but would need invalidation if ISR or runtime rendering is added
 - **site.json must be valid JSON or getSiteConfig() falls back silently**: Zod `.safeParse()` returns `DEFAULT_CONFIG` on any parse failure. Check server logs if config changes aren't appearing
 - **Composition field is `z.record(z.unknown()).optional()`**: Intentionally loose typing so Django can evolve composition schemas without requiring Next.js Zod changes. Consumers must validate the shape they expect

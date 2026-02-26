@@ -1,11 +1,1 @@
-# Core
-Django>=5.1,<7.0
-PyYAML>=6.0
-requests>=2.31
-python-dotenv>=1.0
-python-frontmatter>=1.1
-
-# Production
-gunicorn>=21.2
-whitenoise>=6.6
-psycopg2-binary>=2.9
+-r requirements/production.txt
