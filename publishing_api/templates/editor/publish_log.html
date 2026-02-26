@@ -1,57 +1,69 @@
 {% extends "base.html" %}
-
 {% block title %}Publish Log{% endblock %}
 
 {% block content %}
-<div class="content-list-page">
-    <div class="list-header">
-        <h1>Publish Log</h1>
-    </div>
+<header class="flex items-center gap-3 mb-6">
+  <h1 class="font-title text-[22px] text-ink m-0">Publish Log</h1>
+</header>
 
-    {% if logs %}
-    <table class="content-table">
-        <thead>
-            <tr>
-                <th>Date</th>
-                <th>Type</th>
-                <th>Slug</th>
-                <th>Status</th>
-                <th>Commit</th>
-            </tr>
-        </thead>
-        <tbody>
-            {% for log in logs %}
-            <tr class="{% if log.success %}publish-success{% else %}publish-fail{% endif %}">
-                <td class="col-date">{{ log.created_at|date:"M j, Y g:i A" }}</td>
-                <td>{{ log.content_type }}</td>
-                <td>{{ log.content_slug }}</td>
-                <td>{% if log.success %}OK{% else %}FAILED{% endif %}</td>
-                <td>
-                    {% if log.commit_url %}
-                    <a href="{{ log.commit_url }}" target="_blank" rel="noopener">
-                        {{ log.commit_sha|truncatechars:7 }}
-                    </a>
-                    {% endif %}
-                </td>
-            </tr>
-            {% endfor %}
-        </tbody>
-    </table>
-
-    {% if page_obj.has_other_pages %}
-    <nav class="pagination">
-        {% if page_obj.has_previous %}
-        <a href="?page={{ page_obj.previous_page_number }}" class="btn btn-sm">&larr; Newer</a>
-        {% endif %}
-        <span class="page-info">Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}</span>
-        {% if page_obj.has_next %}
-        <a href="?page={{ page_obj.next_page_number }}" class="btn btn-sm">Older &rarr;</a>
-        {% endif %}
-    </nav>
-    {% endif %}
-
-    {% else %}
-    <p class="empty-state">No publish events recorded yet.</p>
-    {% endif %}
+{% if logs %}
+<div class="bg-cream rounded-brand-lg border border-border shadow-warm-sm overflow-hidden">
+  <table class="w-full text-left">
+    <thead>
+      <tr class="border-b border-border">
+        <th class="px-4 py-3 font-mono text-[11px] uppercase tracking-wider text-ink-muted">Date</th>
+        <th class="px-4 py-3 font-mono text-[11px] uppercase tracking-wider text-ink-muted">Type</th>
+        <th class="px-4 py-3 font-mono text-[11px] uppercase tracking-wider text-ink-muted">Slug</th>
+        <th class="px-4 py-3 font-mono text-[11px] uppercase tracking-wider text-ink-muted">Status</th>
+        <th class="px-4 py-3 font-mono text-[11px] uppercase tracking-wider text-ink-muted">Commit</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for log in logs %}
+      <tr class="border-b border-border last:border-b-0 hover:bg-black/[0.02] transition-colors">
+        <td class="px-4 py-3 font-mono text-[11px] tracking-wide text-ink-muted">
+          {{ log.created_at|date:"M j, Y g:i A" }}
+        </td>
+        <td class="px-4 py-3 font-mono text-[12px] tracking-wide">{{ log.content_type }}</td>
+        <td class="px-4 py-3 font-mono text-[12px] tracking-wide text-ink-muted">{{ log.content_slug }}</td>
+        <td class="px-4 py-3">
+          {% if log.success %}
+            <c-badge color="success">OK</c-badge>
+          {% else %}
+            <c-badge color="error">FAILED</c-badge>
+          {% endif %}
+        </td>
+        <td class="px-4 py-3">
+          {% if log.commit_url %}
+          <a href="{{ log.commit_url }}" target="_blank" rel="noopener"
+             class="font-mono text-[11px] tracking-wide text-teal hover:text-teal-hover underline">
+            {{ log.commit_sha|truncatechars:7 }}
+          </a>
+          {% endif %}
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
 </div>
+
+{% if page_obj.has_other_pages %}
+<nav class="flex items-center justify-center gap-4 mt-6">
+  {% if page_obj.has_previous %}
+  <c-btn variant="ghost" href="?page={{ page_obj.previous_page_number }}">&larr; Newer</c-btn>
+  {% endif %}
+  <span class="font-mono text-[11px] tracking-wide text-ink-muted">
+    Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}
+  </span>
+  {% if page_obj.has_next %}
+  <c-btn variant="ghost" href="?page={{ page_obj.next_page_number }}">Older &rarr;</c-btn>
+  {% endif %}
+</nav>
+{% endif %}
+
+{% else %}
+<p class="font-mono text-[12px] tracking-wide text-ink-muted py-8 text-center">
+  No publish events recorded yet.
+</p>
+{% endif %}
 {% endblock %}

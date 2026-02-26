@@ -1,466 +1,318 @@
 {% extends "base.html" %}
-{% load static %}
+{% load crispy_forms_tags %}
 
 {% block title %}{% if is_new %}New{% else %}Edit{% endif %} {{ content_type|title }}{% endblock %}
 
 {% block body_attrs %}{% if not is_new %}data-content-type="{{ content_type }}" data-slug="{{ object.slug }}"{% endif %}{% endblock %}
 
 {% block content %}
-<div class="editor-layout">
-    <!-- Top bar: status pipeline (existing content only) -->
-    {% if not is_new and stage_choices %}
-    <header class="editor-pipeline" id="status-pipeline"
-            data-stages='{{ stage_choices|safe }}'
-            data-current="{{ current_stage }}"
-            {% if set_stage_url %}data-url="{{ set_stage_url }}"{% endif %}>
-        <!-- Rendered by JS in studio.js -->
-    </header>
+{# ------------------------------------------------------------------ #}
+{#  Header bar: navigation, content type badge, stage, actions        #}
+{# ------------------------------------------------------------------ #}
+<header class="flex items-center gap-3 mb-6">
+  <a href="{% url 'editor:dashboard' %}"
+     class="font-mono text-[11px] uppercase tracking-wider text-ink-muted
+            hover:text-ink transition-colors no-underline">
+    &larr; Dashboard
+  </a>
+
+  <c-badge color="ink">{{ content_type|title }}</c-badge>
+
+  {% if not is_new and stage_choices %}
+  <c-stage_pill stage="{{ current_stage }}"
+                {% if set_stage_url %}interactive{% endif %}
+                content_type="{{ content_type }}"
+                slug="{{ object.slug }}" />
+  {% endif %}
+
+  <div class="flex-1"></div>
+
+  {% if not is_new %}
+  <span class="font-mono text-[10px] uppercase tracking-wider text-ink-muted"
+        id="save-indicator"></span>
+  {% endif %}
+
+  <c-btn variant="primary" type="submit" form="content-form">
+    {% if is_new %}Create{% else %}Save{% endif %}
+  </c-btn>
+
+  {% if not is_new and publish_url %}
+  <c-btn variant="secondary" type="button"
+         hx-post="{{ publish_url }}"
+         hx-target="#publish-toast"
+         hx-swap="none"
+         hx-on-htmx-after-request="handlePublishResponse(event)">
+    Publish
+  </c-btn>
+  {% endif %}
+</header>
+
+{# ------------------------------------------------------------------ #}
+{#  Main grid: writing area (left) + sidebar fields (right)           #}
+{#  The <form> IS the grid container so body/annotation submit with   #}
+{#  the rest of the fields (fixes original bug where textarea was     #}
+{#  outside the form tag).                                            #}
+{# ------------------------------------------------------------------ #}
+<form method="post" id="content-form"
+      class="{% if form.body or form.annotation %}grid grid-cols-[1fr_340px] gap-6 items-start{% else %}max-w-2xl{% endif %}">
+  {% csrf_token %}
+
+  {% if form.body or form.annotation %}
+  {# ---- Writing area (left column) ---- #}
+  <section class="bg-cream rounded-brand-lg border border-border shadow-warm-sm overflow-hidden">
+    {# Markdown toolbar #}
+    <div class="flex flex-wrap items-center gap-1 px-4 py-2 border-b border-border bg-cream/80"
+         id="editor-toolbar">
+      {% with tb_cls="inline-flex items-center justify-center w-8 h-8 rounded-brand text-ink-muted hover:text-ink hover:bg-black/5 font-mono text-[13px] cursor-pointer bg-transparent border-none transition-colors" %}
+      <button type="button" class="{{ tb_cls }} font-bold" data-action="bold" title="Bold (Cmd+B)">B</button>
+      <button type="button" class="{{ tb_cls }} italic" data-action="italic" title="Italic (Cmd+I)">I</button>
+      <span class="w-px h-5 bg-border mx-1"></span>
+      <button type="button" class="{{ tb_cls }}" data-action="h2" title="Heading 2">H2</button>
+      <button type="button" class="{{ tb_cls }}" data-action="h3" title="Heading 3">H3</button>
+      <button type="button" class="{{ tb_cls }}" data-action="h4" title="Heading 4">H4</button>
+      <span class="w-px h-5 bg-border mx-1"></span>
+      <button type="button" class="{{ tb_cls }}" data-action="rule" title="Horizontal rule">&mdash;</button>
+      <button type="button" class="{{ tb_cls }}" data-action="ul" title="Unordered list">&bull;</button>
+      <button type="button" class="{{ tb_cls }}" data-action="ol" title="Ordered list">1.</button>
+      <button type="button" class="{{ tb_cls }}" data-action="blockquote" title="Blockquote">&ldquo;</button>
+      <span class="w-px h-5 bg-border mx-1"></span>
+      <button type="button" class="{{ tb_cls }}" data-action="code" title="Code">&lt;&gt;</button>
+      <button type="button" class="{{ tb_cls }}" data-action="link" title="Link (Cmd+K)">&#128279;</button>
+      {% endwith %}
+    </div>
+
+    {# Body or annotation textarea (rendered by Django widget, not crispy) #}
+    <label for="editor-body" class="sr-only">
+      {% if form.body %}Body{% else %}Annotation{% endif %}
+    </label>
+    {% if form.body %}
+      {{ form.body }}
+    {% elif form.annotation %}
+      {{ form.annotation }}
+    {% endif %}
+  </section>
+  {% endif %}
+
+  {# ---- Sidebar: form fields (right column, or only column) ---- #}
+  <aside>
+    {# Crispy renders all Layout fields with studio template pack #}
+    {% crispy form %}
+
+    {# Hidden fields not in the crispy layout #}
+    {% for field in form.hidden_fields %}
+      {{ field }}
+    {% endfor %}
+
+    {# Non-field errors #}
+    {% if form.non_field_errors %}
+    <div class="mt-4 p-3 bg-error/5 border border-error/20 rounded-brand">
+      {% for error in form.non_field_errors %}
+      <p class="font-mono text-[11px] tracking-wide text-error leading-relaxed m-0">
+        {{ error }}
+      </p>
+      {% endfor %}
+    </div>
     {% endif %}
 
-    <!-- Sidebar: metadata fields -->
-    <aside class="editor-sidebar">
-        <form method="post" id="content-form" class="editor-form">
-            {% csrf_token %}
+    {# Publish history #}
+    {% if recent_publishes %}
+    <div class="mt-6">
+      <c-section_label color="teal">Publish History</c-section_label>
+      <ul class="list-none p-0 mt-2 space-y-1.5">
+        {% for log in recent_publishes %}
+        <li class="flex items-center gap-2 font-mono text-[11px] tracking-wide">
+          <span class="text-ink-muted">{{ log.created_at|date:"M j, g:i A" }}</span>
+          {% if log.success %}
+            <c-badge color="success">OK</c-badge>
+          {% else %}
+            <c-badge color="error">FAILED</c-badge>
+          {% endif %}
+          {% if log.commit_url %}
+          <a href="{{ log.commit_url }}" target="_blank" rel="noopener"
+             class="text-teal hover:text-teal-hover underline">
+            {{ log.commit_sha|truncatechars:7 }}
+          </a>
+          {% endif %}
+        </li>
+        {% endfor %}
+      </ul>
+    </div>
+    {% endif %}
+  </aside>
+</form>
 
-            <div class="editor-form-header">
-                <h2>{% if is_new %}New{% else %}Edit{% endif %} {{ content_type|title }}</h2>
-                {% if not is_new %}
-                <span class="save-indicator" id="save-indicator"></span>
-                {% endif %}
-            </div>
-
-            <div class="editor-fields">
-                <!-- Section: Identity -->
-                <div class="field-section">
-                    <div class="field-group field-group-title">
-                        {{ form.title }}
-                        {% if form.title.errors %}<span class="field-error">{{ form.title.errors.0 }}</span>{% endif %}
-                    </div>
-
-                    <div class="field-group">
-                        <label for="{{ form.slug.id_for_label }}">Slug</label>
-                        {{ form.slug }}
-                    </div>
-
-                    <div class="field-group">
-                        <label for="{{ form.date.id_for_label }}">Date</label>
-                        {{ form.date }}
-                    </div>
-
-                    {% if form.summary %}
-                    <div class="field-group">
-                        <label for="{{ form.summary.id_for_label }}">Summary</label>
-                        {{ form.summary }}
-                        <span class="field-count" data-max="200" data-field="{{ form.summary.id_for_label }}"></span>
-                    </div>
-                    {% endif %}
-                    {% if form.excerpt %}
-                    <div class="field-group">
-                        <label for="{{ form.excerpt.id_for_label }}">Excerpt</label>
-                        {{ form.excerpt }}
-                    </div>
-                    {% endif %}
-                    {% if form.description %}
-                    <div class="field-group">
-                        <label for="{{ form.description.id_for_label }}">Description</label>
-                        {{ form.description }}
-                    </div>
-                    {% endif %}
-                </div>
-
-                <!-- Section: Metadata -->
-                {% if form.stage or form.status or form.category or form.youtube_id or form.thumbnail or form.image or form.role or form.creator or form.type or form.year or form.organization or form.order or form.callout or form.connected_to or form.connected_essay or form.url %}
-                <div class="field-section">
-                    <span class="field-section-label">Details</span>
-
-                    {% if form.stage %}
-                    <div class="field-group" {% if stage_choices %}style="display:none"{% endif %}>
-                        <label for="{{ form.stage.id_for_label }}">Stage</label>
-                        {{ form.stage }}
-                    </div>
-                    {% endif %}
-                    {% if form.status %}
-                    <div class="field-group" {% if stage_choices %}style="display:none"{% endif %}>
-                        <label for="{{ form.status.id_for_label }}">Status</label>
-                        {{ form.status }}
-                    </div>
-                    {% endif %}
-
-                    {% if form.category %}
-                    <div class="field-group">
-                        <label for="{{ form.category.id_for_label }}">Category</label>
-                        {{ form.category }}
-                    </div>
-                    {% endif %}
-                    {% if form.youtube_id %}
-                    <div class="field-group">
-                        <label for="{{ form.youtube_id.id_for_label }}">YouTube ID</label>
-                        {{ form.youtube_id }}
-                    </div>
-                    {% endif %}
-                    {% if form.thumbnail %}
-                    <div class="field-group">
-                        <label for="{{ form.thumbnail.id_for_label }}">Thumbnail</label>
-                        {{ form.thumbnail }}
-                    </div>
-                    {% endif %}
-                    {% if form.image %}
-                    <div class="field-group">
-                        <label for="{{ form.image.id_for_label }}">Image</label>
-                        {{ form.image }}
-                    </div>
-                    {% endif %}
-                    {% if form.role %}
-                    <div class="field-group">
-                        <label for="{{ form.role.id_for_label }}">Role</label>
-                        {{ form.role }}
-                    </div>
-                    {% endif %}
-                    {% if form.creator %}
-                    <div class="field-group">
-                        <label for="{{ form.creator.id_for_label }}">Creator</label>
-                        {{ form.creator }}
-                    </div>
-                    {% endif %}
-                    {% if form.type %}
-                    <div class="field-group">
-                        <label for="{{ form.type.id_for_label }}">Type</label>
-                        {{ form.type }}
-                    </div>
-                    {% endif %}
-                    {% if form.year %}
-                    <div class="field-group">
-                        <label for="{{ form.year.id_for_label }}">Year</label>
-                        {{ form.year }}
-                    </div>
-                    {% endif %}
-                    {% if form.organization %}
-                    <div class="field-group">
-                        <label for="{{ form.organization.id_for_label }}">Organization</label>
-                        {{ form.organization }}
-                    </div>
-                    {% endif %}
-                    {% if form.order %}
-                    <div class="field-group">
-                        <label for="{{ form.order.id_for_label }}">Sort Order</label>
-                        {{ form.order }}
-                    </div>
-                    {% endif %}
-                    {% if form.callout %}
-                    <div class="field-group">
-                        <label for="{{ form.callout.id_for_label }}">Callout</label>
-                        {{ form.callout }}
-                        <span class="field-hint">Supports <code>[link text](url)</code> for hyperlinks</span>
-                    </div>
-                    {% endif %}
-                    {% if form.connected_to %}
-                    <div class="field-group">
-                        <label for="{{ form.connected_to.id_for_label }}">Connected To</label>
-                        {{ form.connected_to }}
-                    </div>
-                    {% endif %}
-                    {% if form.connected_essay %}
-                    <div class="field-group">
-                        <label for="{{ form.connected_essay.id_for_label }}">Connected Essay</label>
-                        {{ form.connected_essay }}
-                    </div>
-                    {% endif %}
-                    {% if form.url %}
-                    <div class="field-group">
-                        <label for="{{ form.url.id_for_label }}">URL</label>
-                        {{ form.url }}
-                    </div>
-                    {% endif %}
-                </div>
-                {% endif %}
-
-                <!-- Section: Taxonomy and Relations -->
-                {% if form.tags or form.related %}
-                <div class="field-section">
-                    <span class="field-section-label">Taxonomy</span>
-
-                    {% if form.tags %}
-                    <div class="field-group">
-                        <label for="{{ form.tags.id_for_label }}">Tags</label>
-                        {{ form.tags }}
-                        <span class="field-hint">Comma-separated</span>
-                    </div>
-                    {% endif %}
-                    {% if form.related %}
-                    <div class="field-group">
-                        <label for="{{ form.related.id_for_label }}">Related</label>
-                        {{ form.related }}
-                        <span class="field-hint">Comma-separated essay slugs</span>
-                    </div>
-                    {% endif %}
-                </div>
-                {% endif %}
-
-                <!-- Section: Structured Data -->
-                {% if form.sources or form.urls or form.callouts or form.annotations %}
-                <div class="field-section">
-                    <span class="field-section-label">Structured Data</span>
-
-                    {% if form.sources %}
-                    <div class="field-group">
-                        <label>Sources</label>
-                        {{ form.sources }}
-                    </div>
-                    {% endif %}
-                    {% if form.urls %}
-                    <div class="field-group">
-                        <label>Project URLs</label>
-                        {{ form.urls }}
-                    </div>
-                    {% endif %}
-                    {% if form.callouts %}
-                    <div class="field-group">
-                        <label>Callouts</label>
-                        {{ form.callouts }}
-                    </div>
-                    {% endif %}
-                    {% if form.annotations %}
-                    <div class="field-group">
-                        <label>Annotations</label>
-                        {{ form.annotations }}
-                    </div>
-                    {% endif %}
-                </div>
-                {% endif %}
-
-                <!-- Section: Advanced -->
-                {% if form.composition or form.draft or form.featured %}
-                <div class="field-section">
-                    {% if form.composition %}
-                    <div class="field-group">
-                        <label for="{{ form.composition.id_for_label }}">Composition</label>
-                        {{ form.composition }}
-                        <span class="field-hint">Visual overrides (JSON)</span>
-                    </div>
-                    {% endif %}
-
-                    {% if form.draft %}
-                    <div class="field-group field-group-toggle">
-                        <label>
-                            {{ form.draft }}
-                            <span>Draft</span>
-                        </label>
-                    </div>
-                    {% endif %}
-                    {% if form.featured %}
-                    <div class="field-group field-group-toggle">
-                        <label>
-                            {{ form.featured }}
-                            <span>Featured</span>
-                        </label>
-                    </div>
-                    {% endif %}
-                </div>
-                {% endif %}
-
-                <!-- Hidden fields (CSRF, etc.) -->
-                {% for field in form.hidden_fields %}
-                    {{ field }}
-                {% endfor %}
-
-                <!-- Form errors not tied to specific fields -->
-                {% if form.non_field_errors %}
-                <div class="form-errors">
-                    {% for error in form.non_field_errors %}
-                    <p class="field-error">{{ error }}</p>
-                    {% endfor %}
-                </div>
-                {% endif %}
-
-                <!-- Publish history -->
-                {% if recent_publishes %}
-                <div class="publish-history">
-                    <h3>Publish History</h3>
-                    <ul>
-                        {% for log in recent_publishes %}
-                        <li class="{% if log.success %}publish-success{% else %}publish-fail{% endif %}">
-                            {{ log.created_at|date:"M j, g:i A" }}
-                            {% if log.success %} OK{% else %} FAILED{% endif %}
-                            {% if log.commit_url %}
-                            <a href="{{ log.commit_url }}" target="_blank" rel="noopener">
-                                {{ log.commit_sha|truncatechars:7 }}
-                            </a>
-                            {% endif %}
-                        </li>
-                        {% endfor %}
-                    </ul>
-                </div>
-                {% endif %}
-            </div>
-
-            <!-- Action buttons (sticky footer) -->
-            <div class="sidebar-actions">
-                <button type="submit" class="btn btn-primary">
-                    {% if is_new %}Create{% else %}Save{% endif %}
-                </button>
-                {% if not is_new and publish_url %}
-                <button
-                    type="button"
-                    class="btn btn-publish"
-                    hx-post="{{ publish_url }}"
-                    hx-target="#publish-toast"
-                    hx-swap="innerHTML"
-                    hx-on::after-request="handlePublishResponse(event)"
-                >
-                    Publish
-                </button>
-                {% endif %}
-            </div>
-        </form>
-
-        <!-- Delete (outside the main form to prevent accidental submission) -->
-        {% if not is_new and delete_url %}
-        <div class="sidebar-delete">
-            <details class="delete-confirm">
-                <summary class="btn btn-danger-subtle">Delete this {{ content_type|title }}</summary>
-                <form method="post" action="{{ delete_url }}" class="delete-form">
-                    {% csrf_token %}
-                    <p>Type <strong>{{ object.slug }}</strong> to confirm:</p>
-                    <input type="text" name="confirm_slug" class="field-text" autocomplete="off" required>
-                    <button type="submit" class="btn btn-danger">Permanently Delete</button>
-                </form>
-            </details>
-        </div>
-        {% endif %}
-    </aside>
-
-    <!-- Main writing area -->
-    <section class="editor-writing-area">
-        {% if form.body or form.annotation %}
-        <div class="writing-surface">
-            <!-- Markdown toolbar -->
-            <div class="editor-toolbar" id="editor-toolbar">
-                <button type="button" class="toolbar-btn" data-action="bold" title="Bold (Cmd+B)"><strong>B</strong></button>
-                <button type="button" class="toolbar-btn" data-action="italic" title="Italic (Cmd+I)"><em>I</em></button>
-                <span class="toolbar-sep"></span>
-                <button type="button" class="toolbar-btn" data-action="h2" title="Heading 2">H2</button>
-                <button type="button" class="toolbar-btn" data-action="h3" title="Heading 3">H3</button>
-                <button type="button" class="toolbar-btn" data-action="h4" title="Heading 4">H4</button>
-                <span class="toolbar-sep"></span>
-                <button type="button" class="toolbar-btn" data-action="rule" title="Horizontal rule">&mdash;</button>
-                <button type="button" class="toolbar-btn" data-action="ul" title="Unordered list">&bull;</button>
-                <button type="button" class="toolbar-btn" data-action="ol" title="Ordered list">1.</button>
-                <button type="button" class="toolbar-btn" data-action="blockquote" title="Blockquote">&ldquo;</button>
-                <span class="toolbar-sep"></span>
-                <button type="button" class="toolbar-btn" data-action="code" title="Code">&lt;&gt;</button>
-                <button type="button" class="toolbar-btn" data-action="link" title="Link (Cmd+K)">&#128279;</button>
-            </div>
-
-            <label for="editor-body" class="sr-only">Body</label>
-            {% if form.body %}
-                {{ form.body }}
-            {% elif form.annotation %}
-                {{ form.annotation }}
-            {% endif %}
-        </div>
-        {% endif %}
-    </section>
+{# ------------------------------------------------------------------ #}
+{#  Delete section (separate form, outside main form)                 #}
+{# ------------------------------------------------------------------ #}
+{% if not is_new and delete_url %}
+<div class="mt-8 pt-6 border-t border-border">
+  <details class="group">
+    <summary class="font-mono text-[11px] uppercase tracking-wider text-ink-muted
+                    hover:text-error cursor-pointer transition-colors select-none">
+      Delete this {{ content_type|title }}
+    </summary>
+    <form method="post" action="{{ delete_url }}"
+          class="mt-4 p-4 bg-error/5 border border-error/20 rounded-brand">
+      {% csrf_token %}
+      <p class="font-body text-[14px] text-ink mb-3">
+        Type <strong class="font-semibold">{{ object.slug }}</strong> to confirm:
+      </p>
+      <input type="text" name="confirm_slug" autocomplete="off" required
+             class="w-full px-4 py-[10px] font-body text-[15px] text-ink bg-cream
+                    border border-border rounded-brand shadow-warm-sm outline-none
+                    transition-all duration-200 mb-3
+                    focus:border-error focus:shadow-[0_0_0_3px_rgba(164,74,58,0.12)]">
+      <c-btn variant="danger" type="submit">Permanently Delete</c-btn>
+    </form>
+  </details>
 </div>
+{% endif %}
 
-<!-- Publish toast notification -->
-<div id="publish-toast" class="publish-toast" style="display: none;"></div>
+{# Toast notification container #}
+<div id="publish-toast"
+     class="fixed bottom-6 right-6 max-w-sm z-50"
+     style="display: none;"></div>
 {% endblock %}
 
 {% block scripts %}
 <script>
-// Auto-generate slug from title on new content
+/* ---- Auto-generate slug from title on new content ---- */
 {% if is_new %}
-document.querySelector('.field-title')?.addEventListener('input', function(e) {
-    var slugField = document.querySelector('.field-slug');
-    if (slugField && !slugField.dataset.manual) {
-        slugField.value = e.target.value
-            .toLowerCase()
-            .replace(/[^a-z0-9\s-]/g, '')
-            .replace(/\s+/g, '-')
-            .replace(/-+/g, '-')
-            .replace(/^-|-$/g, '');
+(function() {
+  var titleEl = document.querySelector('[name="title"]');
+  var slugEl = document.querySelector('[name="slug"]');
+  if (!titleEl || !slugEl) return;
+  titleEl.addEventListener('input', function(e) {
+    if (!slugEl.dataset.manual) {
+      slugEl.value = e.target.value
+        .toLowerCase()
+        .replace(/[^a-z0-9\s-]/g, '')
+        .replace(/\s+/g, '-')
+        .replace(/-+/g, '-')
+        .replace(/^-|-$/g, '');
     }
-});
-document.querySelector('.field-slug')?.addEventListener('input', function() {
+  });
+  slugEl.addEventListener('input', function() {
     this.dataset.manual = 'true';
-});
+  });
+})();
 {% endif %}
 
-// Validate JSON fields before submit
-document.getElementById('content-form')?.addEventListener('submit', function(e) {
-    var jsonFields = document.querySelectorAll('.field-json');
-    for (var i = 0; i < jsonFields.length; i++) {
-        var field = jsonFields[i];
-        var val = field.value.trim();
-        if (val && val !== '[]') {
-            try {
-                JSON.parse(val);
-            } catch (err) {
-                e.preventDefault();
-                field.classList.add('field-error-highlight');
-                field.focus();
-                alert('Invalid JSON in "' + (field.previousElementSibling?.textContent || 'field') + '": ' + err.message);
-                return;
-            }
-        }
+/* ---- Hide stage/status fields when pipeline controls them ---- */
+{% if not is_new and stage_choices %}
+(function() {
+  ['id_stage', 'id_status'].forEach(function(id) {
+    var el = document.getElementById(id);
+    if (el) {
+      var wrapper = el.closest('.mb-5');
+      if (wrapper) wrapper.style.display = 'none';
     }
+  });
+})();
+{% endif %}
+
+/* ---- Validate JSON fields before submit ---- */
+document.getElementById('content-form').addEventListener('submit', function(e) {
+  var jsonFields = document.querySelectorAll('[data-json-field]');
+  for (var i = 0; i < jsonFields.length; i++) {
+    var field = jsonFields[i];
+    var val = field.value.trim();
+    if (val && val !== '[]' && val !== '{}') {
+      try {
+        JSON.parse(val);
+      } catch (err) {
+        e.preventDefault();
+        var wrapper = field.closest('.mb-5');
+        if (wrapper) wrapper.classList.add('ring-2', 'ring-error/30', 'rounded-brand');
+        field.focus();
+        alert('Invalid JSON in "' + (field.name || 'field') + '": ' + err.message);
+        return;
+      }
+    }
+  }
 });
 
-// Clear error highlight on input
-document.querySelectorAll('.field-json').forEach(function(field) {
-    field.addEventListener('input', function() {
-        this.classList.remove('field-error-highlight');
-    });
+/* Clear error highlight on JSON field input */
+document.querySelectorAll('[data-json-field]').forEach(function(field) {
+  field.addEventListener('input', function() {
+    var wrapper = this.closest('.mb-5');
+    if (wrapper) wrapper.classList.remove('ring-2', 'ring-error/30', 'rounded-brand');
+  });
 });
 
-// Composition widget: toggle fragments section based on heroStyle
+/* ---- Composition widget: toggle fragments on heroStyle change ---- */
 document.querySelectorAll('[data-composition-toggle]').forEach(function(sel) {
-    sel.addEventListener('change', function() {
-        var wrapper = sel.closest('.composition-widget');
-        if (!wrapper) return;
-        var section = wrapper.querySelector('[data-composition-section="collage"]');
-        if (!section) return;
-        section.style.display = sel.value === 'collage' ? '' : 'none';
-    });
+  sel.addEventListener('change', function() {
+    var wrapper = sel.closest('[id$="-wrapper"]');
+    if (!wrapper) return;
+    var section = wrapper.querySelector('[data-composition-section="collage"]');
+    if (!section) return;
+    section.style.display = sel.value === 'collage' ? '' : 'none';
+  });
 });
 
-// Handle publish button response (safe DOM construction, no innerHTML)
+/* ---- Toast builder (safe DOM construction) ---- */
+function buildToast(type, message, link) {
+  var toast = document.getElementById('publish-toast');
+  while (toast.firstChild) toast.removeChild(toast.firstChild);
+
+  var bg = type === 'success'
+    ? 'bg-cream border border-teal/30 shadow-warm-sm'
+    : 'bg-cream border border-error/30 shadow-warm-sm';
+  toast.className = 'fixed bottom-6 right-6 max-w-sm z-50 px-5 py-3 rounded-brand relative ' + bg;
+
+  var msgEl = document.createElement('p');
+  msgEl.className = 'font-mono text-[12px] tracking-wide leading-relaxed m-0 pr-6 '
+    + (type === 'success' ? 'text-teal' : 'text-error');
+  msgEl.appendChild(document.createTextNode(message));
+
+  if (link) {
+    var a = document.createElement('a');
+    a.href = link.href;
+    a.target = '_blank';
+    a.rel = 'noopener';
+    a.className = 'underline';
+    a.textContent = link.text;
+    msgEl.appendChild(a);
+  }
+
+  toast.appendChild(msgEl);
+
+  var dismiss = document.createElement('button');
+  dismiss.type = 'button';
+  dismiss.className = 'absolute top-2 right-2 text-ink-muted hover:text-ink '
+    + 'bg-transparent border-none cursor-pointer text-lg leading-none';
+  dismiss.textContent = '\u00D7';
+  dismiss.addEventListener('click', function() { toast.style.display = 'none'; });
+  toast.appendChild(dismiss);
+
+  toast.style.display = 'block';
+  setTimeout(function() { toast.style.display = 'none'; }, 8000);
+}
+
+/* ---- Handle publish HTMX response ---- */
 function handlePublishResponse(event) {
-    var toast = document.getElementById('publish-toast');
-    while (toast.firstChild) toast.removeChild(toast.firstChild);
+  var xhr = event.detail.xhr;
+  var status = xhr ? xhr.status : 0;
 
-    var xhr = event.detail.xhr;
-    var status = xhr ? xhr.status : 0;
-
-    try {
-        var data = JSON.parse(xhr.responseText);
-        if (data.success) {
-            toast.className = 'publish-toast publish-toast-success';
-            toast.appendChild(document.createTextNode('Published! Commit: '));
-            var link = document.createElement('a');
-            link.href = data.commit_url;
-            link.target = '_blank';
-            link.rel = 'noopener';
-            link.textContent = data.commit_sha.substring(0, 7);
-            toast.appendChild(link);
-        } else {
-            toast.className = 'publish-toast publish-toast-error';
-            toast.textContent = 'Publish failed: ' + (data.error || 'Unknown error');
-        }
-    } catch(err) {
-        toast.className = 'publish-toast publish-toast-error';
-        if (status === 403) {
-            toast.textContent = 'Publish failed: CSRF or permission error (403)';
-        } else if (status >= 500) {
-            toast.textContent = 'Publish failed: Server error (' + status + ')';
-        } else if (status === 0) {
-            toast.textContent = 'Publish failed: Could not reach server';
-        } else {
-            toast.textContent = 'Publish failed: Unexpected response (' + status + ')';
-        }
+  try {
+    var data = JSON.parse(xhr.responseText);
+    if (data.success) {
+      buildToast('success', 'Published! Commit: ', {
+        href: data.commit_url,
+        text: data.commit_sha.substring(0, 7)
+      });
+    } else {
+      buildToast('error', 'Publish failed: ' + (data.error || 'Unknown error'));
     }
-    toast.style.display = 'block';
-    setTimeout(function() { toast.style.display = 'none'; }, 8000);
+  } catch(err) {
+    var msg = 'Publish failed: ';
+    if (status === 403) msg += 'CSRF or permission error (403)';
+    else if (status >= 500) msg += 'Server error (' + status + ')';
+    else if (status === 0) msg += 'Could not reach server';
+    else msg += 'Unexpected response (' + status + ')';
+    buildToast('error', msg);
+  }
 }
 </script>
 {% endblock %}

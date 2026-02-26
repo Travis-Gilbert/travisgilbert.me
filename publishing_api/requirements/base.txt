@@ -3,3 +3,7 @@ PyYAML>=6.0
 requests>=2.31
 python-dotenv>=1.0
 python-frontmatter>=1.1
+django-cotton>=1.0.0
+django-template-partials>=24.4
+django-tailwind>=3.8.0
+django-crispy-forms>=2.3

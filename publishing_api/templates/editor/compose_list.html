@@ -1,41 +1,46 @@
 {% extends "base.html" %}
-
 {% block title %}Page Compositions{% endblock %}
 
 {% block content %}
-<div class="content-list-page">
-    <div class="list-header">
-        <h1>Page Compositions</h1>
-        <a href="{% url 'editor:compose-create' %}" class="btn btn-primary">New Composition</a>
-    </div>
+<header class="flex items-center gap-3 mb-6">
+  <h1 class="font-title text-[22px] text-ink m-0">Page Compositions</h1>
+  <div class="flex-1"></div>
+  <c-btn variant="primary" href="{% url 'editor:compose-create' %}">New Composition</c-btn>
+</header>
 
-    {% if compositions %}
-    <table class="content-table">
-        <thead>
-            <tr>
-                <th>Page Key</th>
-                <th>Last Updated</th>
-                <th></th>
-            </tr>
-        </thead>
-        <tbody>
-            {% for comp in compositions %}
-            <tr>
-                <td>
-                    <a href="{% url 'editor:compose-edit' page_key=comp.page_key %}" class="item-link">
-                        {{ comp.get_page_key_display }}
-                    </a>
-                </td>
-                <td class="col-date">{{ comp.updated_at|date:"M j, Y" }}</td>
-                <td class="col-actions">
-                    <a href="{% url 'editor:compose-edit' page_key=comp.page_key %}" class="btn btn-sm">Edit</a>
-                </td>
-            </tr>
-            {% endfor %}
-        </tbody>
-    </table>
-    {% else %}
-    <p class="empty-state">No page compositions yet. Create one to configure a page's layout and component settings.</p>
-    {% endif %}
+{% if compositions %}
+<div class="bg-cream rounded-brand-lg border border-border shadow-warm-sm overflow-hidden">
+  <table class="w-full text-left">
+    <thead>
+      <tr class="border-b border-border">
+        <th class="px-4 py-3 font-mono text-[11px] uppercase tracking-wider text-ink-muted">Page Key</th>
+        <th class="px-4 py-3 font-mono text-[11px] uppercase tracking-wider text-ink-muted">Last Updated</th>
+        <th class="px-4 py-3 font-mono text-[11px] uppercase tracking-wider text-ink-muted w-24"></th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for comp in compositions %}
+      <tr class="border-b border-border last:border-b-0 hover:bg-black/[0.02] transition-colors">
+        <td class="px-4 py-3">
+          <a href="{% url 'editor:compose-edit' page_key=comp.page_key %}"
+             class="font-body text-[15px] text-ink hover:text-terracotta transition-colors no-underline">
+            {{ comp.get_page_key_display }}
+          </a>
+        </td>
+        <td class="px-4 py-3 font-mono text-[11px] tracking-wide text-ink-muted">
+          {{ comp.updated_at|date:"M j, Y" }}
+        </td>
+        <td class="px-4 py-3">
+          <c-btn variant="ghost" href="{% url 'editor:compose-edit' page_key=comp.page_key %}">Edit</c-btn>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
 </div>
+{% else %}
+<p class="font-mono text-[12px] tracking-wide text-ink-muted py-8 text-center">
+  No page compositions yet. Create one to configure a page's layout and component settings.
+</p>
+{% endif %}
 {% endblock %}

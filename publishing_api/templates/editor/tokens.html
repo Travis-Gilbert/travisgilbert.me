@@ -1,55 +1,30 @@
 {% extends "base.html" %}
+{% load crispy_forms_tags %}
 
 {% block title %}Design Tokens{% endblock %}
 
 {% block content %}
-<div class="settings-page">
-    <div class="settings-header">
-        <h1>Design Tokens</h1>
-    </div>
+<header class="flex items-center gap-3 mb-6">
+  <h1 class="font-title text-[22px] text-ink m-0">Design Tokens</h1>
+</header>
 
-    <form method="post" class="settings-form">
-        {% csrf_token %}
+<form method="post" class="max-w-2xl">
+  {% csrf_token %}
 
-        {% if form.non_field_errors %}
-        <div class="form-errors">
-            {% for error in form.non_field_errors %}
-            <p class="field-error">{{ error }}</p>
-            {% endfor %}
-        </div>
-        {% endif %}
+  {% crispy form %}
 
-        <div class="field-group">
-            <label for="{{ form.colors.id_for_label }}">Colors</label>
-            {{ form.colors }}
-            {% if form.colors.errors %}<span class="field-error">{{ form.colors.errors.0 }}</span>{% endif %}
-            <span class="field-hint">Brand and surface color hex values</span>
-        </div>
+  {% if form.non_field_errors %}
+  <div class="mt-4 p-3 bg-error/5 border border-error/20 rounded-brand">
+    {% for error in form.non_field_errors %}
+    <p class="font-mono text-[11px] tracking-wide text-error leading-relaxed m-0">
+      {{ error }}
+    </p>
+    {% endfor %}
+  </div>
+  {% endif %}
 
-        <div class="field-group">
-            <label for="{{ form.fonts.id_for_label }}">Fonts</label>
-            {{ form.fonts }}
-            {% if form.fonts.errors %}<span class="field-error">{{ form.fonts.errors.0 }}</span>{% endif %}
-            <span class="field-hint">Font family mappings (title, body, mono, annotation, tagline)</span>
-        </div>
-
-        <div class="field-group">
-            <label for="{{ form.spacing.id_for_label }}">Spacing</label>
-            {{ form.spacing }}
-            {% if form.spacing.errors %}<span class="field-error">{{ form.spacing.errors.0 }}</span>{% endif %}
-            <span class="field-hint">Content and hero max-width, margin sizes</span>
-        </div>
-
-        <div class="field-group">
-            <label for="{{ form.section_colors.id_for_label }}">Section Colors</label>
-            {{ form.section_colors }}
-            {% if form.section_colors.errors %}<span class="field-error">{{ form.section_colors.errors.0 }}</span>{% endif %}
-            <span class="field-hint">Which brand color maps to which content section</span>
-        </div>
-
-        <div class="settings-actions">
-            <button type="submit" class="btn btn-primary">Save Tokens</button>
-        </div>
-    </form>
-</div>
+  <div class="mt-6">
+    <c-btn variant="primary" type="submit">Save Tokens</c-btn>
+  </div>
+</form>
 {% endblock %}

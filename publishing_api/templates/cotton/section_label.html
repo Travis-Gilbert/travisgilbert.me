@@ -1,0 +1,34 @@
+{# templates/cotton/section_label.html #}
+{#
+  Monospace section label with colored left border.
+
+  Usage:
+    <c-section_label color="terracotta">Investigation File</c-section_label>
+    <c-section_label color="teal">Field Observation</c-section_label>
+    <c-section_label color="gold">Project Archive</c-section_label>
+
+  Props:
+    color   (str)  : terracotta | teal | gold (determines accent color)
+    class   (str)  : Additional CSS classes
+#}
+
+<div class="flex items-center gap-2 mb-3 {{ class }}">
+  <div
+    class="
+      w-[3px] h-4 rounded-sm
+      {% if color == 'terracotta' %}bg-terracotta{% endif %}
+      {% if color == 'teal' %}bg-teal{% endif %}
+      {% if color == 'gold' %}bg-gold{% endif %}
+    "
+  ></div>
+  <span
+    class="
+      font-mono text-label uppercase tracking-widest font-bold
+      {% if color == 'terracotta' %}text-terracotta{% endif %}
+      {% if color == 'teal' %}text-teal{% endif %}
+      {% if color == 'gold' %}text-gold{% endif %}
+    "
+  >
+    {{ slot }}
+  </span>
+</div>

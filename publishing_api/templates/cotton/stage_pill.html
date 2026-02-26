@@ -1,0 +1,63 @@
+{# templates/cotton/stage_pill.html #}
+{#
+  Content stage indicator with optional HTMX stage-change dropdown.
+
+  Usage:
+    <c-stage_pill stage="drafting" />
+    <c-stage_pill stage="published" interactive
+        content_type="essay" slug="my-essay" />
+
+  Props:
+    stage         (str)  : drafting | revising | ready | published | archived
+    interactive   (bool) : Show dropdown to change stage via HTMX
+    content_type  (str)  : URL content type slug (for HTMX endpoint)
+    slug          (str)  : Content slug (for HTMX endpoint)
+
+  Stage color mapping:
+    drafting  -> ink (neutral)
+    revising  -> gold (in progress)
+    ready     -> teal (review)
+    published -> success (live)
+    archived  -> ink-muted (inactive)
+#}
+
+{% with stage_colors='{"drafting":"ink","revising":"gold","ready":"teal","published":"success","archived":"ink"}' %}
+{% endwith %}
+
+<div class="relative inline-block">
+  <c-badge
+    color="{% if stage == 'drafting' %}ink{% elif stage == 'revising' %}gold{% elif stage == 'ready' %}teal{% elif stage == 'published' %}success{% else %}ink{% endif %}"
+    {% if stage == 'drafting' or stage == 'archived' %}outline{% endif %}
+  >
+    {{ stage }}
+  </c-badge>
+
+  {% if interactive %}
+  {# Clickable overlay that reveals the stage selector #}
+  <details class="absolute inset-0">
+    <summary class="opacity-0 cursor-pointer w-full h-full block"></summary>
+    <div class="absolute top-full left-0 mt-1 z-50 bg-cream border border-border rounded-brand shadow-warm-lg p-2 min-w-[140px]">
+      {% for option in "drafting,revising,ready,published,archived"|split:"," %}
+      {% if option != stage %}
+      <button
+        class="
+          block w-full text-left px-3 py-[6px] rounded
+          font-mono text-[10px] uppercase tracking-widest
+          bg-transparent border-none cursor-pointer
+          text-ink-secondary hover:bg-parchment-alt hover:text-ink
+          transition-colors duration-150
+        "
+        hx-post="{% url 'editor:set-stage' content_type slug %}"
+        hx-headers='{"Content-Type": "application/json"}'
+        hx-vals='{"stage": "{{ option }}"}'
+        hx-target="closest .relative"
+        hx-swap="outerHTML"
+      >
+        {{ option }}
+      </button>
+      {% endif %}
+      {% endfor %}
+    </div>
+  </details>
+  {% endif %}
+</div>

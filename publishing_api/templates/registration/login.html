@@ -3,20 +3,21 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Sign In · Studio</title>
-    {% load static %}
+    <title>Sign In &middot; Studio</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Cabin:ital,wght@0,400..700;1,400..700&family=Courier+Prime:ital,wght@0,400;0,700;1,400;1,700&family=Vollkorn:ital,wght@0,400..700;1,400..700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="{% static 'css/studio.css' %}">
     <style>
-        .login-page {
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+        body {
             min-height: 100vh;
             display: flex;
             align-items: center;
             justify-content: center;
-            background: var(--studio-bg);
+            background: #F0EBE4;
             padding: 2rem;
+            font-family: "Cabin", sans-serif;
         }
 
         .login-card {
@@ -30,27 +31,27 @@
         }
 
         .login-brand h1 {
-            font-family: var(--font-mono);
+            font-family: "Courier Prime", monospace;
             font-size: 0.8125rem;
             font-weight: 700;
             letter-spacing: 0.1em;
             text-transform: uppercase;
-            color: var(--studio-text-muted);
+            color: #9A8E82;
         }
 
         .login-brand p {
-            font-family: var(--font-writing);
+            font-family: "Vollkorn", serif;
             font-size: 1.75rem;
-            color: var(--studio-text);
+            color: #2A2420;
             margin-top: 0.5rem;
         }
 
         .login-form {
-            background: var(--studio-surface);
-            border: 1px solid var(--studio-border);
-            border-radius: var(--studio-radius);
+            background: #FAF6F1;
+            border: 1px solid #D4CCC4;
+            border-radius: 10px;
             padding: 2rem;
-            box-shadow: var(--studio-shadow);
+            box-shadow: 0 2px 8px rgba(42, 36, 32, 0.07), 0 1px 3px rgba(42, 36, 32, 0.04);
         }
 
         .login-field {
@@ -59,42 +60,42 @@
 
         .login-field label {
             display: block;
-            font-family: var(--font-mono);
+            font-family: "Courier Prime", monospace;
             font-size: 0.6875rem;
             font-weight: 700;
             text-transform: uppercase;
             letter-spacing: 0.08em;
-            color: var(--studio-text-muted);
+            color: #9A8E82;
             margin-bottom: 0.375rem;
         }
 
         .login-field input {
             width: 100%;
             font-size: 0.9375rem;
-            font-family: var(--font-body);
+            font-family: "Cabin", sans-serif;
             padding: 0.625rem 0.75rem;
-            border: 1px solid var(--studio-border);
-            border-radius: var(--studio-radius);
-            background: var(--studio-bg);
-            color: var(--studio-text);
+            border: 1px solid #D4CCC4;
+            border-radius: 10px;
+            background: #F0EBE4;
+            color: #2A2420;
             outline: none;
             transition: border-color 0.15s;
         }
 
         .login-field input:focus {
-            border-color: var(--studio-accent);
+            border-color: #B45A2D;
         }
 
         .login-submit {
             width: 100%;
             padding: 0.75rem 1rem;
-            font-family: var(--font-body);
+            font-family: "Cabin", sans-serif;
             font-size: 0.875rem;
             font-weight: 600;
-            background: var(--studio-text);
-            color: var(--studio-bg);
+            background: #2A2420;
+            color: #F0EBE4;
             border: none;
-            border-radius: var(--studio-radius);
+            border-radius: 10px;
             cursor: pointer;
             transition: background 0.15s;
             margin-top: 0.5rem;
@@ -107,10 +108,10 @@
         .login-error {
             background: rgba(180, 74, 45, 0.08);
             border: 1px solid rgba(180, 74, 45, 0.2);
-            color: var(--studio-error);
+            color: #A44A3A;
             font-size: 0.8125rem;
             padding: 0.625rem 0.75rem;
-            border-radius: var(--studio-radius);
+            border-radius: 10px;
             margin-bottom: 1.25rem;
         }
 
@@ -118,48 +119,46 @@
             text-align: center;
             margin-top: 2rem;
             font-size: 0.75rem;
-            color: var(--studio-text-faint);
-            font-family: var(--font-mono);
+            color: #6A5E52;
+            font-family: "Courier Prime", monospace;
             letter-spacing: 0.02em;
         }
     </style>
 </head>
-<body class="studio-body">
-    <div class="login-page">
-        <div class="login-card">
-            <div class="login-brand">
-                <h1>Studio</h1>
-                <p>The Draftroom</p>
+<body>
+    <div class="login-card">
+        <div class="login-brand">
+            <h1>Studio</h1>
+            <p>The Draftroom</p>
+        </div>
+
+        <form class="login-form" method="post" action="{% url 'login' %}">
+            {% csrf_token %}
+
+            {% if form.errors %}
+            <div class="login-error">
+                Incorrect username or password. Try again.
+            </div>
+            {% endif %}
+
+            <div class="login-field">
+                <label for="id_username">Username</label>
+                <input type="text" name="username" id="id_username" autofocus autocomplete="username">
             </div>
 
-            <form class="login-form" method="post" action="{% url 'login' %}">
-                {% csrf_token %}
+            <div class="login-field">
+                <label for="id_password">Password</label>
+                <input type="password" name="password" id="id_password" autocomplete="current-password">
+            </div>
 
-                {% if form.errors %}
-                <div class="login-error">
-                    Incorrect username or password. Try again.
-                </div>
-                {% endif %}
+            {% if next %}
+            <input type="hidden" name="next" value="{{ next }}">
+            {% endif %}
 
-                <div class="login-field">
-                    <label for="id_username">Username</label>
-                    <input type="text" name="username" id="id_username" autofocus autocomplete="username">
-                </div>
+            <button type="submit" class="login-submit">Sign In</button>
+        </form>
 
-                <div class="login-field">
-                    <label for="id_password">Password</label>
-                    <input type="password" name="password" id="id_password" autocomplete="current-password">
-                </div>
-
-                {% if next %}
-                <input type="hidden" name="next" value="{{ next }}">
-                {% endif %}
-
-                <button type="submit" class="login-submit">Sign In</button>
-            </form>
-
-            <p class="login-footer">travisgilbert.me</p>
-        </div>
+        <p class="login-footer">travisgilbert.me</p>
     </div>
 </body>
 </html>

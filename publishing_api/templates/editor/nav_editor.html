@@ -1,54 +1,70 @@
 {% extends "base.html" %}
-
 {% block title %}Navigation{% endblock %}
 
 {% block content %}
-<div class="settings-page">
-    <div class="settings-header">
-        <h1>Navigation</h1>
-    </div>
+<header class="flex items-center gap-3 mb-6">
+  <h1 class="font-title text-[22px] text-ink m-0">Navigation</h1>
+</header>
 
-    <form method="post" class="settings-form">
-        {% csrf_token %}
-        {{ formset.management_form }}
+<form method="post" class="max-w-4xl">
+  {% csrf_token %}
+  {{ formset.management_form }}
 
-        {% if formset.non_form_errors %}
-        <div class="form-errors">
-            {% for error in formset.non_form_errors %}
-            <p class="field-error">{{ error }}</p>
-            {% endfor %}
-        </div>
-        {% endif %}
+  {% if formset.non_form_errors %}
+  <div class="mb-4 p-3 bg-error/5 border border-error/20 rounded-brand">
+    {% for error in formset.non_form_errors %}
+    <p class="font-mono text-[11px] tracking-wide text-error leading-relaxed m-0">
+      {{ error }}
+    </p>
+    {% endfor %}
+  </div>
+  {% endif %}
 
-        <table class="nav-formset-table">
-            <thead>
-                <tr>
-                    <th>Label</th>
-                    <th>Path</th>
-                    <th>Icon</th>
-                    <th>Order</th>
-                    <th>Visible</th>
-                    <th>Delete</th>
-                </tr>
-            </thead>
-            <tbody>
-                {% for form in formset %}
-                <tr class="nav-row">
-                    {{ form.id }}
-                    <td>{{ form.label }}{% if form.label.errors %}<span class="field-error">{{ form.label.errors.0 }}</span>{% endif %}</td>
-                    <td>{{ form.path }}{% if form.path.errors %}<span class="field-error">{{ form.path.errors.0 }}</span>{% endif %}</td>
-                    <td>{{ form.icon }}{% if form.icon.errors %}<span class="field-error">{{ form.icon.errors.0 }}</span>{% endif %}</td>
-                    <td>{{ form.order }}</td>
-                    <td>{{ form.visible }}</td>
-                    <td>{{ form.DELETE }}</td>
-                </tr>
-                {% endfor %}
-            </tbody>
-        </table>
+  <div class="bg-cream rounded-brand-lg border border-border shadow-warm-sm overflow-hidden">
+    <table class="w-full text-left">
+      <thead>
+        <tr class="border-b border-border">
+          <th class="px-4 py-3 font-mono text-[11px] uppercase tracking-wider text-ink-muted">Label</th>
+          <th class="px-4 py-3 font-mono text-[11px] uppercase tracking-wider text-ink-muted">Path</th>
+          <th class="px-4 py-3 font-mono text-[11px] uppercase tracking-wider text-ink-muted">Icon</th>
+          <th class="px-4 py-3 font-mono text-[11px] uppercase tracking-wider text-ink-muted w-20">Order</th>
+          <th class="px-4 py-3 font-mono text-[11px] uppercase tracking-wider text-ink-muted w-20">Visible</th>
+          <th class="px-4 py-3 font-mono text-[11px] uppercase tracking-wider text-ink-muted w-20">Delete</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for form in formset %}
+        <tr class="border-b border-border last:border-b-0">
+          {{ form.id }}
+          <td class="px-4 py-2">
+            {{ form.label }}
+            {% if form.label.errors %}
+            <span class="block font-mono text-[10px] text-error mt-0.5">{{ form.label.errors.0 }}</span>
+            {% endif %}
+          </td>
+          <td class="px-4 py-2">
+            {{ form.path }}
+            {% if form.path.errors %}
+            <span class="block font-mono text-[10px] text-error mt-0.5">{{ form.path.errors.0 }}</span>
+            {% endif %}
+          </td>
+          <td class="px-4 py-2">
+            {{ form.icon }}
+            {% if form.icon.errors %}
+            <span class="block font-mono text-[10px] text-error mt-0.5">{{ form.icon.errors.0 }}</span>
+            {% endif %}
+          </td>
+          <td class="px-4 py-2">{{ form.order }}</td>
+          <td class="px-4 py-2">{{ form.visible }}</td>
+          <td class="px-4 py-2">{{ form.DELETE }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
 
-        <div class="settings-actions">
-            <button type="submit" class="btn btn-primary">Save Navigation</button>
-        </div>
-    </form>
-</div>
+  <div class="mt-6">
+    <c-btn variant="primary" type="submit">Save Navigation</c-btn>
+  </div>
+</form>
 {% endblock %}

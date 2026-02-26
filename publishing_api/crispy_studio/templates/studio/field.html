@@ -1,0 +1,38 @@
+<div class="mb-5">
+  {# Label #}
+  {% if field.label %}
+  <label
+    for="{{ field.id_for_label }}"
+    class="
+      block mb-[6px]
+      font-title text-[15px] font-semibold text-ink
+    "
+  >
+    {{ field.label }}
+    {% if field.field.required %}
+    <span class="text-terracotta ml-[2px]" aria-hidden="true">*</span>
+    {% endif %}
+  </label>
+  {% endif %}
+
+  {# Widget #}
+  {{ field }}
+
+  {# Help text #}
+  {% if field.help_text %}
+  <p class="mt-[6px] mb-0 font-mono text-[11px] tracking-wide text-ink-muted leading-relaxed">
+    {{ field.help_text }}
+  </p>
+  {% endif %}
+
+  {# Errors #}
+  {% if field.errors %}
+  <ul class="mt-[6px] mb-0 list-none p-0">
+    {% for error in field.errors %}
+    <li class="font-mono text-[11px] tracking-wide text-error leading-relaxed">
+      {{ error }}
+    </li>
+    {% endfor %}
+  </ul>
+  {% endif %}
+</div>

@@ -1,0 +1,70 @@
+{# templates/cotton/toast.html #}
+{#
+  Toast notification for HTMX publish results.
+
+  Usage:
+    <c-toast type="success" message="Published to GitHub" />
+    <c-toast type="error" message="Commit failed: rate limited" />
+    <c-toast type="info" message="Auto-saved" />
+
+  Props:
+    type     (str) : success | error | info
+    message  (str) : Display text
+    commit   (str) : Optional commit URL (shown as link on success)
+    class    (str) : Additional CSS classes
+
+  Wire up with HTMX: the publish endpoint returns JSON, and
+  studio.js renders this component into #publish-toast.
+#}
+
+<div
+  class="
+    flex items-start gap-3
+    px-5 py-4 rounded-brand
+    border shadow-warm
+    font-body text-sm
+    animate-[slideIn_0.3s_ease-out]
+    {% if type == 'success' %}
+      bg-cream border-success text-ink
+    {% elif type == 'error' %}
+      bg-cream border-error text-ink
+    {% else %}
+      bg-cream border-teal text-ink
+    {% endif %}
+    {{ class }}
+  "
+  role="alert"
+>
+  {# Status indicator dot #}
+  <span
+    class="
+      mt-1 w-2 h-2 rounded-full shrink-0
+      {% if type == 'success' %}bg-success{% endif %}
+      {% if type == 'error' %}bg-error{% endif %}
+      {% if type == 'info' %}bg-teal{% endif %}
+    "
+  ></span>
+
+  <div class="flex-1 min-w-0">
+    <p class="m-0 leading-snug">{{ message }}</p>
+    {% if commit and type == 'success' %}
+    <a
+      href="{{ commit }}"
+      target="_blank"
+      rel="noopener"
+      class="font-mono text-[10px] text-teal hover:text-teal-light uppercase tracking-widest mt-1 inline-block"
+    >
+      View Commit
+    </a>
+    {% endif %}
+  </div>
+
+  {# Dismiss button #}
+  <button
+    onclick="this.closest('[role=alert]').remove()"
+    class="text-ink-muted hover:text-ink text-lg leading-none cursor-pointer bg-transparent border-none p-0"
+    aria-label="Dismiss"
+  >
+    &times;
+  </button>
+</div>

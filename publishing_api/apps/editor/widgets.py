@@ -29,7 +29,6 @@ class TagsWidget(forms.TextInput):
 
     def __init__(self, attrs=None):
         defaults = {
-            "class": "field-tags",
             "placeholder": "tag1, tag2, tag3",
         }
         if attrs:
@@ -67,7 +66,6 @@ class SlugListWidget(forms.TextInput):
 
     def __init__(self, attrs=None):
         defaults = {
-            "class": "field-meta",
             "placeholder": "slug-one, slug-two",
         }
         if attrs:
@@ -108,10 +106,10 @@ class JsonObjectListWidget(forms.Textarea):
 
     def __init__(self, attrs=None, placeholder_hint=""):
         defaults = {
-            "class": "field-json",
             "rows": 4,
             "placeholder": placeholder_hint or '[\n  {"key": "value"}\n]',
             "spellcheck": "false",
+            "data-json-field": "true",
         }
         if attrs:
             defaults.update(attrs)
@@ -217,9 +215,10 @@ class StructuredListWidget(forms.Widget):
         widget_id = attrs.get("id", name) if attrs else name
 
         parts = [
-            f'<div class="structured-list" data-field="{escape(name)}" '
+            f'<div class="border border-border rounded-brand-lg bg-cream/50 p-4 space-y-3" '
+            f'data-field="{escape(name)}" '
             f'data-schema-count="{len(self.fields_schema)}">',
-            f'<div class="structured-rows" id="{escape(widget_id)}-rows">',
+            f'<div class="space-y-3" id="{escape(widget_id)}-rows">',
         ]
 
         for i, item in enumerate(items):
@@ -229,7 +228,10 @@ class StructuredListWidget(forms.Widget):
 
         # Add row button
         parts.append(
-            f'<button type="button" class="btn-add-row" '
+            f'<button type="button" class="inline-flex items-center gap-1 '
+            f"font-mono text-[11px] uppercase tracking-wider "
+            f"text-terracotta hover:text-terracotta-hover cursor-pointer "
+            f'bg-transparent border-none mt-3 transition-colors" '
             f'data-field="{escape(name)}">+ Add</button>'
         )
 
@@ -241,8 +243,23 @@ class StructuredListWidget(forms.Widget):
         parts.append("</div>")
         return mark_safe("\n".join(parts))
 
+    # Shared Tailwind class strings for row inputs
+    _INPUT_CLS = (
+        "w-full px-3 py-1.5 font-body text-sm text-ink bg-white/60 "
+        "border border-border rounded-brand outline-none "
+        "focus:border-terracotta focus:shadow-[0_0_0_2px_rgba(180,90,45,0.1)] "
+        "transition-all duration-200"
+    )
+    _LABEL_CLS = (
+        "block font-mono text-[10px] uppercase tracking-wider text-ink-muted mb-1"
+    )
+
     def _render_row(self, name, index, item):
-        parts = [f'<div class="structured-row" data-index="{index}">']
+        parts = [
+            f'<div class="flex flex-wrap items-start gap-3 p-3 bg-cream '
+            f'rounded-brand border border-border/50 relative group" '
+            f'data-index="{index}">'
+        ]
 
         for field_def in self.fields_schema:
             field_name = field_def["name"]
@@ -252,18 +269,22 @@ class StructuredListWidget(forms.Widget):
             raw_value = item.get(field_name, "") if isinstance(item, dict) else ""
             input_name = f"{name}__{index}__{field_name}"
 
-            parts.append('<div class="structured-field">')
-            parts.append(f"<label>{escape(label)}</label>")
+            parts.append('<div class="flex-1 min-w-[120px]">')
+            parts.append(
+                f'<label class="{self._LABEL_CLS}">{escape(label)}</label>'
+            )
 
             if field_type == "textarea":
                 parts.append(
                     f'<textarea name="{escape(input_name)}" '
+                    f'class="{self._INPUT_CLS} resize-y min-h-[60px]" '
                     f'placeholder="{escape(placeholder)}" rows="2">'
                     f"{escape(str(raw_value))}</textarea>"
                 )
             elif field_type == "number":
                 parts.append(
                     f'<input type="number" name="{escape(input_name)}" '
+                    f'class="{self._INPUT_CLS}" '
                     f'value="{escape(str(raw_value))}" '
                     f'placeholder="{escape(placeholder)}">'
                 )
@@ -277,12 +298,14 @@ class StructuredListWidget(forms.Widget):
                         f"{escape(opt_label)}</option>"
                     )
                 parts.append(
-                    f'<select name="{escape(input_name)}">'
+                    f'<select name="{escape(input_name)}" '
+                    f'class="{self._INPUT_CLS} appearance-none cursor-pointer">'
                     f'{"".join(opts_html)}</select>'
                 )
             else:
                 parts.append(
                     f'<input type="text" name="{escape(input_name)}" '
+                    f'class="{self._INPUT_CLS}" '
                     f'value="{escape(str(raw_value))}" '
                     f'placeholder="{escape(placeholder)}">'
                 )
@@ -290,7 +313,9 @@ class StructuredListWidget(forms.Widget):
             parts.append("</div>")
 
         parts.append(
-            '<button type="button" class="btn-remove-row" '
+            '<button type="button" class="absolute top-2 right-2 text-ink-muted '
+            "hover:text-error bg-transparent border-none cursor-pointer text-lg "
+            'leading-none opacity-0 group-hover:opacity-100 transition-opacity" '
             'title="Remove">&times;</button>'
         )
         parts.append("</div>")
@@ -384,6 +409,14 @@ class CompositionWidget(forms.Widget):
         )
         super().__init__(attrs=attrs or {})
 
+    # Shared Tailwind class strings for composition inputs
+    _SELECT_CLS = (
+        "w-full px-4 py-[10px] font-body text-[15px] text-ink bg-cream "
+        "border border-border rounded-brand shadow-warm-sm outline-none "
+        "appearance-none cursor-pointer transition-all duration-200 "
+        "focus:border-terracotta focus:shadow-[0_0_0_3px_rgba(180,90,45,0.12)]"
+    )
+
     def render(self, name, value, attrs=None, renderer=None):
         comp = self._parse_value(value)
         hero_style = comp.get("heroStyle", "")
@@ -391,15 +424,19 @@ class CompositionWidget(forms.Widget):
 
         widget_id = attrs.get("id", name) if attrs else name
 
-        parts = [f'<div class="composition-widget" id="{escape(widget_id)}-wrapper">']
+        parts = [f'<div class="space-y-4" id="{escape(widget_id)}-wrapper">']
 
         # heroStyle dropdown
-        parts.append('<div class="field-group">')
-        parts.append(f'<label for="{escape(widget_id)}-heroStyle">Hero Style</label>')
+        parts.append('<div class="space-y-1.5">')
+        parts.append(
+            f'<label for="{escape(widget_id)}-heroStyle" '
+            f'class="block font-mono text-[10px] uppercase tracking-wider '
+            f'text-ink-muted">Hero Style</label>'
+        )
         parts.append(
             f'<select name="{escape(name)}__heroStyle" '
-            f'id="{escape(widget_id)}-heroStyle" class="field-meta" '
-            f'data-composition-toggle>'
+            f'id="{escape(widget_id)}-heroStyle" class="{self._SELECT_CLS}" '
+            f"data-composition-toggle>"
         )
         for val, label in HERO_STYLE_CHOICES:
             selected = " selected" if val == hero_style else ""
@@ -412,10 +449,13 @@ class CompositionWidget(forms.Widget):
         # Fragments editor (visible only when heroStyle == "collage")
         display = "" if hero_style == "collage" else ' style="display:none"'
         parts.append(
-            f'<div class="composition-fragments" '
+            f'<div class="border-t border-border pt-4 mt-4" '
             f'data-composition-section="collage"{display}>'
         )
-        parts.append('<span class="field-section-label">Collage Fragments</span>')
+        parts.append(
+            '<span class="block font-mono text-[10px] uppercase tracking-wider '
+            'text-ink-muted mb-2">Collage Fragments</span>'
+        )
         frag_html = self._fragments_widget.render(
             f"{name}__fragments",
             json.dumps(fragments) if fragments else "[]",

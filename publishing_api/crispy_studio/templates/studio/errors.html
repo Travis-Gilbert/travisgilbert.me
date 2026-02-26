@@ -1,0 +1,17 @@
+{% if form.non_field_errors %}
+<div
+  class="
+    mb-6 px-5 py-4
+    bg-[rgba(164,74,58,0.05)]
+    border border-error rounded-brand
+  "
+  role="alert"
+>
+  <p class="font-mono text-[10px] uppercase tracking-widest text-error font-bold mb-2">
+    Form Errors
+  </p>
+  {% for error in form.non_field_errors %}
+  <p class="font-body text-sm text-ink mb-1 last:mb-0">{{ error }}</p>
+  {% endfor %}
+</div>
+{% endif %}

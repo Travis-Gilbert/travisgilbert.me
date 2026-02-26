@@ -1,0 +1,83 @@
+{# templates/cotton/btn.html #}
+{#
+  Brand button with embossed effect.
+
+  Usage:
+    <c-btn>Save Draft</c-btn>
+    <c-btn variant="primary">Publish</c-btn>
+    <c-btn variant="ghost">Cancel</c-btn>
+    <c-btn variant="danger" hx-post="/delete/" hx-confirm="Delete?">Delete</c-btn>
+
+  Props:
+    variant  (str)  : primary | secondary | ghost | danger (default: secondary)
+    type     (str)  : button | submit (default: button)
+    href     (str)  : Renders as anchor instead of button
+    disabled (bool) : Disabled state
+    class    (str)  : Additional CSS classes
+
+  All extra attributes (hx-post, hx-target, etc.) pass through.
+#}
+
+{% if href %}
+<a
+  href="{{ href }}"
+  class="
+    inline-flex items-center justify-center gap-2
+    font-mono text-label-lg uppercase tracking-widest font-bold
+    px-5 py-[10px] rounded-brand
+    no-underline
+    transition-all duration-200
+    {% if variant == 'primary' %}
+      bg-terracotta text-cream border border-terracotta-hover
+      shadow-emboss
+      hover:bg-terracotta-hover
+    {% elif variant == 'ghost' %}
+      bg-transparent text-ink-secondary border border-border
+      hover:bg-parchment-alt hover:text-ink
+    {% elif variant == 'danger' %}
+      bg-error text-cream border border-error
+      shadow-emboss
+      hover:opacity-90
+    {% else %}
+      bg-parchment-alt text-ink border border-border
+      hover:bg-parchment hover:border-ink-muted
+    {% endif %}
+    {{ class }}
+  "
+  {{ attrs }}
+>
+  {{ slot }}
+</a>
+{% else %}
+<button
+  type="{{ type|default:'button' }}"
+  {% if disabled %}disabled{% endif %}
+  class="
+    inline-flex items-center justify-center gap-2
+    font-mono text-label-lg uppercase tracking-widest font-bold
+    px-5 py-[10px] rounded-brand
+    cursor-pointer
+    transition-all duration-200
+    {% if variant == 'primary' %}
+      bg-terracotta text-cream border border-terracotta-hover
+      shadow-emboss
+      hover:bg-terracotta-hover
+    {% elif variant == 'ghost' %}
+      bg-transparent text-ink-secondary border border-border
+      hover:bg-parchment-alt hover:text-ink
+    {% elif variant == 'danger' %}
+      bg-error text-cream border border-error
+      shadow-emboss
+      hover:opacity-90
+    {% else %}
+      bg-parchment-alt text-ink border border-border
+      hover:bg-parchment hover:border-ink-muted
+    {% endif %}
+    disabled:opacity-40 disabled:cursor-not-allowed
+    {{ class }}
+  "
+  {{ attrs }}
+>
+  {{ slot }}
+</button>
+{% endif %}

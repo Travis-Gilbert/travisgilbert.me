@@ -1,0 +1,29 @@
+{# crispy_studio/templates/studio/whole_uni_form.html #}
+{% comment %}
+  Main entry point for the crispy template tag.
+
+  Handles optional form tag wrapping, CSRF token injection,
+  and delegates to form.form_html (Layout path) or uni_form.html (fallback).
+  All Studio forms use form_tag=False because the form tag
+  lives in the page template, not in crispy.
+{% endcomment %}
+{% load crispy_forms_utils %}
+
+{% specialspaceless %}
+{% if form_tag %}<form {{ flat_attrs }} method="{{ form_method }}" {% if form.is_multipart %} enctype="multipart/form-data"{% endif %}>{% endif %}
+    {% if form_method|lower == 'post' and not disable_csrf %}
+        {% csrf_token %}
+    {% endif %}
+
+    {% if form.form_html %}
+        {% if include_media %}{{ form.media }}{% endif %}
+        {% if form_show_errors %}
+            {% include "studio/errors.html" %}
+        {% endif %}
+        {{ form.form_html }}
+    {% else %}
+        {% include "studio/uni_form.html" %}
+    {% endif %}
+
+{% if form_tag %}</form>{% endif %}
+{% endspecialspaceless %}

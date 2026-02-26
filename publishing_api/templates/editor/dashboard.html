@@ -1,143 +1,183 @@
 {% extends "base.html" %}
+
 {% block title %}Dashboard{% endblock %}
 
 {% block content %}
-<div class="dashboard">
-    <header class="dashboard-header">
-        <p class="dashboard-subtitle">Your publishing workspace</p>
-    </header>
+{# ------------------------------------------------------------------ #}
+{#  Quick-create row                                                   #}
+{# ------------------------------------------------------------------ #}
+<section class="mb-8">
+  <c-section_label color="terracotta">Create</c-section_label>
+  <div class="grid grid-cols-5 gap-3 mt-3">
+    {% with card_cls="flex flex-col items-center gap-2 px-4 py-5 bg-cream rounded-brand-lg border border-border shadow-warm-sm hover:shadow-warm hover:-translate-y-0.5 transition-all duration-200 no-underline text-ink" %}
+    <a href="{% url 'editor:essay-create' %}" class="{{ card_cls }}">
+      <span class="text-2xl">&#10022;</span>
+      <span class="font-mono text-[11px] uppercase tracking-wider">Essay</span>
+    </a>
+    <a href="{% url 'editor:field-note-create' %}" class="{{ card_cls }}">
+      <span class="text-2xl">&#9670;</span>
+      <span class="font-mono text-[11px] uppercase tracking-wider">Field Note</span>
+    </a>
+    <a href="{% url 'editor:shelf-create' %}" class="{{ card_cls }}">
+      <span class="text-2xl">&#9673;</span>
+      <span class="font-mono text-[11px] uppercase tracking-wider">Shelf Entry</span>
+    </a>
+    <a href="{% url 'editor:project-create' %}" class="{{ card_cls }}">
+      <span class="text-2xl">&#11042;</span>
+      <span class="font-mono text-[11px] uppercase tracking-wider">Project</span>
+    </a>
+    <a href="{% url 'editor:now-edit' %}" class="{{ card_cls }}">
+      <span class="text-2xl">&#9998;</span>
+      <span class="font-mono text-[11px] uppercase tracking-wider">Now Page</span>
+    </a>
+    {% endwith %}
+  </div>
+</section>
 
-    <div class="dashboard-grid">
-        <!-- Quick create: horizontal row -->
-        <section class="dashboard-section quick-create">
-            <h2>Create</h2>
-            <div class="quick-create-grid">
-                <a href="{% url 'editor:essay-create' %}" class="quick-create-btn quick-create-essay">
-                    <span class="quick-create-icon">✦</span>
-                    <span>Essay</span>
-                </a>
-                <a href="{% url 'editor:field-note-create' %}" class="quick-create-btn quick-create-note">
-                    <span class="quick-create-icon">◆</span>
-                    <span>Field Note</span>
-                </a>
-                <a href="{% url 'editor:shelf-create' %}" class="quick-create-btn quick-create-shelf">
-                    <span class="quick-create-icon">◉</span>
-                    <span>Shelf Entry</span>
-                </a>
-                <a href="{% url 'editor:project-create' %}" class="quick-create-btn quick-create-project">
-                    <span class="quick-create-icon">⬢</span>
-                    <span>Project</span>
-                </a>
-                <a href="{% url 'editor:now-edit' %}" class="quick-create-btn quick-create-now">
-                    <span class="quick-create-icon">✎</span>
-                    <span>Now Page</span>
-                </a>
-            </div>
-        </section>
+{# ------------------------------------------------------------------ #}
+{#  Drafts in progress                                                 #}
+{# ------------------------------------------------------------------ #}
+<section class="mb-8">
+  <c-section_label color="terracotta">Drafts</c-section_label>
+  <div class="mt-3 space-y-2">
+    {% for essay in essays %}
+      {% if essay.draft %}
+      <a href="{% url 'editor:essay-edit' slug=essay.slug %}"
+         class="flex items-center gap-3 px-4 py-3 bg-cream rounded-brand border border-border
+                shadow-warm-sm hover:shadow-warm hover:-translate-y-0.5
+                transition-all duration-200 no-underline text-ink">
+        <c-badge color="terracotta">Essay</c-badge>
+        <span class="font-body text-[15px] flex-1">{{ essay.title }}</span>
+        <c-stage_pill stage="{{ essay.stage }}" />
+      </a>
+      {% endif %}
+    {% endfor %}
 
-        <!-- Drafts in progress -->
-        <section class="dashboard-section">
-            <h2>Drafts</h2>
-            <ul class="content-list">
-                {% for essay in essays %}
-                    {% if essay.draft %}
-                    <li class="content-item">
-                        <a href="{% url 'editor:essay-edit' slug=essay.slug %}">
-                            <span class="content-badge badge-essay">Essay</span>
-                            <span class="content-item-title">{{ essay.title }}</span>
-                            <span class="content-item-stage">{{ essay.get_stage_display }}</span>
-                        </a>
-                    </li>
-                    {% endif %}
-                {% endfor %}
-                {% for note in field_notes %}
-                    {% if note.draft %}
-                    <li class="content-item">
-                        <a href="{% url 'editor:field-note-edit' slug=note.slug %}">
-                            <span class="content-badge badge-note">Note</span>
-                            <span class="content-item-title">{{ note.title }}</span>
-                        </a>
-                    </li>
-                    {% endif %}
-                {% endfor %}
-                {% for project in projects %}
-                    {% if project.draft %}
-                    <li class="content-item">
-                        <a href="{% url 'editor:project-edit' slug=project.slug %}">
-                            <span class="content-badge badge-project">Project</span>
-                            <span class="content-item-title">{{ project.title }}</span>
-                        </a>
-                    </li>
-                    {% endif %}
-                {% endfor %}
-            </ul>
-            {% if not essays and not field_notes and not projects %}
-            <p class="dashboard-empty">No drafts in progress.</p>
-            {% endif %}
-        </section>
+    {% for note in field_notes %}
+      {% if note.draft %}
+      <a href="{% url 'editor:field-note-edit' slug=note.slug %}"
+         class="flex items-center gap-3 px-4 py-3 bg-cream rounded-brand border border-border
+                shadow-warm-sm hover:shadow-warm hover:-translate-y-0.5
+                transition-all duration-200 no-underline text-ink">
+        <c-badge color="teal">Note</c-badge>
+        <span class="font-body text-[15px] flex-1">{{ note.title }}</span>
+      </a>
+      {% endif %}
+    {% endfor %}
 
-        <!-- Recent publishes -->
-        <section class="dashboard-section">
-            <h2>Recent Publishes</h2>
-            <ul class="publish-log-list">
-                {% for log in recent_publishes %}
-                <li class="publish-log-item {% if log.success %}publish-success{% else %}publish-fail{% endif %}">
-                    <span class="publish-log-status">{% if log.success %}OK{% else %}FAIL{% endif %}</span>
-                    <span class="publish-log-title">{{ log.content_title }}</span>
-                    <time class="publish-log-time" datetime="{{ log.created_at|date:'c' }}">
-                        {{ log.created_at|date:"M j, g:i A" }}
-                    </time>
-                    {% if log.commit_url %}
-                    <a href="{{ log.commit_url }}" target="_blank" rel="noopener" class="publish-log-sha">
-                        {{ log.commit_sha|truncatechars:7 }}
-                    </a>
-                    {% endif %}
-                </li>
-                {% empty %}
-                <li class="publish-log-empty">Nothing published yet.</li>
-                {% endfor %}
-            </ul>
-        </section>
+    {% for project in projects %}
+      {% if project.draft %}
+      <a href="{% url 'editor:project-edit' slug=project.slug %}"
+         class="flex items-center gap-3 px-4 py-3 bg-cream rounded-brand border border-border
+                shadow-warm-sm hover:shadow-warm hover:-translate-y-0.5
+                transition-all duration-200 no-underline text-ink">
+        <c-badge color="gold">Project</c-badge>
+        <span class="font-body text-[15px] flex-1">{{ project.title }}</span>
+      </a>
+      {% endif %}
+    {% endfor %}
 
-        <!-- Content overview -->
-        <section class="dashboard-section">
-            <h2>Content</h2>
-            <ul class="content-list">
-                <li class="content-item">
-                    <a href="{% url 'editor:essay-list' %}">
-                        <span class="content-badge badge-essay">Essays</span>
-                        <span class="content-item-title">{{ essays|length }} item{{ essays|length|pluralize }}</span>
-                    </a>
-                </li>
-                <li class="content-item">
-                    <a href="{% url 'editor:field-note-list' %}">
-                        <span class="content-badge badge-note">Notes</span>
-                        <span class="content-item-title">{{ field_notes|length }} item{{ field_notes|length|pluralize }}</span>
-                    </a>
-                </li>
-                <li class="content-item">
-                    <a href="{% url 'editor:shelf-list' %}">
-                        <span class="content-badge badge-shelf">Shelf</span>
-                        <span class="content-item-title">{{ shelf_entries|length }} item{{ shelf_entries|length|pluralize }}</span>
-                    </a>
-                </li>
-                <li class="content-item">
-                    <a href="{% url 'editor:project-list' %}">
-                        <span class="content-badge badge-project">Projects</span>
-                        <span class="content-item-title">{{ projects|length }} item{{ projects|length|pluralize }}</span>
-                    </a>
-                </li>
-            </ul>
-        </section>
+    {% if not essays and not field_notes and not projects %}
+    <p class="font-mono text-[12px] tracking-wide text-ink-muted py-4">
+      No drafts in progress.
+    </p>
+    {% endif %}
+  </div>
+</section>
 
-        <!-- Now page shortcut -->
-        <section class="dashboard-section">
-            <h2>Now Page</h2>
-            {% if now_page %}
-            <p class="now-summary">Last updated: {{ now_page.updated|date:"M j, Y" }}</p>
-            {% endif %}
-            <a href="{% url 'editor:now-edit' %}" class="btn btn-secondary">Edit Now Page</a>
-        </section>
+{# ------------------------------------------------------------------ #}
+{#  Two-column grid: recent publishes + content overview               #}
+{# ------------------------------------------------------------------ #}
+<div class="grid grid-cols-2 gap-6 mb-8">
+
+  {# ---- Recent publishes ---- #}
+  <section>
+    <c-section_label color="teal">Recent Publishes</c-section_label>
+    <div class="mt-3 space-y-1.5">
+      {% for log in recent_publishes %}
+      <div class="flex items-center gap-2 px-4 py-2 bg-cream rounded-brand border border-border">
+        {% if log.success %}
+          <c-badge color="success">OK</c-badge>
+        {% else %}
+          <c-badge color="error">FAIL</c-badge>
+        {% endif %}
+        <span class="font-body text-[13px] flex-1 truncate">{{ log.content_title }}</span>
+        <time class="font-mono text-[10px] tracking-wide text-ink-muted"
+              datetime="{{ log.created_at|date:'c' }}">
+          {{ log.created_at|date:"M j, g:i A" }}
+        </time>
+        {% if log.commit_url %}
+        <a href="{{ log.commit_url }}" target="_blank" rel="noopener"
+           class="font-mono text-[10px] tracking-wide text-teal hover:text-teal-hover underline">
+          {{ log.commit_sha|truncatechars:7 }}
+        </a>
+        {% endif %}
+      </div>
+      {% empty %}
+      <p class="font-mono text-[12px] tracking-wide text-ink-muted py-4">
+        Nothing published yet.
+      </p>
+      {% endfor %}
     </div>
+  </section>
+
+  {# ---- Content overview ---- #}
+  <section>
+    <c-section_label color="gold">Content</c-section_label>
+    <div class="mt-3 space-y-1.5">
+      <a href="{% url 'editor:essay-list' %}"
+         class="flex items-center gap-3 px-4 py-2.5 bg-cream rounded-brand border border-border
+                hover:shadow-warm-sm transition-all duration-200 no-underline text-ink">
+        <c-badge color="terracotta">Essays</c-badge>
+        <span class="font-mono text-[12px] tracking-wide text-ink-muted">
+          {{ essays|length }} item{{ essays|length|pluralize }}
+        </span>
+        {% if draft_counts.essays %}
+        <c-badge color="gold" outline>{{ draft_counts.essays }} draft{{ draft_counts.essays|pluralize }}</c-badge>
+        {% endif %}
+      </a>
+      <a href="{% url 'editor:field-note-list' %}"
+         class="flex items-center gap-3 px-4 py-2.5 bg-cream rounded-brand border border-border
+                hover:shadow-warm-sm transition-all duration-200 no-underline text-ink">
+        <c-badge color="teal">Notes</c-badge>
+        <span class="font-mono text-[12px] tracking-wide text-ink-muted">
+          {{ field_notes|length }} item{{ field_notes|length|pluralize }}
+        </span>
+        {% if draft_counts.field_notes %}
+        <c-badge color="gold" outline>{{ draft_counts.field_notes }} draft{{ draft_counts.field_notes|pluralize }}</c-badge>
+        {% endif %}
+      </a>
+      <a href="{% url 'editor:shelf-list' %}"
+         class="flex items-center gap-3 px-4 py-2.5 bg-cream rounded-brand border border-border
+                hover:shadow-warm-sm transition-all duration-200 no-underline text-ink">
+        <c-badge color="gold">Shelf</c-badge>
+        <span class="font-mono text-[12px] tracking-wide text-ink-muted">
+          {{ shelf_entries|length }} item{{ shelf_entries|length|pluralize }}
+        </span>
+      </a>
+      <a href="{% url 'editor:project-list' %}"
+         class="flex items-center gap-3 px-4 py-2.5 bg-cream rounded-brand border border-border
+                hover:shadow-warm-sm transition-all duration-200 no-underline text-ink">
+        <c-badge color="gold">Projects</c-badge>
+        <span class="font-mono text-[12px] tracking-wide text-ink-muted">
+          {{ projects|length }} item{{ projects|length|pluralize }}
+        </span>
+        {% if draft_counts.projects %}
+        <c-badge color="gold" outline>{{ draft_counts.projects }} draft{{ draft_counts.projects|pluralize }}</c-badge>
+        {% endif %}
+      </a>
+    </div>
+
+    {# ---- Now page shortcut ---- #}
+    <div class="mt-6 flex items-center gap-3">
+      {% if now_page %}
+      <span class="font-mono text-[11px] tracking-wide text-ink-muted">
+        Now page updated {{ now_page.updated|date:"M j, Y" }}
+      </span>
+      {% endif %}
+      <c-btn variant="secondary" href="{% url 'editor:now-edit' %}">Edit Now Page</c-btn>
+    </div>
+  </section>
+
 </div>
 {% endblock %}

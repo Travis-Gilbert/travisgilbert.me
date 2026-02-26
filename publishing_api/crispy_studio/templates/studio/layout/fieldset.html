@@ -1,0 +1,54 @@
+<fieldset
+  class="
+    relative overflow-hidden
+    border border-border rounded-brand-lg
+    bg-cream shadow-warm-sm
+    p-6 mb-6
+    {{ fieldset.css_class }}
+  "
+>
+  {% if fieldset.legend %}
+  <legend class="sr-only">{{ fieldset.legend }}</legend>
+
+  {# Visible section label #}
+  <div class="flex items-center gap-2 mb-5 -mt-1">
+    <div
+      class="
+        w-[3px] h-4 rounded-sm
+        {% if 'section-terracotta' in fieldset.css_class %}bg-terracotta
+        {% elif 'section-teal' in fieldset.css_class %}bg-teal
+        {% elif 'section-gold' in fieldset.css_class %}bg-gold
+        {% else %}bg-ink-secondary{% endif %}
+      "
+    ></div>
+    <span
+      class="
+        font-mono text-label uppercase tracking-widest font-bold
+        {% if 'section-terracotta' in fieldset.css_class %}text-terracotta
+        {% elif 'section-teal' in fieldset.css_class %}text-teal
+        {% elif 'section-gold' in fieldset.css_class %}text-gold
+        {% else %}text-ink-secondary{% endif %}
+      "
+    >
+      {{ fieldset.legend }}
+    </span>
+  </div>
+  {% endif %}
+
+  {# Blueprint grid overlay (opt-in via "with-grid" in css_class) #}
+  {% if "with-grid" in fieldset.css_class %}
+  <div
+    class="absolute inset-0 pointer-events-none rounded-brand-lg opacity-15"
+    style="
+      background-image:
+        linear-gradient(#D4CCC4 1px, transparent 1px),
+        linear-gradient(90deg, #D4CCC4 1px, transparent 1px);
+      background-size: 40px 40px;
+    "
+  ></div>
+  {% endif %}
+
+  <div class="relative z-10">
+    {{ fields }}
+  </div>
+</fieldset>

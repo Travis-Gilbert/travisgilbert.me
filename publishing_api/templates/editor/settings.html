@@ -1,72 +1,30 @@
 {% extends "base.html" %}
+{% load crispy_forms_tags %}
 
 {% block title %}Site Settings{% endblock %}
 
 {% block content %}
-<div class="settings-page">
-    <div class="settings-header">
-        <h1>Site Settings</h1>
-    </div>
+<header class="flex items-center gap-3 mb-6">
+  <h1 class="font-title text-[22px] text-ink m-0">Site Settings</h1>
+</header>
 
-    <form method="post" class="settings-form">
-        {% csrf_token %}
+<form method="post" class="max-w-2xl">
+  {% csrf_token %}
 
-        {% if form.non_field_errors %}
-        <div class="form-errors">
-            {% for error in form.non_field_errors %}
-            <p class="field-error">{{ error }}</p>
-            {% endfor %}
-        </div>
-        {% endif %}
+  {% crispy form %}
 
-        <fieldset class="settings-section">
-            <legend>Footer</legend>
-            <div class="field-group">
-                <label for="{{ form.footer_tagline.id_for_label }}">Tagline</label>
-                {{ form.footer_tagline }}
-                {% if form.footer_tagline.errors %}<span class="field-error">{{ form.footer_tagline.errors.0 }}</span>{% endif %}
-            </div>
-            <div class="field-group">
-                <label>Footer Links</label>
-                {{ form.footer_links }}
-                {% if form.footer_links.errors %}<span class="field-error">{{ form.footer_links.errors.0 }}</span>{% endif %}
-            </div>
-        </fieldset>
+  {% if form.non_field_errors %}
+  <div class="mt-4 p-3 bg-error/5 border border-error/20 rounded-brand">
+    {% for error in form.non_field_errors %}
+    <p class="font-mono text-[11px] tracking-wide text-error leading-relaxed m-0">
+      {{ error }}
+    </p>
+    {% endfor %}
+  </div>
+  {% endif %}
 
-        <fieldset class="settings-section">
-            <legend>SEO</legend>
-            <div class="field-group">
-                <label for="{{ form.seo_title_template.id_for_label }}">Title Template</label>
-                {{ form.seo_title_template }}
-                {% if form.seo_title_template.errors %}<span class="field-error">{{ form.seo_title_template.errors.0 }}</span>{% endif %}
-                <span class="field-hint">Use %s as placeholder for page title</span>
-            </div>
-            <div class="field-group">
-                <label for="{{ form.seo_description.id_for_label }}">Default Description</label>
-                {{ form.seo_description }}
-                {% if form.seo_description.errors %}<span class="field-error">{{ form.seo_description.errors.0 }}</span>{% endif %}
-            </div>
-            <div class="field-group">
-                <label for="{{ form.seo_og_image_fallback.id_for_label }}">OG Image Fallback</label>
-                {{ form.seo_og_image_fallback }}
-                {% if form.seo_og_image_fallback.errors %}<span class="field-error">{{ form.seo_og_image_fallback.errors.0 }}</span>{% endif %}
-                <span class="field-hint">Path to default Open Graph image</span>
-            </div>
-        </fieldset>
-
-        <fieldset class="settings-section">
-            <legend>Global Toggles</legend>
-            <div class="field-group">
-                <label for="{{ form.global_toggles.id_for_label }}">Toggles</label>
-                {{ form.global_toggles }}
-                {% if form.global_toggles.errors %}<span class="field-error">{{ form.global_toggles.errors.0 }}</span>{% endif %}
-                <span class="field-hint">Feature flags: dotgrid_enabled, paper_grain_enabled, console_easter_egg</span>
-            </div>
-        </fieldset>
-
-        <div class="settings-actions">
-            <button type="submit" class="btn btn-primary">Save Settings</button>
-        </div>
-    </form>
-</div>
+  <div class="mt-6">
+    <c-btn variant="primary" type="submit">Save Settings</c-btn>
+  </div>
+</form>
 {% endblock %}

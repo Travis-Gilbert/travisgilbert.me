@@ -1,0 +1,45 @@
+{# templates/cotton/badge.html #}
+{#
+  Status badge / stage pill.
+
+  Usage:
+    <c-badge color="terracotta">Draft</c-badge>
+    <c-badge color="teal" outline>Published</c-badge>
+    <c-badge color="success">Live</c-badge>
+
+  Props:
+    color    (str)  : terracotta | teal | gold | success | error | ink
+    outline  (bool) : Outline style instead of filled
+    class    (str)  : Additional CSS classes
+#}
+
+{% with color_map_bg="bg-terracotta" color_map_text="text-white" %}
+{% endwith %}
+
+<span
+  class="
+    inline-flex items-center
+    font-mono text-[9px] font-bold uppercase tracking-widest
+    px-2 py-[3px] rounded
+    {% if outline %}
+      bg-transparent border
+      {% if color == 'terracotta' %}border-terracotta text-terracotta{% endif %}
+      {% if color == 'teal' %}border-teal text-teal{% endif %}
+      {% if color == 'gold' %}border-gold text-gold{% endif %}
+      {% if color == 'success' %}border-success text-success{% endif %}
+      {% if color == 'error' %}border-error text-error{% endif %}
+      {% if color == 'ink' %}border-border text-ink-secondary{% endif %}
+    {% else %}
+      border-none
+      {% if color == 'terracotta' %}bg-terracotta text-white{% endif %}
+      {% if color == 'teal' %}bg-teal text-white{% endif %}
+      {% if color == 'gold' %}bg-gold text-white{% endif %}
+      {% if color == 'success' %}bg-success text-white{% endif %}
+      {% if color == 'error' %}bg-error text-white{% endif %}
+      {% if color == 'ink' %}bg-ink-muted text-cream{% endif %}
+    {% endif %}
+    {{ class }}
+  "
+>
+  {{ slot }}
+</span>

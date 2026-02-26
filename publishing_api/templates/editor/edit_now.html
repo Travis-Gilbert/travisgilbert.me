@@ -1,101 +1,119 @@
 {% extends "base.html" %}
+{% load crispy_forms_tags %}
 
 {% block title %}Edit Now Page{% endblock %}
 
 {% block content %}
-<div class="now-editor">
-    <header class="now-header">
-        <h1>Now Page</h1>
-        <p class="now-subtitle">What you're doing, reading, building, thinking about right now.</p>
-    </header>
+<header class="flex items-center gap-3 mb-6">
+  <a href="{% url 'editor:dashboard' %}"
+     class="font-mono text-[11px] uppercase tracking-wider text-ink-muted
+            hover:text-ink transition-colors no-underline">
+    &larr; Dashboard
+  </a>
+  <h1 class="font-title text-[22px] text-ink m-0">Now Page</h1>
+  <div class="flex-1"></div>
+  <c-btn variant="primary" type="submit" form="now-form">Save</c-btn>
+  {% if publish_url %}
+  <c-btn variant="secondary" type="button"
+         hx-post="{{ publish_url }}"
+         hx-target="#publish-toast"
+         hx-swap="none"
+         hx-on-htmx-after-request="handlePublishResponse(event)">
+    Publish Now Page
+  </c-btn>
+  {% endif %}
+</header>
 
-    <form method="post" class="now-form">
-        {% csrf_token %}
+<p class="font-mono text-[12px] tracking-wide text-ink-muted mb-6">
+  What you're doing, reading, building, thinking about right now.
+</p>
 
-        <div class="now-field-group">
-            <label for="{{ form.updated.id_for_label }}">Last Updated</label>
-            {{ form.updated }}
-        </div>
+<form method="post" id="now-form" class="max-w-2xl">
+  {% csrf_token %}
 
-        <div class="now-grid">
-            <div class="now-card">
-                <h3>Researching</h3>
-                {{ form.researching }}
-                {{ form.researching_context }}
-            </div>
-            <div class="now-card">
-                <h3>Reading</h3>
-                {{ form.reading }}
-                {{ form.reading_context }}
-            </div>
-            <div class="now-card">
-                <h3>Building</h3>
-                {{ form.building }}
-                {{ form.building_context }}
-            </div>
-            <div class="now-card">
-                <h3>Listening to</h3>
-                {{ form.listening }}
-                {{ form.listening_context }}
-            </div>
-        </div>
+  {% crispy form %}
 
-        <div class="now-thinking">
-            <h3>Thinking About</h3>
-            {{ form.thinking }}
-        </div>
+  {% for field in form.hidden_fields %}
+    {{ field }}
+  {% endfor %}
 
-        <div class="now-actions">
-            <button type="submit" class="btn btn-primary">Save</button>
-            {% if publish_url %}
-            <button
-                type="button"
-                class="btn btn-publish"
-                hx-post="{{ publish_url }}"
-                hx-target="#publish-toast"
-                hx-swap="innerHTML"
-                hx-on::after-request="handlePublishResponse(event)"
-            >
-                Publish Now Page
-            </button>
-            {% endif %}
-        </div>
+  {% if form.non_field_errors %}
+  <div class="mt-4 p-3 bg-error/5 border border-error/20 rounded-brand">
+    {% for error in form.non_field_errors %}
+    <p class="font-mono text-[11px] tracking-wide text-error leading-relaxed m-0">
+      {{ error }}
+    </p>
+    {% endfor %}
+  </div>
+  {% endif %}
+</form>
 
-        {% if recent_publishes %}
-        <div class="publish-history">
-            <h3>Publish History</h3>
-            <ul>
-                {% for log in recent_publishes %}
-                <li class="{% if log.success %}publish-success{% else %}publish-fail{% endif %}">
-                    {{ log.created_at|date:"M j, g:i A" }}
-                    {% if log.success %} OK{% else %} FAILED{% endif %}
-                </li>
-                {% endfor %}
-            </ul>
-        </div>
-        {% endif %}
-    </form>
+{% if recent_publishes %}
+<div class="mt-8 max-w-2xl">
+  <c-section_label color="teal">Publish History</c-section_label>
+  <ul class="list-none p-0 mt-2 space-y-1.5">
+    {% for log in recent_publishes %}
+    <li class="flex items-center gap-2 font-mono text-[11px] tracking-wide">
+      <span class="text-ink-muted">{{ log.created_at|date:"M j, g:i A" }}</span>
+      {% if log.success %}
+        <c-badge color="success">OK</c-badge>
+      {% else %}
+        <c-badge color="error">FAILED</c-badge>
+      {% endif %}
+    </li>
+    {% endfor %}
+  </ul>
 </div>
+{% endif %}
 
+<div id="publish-toast"
+     class="fixed bottom-6 right-6 max-w-sm z-50"
+     style="display: none;"></div>
+{% endblock %}
+
+{% block scripts %}
 <script>
+function buildToast(type, message) {
+  var toast = document.getElementById('publish-toast');
+  while (toast.firstChild) toast.removeChild(toast.firstChild);
+  var bg = type === 'success'
+    ? 'bg-cream border border-teal/30 shadow-warm-sm'
+    : 'bg-cream border border-error/30 shadow-warm-sm';
+  toast.className = 'fixed bottom-6 right-6 max-w-sm z-50 px-5 py-3 rounded-brand relative ' + bg;
+  var msgEl = document.createElement('p');
+  msgEl.className = 'font-mono text-[12px] tracking-wide leading-relaxed m-0 pr-6 '
+    + (type === 'success' ? 'text-teal' : 'text-error');
+  msgEl.appendChild(document.createTextNode(message));
+  toast.appendChild(msgEl);
+  var dismiss = document.createElement('button');
+  dismiss.type = 'button';
+  dismiss.className = 'absolute top-2 right-2 text-ink-muted hover:text-ink '
+    + 'bg-transparent border-none cursor-pointer text-lg leading-none';
+  dismiss.textContent = '\u00D7';
+  dismiss.addEventListener('click', function() { toast.style.display = 'none'; });
+  toast.appendChild(dismiss);
+  toast.style.display = 'block';
+  setTimeout(function() { toast.style.display = 'none'; }, 8000);
+}
+
 function handlePublishResponse(event) {
-    const toast = document.getElementById('publish-toast');
-    while (toast.firstChild) toast.removeChild(toast.firstChild);
-    try {
-        const data = JSON.parse(event.detail.xhr.responseText);
-        if (data.success) {
-            toast.className = 'publish-toast publish-toast-success';
-            toast.textContent = 'Now page published!';
-        } else {
-            toast.className = 'publish-toast publish-toast-error';
-            toast.textContent = 'Publish failed: ' + (data.error || 'Unknown error');
-        }
-    } catch(e) {
-        toast.className = 'publish-toast publish-toast-error';
-        toast.textContent = 'Publish failed: Network error';
+  var xhr = event.detail.xhr;
+  var status = xhr ? xhr.status : 0;
+  try {
+    var data = JSON.parse(xhr.responseText);
+    if (data.success) {
+      buildToast('success', 'Now page published!');
+    } else {
+      buildToast('error', 'Publish failed: ' + (data.error || 'Unknown error'));
     }
-    toast.style.display = 'block';
-    setTimeout(function() { toast.style.display = 'none'; }, 8000);
+  } catch(err) {
+    var msg = 'Publish failed: ';
+    if (status === 403) msg += 'CSRF or permission error (403)';
+    else if (status >= 500) msg += 'Server error (' + status + ')';
+    else if (status === 0) msg += 'Could not reach server';
+    else msg += 'Unexpected response (' + status + ')';
+    buildToast('error', msg);
+  }
 }
 </script>
 {% endblock %}

@@ -1,0 +1,99 @@
+/*
+ * Studio Design Tokens
+ *
+ * CSS custom properties for use in base.html and anywhere
+ * Tailwind utility classes aren't practical (e.g. inline SVG,
+ * JS-driven styles, third-party widget overrides).
+ *
+ * These mirror the Tailwind config exactly.
+ */
+
+:root {
+  /* Brand primaries */
+  --color-terracotta: #B45A2D;
+  --color-terracotta-hover: #9A4A22;
+  --color-terracotta-light: #D4875A;
+  --color-teal: #2D5F6B;
+  --color-teal-light: #3A7A88;
+  --color-gold: #C49A4A;
+  --color-gold-light: #D4AA5A;
+
+  /* Surfaces */
+  --color-parchment: #F0EBE4;
+  --color-parchment-alt: #E8E0D6;
+  --color-cream: #FAF6F1;
+  --color-dark-ground: #1A1816;
+  --color-dark-surface: #2A2622;
+
+  /* Ink (text) */
+  --color-ink: #2A2420;
+  --color-ink-secondary: #6A5E52;
+  --color-ink-muted: #9A8E82;
+
+  /* Borders */
+  --color-border: #D4CCC4;
+  --color-border-light: #E8E0D6;
+  --color-border-dark: #3A3632;
+
+  /* Status */
+  --color-success: #5A7A4A;
+  --color-error: #A44A3A;
+
+  /* Fonts */
+  --font-title: "Vollkorn", serif;
+  --font-title-alt: "Ysabeau", sans-serif;
+  --font-title-display: "Instrument Serif", serif;
+  --font-body: "Cabin", sans-serif;
+  --font-body-alt: "IBM Plex Sans", sans-serif;
+  --font-mono: "Courier Prime", monospace;
+  --font-mono-alt: "Space Mono", monospace;
+
+  /* Shadows */
+  --shadow-warm-sm: 0 1px 2px rgba(42, 36, 32, 0.05);
+  --shadow-warm: 0 2px 8px rgba(42, 36, 32, 0.07), 0 1px 3px rgba(42, 36, 32, 0.04);
+  --shadow-warm-lg: 0 4px 16px rgba(42, 36, 32, 0.10), 0 2px 6px rgba(42, 36, 32, 0.05);
+
+  /* Section color mapping */
+  --section-essays: var(--color-terracotta);
+  --section-field-notes: var(--color-teal);
+  --section-projects: var(--color-gold);
+  --section-toolkit: var(--color-teal);
+  --section-shelf: var(--color-gold);
+
+  /* Layout */
+  --max-prose: 65ch;
+  --grid-unit: 20px;
+  --radius: 10px;
+  --radius-lg: 14px;
+}
+
+/*
+ * Paper grain texture (global).
+ * Apply to body::after in base.html.
+ */
+body::after {
+  content: "";
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 9999;
+  opacity: 0.025;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+
+/*
+ * Blueprint grid overlay mixin.
+ * Apply via `.blueprint-grid` on cards and surfaces.
+ */
+.blueprint-grid::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  border-radius: inherit;
+  background-image:
+    linear-gradient(var(--color-border-light) 1px, transparent 1px),
+    linear-gradient(90deg, var(--color-border-light) 1px, transparent 1px);
+  background-size: 40px 40px;
+  opacity: 0.15;
+}

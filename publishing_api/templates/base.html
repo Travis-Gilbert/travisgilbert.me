@@ -1,114 +1,224 @@
+{% load static tailwind_tags %}
 <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{% block title %}Studio{% endblock %} · Travis Gilbert</title>
-    {% load static %}
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Cabin:ital,wght@0,400..700;1,400..700&family=Courier+Prime:ital,wght@0,400;0,700;1,400;1,700&family=Vollkorn:ital,wght@0,400..700;1,400..700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="{% static 'css/studio.css' %}">
+    {% tailwind_css %}
     <script src="https://unpkg.com/htmx.org@2.0.4" defer></script>
     {% block head %}{% endblock %}
 </head>
-<body class="studio-body" {% block body_attrs %}{% endblock %}>
-    <div class="studio-layout">
+<body class="bg-parchment text-ink font-body" {% block body_attrs %}{% endblock %}>
+    <div class="flex min-h-screen">
         {# ------------------------------------------------------------------ #}
         {# Sidebar: three-zone vertical navigation                            #}
         {# ------------------------------------------------------------------ #}
-        <aside class="studio-sidebar">
-            <div class="sidebar-header">
-                <a href="{% url 'editor:dashboard' %}" class="sidebar-brand">Studio</a>
+        <aside class="
+            fixed top-0 left-0 bottom-0 w-[220px]
+            bg-dark-ground text-cream
+            flex flex-col
+            border-r border-white/5
+            z-40
+        ">
+            <div class="px-5 pt-5 pb-4">
+                <a
+                    href="{% url 'editor:dashboard' %}"
+                    class="
+                        font-title text-xl font-bold text-cream
+                        no-underline hover:text-white
+                        tracking-tight
+                    "
+                >
+                    Studio
+                </a>
             </div>
 
-            <nav class="sidebar-nav">
+            <nav class="flex-1 overflow-y-auto px-3 space-y-5">
                 {# Zone 1: Content #}
-                <div class="nav-zone">
-                    <span class="nav-zone-label">Content</span>
+                <div>
+                    <c-section_label color="terracotta" class="px-2 mb-2">Content</c-section_label>
                     <a href="{% url 'editor:essay-list' %}"
-                       class="sidebar-link {% if content_type == 'essay' %}active{% endif %}">
-                        <span class="sidebar-link-text">Essays</span>
+                       class="
+                           flex items-center justify-between
+                           px-3 py-[7px] rounded-brand text-sm
+                           text-cream/75 no-underline
+                           hover:bg-white/10 hover:text-cream
+                           transition-colors duration-150
+                           {% if content_type == 'essay' %}bg-white/10 border-l-2 border-terracotta text-cream{% endif %}
+                       ">
+                        <span>Essays</span>
                         {% if sidebar_drafts.essays %}
-                            <span class="sidebar-badge">{{ sidebar_drafts.essays }}</span>
+                            <c-badge color="gold" outline>{{ sidebar_drafts.essays }}</c-badge>
                         {% endif %}
                     </a>
                     <a href="{% url 'editor:field-note-list' %}"
-                       class="sidebar-link {% if content_type == 'field_note' %}active{% endif %}">
-                        <span class="sidebar-link-text">Field Notes</span>
+                       class="
+                           flex items-center justify-between
+                           px-3 py-[7px] rounded-brand text-sm
+                           text-cream/75 no-underline
+                           hover:bg-white/10 hover:text-cream
+                           transition-colors duration-150
+                           {% if content_type == 'field_note' %}bg-white/10 border-l-2 border-terracotta text-cream{% endif %}
+                       ">
+                        <span>Field Notes</span>
                         {% if sidebar_drafts.field_notes %}
-                            <span class="sidebar-badge">{{ sidebar_drafts.field_notes }}</span>
+                            <c-badge color="gold" outline>{{ sidebar_drafts.field_notes }}</c-badge>
                         {% endif %}
                     </a>
                     <a href="{% url 'editor:shelf-list' %}"
-                       class="sidebar-link {% if content_type == 'shelf' %}active{% endif %}">
-                        <span class="sidebar-link-text">Shelf</span>
+                       class="
+                           flex items-center justify-between
+                           px-3 py-[7px] rounded-brand text-sm
+                           text-cream/75 no-underline
+                           hover:bg-white/10 hover:text-cream
+                           transition-colors duration-150
+                           {% if content_type == 'shelf' %}bg-white/10 border-l-2 border-terracotta text-cream{% endif %}
+                       ">
+                        <span>Shelf</span>
                     </a>
                     <a href="{% url 'editor:project-list' %}"
-                       class="sidebar-link {% if content_type == 'project' %}active{% endif %}">
-                        <span class="sidebar-link-text">Projects</span>
+                       class="
+                           flex items-center justify-between
+                           px-3 py-[7px] rounded-brand text-sm
+                           text-cream/75 no-underline
+                           hover:bg-white/10 hover:text-cream
+                           transition-colors duration-150
+                           {% if content_type == 'project' %}bg-white/10 border-l-2 border-terracotta text-cream{% endif %}
+                       ">
+                        <span>Projects</span>
                         {% if sidebar_drafts.projects %}
-                            <span class="sidebar-badge">{{ sidebar_drafts.projects }}</span>
+                            <c-badge color="gold" outline>{{ sidebar_drafts.projects }}</c-badge>
                         {% endif %}
                     </a>
                     <a href="{% url 'editor:toolkit-list' %}"
-                       class="sidebar-link {% if content_type == 'toolkit' %}active{% endif %}">
-                        <span class="sidebar-link-text">Toolkit</span>
+                       class="
+                           flex items-center justify-between
+                           px-3 py-[7px] rounded-brand text-sm
+                           text-cream/75 no-underline
+                           hover:bg-white/10 hover:text-cream
+                           transition-colors duration-150
+                           {% if content_type == 'toolkit' %}bg-white/10 border-l-2 border-terracotta text-cream{% endif %}
+                       ">
+                        <span>Toolkit</span>
                     </a>
                     <a href="{% url 'editor:now-edit' %}"
-                       class="sidebar-link {% if content_type == 'now' %}active{% endif %}">
-                        <span class="sidebar-link-text">Now</span>
+                       class="
+                           flex items-center justify-between
+                           px-3 py-[7px] rounded-brand text-sm
+                           text-cream/75 no-underline
+                           hover:bg-white/10 hover:text-cream
+                           transition-colors duration-150
+                           {% if content_type == 'now' %}bg-white/10 border-l-2 border-terracotta text-cream{% endif %}
+                       ">
+                        <span>Now</span>
                     </a>
                 </div>
 
                 {# Zone 2: Compose #}
-                <div class="nav-zone">
-                    <span class="nav-zone-label">Compose</span>
+                <div>
+                    <c-section_label color="gold" class="px-2 mb-2">Compose</c-section_label>
                     <a href="{% url 'editor:compose-list' %}"
-                       class="sidebar-link {% if nav_section == 'compose' %}active{% endif %}">
-                        <span class="sidebar-link-text">Pages</span>
+                       class="
+                           flex items-center justify-between
+                           px-3 py-[7px] rounded-brand text-sm
+                           text-cream/75 no-underline
+                           hover:bg-white/10 hover:text-cream
+                           transition-colors duration-150
+                           {% if nav_section == 'compose' %}bg-white/10 border-l-2 border-gold text-cream{% endif %}
+                       ">
+                        <span>Pages</span>
                         {% if sidebar_compose_count %}
-                            <span class="sidebar-badge sidebar-badge-muted">{{ sidebar_compose_count }}</span>
+                            <c-badge color="ink" outline>{{ sidebar_compose_count }}</c-badge>
                         {% endif %}
                     </a>
                 </div>
 
                 {# Zone 3: Settings #}
-                <div class="nav-zone">
-                    <span class="nav-zone-label">Settings</span>
+                <div>
+                    <c-section_label color="teal" class="px-2 mb-2">Settings</c-section_label>
                     <a href="{% url 'editor:tokens-edit' %}"
-                       class="sidebar-link {% if nav_section == 'tokens' %}active{% endif %}">
-                        <span class="sidebar-link-text">Design Tokens</span>
+                       class="
+                           flex items-center justify-between
+                           px-3 py-[7px] rounded-brand text-sm
+                           text-cream/75 no-underline
+                           hover:bg-white/10 hover:text-cream
+                           transition-colors duration-150
+                           {% if nav_section == 'tokens' %}bg-white/10 border-l-2 border-teal text-cream{% endif %}
+                       ">
+                        <span>Design Tokens</span>
                     </a>
                     <a href="{% url 'editor:nav-editor' %}"
-                       class="sidebar-link {% if nav_section == 'nav' %}active{% endif %}">
-                        <span class="sidebar-link-text">Navigation</span>
+                       class="
+                           flex items-center justify-between
+                           px-3 py-[7px] rounded-brand text-sm
+                           text-cream/75 no-underline
+                           hover:bg-white/10 hover:text-cream
+                           transition-colors duration-150
+                           {% if nav_section == 'nav' %}bg-white/10 border-l-2 border-teal text-cream{% endif %}
+                       ">
+                        <span>Navigation</span>
                     </a>
                     <a href="{% url 'editor:site-settings' %}"
-                       class="sidebar-link {% if nav_section == 'site_settings' %}active{% endif %}">
-                        <span class="sidebar-link-text">Site</span>
+                       class="
+                           flex items-center justify-between
+                           px-3 py-[7px] rounded-brand text-sm
+                           text-cream/75 no-underline
+                           hover:bg-white/10 hover:text-cream
+                           transition-colors duration-150
+                           {% if nav_section == 'site_settings' %}bg-white/10 border-l-2 border-teal text-cream{% endif %}
+                       ">
+                        <span>Site</span>
                     </a>
                     <a href="{% url 'editor:publish-log' %}"
-                       class="sidebar-link {% if nav_section == 'publish_log' %}active{% endif %}">
-                        <span class="sidebar-link-text">Publish Log</span>
+                       class="
+                           flex items-center justify-between
+                           px-3 py-[7px] rounded-brand text-sm
+                           text-cream/75 no-underline
+                           hover:bg-white/10 hover:text-cream
+                           transition-colors duration-150
+                           {% if nav_section == 'publish_log' %}bg-white/10 border-l-2 border-teal text-cream{% endif %}
+                       ">
+                        <span>Publish Log</span>
                     </a>
                 </div>
             </nav>
 
-            <div class="sidebar-footer">
-                <span class="sidebar-user">{{ request.user.username }}</span>
-                <a href="{% url 'logout' %}" class="sidebar-link sidebar-link-sign-out">Sign out</a>
+            <div class="px-5 py-4 border-t border-white/10 mt-auto">
+                <span class="block font-mono text-[10px] text-cream/50 uppercase tracking-widest mb-1">
+                    {{ request.user.username }}
+                </span>
+                <a
+                    href="{% url 'logout' %}"
+                    class="font-mono text-[10px] text-cream/40 uppercase tracking-widest no-underline hover:text-cream/70 transition-colors"
+                >
+                    Sign out
+                </a>
             </div>
         </aside>
 
         {# ------------------------------------------------------------------ #}
         {# Main content area                                                   #}
         {# ------------------------------------------------------------------ #}
-        <main class="studio-main">
+        <main class="ml-[220px] flex-1 min-h-screen p-8">
             {% if messages %}
-            <div class="messages">
+            <div class="mb-6 space-y-2">
                 {% for message in messages %}
-                <div class="message message-{{ message.tags }}">{{ message }}</div>
+                <div
+                    class="
+                        px-4 py-3 rounded-brand border text-sm font-body
+                        {% if message.tags == 'success' %}bg-cream border-success text-ink
+                        {% elif message.tags == 'error' %}bg-cream border-error text-ink
+                        {% elif message.tags == 'warning' %}bg-cream border-gold text-ink
+                        {% else %}bg-cream border-border text-ink{% endif %}
+                    "
+                    role="alert"
+                >
+                    {{ message }}
+                </div>
                 {% endfor %}
             </div>
             {% endif %}
@@ -118,7 +228,11 @@
     </div>
 
     {# Publish result toast (HTMX driven) #}
-    <div id="publish-toast" class="publish-toast" style="display: none;"></div>
+    <div
+        id="publish-toast"
+        class="fixed bottom-6 right-6 z-50 w-[380px]"
+        style="display: none;"
+    ></div>
 
     <script>
     // HTMX: include Django CSRF token on every non-GET request

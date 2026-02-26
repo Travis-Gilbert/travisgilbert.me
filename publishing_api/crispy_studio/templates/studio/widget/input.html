@@ -1,0 +1,23 @@
+<input
+  type="{{ widget.type|default:'text' }}"
+  name="{{ widget.name }}"
+  {% if widget.value != None %}value="{{ widget.value }}"{% endif %}
+  {% for attr_name, attr_val in widget.attrs.items %}
+    {% if attr_name != 'class' %}{{ attr_name }}="{{ attr_val }}"{% endif %}
+  {% endfor %}
+  class="
+    w-full px-4 py-[10px]
+    font-body text-[15px] text-ink
+    bg-cream
+    border border-border rounded-brand
+    shadow-warm-sm
+    outline-none
+    transition-all duration-200
+    placeholder:text-ink-muted placeholder:font-body
+    focus:border-terracotta focus:shadow-[0_0_0_3px_rgba(180,90,45,0.12)]
+    {% if widget.attrs.has_error %}
+      border-error bg-[rgba(164,74,58,0.03)]
+    {% endif %}
+    disabled:opacity-40 disabled:cursor-not-allowed
+  "
+/>

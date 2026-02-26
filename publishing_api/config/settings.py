@@ -39,6 +39,13 @@ INSTALLED_APPS = [
     "django.contrib.messages",
     "whitenoise.runserver_nostatic",
     "django.contrib.staticfiles",
+    # Brand component libraries
+    "django_cotton",
+    "template_partials",
+    "tailwind",
+    "theme",
+    "crispy_forms",
+    "crispy_studio",
     # Project apps
     "apps.core",
     "apps.content",
@@ -128,6 +135,13 @@ STORAGES = {
 }
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
+
+# Crispy Forms
+CRISPY_TEMPLATE_PACK = "studio"
+CRISPY_ALLOWED_TEMPLATE_PACKS = ("studio",)
+
+# Tailwind
+TAILWIND_APP_NAME = "theme"
 
 # GitHub publishing settings (strip whitespace; dashboard paste can add newlines)
 GITHUB_TOKEN = os.environ.get("GITHUB_TOKEN", "").strip()

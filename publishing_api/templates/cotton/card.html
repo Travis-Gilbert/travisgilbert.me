@@ -1,0 +1,63 @@
+{# templates/cotton/card.html #}
+{#
+  Brand card component with warm shadows and optional blueprint grid.
+
+  Usage:
+    <c-card>Plain content</c-card>
+    <c-card grid>Content with blueprint grid overlay</c-card>
+    <c-card hover href="/essays/my-essay/">Clickable card</c-card>
+    <c-card variant="tint-terracotta">Tinted essay card</c-card>
+    <c-card variant="dark">Dark ground card</c-card>
+
+  Props:
+    grid       (bool)   : Show blueprint grid overlay
+    hover      (bool)   : Enable lift-on-hover interaction
+    href       (str)    : Wrap card in an anchor tag
+    variant    (str)    : tint-terracotta | tint-teal | tint-gold | dark | plain (default)
+    class      (str)    : Additional CSS classes
+#}
+
+{% load template_partials %}
+
+{% partialdef card_inner %}
+<div
+  class="
+    relative overflow-hidden
+    rounded-brand
+    border border-border
+    shadow-warm-sm
+    transition-all duration-200
+    {% if variant == 'tint-terracotta' %}bg-terracotta-tint{% endif %}
+    {% if variant == 'tint-teal' %}bg-teal-tint{% endif %}
+    {% if variant == 'tint-gold' %}bg-gold-tint{% endif %}
+    {% if variant == 'dark' %}bg-dark-ground text-cream border-border-dark{% endif %}
+    {% if variant == 'plain' or not variant %}bg-cream{% endif %}
+    {% if hover %}hover:shadow-warm hover:-translate-y-px cursor-pointer{% endif %}
+    {{ class }}
+  "
+>
+  {% if grid %}
+  <div
+    class="absolute inset-0 pointer-events-none rounded-brand opacity-15"
+    style="
+      background-image:
+        linear-gradient(#D4CCC4 1px, transparent 1px),
+        linear-gradient(90deg, #D4CCC4 1px, transparent 1px);
+      background-size: 40px 40px;
+    "
+  ></div>
+  {% endif %}
+
+  <div class="relative z-10 p-6">
+    {{ slot }}
+  </div>
+</div>
+{% endpartialdef %}
+
+{% if href %}
+<a href="{{ href }}" class="block no-underline text-inherit">
+  {% partial card_inner %}
+</a>
+{% else %}
+  {% partial card_inner %}
+{% endif %}

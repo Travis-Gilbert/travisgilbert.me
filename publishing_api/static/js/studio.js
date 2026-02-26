@@ -2,11 +2,10 @@
  * Studio JS: interactivity layer for Django Studio.
  *
  * Systems:
- *   1. Status Pipeline: clickable stage progression bar
- *   2. Markdown Toolbar: formatting buttons for the body textarea
- *   3. Autosave: debounced field-level saves
- *   4. Character counters, Tab indent, Cmd+S
- *   5. Structured list widget: add/remove rows
+ *   1. Markdown Toolbar: formatting buttons for the body textarea
+ *   2. Autosave: debounced field-level saves
+ *   3. Character counters, Tab indent, Cmd+S
+ *   4. Structured list widget: add/remove rows via <template> cloning
  */
 
 (function () {
@@ -19,105 +18,7 @@
         return el ? el.value : '';
     }
 
-    // ─── 1. Status Pipeline ─────────────────────────────────────────────
-
-    function initPipeline() {
-        var header = document.getElementById('status-pipeline');
-        if (!header) return;
-
-        var stages;
-        try {
-            stages = JSON.parse(header.dataset.stages);
-        } catch (e) {
-            return;
-        }
-        if (!stages || !stages.length) return;
-
-        var current = header.dataset.current || '';
-        var url = header.dataset.url || '';
-
-        function render(activeStage) {
-            while (header.firstChild) header.removeChild(header.firstChild);
-
-            var currentIdx = stages.indexOf(activeStage);
-
-            stages.forEach(function (stage, idx) {
-                var btn = document.createElement('button');
-                btn.type = 'button';
-                btn.className = 'pipeline-stage';
-                btn.textContent = stage.replace(/_/g, ' ');
-                btn.dataset.stage = stage;
-
-                if (idx < currentIdx) {
-                    btn.classList.add('pipeline-complete');
-                } else if (idx === currentIdx) {
-                    btn.classList.add('pipeline-current');
-                } else {
-                    btn.classList.add('pipeline-upcoming');
-                }
-
-                // Connector line between stages
-                if (idx > 0) {
-                    var line = document.createElement('span');
-                    line.className = 'pipeline-connector';
-                    if (idx <= currentIdx) {
-                        line.classList.add('pipeline-connector-active');
-                    }
-                    header.appendChild(line);
-                }
-
-                header.appendChild(btn);
-            });
-        }
-
-        render(current);
-
-        // Click handler: advance or roll back stage
-        header.addEventListener('click', function (e) {
-            var btn = e.target.closest('.pipeline-stage');
-            if (!btn || !url) return;
-
-            var newStage = btn.dataset.stage;
-            if (newStage === current) return;
-
-            // Optimistic UI update
-            var oldCurrent = current;
-            current = newStage;
-            render(current);
-
-            // Also update hidden stage/status field in the form
-            var stageSelect = document.querySelector('#id_stage, #id_status');
-            if (stageSelect) {
-                stageSelect.value = newStage;
-            }
-
-            fetch(url, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'X-CSRFToken': getCSRFToken(),
-                    'X-Requested-With': 'XMLHttpRequest'
-                },
-                body: JSON.stringify({ stage: newStage })
-            })
-            .then(function (resp) { return resp.json(); })
-            .then(function (data) {
-                if (!data.success) {
-                    // Revert on failure
-                    current = oldCurrent;
-                    render(current);
-                    if (stageSelect) stageSelect.value = oldCurrent;
-                }
-            })
-            .catch(function () {
-                current = oldCurrent;
-                render(current);
-                if (stageSelect) stageSelect.value = oldCurrent;
-            });
-        });
-    }
-
-    // ─── 2. Markdown Toolbar ────────────────────────────────────────────
+    // ─── 1. Markdown Toolbar ────────────────────────────────────────────
 
     function initToolbar() {
         var toolbar = document.getElementById('editor-toolbar');
@@ -188,7 +89,7 @@
         };
 
         toolbar.addEventListener('click', function (e) {
-            var btn = e.target.closest('.toolbar-btn');
+            var btn = e.target.closest('[data-action]');
             if (!btn) return;
             var action = btn.dataset.action;
             if (actions[action]) {
@@ -206,7 +107,7 @@
         });
     }
 
-    // ─── 3. Autosave ────────────────────────────────────────────────────
+    // ─── 2. Autosave ────────────────────────────────────────────────────
 
     function initAutosave() {
         var form = document.getElementById('content-form');
@@ -246,14 +147,17 @@
             return changed;
         }
 
+        function setIndicator(text, color) {
+            if (!indicator) return;
+            indicator.textContent = text;
+            indicator.style.color = color || '';
+        }
+
         function doAutosave() {
             var changed = getChangedFields();
             if (Object.keys(changed).length === 0) return;
 
-            if (indicator) {
-                indicator.textContent = 'Saving...';
-                indicator.style.color = 'var(--studio-text-faint)';
-            }
+            setIndicator('Saving...', 'var(--color-ink-muted)');
 
             fetch('/auto-save/', {
                 method: 'POST',
@@ -275,21 +179,14 @@
                     Object.keys(changed).forEach(function (key) {
                         lastSavedValues[key] = changed[key];
                     });
-                    if (indicator) {
-                        indicator.textContent = 'Saved';
-                        indicator.style.color = 'var(--studio-success)';
-                        setTimeout(function () { indicator.textContent = ''; }, 3000);
-                    }
-                } else if (indicator) {
-                    indicator.textContent = 'Save failed';
-                    indicator.style.color = 'var(--studio-error)';
+                    setIndicator('Saved', 'var(--color-success)');
+                    setTimeout(function () { setIndicator(''); }, 3000);
+                } else {
+                    setIndicator('Save failed', 'var(--color-error)');
                 }
             })
             .catch(function () {
-                if (indicator) {
-                    indicator.textContent = 'Save failed';
-                    indicator.style.color = 'var(--studio-error)';
-                }
+                setIndicator('Save failed', 'var(--color-error)');
             });
         }
 
@@ -305,7 +202,7 @@
         });
     }
 
-    // ─── 4. Character Counters ──────────────────────────────────────────
+    // ─── 3. Character Counters ──────────────────────────────────────────
 
     function initCharCounters() {
         document.querySelectorAll('.field-count').forEach(function (counter) {
@@ -317,7 +214,7 @@
             function update() {
                 var len = field.value.length;
                 counter.textContent = len + ' / ' + max;
-                counter.style.color = len > max ? 'var(--studio-error)' : '';
+                counter.style.color = len > max ? 'var(--color-error)' : '';
             }
 
             field.addEventListener('input', update);
@@ -325,7 +222,7 @@
         });
     }
 
-    // ─── 5. Tab Key in Textarea ─────────────────────────────────────────
+    // ─── 4. Tab Key in Textarea ─────────────────────────────────────────
 
     function initTabIndent() {
         var body = document.getElementById('editor-body');
@@ -342,7 +239,7 @@
         });
     }
 
-    // ─── 6. Cmd/Ctrl+S to Save ──────────────────────────────────────────
+    // ─── 5. Cmd/Ctrl+S to Save ──────────────────────────────────────────
 
     function initSaveShortcut() {
         document.addEventListener('keydown', function (e) {
@@ -354,116 +251,81 @@
         });
     }
 
-    // ─── 7. Structured List Widget: add/remove rows ─────────────────────
+    // ─── 6. Structured List Widget: add/remove rows via <template> ─────
 
     function initStructuredLists() {
-        document.querySelectorAll('.structured-list').forEach(function (container) {
-            var fieldName = container.dataset.fieldName;
-            var schemaStr = container.dataset.schema;
-            if (!fieldName || !schemaStr) return;
+        // Each StructuredListWidget container has:
+        //   data-field="<field_name>"  data-schema-count="<N>"
+        // Inside: a rows div (<id>-rows), a <template> (<id>-template),
+        //   and an add button with data-field="<field_name>"
+        // Each row has data-index="<N>" and a remove button (last <button>)
 
-            var schema;
-            try {
-                schema = JSON.parse(schemaStr);
-            } catch (e) {
-                return;
-            }
+        document.querySelectorAll('[data-field][data-schema-count]').forEach(function (container) {
+            var fieldName = container.dataset.field;
+            var rowsDiv = container.querySelector('[id$="-rows"]');
+            if (!rowsDiv) return;
+
+            var templateEl = container.querySelector('template');
+            if (!templateEl) return;
 
             function reindex() {
-                var rows = container.querySelectorAll('.structured-row');
-                rows.forEach(function (row, idx) {
-                    row.querySelectorAll('input, textarea, select').forEach(function (input) {
+                var rows = rowsDiv.children;
+                for (var i = 0; i < rows.length; i++) {
+                    var row = rows[i];
+                    row.dataset.index = i;
+                    var inputs = row.querySelectorAll('input, textarea, select');
+                    for (var j = 0; j < inputs.length; j++) {
+                        var input = inputs[j];
+                        // Name format: fieldName__INDEX__subfield
                         var parts = input.name.split('__');
                         if (parts.length === 3) {
-                            input.name = parts[0] + '__' + idx + '__' + parts[2];
+                            input.name = parts[0] + '__' + i + '__' + parts[2];
                         }
+                    }
+                }
+            }
+
+            // Add row button: button with data-field matching this container
+            var addBtn = container.querySelector('button[data-field="' + fieldName + '"]');
+            if (addBtn) {
+                addBtn.addEventListener('click', function (e) {
+                    e.preventDefault();
+                    var idx = rowsDiv.children.length;
+                    var clone = templateEl.content.cloneNode(true);
+                    // Replace __INDEX__ placeholder in cloned inputs
+                    var inputs = clone.querySelectorAll('input, textarea, select');
+                    for (var i = 0; i < inputs.length; i++) {
+                        inputs[i].name = inputs[i].name.replace('__INDEX__', '__' + idx + '__').replace('__INDEX__', idx);
+                    }
+                    var rowEl = clone.firstElementChild;
+                    if (rowEl) rowEl.dataset.index = idx;
+                    rowsDiv.appendChild(clone);
+                    // Bind remove on the new row
+                    bindRemoveButtons(rowsDiv);
+                });
+            }
+
+            function bindRemoveButtons(parent) {
+                parent.querySelectorAll('[data-index] button[title="Remove"]').forEach(function (btn) {
+                    // Avoid double-binding by checking a flag
+                    if (btn._slBound) return;
+                    btn._slBound = true;
+                    btn.addEventListener('click', function () {
+                        var row = btn.closest('[data-index]');
+                        if (row) row.remove();
+                        reindex();
                     });
                 });
             }
 
-            function createRow(idx, values) {
-                var row = document.createElement('div');
-                row.className = 'structured-row';
-
-                schema.forEach(function (field) {
-                    var wrapper = document.createElement('div');
-                    wrapper.className = 'structured-field';
-
-                    var label = document.createElement('label');
-                    label.textContent = field.label;
-                    label.className = 'structured-label';
-                    wrapper.appendChild(label);
-
-                    var input;
-                    if (field.type === 'textarea') {
-                        input = document.createElement('textarea');
-                        input.rows = 2;
-                    } else if (field.type === 'select' && field.options) {
-                        input = document.createElement('select');
-                        field.options.forEach(function (opt) {
-                            var option = document.createElement('option');
-                            option.value = opt;
-                            option.textContent = opt;
-                            input.appendChild(option);
-                        });
-                    } else if (field.type === 'number') {
-                        input = document.createElement('input');
-                        input.type = 'number';
-                    } else {
-                        input = document.createElement('input');
-                        input.type = 'text';
-                    }
-
-                    input.name = fieldName + '__' + idx + '__' + field.name;
-                    input.className = 'structured-input';
-                    if (field.placeholder) input.placeholder = field.placeholder;
-                    if (values && values[field.name] !== undefined) {
-                        input.value = values[field.name];
-                    }
-
-                    wrapper.appendChild(input);
-                    row.appendChild(wrapper);
-                });
-
-                var removeBtn = document.createElement('button');
-                removeBtn.type = 'button';
-                removeBtn.className = 'structured-remove';
-                removeBtn.textContent = '\u00d7';
-                removeBtn.title = 'Remove';
-                removeBtn.addEventListener('click', function () {
-                    row.remove();
-                    reindex();
-                });
-                row.appendChild(removeBtn);
-
-                return row;
-            }
-
-            // Add row button
-            var addBtn = container.querySelector('.structured-add');
-            if (addBtn) {
-                addBtn.addEventListener('click', function (e) {
-                    e.preventDefault();
-                    var rows = container.querySelectorAll('.structured-row');
-                    var newRow = createRow(rows.length, null);
-                    container.insertBefore(newRow, addBtn);
-                });
-            }
-
-            // Remove buttons on existing rows
-            container.querySelectorAll('.structured-remove').forEach(function (btn) {
-                btn.addEventListener('click', function () {
-                    btn.closest('.structured-row').remove();
-                    reindex();
-                });
-            });
+            // Bind remove buttons on existing rows
+            bindRemoveButtons(rowsDiv);
         });
     }
 
     // ─── Init ───────────────────────────────────────────────────────────
 
     document.addEventListener('DOMContentLoaded', function () {
-        initPipeline();
         initToolbar();
         initAutosave();
         initCharCounters();

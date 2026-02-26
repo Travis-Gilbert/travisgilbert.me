@@ -1,5 +1,8 @@
 from django import forms
 
+from crispy_forms.helper import FormHelper
+from crispy_forms.layout import Fieldset, Layout
+
 from apps.content.models import (
     DesignTokenSet,
     Essay,
@@ -50,47 +53,43 @@ class EssayForm(forms.ModelForm):
         ]
         widgets = {
             "title": forms.TextInput(attrs={
-                "class": "field-title",
                 "placeholder": "Essay title...",
                 "autocomplete": "off",
             }),
             "slug": forms.TextInput(attrs={
-                "class": "field-slug",
                 "placeholder": "auto-generated-from-title",
             }),
             "date": forms.DateInput(attrs={
                 "type": "date",
-                "class": "field-date",
             }),
             "summary": forms.Textarea(attrs={
-                "class": "field-summary",
                 "rows": 2,
                 "maxlength": 200,
                 "placeholder": "A brief summary (max 200 chars)...",
             }),
             "body": forms.Textarea(attrs={
-                "class": "field-body",
                 "id": "editor-body",
                 "placeholder": "Start writing...",
+                "class": (
+                    "w-full min-h-[400px] px-6 py-4 font-mono text-[14px]"
+                    " leading-relaxed text-ink bg-transparent border-none"
+                    " outline-none resize-y placeholder:text-ink-muted"
+                ),
             }),
             "youtube_id": forms.TextInput(attrs={
-                "class": "field-meta",
                 "placeholder": "YouTube video ID",
             }),
             "thumbnail": forms.TextInput(attrs={
-                "class": "field-meta",
                 "placeholder": "/collage/thumbnail.png",
             }),
             "image": forms.TextInput(attrs={
-                "class": "field-meta",
                 "placeholder": "/collage/image.png",
             }),
             "callout": forms.Textarea(attrs={
-                "class": "field-summary",
                 "rows": 2,
                 "placeholder": "Callout text. Use [link text](url) for hyperlinks.",
             }),
-            "stage": forms.Select(attrs={"class": "field-meta"}),
+            "stage": forms.Select(),
             "composition": CompositionWidget(),
             # JSON fields with structured widgets
             "tags": TagsWidget(),
@@ -101,6 +100,43 @@ class EssayForm(forms.ModelForm):
             "callouts": StructuredListWidget(fields_schema=CALLOUTS_SCHEMA),
             "annotations": StructuredListWidget(fields_schema=ANNOTATIONS_SCHEMA),
         }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.helper = FormHelper()
+        self.helper.form_tag = False
+        self.helper.layout = Layout(
+            Fieldset(
+                "Identity",
+                "title", "slug", "date",
+                css_class="section-terracotta",
+            ),
+            Fieldset(
+                "Content",
+                "summary", "stage",
+                css_class="",
+            ),
+            Fieldset(
+                "Media",
+                "youtube_id", "thumbnail", "image",
+                css_class="",
+            ),
+            Fieldset(
+                "Taxonomy",
+                "tags", "related",
+                css_class="section-teal",
+            ),
+            Fieldset(
+                "Structured Data",
+                "sources", "annotations", "callouts", "callout",
+                css_class="section-gold with-grid",
+            ),
+            Fieldset(
+                "Advanced",
+                "draft", "composition",
+                css_class="",
+            ),
+        )
 
 
 class FieldNoteForm(forms.ModelForm):
@@ -123,33 +159,32 @@ class FieldNoteForm(forms.ModelForm):
         ]
         widgets = {
             "title": forms.TextInput(attrs={
-                "class": "field-title",
                 "placeholder": "Note title...",
                 "autocomplete": "off",
             }),
             "slug": forms.TextInput(attrs={
-                "class": "field-slug",
                 "placeholder": "auto-generated-from-title",
             }),
-            "date": forms.DateInput(attrs={"type": "date", "class": "field-date"}),
+            "date": forms.DateInput(attrs={"type": "date"}),
             "body": forms.Textarea(attrs={
-                "class": "field-body",
                 "id": "editor-body",
                 "placeholder": "Start writing...",
+                "class": (
+                    "w-full min-h-[400px] px-6 py-4 font-mono text-[14px]"
+                    " leading-relaxed text-ink bg-transparent border-none"
+                    " outline-none resize-y placeholder:text-ink-muted"
+                ),
             }),
             "excerpt": forms.Textarea(attrs={
-                "class": "field-summary",
                 "rows": 2,
                 "maxlength": 300,
                 "placeholder": "Brief excerpt (max 300 chars)...",
             }),
-            "status": forms.Select(attrs={"class": "field-meta"}),
+            "status": forms.Select(),
             "connected_to": forms.TextInput(attrs={
-                "class": "field-meta",
                 "placeholder": "Parent essay slug",
             }),
             "callout": forms.Textarea(attrs={
-                "class": "field-summary",
                 "rows": 2,
                 "placeholder": "Callout text. Use [link text](url) for hyperlinks.",
             }),
@@ -161,6 +196,38 @@ class FieldNoteForm(forms.ModelForm):
             "tags": TagsWidget(),
             "callouts": StructuredListWidget(fields_schema=CALLOUTS_SCHEMA),
         }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.helper = FormHelper()
+        self.helper.form_tag = False
+        self.helper.layout = Layout(
+            Fieldset(
+                "Identity",
+                "title", "slug", "date",
+                css_class="section-terracotta",
+            ),
+            Fieldset(
+                "Content",
+                "excerpt", "status",
+                css_class="",
+            ),
+            Fieldset(
+                "Taxonomy",
+                "tags", "connected_to",
+                css_class="section-teal",
+            ),
+            Fieldset(
+                "Structured Data",
+                "callouts", "callout",
+                css_class="section-gold with-grid",
+            ),
+            Fieldset(
+                "Advanced",
+                "draft", "featured", "composition",
+                css_class="",
+            ),
+        )
 
 
 class ShelfEntryForm(forms.ModelForm):
@@ -181,35 +248,34 @@ class ShelfEntryForm(forms.ModelForm):
         ]
         widgets = {
             "title": forms.TextInput(attrs={
-                "class": "field-title",
                 "placeholder": "Title...",
                 "autocomplete": "off",
             }),
             "slug": forms.TextInput(attrs={
-                "class": "field-slug",
                 "placeholder": "auto-generated-from-title",
             }),
             "creator": forms.TextInput(attrs={
-                "class": "field-meta",
                 "placeholder": "Author / creator",
             }),
-            "type": forms.Select(attrs={"class": "field-meta"}),
+            "type": forms.Select(),
             "annotation": forms.Textarea(attrs={
-                "class": "field-body",
                 "id": "editor-body",
                 "rows": 6,
                 "placeholder": "Your annotation...",
+                "class": (
+                    "w-full min-h-[200px] px-6 py-4 font-mono text-[14px]"
+                    " leading-relaxed text-ink bg-transparent border-none"
+                    " outline-none resize-y placeholder:text-ink-muted"
+                ),
             }),
             "url": forms.URLInput(attrs={
-                "class": "field-meta",
                 "placeholder": "https://...",
             }),
-            "date": forms.DateInput(attrs={"type": "date", "class": "field-date"}),
+            "date": forms.DateInput(attrs={"type": "date"}),
             "connected_essay": forms.TextInput(attrs={
-                "class": "field-meta",
                 "placeholder": "Related essay slug",
             }),
-            "stage": forms.Select(attrs={"class": "field-meta"}),
+            "stage": forms.Select(),
             "composition": JsonObjectListWidget(
                 attrs={"rows": 3},
                 placeholder_hint='{}',
@@ -217,6 +283,38 @@ class ShelfEntryForm(forms.ModelForm):
             # JSON fields with custom widgets
             "tags": TagsWidget(),
         }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.helper = FormHelper()
+        self.helper.form_tag = False
+        self.helper.layout = Layout(
+            Fieldset(
+                "Identity",
+                "title", "slug", "date",
+                css_class="section-terracotta",
+            ),
+            Fieldset(
+                "Details",
+                "creator", "type", "url",
+                css_class="",
+            ),
+            Fieldset(
+                "Content",
+                "stage",
+                css_class="",
+            ),
+            Fieldset(
+                "Taxonomy",
+                "tags", "connected_essay",
+                css_class="section-teal",
+            ),
+            Fieldset(
+                "Advanced",
+                "composition",
+                css_class="",
+            ),
+        )
 
 
 class ProjectForm(forms.ModelForm):
@@ -242,45 +340,42 @@ class ProjectForm(forms.ModelForm):
         ]
         widgets = {
             "title": forms.TextInput(attrs={
-                "class": "field-title",
                 "placeholder": "Project title...",
                 "autocomplete": "off",
             }),
             "slug": forms.TextInput(attrs={
-                "class": "field-slug",
                 "placeholder": "auto-generated-from-title",
             }),
             "role": forms.TextInput(attrs={
-                "class": "field-meta",
                 "placeholder": "Your role (e.g. Built & Designed)",
             }),
             "description": forms.Textarea(attrs={
-                "class": "field-summary",
                 "rows": 2,
                 "maxlength": 300,
                 "placeholder": "Brief description (max 300 chars)...",
             }),
-            "year": forms.NumberInput(attrs={"class": "field-meta"}),
-            "date": forms.DateInput(attrs={"type": "date", "class": "field-date"}),
+            "year": forms.NumberInput(),
+            "date": forms.DateInput(attrs={"type": "date"}),
             "organization": forms.TextInput(attrs={
-                "class": "field-meta",
                 "placeholder": "Organization name",
             }),
             "body": forms.Textarea(attrs={
-                "class": "field-body",
                 "id": "editor-body",
                 "placeholder": "Project details...",
+                "class": (
+                    "w-full min-h-[400px] px-6 py-4 font-mono text-[14px]"
+                    " leading-relaxed text-ink bg-transparent border-none"
+                    " outline-none resize-y placeholder:text-ink-muted"
+                ),
             }),
             "callout": forms.Textarea(attrs={
-                "class": "field-summary",
                 "rows": 2,
                 "placeholder": "Callout text. Use [link text](url) for hyperlinks.",
             }),
             "order": forms.NumberInput(attrs={
-                "class": "field-meta",
                 "placeholder": "Sort order (0 = default)",
             }),
-            "stage": forms.Select(attrs={"class": "field-meta"}),
+            "stage": forms.Select(),
             "composition": JsonObjectListWidget(
                 attrs={"rows": 3},
                 placeholder_hint='{\n  "tint": "teal"\n}',
@@ -289,6 +384,43 @@ class ProjectForm(forms.ModelForm):
             "tags": TagsWidget(),
             "urls": StructuredListWidget(fields_schema=URLS_SCHEMA),
         }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.helper = FormHelper()
+        self.helper.form_tag = False
+        self.helper.layout = Layout(
+            Fieldset(
+                "Identity",
+                "title", "slug", "date", "year",
+                css_class="section-terracotta",
+            ),
+            Fieldset(
+                "Details",
+                "role", "organization", "description", "order",
+                css_class="",
+            ),
+            Fieldset(
+                "Content",
+                "callout", "stage",
+                css_class="",
+            ),
+            Fieldset(
+                "Taxonomy",
+                "tags",
+                css_class="section-teal",
+            ),
+            Fieldset(
+                "Structured Data",
+                "urls",
+                css_class="section-gold with-grid",
+            ),
+            Fieldset(
+                "Advanced",
+                "draft", "featured", "composition",
+                css_class="",
+            ),
+        )
 
 
 class ToolkitEntryForm(forms.ModelForm):
@@ -305,33 +437,60 @@ class ToolkitEntryForm(forms.ModelForm):
         ]
         widgets = {
             "title": forms.TextInput(attrs={
-                "class": "field-title",
                 "placeholder": "Tool or process name...",
                 "autocomplete": "off",
             }),
             "slug": forms.TextInput(attrs={
-                "class": "field-slug",
                 "placeholder": "auto-generated-from-title",
             }),
             "category": forms.TextInput(attrs={
-                "class": "field-meta",
                 "placeholder": "e.g. production, research, automation",
             }),
             "order": forms.NumberInput(attrs={
-                "class": "field-meta",
                 "placeholder": "Sort order (0 = default)",
             }),
             "body": forms.Textarea(attrs={
-                "class": "field-body",
                 "id": "editor-body",
                 "placeholder": "Describe this tool or process...",
+                "class": (
+                    "w-full min-h-[400px] px-6 py-4 font-mono text-[14px]"
+                    " leading-relaxed text-ink bg-transparent border-none"
+                    " outline-none resize-y placeholder:text-ink-muted"
+                ),
             }),
-            "stage": forms.Select(attrs={"class": "field-meta"}),
+            "stage": forms.Select(),
             "composition": JsonObjectListWidget(
                 attrs={"rows": 3},
                 placeholder_hint='{}',
             ),
         }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.helper = FormHelper()
+        self.helper.form_tag = False
+        self.helper.layout = Layout(
+            Fieldset(
+                "Identity",
+                "title", "slug",
+                css_class="section-terracotta",
+            ),
+            Fieldset(
+                "Details",
+                "category", "order",
+                css_class="",
+            ),
+            Fieldset(
+                "Content",
+                "stage",
+                css_class="",
+            ),
+            Fieldset(
+                "Advanced",
+                "composition",
+                css_class="",
+            ),
+        )
 
 
 class NowPageForm(forms.ModelForm):
@@ -350,49 +509,65 @@ class NowPageForm(forms.ModelForm):
             "thinking",
         ]
         widgets = {
-            "updated": forms.DateInput(attrs={"type": "date", "class": "field-date"}),
+            "updated": forms.DateInput(attrs={"type": "date"}),
             "researching": forms.TextInput(attrs={
-                "class": "field-meta",
                 "placeholder": "Currently researching...",
             }),
             "researching_context": forms.Textarea(attrs={
-                "class": "field-context",
                 "rows": 2,
                 "placeholder": "Context...",
             }),
             "reading": forms.TextInput(attrs={
-                "class": "field-meta",
                 "placeholder": "Currently reading...",
             }),
             "reading_context": forms.Textarea(attrs={
-                "class": "field-context",
                 "rows": 2,
                 "placeholder": "Context...",
             }),
             "building": forms.TextInput(attrs={
-                "class": "field-meta",
                 "placeholder": "Currently building...",
             }),
             "building_context": forms.Textarea(attrs={
-                "class": "field-context",
                 "rows": 2,
                 "placeholder": "Context...",
             }),
             "listening": forms.TextInput(attrs={
-                "class": "field-meta",
                 "placeholder": "Currently listening to...",
             }),
             "listening_context": forms.Textarea(attrs={
-                "class": "field-context",
                 "rows": 2,
                 "placeholder": "Context...",
             }),
             "thinking": forms.Textarea(attrs={
-                "class": "field-body",
                 "rows": 4,
                 "placeholder": "What you're thinking about...",
             }),
         }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.helper = FormHelper()
+        self.helper.form_tag = False
+        self.helper.layout = Layout(
+            Fieldset(
+                "Status",
+                "updated",
+                css_class="section-terracotta",
+            ),
+            Fieldset(
+                "Activities",
+                "researching", "researching_context",
+                "reading", "reading_context",
+                "building", "building_context",
+                "listening", "listening_context",
+                css_class="section-teal",
+            ),
+            Fieldset(
+                "Reflection",
+                "thinking",
+                css_class="section-gold",
+            ),
+        )
 
 
 # ---------------------------------------------------------------------------
@@ -452,6 +627,18 @@ class DesignTokenSetForm(forms.ModelForm):
             ),
         }
 
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.helper = FormHelper()
+        self.helper.form_tag = False
+        self.helper.layout = Layout(
+            Fieldset(
+                "Design Tokens",
+                "colors", "fonts", "spacing", "section_colors",
+                css_class="section-terracotta with-grid",
+            ),
+        )
+
 
 class NavItemForm(forms.ModelForm):
     class Meta:
@@ -459,22 +646,26 @@ class NavItemForm(forms.ModelForm):
         fields = ["label", "path", "icon", "visible", "order"]
         widgets = {
             "label": forms.TextInput(attrs={
-                "class": "field-meta",
                 "placeholder": "Nav label",
             }),
             "path": forms.TextInput(attrs={
-                "class": "field-meta",
                 "placeholder": "/section-path",
             }),
             "icon": forms.TextInput(attrs={
-                "class": "field-meta",
                 "placeholder": "SketchIcon name (e.g. file-text)",
             }),
             "order": forms.NumberInput(attrs={
-                "class": "field-meta",
                 "placeholder": "0",
             }),
         }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.helper = FormHelper()
+        self.helper.form_tag = False
+        self.helper.layout = Layout(
+            "label", "path", "icon", "visible", "order",
+        )
 
 
 NavItemFormSet = forms.modelformset_factory(
@@ -490,12 +681,24 @@ class PageCompositionForm(forms.ModelForm):
         model = PageComposition
         fields = ["page_key", "settings"]
         widgets = {
-            "page_key": forms.Select(attrs={"class": "field-meta"}),
+            "page_key": forms.Select(),
             "settings": JsonObjectListWidget(
                 attrs={"rows": 12},
                 placeholder_hint='{\n  "key": "value"\n}',
             ),
         }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.helper = FormHelper()
+        self.helper.form_tag = False
+        self.helper.layout = Layout(
+            Fieldset(
+                "Page Composition",
+                "page_key", "settings",
+                css_class="section-gold with-grid",
+            ),
+        )
 
 
 class SiteSettingsForm(forms.ModelForm):
@@ -511,21 +714,17 @@ class SiteSettingsForm(forms.ModelForm):
         ]
         widgets = {
             "footer_tagline": forms.TextInput(attrs={
-                "class": "field-meta",
                 "placeholder": "Footer tagline text",
             }),
             "footer_links": StructuredListWidget(fields_schema=FOOTER_LINKS_SCHEMA),
             "seo_title_template": forms.TextInput(attrs={
-                "class": "field-meta",
                 "placeholder": "%s | travisgilbert.com",
             }),
             "seo_description": forms.Textarea(attrs={
-                "class": "field-summary",
                 "rows": 3,
                 "placeholder": "Default meta description...",
             }),
             "seo_og_image_fallback": forms.TextInput(attrs={
-                "class": "field-meta",
                 "placeholder": "https://travisgilbert.com/og-image.png",
             }),
             "global_toggles": JsonObjectListWidget(
@@ -539,3 +738,25 @@ class SiteSettingsForm(forms.ModelForm):
                 ),
             ),
         }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.helper = FormHelper()
+        self.helper.form_tag = False
+        self.helper.layout = Layout(
+            Fieldset(
+                "Footer",
+                "footer_tagline", "footer_links",
+                css_class="section-teal",
+            ),
+            Fieldset(
+                "SEO",
+                "seo_title_template", "seo_description", "seo_og_image_fallback",
+                css_class="section-terracotta",
+            ),
+            Fieldset(
+                "Toggles",
+                "global_toggles",
+                css_class="section-gold",
+            ),
+        )
