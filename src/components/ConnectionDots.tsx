@@ -125,7 +125,7 @@ export default function ConnectionDots({
                   borderLeft: `2px solid ${pc.connection.color}`,
                   backgroundColor: isHovered ? 'var(--color-paper)' : 'transparent',
                   boxShadow: isHovered
-                    ? '0 2px 8px rgba(42, 36, 32, 0.12)'
+                    ? 'var(--shadow-warm)'
                     : 'none',
                   opacity: isHovered ? 1 : 0,
                   transform: isHovered ? 'translateX(0)' : 'translateX(-4px)',

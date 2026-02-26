@@ -3,6 +3,7 @@
 import { useRef, useEffect, useState, useCallback } from 'react';
 import { X } from '@phosphor-icons/react';
 import rough from 'roughjs';
+import { readCssVar, hexToRgb as hexToRgbUtil, useThemeVersion } from '@/hooks/useThemeColor';
 
 // Seeded PRNG (mulberry32): deterministic scatter
 function mulberry32(seed: number): () => number {
@@ -59,6 +60,14 @@ const COLOR_HEX: Record<TreeColor, string> = {
   teal: '#2D5F6B',
   gold: '#C49A4A',
   ink: '#6A5E52',
+};
+
+/** CSS var references for JSX inline styles (auto-resolve in light/dark) */
+const COLOR_VAR: Record<TreeColor, string> = {
+  terracotta: 'var(--color-terracotta)',
+  teal: 'var(--color-teal)',
+  gold: 'var(--color-gold)',
+  ink: 'var(--color-ink-secondary)',
 };
 
 // ── Tree definition (static) ─────────────────────────────────────
@@ -305,7 +314,7 @@ function ConnectorSVG({ row, rowIndex }: { row: FlatRow; rowIndex: number }) {
           key={pathKey++}
           d={wobblePath(x, 0, x, h, rowIndex * 200 + d * 31)}
           fill="none"
-          stroke="#D4CCC4"
+          style={{ stroke: 'var(--color-border-light)' }}
           strokeWidth={0.7}
           opacity={0.5}
         />,
@@ -324,7 +333,7 @@ function ConnectorSVG({ row, rowIndex }: { row: FlatRow; rowIndex: number }) {
         key={pathKey++}
         d={wobblePath(branchX, 0, branchX, h / 2, rowIndex * 200 + 97)}
         fill="none"
-        stroke="#D4CCC4"
+        style={{ stroke: 'var(--color-border-light)' }}
         strokeWidth={0.7}
         opacity={0.5}
       />,
@@ -334,7 +343,7 @@ function ConnectorSVG({ row, rowIndex }: { row: FlatRow; rowIndex: number }) {
         key={pathKey++}
         d={wobblePath(branchX, h / 2, endX, h / 2, rowIndex * 200 + 113)}
         fill="none"
-        stroke={COLOR_HEX[row.color]}
+        style={{ stroke: COLOR_VAR[row.color] }}
         strokeWidth={0.7}
         opacity={0.4}
       />,
@@ -346,7 +355,7 @@ function ConnectorSVG({ row, rowIndex }: { row: FlatRow; rowIndex: number }) {
         key={pathKey++}
         d={wobblePath(branchX, 0, branchX, h, rowIndex * 200 + 97)}
         fill="none"
-        stroke="#D4CCC4"
+        style={{ stroke: 'var(--color-border-light)' }}
         strokeWidth={0.7}
         opacity={0.5}
       />,
@@ -356,7 +365,7 @@ function ConnectorSVG({ row, rowIndex }: { row: FlatRow; rowIndex: number }) {
         key={pathKey++}
         d={wobblePath(branchX, h / 2, endX, h / 2, rowIndex * 200 + 113)}
         fill="none"
-        stroke={COLOR_HEX[row.color]}
+        style={{ stroke: COLOR_VAR[row.color] }}
         strokeWidth={0.7}
         opacity={0.4}
       />,
@@ -409,6 +418,25 @@ export default function ArchitectureEasterEgg() {
   const [hasScrolled, setHasScrolled] = useState(false);
   const borderDrawnRef = useRef(false);
 
+  // Theme-aware canvas colors (read once per theme change, consumed by rAF loop via ref)
+  const themeVersion = useThemeVersion();
+  const canvasColorsRef = useRef({
+    terracottaRgb: [180, 90, 45] as [number, number, number],
+    roughHex: '#3A3632',
+  });
+
+  // Resolve CSS custom properties into concrete values on theme change
+  useEffect(() => {
+    const tc = readCssVar('--color-terracotta');
+    if (tc) canvasColorsRef.current.terracottaRgb = hexToRgbUtil(tc);
+    const rh = readCssVar('--color-rough');
+    if (rh) canvasColorsRef.current.roughHex = rh;
+    // Redraw border if panel is currently open (theme changed while open)
+    if (phaseRef.current === 'open') {
+      borderDrawnRef.current = false;
+    }
+  }, [themeVersion]);
+
   // Keep phaseRef in sync with state (for the rAF loop to read)
   phaseRef.current = phase;
 
@@ -452,7 +480,7 @@ export default function ArchitectureEasterEgg() {
     rc.rectangle(2, 2, w - 4, h - 4, {
       roughness: 1.2,
       strokeWidth: 1,
-      stroke: '#3A3632',
+      stroke: canvasColorsRef.current.roughHex,
       bowing: 1,
       seed: 88,
     });
@@ -460,7 +488,7 @@ export default function ArchitectureEasterEgg() {
     borderDrawnRef.current = true;
   }, []);
 
-  // Draw border when entering open phase
+  // Draw border when entering open phase or theme changes while open
   useEffect(() => {
     if (phase === 'open') {
       // Small delay for the panel to finish sizing
@@ -470,7 +498,7 @@ export default function ArchitectureEasterEgg() {
     if (phase === 'seed') {
       borderDrawnRef.current = false;
     }
-  }, [phase, drawBorder]);
+  }, [phase, drawBorder, themeVersion]);
 
   // ── Canvas drawing ──────────────────────────────────────────
 
@@ -491,7 +519,8 @@ export default function ArchitectureEasterEgg() {
         SEED_DOTS.forEach((dot) => {
           const a =
             (0.3 + 0.15 * Math.sin(breathe + dot.phaseOffset)) * dotAlpha;
-          ctx.fillStyle = `rgba(180, 90, 45, ${a.toFixed(3)})`;
+          const [cr, cg, cb] = canvasColorsRef.current.terracottaRgb;
+          ctx.fillStyle = `rgba(${cr}, ${cg}, ${cb}, ${a.toFixed(3)})`;
 
           if (dot.isBinary) {
             ctx.font = `${Math.round(dot.r * 5 + 4)}px monospace`;
@@ -508,7 +537,8 @@ export default function ArchitectureEasterEgg() {
 
       // Connecting: draw parent-child bezier pairs from seed positions
       if (connectProg > 0) {
-        ctx.strokeStyle = 'rgba(180, 90, 45, 0.18)';
+        const [lr, lg, lb] = canvasColorsRef.current.terracottaRgb;
+        ctx.strokeStyle = `rgba(${lr}, ${lg}, ${lb}, 0.18)`;
         ctx.lineWidth = 0.8;
 
         // Connect trunk to branches in parent-child pairs
@@ -767,10 +797,8 @@ export default function ArchitectureEasterEgg() {
         cursor: phase === 'seed' ? 'pointer' : 'default',
         transition: wrapperTransition,
         // Panel surface: frosted parchment when expanded
-        backgroundColor: isExpanded ? 'rgba(244, 239, 232, 0.95)' : 'transparent',
-        boxShadow: isExpanded
-          ? '0 4px 16px rgba(42,36,32,0.10), 0 2px 6px rgba(42,36,32,0.05)'
-          : 'none',
+        backgroundColor: isExpanded ? 'color-mix(in srgb, var(--color-paper) 95%, transparent)' : 'transparent',
+        boxShadow: isExpanded ? 'var(--shadow-warm-lg)' : 'none',
         backdropFilter: isExpanded ? 'blur(4px)' : 'none',
         borderRadius: isExpanded ? 2 : 0,
       }}
@@ -832,7 +860,7 @@ export default function ArchitectureEasterEgg() {
             top: seedH + 4,
             transform: 'translateX(-50%)',
             fontSize: 10,
-            color: '#B45A2D',
+            color: 'var(--color-terracotta)',
             opacity: isHovered ? 0.8 : 0,
             transition: reducedMotion ? 'none' : 'opacity 200ms ease',
             whiteSpace: 'nowrap',
@@ -878,7 +906,7 @@ export default function ArchitectureEasterEgg() {
               justifyContent: 'space-between',
               marginBottom: 10,
               paddingBottom: 8,
-              borderBottom: '1px solid rgba(212, 204, 196, 0.3)',
+              borderBottom: '1px solid color-mix(in srgb, var(--color-border-light) 30%, transparent)',
             }}
           >
             <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
@@ -887,7 +915,7 @@ export default function ArchitectureEasterEgg() {
                   width: 3,
                   height: 16,
                   borderRadius: 1,
-                  backgroundColor: '#B45A2D',
+                  backgroundColor: 'var(--color-terracotta)',
                 }}
               />
               <div>
@@ -896,7 +924,7 @@ export default function ArchitectureEasterEgg() {
                   style={{
                     fontSize: 11,
                     fontWeight: 700,
-                    color: '#B45A2D',
+                    color: 'var(--color-terracotta)',
                     letterSpacing: '0.1em',
                     textTransform: 'uppercase',
                   }}
@@ -907,7 +935,7 @@ export default function ArchitectureEasterEgg() {
                   className="font-mono"
                   style={{
                     fontSize: 9,
-                    color: '#9A8E82',
+                    color: 'var(--color-ink-muted)',
                     marginLeft: 10,
                     letterSpacing: '0.04em',
                   }}
@@ -924,7 +952,7 @@ export default function ArchitectureEasterEgg() {
                 background: 'none',
                 border: 'none',
                 cursor: 'pointer',
-                color: '#6A5E52',
+                color: 'var(--color-ink-secondary)',
                 padding: 4,
                 lineHeight: 0,
               }}
@@ -968,7 +996,7 @@ export default function ArchitectureEasterEgg() {
                         width: 3,
                         height: 16,
                         borderRadius: 1,
-                        backgroundColor: COLOR_HEX[row.color],
+                        backgroundColor: COLOR_VAR[row.color],
                       }}
                     />
                     <span
@@ -976,7 +1004,7 @@ export default function ArchitectureEasterEgg() {
                       style={{
                         fontSize: 11,
                         fontWeight: 700,
-                        color: COLOR_HEX[row.color],
+                        color: COLOR_VAR[row.color],
                         letterSpacing: '0.1em',
                       }}
                     >
@@ -986,7 +1014,7 @@ export default function ArchitectureEasterEgg() {
                       className="font-mono"
                       style={{
                         fontSize: 9,
-                        color: '#9A8E82',
+                        color: 'var(--color-ink-muted)',
                         letterSpacing: '0.04em',
                       }}
                     >
@@ -1021,7 +1049,7 @@ export default function ArchitectureEasterEgg() {
                     className="font-mono"
                     style={{
                       fontSize: 11,
-                      color: COLOR_HEX[row.color],
+                      color: COLOR_VAR[row.color],
                       whiteSpace: 'nowrap',
                       flexShrink: 0,
                     }}
@@ -1034,7 +1062,7 @@ export default function ArchitectureEasterEgg() {
                       className="font-mono"
                       style={{
                         fontSize: 9,
-                        color: '#9A8E82',
+                        color: 'var(--color-ink-muted)',
                         marginLeft: 8,
                         whiteSpace: 'nowrap',
                         overflow: 'hidden',
@@ -1057,7 +1085,7 @@ export default function ArchitectureEasterEgg() {
               marginTop: 16,
               paddingTop: 8,
               paddingBottom: 12,
-              borderTop: '1px solid rgba(212, 204, 196, 0.4)',
+              borderTop: '1px solid color-mix(in srgb, var(--color-border-light) 40%, transparent)',
               opacity: reducedMotion
                 ? 0.6
                 : phase === 'open'
@@ -1070,13 +1098,13 @@ export default function ArchitectureEasterEgg() {
           >
             <span
               className="font-mono"
-              style={{ fontSize: 9, color: '#9A8E82', letterSpacing: '0.06em' }}
+              style={{ fontSize: 9, color: 'var(--color-ink-muted)', letterSpacing: '0.06em' }}
             >
               TS 53% . PY 28% . CSS 11%
             </span>
             <span
               className="font-mono"
-              style={{ fontSize: 9, color: '#9A8E82', letterSpacing: '0.06em' }}
+              style={{ fontSize: 9, color: 'var(--color-ink-muted)', letterSpacing: '0.06em' }}
             >
               {getRevDate()}
             </span>
@@ -1096,7 +1124,7 @@ export default function ArchitectureEasterEgg() {
               right: 0,
               height: 40,
               background:
-                'linear-gradient(to bottom, rgba(244, 239, 232, 0) 0%, rgba(244, 239, 232, 0.95) 100%)',
+                'linear-gradient(to bottom, color-mix(in srgb, var(--color-paper) 0%, transparent) 0%, color-mix(in srgb, var(--color-paper) 95%, transparent) 100%)',
               pointerEvents: 'none',
               zIndex: 3,
             }}
@@ -1110,7 +1138,7 @@ export default function ArchitectureEasterEgg() {
               left: '50%',
               transform: 'translateX(-50%)',
               fontSize: 10,
-              color: '#9A8E82',
+              color: 'var(--color-ink-muted)',
               opacity: hasScrolled ? 0 : 0.5,
               transition: reducedMotion ? 'none' : 'opacity 300ms ease',
               pointerEvents: 'none',

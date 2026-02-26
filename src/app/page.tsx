@@ -9,6 +9,8 @@ import RoughBox from '@/components/rough/RoughBox';
 import RoughLine from '@/components/rough/RoughLine';
 import RoughCallout from '@/components/rough/RoughCallout';
 import RoughPivotCallout from '@/components/rough/RoughPivotCallout';
+import EruptingCollage from '@/components/EruptingCollage';
+import type { CollageFragment } from '@/components/EruptingCollage';
 import ScrollReveal from '@/components/ScrollReveal';
 import CyclingTagline from '@/components/CyclingTagline';
 import ProgressTracker, { CompactTracker, ESSAY_STAGES, NOTE_STAGES } from '@/components/ProgressTracker';
@@ -64,50 +66,12 @@ export default function HomePage() {
   const threadPairs = computeThreadPairs(threadContent);
   const essayThreadPairs = threadPairs.filter((p) => p.type === 'essay');
 
-  // Collage fragments: individual desk objects that erupt above the featured essay card.
-  // Each piece is its own PNG with transparent background and hard natural edges.
-  const ERUPTION_FRAGMENTS = [
-    {
-      src: '/collage/architectural-watercolor.png',
-      alt: 'Architectural watercolor',
-      width: 320,
-      height: 320,
-      left: '-4%',
-      top: -30,
-      rotate: 2.5,
-      z: 2,
-    },
-    {
-      src: '/collage/urban-design-diagram.png',
-      alt: 'Urban design diagram',
-      width: 280,
-      height: 280,
-      left: '48%',
-      top: -10,
-      rotate: -2,
-      z: 3,
-    },
-    {
-      src: '/collage/dragon-illustration.png',
-      alt: 'Dragon illustration',
-      width: 170,
-      height: 230,
-      left: '80%',
-      top: 20,
-      rotate: 4,
-      z: 1,
-    },
-    {
-      src: '/collage/raspberry-pi.png',
-      alt: 'Raspberry Pi',
-      width: 200,
-      height: 115,
-      left: '28%',
-      top: 170,
-      rotate: -3.5,
-      z: 4,
-    },
-  ];
+  // Collage fragments: read from essay composition field (frontmatter).
+  // Each essay can define its own erupting collage via composition.fragments.
+  const featuredComposition = featured?.data.composition as
+    | { heroStyle?: string; fragments?: CollageFragment[] }
+    | undefined;
+  const collageFragments: CollageFragment[] = featuredComposition?.fragments ?? [];
 
   return (
     <div>
@@ -140,50 +104,12 @@ export default function HomePage() {
           <ScrollReveal>
             <RoughLine label="Essays on ..." labelColor="var(--color-terracotta)" />
 
-            {/* Relative container: NO overflow-hidden so fragments can erupt.
-                Top padding creates space for the scattered collage pieces. */}
-            <div
-              className="lg:-mx-4 xl:-mx-8 relative pt-0 md:pt-[280px]"
-              data-slug={featured.slug}
-            >
-              {/* Erupting collage fragments: individual pieces with hard edges */}
-              <div
-                className="absolute left-0 right-0 top-0 pointer-events-none hidden md:block"
-                style={{ height: 280, zIndex: 0 }}
-                aria-hidden="true"
-              >
-                {ERUPTION_FRAGMENTS.map((frag) => (
-                  <div
-                    key={frag.src}
-                    className="absolute"
-                    style={{
-                      left: frag.left,
-                      top: frag.top,
-                      width: frag.width,
-                      height: frag.height,
-                      transform: `rotate(${frag.rotate}deg)`,
-                      zIndex: frag.z,
-                      filter: 'drop-shadow(2px 4px 8px rgba(58, 54, 50, 0.18))',
-                    }}
-                  >
-                    <Image
-                      src={frag.src}
-                      alt={frag.alt}
-                      width={frag.width}
-                      height={frag.height}
-                      className="w-full h-full object-contain"
-                    />
-                  </div>
-                ))}
-              </div>
-
-              <RoughBox
-                padding={0}
-                hover
-                tint="terracotta"
-                elevated
-              >
-                <div className="group relative" style={{ zIndex: 1 }}>
+            {/* EruptingCollage: Blake Cale editorial collage with overlapping
+                image fragments erupting above a clean card. Reads fragments from
+                essay composition field. Falls back to card-only when no fragments. */}
+            <div data-slug={featured.slug}>
+              <EruptingCollage fragments={collageFragments} hover>
+                <div className="group relative">
                   {/* Card header image: YouTube thumbnail or generative pattern */}
                   {featured.data.youtubeId ? (
                     <div className="w-full h-40 sm:h-48 md:h-72 overflow-hidden">
@@ -255,7 +181,7 @@ export default function HomePage() {
                     </RoughPivotCallout>
                   )}
                 </div>
-              </RoughBox>
+              </EruptingCollage>
             </div>
           </ScrollReveal>
         </section>

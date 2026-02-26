@@ -20,6 +20,41 @@ annotations:
     text: "See also: induced demand research"
 draft: false
 callout: "The most powerful urban policy you've never heard of"
+composition:
+  heroStyle: collage
+  fragments:
+    - src: /collage/architectural-watercolor.png
+      alt: Architectural watercolor
+      width: 320
+      height: 320
+      left: "-4%"
+      top: -30
+      rotate: 2.5
+      z: 2
+    - src: /collage/urban-design-diagram.png
+      alt: Urban design diagram
+      width: 280
+      height: 280
+      left: "48%"
+      top: -10
+      rotate: -2
+      z: 3
+    - src: /collage/dragon-illustration.png
+      alt: Dragon illustration
+      width: 170
+      height: 230
+      left: "80%"
+      top: 20
+      rotate: 4
+      z: 1
+    - src: /collage/raspberry-pi.png
+      alt: Raspberry Pi
+      width: 200
+      height: 115
+      left: "28%"
+      top: 170
+      rotate: -3.5
+      z: 4
 callouts:
   - "The most powerful urban policy you've never heard of"
   - "One parking spot costs more to build than some people earn in a month"

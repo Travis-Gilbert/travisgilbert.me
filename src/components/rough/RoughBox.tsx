@@ -2,6 +2,7 @@
 
 import { useRef, useEffect, type ReactNode } from 'react';
 import rough from 'roughjs';
+import { useThemeVersion, readCssVar, TINT_CSS_VAR } from '@/hooks/useThemeColor';
 
 type CardTint = 'terracotta' | 'teal' | 'gold' | 'neutral';
 
@@ -10,14 +11,6 @@ const tintClass: Record<CardTint, string> = {
   teal: 'surface-tint-teal',
   gold: 'surface-tint-gold',
   neutral: 'surface-tint-neutral',
-};
-
-/** Solid border colors derived from the brand palette per tint */
-const tintStroke: Record<CardTint, string> = {
-  terracotta: '#B45A2D',
-  teal: '#2D5F6B',
-  gold: '#C49A4A',
-  neutral: '#3A3632',
 };
 
 interface RoughBoxProps {
@@ -46,9 +39,7 @@ export default function RoughBox({
   hover = false,
   tint = 'neutral',
 }: RoughBoxProps) {
-  // Derive stroke from tint when not explicitly provided
-  const resolvedStroke = stroke ?? tintStroke[tint];
-
+  const themeVersion = useThemeVersion();
   const containerRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
@@ -56,6 +47,10 @@ export default function RoughBox({
     const container = containerRef.current;
     const canvas = canvasRef.current;
     if (!container || !canvas) return;
+
+    // Resolve stroke from CSS custom property (theme-aware)
+    const currentStroke =
+      stroke ?? (readCssVar(TINT_CSS_VAR[tint] ?? '') || '#3A3632');
 
     function draw() {
       const rect = container!.getBoundingClientRect();
@@ -78,7 +73,7 @@ export default function RoughBox({
       rc.rectangle(2, 2, w - 4, h - 4, {
         roughness,
         strokeWidth,
-        stroke: resolvedStroke,
+        stroke: currentStroke,
         bowing: 1,
         seed,
       });
@@ -90,7 +85,7 @@ export default function RoughBox({
     observer.observe(container);
 
     return () => observer.disconnect();
-  }, [roughness, strokeWidth, resolvedStroke, seed]);
+  }, [roughness, strokeWidth, stroke, tint, seed, themeVersion]);
 
   // Build className string from props
   const classes = [

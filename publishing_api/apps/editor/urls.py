@@ -64,6 +64,15 @@ urlpatterns = [
     ),
 
     # -----------------------------------------------------------------------
+    # Collage image upload
+    # -----------------------------------------------------------------------
+    path(
+        "upload/collage/",
+        views.UploadCollageImageView.as_view(),
+        name="upload-collage",
+    ),
+
+    # -----------------------------------------------------------------------
     # Compose (page compositions)
     # -----------------------------------------------------------------------
     path("compose/", views.PageCompositionListView.as_view(), name="compose-list"),

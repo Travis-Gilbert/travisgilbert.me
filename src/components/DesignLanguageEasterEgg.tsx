@@ -3,6 +3,7 @@
 import { useRef, useEffect, useState, useCallback } from 'react';
 import { X } from '@phosphor-icons/react';
 import rough from 'roughjs';
+import { readCssVar, useThemeVersion } from '@/hooks/useThemeColor';
 
 // ── Seeded PRNG (mulberry32) ──────────────────────────────────────
 
@@ -160,12 +161,27 @@ const DNA_NEVER = [
   'Rounded/bubbly',
 ];
 
-// Section accent colors
+// Section accent colors (hex for canvas default, var for JSX)
 const SECTION_COLORS = {
   palette: '#C49A4A',
   type: '#B45A2D',
   tokens: '#2D5F6B',
   dna: '#6A5E52',
+};
+
+const SECTION_COLORS_VAR: Record<string, string> = {
+  palette: 'var(--color-gold)',
+  type: 'var(--color-terracotta)',
+  tokens: 'var(--color-teal)',
+  dna: 'var(--color-ink-secondary)',
+};
+
+/** Maps static hex constants to CSS custom property names for theme resolution */
+const HEX_TO_CSS_VAR: Record<string, string> = {
+  '#B45A2D': '--color-terracotta',
+  '#2D5F6B': '--color-teal',
+  '#C49A4A': '--color-gold',
+  '#2A2420': '--color-ink',
 };
 
 // Number of staggered content items (for footer delay calculation)
@@ -185,6 +201,31 @@ export default function DesignLanguageEasterEgg() {
   const [reducedMotion, setReducedMotion] = useState(false);
   const [hasScrolled, setHasScrolled] = useState(false);
   const borderDrawnRef = useRef(false);
+
+  // Theme-aware canvas colors (resolved from CSS custom properties)
+  const themeVersion = useThemeVersion();
+  const canvasColorsRef = useRef({
+    roughHex: '#3A3632',
+    /** Maps static hex -> resolved theme hex (for per-dot canvas colors) */
+    dotColorMap: {
+      '#B45A2D': '#B45A2D',
+      '#2D5F6B': '#2D5F6B',
+      '#C49A4A': '#C49A4A',
+      '#2A2420': '#2A2420',
+    } as Record<string, string>,
+  });
+
+  // Resolve canvas colors from CSS custom properties on theme change
+  useEffect(() => {
+    const roughHex = readCssVar('--color-rough') || '#3A3632';
+    const dotColorMap: Record<string, string> = {};
+    for (const [hex, cssVar] of Object.entries(HEX_TO_CSS_VAR)) {
+      dotColorMap[hex] = readCssVar(cssVar) || hex;
+    }
+    canvasColorsRef.current = { roughHex, dotColorMap };
+    // Force border redraw with new color
+    borderDrawnRef.current = false;
+  }, [themeVersion]);
 
   // Keep phaseRef in sync with state (for the rAF loop to read)
   phaseRef.current = phase;
@@ -229,7 +270,7 @@ export default function DesignLanguageEasterEgg() {
     rc.rectangle(2, 2, w - 4, h - 4, {
       roughness: 1.2,
       strokeWidth: 1,
-      stroke: '#3A3632',
+      stroke: canvasColorsRef.current.roughHex,
       bowing: 1,
       seed: 91,
     });
@@ -237,7 +278,7 @@ export default function DesignLanguageEasterEgg() {
     borderDrawnRef.current = true;
   }, []);
 
-  // Draw border when entering open phase
+  // Draw border when entering open phase or theme changes while open
   useEffect(() => {
     if (phase === 'open') {
       const timer = setTimeout(drawBorder, 50);
@@ -246,7 +287,7 @@ export default function DesignLanguageEasterEgg() {
     if (phase === 'seed') {
       borderDrawnRef.current = false;
     }
-  }, [phase, drawBorder]);
+  }, [phase, drawBorder, themeVersion]);
 
   // ── Canvas drawing ──────────────────────────────────────────────
 
@@ -267,7 +308,8 @@ export default function DesignLanguageEasterEgg() {
         SEED_DOTS.forEach((dot) => {
           const a =
             (0.3 + 0.15 * Math.sin(breathe + dot.phaseOffset)) * dotAlpha;
-          const [r, g, b] = hexToRgb(dot.colorHex);
+          const resolvedHex = canvasColorsRef.current.dotColorMap[dot.colorHex] || dot.colorHex;
+          const [r, g, b] = hexToRgb(resolvedHex);
           ctx.fillStyle = `rgba(${r}, ${g}, ${b}, ${a.toFixed(3)})`;
 
           if (dot.isBinary) {
@@ -293,8 +335,9 @@ export default function DesignLanguageEasterEgg() {
           const bDot = SEED_DOTS[CONNECTION_PAIRS[i][1]];
           if (!a || !bDot) continue;
 
-          // Stroke color from source dot
-          const [cr, cg, cb] = hexToRgb(a.colorHex);
+          // Stroke color from source dot (theme-resolved)
+          const resolvedConnHex = canvasColorsRef.current.dotColorMap[a.colorHex] || a.colorHex;
+          const [cr, cg, cb] = hexToRgb(resolvedConnHex);
           ctx.strokeStyle = `rgba(${cr}, ${cg}, ${cb}, 0.18)`;
 
           const cpx = (a.x + bDot.x) / 2 + (a.phaseOffset - bDot.phaseOffset) * 3;
@@ -550,9 +593,9 @@ export default function DesignLanguageEasterEgg() {
         overflow: isExpanded ? 'hidden' : 'visible',
         cursor: phase === 'seed' ? 'pointer' : 'default',
         transition: wrapperTransition,
-        backgroundColor: isExpanded ? 'rgba(244, 239, 232, 0.95)' : 'transparent',
+        backgroundColor: isExpanded ? 'color-mix(in srgb, var(--color-paper) 95%, transparent)' : 'transparent',
         boxShadow: isExpanded
-          ? '0 4px 16px rgba(42,36,32,0.10), 0 2px 6px rgba(42,36,32,0.05)'
+          ? 'var(--shadow-warm-lg)'
           : 'none',
         backdropFilter: isExpanded ? 'blur(4px)' : 'none',
         borderRadius: isExpanded ? 2 : 0,
@@ -615,7 +658,7 @@ export default function DesignLanguageEasterEgg() {
             top: seedH + 4,
             transform: 'translateX(-50%)',
             fontSize: 10,
-            color: '#C49A4A',
+            color: 'var(--color-gold)',
             opacity: isHovered ? 0.8 : 0,
             transition: reducedMotion ? 'none' : 'opacity 200ms ease',
             whiteSpace: 'nowrap',
@@ -661,7 +704,7 @@ export default function DesignLanguageEasterEgg() {
               justifyContent: 'space-between',
               marginBottom: 10,
               paddingBottom: 8,
-              borderBottom: '1px solid rgba(212, 204, 196, 0.3)',
+              borderBottom: '1px solid color-mix(in srgb, var(--color-border-light) 30%, transparent)',
             }}
           >
             <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
@@ -670,7 +713,7 @@ export default function DesignLanguageEasterEgg() {
                   width: 3,
                   height: 16,
                   borderRadius: 1,
-                  backgroundColor: '#C49A4A',
+                  backgroundColor: 'var(--color-gold)',
                 }}
               />
               <div>
@@ -679,7 +722,7 @@ export default function DesignLanguageEasterEgg() {
                   style={{
                     fontSize: 11,
                     fontWeight: 700,
-                    color: '#C49A4A',
+                    color: 'var(--color-gold)',
                     letterSpacing: '0.1em',
                     textTransform: 'uppercase',
                   }}
@@ -690,7 +733,7 @@ export default function DesignLanguageEasterEgg() {
                   className="font-mono"
                   style={{
                     fontSize: 9,
-                    color: '#9A8E82',
+                    color: 'var(--color-ink-muted)',
                     marginLeft: 10,
                     letterSpacing: '0.04em',
                   }}
@@ -707,7 +750,7 @@ export default function DesignLanguageEasterEgg() {
                 background: 'none',
                 border: 'none',
                 cursor: 'pointer',
-                color: '#6A5E52',
+                color: 'var(--color-ink-secondary)',
                 padding: 4,
                 lineHeight: 0,
               }}
@@ -732,7 +775,7 @@ export default function DesignLanguageEasterEgg() {
                 width: 3,
                 height: 16,
                 borderRadius: 1,
-                backgroundColor: SECTION_COLORS.palette,
+                backgroundColor: SECTION_COLORS_VAR.palette,
               }}
             />
             <span
@@ -740,7 +783,7 @@ export default function DesignLanguageEasterEgg() {
               style={{
                 fontSize: 11,
                 fontWeight: 700,
-                color: SECTION_COLORS.palette,
+                color: SECTION_COLORS_VAR.palette,
                 letterSpacing: '0.1em',
               }}
             >
@@ -750,7 +793,7 @@ export default function DesignLanguageEasterEgg() {
               className="font-mono"
               style={{
                 fontSize: 9,
-                color: '#9A8E82',
+                color: 'var(--color-ink-muted)',
                 letterSpacing: '0.04em',
               }}
             >
@@ -784,13 +827,13 @@ export default function DesignLanguageEasterEgg() {
                     height: 12,
                     borderRadius: '50%',
                     backgroundColor: c.hex,
-                    border: c.needsBorder ? '1px solid #D4CCC4' : 'none',
+                    border: c.needsBorder ? '1px solid var(--color-border-light)' : 'none',
                     flexShrink: 0,
                   }}
                 />
                 <span
                   className="font-mono"
-                  style={{ fontSize: 9, color: '#6A5E52' }}
+                  style={{ fontSize: 9, color: 'var(--color-ink-secondary)' }}
                 >
                   {c.hex}
                 </span>
@@ -814,7 +857,7 @@ export default function DesignLanguageEasterEgg() {
                 width: 3,
                 height: 16,
                 borderRadius: 1,
-                backgroundColor: SECTION_COLORS.type,
+                backgroundColor: SECTION_COLORS_VAR.type,
               }}
             />
             <span
@@ -822,7 +865,7 @@ export default function DesignLanguageEasterEgg() {
               style={{
                 fontSize: 11,
                 fontWeight: 700,
-                color: SECTION_COLORS.type,
+                color: SECTION_COLORS_VAR.type,
                 letterSpacing: '0.1em',
               }}
             >
@@ -847,7 +890,7 @@ export default function DesignLanguageEasterEgg() {
                 className={sys.fontClass}
                 style={{
                   fontSize: 12,
-                  color: '#2A2420',
+                  color: 'var(--color-ink)',
                   whiteSpace: 'nowrap',
                   flexShrink: 0,
                 }}
@@ -858,7 +901,7 @@ export default function DesignLanguageEasterEgg() {
                 className="font-mono"
                 style={{
                   fontSize: 9,
-                  color: '#9A8E82',
+                  color: 'var(--color-ink-muted)',
                   marginLeft: 8,
                   whiteSpace: 'nowrap',
                   overflow: 'hidden',
@@ -871,7 +914,7 @@ export default function DesignLanguageEasterEgg() {
                 className="font-mono"
                 style={{
                   fontSize: 8,
-                  color: SECTION_COLORS.palette,
+                  color: SECTION_COLORS_VAR.palette,
                   marginLeft: 6,
                   whiteSpace: 'nowrap',
                   flexShrink: 0,
@@ -898,7 +941,7 @@ export default function DesignLanguageEasterEgg() {
                 width: 3,
                 height: 16,
                 borderRadius: 1,
-                backgroundColor: SECTION_COLORS.tokens,
+                backgroundColor: SECTION_COLORS_VAR.tokens,
               }}
             />
             <span
@@ -906,7 +949,7 @@ export default function DesignLanguageEasterEgg() {
               style={{
                 fontSize: 11,
                 fontWeight: 700,
-                color: SECTION_COLORS.tokens,
+                color: SECTION_COLORS_VAR.tokens,
                 letterSpacing: '0.1em',
               }}
             >
@@ -916,7 +959,7 @@ export default function DesignLanguageEasterEgg() {
               className="font-mono"
               style={{
                 fontSize: 9,
-                color: '#9A8E82',
+                color: 'var(--color-ink-muted)',
                 letterSpacing: '0.04em',
               }}
             >
@@ -949,7 +992,7 @@ export default function DesignLanguageEasterEgg() {
                     className="font-mono"
                     style={{
                       fontSize: 9,
-                      color: '#B45A2D',
+                      color: 'var(--color-terracotta)',
                       fontWeight: 600,
                       whiteSpace: 'nowrap',
                     }}
@@ -960,7 +1003,7 @@ export default function DesignLanguageEasterEgg() {
                     className="font-mono"
                     style={{
                       fontSize: 9,
-                      color: '#6A5E52',
+                      color: 'var(--color-ink-secondary)',
                       whiteSpace: 'nowrap',
                     }}
                   >
@@ -987,7 +1030,7 @@ export default function DesignLanguageEasterEgg() {
                 width: 3,
                 height: 16,
                 borderRadius: 1,
-                backgroundColor: SECTION_COLORS.dna,
+                backgroundColor: SECTION_COLORS_VAR.dna,
               }}
             />
             <span
@@ -995,7 +1038,7 @@ export default function DesignLanguageEasterEgg() {
               style={{
                 fontSize: 11,
                 fontWeight: 700,
-                color: SECTION_COLORS.dna,
+                color: SECTION_COLORS_VAR.dna,
                 letterSpacing: '0.1em',
               }}
             >
@@ -1015,7 +1058,7 @@ export default function DesignLanguageEasterEgg() {
               className="font-mono"
               style={{
                 fontSize: 8,
-                color: '#9A8E82',
+                color: 'var(--color-ink-muted)',
                 letterSpacing: '0.08em',
                 textTransform: 'uppercase',
               }}
@@ -1026,7 +1069,7 @@ export default function DesignLanguageEasterEgg() {
               className="font-mono"
               style={{
                 fontSize: 9,
-                color: '#2A2420',
+                color: 'var(--color-ink)',
                 marginTop: 2,
                 lineHeight: '16px',
               }}
@@ -1047,7 +1090,7 @@ export default function DesignLanguageEasterEgg() {
               className="font-mono"
               style={{
                 fontSize: 8,
-                color: '#9A8E82',
+                color: 'var(--color-ink-muted)',
                 letterSpacing: '0.08em',
                 textTransform: 'uppercase',
               }}
@@ -1058,11 +1101,11 @@ export default function DesignLanguageEasterEgg() {
               className="font-mono"
               style={{
                 fontSize: 9,
-                color: '#9A8E82',
+                color: 'var(--color-ink-muted)',
                 marginTop: 2,
                 lineHeight: '16px',
                 textDecoration: 'line-through',
-                textDecorationColor: 'rgba(154, 142, 130, 0.4)',
+                textDecorationColor: 'color-mix(in srgb, var(--color-ink-muted) 40%, transparent)',
               }}
             >
               {DNA_NEVER.join(' . ')}
@@ -1077,7 +1120,7 @@ export default function DesignLanguageEasterEgg() {
               marginTop: 16,
               paddingTop: 8,
               paddingBottom: 12,
-              borderTop: '1px solid rgba(212, 204, 196, 0.4)',
+              borderTop: '1px solid color-mix(in srgb, var(--color-border-light) 40%, transparent)',
               opacity: reducedMotion
                 ? 0.6
                 : phase === 'open'
@@ -1090,13 +1133,13 @@ export default function DesignLanguageEasterEgg() {
           >
             <span
               className="font-mono"
-              style={{ fontSize: 9, color: '#9A8E82', letterSpacing: '0.06em' }}
+              style={{ fontSize: 9, color: 'var(--color-ink-muted)', letterSpacing: '0.06em' }}
             >
               Patent Parchment Palette
             </span>
             <span
               className="font-mono"
-              style={{ fontSize: 9, color: '#9A8E82', letterSpacing: '0.06em' }}
+              style={{ fontSize: 9, color: 'var(--color-ink-muted)', letterSpacing: '0.06em' }}
             >
               {getRevDate()}
             </span>
@@ -1116,7 +1159,7 @@ export default function DesignLanguageEasterEgg() {
               right: 0,
               height: 40,
               background:
-                'linear-gradient(to bottom, rgba(244, 239, 232, 0) 0%, rgba(244, 239, 232, 0.95) 100%)',
+                'linear-gradient(to bottom, color-mix(in srgb, var(--color-paper) 0%, transparent) 0%, color-mix(in srgb, var(--color-paper) 95%, transparent) 100%)',
               pointerEvents: 'none',
               zIndex: 3,
             }}
@@ -1130,7 +1173,7 @@ export default function DesignLanguageEasterEgg() {
               left: '50%',
               transform: 'translateX(-50%)',
               fontSize: 10,
-              color: '#9A8E82',
+              color: 'var(--color-ink-muted)',
               opacity: hasScrolled ? 0 : 0.5,
               transition: reducedMotion ? 'none' : 'opacity 300ms ease',
               pointerEvents: 'none',

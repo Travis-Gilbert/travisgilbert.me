@@ -5,6 +5,7 @@ import { usePathname } from 'next/navigation';
 import Link from 'next/link';
 import SketchIcon from '@/components/rough/SketchIcon';
 import type { IconName } from '@/components/rough/SketchIcon';
+import ThemeToggle from '@/components/ThemeToggle';
 
 interface NavLink {
   href: string;
@@ -90,53 +91,58 @@ export default function TopNav() {
           Travis Gilbert
         </Link>
 
-        {/* Desktop nav */}
-        <ul className="hidden md:flex items-center gap-4 list-none m-0 p-0">
-          {navLinks.map((link) => {
-            const active = isActive(link.href);
-            return (
-              <li key={link.href}>
-                <Link
-                  href={link.href}
-                  aria-current={active ? 'page' : undefined}
-                  className={`font-mono text-xs uppercase tracking-widest no-underline transition-colors inline-flex items-center gap-1.5 ${
-                    active
-                      ? 'text-terracotta font-bold'
-                      : 'text-ink-secondary hover:text-terracotta'
-                  }`}
-                >
-                  <SketchIcon name={link.icon} size={16} />
-                  {link.label}
-                </Link>
-              </li>
-            );
-          })}
-        </ul>
+        <div className="flex items-center gap-3">
+          {/* Desktop nav */}
+          <ul className="hidden md:flex items-center gap-4 list-none m-0 p-0">
+            {navLinks.map((link) => {
+              const active = isActive(link.href);
+              return (
+                <li key={link.href}>
+                  <Link
+                    href={link.href}
+                    aria-current={active ? 'page' : undefined}
+                    className={`font-mono text-xs uppercase tracking-widest no-underline transition-colors inline-flex items-center gap-1.5 ${
+                      active
+                        ? 'text-terracotta font-bold'
+                        : 'text-ink-secondary hover:text-terracotta'
+                    }`}
+                  >
+                    <SketchIcon name={link.icon} size={16} />
+                    {link.label}
+                  </Link>
+                </li>
+              );
+            })}
+          </ul>
 
-        {/* Mobile hamburger */}
-        <button
-          ref={hamburgerRef}
-          className="md:hidden flex flex-col gap-1.5 p-2 bg-transparent border-none cursor-pointer"
-          aria-label="Toggle navigation menu"
-          aria-expanded={mobileOpen}
-          onClick={() => setMobileOpen(!mobileOpen)}
-        >
-          <span
-            className={`block w-5 h-0.5 bg-ink transition-transform ${
-              mobileOpen ? 'translate-y-2 rotate-45' : ''
-            }`}
-          />
-          <span
-            className={`block w-5 h-0.5 bg-ink transition-opacity ${
-              mobileOpen ? 'opacity-0' : ''
-            }`}
-          />
-          <span
-            className={`block w-5 h-0.5 bg-ink transition-transform ${
-              mobileOpen ? '-translate-y-2 -rotate-45' : ''
-            }`}
-          />
-        </button>
+          {/* Theme toggle (visible at all breakpoints) */}
+          <ThemeToggle />
+
+          {/* Mobile hamburger */}
+          <button
+            ref={hamburgerRef}
+            className="md:hidden flex flex-col gap-1.5 p-3 -m-1 bg-transparent border-none cursor-pointer"
+            aria-label="Toggle navigation menu"
+            aria-expanded={mobileOpen}
+            onClick={() => setMobileOpen(!mobileOpen)}
+          >
+            <span
+              className={`block w-5 h-0.5 bg-ink transition-transform ${
+                mobileOpen ? 'translate-y-2 rotate-45' : ''
+              }`}
+            />
+            <span
+              className={`block w-5 h-0.5 bg-ink transition-opacity ${
+                mobileOpen ? 'opacity-0' : ''
+              }`}
+            />
+            <span
+              className={`block w-5 h-0.5 bg-ink transition-transform ${
+                mobileOpen ? '-translate-y-2 -rotate-45' : ''
+              }`}
+            />
+          </button>
+        </div>
       </div>
 
       {/* Mobile menu panel */}

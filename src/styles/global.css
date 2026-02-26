@@ -51,6 +51,7 @@
 
   /* Semantic */
   --color-success: #5A7A4A;
+  --color-success-light: #7A9A6A;
   --color-error: #A44A3A;
 
   /* Hero: Dark Collage Ground
@@ -84,6 +85,197 @@
 }
 
 /* ─────────────────────────────────────────────────
+   Dark Mode Token Overrides
+   Applied via html[data-theme="dark"] (set by ThemeProvider
+   or blocking script in layout.tsx). Every token that changes
+   is listed here; unchanged tokens (fonts, etc.) inherit from
+   @theme inline above.
+   ───────────────────────────────────────────────── */
+
+html[data-theme="dark"] {
+  /* Backgrounds: warm charcoal, not blue-gray */
+  --color-paper: #1A1816;
+  --color-surface: #222018;
+  --color-bg-alt: #2E2A26;
+  --color-card: #222018;
+  --color-code: #2E2A26;
+
+  /* Text: cream tones, not pure white */
+  --color-ink: #E8E0D6;
+  --color-ink-muted: #A89E92;
+  --color-ink-light: #7A7268;
+  --color-ink-secondary: #A89E92;
+  --color-ink-faint: #7A7268;
+
+  /* Accent: Terracotta (lifted for dark backgrounds) */
+  --color-terracotta: #D4875A;
+  --color-terracotta-hover: #E89A6A;
+  --color-terracotta-light: #F0B08A;
+
+  /* Secondary: Teal (lifted) */
+  --color-teal: #3A8898;
+  --color-teal-light: #4EA0B2;
+
+  /* Highlight: Gold (lifted) */
+  --color-gold: #D4AA5A;
+  --color-gold-light: #E4BA6A;
+
+  /* Rough.js strokes: lighter for visibility */
+  --color-rough: #8A8480;
+  --color-rough-light: #B0AAA4;
+
+  /* Borders: darker but still visible */
+  --color-border: #3A3632;
+  --color-border-light: #4A4642;
+
+  /* Utility */
+  --color-shadow: rgba(0, 0, 0, 0.25);
+
+  /* Warm shadows: higher alpha for dark surfaces */
+  --shadow-warm-sm:  0 1px 3px rgba(0, 0, 0, 0.20);
+  --shadow-warm:     0 2px 8px rgba(0, 0, 0, 0.25), 0 1px 3px rgba(0, 0, 0, 0.15);
+  --shadow-warm-lg:  0 4px 16px rgba(0, 0, 0, 0.30), 0 2px 6px rgba(0, 0, 0, 0.18);
+
+  /* Semantic */
+  --color-success: #7A9A6A;
+  --color-success-light: #8AAA7A;
+  --color-error: #D46A5A;
+
+  /* Hero: slightly darker ground (differentiate from page bg) */
+  --color-hero-ground: #141210;
+  --color-hero-text: #F0EBE4;
+  --color-hero-text-muted: rgba(240, 235, 228, 0.65);
+  --color-hero-overlay: rgba(20, 18, 16, 0.75);
+}
+
+/* ─────────────────────────────────────────────────
+   Dark Mode: Surface Utilities
+   Higher-opacity tints on dark backgrounds so the
+   brand color wash remains perceptible.
+   ───────────────────────────────────────────────── */
+
+html[data-theme="dark"] .surface-tint-terracotta { background-color: rgba(212, 135, 90, 0.08); }
+html[data-theme="dark"] .surface-tint-teal       { background-color: rgba(58, 136, 152, 0.07); }
+html[data-theme="dark"] .surface-tint-gold       { background-color: rgba(212, 170, 90, 0.08); }
+html[data-theme="dark"] .surface-tint-neutral    { background-color: rgba(232, 224, 214, 0.03); }
+
+/* ─────────────────────────────────────────────────
+   Dark Mode: Paper Grain Overlay
+   Switch to overlay blend mode so the grain adds
+   texture to dark surfaces without washing them out.
+   ───────────────────────────────────────────────── */
+
+html[data-theme="dark"] body::after {
+  mix-blend-mode: overlay;
+  opacity: 0.04;
+}
+
+/* ─────────────────────────────────────────────────
+   Dark Mode: Sticky Notes + Comments
+   Warmer backgrounds that feel like dark amber paper.
+   ───────────────────────────────────────────────── */
+
+html[data-theme="dark"] .sticky-note {
+  box-shadow: 2px 3px 10px rgba(0, 0, 0, 0.30), 1px 1px 4px rgba(0, 0, 0, 0.20);
+}
+html[data-theme="dark"] .sticky-note:hover {
+  box-shadow: 3px 5px 16px rgba(0, 0, 0, 0.35), 1px 2px 5px rgba(0, 0, 0, 0.22);
+}
+html[data-theme="dark"] .comment-form {
+  background-color: rgba(212, 170, 90, 0.06);
+  border-color: rgba(212, 170, 90, 0.20);
+}
+html[data-theme="dark"] .comment-form-input,
+html[data-theme="dark"] .comment-form-textarea {
+  background-color: rgba(30, 26, 22, 0.6);
+  border-color: rgba(212, 170, 90, 0.15);
+  color: var(--color-ink);
+}
+html[data-theme="dark"] .comment-form-input:focus,
+html[data-theme="dark"] .comment-form-textarea:focus {
+  border-color: rgba(212, 170, 90, 0.40);
+}
+
+/* Paragraph hover on dark */
+html[data-theme="dark"] #article-prose p:hover {
+  background-color: rgba(212, 170, 90, 0.05);
+}
+
+/* Mobile comment items */
+html[data-theme="dark"] .mobile-comment-item {
+  background-color: rgba(212, 170, 90, 0.05);
+  border-color: rgba(212, 170, 90, 0.12);
+}
+html[data-theme="dark"] .mobile-comment-item--flagged {
+  background-color: rgba(212, 106, 90, 0.06);
+  border-color: rgba(212, 106, 90, 0.15);
+}
+html[data-theme="dark"] .mobile-comment-count {
+  background-color: rgba(212, 170, 90, 0.12);
+}
+
+/* ─────────────────────────────────────────────────
+   Dark Mode: Margin Annotations
+   Slightly increased opacity for readability.
+   ───────────────────────────────────────────────── */
+
+html[data-theme="dark"] .margin-annotation-anchor::after {
+  opacity: 0.8;
+}
+
+@media (max-width: 1279px) {
+  html[data-theme="dark"] .margin-annotation-anchor::after {
+    border-top-color: rgba(212, 135, 90, 0.2);
+  }
+}
+
+@media (min-width: 1280px) {
+  html[data-theme="dark"] .margin-annotation-anchor[data-annotation-side="right"]::before,
+  html[data-theme="dark"] .margin-annotation-anchor[data-annotation-side="left"]::before {
+    border-top-color: rgba(212, 135, 90, 0.35);
+  }
+}
+
+/* ─────────────────────────────────────────────────
+   Dark Mode: Blockquotes
+   ───────────────────────────────────────────────── */
+
+html[data-theme="dark"] blockquote {
+  border-left-color: var(--color-terracotta);
+  background: var(--color-bg-alt);
+  color: var(--color-ink-muted);
+}
+
+/* ─────────────────────────────────────────────────
+   Dark Mode: Connection Callouts
+   Lifted brand colors for dark backgrounds.
+   ───────────────────────────────────────────────── */
+
+html[data-theme="dark"] .connection-callout[data-connection-type="essay"] {
+  --callout-color: #D4875A;
+}
+html[data-theme="dark"] .connection-callout[data-connection-type="field-note"] {
+  --callout-color: #4EA0B2;
+}
+html[data-theme="dark"] .connection-callout[data-connection-type="shelf"] {
+  --callout-color: #D4AA5A;
+}
+
+html[data-theme="dark"] .connection-callout:hover {
+  background-color: color-mix(in srgb, var(--callout-color, var(--color-terracotta)) 5%, transparent);
+}
+
+/* ─────────────────────────────────────────────────
+   Dark Mode: Timeline Dots
+   Ring and dot contrast against dark background.
+   ───────────────────────────────────────────────── */
+
+html[data-theme="dark"] .ptl-dot {
+  border-color: var(--color-paper);
+  box-shadow: 0 0 0 2px var(--color-paper);
+}
+
+/* ─────────────────────────────────────────────────
    Base Styles
    ───────────────────────────────────────────────── */
 
@@ -114,8 +306,16 @@ body::after {
   z-index: 9999;
   pointer-events: none;
   opacity: 0.025;
+  will-change: transform;
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='300' height='300'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='300' height='300' filter='url(%23n)' opacity='1'/%3E%3C/svg%3E");
   background-repeat: repeat;
+}
+
+/* Reduce grain on mobile for performance */
+@media (max-width: 640px) {
+  body::after {
+    opacity: 0.015;
+  }
 }
 
 /* ─────────────────────────────────────────────────
