@@ -253,8 +253,9 @@ export default function DesignLanguageEasterEgg() {
     if (!canvas || borderDrawnRef.current) return;
 
     const dpr = window.devicePixelRatio || 1;
-    const w = 400;
-    const h = canvas.parentElement?.getBoundingClientRect().height ?? 400;
+    const parent = canvas.parentElement;
+    const w = parent ? parent.getBoundingClientRect().width : 400;
+    const h = parent ? parent.getBoundingClientRect().height : 400;
 
     canvas.width = w * dpr;
     canvas.height = h * dpr;
@@ -355,10 +356,8 @@ export default function DesignLanguageEasterEgg() {
   // ── Animation loop (mount-only; reads phase from ref) ───────────
 
   useEffect(() => {
-    if (isTouchDevice) return;
-
-    // Reduced motion: draw static dots once, skip rAF loop
-    if (reducedMotion) {
+    // Touch devices and reduced motion: draw static dots once, skip rAF loop
+    if (isTouchDevice || reducedMotion) {
       const canvas = canvasRef.current;
       if (!canvas) return;
       const ctx = canvas.getContext('2d', { alpha: true });
@@ -460,21 +459,56 @@ export default function DesignLanguageEasterEgg() {
     };
   }, [isTouchDevice, reducedMotion, drawCanvas]);
 
+  // ── Click handler ───────────────────────────────────────────────
+
+  const handleClick = useCallback(() => {
+    if (phase === 'seed') {
+      if (isTouchDevice || reducedMotion) {
+        connectProgressRef.current = 1;
+        expandProgressRef.current = 1;
+        phaseRef.current = 'open';
+        setPhase('open');
+      } else {
+        connectProgressRef.current = 0;
+        expandProgressRef.current = 0;
+        phaseRef.current = 'connecting';
+        setPhase('connecting');
+      }
+    }
+  }, [phase, isTouchDevice, reducedMotion]);
+
+  // ── Close handler (reduced motion aware) ────────────────────────
+
+  const handleClose = useCallback(
+    (e?: React.MouseEvent) => {
+      if (e) e.stopPropagation();
+      if (isTouchDevice || reducedMotion) {
+        connectProgressRef.current = 0;
+        expandProgressRef.current = 0;
+        phaseRef.current = 'seed';
+        setPhase('seed');
+      } else {
+        phaseRef.current = 'collapsing';
+        setPhase('collapsing');
+      }
+    },
+    [isTouchDevice, reducedMotion],
+  );
+
   // ── Click outside ───────────────────────────────────────────────
 
   useEffect(() => {
     if (phase !== 'open' && phase !== 'expanding') return;
 
-    function handleClickOutside(e: MouseEvent) {
+    function handleClickOutside(e: PointerEvent) {
       if (wrapperRef.current && !wrapperRef.current.contains(e.target as Node)) {
-        phaseRef.current = 'collapsing';
-        setPhase('collapsing');
+        handleClose();
       }
     }
 
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, [phase]);
+    document.addEventListener('pointerdown', handleClickOutside);
+    return () => document.removeEventListener('pointerdown', handleClickOutside);
+  }, [phase, handleClose]);
 
   // ── Escape key ──────────────────────────────────────────────────
 
@@ -491,42 +525,6 @@ export default function DesignLanguageEasterEgg() {
     document.addEventListener('keydown', handleEscape);
     return () => document.removeEventListener('keydown', handleEscape);
   }, [phase]);
-
-  // ── Click handler ───────────────────────────────────────────────
-
-  const handleClick = useCallback(() => {
-    if (phase === 'seed') {
-      if (reducedMotion) {
-        connectProgressRef.current = 1;
-        expandProgressRef.current = 1;
-        phaseRef.current = 'open';
-        setPhase('open');
-      } else {
-        connectProgressRef.current = 0;
-        expandProgressRef.current = 0;
-        phaseRef.current = 'connecting';
-        setPhase('connecting');
-      }
-    }
-  }, [phase, reducedMotion]);
-
-  // ── Close handler (reduced motion aware) ────────────────────────
-
-  const handleClose = useCallback(
-    (e?: React.MouseEvent) => {
-      if (e) e.stopPropagation();
-      if (reducedMotion) {
-        connectProgressRef.current = 0;
-        expandProgressRef.current = 0;
-        phaseRef.current = 'seed';
-        setPhase('seed');
-      } else {
-        phaseRef.current = 'collapsing';
-        setPhase('collapsing');
-      }
-    },
-    [reducedMotion],
-  );
 
   // ── Scroll affordance ───────────────────────────────────────────
 
@@ -552,26 +550,24 @@ export default function DesignLanguageEasterEgg() {
   const openW = 400;
   const openH = '60vh';
 
-  if (isTouchDevice) return null;
-
-  // Transition strings (none in reduced motion)
-  const wrapperTransition = reducedMotion
+  // Transition strings (none on touch / reduced motion)
+  const wrapperTransition = isTouchDevice || reducedMotion
     ? 'none'
     : phase === 'expanding' || phase === 'collapsing'
       ? 'width 600ms cubic-bezier(0.33, 1, 0.68, 1), height 600ms cubic-bezier(0.33, 1, 0.68, 1), background-color 400ms ease, box-shadow 400ms ease, backdrop-filter 400ms ease'
       : 'none';
 
-  // Stagger delay (0 in reduced motion)
-  const stagger = (i: number) => (reducedMotion ? 0 : i * 20);
+  // Stagger delay (0 on touch / reduced motion)
+  const stagger = (i: number) => (isTouchDevice || reducedMotion ? 0 : i * 20);
 
   // Shared stagger style helper
   const staggerStyle = (i: number) => ({
-    opacity: reducedMotion || phase === 'open' ? 1 : 0,
+    opacity: isTouchDevice || reducedMotion || phase === 'open' ? 1 : 0,
     transform:
-      reducedMotion || phase === 'open'
+      isTouchDevice || reducedMotion || phase === 'open'
         ? 'translateY(0)'
         : 'translateY(6px)',
-    transition: reducedMotion
+    transition: isTouchDevice || reducedMotion
       ? 'none'
       : `opacity 300ms ease ${stagger(i)}ms, transform 300ms ease ${stagger(i)}ms`,
   });
@@ -585,10 +581,13 @@ export default function DesignLanguageEasterEgg() {
       style={{
         position: 'fixed',
         right: 16,
-        top: '30vh',
+        ...(isTouchDevice
+          ? { bottom: 16, top: 'auto' }
+          : { top: '30vh' }),
         width: isExpanded ? openW : seedW,
         height: isExpanded ? openH : seedH,
         maxWidth: isExpanded ? 'calc(100vw - 32px)' : undefined,
+        maxHeight: 'calc(100vh - 32px)',
         zIndex: 40,
         overflow: isExpanded ? 'hidden' : 'visible',
         cursor: phase === 'seed' ? 'pointer' : 'default',
@@ -659,8 +658,8 @@ export default function DesignLanguageEasterEgg() {
             transform: 'translateX(-50%)',
             fontSize: 10,
             color: 'var(--color-gold)',
-            opacity: isHovered ? 0.8 : 0,
-            transition: reducedMotion ? 'none' : 'opacity 200ms ease',
+            opacity: isTouchDevice ? 0.4 : isHovered ? 0.8 : 0,
+            transition: isTouchDevice || reducedMotion ? 'none' : 'opacity 200ms ease',
             whiteSpace: 'nowrap',
             letterSpacing: '0.08em',
             pointerEvents: 'none',
@@ -680,17 +679,17 @@ export default function DesignLanguageEasterEgg() {
             position: 'absolute',
             top: 0,
             left: 0,
-            width: openW,
+            width: '100%',
             maxWidth: '100%',
             padding: '12px 12px 0 12px',
-            opacity: reducedMotion
+            opacity: isTouchDevice || reducedMotion
               ? 1
               : phase === 'open'
                 ? 1
                 : phase === 'expanding'
                   ? 0.6
                   : 0.3,
-            transition: reducedMotion ? 'none' : 'opacity 300ms ease',
+            transition: isTouchDevice || reducedMotion ? 'none' : 'opacity 300ms ease',
             overflowY: 'auto',
             maxHeight: '100%',
             zIndex: 2,
@@ -753,6 +752,11 @@ export default function DesignLanguageEasterEgg() {
                 color: 'var(--color-ink-secondary)',
                 padding: 4,
                 lineHeight: 0,
+                minWidth: 44,
+                minHeight: 44,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
               }}
               aria-label="Close design language panel"
             >
@@ -1121,12 +1125,12 @@ export default function DesignLanguageEasterEgg() {
               paddingTop: 8,
               paddingBottom: 12,
               borderTop: '1px solid color-mix(in srgb, var(--color-border-light) 40%, transparent)',
-              opacity: reducedMotion
+              opacity: isTouchDevice || reducedMotion
                 ? 0.6
                 : phase === 'open'
                   ? 0.6
                   : 0,
-              transition: reducedMotion
+              transition: isTouchDevice || reducedMotion
                 ? 'none'
                 : `opacity 400ms ease ${STAGGER_COUNT * 20}ms`,
             }}
@@ -1175,7 +1179,7 @@ export default function DesignLanguageEasterEgg() {
               fontSize: 10,
               color: 'var(--color-ink-muted)',
               opacity: hasScrolled ? 0 : 0.5,
-              transition: reducedMotion ? 'none' : 'opacity 300ms ease',
+              transition: isTouchDevice || reducedMotion ? 'none' : 'opacity 300ms ease',
               pointerEvents: 'none',
               zIndex: 4,
             }}

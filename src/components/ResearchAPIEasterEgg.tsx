@@ -246,8 +246,9 @@ export default function ResearchAPIEasterEgg() {
     if (!canvas || borderDrawnRef.current) return;
 
     const dpr = window.devicePixelRatio || 1;
-    const w = 400;
-    const h = canvas.parentElement?.getBoundingClientRect().height ?? 400;
+    const parent = canvas.parentElement;
+    const w = parent ? parent.getBoundingClientRect().width : 400;
+    const h = parent ? parent.getBoundingClientRect().height : 400;
 
     canvas.width = w * dpr;
     canvas.height = h * dpr;
@@ -346,10 +347,8 @@ export default function ResearchAPIEasterEgg() {
   // ── Animation loop (mount-only; reads phase from ref) ───────────
 
   useEffect(() => {
-    if (isTouchDevice) return;
-
-    // Reduced motion: draw static dots once, skip rAF loop
-    if (reducedMotion) {
+    // Touch devices and reduced motion: draw static dots once, skip rAF loop
+    if (isTouchDevice || reducedMotion) {
       const canvas = canvasRef.current;
       if (!canvas) return;
       const ctx = canvas.getContext('2d', { alpha: true });
@@ -451,21 +450,56 @@ export default function ResearchAPIEasterEgg() {
     };
   }, [isTouchDevice, reducedMotion, drawCanvas]);
 
+  // ── Click handler ───────────────────────────────────────────────
+
+  const handleClick = useCallback(() => {
+    if (phase === 'seed') {
+      if (isTouchDevice || reducedMotion) {
+        connectProgressRef.current = 1;
+        expandProgressRef.current = 1;
+        phaseRef.current = 'open';
+        setPhase('open');
+      } else {
+        connectProgressRef.current = 0;
+        expandProgressRef.current = 0;
+        phaseRef.current = 'connecting';
+        setPhase('connecting');
+      }
+    }
+  }, [phase, isTouchDevice, reducedMotion]);
+
+  // ── Close handler (reduced motion aware) ────────────────────────
+
+  const handleClose = useCallback(
+    (e?: React.MouseEvent) => {
+      if (e) e.stopPropagation();
+      if (isTouchDevice || reducedMotion) {
+        connectProgressRef.current = 0;
+        expandProgressRef.current = 0;
+        phaseRef.current = 'seed';
+        setPhase('seed');
+      } else {
+        phaseRef.current = 'collapsing';
+        setPhase('collapsing');
+      }
+    },
+    [isTouchDevice, reducedMotion],
+  );
+
   // ── Click outside ───────────────────────────────────────────────
 
   useEffect(() => {
     if (phase !== 'open' && phase !== 'expanding') return;
 
-    function handleClickOutside(e: MouseEvent) {
+    function handleClickOutside(e: PointerEvent) {
       if (wrapperRef.current && !wrapperRef.current.contains(e.target as Node)) {
-        phaseRef.current = 'collapsing';
-        setPhase('collapsing');
+        handleClose();
       }
     }
 
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, [phase]);
+    document.addEventListener('pointerdown', handleClickOutside);
+    return () => document.removeEventListener('pointerdown', handleClickOutside);
+  }, [phase, handleClose]);
 
   // ── Escape key ──────────────────────────────────────────────────
 
@@ -482,42 +516,6 @@ export default function ResearchAPIEasterEgg() {
     document.addEventListener('keydown', handleEscape);
     return () => document.removeEventListener('keydown', handleEscape);
   }, [phase]);
-
-  // ── Click handler ───────────────────────────────────────────────
-
-  const handleClick = useCallback(() => {
-    if (phase === 'seed') {
-      if (reducedMotion) {
-        connectProgressRef.current = 1;
-        expandProgressRef.current = 1;
-        phaseRef.current = 'open';
-        setPhase('open');
-      } else {
-        connectProgressRef.current = 0;
-        expandProgressRef.current = 0;
-        phaseRef.current = 'connecting';
-        setPhase('connecting');
-      }
-    }
-  }, [phase, reducedMotion]);
-
-  // ── Close handler (reduced motion aware) ────────────────────────
-
-  const handleClose = useCallback(
-    (e?: React.MouseEvent) => {
-      if (e) e.stopPropagation();
-      if (reducedMotion) {
-        connectProgressRef.current = 0;
-        expandProgressRef.current = 0;
-        phaseRef.current = 'seed';
-        setPhase('seed');
-      } else {
-        phaseRef.current = 'collapsing';
-        setPhase('collapsing');
-      }
-    },
-    [reducedMotion],
-  );
 
   // ── Scroll affordance ───────────────────────────────────────────
 
@@ -543,27 +541,25 @@ export default function ResearchAPIEasterEgg() {
   const openW = 400;
   const openH = '60vh';
 
-  if (isTouchDevice) return null;
-
-  // Transition strings (none in reduced motion)
+  // Transition strings (none on touch / reduced motion)
   const ease = 'cubic-bezier(0.33, 1, 0.68, 1)';
-  const wrapperTransition = reducedMotion
+  const wrapperTransition = isTouchDevice || reducedMotion
     ? 'none'
     : phase === 'expanding' || phase === 'collapsing'
-      ? `width 600ms ${ease}, height 600ms ${ease}, margin-left 600ms ${ease}, background-color 400ms ease, box-shadow 400ms ease, backdrop-filter 400ms ease`
+      ? `width 600ms ${ease}, height 600ms ${ease}, background-color 400ms ease, box-shadow 400ms ease, backdrop-filter 400ms ease`
       : 'none';
 
-  // Stagger delay (0 in reduced motion)
-  const stagger = (i: number) => (reducedMotion ? 0 : i * 20);
+  // Stagger delay (0 on touch / reduced motion)
+  const stagger = (i: number) => (isTouchDevice || reducedMotion ? 0 : i * 20);
 
   // Shared stagger style helper
   const staggerStyle = (i: number) => ({
-    opacity: reducedMotion || phase === 'open' ? 1 : 0,
+    opacity: isTouchDevice || reducedMotion || phase === 'open' ? 1 : 0,
     transform:
-      reducedMotion || phase === 'open'
+      isTouchDevice || reducedMotion || phase === 'open'
         ? 'translateY(0)'
         : 'translateY(6px)',
-    transition: reducedMotion
+    transition: isTouchDevice || reducedMotion
       ? 'none'
       : `opacity 300ms ease ${stagger(i)}ms, transform 300ms ease ${stagger(i)}ms`,
   });
@@ -577,11 +573,14 @@ export default function ResearchAPIEasterEgg() {
       style={{
         position: 'fixed',
         left: '50%',
-        marginLeft: isExpanded ? -(openW / 2) : -(seedW / 2),
-        top: '65vh',
+        transform: `translateX(-50%)`,
+        ...(isTouchDevice
+          ? { bottom: 16, top: 'auto' }
+          : { top: '65vh' }),
         width: isExpanded ? openW : seedW,
         height: isExpanded ? openH : seedH,
         maxWidth: isExpanded ? 'calc(100vw - 32px)' : undefined,
+        maxHeight: 'calc(100vh - 32px)',
         zIndex: 40,
         overflow: isExpanded ? 'hidden' : 'visible',
         cursor: phase === 'seed' ? 'pointer' : 'default',
@@ -652,8 +651,8 @@ export default function ResearchAPIEasterEgg() {
             transform: 'translateX(-50%)',
             fontSize: 10,
             color: '#2D5F6B',
-            opacity: isHovered ? 0.8 : 0,
-            transition: reducedMotion ? 'none' : 'opacity 200ms ease',
+            opacity: isTouchDevice ? 0.4 : isHovered ? 0.8 : 0,
+            transition: isTouchDevice || reducedMotion ? 'none' : 'opacity 200ms ease',
             whiteSpace: 'nowrap',
             letterSpacing: '0.08em',
             pointerEvents: 'none',
@@ -673,17 +672,17 @@ export default function ResearchAPIEasterEgg() {
             position: 'absolute',
             top: 0,
             left: 0,
-            width: openW,
+            width: '100%',
             maxWidth: '100%',
             padding: '12px 12px 0 12px',
-            opacity: reducedMotion
+            opacity: isTouchDevice || reducedMotion
               ? 1
               : phase === 'open'
                 ? 1
                 : phase === 'expanding'
                   ? 0.6
                   : 0.3,
-            transition: reducedMotion ? 'none' : 'opacity 300ms ease',
+            transition: isTouchDevice || reducedMotion ? 'none' : 'opacity 300ms ease',
             overflowY: 'auto',
             maxHeight: '100%',
             zIndex: 2,
@@ -771,6 +770,11 @@ export default function ResearchAPIEasterEgg() {
                 color: '#6A5E52',
                 padding: 4,
                 lineHeight: 0,
+                minWidth: 44,
+                minHeight: 44,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
               }}
               aria-label="Close research API panel"
             >
@@ -1296,12 +1300,12 @@ export default function ResearchAPIEasterEgg() {
               paddingTop: 8,
               paddingBottom: 12,
               borderTop: '1px solid rgba(212, 204, 196, 0.4)',
-              opacity: reducedMotion
+              opacity: isTouchDevice || reducedMotion
                 ? 0.6
                 : phase === 'open'
                   ? 0.6
                   : 0,
-              transition: reducedMotion
+              transition: isTouchDevice || reducedMotion
                 ? 'none'
                 : `opacity 400ms ease ${STAGGER_COUNT * 20}ms`,
             }}
@@ -1350,7 +1354,7 @@ export default function ResearchAPIEasterEgg() {
               fontSize: 10,
               color: '#9A8E82',
               opacity: hasScrolled ? 0 : 0.5,
-              transition: reducedMotion ? 'none' : 'opacity 300ms ease',
+              transition: isTouchDevice || reducedMotion ? 'none' : 'opacity 300ms ease',
               pointerEvents: 'none',
               zIndex: 4,
             }}
