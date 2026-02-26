@@ -143,6 +143,23 @@ CRISPY_ALLOWED_TEMPLATE_PACKS = ("studio",)
 # Tailwind
 TAILWIND_APP_NAME = "theme"
 
+# Logging: send all errors to stderr so Railway captures tracebacks
+LOGGING = {
+    "version": 1,
+    "disable_existing_loggers": False,
+    "handlers": {
+        "console": {
+            "class": "logging.StreamHandler",
+        },
+    },
+    "loggers": {
+        "django": {
+            "handlers": ["console"],
+            "level": "ERROR",
+        },
+    },
+}
+
 # GitHub publishing settings (strip whitespace; dashboard paste can add newlines)
 GITHUB_TOKEN = os.environ.get("GITHUB_TOKEN", "").strip()
 GITHUB_REPO = os.environ.get("GITHUB_REPO", "").strip()
