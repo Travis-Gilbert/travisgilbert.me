@@ -126,13 +126,15 @@ class DashboardView(LoginRequiredMixin, TemplateView):
 
     def get_context_data(self, **kwargs):
         ctx = super().get_context_data(**kwargs)
-        # Defer large text fields not displayed on the dashboard
-        _skip = ("body", "annotation", "composition")
-        ctx["essays"] = Essay.objects.defer(*_skip).all()[:20]
-        ctx["field_notes"] = FieldNote.objects.defer(*_skip).all()[:20]
-        ctx["shelf_entries"] = ShelfEntry.objects.defer(*_skip).all()[:20]
-        ctx["projects"] = Project.objects.defer(*_skip).all()[:20]
-        ctx["toolkit_entries"] = ToolkitEntry.objects.defer(*_skip).all()[:20]
+        # Defer large text fields not displayed on the dashboard.
+        # Each model has different text fields: ShelfEntry uses
+        # "annotation" instead of "body"; Essay has "annotations" (plural).
+        _body_models = ("body", "composition")
+        ctx["essays"] = Essay.objects.defer(*_body_models).all()[:20]
+        ctx["field_notes"] = FieldNote.objects.defer(*_body_models).all()[:20]
+        ctx["shelf_entries"] = ShelfEntry.objects.defer("annotation", "composition").all()[:20]
+        ctx["projects"] = Project.objects.defer(*_body_models).all()[:20]
+        ctx["toolkit_entries"] = ToolkitEntry.objects.defer(*_body_models).all()[:20]
         ctx["now_page"] = NowPage.objects.first()
         ctx["recent_publishes"] = PublishLog.objects.all()[:10]
         ctx["draft_counts"] = {
