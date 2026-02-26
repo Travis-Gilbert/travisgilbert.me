@@ -127,6 +127,51 @@ def publish_file(file_path, content, commit_message):
         return _result(False, error=error_detail)
 
 
+def publish_binary_file(file_path, content_bytes, commit_message):
+    """
+    Create or update a binary file in the GitHub repository.
+
+    Like publish_file() but accepts raw bytes instead of a string.
+    Used for image uploads (PNG, etc.) where UTF-8 encoding would corrupt data.
+
+    Args:
+        file_path: Path relative to repo root (e.g. "public/collage/photo.png")
+        content_bytes: The file content as bytes
+        commit_message: Git commit message
+
+    Returns:
+        dict with keys: success, commit_sha, commit_url, error
+    """
+    url = f"{_repo_url('contents')}/{file_path}"
+
+    encoded = base64.b64encode(content_bytes).decode("ascii")
+
+    payload = {
+        "message": commit_message,
+        "content": encoded,
+        "branch": settings.GITHUB_BRANCH,
+    }
+
+    existing_sha = _get_file_sha(file_path)
+    if existing_sha:
+        payload["sha"] = existing_sha
+
+    try:
+        resp = requests.put(url, headers=_headers(), json=payload, timeout=30)
+        resp.raise_for_status()
+        data = resp.json()
+        commit_info = data.get("commit", {})
+        return _result(
+            True,
+            commit_sha=commit_info.get("sha", ""),
+            commit_url=commit_info.get("html_url", ""),
+        )
+    except requests.exceptions.RequestException as e:
+        error_detail = _extract_error(e)
+        logger.error("GitHub binary publish failed for %s: %s", file_path, error_detail)
+        return _result(False, error=error_detail)
+
+
 def delete_file(file_path, commit_message):
     """
     Delete a file from the GitHub repository.

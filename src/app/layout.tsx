@@ -8,6 +8,7 @@ import StudioShortcut from '@/components/StudioShortcut';
 import ArchitectureEasterEgg from '@/components/ArchitectureEasterEgg';
 import DesignLanguageEasterEgg from '@/components/DesignLanguageEasterEgg';
 import ResearchAPIEasterEgg from '@/components/ResearchAPIEasterEgg';
+import ThemeProvider from '@/components/ThemeProvider';
 import { PersonJsonLd, WebSiteJsonLd } from '@/components/JsonLd';
 import { getCollection } from '@/lib/content';
 import type { Essay, FieldNote, Project } from '@/lib/content';
@@ -50,38 +51,54 @@ export default function RootLayout({
 }: {
   children: React.ReactNode;
 }) {
+  // Blocking script: reads localStorage / matchMedia, sets data-theme on <html>
+  // before first paint. Hardcoded string (no user input), safe for inline use.
+  const themeScript = [
+    '(function(){',
+    "var t=localStorage.getItem('theme');",
+    "if(!t){t=matchMedia('(prefers-color-scheme:dark)').matches?'dark':'light'}",
+    "document.documentElement.setAttribute('data-theme',t)",
+    '})()',
+  ].join('');
+
   return (
-    <html lang="en" className={fontVariableClasses}>
+    <html lang="en" className={fontVariableClasses} suppressHydrationWarning>
       {/* Built with curiosity and too much coffee. If you're reading this, we should talk. */}
       <body
         className="min-h-screen flex flex-col overflow-x-clip"
         style={{ isolation: 'isolate' }}
       >
-        <PersonJsonLd />
-        <WebSiteJsonLd />
-        <DotGrid />
-        <a href="#main-content" className="skip-to-content">
-          Skip to content
-        </a>
-        <TopNav />
-        <main
-          id="main-content"
-          className="main-content flex-1 max-w-4xl mx-auto w-full px-4 sm:px-6 py-6 sm:py-8"
-        >
-          {children}
-        </main>
-        <Footer />
-        <ConsoleEasterEgg
-          essayCount={essays.length}
-          fieldNoteCount={fieldNotes.length}
-          projectCount={projects.length}
-          latestEssayTitle={latestEssay?.data.title ?? ''}
-          latestEssaySlug={latestEssay?.slug ?? ''}
+        <script
+          // eslint-disable-next-line react/no-danger
+          dangerouslySetInnerHTML={{ __html: themeScript }}
         />
-        <StudioShortcut />
-        <ArchitectureEasterEgg />
-        <DesignLanguageEasterEgg />
-        <ResearchAPIEasterEgg />
+        <ThemeProvider>
+          <PersonJsonLd />
+          <WebSiteJsonLd />
+          <DotGrid />
+          <a href="#main-content" className="skip-to-content">
+            Skip to content
+          </a>
+          <TopNav />
+          <main
+            id="main-content"
+            className="main-content flex-1 max-w-4xl mx-auto w-full px-4 sm:px-6 py-6 sm:py-8"
+          >
+            {children}
+          </main>
+          <Footer />
+          <ConsoleEasterEgg
+            essayCount={essays.length}
+            fieldNoteCount={fieldNotes.length}
+            projectCount={projects.length}
+            latestEssayTitle={latestEssay?.data.title ?? ''}
+            latestEssaySlug={latestEssay?.slug ?? ''}
+          />
+          <StudioShortcut />
+          <ArchitectureEasterEgg />
+          <DesignLanguageEasterEgg />
+          <ResearchAPIEasterEgg />
+        </ThemeProvider>
       </body>
     </html>
   );

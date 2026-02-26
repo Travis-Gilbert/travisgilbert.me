@@ -2,16 +2,10 @@
 
 import { useRef, useEffect, type ReactNode } from 'react';
 import rough from 'roughjs';
+import { useThemeVersion, readCssVar, TINT_CSS_VAR, TINT_CSS_REF } from '@/hooks/useThemeColor';
 
 type CalloutSide = 'left' | 'right';
 type CalloutTint = 'terracotta' | 'teal' | 'gold' | 'neutral';
-
-const tintColor: Record<CalloutTint, string> = {
-  terracotta: '#B45A2D',
-  teal: '#2D5F6B',
-  gold: '#C49A4A',
-  neutral: '#3A3632',
-};
 
 interface RoughPivotCalloutProps {
   children: ReactNode;
@@ -54,8 +48,10 @@ export default function RoughPivotCallout({
   seed,
   pivotDown = true,
 }: RoughPivotCalloutProps) {
+  const themeVersion = useThemeVersion();
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const color = tintColor[tint];
+  // CSS variable reference for inline text styles (auto-updates with theme)
+  const textColor = TINT_CSS_REF[tint] ?? 'var(--color-rough)';
 
   // Geometry: horizontal run is ~1/3, short diagonal stub ~15px
   const horizLength = Math.round(totalLength * 0.3);
@@ -70,6 +66,10 @@ export default function RoughPivotCallout({
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
+
+    // Resolve actual hex for canvas drawing (theme-aware)
+    const canvasColor =
+      (readCssVar(TINT_CSS_VAR[tint] ?? '') || '#3A3632');
 
     const dpr = window.devicePixelRatio || 1;
     canvas.width = canvasW * dpr;
@@ -89,11 +89,11 @@ export default function RoughPivotCallout({
     const endY = pivotDown ? 6 + stubY : canvasH - 6 - stubY;
 
     if (side === 'right') {
-      // Horizontal segment: left → pivot point
+      // Horizontal segment: left to pivot point
       rc.line(0, startY, horizLength, startY, {
         roughness: 1.4,
         strokeWidth: 1.2,
-        stroke: color,
+        stroke: canvasColor,
         bowing: 0.3,
         seed,
       });
@@ -101,7 +101,7 @@ export default function RoughPivotCallout({
       rc.line(horizLength, startY, horizLength + stubX, endY, {
         roughness: 1.4,
         strokeWidth: 1.2,
-        stroke: color,
+        stroke: canvasColor,
         bowing: 0.3,
         seed: seed ? seed + 1 : undefined,
       });
@@ -111,19 +111,19 @@ export default function RoughPivotCallout({
       rc.line(rightEdge, startY, rightEdge - horizLength, startY, {
         roughness: 1.4,
         strokeWidth: 1.2,
-        stroke: color,
+        stroke: canvasColor,
         bowing: 0.3,
         seed,
       });
       rc.line(rightEdge - horizLength, startY, rightEdge - horizLength - stubX, endY, {
         roughness: 1.4,
         strokeWidth: 1.2,
-        stroke: color,
+        stroke: canvasColor,
         bowing: 0.3,
         seed: seed ? seed + 1 : undefined,
       });
     }
-  }, [canvasW, canvasH, horizLength, stubX, stubY, color, seed, side, pivotDown]);
+  }, [canvasW, canvasH, horizLength, stubX, stubY, tint, seed, side, pivotDown, themeVersion]);
 
   // Desktop positioning: absolute in the margin
   const sideClasses =
@@ -156,7 +156,7 @@ export default function RoughPivotCallout({
           className="max-w-[450px] text-[17px] leading-snug select-none"
           style={{
             fontFamily: 'var(--font-annotation)',
-            color,
+            color: textColor,
             marginLeft: side === 'right' ? `${textIndent}px` : undefined,
             marginRight: side === 'left' ? `${textIndent}px` : undefined,
             textAlign: side === 'left' ? 'right' : 'left',
@@ -172,7 +172,7 @@ export default function RoughPivotCallout({
         className="lg:hidden mt-2 text-[15px] leading-snug select-none"
         style={{
           fontFamily: 'var(--font-annotation)',
-          color,
+          color: textColor,
         }}
       >
         {children}

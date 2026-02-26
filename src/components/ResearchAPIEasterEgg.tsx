@@ -546,10 +546,11 @@ export default function ResearchAPIEasterEgg() {
   if (isTouchDevice) return null;
 
   // Transition strings (none in reduced motion)
+  const ease = 'cubic-bezier(0.33, 1, 0.68, 1)';
   const wrapperTransition = reducedMotion
     ? 'none'
     : phase === 'expanding' || phase === 'collapsing'
-      ? 'width 600ms cubic-bezier(0.33, 1, 0.68, 1), height 600ms cubic-bezier(0.33, 1, 0.68, 1), background-color 400ms ease, box-shadow 400ms ease, backdrop-filter 400ms ease'
+      ? `width 600ms ${ease}, height 600ms ${ease}, margin-left 600ms ${ease}, background-color 400ms ease, box-shadow 400ms ease, backdrop-filter 400ms ease`
       : 'none';
 
   // Stagger delay (0 in reduced motion)
@@ -575,8 +576,9 @@ export default function ResearchAPIEasterEgg() {
       onMouseLeave={() => setIsHovered(false)}
       style={{
         position: 'fixed',
-        right: 16,
-        top: 'calc(30vh + 100px)',
+        left: '50%',
+        marginLeft: isExpanded ? -(openW / 2) : -(seedW / 2),
+        top: '65vh',
         width: isExpanded ? openW : seedW,
         height: isExpanded ? openH : seedH,
         maxWidth: isExpanded ? 'calc(100vw - 32px)' : undefined,

@@ -1,7 +1,8 @@
 'use client';
 
-import { useRef, useEffect, useCallback } from 'react';
+import { useRef, useEffect } from 'react';
 import rough from 'roughjs';
+import { useThemeVersion, readCssVar } from '@/hooks/useThemeColor';
 
 interface RoughLineProps {
   roughness?: number;
@@ -53,12 +54,14 @@ function drawSegment(
 export default function RoughLine({
   roughness = 1,
   strokeWidth = 1,
-  stroke = '#3A3632',
+  stroke,
   seed,
   className,
   label,
   labelColor,
 }: RoughLineProps) {
+  const themeVersion = useThemeVersion();
+
   // Refs for the unlabeled (single line) variant
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const wrapperRef = useRef<HTMLDivElement>(null);
@@ -69,51 +72,55 @@ export default function RoughLine({
   const rightCanvasRef = useRef<HTMLCanvasElement>(null);
   const rightWrapperRef = useRef<HTMLDivElement>(null);
 
-  const drawOpts = { roughness, strokeWidth, stroke, seed };
-
-  // Draw both segments for the labeled variant
-  const drawLabeled = useCallback(() => {
-    if (leftCanvasRef.current && leftWrapperRef.current) {
-      drawSegment(leftCanvasRef.current, leftWrapperRef.current, drawOpts);
-    }
-    if (rightCanvasRef.current && rightWrapperRef.current) {
-      // Offset seed so the two halves look like different hand strokes
-      drawSegment(rightCanvasRef.current, rightWrapperRef.current, {
-        ...drawOpts,
-        seed: drawOpts.seed != null ? drawOpts.seed + 7 : undefined,
-      });
-    }
-  }, [roughness, strokeWidth, stroke, seed]);
-
-  // Draw the single line for the unlabeled variant
-  const drawSingle = useCallback(() => {
-    if (canvasRef.current && wrapperRef.current) {
-      drawSegment(canvasRef.current, wrapperRef.current, drawOpts);
-    }
-  }, [roughness, strokeWidth, stroke, seed]);
-
   // Effect: labeled variant
   useEffect(() => {
     if (!label) return;
-    drawLabeled();
 
-    const observer = new ResizeObserver(() => drawLabeled());
+    // Resolve stroke from CSS (theme-aware)
+    const currentStroke = stroke ?? (readCssVar('--color-rough') || '#3A3632');
+    const drawOpts = { roughness, strokeWidth, stroke: currentStroke, seed };
+
+    function draw() {
+      if (leftCanvasRef.current && leftWrapperRef.current) {
+        drawSegment(leftCanvasRef.current, leftWrapperRef.current, drawOpts);
+      }
+      if (rightCanvasRef.current && rightWrapperRef.current) {
+        drawSegment(rightCanvasRef.current, rightWrapperRef.current, {
+          ...drawOpts,
+          seed: drawOpts.seed != null ? drawOpts.seed + 7 : undefined,
+        });
+      }
+    }
+
+    draw();
+
+    const observer = new ResizeObserver(() => draw());
     if (leftWrapperRef.current) observer.observe(leftWrapperRef.current);
     if (rightWrapperRef.current) observer.observe(rightWrapperRef.current);
 
     return () => observer.disconnect();
-  }, [label, drawLabeled]);
+  }, [label, roughness, strokeWidth, stroke, seed, themeVersion]);
 
   // Effect: unlabeled variant
   useEffect(() => {
     if (label) return;
-    drawSingle();
 
-    const observer = new ResizeObserver(() => drawSingle());
+    const currentStroke = stroke ?? (readCssVar('--color-rough') || '#3A3632');
+    const drawOpts = { roughness, strokeWidth, stroke: currentStroke, seed };
+
+    function draw() {
+      if (canvasRef.current && wrapperRef.current) {
+        drawSegment(canvasRef.current, wrapperRef.current, drawOpts);
+      }
+    }
+
+    draw();
+
+    const observer = new ResizeObserver(() => draw());
     if (wrapperRef.current) observer.observe(wrapperRef.current);
 
     return () => observer.disconnect();
-  }, [label, drawSingle]);
+  }, [label, roughness, strokeWidth, stroke, seed, themeVersion]);
 
   if (label) {
     return (

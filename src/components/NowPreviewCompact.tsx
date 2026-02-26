@@ -34,7 +34,7 @@ const QUADRANTS: {
   { label: 'Researching', field: 'researching', color: 'var(--color-terracotta)', colorLight: 'var(--color-terracotta-light)' },
   { label: 'Reading', field: 'reading', color: 'var(--color-teal)', colorLight: 'var(--color-teal-light)' },
   { label: 'Building', field: 'building', color: 'var(--color-gold)', colorLight: 'var(--color-gold-light)' },
-  { label: 'Listening to', field: 'listening', color: 'var(--color-success)', colorLight: '#7A9A6A' },
+  { label: 'Listening to', field: 'listening', color: 'var(--color-success)', colorLight: 'var(--color-success-light)' },
 ];
 
 interface NowPreviewCompactProps {
@@ -54,7 +54,7 @@ export default function NowPreviewCompact({ inverted = false }: NowPreviewCompac
   if (!data) return null;
 
   const borderColor = inverted
-    ? 'rgba(240, 235, 228, 0.15)'
+    ? 'color-mix(in srgb, var(--color-hero-text) 15%, transparent)'
     : undefined;
 
   const headerColor = inverted

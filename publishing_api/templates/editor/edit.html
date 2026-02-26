@@ -413,6 +413,17 @@ document.querySelectorAll('.field-json').forEach(function(field) {
     });
 });
 
+// Composition widget: toggle fragments section based on heroStyle
+document.querySelectorAll('[data-composition-toggle]').forEach(function(sel) {
+    sel.addEventListener('change', function() {
+        var wrapper = sel.closest('.composition-widget');
+        if (!wrapper) return;
+        var section = wrapper.querySelector('[data-composition-section="collage"]');
+        if (!section) return;
+        section.style.display = sel.value === 'collage' ? '' : 'none';
+    });
+});
+
 // Handle publish button response (safe DOM construction, no innerHTML)
 function handlePublishResponse(event) {
     var toast = document.getElementById('publish-toast');

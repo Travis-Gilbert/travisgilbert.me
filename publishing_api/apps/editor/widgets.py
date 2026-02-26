@@ -180,6 +180,17 @@ FOOTER_LINKS_SCHEMA = [
     {"name": "url", "type": "text", "label": "URL", "placeholder": "https://..."},
 ]
 
+COLLAGE_FRAGMENTS_SCHEMA = [
+    {"name": "src", "type": "text", "label": "Image Path", "placeholder": "/collage/filename.png"},
+    {"name": "alt", "type": "text", "label": "Alt Text", "placeholder": "Description of image"},
+    {"name": "width", "type": "number", "label": "Width", "placeholder": "280"},
+    {"name": "height", "type": "number", "label": "Height", "placeholder": "280"},
+    {"name": "left", "type": "text", "label": "Left Position", "placeholder": "48%"},
+    {"name": "top", "type": "number", "label": "Top Offset", "placeholder": "-10"},
+    {"name": "rotate", "type": "number", "label": "Rotation (deg)", "placeholder": "-2"},
+    {"name": "z", "type": "number", "label": "Z-Index", "placeholder": "2"},
+]
+
 
 class StructuredListWidget(forms.Widget):
     """
@@ -335,3 +346,133 @@ class StructuredListWidget(forms.Widget):
             index += 1
 
         return json.dumps(items)
+
+
+# ---------------------------------------------------------------------------
+# CompositionWidget: heroStyle selector + conditional fragments editor
+# ---------------------------------------------------------------------------
+
+HERO_STYLE_CHOICES = [
+    ("", "(none)"),
+    ("collage", "Collage"),
+    ("full", "Full bleed"),
+    ("compact", "Compact"),
+]
+
+
+class CompositionWidget(forms.Widget):
+    """
+    Composite widget for the composition JSONField.
+
+    Renders a heroStyle dropdown plus a StructuredListWidget for collage
+    fragments (shown only when heroStyle is "collage"). Assembles the
+    full composition object on submit.
+
+    Stored JSON shape:
+        {
+            "heroStyle": "collage",
+            "fragments": [{ src, alt, width, height, left, top, rotate, z }]
+        }
+
+    For non-collage hero styles, only heroStyle is stored.
+    Extra keys already in the composition dict are preserved on round-trip.
+    """
+
+    def __init__(self, attrs=None):
+        self._fragments_widget = StructuredListWidget(
+            fields_schema=COLLAGE_FRAGMENTS_SCHEMA
+        )
+        super().__init__(attrs=attrs or {})
+
+    def render(self, name, value, attrs=None, renderer=None):
+        comp = self._parse_value(value)
+        hero_style = comp.get("heroStyle", "")
+        fragments = comp.get("fragments", [])
+
+        widget_id = attrs.get("id", name) if attrs else name
+
+        parts = [f'<div class="composition-widget" id="{escape(widget_id)}-wrapper">']
+
+        # heroStyle dropdown
+        parts.append('<div class="field-group">')
+        parts.append(f'<label for="{escape(widget_id)}-heroStyle">Hero Style</label>')
+        parts.append(
+            f'<select name="{escape(name)}__heroStyle" '
+            f'id="{escape(widget_id)}-heroStyle" class="field-meta" '
+            f'data-composition-toggle>'
+        )
+        for val, label in HERO_STYLE_CHOICES:
+            selected = " selected" if val == hero_style else ""
+            parts.append(
+                f'<option value="{escape(val)}"{selected}>{escape(label)}</option>'
+            )
+        parts.append("</select>")
+        parts.append("</div>")
+
+        # Fragments editor (visible only when heroStyle == "collage")
+        display = "" if hero_style == "collage" else ' style="display:none"'
+        parts.append(
+            f'<div class="composition-fragments" '
+            f'data-composition-section="collage"{display}>'
+        )
+        parts.append('<span class="field-section-label">Collage Fragments</span>')
+        frag_html = self._fragments_widget.render(
+            f"{name}__fragments",
+            json.dumps(fragments) if fragments else "[]",
+            attrs={"id": f"{widget_id}-fragments"},
+        )
+        parts.append(frag_html)
+        parts.append("</div>")
+
+        # Preserve extra keys as a hidden JSON field
+        extra = {k: v for k, v in comp.items() if k not in ("heroStyle", "fragments")}
+        parts.append(
+            f'<input type="hidden" name="{escape(name)}__extra" '
+            f'value="{escape(json.dumps(extra))}">'
+        )
+
+        parts.append("</div>")
+        return mark_safe("\n".join(parts))
+
+    def value_from_datadict(self, data, files, name):
+        """Reassemble the composition object from POST data."""
+        hero_style = data.get(f"{name}__heroStyle", "")
+
+        # Get fragments from the nested StructuredListWidget
+        fragments_json = self._fragments_widget.value_from_datadict(
+            data, files, f"{name}__fragments"
+        )
+        try:
+            fragments = json.loads(fragments_json)
+        except (json.JSONDecodeError, TypeError):
+            fragments = []
+
+        # Restore extra keys
+        extra_raw = data.get(f"{name}__extra", "{}")
+        try:
+            extra = json.loads(extra_raw)
+        except (json.JSONDecodeError, TypeError):
+            extra = {}
+
+        comp = dict(extra)
+        if hero_style:
+            comp["heroStyle"] = hero_style
+        if hero_style == "collage" and fragments:
+            comp["fragments"] = fragments
+
+        if not comp:
+            return "{}"
+        return json.dumps(comp)
+
+    def _parse_value(self, value):
+        if value is None:
+            return {}
+        if isinstance(value, str):
+            try:
+                parsed = json.loads(value)
+                return parsed if isinstance(parsed, dict) else {}
+            except (json.JSONDecodeError, TypeError):
+                return {}
+        if isinstance(value, dict):
+            return value
+        return {}

@@ -2,16 +2,10 @@
 
 import { useRef, useEffect, type ReactNode } from 'react';
 import rough from 'roughjs';
+import { useThemeVersion, readCssVar, TINT_CSS_VAR, TINT_CSS_REF } from '@/hooks/useThemeColor';
 
 type CalloutSide = 'left' | 'right';
 type CalloutTint = 'terracotta' | 'teal' | 'gold' | 'neutral';
-
-const tintColor: Record<CalloutTint, string> = {
-  terracotta: '#B45A2D',
-  teal: '#2D5F6B',
-  gold: '#C49A4A',
-  neutral: '#3A3632',
-};
 
 interface RoughCalloutProps {
   children: ReactNode;
@@ -42,12 +36,18 @@ export default function RoughCallout({
   lineLength = 48,
   seed,
 }: RoughCalloutProps) {
+  const themeVersion = useThemeVersion();
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const color = tintColor[tint];
+  // CSS variable reference for inline text styles (auto-updates with theme)
+  const textColor = TINT_CSS_REF[tint] ?? 'var(--color-rough)';
 
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
+
+    // Resolve actual hex for canvas drawing (theme-aware)
+    const canvasColor =
+      (readCssVar(TINT_CSS_VAR[tint] ?? '') || '#3A3632');
 
     const dpr = window.devicePixelRatio || 1;
     // Canvas draws a short horizontal line
@@ -72,11 +72,11 @@ export default function RoughCallout({
     rc.line(0, midY, w, midY, {
       roughness: 1.5,
       strokeWidth: 0.8,
-      stroke: color,
+      stroke: canvasColor,
       bowing: 0.5,
       seed,
     });
-  }, [lineLength, color, seed]);
+  }, [lineLength, tint, seed, themeVersion]);
 
   // Positioning for desktop: float outside the card in the margin
   const sideClasses =
@@ -106,7 +106,7 @@ export default function RoughCallout({
               className="max-w-[450px] pl-1 text-[15px] leading-snug select-none"
               style={{
                 fontFamily: 'var(--font-annotation)',
-                color,
+                color: textColor,
               }}
             >
               {children}
@@ -118,7 +118,7 @@ export default function RoughCallout({
               className="max-w-[450px] pr-1 text-right text-[15px] leading-snug select-none"
               style={{
                 fontFamily: 'var(--font-annotation)',
-                color,
+                color: textColor,
               }}
             >
               {children}
@@ -137,7 +137,7 @@ export default function RoughCallout({
         className="lg:hidden mt-2 text-[14px] leading-snug select-none"
         style={{
           fontFamily: 'var(--font-handwritten)',
-          color,
+          color: textColor,
         }}
       >
         {children}

@@ -18,6 +18,7 @@ from apps.editor.widgets import (
     FOOTER_LINKS_SCHEMA,
     SOURCES_SCHEMA,
     URLS_SCHEMA,
+    CompositionWidget,
     JsonObjectListWidget,
     SlugListWidget,
     StructuredListWidget,
@@ -90,10 +91,7 @@ class EssayForm(forms.ModelForm):
                 "placeholder": "Callout text. Use [link text](url) for hyperlinks.",
             }),
             "stage": forms.Select(attrs={"class": "field-meta"}),
-            "composition": JsonObjectListWidget(
-                attrs={"rows": 3},
-                placeholder_hint='{\n  "heroStyle": "full",\n  "accent": "terracotta"\n}',
-            ),
+            "composition": CompositionWidget(),
             # JSON fields with structured widgets
             "tags": TagsWidget(),
             "sources": StructuredListWidget(fields_schema=SOURCES_SCHEMA),

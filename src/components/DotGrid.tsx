@@ -8,6 +8,7 @@
 // positions across redraws.
 
 import { useEffect, useRef, useCallback } from 'react';
+import { useThemeVersion, readCssVar, hexToRgb } from '@/hooks/useThemeColor';
 
 interface DotGridProps {
   dotRadius?: number;
@@ -50,6 +51,7 @@ export default function DotGrid({
   repulsionStrength = 5,
   binaryDensity = 0.12,
 }: DotGridProps) {
+  const themeVersion = useThemeVersion();
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const animRef = useRef<number>(0);
   const mouseRef = useRef({ x: -9999, y: -9999, active: false });
@@ -149,6 +151,8 @@ export default function DotGrid({
     // Binary text font (set once, reused)
     const binaryFont = '7px monospace';
 
+    let resizeRaf = 0;
+
     function resize() {
       const dpr = window.devicePixelRatio || 1;
       w = window.innerWidth;
@@ -162,10 +166,19 @@ export default function DotGrid({
       drawStatic();
     }
 
+    function debouncedResize() {
+      cancelAnimationFrame(resizeRaf);
+      resizeRaf = requestAnimationFrame(resize);
+    }
+
+    // Resolve dot color from CSS (theme-aware), fall back to prop
+    const resolvedHex = readCssVar('--color-rough-light');
+    const rgb = resolvedHex ? hexToRgb(resolvedHex) : dotColor;
+
     function drawDot(x: number, y: number, alpha: number, dotKind: number) {
-      const r = dotColor[0];
-      const g = dotColor[1];
-      const b = dotColor[2];
+      const r = rgb[0];
+      const g = rgb[1];
+      const b = rgb[2];
       ctx!.fillStyle = `rgba(${r},${g},${b},${alpha})`;
 
       if (dotKind === 0) {
@@ -277,18 +290,19 @@ export default function DotGrid({
     if (!isTouchOnly) {
       window.addEventListener('mousemove', onMouseMove, { passive: true });
     }
-    window.addEventListener('resize', resize);
+    window.addEventListener('resize', debouncedResize);
     document.addEventListener('mouseleave', onMouseLeave);
 
     return () => {
       cancelAnimationFrame(animRef.current);
+      cancelAnimationFrame(resizeRaf);
       if (!isTouchOnly) {
         window.removeEventListener('mousemove', onMouseMove);
       }
-      window.removeEventListener('resize', resize);
+      window.removeEventListener('resize', debouncedResize);
       document.removeEventListener('mouseleave', onMouseLeave);
     };
-  }, [dotRadius, spacing, dotColor, dotOpacity, stiffness, damping, influenceRadius, repulsionStrength, initDots]);
+  }, [dotRadius, spacing, dotColor, dotOpacity, stiffness, damping, influenceRadius, repulsionStrength, initDots, themeVersion]);
 
   return (
     <canvas

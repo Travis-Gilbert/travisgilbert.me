@@ -21,8 +21,8 @@ interface ProjectColumnEntry {
 
 interface RoleConfig {
   label: string;
-  hex: string;
-  rgb: string;
+  /** CSS custom property name (e.g., '--color-teal') */
+  cssVar: string;
   description: string;
 }
 
@@ -32,39 +32,39 @@ interface ProjectColumnsProps {
 
 // ─────────────────────────────────────────────────
 // Role configuration
+//
+// Colors reference CSS custom properties so they
+// automatically adapt to light/dark mode. The
+// component uses color-mix() for translucent
+// backgrounds and borders.
 // ─────────────────────────────────────────────────
 
 const ROLE_CONFIG: Record<string, RoleConfig> = {
   'built-&-designed': {
     label: 'Built & Designed',
-    hex: '#2D5F6B',
-    rgb: '45, 95, 107',
+    cssVar: '--color-teal',
     description: 'Streamlining operations with technology',
   },
   'project-managed': {
     label: 'Project Managed',
-    hex: '#B45A2D',
-    rgb: '180, 90, 45',
+    cssVar: '--color-terracotta',
     description: 'Multi-stakeholder coordination',
   },
   organized: {
     label: 'Organized',
-    hex: '#C49A4A',
-    rgb: '196, 154, 74',
+    cssVar: '--color-gold',
     description: 'Events, conferences, community',
   },
   created: {
     label: 'Created',
-    hex: '#5A7A4A',
-    rgb: '90, 122, 74',
+    cssVar: '--color-success',
     description: 'Original content and media',
   },
 };
 
 const FALLBACK_ROLE: RoleConfig = {
   label: 'Other',
-  hex: '#6A5E52',
-  rgb: '106, 94, 82',
+  cssVar: '--color-ink-muted',
   description: '',
 };
 
@@ -91,6 +91,11 @@ function formatDisplayDate(isoDate: string): string {
   return `${MONTHS[d.getUTCMonth()]} ${d.getUTCFullYear()}`;
 }
 
+/** Shorthand: produce color-mix with a CSS variable and percentage */
+function mix(cssVar: string, pct: number): string {
+  return `color-mix(in srgb, var(${cssVar}) ${pct}%, transparent)`;
+}
+
 // ─────────────────────────────────────────────────
 // ProjectCard
 // ─────────────────────────────────────────────────
@@ -109,9 +114,9 @@ function ProjectCard({
   const [hovered, setHovered] = useState(false);
 
   // Three visual states using role color
-  const bgOpacity = expanded ? 0.1 : hovered ? 0.09 : 0.055;
-  const borderOpacity = expanded ? 0.35 : hovered ? 0.25 : 0;
-  const shadowOpacity = expanded ? 0.08 : hovered ? 0.05 : 0.02;
+  const bgPct = expanded ? 10 : hovered ? 9 : 5.5;
+  const borderPct = expanded ? 35 : hovered ? 25 : 0;
+  const shadowAlpha = expanded ? 0.08 : hovered ? 0.05 : 0.02;
 
   return (
     <div
@@ -129,11 +134,11 @@ function ProjectCard({
       onMouseLeave={() => setHovered(false)}
       className="rounded-lg cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-current"
       style={{
-        background: `rgba(${role.rgb}, ${bgOpacity})`,
-        border: `1px solid rgba(${role.rgb}, ${borderOpacity})`,
+        background: mix(role.cssVar, bgPct),
+        border: `1px solid ${borderPct > 0 ? mix(role.cssVar, borderPct) : 'transparent'}`,
         padding: '16px 18px',
         transition: 'all 0.25s ease',
-        boxShadow: `0 1px 4px rgba(42, 36, 32, ${shadowOpacity})`,
+        boxShadow: `0 1px 4px rgba(0, 0, 0, ${shadowAlpha})`,
         color: 'inherit',
       }}
     >
@@ -171,7 +176,7 @@ function ProjectCard({
       >
         <div
           className="mt-3.5 pt-3.5"
-          style={{ borderTop: `1px dashed rgba(${role.rgb}, 0.2)` }}
+          style={{ borderTop: `1px dashed ${mix(role.cssVar, 20)}` }}
         >
           <p className="font-body text-sm leading-relaxed text-ink-secondary m-0 mb-3">
             {project.description}
@@ -188,8 +193,8 @@ function ProjectCard({
                   key={tag}
                   className="font-mono text-[9px] uppercase tracking-[0.1em] text-ink-secondary rounded px-2 py-0.5"
                   style={{
-                    border: `1px solid rgba(${role.rgb}, 0.2)`,
-                    background: `rgba(${role.rgb}, 0.04)`,
+                    border: `1px solid ${mix(role.cssVar, 20)}`,
+                    background: mix(role.cssVar, 4),
                   }}
                 >
                   {tag}
@@ -209,7 +214,7 @@ function ProjectCard({
                   rel="noopener noreferrer"
                   onClick={(e) => e.stopPropagation()}
                   className="inline-flex items-center gap-1 font-body text-[13px] no-underline hover:opacity-80 transition-opacity"
-                  style={{ color: role.hex }}
+                  style={{ color: `var(${role.cssVar})` }}
                 >
                   {link.label}
                   <ArrowSquareOut size={12} weight="thin" />
@@ -246,14 +251,14 @@ function RoleColumn({
   return (
     <div className="min-w-0">
       {/* Role header */}
-      <div className="mb-6 pb-4" style={{ borderBottom: '2px solid rgba(58, 54, 50, 0.25)' }}>
+      <div className="mb-6 pb-4 border-b-2 border-border">
         <div className="flex items-center gap-2.5 mb-1.5">
           <span
             className="block flex-shrink-0 rounded-full"
             style={{
               width: 10,
               height: 10,
-              backgroundColor: role.hex,
+              backgroundColor: `var(${role.cssVar})`,
             }}
           />
           <span className="font-mono text-base md:text-lg font-bold uppercase tracking-[0.08em] text-ink">
@@ -275,7 +280,7 @@ function RoleColumn({
           style={{
             left: 3,
             width: 1,
-            background: `linear-gradient(to bottom, rgba(${role.rgb}, 0.25), rgba(${role.rgb}, 0.05))`,
+            background: `linear-gradient(to bottom, ${mix(role.cssVar, 25)}, ${mix(role.cssVar, 5)})`,
           }}
         />
 
@@ -290,7 +295,7 @@ function RoleColumn({
                   top: 22,
                   width: 5,
                   height: 5,
-                  backgroundColor: role.hex,
+                  backgroundColor: `var(${role.cssVar})`,
                   opacity: 0.4,
                   transform: 'translateX(1px)',
                 }}

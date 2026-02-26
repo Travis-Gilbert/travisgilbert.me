@@ -63,6 +63,7 @@ from apps.editor.forms import (
     SiteSettingsForm,
     ToolkitEntryForm,
 )
+from apps.publisher.github import publish_binary_file
 from apps.publisher.publish import (
     delete_content,
     publish_essay,
@@ -875,3 +876,84 @@ class AutoSaveView(LoginRequiredMixin, View):
             form.save()
             return JsonResponse({"saved": True})
         return JsonResponse({"saved": False, "errors": form.errors}, status=400)
+
+
+# ---------------------------------------------------------------------------
+# Collage image upload
+# ---------------------------------------------------------------------------
+
+# 500 KB limit for collage fragment PNGs
+MAX_COLLAGE_UPLOAD_BYTES = 500 * 1024
+
+ALLOWED_IMAGE_TYPES = {
+    "image/png": ".png",
+    "image/jpeg": ".jpg",
+    "image/webp": ".webp",
+}
+
+
+class UploadCollageImageView(LoginRequiredMixin, View):
+    """
+    POST-only: upload a collage fragment image to public/collage/ via GitHub.
+
+    Accepts multipart form data with a single file field named "image".
+    Validates file type (PNG, JPEG, WebP) and size (max 500KB).
+    Commits the file to public/collage/{sanitized_name} in the repo.
+    Returns JSON with the path for the composition form to reference.
+    """
+
+    def post(self, request):
+        import re
+
+        uploaded = request.FILES.get("image")
+        if not uploaded:
+            return JsonResponse({"error": "No image file provided."}, status=400)
+
+        # Validate content type
+        content_type = uploaded.content_type
+        if content_type not in ALLOWED_IMAGE_TYPES:
+            allowed = ", ".join(ALLOWED_IMAGE_TYPES.keys())
+            return JsonResponse(
+                {"error": f"Invalid file type: {content_type}. Allowed: {allowed}"},
+                status=400,
+            )
+
+        # Validate size
+        if uploaded.size > MAX_COLLAGE_UPLOAD_BYTES:
+            limit_kb = MAX_COLLAGE_UPLOAD_BYTES // 1024
+            return JsonResponse(
+                {"error": f"File too large ({uploaded.size} bytes). Max: {limit_kb}KB."},
+                status=400,
+            )
+
+        # Sanitize filename: lowercase, alphanumeric + hyphens only, force correct extension
+        base_name = uploaded.name.rsplit(".", 1)[0] if "." in uploaded.name else uploaded.name
+        safe_name = re.sub(r"[^a-z0-9]+", "-", base_name.lower()).strip("-")
+        if not safe_name:
+            safe_name = "fragment"
+        ext = ALLOWED_IMAGE_TYPES[content_type]
+        filename = f"{safe_name}{ext}"
+
+        # Read all bytes
+        raw_bytes = uploaded.read()
+
+        # Commit to repo
+        repo_path = f"public/collage/{filename}"
+        result = publish_binary_file(
+            file_path=repo_path,
+            content_bytes=raw_bytes,
+            commit_message=f"feat(collage): upload {filename}",
+        )
+
+        if result["success"]:
+            return JsonResponse({
+                "success": True,
+                "path": f"/collage/{filename}",
+                "repo_path": repo_path,
+                "commit_sha": result["commit_sha"],
+            })
+
+        return JsonResponse(
+            {"success": False, "error": result.get("error", "Upload failed.")},
+            status=500,
+        )

@@ -7,6 +7,9 @@
  * annotations), Caveat handwritten font, slight deterministic rotation,
  * tape artifact at the top. Flagged notes turn red.
  *
+ * Colors use CSS custom properties via color-mix() so they automatically
+ * adapt to dark mode (lifted gold/error tokens).
+ *
  * Rotation is derived from the comment UUID so it is stable across renders
  * and avoids React hydration mismatches (Math.random() would differ between
  * server and client).
@@ -37,12 +40,14 @@ export default function StickyNote({ comment, onFlag }: StickyNoteProps) {
   });
 
   const bgColor = comment.is_flagged
-    ? 'rgba(164, 74, 58, 0.12)'
-    : 'rgba(196, 154, 74, 0.10)';
+    ? 'color-mix(in srgb, var(--color-error) 12%, transparent)'
+    : 'color-mix(in srgb, var(--color-gold) 10%, transparent)';
   const borderColor = comment.is_flagged
-    ? 'rgba(164, 74, 58, 0.30)'
-    : 'rgba(196, 154, 74, 0.25)';
-  const tapeColor = comment.is_flagged ? '#A44A3A' : '#C49A4A';
+    ? 'color-mix(in srgb, var(--color-error) 30%, transparent)'
+    : 'color-mix(in srgb, var(--color-gold) 25%, transparent)';
+  const tapeColor = comment.is_flagged
+    ? 'var(--color-error)'
+    : 'var(--color-gold)';
 
   return (
     <div
