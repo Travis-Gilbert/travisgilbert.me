@@ -3,9 +3,12 @@ Services for the Sourcebox intake pipeline.
 
 scrape_og_metadata: Fetch a URL and extract Open Graph metadata.
 promote_to_research: Push an accepted RawSource to research_api as a Source.
+scrape_og_async: Scrape OG metadata for a RawSource and update the record.
+start_scrape_thread: Fire and forget OG scraping in a background thread.
 """
 
 import logging
+import threading
 
 import httpx
 from bs4 import BeautifulSoup
@@ -148,3 +151,50 @@ def promote_to_research(raw_source) -> dict:
         response.text[:500],
     )
     return {"error": f"API returned {response.status_code}"}
+
+
+# ---------------------------------------------------------------------------
+# Async OG scraping: background thread for card creation
+# ---------------------------------------------------------------------------
+
+
+def scrape_og_async(source_pk: int) -> None:
+    """
+    Scrape OG metadata for a RawSource and update the record.
+
+    Designed to run in a background thread. Updates scrape_status
+    to 'complete' on success or 'failed' on exception.
+    """
+    from apps.intake.models import RawSource
+
+    try:
+        source = RawSource.objects.get(pk=source_pk)
+    except RawSource.DoesNotExist:
+        logger.warning("scrape_og_async: RawSource %s not found", source_pk)
+        return
+
+    try:
+        og = scrape_og_metadata(source.url)
+        source.og_title = og["title"][:500]
+        source.og_description = og["description"]
+        source.og_image = og["image"][:2000]
+        source.og_site_name = og["site_name"][:300]
+        source.scrape_status = RawSource.ScrapeStatus.COMPLETE
+        source.save(update_fields=[
+            "og_title", "og_description", "og_image", "og_site_name", "scrape_status",
+        ])
+    except Exception as exc:
+        logger.error("scrape_og_async failed for RawSource %s: %s", source_pk, exc)
+        RawSource.objects.filter(pk=source_pk).update(
+            scrape_status=RawSource.ScrapeStatus.FAILED
+        )
+
+
+def start_scrape_thread(source_pk: int) -> None:
+    """Fire and forget OG scraping in a background thread."""
+    thread = threading.Thread(
+        target=scrape_og_async,
+        args=(source_pk,),
+        daemon=True,
+    )
+    thread.start()
