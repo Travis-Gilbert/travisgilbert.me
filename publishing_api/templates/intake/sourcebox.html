@@ -1,8 +1,271 @@
 {% extends "base.html" %}
+
 {% block title %}Sourcebox{% endblock %}
+
+{% block head %}
+<style>
+  /* Shimmer animation for loading cards */
+  @keyframes shimmer {
+    0% { background-position: -200px 0; }
+    100% { background-position: 200px 0; }
+  }
+  .shimmer {
+    background: linear-gradient(90deg, transparent 25%, rgba(180,90,45,0.06) 50%, transparent 75%);
+    background-size: 400px 100%;
+    animation: shimmer 1.8s infinite;
+  }
+  /* Detail panel slide-in */
+  #detail-backdrop { transition: opacity 300ms ease; }
+  #detail-panel {
+    transition: transform 300ms ease;
+    transform: translateX(100%);
+  }
+  #detail-panel.open { transform: translateX(0); }
+
+  /* Sortable ghost styling */
+  .sortable-ghost { opacity: 0.4; }
+  .sortable-drag { box-shadow: 0 8px 24px rgba(0,0,0,0.15); }
+</style>
+{% endblock %}
+
 {% block content %}
-<h1>Sourcebox</h1>
-<div id="inbox-column"><h2>Inbox</h2></div>
-<div id="review-column"><h2>Review</h2></div>
-<div id="decided-column"><h2>Decided</h2></div>
+
+{# ------------------------------------------------------------------ #}
+{# Unified Capture Bar                                                 #}
+{# ------------------------------------------------------------------ #}
+<section class="mb-8">
+  <c-section_label color="terracotta">Sourcebox</c-section_label>
+  <p class="font-mono text-[12px] tracking-wide text-ink-muted mt-1 mb-4">
+    Paste URLs, drop files, or click to upload. Sources flow through Inbox, Review, and Decided.
+  </p>
+
+  <form
+    id="capture-form"
+    hx-post="{% url 'intake:sourcebox-add' %}"
+    hx-target="#inbox-column"
+    hx-swap="afterbegin"
+    hx-on::after-request="if(event.detail.successful) this.reset()"
+    hx-encoding="multipart/form-data"
+  >
+    {% csrf_token %}
+    <div class="relative">
+      {{ capture_form.urls }}
+
+      {# Hidden file input for drag-and-drop and click-to-browse #}
+      <input
+        type="file"
+        name="source_file"
+        id="file-input"
+        class="hidden"
+        accept=".pdf,.doc,.docx,.txt,.png,.jpg,.jpeg,.gif"
+      >
+
+      {# Upload button (right edge) #}
+      <button
+        type="button"
+        onclick="document.getElementById('file-input').click()"
+        class="absolute right-3 top-1/2 -translate-y-1/2
+               p-1.5 rounded-brand text-ink-muted hover:text-terracotta
+               transition-colors duration-150"
+        title="Upload a file"
+      >
+        <c-icon name="plus" size="18" color="currentColor" />
+      </button>
+    </div>
+
+    {# Drop zone overlay (shown on dragenter) #}
+    <div
+      id="drop-zone"
+      class="hidden mt-2 border-2 border-dashed border-terracotta/30 rounded-brand
+             p-6 text-center font-mono text-[12px] text-terracotta/60"
+    >
+      Drop files here
+    </div>
+  </form>
+</section>
+
+{# ------------------------------------------------------------------ #}
+{# Kanban Board: three columns                                        #}
+{# ------------------------------------------------------------------ #}
+<div class="grid grid-cols-3 gap-4 items-start">
+
+  {# INBOX column #}
+  <div>
+    <div class="flex items-center justify-between mb-3">
+      <c-section_label color="ink">Inbox</c-section_label>
+      <span class="font-mono text-[10px] text-ink-muted">{{ inbox_sources|length }}</span>
+    </div>
+    <div
+      id="inbox-column"
+      class="space-y-3 min-h-[200px] p-2 rounded-brand bg-parchment-alt/30"
+      data-phase="inbox"
+    >
+      {% for source in inbox_sources %}
+        {% include "intake/partials/inbox_card.html" with source=source %}
+      {% empty %}
+        <p class="text-center font-mono text-[11px] text-ink-muted py-8">
+          No sources in inbox
+        </p>
+      {% endfor %}
+    </div>
+  </div>
+
+  {# REVIEW column #}
+  <div>
+    <div class="flex items-center justify-between mb-3">
+      <c-section_label color="terracotta">Review</c-section_label>
+      <span class="font-mono text-[10px] text-ink-muted">{{ review_sources|length }}</span>
+    </div>
+    <div
+      id="review-column"
+      class="space-y-3 min-h-[200px] p-2 rounded-brand bg-terracotta/[0.03]"
+      data-phase="review"
+    >
+      {% for source in review_sources %}
+        {% include "intake/partials/review_card.html" with source=source %}
+      {% empty %}
+        <p class="text-center font-mono text-[11px] text-ink-muted py-8">
+          Drag cards here to review
+        </p>
+      {% endfor %}
+    </div>
+  </div>
+
+  {# DECIDED column #}
+  <div>
+    <div class="flex items-center justify-between mb-3">
+      <c-section_label color="ink">Decided</c-section_label>
+      <span class="font-mono text-[10px] text-ink-muted">{{ decided_sources|length }}</span>
+    </div>
+    <div
+      id="decided-column"
+      class="space-y-3 min-h-[200px] p-2 rounded-brand bg-parchment-alt/20"
+      data-phase="decided"
+    >
+      {% for source in decided_sources %}
+        {% include "intake/partials/decided_card.html" with source=source %}
+      {% empty %}
+        <p class="text-center font-mono text-[11px] text-ink-muted py-8">
+          No decisions yet
+        </p>
+      {% endfor %}
+    </div>
+  </div>
+</div>
+
+{# ------------------------------------------------------------------ #}
+{# Detail Panel (right slide-out, populated via HTMX)                 #}
+{# ------------------------------------------------------------------ #}
+<div
+  id="detail-backdrop"
+  class="fixed inset-0 bg-ink/20 z-40 opacity-0 pointer-events-none"
+  onclick="closeDetailPanel()"
+></div>
+<div
+  id="detail-panel"
+  class="fixed top-0 right-0 bottom-0 w-[40vw] min-w-[380px] max-w-[600px]
+         bg-cream border-l border-border shadow-warm z-50 overflow-y-auto"
+>
+  <div id="detail-content" class="p-6">
+    {# Loaded via HTMX from SourceboxDetailView #}
+  </div>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.6/Sortable.min.js"></script>
+<script>
+(function() {
+  // ---- Detail panel open/close ----
+  window.openDetailPanel = function(pk) {
+    var panel = document.getElementById('detail-panel');
+    var backdrop = document.getElementById('detail-backdrop');
+
+    // Load content via HTMX
+    htmx.ajax('GET', '/sourcebox/detail/' + pk + '/', {target: '#detail-content', swap: 'innerHTML'});
+
+    panel.classList.add('open');
+    backdrop.style.opacity = '1';
+    backdrop.style.pointerEvents = 'auto';
+  };
+
+  window.closeDetailPanel = function() {
+    var panel = document.getElementById('detail-panel');
+    var backdrop = document.getElementById('detail-backdrop');
+    panel.classList.remove('open');
+    backdrop.style.opacity = '0';
+    backdrop.style.pointerEvents = 'none';
+  };
+
+  // Close on Escape
+  document.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape') closeDetailPanel();
+  });
+
+  // ---- Drag and drop file handling ----
+  var captureForm = document.getElementById('capture-form');
+  var dropZone = document.getElementById('drop-zone');
+  var fileInput = document.getElementById('file-input');
+
+  if (captureForm) {
+    captureForm.addEventListener('dragenter', function(e) {
+      e.preventDefault();
+      dropZone.classList.remove('hidden');
+    });
+    captureForm.addEventListener('dragleave', function(e) {
+      if (!captureForm.contains(e.relatedTarget)) {
+        dropZone.classList.add('hidden');
+      }
+    });
+    captureForm.addEventListener('dragover', function(e) {
+      e.preventDefault();
+    });
+    captureForm.addEventListener('drop', function(e) {
+      e.preventDefault();
+      dropZone.classList.add('hidden');
+      if (e.dataTransfer.files.length) {
+        fileInput.files = e.dataTransfer.files;
+        htmx.trigger(captureForm, 'submit');
+      }
+    });
+  }
+
+  if (fileInput) {
+    fileInput.addEventListener('change', function() {
+      if (fileInput.files.length) {
+        htmx.trigger(captureForm, 'submit');
+      }
+    });
+  }
+
+  // ---- Sortable.js for kanban columns ----
+  var columns = ['inbox-column', 'review-column', 'decided-column'];
+  columns.forEach(function(colId) {
+    var el = document.getElementById(colId);
+    if (!el) return;
+    new Sortable(el, {
+      group: 'sourcebox',
+      animation: 150,
+      ghostClass: 'sortable-ghost',
+      dragClass: 'sortable-drag',
+      onEnd: function(evt) {
+        var cardEl = evt.item;
+        var targetPhase = evt.to.dataset.phase;
+        var sourceId = cardEl.id.replace('source-', '');
+
+        // POST the move to server
+        htmx.ajax('POST', '/sourcebox/move/', {
+          values: {
+            source_id: sourceId,
+            phase: targetPhase,
+          },
+          target: cardEl,
+          swap: 'outerHTML',
+        });
+      },
+    });
+  });
+})();
+</script>
 {% endblock %}
