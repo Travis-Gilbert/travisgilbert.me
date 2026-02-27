@@ -3,7 +3,7 @@
 import { useRef, useEffect, useState, useCallback } from 'react';
 import { X } from '@phosphor-icons/react';
 import rough from 'roughjs';
-import { readCssVar, hexToRgb as hexToRgbUtil, useThemeVersion } from '@/hooks/useThemeColor';
+// Dark terminal theme: colors hardcoded, no theme-awareness needed
 
 //  SOURCE GRAPH EASTER EGG: FIG. 3
 //  Connection Engine / Backend Architecture Schematic
@@ -22,17 +22,17 @@ function mulberry32(seed: number): () => number {
   };
 }
 
-// SVG color tokens (hardcoded hex for SVG attributes)
+// SVG color tokens (terminal dark theme: bright on dark)
 
 const T = {
-  ink: '#2A2420',
-  inkMuted: '#6A5E52',
-  inkLight: '#9A8E82',
-  terracotta: '#B45A2D',
-  teal: '#2D5F6B',
-  gold: '#C49A4A',
-  border: '#D4CCC4',
-  borderLight: '#E8E0D6',
+  ink: '#D4CCC4',
+  inkMuted: '#8A8680',
+  inkLight: '#5A5652',
+  terracotta: '#E88B5A',
+  teal: '#5CB8C8',
+  gold: '#E8C06A',
+  border: '#3A3A3A',
+  borderLight: '#2E2E2E',
 };
 
 // Rough-style multi-stroke SVG path generator
@@ -333,26 +333,12 @@ export default function SourceGraphEasterEgg() {
   const [reducedMotion, setReducedMotion] = useState(false);
   const borderDrawnRef = useRef(false);
 
-  // Theme-aware canvas colors (read once per theme change, consumed by rAF via ref)
-  const themeVersion = useThemeVersion();
+  // Canvas colors (hardcoded for terminal dark theme)
   const canvasColorsRef = useRef({
-    tealRgb: [45, 95, 107] as [number, number, number],
-    tealHex: '#2D5F6B',
-    roughHex: '#3A3632',
+    tealRgb: [92, 184, 200] as [number, number, number],
+    tealHex: '#5CB8C8',
+    roughHex: '#444444',
   });
-
-  useEffect(() => {
-    const tc = readCssVar('--color-teal');
-    if (tc) {
-      canvasColorsRef.current.tealRgb = hexToRgbUtil(tc);
-      canvasColorsRef.current.tealHex = tc;
-    }
-    const rh = readCssVar('--color-rough');
-    if (rh) canvasColorsRef.current.roughHex = rh;
-    if (phaseRef.current === 'open') {
-      borderDrawnRef.current = false;
-    }
-  }, [themeVersion]);
 
   // Keep phaseRef in sync with state (for rAF loop to read)
   phaseRef.current = phase;
@@ -381,8 +367,8 @@ export default function SourceGraphEasterEgg() {
 
     const dpr = window.devicePixelRatio || 1;
     const parent = canvas.parentElement;
-    const w = parent ? parent.getBoundingClientRect().width : 660;
-    const h = parent ? parent.getBoundingClientRect().height : 680;
+    const w = parent ? parent.getBoundingClientRect().width : 500;
+    const h = parent ? parent.getBoundingClientRect().height : 540;
 
     canvas.width = w * dpr;
     canvas.height = h * dpr;
@@ -415,7 +401,7 @@ export default function SourceGraphEasterEgg() {
     if (phase === 'seed') {
       borderDrawnRef.current = false;
     }
-  }, [phase, drawBorder, themeVersion]);
+  }, [phase, drawBorder]);
 
   // Canvas drawing (seed dots + connecting beziers)
 
@@ -646,8 +632,8 @@ export default function SourceGraphEasterEgg() {
   const isExpanded = phase === 'expanding' || phase === 'open' || phase === 'collapsing';
   const seedW = 56;
   const seedH = 72;
-  const openW = 660;
-  const openH = 680;
+  const openW = 500;
+  const openH = 540;
 
   const wrapperTransition = isTouchDevice || reducedMotion
     ? 'none'
@@ -663,10 +649,10 @@ export default function SourceGraphEasterEgg() {
       onMouseLeave={() => setIsHovered(false)}
       style={{
         position: 'fixed',
-        left: 16,
+        right: '20vw',
         ...(isTouchDevice
           ? { bottom: 16, top: 'auto' }
-          : { top: '50%', transform: 'translateY(-50%)' }),
+          : { top: '80vh' }),
         width: isExpanded ? openW : seedW,
         height: isExpanded ? openH : seedH,
         maxWidth: isExpanded ? 'calc(100vw - 32px)' : undefined,
@@ -675,7 +661,10 @@ export default function SourceGraphEasterEgg() {
         overflow: isExpanded ? 'hidden' : 'visible',
         cursor: phase === 'seed' ? 'pointer' : 'default',
         transition: wrapperTransition,
-        backgroundColor: 'transparent',
+        backgroundColor: isExpanded ? '#1c1c1c' : 'transparent',
+        boxShadow: isExpanded
+          ? '0 4px 24px rgba(0,0,0,0.5), 0 2px 8px rgba(0,0,0,0.3)'
+          : 'none',
         borderRadius: isExpanded ? 2 : 0,
       }}
       role="complementary"
@@ -720,7 +709,7 @@ export default function SourceGraphEasterEgg() {
             top: seedH + 4,
             transform: 'translateX(-50%)',
             fontSize: 10,
-            color: 'var(--color-teal)',
+            color: '#5CB8C8',
             opacity: isTouchDevice ? 0.4 : isHovered ? 0.8 : 0,
             transition: isTouchDevice || reducedMotion ? 'none' : 'opacity 200ms ease',
             whiteSpace: 'nowrap',
@@ -766,7 +755,7 @@ export default function SourceGraphEasterEgg() {
               background: 'none',
               border: 'none',
               cursor: 'pointer',
-              color: 'var(--color-ink-secondary)',
+              color: '#8A8680',
               padding: 4,
               minWidth: 44,
               minHeight: 44,
@@ -788,7 +777,7 @@ export default function SourceGraphEasterEgg() {
               fontSize: 8,
               letterSpacing: '0.16em',
               textTransform: 'uppercase',
-              color: 'var(--color-ink-muted)',
+              color: '#5A5652',
               opacity: 0.6,
               marginBottom: 4,
             }}
@@ -802,7 +791,7 @@ export default function SourceGraphEasterEgg() {
             style={{
               fontSize: 22,
               fontWeight: 700,
-              color: 'var(--color-ink)',
+              color: '#D4CCC4',
               margin: '0 0 2px 0',
               letterSpacing: '-0.02em',
             }}
@@ -815,7 +804,7 @@ export default function SourceGraphEasterEgg() {
             className="font-mono"
             style={{
               fontSize: 9,
-              color: 'var(--color-ink-muted)',
+              color: '#5A5652',
               letterSpacing: '0.1em',
               textTransform: 'uppercase',
               marginBottom: 12,
@@ -827,7 +816,7 @@ export default function SourceGraphEasterEgg() {
           {/* SVG SCHEMATIC */}
           <svg
             viewBox="0 0 660 540"
-            style={{ width: '100%', maxWidth: 660, overflow: 'visible' }}
+            style={{ width: '100%', maxWidth: 500, overflow: 'visible' }}
             aria-label="Backend architecture diagram showing Railway project with draftroom and research_api services"
           >
             {/* RAILWAY PROJECT outer container (dashed) */}
@@ -960,17 +949,17 @@ export default function SourceGraphEasterEgg() {
               fontSize: 10,
               letterSpacing: '0.1em',
               textTransform: 'uppercase',
-              color: 'var(--color-teal)',
+              color: '#5CB8C8',
               textDecoration: 'none',
               padding: '5px 12px',
-              border: '1px solid var(--color-teal)',
+              border: '1px solid #5CB8C8',
               borderRadius: 1,
               transition: 'all 0.2s ease',
               opacity: 0.75,
             }}
             onMouseEnter={(e) => {
               e.currentTarget.style.opacity = '1';
-              e.currentTarget.style.background = 'rgba(45,95,107,0.06)';
+              e.currentTarget.style.background = 'rgba(92,184,200,0.12)';
             }}
             onMouseLeave={(e) => {
               e.currentTarget.style.opacity = '0.75';
@@ -991,7 +980,7 @@ export default function SourceGraphEasterEgg() {
               fontSize: 7,
               letterSpacing: '0.14em',
               textTransform: 'uppercase',
-              color: 'var(--color-ink-muted)',
+              color: '#5A5652',
               opacity: 0.35,
             }}
           >
