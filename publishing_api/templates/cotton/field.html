@@ -1,33 +1,3 @@
-{# templates/cotton/field.html #}
-{#
-  Standalone form field wrapper.
-
-  Use this when rendering individual fields without crispy-forms
-  (e.g. inline HTMX filters, search bars, quick settings).
-
-  Usage:
-    <c-field label="Title" required>
-      <input type="text" name="title" class="studio-input" />
-    </c-field>
-
-    <c-field label="Stage" hint="Current workflow stage">
-      <select name="stage" class="studio-select">
-        <option>drafting</option>
-      </select>
-    </c-field>
-
-    <c-field label="Search" error="No results found">
-      <input type="search" name="q" />
-    </c-field>
-
-  Props:
-    label    (str)  : Field label text
-    hint     (str)  : Help text below the widget
-    error    (str)  : Error message (red accent)
-    required (bool) : Show required asterisk
-    class    (str)  : Additional wrapper classes
-#}
-
 <div class="mb-5 {{ class }}">
   {% if label %}
   <label class="block mb-[6px] font-title text-[15px] font-semibold text-ink">

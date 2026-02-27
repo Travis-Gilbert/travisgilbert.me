@@ -4,180 +4,196 @@
 
 {% block content %}
 {# ------------------------------------------------------------------ #}
-{#  Quick-create row                                                   #}
+{#  Create invitation: full-width tinted card                          #}
 {# ------------------------------------------------------------------ #}
 <section class="mb-8">
-  <c-section_label color="terracotta">Create</c-section_label>
-  <div class="grid grid-cols-5 gap-3 mt-3">
-    {% with card_cls="flex flex-col items-center gap-2 px-4 py-5 bg-cream rounded-brand-lg border border-border shadow-warm-sm hover:shadow-warm hover:-translate-y-0.5 transition-all duration-200 no-underline text-ink" %}
-    <a href="{% url 'editor:essay-create' %}" class="{{ card_cls }}">
-      <span class="text-2xl">&#10022;</span>
-      <span class="font-mono text-[11px] uppercase tracking-wider">Essay</span>
-    </a>
-    <a href="{% url 'editor:field-note-create' %}" class="{{ card_cls }}">
-      <span class="text-2xl">&#9670;</span>
-      <span class="font-mono text-[11px] uppercase tracking-wider">Field Note</span>
-    </a>
-    <a href="{% url 'editor:shelf-create' %}" class="{{ card_cls }}">
-      <span class="text-2xl">&#9673;</span>
-      <span class="font-mono text-[11px] uppercase tracking-wider">Shelf Entry</span>
-    </a>
-    <a href="{% url 'editor:project-create' %}" class="{{ card_cls }}">
-      <span class="text-2xl">&#11042;</span>
-      <span class="font-mono text-[11px] uppercase tracking-wider">Project</span>
-    </a>
-    <a href="{% url 'editor:now-edit' %}" class="{{ card_cls }}">
-      <span class="text-2xl">&#9998;</span>
-      <span class="font-mono text-[11px] uppercase tracking-wider">Now Page</span>
-    </a>
-    {% endwith %}
-  </div>
+  <c-card variant="tint-terracotta">
+    <c-section_label color="terracotta">What are you making?</c-section_label>
+    <div class="flex flex-wrap items-center gap-3 mt-4">
+      <c-btn variant="primary" href="{% url 'editor:essay-create' %}">
+        <c-icon name="file-text" size="16" color="currentColor" /> New Essay
+      </c-btn>
+      <c-btn variant="secondary" href="{% url 'editor:field-note-create' %}">
+        <c-icon name="note-pencil" size="16" /> Field Note
+      </c-btn>
+      <c-btn variant="secondary" href="{% url 'editor:shelf-create' %}">
+        <c-icon name="book-open" size="16" /> Shelf Entry
+      </c-btn>
+      <c-btn variant="secondary" href="{% url 'editor:project-create' %}">
+        <c-icon name="briefcase" size="16" /> Project
+      </c-btn>
+      <c-btn variant="ghost" href="{% url 'editor:now-edit' %}">
+        <c-icon name="clock" size="16" /> Now Page
+      </c-btn>
+    </div>
+  </c-card>
 </section>
 
 {# ------------------------------------------------------------------ #}
-{#  Drafts in progress                                                 #}
+{#  Two-column grid: active work + workbench                           #}
 {# ------------------------------------------------------------------ #}
-<section class="mb-8">
-  <c-section_label color="terracotta">Drafts</c-section_label>
-  <div class="mt-3 space-y-2">
-    {% for essay in essays %}
-      {% if essay.draft %}
-      <a href="{% url 'editor:essay-edit' slug=essay.slug %}"
-         class="flex items-center gap-3 px-4 py-3 bg-cream rounded-brand border border-border
-                shadow-warm-sm hover:shadow-warm hover:-translate-y-0.5
-                transition-all duration-200 no-underline text-ink">
-        <c-badge color="terracotta">Essay</c-badge>
-        <span class="font-body text-[15px] flex-1">{{ essay.title }}</span>
-        <c-stage_pill stage="{{ essay.stage }}" />
-      </a>
-      {% endif %}
-    {% endfor %}
+<div class="grid grid-cols-1 lg:grid-cols-[1fr_340px] gap-6 mb-8">
 
-    {% for note in field_notes %}
-      {% if note.draft %}
-      <a href="{% url 'editor:field-note-edit' slug=note.slug %}"
-         class="flex items-center gap-3 px-4 py-3 bg-cream rounded-brand border border-border
-                shadow-warm-sm hover:shadow-warm hover:-translate-y-0.5
-                transition-all duration-200 no-underline text-ink">
-        <c-badge color="teal">Note</c-badge>
-        <span class="font-body text-[15px] flex-1">{{ note.title }}</span>
-      </a>
-      {% endif %}
-    {% endfor %}
-
-    {% for project in projects %}
-      {% if project.draft %}
-      <a href="{% url 'editor:project-edit' slug=project.slug %}"
-         class="flex items-center gap-3 px-4 py-3 bg-cream rounded-brand border border-border
-                shadow-warm-sm hover:shadow-warm hover:-translate-y-0.5
-                transition-all duration-200 no-underline text-ink">
-        <c-badge color="gold">Project</c-badge>
-        <span class="font-body text-[15px] flex-1">{{ project.title }}</span>
-      </a>
-      {% endif %}
-    {% endfor %}
-
-    {% if not essays and not field_notes and not projects %}
-    <p class="font-mono text-[12px] tracking-wide text-ink-muted py-4">
-      No drafts in progress.
-    </p>
-    {% endif %}
-  </div>
-</section>
-
-{# ------------------------------------------------------------------ #}
-{#  Two-column grid: recent publishes + content overview               #}
-{# ------------------------------------------------------------------ #}
-<div class="grid grid-cols-2 gap-6 mb-8">
-
-  {# ---- Recent publishes ---- #}
+  {# ---- Left: Active Work (drafts in progress) ---- #}
   <section>
-    <c-section_label color="teal">Recent Publishes</c-section_label>
-    <div class="mt-3 space-y-1.5">
-      {% for log in recent_publishes %}
-      <div class="flex items-center gap-2 px-4 py-2 bg-cream rounded-brand border border-border">
-        {% if log.success %}
-          <c-badge color="success">OK</c-badge>
-        {% else %}
-          <c-badge color="error">FAIL</c-badge>
+    <c-section_label color="terracotta">Active Work</c-section_label>
+    <div class="mt-3 space-y-2">
+      {% for essay in essays %}
+        {% if essay.draft %}
+        <c-card hover href="{% url 'editor:essay-edit' slug=essay.slug %}">
+          <div class="flex items-center gap-3">
+            <c-icon name="file-text" size="20" color="#B45A2D" />
+            <span class="font-body text-[15px] flex-1">{{ essay.title }}</span>
+            <c-stage_pill stage="{{ essay.stage }}" />
+            <span class="font-mono text-[10px] tracking-wide text-ink-muted">
+              {{ essay.updated_at|date:"M j" }}
+            </span>
+          </div>
+        </c-card>
         {% endif %}
-        <span class="font-body text-[13px] flex-1 truncate">{{ log.content_title }}</span>
-        <time class="font-mono text-[10px] tracking-wide text-ink-muted"
-              datetime="{{ log.created_at|date:'c' }}">
-          {{ log.created_at|date:"M j, g:i A" }}
-        </time>
-        {% if log.commit_url %}
-        <a href="{{ log.commit_url }}" target="_blank" rel="noopener"
-           class="font-mono text-[10px] tracking-wide text-teal hover:text-teal-hover underline">
-          {{ log.commit_sha|truncatechars:7 }}
-        </a>
-        {% endif %}
-      </div>
-      {% empty %}
-      <p class="font-mono text-[12px] tracking-wide text-ink-muted py-4">
-        Nothing published yet.
-      </p>
       {% endfor %}
-    </div>
-  </section>
 
-  {# ---- Content overview ---- #}
-  <section>
-    <c-section_label color="gold">Content</c-section_label>
-    <div class="mt-3 space-y-1.5">
-      <a href="{% url 'editor:essay-list' %}"
-         class="flex items-center gap-3 px-4 py-2.5 bg-cream rounded-brand border border-border
-                hover:shadow-warm-sm transition-all duration-200 no-underline text-ink">
-        <c-badge color="terracotta">Essays</c-badge>
-        <span class="font-mono text-[12px] tracking-wide text-ink-muted">
-          {{ essays|length }} item{{ essays|length|pluralize }}
-        </span>
-        {% if draft_counts.essays %}
-        <c-badge color="gold" outline>{{ draft_counts.essays }} draft{{ draft_counts.essays|pluralize }}</c-badge>
+      {% for note in field_notes %}
+        {% if note.draft %}
+        <c-card hover href="{% url 'editor:field-note-edit' slug=note.slug %}">
+          <div class="flex items-center gap-3">
+            <c-icon name="note-pencil" size="20" color="#2D5F6B" />
+            <span class="font-body text-[15px] flex-1">{{ note.title }}</span>
+            <span class="font-mono text-[10px] tracking-wide text-ink-muted">
+              {{ note.updated_at|date:"M j" }}
+            </span>
+          </div>
+        </c-card>
         {% endif %}
-      </a>
-      <a href="{% url 'editor:field-note-list' %}"
-         class="flex items-center gap-3 px-4 py-2.5 bg-cream rounded-brand border border-border
-                hover:shadow-warm-sm transition-all duration-200 no-underline text-ink">
-        <c-badge color="teal">Notes</c-badge>
-        <span class="font-mono text-[12px] tracking-wide text-ink-muted">
-          {{ field_notes|length }} item{{ field_notes|length|pluralize }}
-        </span>
-        {% if draft_counts.field_notes %}
-        <c-badge color="gold" outline>{{ draft_counts.field_notes }} draft{{ draft_counts.field_notes|pluralize }}</c-badge>
-        {% endif %}
-      </a>
-      <a href="{% url 'editor:shelf-list' %}"
-         class="flex items-center gap-3 px-4 py-2.5 bg-cream rounded-brand border border-border
-                hover:shadow-warm-sm transition-all duration-200 no-underline text-ink">
-        <c-badge color="gold">Shelf</c-badge>
-        <span class="font-mono text-[12px] tracking-wide text-ink-muted">
-          {{ shelf_entries|length }} item{{ shelf_entries|length|pluralize }}
-        </span>
-      </a>
-      <a href="{% url 'editor:project-list' %}"
-         class="flex items-center gap-3 px-4 py-2.5 bg-cream rounded-brand border border-border
-                hover:shadow-warm-sm transition-all duration-200 no-underline text-ink">
-        <c-badge color="gold">Projects</c-badge>
-        <span class="font-mono text-[12px] tracking-wide text-ink-muted">
-          {{ projects|length }} item{{ projects|length|pluralize }}
-        </span>
-        {% if draft_counts.projects %}
-        <c-badge color="gold" outline>{{ draft_counts.projects }} draft{{ draft_counts.projects|pluralize }}</c-badge>
-        {% endif %}
-      </a>
-    </div>
+      {% endfor %}
 
-    {# ---- Now page shortcut ---- #}
-    <div class="mt-6 flex items-center gap-3">
-      {% if now_page %}
-      <span class="font-mono text-[11px] tracking-wide text-ink-muted">
-        Now page updated {{ now_page.updated|date:"M j, Y" }}
-      </span>
+      {% for project in projects %}
+        {% if project.draft %}
+        <c-card hover href="{% url 'editor:project-edit' slug=project.slug %}">
+          <div class="flex items-center gap-3">
+            <c-icon name="briefcase" size="20" color="#C49A4A" />
+            <span class="font-body text-[15px] flex-1">{{ project.title }}</span>
+            <span class="font-mono text-[10px] tracking-wide text-ink-muted">
+              {{ project.updated_at|date:"M j" }}
+            </span>
+          </div>
+        </c-card>
+        {% endif %}
+      {% endfor %}
+
+      {% if not has_drafts %}
+      <div class="flex flex-col items-center gap-3 py-10 text-center">
+        <c-icon name="file-text" size="32" color="#B45A2D" class="opacity-30" />
+        <p class="font-title text-[18px] text-ink m-0">All clear</p>
+        <p class="font-mono text-[12px] tracking-wide text-ink-muted max-w-sm m-0">
+          No drafts in progress. Start something new with the buttons above.
+        </p>
+      </div>
       {% endif %}
-      <c-btn variant="secondary" href="{% url 'editor:now-edit' %}">Edit Now Page</c-btn>
     </div>
   </section>
+
+  {# ---- Right: Workbench ---- #}
+  <aside class="space-y-6">
+
+    {# Content overview #}
+    <div>
+      <c-section_label color="gold">Make Stuff</c-section_label>
+      <div class="mt-3 space-y-1.5">
+        <a href="{% url 'editor:essay-list' %}"
+           class="flex items-center gap-3 px-4 py-2.5 bg-cream rounded-brand border border-border
+                  hover:shadow-warm-sm transition-all duration-200 no-underline text-ink">
+          <c-icon name="file-text" size="16" color="#B45A2D" />
+          <span class="font-mono text-[12px] tracking-wide flex-1">Essays</span>
+          <span class="font-mono text-[11px] tracking-wide text-ink-muted">
+            {{ essays|length }}
+          </span>
+          {% if draft_counts.essays %}
+          <c-badge color="gold" outline>{{ draft_counts.essays }}d</c-badge>
+          {% endif %}
+        </a>
+        <a href="{% url 'editor:field-note-list' %}"
+           class="flex items-center gap-3 px-4 py-2.5 bg-cream rounded-brand border border-border
+                  hover:shadow-warm-sm transition-all duration-200 no-underline text-ink">
+          <c-icon name="note-pencil" size="16" color="#2D5F6B" />
+          <span class="font-mono text-[12px] tracking-wide flex-1">Field Notes</span>
+          <span class="font-mono text-[11px] tracking-wide text-ink-muted">
+            {{ field_notes|length }}
+          </span>
+          {% if draft_counts.field_notes %}
+          <c-badge color="gold" outline>{{ draft_counts.field_notes }}d</c-badge>
+          {% endif %}
+        </a>
+        <a href="{% url 'editor:shelf-list' %}"
+           class="flex items-center gap-3 px-4 py-2.5 bg-cream rounded-brand border border-border
+                  hover:shadow-warm-sm transition-all duration-200 no-underline text-ink">
+          <c-icon name="book-open" size="16" color="#C49A4A" />
+          <span class="font-mono text-[12px] tracking-wide flex-1">Shelf</span>
+          <span class="font-mono text-[11px] tracking-wide text-ink-muted">
+            {{ shelf_entries|length }}
+          </span>
+        </a>
+        <a href="{% url 'editor:project-list' %}"
+           class="flex items-center gap-3 px-4 py-2.5 bg-cream rounded-brand border border-border
+                  hover:shadow-warm-sm transition-all duration-200 no-underline text-ink">
+          <c-icon name="briefcase" size="16" color="#C49A4A" />
+          <span class="font-mono text-[12px] tracking-wide flex-1">Projects</span>
+          <span class="font-mono text-[11px] tracking-wide text-ink-muted">
+            {{ projects|length }}
+          </span>
+          {% if draft_counts.projects %}
+          <c-badge color="gold" outline>{{ draft_counts.projects }}d</c-badge>
+          {% endif %}
+        </a>
+        <a href="{% url 'editor:toolkit-list' %}"
+           class="flex items-center gap-3 px-4 py-2.5 bg-cream rounded-brand border border-border
+                  hover:shadow-warm-sm transition-all duration-200 no-underline text-ink">
+          <c-icon name="wrench" size="16" color="#B45A2D" />
+          <span class="font-mono text-[12px] tracking-wide flex-1">Toolkit</span>
+          <span class="font-mono text-[11px] tracking-wide text-ink-muted">
+            {{ toolkit_entries|length }}
+          </span>
+        </a>
+      </div>
+    </div>
+
+    {# Recent publishes #}
+    <div>
+      <c-section_label color="teal">Recent Publishes</c-section_label>
+      <div class="mt-3 space-y-1.5">
+        {% for log in recent_publishes %}
+        <div class="flex items-center gap-2 px-3 py-2 bg-cream rounded-brand border border-border">
+          {% if log.success %}
+            <c-badge color="success">OK</c-badge>
+          {% else %}
+            <c-badge color="error">FAIL</c-badge>
+          {% endif %}
+          <span class="font-body text-[12px] flex-1 truncate">{{ log.content_title }}</span>
+          <time class="font-mono text-[9px] tracking-wide text-ink-muted"
+                datetime="{{ log.created_at|date:'c' }}">
+            {{ log.created_at|date:"M j" }}
+          </time>
+        </div>
+        {% empty %}
+        <p class="font-mono text-[11px] tracking-wide text-ink-muted py-3">
+          Nothing published yet.
+        </p>
+        {% endfor %}
+      </div>
+    </div>
+
+    {# Now page shortcut #}
+    {% if now_page %}
+    <div class="flex items-center gap-3 px-4 py-3 bg-cream rounded-brand border border-border">
+      <c-icon name="clock" size="16" color="#2D5F6B" />
+      <span class="font-mono text-[11px] tracking-wide text-ink-muted flex-1">
+        Now page updated {{ now_page.updated|date:"M j" }}
+      </span>
+      <c-btn variant="ghost" href="{% url 'editor:now-edit' %}">Edit</c-btn>
+    </div>
+    {% endif %}
+
+  </aside>
 
 </div>
 {% endblock %}

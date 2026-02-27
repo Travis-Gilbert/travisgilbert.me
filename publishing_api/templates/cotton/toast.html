@@ -1,22 +1,3 @@
-{# templates/cotton/toast.html #}
-{#
-  Toast notification for HTMX publish results.
-
-  Usage:
-    <c-toast type="success" message="Published to GitHub" />
-    <c-toast type="error" message="Commit failed: rate limited" />
-    <c-toast type="info" message="Auto-saved" />
-
-  Props:
-    type     (str) : success | error | info
-    message  (str) : Display text
-    commit   (str) : Optional commit URL (shown as link on success)
-    class    (str) : Additional CSS classes
-
-  Wire up with HTMX: the publish endpoint returns JSON, and
-  studio.js renders this component into #publish-toast.
-#}
-
 <div
   class="
     flex items-start gap-3
@@ -35,7 +16,6 @@
   "
   role="alert"
 >
-  {# Status indicator dot #}
   <span
     class="
       mt-1 w-2 h-2 rounded-full shrink-0
@@ -59,7 +39,6 @@
     {% endif %}
   </div>
 
-  {# Dismiss button #}
   <button
     onclick="this.closest('[role=alert]').remove()"
     class="text-ink-muted hover:text-ink text-lg leading-none cursor-pointer bg-transparent border-none p-0"

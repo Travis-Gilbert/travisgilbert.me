@@ -2,49 +2,53 @@
 {% block title %}{{ content_type_plural }}{% endblock %}
 
 {% block content %}
-<header class="flex items-center gap-3 mb-6">
-  <h1 class="font-title text-[22px] text-ink m-0">{{ content_type_plural }}</h1>
-  {% if items %}
-  <c-badge color="ink">{{ items|length }} item{{ items|length|pluralize }}</c-badge>
-  {% endif %}
-  <div class="flex-1"></div>
-  <c-btn variant="primary" href="{{ new_url }}">+ New</c-btn>
+<header class="mb-6">
+  <div class="flex items-center gap-3 mb-3">
+    <c-icon name="{{ content_icon|default:'file-text' }}" size="24" color="{{ content_color|default:'currentColor' }}" />
+    <h1 class="font-title text-[22px] text-ink m-0">{{ content_type_plural }}</h1>
+    {% if items %}
+    <c-badge color="ink">{{ items|length }}</c-badge>
+    {% endif %}
+  </div>
+  <c-btn variant="primary" href="{{ new_url }}">
+    <c-icon name="plus" size="14" color="currentColor" /> New {{ content_type_display }}
+  </c-btn>
 </header>
 
 <div class="space-y-2">
   {% for item in items %}
-  <a href="{% if content_type == 'essay' %}{% url 'editor:essay-edit' slug=item.slug %}{% elif content_type == 'field_note' %}{% url 'editor:field-note-edit' slug=item.slug %}{% elif content_type == 'shelf' %}{% url 'editor:shelf-edit' slug=item.slug %}{% elif content_type == 'project' %}{% url 'editor:project-edit' slug=item.slug %}{% endif %}"
-     class="flex items-center gap-3 px-4 py-3 bg-cream rounded-brand border border-border
-            shadow-warm-sm hover:shadow-warm hover:-translate-y-0.5
-            transition-all duration-200 no-underline text-ink">
-    <span class="font-body text-[15px] flex-1">{{ item.title }}</span>
-    {% if item.stage %}
-    <c-stage_pill stage="{{ item.stage }}" />
-    {% endif %}
-    {% if item.status %}
-    <c-badge color="teal">{{ item.get_status_display }}</c-badge>
-    {% endif %}
-    {% if item.draft %}
-    <c-badge color="gold" outline>Draft</c-badge>
-    {% else %}
-    <c-badge color="success">Published</c-badge>
-    {% endif %}
-    <span class="font-mono text-[10px] tracking-wide text-ink-muted">
-      {{ item.date|date:"M j, Y" }}
-    </span>
-  </a>
+  <c-card hover href="{% if content_type == 'essay' %}{% url 'editor:essay-edit' slug=item.slug %}{% elif content_type == 'field_note' %}{% url 'editor:field-note-edit' slug=item.slug %}{% elif content_type == 'shelf' %}{% url 'editor:shelf-edit' slug=item.slug %}{% elif content_type == 'project' %}{% url 'editor:project-edit' slug=item.slug %}{% elif content_type == 'toolkit' %}{% url 'editor:toolkit-edit' slug=item.slug %}{% endif %}">
+    <div class="flex items-center gap-3">
+      <c-icon name="{{ content_icon|default:'file-text' }}" size="18" color="{{ content_color|default:'currentColor' }}" />
+      <span class="font-body text-[15px] flex-1">{{ item.title }}</span>
+      {% if item.stage %}
+      <c-stage_pill stage="{{ item.stage }}" />
+      {% endif %}
+      {% if item.status %}
+      <c-badge color="teal">{{ item.get_status_display }}</c-badge>
+      {% endif %}
+      {% if item.draft %}
+      <c-badge color="gold" outline>Draft</c-badge>
+      {% else %}
+      <c-badge color="success">Published</c-badge>
+      {% endif %}
+      <span class="font-mono text-[10px] tracking-wide text-ink-muted">
+        {{ item.date|date:"M j, Y" }}
+      </span>
+    </div>
+  </c-card>
   {% empty %}
   <div class="flex flex-col items-center gap-3 py-12 text-center">
-    <span class="text-4xl text-ink-muted">
-      {% if content_type == 'essay' %}&#10022;{% elif content_type == 'field_note' %}&#9672;{% elif content_type == 'shelf' %}&#9678;{% elif content_type == 'project' %}&#11041;{% else %}&#10022;{% endif %}
-    </span>
+    <c-icon name="{{ content_icon|default:'file-text' }}" size="40" color="{{ content_color|default:'currentColor' }}" class="opacity-25" />
     <p class="font-title text-[18px] text-ink m-0">
-      {% if content_type == 'essay' %}No essays yet{% elif content_type == 'field_note' %}No field notes yet{% elif content_type == 'shelf' %}Nothing on the shelf{% elif content_type == 'project' %}No projects yet{% else %}Nothing here yet{% endif %}
+      {% if content_type == 'essay' %}No essays yet{% elif content_type == 'field_note' %}No field notes yet{% elif content_type == 'shelf' %}Nothing on the shelf{% elif content_type == 'project' %}No projects yet{% elif content_type == 'toolkit' %}No toolkit entries yet{% else %}Nothing here yet{% endif %}
     </p>
     <p class="font-mono text-[12px] tracking-wide text-ink-muted max-w-sm m-0">
-      {% if content_type == 'essay' %}Start writing your first long-form investigation.{% elif content_type == 'field_note' %}Capture an observation or developing idea.{% elif content_type == 'shelf' %}Add books, articles, and sources that inform your work.{% elif content_type == 'project' %}Document the work you have built and organized.{% else %}Create your first piece of content.{% endif %}
+      {% if content_type == 'essay' %}Start writing your first long-form investigation.{% elif content_type == 'field_note' %}Capture an observation or developing idea.{% elif content_type == 'shelf' %}Add books, articles, and sources that inform your work.{% elif content_type == 'project' %}Document the work you have built and organized.{% elif content_type == 'toolkit' %}Add a tool, technique, or resource to your workshop.{% else %}Create your first piece of content.{% endif %}
     </p>
-    <c-btn variant="primary" href="{{ new_url }}">+ Create {{ content_type_display }}</c-btn>
+    <c-btn variant="primary" href="{{ new_url }}">
+      <c-icon name="plus" size="14" color="currentColor" /> Create {{ content_type_display }}
+    </c-btn>
   </div>
   {% endfor %}
 </div>

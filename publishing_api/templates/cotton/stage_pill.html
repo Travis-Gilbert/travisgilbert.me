@@ -1,26 +1,3 @@
-{# templates/cotton/stage_pill.html #}
-{#
-  Content stage indicator with optional HTMX stage-change dropdown.
-
-  Usage:
-    <c-stage_pill stage="drafting" />
-    <c-stage_pill stage="published" interactive
-        content_type="essay" slug="my-essay" />
-
-  Props:
-    stage         (str)  : drafting | revising | ready | published | archived
-    interactive   (bool) : Show dropdown to change stage via HTMX
-    content_type  (str)  : URL content type slug (for HTMX endpoint)
-    slug          (str)  : Content slug (for HTMX endpoint)
-
-  Stage color mapping:
-    drafting  -> ink (neutral)
-    revising  -> gold (in progress)
-    ready     -> teal (review)
-    published -> success (live)
-    archived  -> ink-muted (inactive)
-#}
-
 <div class="relative inline-block">
   <c-badge
     color="{% if stage == 'drafting' %}ink{% elif stage == 'revising' %}gold{% elif stage == 'ready' %}teal{% elif stage == 'published' %}success{% else %}ink{% endif %}"

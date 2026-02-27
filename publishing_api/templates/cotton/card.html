@@ -1,24 +1,3 @@
-{# templates/cotton/card.html #}
-{#
-  Brand card component with warm shadows and optional blueprint grid.
-
-  Usage:
-    <c-card>Plain content</c-card>
-    <c-card grid>Content with blueprint grid overlay</c-card>
-    <c-card hover href="/essays/my-essay/">Clickable card</c-card>
-    <c-card variant="tint-terracotta">Tinted essay card</c-card>
-    <c-card variant="dark">Dark ground card</c-card>
-
-  Props:
-    grid       (bool)   : Show blueprint grid overlay
-    hover      (bool)   : Enable lift-on-hover interaction
-    href       (str)    : Wrap card in an anchor tag
-    variant    (str)    : tint-terracotta | tint-teal | tint-gold | dark | plain (default)
-    class      (str)    : Additional CSS classes
-#}
-
-{% load template_partials %}
-
 {% partialdef card_inner %}
 <div
   class="

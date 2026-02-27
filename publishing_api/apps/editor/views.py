@@ -115,6 +115,18 @@ CONTENT_REGISTRY = {
     "toolkit": {"model": ToolkitEntry, "stage_field": "stage"},
 }
 
+# Icon name + brand color for each content type. Used in list/edit headers
+# and dashboard cards. Colors match the section color language from the
+# Next.js frontend (terracotta=essays, teal=notes, gold=shelf/projects).
+CONTENT_META = {
+    "essay": {"icon": "file-text", "color": "#B45A2D"},
+    "field_note": {"icon": "note-pencil", "color": "#2D5F6B"},
+    "shelf": {"icon": "book-open", "color": "#C49A4A"},
+    "project": {"icon": "briefcase", "color": "#C49A4A"},
+    "toolkit": {"icon": "wrench", "color": "#B45A2D"},
+    "now": {"icon": "clock", "color": "#2D5F6B"},
+}
+
 
 # ---------------------------------------------------------------------------
 # Dashboard
@@ -142,6 +154,11 @@ class DashboardView(LoginRequiredMixin, TemplateView):
             "field_notes": FieldNote.objects.filter(draft=True).count(),
             "projects": Project.objects.filter(draft=True).count(),
         }
+        ctx["has_drafts"] = (
+            ctx["draft_counts"]["essays"]
+            or ctx["draft_counts"]["field_notes"]
+            or ctx["draft_counts"]["projects"]
+        )
         return ctx
 
 
@@ -161,6 +178,8 @@ class EssayListView(LoginRequiredMixin, ListView):
         ctx["content_type_plural"] = "Essays"
         ctx["content_type_display"] = "Essay"
         ctx["new_url"] = reverse("editor:essay-create")
+        ctx["content_icon"] = CONTENT_META["essay"]["icon"]
+        ctx["content_color"] = CONTENT_META["essay"]["color"]
         return ctx
 
 
@@ -242,6 +261,8 @@ class FieldNoteListView(LoginRequiredMixin, ListView):
         ctx["content_type_plural"] = "Field Notes"
         ctx["content_type_display"] = "Field Note"
         ctx["new_url"] = reverse("editor:field-note-create")
+        ctx["content_icon"] = CONTENT_META["field_note"]["icon"]
+        ctx["content_color"] = CONTENT_META["field_note"]["color"]
         return ctx
 
 
@@ -321,6 +342,8 @@ class ShelfListView(LoginRequiredMixin, ListView):
         ctx["content_type_plural"] = "Shelf"
         ctx["content_type_display"] = "Shelf Entry"
         ctx["new_url"] = reverse("editor:shelf-create")
+        ctx["content_icon"] = CONTENT_META["shelf"]["icon"]
+        ctx["content_color"] = CONTENT_META["shelf"]["color"]
         return ctx
 
 
@@ -400,6 +423,8 @@ class ProjectListView(LoginRequiredMixin, ListView):
         ctx["content_type_plural"] = "Projects"
         ctx["content_type_display"] = "Project"
         ctx["new_url"] = reverse("editor:project-create")
+        ctx["content_icon"] = CONTENT_META["project"]["icon"]
+        ctx["content_color"] = CONTENT_META["project"]["color"]
         return ctx
 
 
@@ -479,6 +504,8 @@ class ToolkitListView(LoginRequiredMixin, ListView):
         ctx["content_type_plural"] = "Toolkit"
         ctx["content_type_display"] = "Toolkit Entry"
         ctx["new_url"] = reverse("editor:toolkit-create")
+        ctx["content_icon"] = CONTENT_META["toolkit"]["icon"]
+        ctx["content_color"] = CONTENT_META["toolkit"]["color"]
         return ctx
 
 

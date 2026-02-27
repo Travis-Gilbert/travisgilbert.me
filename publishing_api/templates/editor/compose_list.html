@@ -2,45 +2,43 @@
 {% block title %}Page Compositions{% endblock %}
 
 {% block content %}
-<header class="flex items-center gap-3 mb-6">
-  <h1 class="font-title text-[22px] text-ink m-0">Page Compositions</h1>
-  <div class="flex-1"></div>
-  <c-btn variant="primary" href="{% url 'editor:compose-create' %}">New Composition</c-btn>
+<header class="mb-6">
+  <div class="flex items-center gap-3 mb-3">
+    <c-icon name="palette" size="24" color="#C49A4A" />
+    <h1 class="font-title text-[22px] text-ink m-0">Page Compositions</h1>
+    {% if compositions %}
+    <c-badge color="ink">{{ compositions|length }}</c-badge>
+    {% endif %}
+  </div>
+  <c-btn variant="primary" href="{% url 'editor:compose-create' %}">
+    <c-icon name="plus" size="14" color="currentColor" /> New Composition
+  </c-btn>
 </header>
 
 {% if compositions %}
-<div class="bg-cream rounded-brand-lg border border-border shadow-warm-sm overflow-hidden">
-  <table class="w-full text-left">
-    <thead>
-      <tr class="border-b border-border">
-        <th class="px-4 py-3 font-mono text-[11px] uppercase tracking-wider text-ink-muted">Page Key</th>
-        <th class="px-4 py-3 font-mono text-[11px] uppercase tracking-wider text-ink-muted">Last Updated</th>
-        <th class="px-4 py-3 font-mono text-[11px] uppercase tracking-wider text-ink-muted w-24"></th>
-      </tr>
-    </thead>
-    <tbody>
-      {% for comp in compositions %}
-      <tr class="border-b border-border last:border-b-0 hover:bg-black/[0.02] transition-colors">
-        <td class="px-4 py-3">
-          <a href="{% url 'editor:compose-edit' page_key=comp.page_key %}"
-             class="font-body text-[15px] text-ink hover:text-terracotta transition-colors no-underline">
-            {{ comp.get_page_key_display }}
-          </a>
-        </td>
-        <td class="px-4 py-3 font-mono text-[11px] tracking-wide text-ink-muted">
-          {{ comp.updated_at|date:"M j, Y" }}
-        </td>
-        <td class="px-4 py-3">
-          <c-btn variant="ghost" href="{% url 'editor:compose-edit' page_key=comp.page_key %}">Edit</c-btn>
-        </td>
-      </tr>
-      {% endfor %}
-    </tbody>
-  </table>
+<div class="space-y-2">
+  {% for comp in compositions %}
+  <c-card hover href="{% url 'editor:compose-edit' page_key=comp.page_key %}">
+    <div class="flex items-center gap-3">
+      <c-icon name="palette" size="18" color="#C49A4A" />
+      <span class="font-body text-[15px] flex-1">{{ comp.get_page_key_display }}</span>
+      <span class="font-mono text-[10px] tracking-wide text-ink-muted">
+        {{ comp.updated_at|date:"M j, Y" }}
+      </span>
+    </div>
+  </c-card>
+  {% endfor %}
 </div>
 {% else %}
-<p class="font-mono text-[12px] tracking-wide text-ink-muted py-8 text-center">
-  No page compositions yet. Create one to configure a page's layout and component settings.
-</p>
+<div class="flex flex-col items-center gap-3 py-12 text-center">
+  <c-icon name="palette" size="40" color="#C49A4A" class="opacity-25" />
+  <p class="font-title text-[18px] text-ink m-0">No compositions yet</p>
+  <p class="font-mono text-[12px] tracking-wide text-ink-muted max-w-sm m-0">
+    Create a composition to configure a page's layout and component settings.
+  </p>
+  <c-btn variant="primary" href="{% url 'editor:compose-create' %}">
+    <c-icon name="plus" size="14" color="currentColor" /> New Composition
+  </c-btn>
+</div>
 {% endif %}
 {% endblock %}

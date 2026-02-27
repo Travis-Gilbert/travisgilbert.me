@@ -38,9 +38,9 @@
             </div>
 
             <nav class="flex-1 overflow-y-auto px-3 space-y-5">
-                {# Zone 1: Content #}
+                {# Zone 1: Make Stuff #}
                 <div>
-                    <c-section_label color="terracotta" class="px-2 mb-2">Content</c-section_label>
+                    <c-section_label color="terracotta" class="px-2 mb-2">Make Stuff</c-section_label>
                     <a href="{% url 'editor:essay-list' %}"
                        class="
                            flex items-center justify-between
@@ -50,7 +50,7 @@
                            transition-colors duration-150
                            {% if content_type == 'essay' %}bg-white/10 border-l-2 border-terracotta text-cream{% endif %}
                        ">
-                        <span>Essays</span>
+                        <span class="flex items-center gap-2"><c-icon name="file-text" size="16" />Essays</span>
                         {% if sidebar_drafts.essays %}
                             <c-badge color="gold" outline>{{ sidebar_drafts.essays }}</c-badge>
                         {% endif %}
@@ -64,7 +64,7 @@
                            transition-colors duration-150
                            {% if content_type == 'field_note' %}bg-white/10 border-l-2 border-terracotta text-cream{% endif %}
                        ">
-                        <span>Field Notes</span>
+                        <span class="flex items-center gap-2"><c-icon name="note-pencil" size="16" />Field Notes</span>
                         {% if sidebar_drafts.field_notes %}
                             <c-badge color="gold" outline>{{ sidebar_drafts.field_notes }}</c-badge>
                         {% endif %}
@@ -78,7 +78,7 @@
                            transition-colors duration-150
                            {% if content_type == 'shelf' %}bg-white/10 border-l-2 border-terracotta text-cream{% endif %}
                        ">
-                        <span>Shelf</span>
+                        <span class="flex items-center gap-2"><c-icon name="book-open" size="16" />Shelf</span>
                     </a>
                     <a href="{% url 'editor:project-list' %}"
                        class="
@@ -89,7 +89,7 @@
                            transition-colors duration-150
                            {% if content_type == 'project' %}bg-white/10 border-l-2 border-terracotta text-cream{% endif %}
                        ">
-                        <span>Projects</span>
+                        <span class="flex items-center gap-2"><c-icon name="briefcase" size="16" />Projects</span>
                         {% if sidebar_drafts.projects %}
                             <c-badge color="gold" outline>{{ sidebar_drafts.projects }}</c-badge>
                         {% endif %}
@@ -103,7 +103,7 @@
                            transition-colors duration-150
                            {% if content_type == 'toolkit' %}bg-white/10 border-l-2 border-terracotta text-cream{% endif %}
                        ">
-                        <span>Toolkit</span>
+                        <span class="flex items-center gap-2"><c-icon name="wrench" size="16" />Toolkit</span>
                     </a>
                     <a href="{% url 'editor:now-edit' %}"
                        class="
@@ -114,7 +114,7 @@
                            transition-colors duration-150
                            {% if content_type == 'now' %}bg-white/10 border-l-2 border-terracotta text-cream{% endif %}
                        ">
-                        <span>Now</span>
+                        <span class="flex items-center gap-2"><c-icon name="clock" size="16" />Now</span>
                     </a>
                 </div>
 
@@ -130,7 +130,7 @@
                            transition-colors duration-150
                            {% if nav_section == 'compose' %}bg-white/10 border-l-2 border-gold text-cream{% endif %}
                        ">
-                        <span>Pages</span>
+                        <span class="flex items-center gap-2"><c-icon name="palette" size="16" />Pages</span>
                         {% if sidebar_compose_count %}
                             <c-badge color="ink" outline>{{ sidebar_compose_count }}</c-badge>
                         {% endif %}
@@ -149,7 +149,7 @@
                            transition-colors duration-150
                            {% if nav_section == 'tokens' %}bg-white/10 border-l-2 border-teal text-cream{% endif %}
                        ">
-                        <span>Design Tokens</span>
+                        <span class="flex items-center gap-2"><c-icon name="gears" size="16" />Design Tokens</span>
                     </a>
                     <a href="{% url 'editor:nav-editor' %}"
                        class="
@@ -160,7 +160,7 @@
                            transition-colors duration-150
                            {% if nav_section == 'nav' %}bg-white/10 border-l-2 border-teal text-cream{% endif %}
                        ">
-                        <span>Navigation</span>
+                        <span class="flex items-center gap-2"><c-icon name="compass" size="16" />Navigation</span>
                     </a>
                     <a href="{% url 'editor:site-settings' %}"
                        class="
@@ -171,7 +171,7 @@
                            transition-colors duration-150
                            {% if nav_section == 'site_settings' %}bg-white/10 border-l-2 border-teal text-cream{% endif %}
                        ">
-                        <span>Site</span>
+                        <span class="flex items-center gap-2"><c-icon name="info" size="16" />Site</span>
                     </a>
                     <a href="{% url 'editor:publish-log' %}"
                        class="
@@ -182,7 +182,7 @@
                            transition-colors duration-150
                            {% if nav_section == 'publish_log' %}bg-white/10 border-l-2 border-teal text-cream{% endif %}
                        ">
-                        <span>Publish Log</span>
+                        <span class="flex items-center gap-2"><c-icon name="clock" size="16" />Publish Log</span>
                     </a>
                 </div>
             </nav>
