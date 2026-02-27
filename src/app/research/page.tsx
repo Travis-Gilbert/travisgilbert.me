@@ -1,7 +1,7 @@
 import type { Metadata } from 'next';
 import SectionLabel from '@/components/SectionLabel';
 import DrawOnIcon from '@/components/rough/DrawOnIcon';
-import SourceGraph from '@/components/research/SourceGraph';
+import VisualizationTabs from '@/components/research/VisualizationTabs';
 
 export const metadata: Metadata = {
   title: 'Paper Trail',
@@ -18,13 +18,13 @@ export default function ResearchPage() {
           <DrawOnIcon name="magnifying-glass" size={32} color="var(--color-teal)" />
           Paper Trail
         </h1>
-        <p className="text-ink-secondary mb-8 max-w-prose">
-          Sources, threads, and connections. Click a node to see its details,
-          hover to highlight connections, drag to rearrange.
+        <p className="text-ink-secondary mb-6 max-w-prose">
+          Five ways to explore how sources, essays, and field notes connect.
+          Each visualization highlights a different dimension of the research.
         </p>
       </section>
 
-      <SourceGraph />
+      <VisualizationTabs />
     </>
   );
 }

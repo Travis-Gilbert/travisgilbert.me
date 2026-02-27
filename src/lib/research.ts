@@ -120,6 +120,14 @@ export interface ThreadListItem {
   tags?: string[];
 }
 
+// Activity types (for heatmap and timeline visualizations)
+export interface ActivityDay {
+  date: string;
+  sources: number;
+  links: number;
+  entries: number;
+}
+
 export interface SourceSuggestion {
   title: string;
   url: string;
@@ -180,6 +188,19 @@ export async function fetchSourceGraph(): Promise<GraphResponse | null> {
     return await res.json();
   } catch {
     return null;
+  }
+}
+
+export async function fetchResearchActivity(days = 365): Promise<ActivityDay[]> {
+  try {
+    const res = await fetch(`${RESEARCH_API}/api/v1/activity/?days=${days}`, {
+      next: { revalidate: 300 },
+    });
+    if (!res.ok) return [];
+    const data = await res.json();
+    return Array.isArray(data) ? data : [];
+  } catch {
+    return [];
   }
 }
 

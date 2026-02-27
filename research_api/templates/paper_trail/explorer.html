@@ -5,6 +5,33 @@
 {% block head %}
 <script src="https://d3js.org/d3.v7.min.js"></script>
 <style>
+    /* View tabs */
+    .view-tab {
+        padding: 6px 12px;
+        border-radius: 4px;
+        font-family: 'Courier Prime', monospace;
+        font-size: 11px;
+        letter-spacing: 0.05em;
+        text-transform: uppercase;
+        border: 1px solid transparent;
+        background: transparent;
+        color: #9A8E82;
+        cursor: pointer;
+        transition: all 0.15s;
+    }
+    .view-tab:hover { color: #2A2420; background: rgba(244,239,232,0.5); }
+    .view-tab.active {
+        background: #F4EFE8;
+        border-color: #D4CCC4;
+        color: #2A2420;
+        font-weight: 500;
+        box-shadow: 0 1px 3px rgba(42,36,32,0.04);
+    }
+
+    /* View panels */
+    .view-panel { display: none; }
+    .view-panel.active { display: block; }
+
     /* Graph container */
     #graph-container {
         position: relative;
@@ -72,6 +99,27 @@
         margin-right: 4px;
         vertical-align: middle;
     }
+
+    /* Summary view */
+    .summary-bar {
+        height: 20px;
+        border-radius: 3px;
+        transition: opacity 0.2s;
+    }
+    .summary-bar:hover { opacity: 0.85; }
+    .summary-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; }
+    @media (max-width: 640px) { .summary-grid { grid-template-columns: 1fr; } }
+
+    /* Sankey container */
+    #sankey-container {
+        width: 100%;
+        min-height: 400px;
+        border: 1px solid #D4CCC4;
+        border-radius: 6px;
+        background: #F4EFE8;
+        overflow: hidden;
+    }
+    #sankey-container svg { display: block; }
 </style>
 {% endblock %}
 
@@ -86,15 +134,18 @@
     <h1 class="font-title text-3xl font-bold text-ink m-0 mb-2">Source Graph</h1>
     <p class="font-body text-ink-muted text-sm max-w-xl m-0">
         Every source, essay, and field note connected by how they informed the work.
-        Click a node to see details. Drag to rearrange. Scroll to zoom.
     </p>
 </section>
 
 {# ------------------------------------------------------------------ #}
-{# Stats + Legend                                                      #}
+{# View selector tabs                                                  #}
 {# ------------------------------------------------------------------ #}
-<div class="flex flex-wrap items-center gap-6 mb-4">
-    <div class="flex items-center gap-4">
+<div class="flex flex-wrap items-center gap-2 mb-4">
+    <button class="view-tab active" data-view="graph" onclick="switchView('graph')">Network</button>
+    <button class="view-tab" data-view="flow" onclick="switchView('flow')">Flow</button>
+    <button class="view-tab" data-view="summary" onclick="switchView('summary')">Summary</button>
+
+    <div class="ml-auto flex items-center gap-4">
         <span class="font-mono text-[11px] tracking-wide text-ink-muted">
             {{ node_count }} nodes
         </span>
@@ -102,9 +153,18 @@
             {{ edge_count }} connections
         </span>
     </div>
+</div>
 
-    <div class="flex items-center gap-4 ml-auto flex-wrap">
-        {# Content type legend #}
+{# ------------------------------------------------------------------ #}
+{# View: Network Graph                                                 #}
+{# ------------------------------------------------------------------ #}
+<div id="view-graph" class="view-panel active">
+    <p class="font-body text-ink-muted text-sm mb-3">
+        Click a node to see details. Drag to rearrange. Scroll to zoom.
+    </p>
+
+    {# Legend #}
+    <div class="flex flex-wrap items-center gap-4 mb-4">
         <span class="flex items-center gap-1">
             <span class="legend-rect" style="background: #B45A2D;"></span>
             <span class="font-mono text-[10px] tracking-wide text-ink-muted">Essay</span>
@@ -114,7 +174,6 @@
             <span class="font-mono text-[10px] tracking-wide text-ink-muted">Field Note</span>
         </span>
         <span class="w-px h-3 bg-border"></span>
-        {# Source types from data #}
         {% for st in source_types %}
         <span class="flex items-center gap-1">
             <span class="legend-dot source-type-dot" data-source-type="{{ st }}"></span>
@@ -122,20 +181,100 @@
         </span>
         {% endfor %}
     </div>
+
+    <div id="graph-container">
+        <div id="detail-panel">
+            <button
+                id="detail-close"
+                class="absolute top-2 right-2 w-6 h-6 flex items-center justify-center text-ink-muted hover:text-ink transition-colors text-lg leading-none"
+                aria-label="Close detail panel"
+            >&times;</button>
+            <div id="detail-body"></div>
+        </div>
+    </div>
 </div>
 
 {# ------------------------------------------------------------------ #}
-{# Graph                                                               #}
+{# View: Flow (Sankey)                                                 #}
 {# ------------------------------------------------------------------ #}
-<div id="graph-container">
-    <div id="detail-panel">
-        <button
-            id="detail-close"
-            class="absolute top-2 right-2 w-6 h-6 flex items-center justify-center text-ink-muted hover:text-ink transition-colors text-lg leading-none"
-            aria-label="Close detail panel"
-        >&times;</button>
-        <div id="detail-body"></div>
+<div id="view-flow" class="view-panel">
+    <p class="font-body text-ink-muted text-sm mb-3">
+        How sources flow into content. Band width shows connection density; color indicates role.
+    </p>
+
+    {# Role legend #}
+    <div class="flex flex-wrap items-center gap-4 mb-4">
+        <span class="flex items-center gap-1">
+            <span class="w-3 h-0.5 inline-block rounded" style="background: #B45A2D;"></span>
+            <span class="font-mono text-[10px] tracking-wide text-ink-muted">Primary</span>
+        </span>
+        <span class="flex items-center gap-1">
+            <span class="w-3 h-0.5 inline-block rounded" style="background: #9A8E82;"></span>
+            <span class="font-mono text-[10px] tracking-wide text-ink-muted">Background</span>
+        </span>
+        <span class="flex items-center gap-1">
+            <span class="w-3 h-0.5 inline-block rounded" style="background: #C49A4A;"></span>
+            <span class="font-mono text-[10px] tracking-wide text-ink-muted">Inspiration</span>
+        </span>
+        <span class="flex items-center gap-1">
+            <span class="w-3 h-0.5 inline-block rounded" style="background: #5A7A4A;"></span>
+            <span class="font-mono text-[10px] tracking-wide text-ink-muted">Data</span>
+        </span>
+        <span class="flex items-center gap-1">
+            <span class="w-3 h-0.5 inline-block rounded" style="background: #A44A3A;"></span>
+            <span class="font-mono text-[10px] tracking-wide text-ink-muted">Counter</span>
+        </span>
+        <span class="flex items-center gap-1">
+            <span class="w-3 h-0.5 inline-block rounded" style="background: #2D5F6B;"></span>
+            <span class="font-mono text-[10px] tracking-wide text-ink-muted">Methodology</span>
+        </span>
+        <span class="flex items-center gap-1">
+            <span class="w-3 h-0.5 inline-block rounded" style="background: #6A5E52;"></span>
+            <span class="font-mono text-[10px] tracking-wide text-ink-muted">Reference</span>
+        </span>
     </div>
+
+    <div id="sankey-container"></div>
+</div>
+
+{# ------------------------------------------------------------------ #}
+{# View: Summary Statistics                                            #}
+{# ------------------------------------------------------------------ #}
+<div id="view-summary" class="view-panel">
+    <p class="font-body text-ink-muted text-sm mb-4">
+        Breakdown of the research library by source type and connection role.
+    </p>
+
+    <div class="summary-grid">
+        {# Source type distribution #}
+        <div class="border border-border rounded-brand bg-surface p-5">
+            <h3 class="font-mono text-[11px] tracking-widest uppercase text-ink-light mb-4">
+                Sources by type
+            </h3>
+            <div id="summary-source-types" class="space-y-2"></div>
+        </div>
+
+        {# Role distribution #}
+        <div class="border border-border rounded-brand bg-surface p-5">
+            <h3 class="font-mono text-[11px] tracking-widest uppercase text-ink-light mb-4">
+                Connections by role
+            </h3>
+            <div id="summary-roles" class="space-y-2"></div>
+        </div>
+    </div>
+
+    {# Content listing #}
+    <div class="border border-border rounded-brand bg-surface p-5 mt-6">
+        <h3 class="font-mono text-[11px] tracking-widest uppercase text-ink-light mb-4">
+            Content pieces
+        </h3>
+        <div id="summary-content" class="space-y-2"></div>
+    </div>
+
+    <p class="font-mono text-[10px] tracking-wide text-ink-light mt-6 text-center">
+        More visualizations at
+        <a href="https://travisgilbert.com/research" class="text-terracotta no-underline hover:underline">travisgilbert.com/research</a>
+    </p>
 </div>
 
 {# Empty state #}
@@ -156,6 +295,34 @@
 
     var graphData = {{ graph_data|safe }};
     if (!graphData.nodes.length) return;
+
+    // ── View switching ────────────────────────────────────
+    var sankeyRendered = false;
+    var summaryRendered = false;
+
+    window.switchView = function(viewId) {
+        // Toggle panels
+        document.querySelectorAll('.view-panel').forEach(function(panel) {
+            panel.classList.remove('active');
+        });
+        document.getElementById('view-' + viewId).classList.add('active');
+
+        // Toggle tab buttons
+        document.querySelectorAll('.view-tab').forEach(function(tab) {
+            tab.classList.remove('active');
+        });
+        document.querySelector('[data-view="' + viewId + '"]').classList.add('active');
+
+        // Lazy render
+        if (viewId === 'flow' && !sankeyRendered) {
+            renderSankey();
+            sankeyRendered = true;
+        }
+        if (viewId === 'summary' && !summaryRendered) {
+            renderSummary();
+            summaryRendered = true;
+        }
+    };
 
     // ── Color maps ──────────────────────────────────────────
     var SOURCE_TYPE_COLORS = {
@@ -468,6 +635,316 @@
         simulation.force('center', d3.forceCenter(w / 2, h / 2));
         simulation.alpha(0.3).restart();
     });
+
+    // ── Sankey (Flow) view ────────────────────────────────
+    function renderSankey() {
+        var sankeyContainer = document.getElementById('sankey-container');
+        var sWidth = sankeyContainer.clientWidth;
+        var sourceNodes = graphData.nodes.filter(function(n) { return n.type === 'source'; });
+        var contentNodes = graphData.nodes.filter(function(n) { return n.type !== 'source'; });
+
+        if (!sourceNodes.length || !contentNodes.length) return;
+
+        var sHeight = Math.max(400, Math.min(sourceNodes.length * 14 + 60, 700));
+        var margin = { top: 30, right: 120, bottom: 30, left: 120 };
+        var innerW = sWidth - margin.left - margin.right;
+        var innerH = sHeight - margin.top - margin.bottom;
+
+        var sSvg = d3.select('#sankey-container')
+            .append('svg')
+            .attr('width', sWidth)
+            .attr('height', sHeight);
+
+        var sG = sSvg.append('g').attr('transform', 'translate(' + margin.left + ',' + margin.top + ')');
+
+        // Count connections per node
+        var connCounts = {};
+        graphData.edges.forEach(function(e) {
+            connCounts[e.source] = (connCounts[e.source] || 0) + 1;
+            connCounts[e.target] = (connCounts[e.target] || 0) + 1;
+        });
+
+        // Sort sources by type then connection count
+        sourceNodes.sort(function(a, b) {
+            var tc = (a.sourceType || 'other').localeCompare(b.sourceType || 'other');
+            if (tc !== 0) return tc;
+            return (connCounts[b.id] || 0) - (connCounts[a.id] || 0);
+        });
+
+        contentNodes.sort(function(a, b) {
+            var tc = a.type.localeCompare(b.type);
+            if (tc !== 0) return tc;
+            return (connCounts[b.id] || 0) - (connCounts[a.id] || 0);
+        });
+
+        // Position source nodes (left)
+        var srcH = Math.max(8, Math.min(innerH / sourceNodes.length - 2, 18));
+        var srcTotalH = sourceNodes.length * (srcH + 2);
+        var srcStartY = Math.max(0, (innerH - srcTotalH) / 2);
+
+        var srcPositions = {};
+        sourceNodes.forEach(function(n, i) {
+            srcPositions[n.id] = { y: srcStartY + i * (srcH + 2), h: srcH };
+        });
+
+        // Position content nodes (right)
+        var cntH = Math.max(16, Math.min(innerH / contentNodes.length - 4, 36));
+        var cntTotalH = contentNodes.length * (cntH + 4);
+        var cntStartY = Math.max(0, (innerH - cntTotalH) / 2);
+
+        var cntPositions = {};
+        contentNodes.forEach(function(n, i) {
+            cntPositions[n.id] = { y: cntStartY + i * (cntH + 4), h: cntH };
+        });
+
+        // Build links
+        var srcOffsets = {};
+        var cntOffsets = {};
+        var links = [];
+
+        graphData.edges.forEach(function(e) {
+            var sid = typeof e.source === 'object' ? e.source.id : e.source;
+            var tid = typeof e.target === 'object' ? e.target.id : e.target;
+            var sp = srcPositions[sid];
+            var tp = cntPositions[tid];
+            if (!sp || !tp) return;
+
+            var sOff = srcOffsets[sid] || 0;
+            var tOff = cntOffsets[tid] || 0;
+            var thick = Math.max(2, Math.min(sp.h * 0.8, 5));
+
+            links.push({
+                sourceId: sid,
+                targetId: tid,
+                role: e.role,
+                sourceY: sp.y + sOff + thick / 2,
+                targetY: tp.y + tOff + thick / 2,
+                thickness: thick
+            });
+
+            srcOffsets[sid] = sOff + thick + 1;
+            cntOffsets[tid] = tOff + thick + 1;
+        });
+
+        // Draw bezier links
+        var linkSel = sG.append('g').selectAll('path')
+            .data(links)
+            .enter()
+            .append('path')
+            .attr('d', function(d) {
+                var sx = 8;
+                var tx = innerW - 8;
+                var mx = (sx + tx) / 2;
+                return 'M ' + sx + ',' + d.sourceY +
+                       ' C ' + mx + ',' + d.sourceY +
+                       ' ' + mx + ',' + d.targetY +
+                       ' ' + tx + ',' + d.targetY;
+            })
+            .attr('fill', 'none')
+            .attr('stroke', function(d) { return ROLE_COLORS[d.role] || '#9A8E82'; })
+            .attr('stroke-width', function(d) { return d.thickness; })
+            .attr('stroke-opacity', 0.2);
+
+        // Source bars (left)
+        var srcSel = sG.selectAll('.src-bar')
+            .data(sourceNodes)
+            .enter()
+            .append('g')
+            .attr('class', 'src-bar')
+            .attr('cursor', 'pointer');
+
+        srcSel.append('rect')
+            .attr('x', 0)
+            .attr('y', function(d) { return srcPositions[d.id].y; })
+            .attr('width', 8)
+            .attr('height', function(d) { return srcPositions[d.id].h; })
+            .attr('rx', 2)
+            .attr('fill', function(d) { return SOURCE_TYPE_COLORS[d.sourceType] || '#6A5E52'; });
+
+        srcSel.append('text')
+            .attr('x', -6)
+            .attr('y', function(d) { return srcPositions[d.id].y + srcPositions[d.id].h / 2; })
+            .attr('text-anchor', 'end')
+            .attr('dominant-baseline', 'middle')
+            .attr('font-family', '"Courier Prime", monospace')
+            .attr('font-size', '8px')
+            .attr('fill', '#9A8E82')
+            .text(function(d) { return truncateLabel(d.label, 18); });
+
+        // Content bars (right)
+        var cntSel = sG.selectAll('.cnt-bar')
+            .data(contentNodes)
+            .enter()
+            .append('g')
+            .attr('class', 'cnt-bar')
+            .attr('cursor', 'pointer');
+
+        cntSel.append('rect')
+            .attr('x', innerW - 8)
+            .attr('y', function(d) { return cntPositions[d.id].y; })
+            .attr('width', 8)
+            .attr('height', function(d) { return cntPositions[d.id].h; })
+            .attr('rx', 2)
+            .attr('fill', function(d) { return CONTENT_COLORS[d.type] || '#6A5E52'; });
+
+        cntSel.append('text')
+            .attr('x', innerW + 6)
+            .attr('y', function(d) { return cntPositions[d.id].y + cntPositions[d.id].h / 2; })
+            .attr('dominant-baseline', 'middle')
+            .attr('font-family', '"Courier Prime", monospace')
+            .attr('font-size', '9px')
+            .attr('fill', '#6A5E52')
+            .text(function(d) { return truncateLabel(d.label, 24); });
+
+        // Column headers
+        sG.append('text').attr('x', 4).attr('y', -12)
+            .attr('font-family', '"Courier Prime", monospace')
+            .attr('font-size', '10px').attr('fill', '#9A8E82')
+            .attr('letter-spacing', '0.08em').text('SOURCES');
+
+        sG.append('text').attr('x', innerW - 4).attr('y', -12)
+            .attr('text-anchor', 'end')
+            .attr('font-family', '"Courier Prime", monospace')
+            .attr('font-size', '10px').attr('fill', '#9A8E82')
+            .attr('letter-spacing', '0.08em').text('CONTENT');
+
+        // Hover interaction
+        srcSel.on('mouseenter', function(_, d) {
+            linkSel.attr('stroke-opacity', function(l) {
+                return l.sourceId === d.id || l.targetId === d.id ? 0.6 : 0.05;
+            });
+        }).on('mouseleave', function() {
+            linkSel.attr('stroke-opacity', 0.2);
+        });
+
+        cntSel.on('mouseenter', function(_, d) {
+            linkSel.attr('stroke-opacity', function(l) {
+                return l.sourceId === d.id || l.targetId === d.id ? 0.6 : 0.05;
+            });
+        }).on('mouseleave', function() {
+            linkSel.attr('stroke-opacity', 0.2);
+        });
+    }
+
+    // ── Summary view ──────────────────────────────────────
+    function renderSummary() {
+        // Count by source type
+        var typeCounts = {};
+        graphData.nodes.forEach(function(n) {
+            if (n.type !== 'source') return;
+            var st = n.sourceType || 'other';
+            typeCounts[st] = (typeCounts[st] || 0) + 1;
+        });
+
+        var typeEntries = Object.entries(typeCounts).sort(function(a, b) { return b[1] - a[1]; });
+        var maxTypeCount = typeEntries.length ? typeEntries[0][1] : 1;
+
+        var typeContainer = document.getElementById('summary-source-types');
+        typeEntries.forEach(function(entry) {
+            var st = entry[0], count = entry[1];
+            var row = document.createElement('div');
+            row.className = 'flex items-center gap-3';
+
+            var label = document.createElement('span');
+            label.className = 'font-mono text-[10px] tracking-wide text-ink-muted w-20 text-right flex-shrink-0';
+            label.textContent = st;
+
+            var barWrap = document.createElement('div');
+            barWrap.className = 'flex-1';
+            var bar = document.createElement('div');
+            bar.className = 'summary-bar';
+            bar.style.width = Math.max(4, (count / maxTypeCount) * 100) + '%';
+            bar.style.backgroundColor = SOURCE_TYPE_COLORS[st] || '#6A5E52';
+            bar.title = st + ': ' + count;
+            barWrap.appendChild(bar);
+
+            var countSpan = document.createElement('span');
+            countSpan.className = 'font-mono text-[10px] text-ink-light w-6 text-right flex-shrink-0';
+            countSpan.textContent = count;
+
+            row.appendChild(label);
+            row.appendChild(barWrap);
+            row.appendChild(countSpan);
+            typeContainer.appendChild(row);
+        });
+
+        // Count by role
+        var roleCounts = {};
+        graphData.edges.forEach(function(e) {
+            var role = e.role || 'reference';
+            roleCounts[role] = (roleCounts[role] || 0) + 1;
+        });
+
+        var roleEntries = Object.entries(roleCounts).sort(function(a, b) { return b[1] - a[1]; });
+        var maxRoleCount = roleEntries.length ? roleEntries[0][1] : 1;
+
+        var roleContainer = document.getElementById('summary-roles');
+        roleEntries.forEach(function(entry) {
+            var role = entry[0], count = entry[1];
+            var row = document.createElement('div');
+            row.className = 'flex items-center gap-3';
+
+            var label = document.createElement('span');
+            label.className = 'font-mono text-[10px] tracking-wide text-ink-muted w-20 text-right flex-shrink-0';
+            label.textContent = role;
+
+            var barWrap = document.createElement('div');
+            barWrap.className = 'flex-1';
+            var bar = document.createElement('div');
+            bar.className = 'summary-bar';
+            bar.style.width = Math.max(4, (count / maxRoleCount) * 100) + '%';
+            bar.style.backgroundColor = ROLE_COLORS[role] || '#9A8E82';
+            bar.title = role + ': ' + count;
+            barWrap.appendChild(bar);
+
+            var countSpan = document.createElement('span');
+            countSpan.className = 'font-mono text-[10px] text-ink-light w-6 text-right flex-shrink-0';
+            countSpan.textContent = count;
+
+            row.appendChild(label);
+            row.appendChild(barWrap);
+            row.appendChild(countSpan);
+            roleContainer.appendChild(row);
+        });
+
+        // Content listing
+        var contentItems = graphData.nodes.filter(function(n) { return n.type !== 'source'; });
+        var contentContainer = document.getElementById('summary-content');
+
+        contentItems.forEach(function(n) {
+            var row = document.createElement('div');
+            row.className = 'flex items-center gap-3';
+
+            var dot = document.createElement('span');
+            dot.className = 'w-2 h-2 rounded-sm flex-shrink-0';
+            dot.style.backgroundColor = CONTENT_COLORS[n.type] || '#B45A2D';
+
+            var label = document.createElement('span');
+            label.className = 'font-body text-sm text-ink';
+            label.textContent = n.label;
+
+            var typeBadge = document.createElement('span');
+            typeBadge.className = 'font-mono text-[9px] tracking-wide text-ink-light uppercase ml-auto flex-shrink-0';
+            typeBadge.textContent = n.type === 'field_note' ? 'field note' : n.type;
+
+            var connCount = 0;
+            graphData.edges.forEach(function(e) {
+                var sid = typeof e.source === 'object' ? e.source.id : e.source;
+                var tid = typeof e.target === 'object' ? e.target.id : e.target;
+                if (sid === n.id || tid === n.id) connCount++;
+            });
+
+            var connBadge = document.createElement('span');
+            connBadge.className = 'font-mono text-[9px] tracking-wide text-ink-light flex-shrink-0';
+            connBadge.textContent = connCount + ' src';
+
+            row.appendChild(dot);
+            row.appendChild(label);
+            row.appendChild(typeBadge);
+            row.appendChild(connBadge);
+            contentContainer.appendChild(row);
+        });
+    }
 })();
 </script>
 {% endblock %}

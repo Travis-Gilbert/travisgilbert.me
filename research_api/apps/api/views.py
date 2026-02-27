@@ -10,8 +10,11 @@ happens through the Django admin or management commands.
 """
 
 from collections import defaultdict
+from datetime import timedelta
 
 from django.db.models import Count, Prefetch
+from django.db.models.functions import TruncDate
+from django.utils import timezone
 from rest_framework.decorators import api_view
 from rest_framework.generics import ListAPIView, RetrieveAPIView
 from rest_framework.response import Response
@@ -371,3 +374,75 @@ def source_graph(request):
         'nodes': nodes,
         'edges': edges,
     })
+
+
+# ---------------------------------------------------------------------------
+# Activity (for heatmap visualization)
+# ---------------------------------------------------------------------------
+
+
+@api_view(['GET'])
+def research_activity(request):
+    """
+    GET /api/v1/activity/?days=365
+
+    Daily counts of research activity: sources added, links created,
+    and thread entries logged. Powers the ActivityHeatmap visualization
+    on the Paper Trail page.
+
+    Returns a flat array of {date, sources, links, entries} objects,
+    one per day that had any activity. Days with zero activity across
+    all three categories are omitted to keep the response compact.
+    """
+    try:
+        days = int(request.query_params.get('days', 365))
+    except (ValueError, TypeError):
+        days = 365
+    days = min(days, 730)  # cap at 2 years
+
+    since = timezone.now() - timedelta(days=days)
+
+    # Aggregate each model by creation date
+    source_counts = dict(
+        Source.objects.public()
+        .filter(created_at__gte=since)
+        .annotate(day=TruncDate('created_at'))
+        .values('day')
+        .annotate(count=Count('id'))
+        .values_list('day', 'count')
+    )
+
+    link_counts = dict(
+        SourceLink.objects
+        .filter(created_at__gte=since)
+        .annotate(day=TruncDate('created_at'))
+        .values('day')
+        .annotate(count=Count('id'))
+        .values_list('day', 'count')
+    )
+
+    entry_counts = dict(
+        ThreadEntry.objects
+        .filter(created_at__gte=since)
+        .annotate(day=TruncDate('created_at'))
+        .values('day')
+        .annotate(count=Count('id'))
+        .values_list('day', 'count')
+    )
+
+    # Merge all dates into one response
+    all_dates = sorted(
+        set(source_counts.keys()) | set(link_counts.keys()) | set(entry_counts.keys())
+    )
+
+    activity = [
+        {
+            'date': day.isoformat(),
+            'sources': source_counts.get(day, 0),
+            'links': link_counts.get(day, 0),
+            'entries': entry_counts.get(day, 0),
+        }
+        for day in all_dates
+    ]
+
+    return Response(activity)

@@ -30,6 +30,9 @@ urlpatterns = [
     # Full graph (for D3.js visual explorer)
     path('graph/', views.source_graph, name='source-graph'),
 
+    # Activity data (for heatmap visualization)
+    path('activity/', views.research_activity, name='research-activity'),
+
     # Community contributions (the only write endpoints)
     path('suggest/source/', suggest_source, name='suggest-source'),
     path('suggest/connection/', suggest_connection, name='suggest-connection'),
