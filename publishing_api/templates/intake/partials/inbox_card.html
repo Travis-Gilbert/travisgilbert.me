@@ -1,1 +1,71 @@
-<div id="card-{{ source.pk }}" class="source-card">{{ source.display_title }}</div>
+{# Inbox card: minimal display with shimmer while OG scrape is pending. #}
+<div
+  id="source-{{ source.pk }}"
+  class="rounded-brand border border-border bg-cream shadow-warm-sm p-3 cursor-pointer
+         hover:shadow-warm hover:-translate-y-px transition-all duration-200
+         {% if source.scrape_status == 'pending' %}shimmer{% endif %}"
+  onclick="openDetailPanel({{ source.pk }})"
+  {% if source.scrape_status == 'pending' %}
+    hx-get="{% url 'intake:sourcebox-card' pk=source.pk %}"
+    hx-trigger="every 2s"
+    hx-swap="outerHTML"
+  {% endif %}
+>
+  <div class="flex items-start gap-3">
+    {# Thumbnail or file icon #}
+    {% if source.og_image %}
+    <div class="w-12 h-12 rounded overflow-hidden bg-parchment-alt flex-shrink-0">
+      <img
+        src="{{ source.og_image }}"
+        alt=""
+        class="w-full h-full object-cover"
+        loading="lazy"
+      >
+    </div>
+    {% elif source.is_file %}
+    <div class="w-12 h-12 rounded bg-parchment-alt flex items-center justify-center flex-shrink-0">
+      <c-icon name="file-text" size="20" color="#B45A2D" />
+    </div>
+    {% endif %}
+
+    {# Title and site name #}
+    <div class="flex-1 min-w-0">
+      <p class="font-body text-[14px] text-ink line-clamp-2 m-0 leading-snug">
+        {% if source.scrape_status == 'pending' %}
+          <span class="text-ink-muted">{{ source.url|truncatechars:60 }}</span>
+        {% else %}
+          {{ source.display_title|truncatechars:80 }}
+        {% endif %}
+      </p>
+      {% if source.og_site_name %}
+      <span class="font-mono text-[9px] tracking-wide text-ink-muted uppercase">
+        {{ source.og_site_name }}
+      </span>
+      {% endif %}
+    </div>
+  </div>
+
+  {# Duplicate badge #}
+  {% if duplicate %}
+  <div class="mt-2">
+    <c-badge color="gold" outline>Duplicate</c-badge>
+  </div>
+  {% endif %}
+
+  {# Scrape failed state #}
+  {% if source.scrape_status == 'failed' %}
+  <div class="mt-2 flex items-center gap-2">
+    <span class="font-mono text-[10px] text-error">Scrape failed</span>
+    <button
+      hx-post="{% url 'intake:sourcebox-add' %}"
+      hx-vals='{"urls": "{{ source.url }}"}'
+      hx-target="#source-{{ source.pk }}"
+      hx-swap="outerHTML"
+      type="button"
+      class="font-mono text-[10px] text-terracotta underline cursor-pointer"
+    >
+      Retry
+    </button>
+  </div>
+  {% endif %}
+</div>
