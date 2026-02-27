@@ -46,6 +46,22 @@
     </p>
     {% endif %}
 
+    {# Promotion status (for accepted sources) #}
+    {% if source.promoted_source_slug %}
+    <div class="flex items-center gap-1.5 text-success">
+      <c-icon name="magnifying-glass" size="12" color="currentColor" />
+      <span class="font-mono text-[10px] tracking-wide">
+        Promoted to Paper Trail
+      </span>
+    </div>
+    {% elif promote_result.error %}
+    <div class="flex items-center gap-1.5 text-error">
+      <span class="font-mono text-[10px] tracking-wide">
+        Promotion failed: {{ promote_result.error }}
+      </span>
+    </div>
+    {% endif %}
+
     {# Timestamp #}
     <time
       datetime="{{ source.decided_at|date:'c' }}"

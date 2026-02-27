@@ -2,12 +2,14 @@
 Services for the Sourcebox intake pipeline.
 
 scrape_og_metadata: Fetch a URL and extract Open Graph metadata.
+promote_to_research: Push an accepted RawSource to research_api as a Source.
 """
 
 import logging
 
 import httpx
 from bs4 import BeautifulSoup
+from django.conf import settings
 
 logger = logging.getLogger(__name__)
 
@@ -70,3 +72,79 @@ def scrape_og_metadata(url: str) -> dict:
             result["description"] = desc_tag["content"].strip()
 
     return result
+
+
+# ---------------------------------------------------------------------------
+# Source promotion: Sourcebox -> research_api
+# ---------------------------------------------------------------------------
+
+PROMOTE_TIMEOUT = 15
+
+
+def promote_to_research(raw_source) -> dict:
+    """
+    Push an accepted RawSource to research_api, creating a Source record.
+
+    Returns a dict with 'slug' on success, or 'error' on failure.
+    If the source already exists in research_api, returns the existing slug
+    (idempotent: safe to call multiple times for the same URL).
+
+    Requires RESEARCH_API_URL and RESEARCH_API_KEY in Django settings.
+    """
+    api_url = getattr(settings, "RESEARCH_API_URL", "")
+    api_key = getattr(settings, "RESEARCH_API_KEY", "")
+
+    if not api_url or not api_key:
+        logger.warning(
+            "Promote skipped for RawSource %s: RESEARCH_API_URL or RESEARCH_API_KEY not configured",
+            raw_source.pk,
+        )
+        return {"error": "Research API not configured"}
+
+    endpoint = f"{api_url.rstrip('/')}/api/v1/internal/promote/"
+    payload = {
+        "url": raw_source.url,
+        "title": raw_source.og_title or raw_source.url,
+        "description": raw_source.og_description,
+        "site_name": raw_source.og_site_name,
+        "tags": raw_source.tags if isinstance(raw_source.tags, list) else [],
+    }
+
+    try:
+        response = httpx.post(
+            endpoint,
+            json=payload,
+            timeout=PROMOTE_TIMEOUT,
+            headers={
+                "Authorization": f"Bearer {api_key}",
+                "Content-Type": "application/json",
+            },
+        )
+    except httpx.HTTPError as exc:
+        logger.error("Promote HTTP error for RawSource %s: %s", raw_source.pk, exc)
+        return {"error": f"HTTP error: {exc}"}
+
+    if response.status_code in (200, 201):
+        data = response.json()
+        logger.info(
+            "Promoted RawSource %s -> Source slug=%s", raw_source.pk, data.get("slug")
+        )
+        return {"slug": data["slug"], "id": data.get("id")}
+
+    if response.status_code == 409:
+        # Already exists; treat as success
+        data = response.json()
+        logger.info(
+            "Promote: source already exists for RawSource %s (slug=%s)",
+            raw_source.pk,
+            data.get("slug"),
+        )
+        return {"slug": data["slug"], "id": data.get("id"), "existing": True}
+
+    logger.error(
+        "Promote failed for RawSource %s: status=%s body=%s",
+        raw_source.pk,
+        response.status_code,
+        response.text[:500],
+    )
+    return {"error": f"API returned {response.status_code}"}

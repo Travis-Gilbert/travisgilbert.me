@@ -29,6 +29,7 @@ def explorer(request):
 
     Builds the same nodes + edges structure as the /api/v1/graph/ endpoint,
     then passes it as JSON to the template for client-side D3 rendering.
+    Orphaned sources (promoted but not yet linked) appear as isolated nodes.
     """
     links = (
         SourceLink.objects
@@ -68,6 +69,24 @@ def explorer(request):
             'target': content_key,
             'role': lnk.role,
         })
+
+    # Include orphaned public sources (promoted but not yet linked)
+    orphaned = (
+        Source.objects.public()
+        .exclude(slug__in=[
+            key.removeprefix('source:') for key in source_nodes
+        ])
+    )
+    for src in orphaned:
+        source_key = f'source:{src.slug}'
+        source_nodes[source_key] = {
+            'id': source_key,
+            'type': 'source',
+            'label': src.title,
+            'slug': src.slug,
+            'sourceType': src.source_type,
+            'creator': src.creator or '',
+        }
 
     nodes = list(source_nodes.values()) + list(content_nodes.values())
     graph_data = json.dumps({'nodes': nodes, 'edges': edges})

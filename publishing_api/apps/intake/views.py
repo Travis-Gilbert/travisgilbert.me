@@ -16,7 +16,7 @@ from django.views.generic import ListView
 
 from apps.intake.forms import SourceboxAddForm, TriageForm
 from apps.intake.models import RawSource
-from apps.intake.services import scrape_og_metadata
+from apps.intake.services import promote_to_research, scrape_og_metadata
 
 
 class SourceboxView(LoginRequiredMixin, ListView):
@@ -111,8 +111,16 @@ class SourceboxTriageView(LoginRequiredMixin, View):
         source.decided_at = timezone.now()
         source.save()
 
+        # On accept: promote to research_api (creates a Source record)
+        promote_result = None
+        if source.decision == RawSource.Decision.ACCEPTED:
+            promote_result = promote_to_research(source)
+            if slug := promote_result.get("slug"):
+                source.promoted_source_slug = slug
+                source.save(update_fields=["promoted_source_slug"])
+
         return TemplateResponse(
             request,
             "intake/partials/decision_result.html",
-            {"source": source},
+            {"source": source, "promote_result": promote_result},
         )

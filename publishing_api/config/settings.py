@@ -191,6 +191,10 @@ LOGGING = {
     },
 }
 
+# Research API (source promotion on triage accept)
+RESEARCH_API_URL = os.environ.get("RESEARCH_API_URL", "http://localhost:8001").strip()
+RESEARCH_API_KEY = os.environ.get("RESEARCH_API_KEY", "").strip()
+
 # GitHub publishing settings (strip whitespace; dashboard paste can add newlines)
 GITHUB_TOKEN = os.environ.get("GITHUB_TOKEN", "").strip()
 GITHUB_REPO = os.environ.get("GITHUB_REPO", "").strip()

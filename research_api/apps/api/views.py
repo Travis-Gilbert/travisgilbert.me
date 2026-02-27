@@ -1,20 +1,23 @@
 """
-Read-only API views for research data.
+API views for research data.
 
 Two patterns used here:
   - Function views (@api_view) for custom aggregation (trail, backlinks, graph)
   - Generic class-based views (ListAPIView, RetrieveAPIView) for standard list/detail
 
-All endpoints are AllowAny. Data is never written through the API; that
-happens through the Django admin or management commands.
+Public endpoints are AllowAny. The promote endpoint is authenticated via
+a shared API key (INTERNAL_API_KEY) for cross-service calls from publishing_api.
 """
 
+import logging
 from collections import defaultdict
 from datetime import timedelta
 
+from django.conf import settings
 from django.db.models import Count, Prefetch
 from django.db.models.functions import TruncDate
 from django.utils import timezone
+from django.utils.text import slugify
 from rest_framework.decorators import api_view
 from rest_framework.generics import ListAPIView, RetrieveAPIView
 from rest_framework.response import Response
@@ -24,6 +27,7 @@ from apps.research.models import (
     ResearchThread,
     Source,
     SourceLink,
+    SourceType,
     ThreadEntry,
 )
 from apps.research.services import detect_content_type, get_backlinks
@@ -36,6 +40,8 @@ from .serializers import (
     ThreadDetailSerializer,
     ThreadListSerializer,
 )
+
+logger = logging.getLogger(__name__)
 
 
 # ---------------------------------------------------------------------------
@@ -326,7 +332,8 @@ def source_graph(request):
     Full source graph as nodes + edges for D3.js visualization.
 
     Nodes are sources and content pieces. Edges are SourceLinks.
-    This gives the visual explorer everything it needs in one request.
+    Orphaned sources (no links yet) still appear as isolated nodes
+    so newly promoted sources are visible immediately.
     """
     links = (
         SourceLink.objects
@@ -367,6 +374,24 @@ def source_graph(request):
             'target': content_key,
             'role': lnk.role,
         })
+
+    # Include orphaned public sources (promoted but not yet linked)
+    orphaned = (
+        Source.objects.public()
+        .exclude(slug__in=[
+            key.removeprefix('source:') for key in source_nodes
+        ])
+    )
+    for src in orphaned:
+        source_key = f'source:{src.slug}'
+        source_nodes[source_key] = {
+            'id': source_key,
+            'type': 'source',
+            'label': src.title,
+            'slug': src.slug,
+            'sourceType': src.source_type,
+            'creator': src.creator,
+        }
 
     nodes = list(source_nodes.values()) + list(content_nodes.values())
 
@@ -446,3 +471,130 @@ def research_activity(request):
     ]
 
     return Response(activity)
+
+
+# ---------------------------------------------------------------------------
+# Internal: Source promotion (from publishing_api Sourcebox)
+# ---------------------------------------------------------------------------
+
+
+def _check_internal_api_key(request):
+    """Validate the Authorization: Bearer <key> header against INTERNAL_API_KEY."""
+    api_key = settings.INTERNAL_API_KEY
+    if not api_key:
+        return False
+    auth_header = request.META.get('HTTP_AUTHORIZATION', '')
+    if not auth_header.startswith('Bearer '):
+        return False
+    return auth_header[7:] == api_key
+
+
+# Mapping from URL domain patterns to likely source types
+_DOMAIN_TYPE_HINTS = {
+    'youtube.com': SourceType.VIDEO,
+    'youtu.be': SourceType.VIDEO,
+    'vimeo.com': SourceType.VIDEO,
+    'arxiv.org': SourceType.PAPER,
+    'scholar.google': SourceType.PAPER,
+    'jstor.org': SourceType.PAPER,
+    'doi.org': SourceType.PAPER,
+    'podcasts.apple.com': SourceType.PODCAST,
+    'open.spotify.com/show': SourceType.PODCAST,
+    'open.spotify.com/episode': SourceType.PODCAST,
+    'archive.org': SourceType.ARCHIVE,
+}
+
+
+def _infer_source_type(url):
+    """Best-effort source type from URL. Falls back to 'article'."""
+    url_lower = url.lower()
+    for pattern, source_type in _DOMAIN_TYPE_HINTS.items():
+        if pattern in url_lower:
+            return source_type
+    return SourceType.ARTICLE
+
+
+def _unique_slug(title, max_length=500):
+    """Generate a unique slug, appending -2, -3, etc. on collision."""
+    base = slugify(title)[:max_length]
+    slug = base
+    counter = 2
+    while Source.objects.filter(slug=slug).exists():
+        suffix = f'-{counter}'
+        slug = base[:max_length - len(suffix)] + suffix
+        counter += 1
+    return slug
+
+
+@api_view(['POST'])
+def promote_source(request):
+    """
+    POST /api/v1/internal/promote/
+
+    Create a Source record from Sourcebox triage data. Called by
+    publishing_api when a RawSource is accepted.
+
+    Expects:
+        Authorization: Bearer <INTERNAL_API_KEY>
+        {
+            "url": "https://...",
+            "title": "...",
+            "description": "...",
+            "site_name": "...",
+            "tags": ["tag1", "tag2"],
+            "source_type": "article" (optional, inferred from URL if missing)
+        }
+
+    Returns:
+        201: {"slug": "...", "id": N, "title": "..."}
+        400: {"error": "..."}
+        401: {"error": "Invalid API key"}
+        409: {"slug": "...", "id": N, "title": "...", "existing": true}
+    """
+    if not _check_internal_api_key(request):
+        return Response({'error': 'Invalid API key'}, status=401)
+
+    data = request.data
+    url = data.get('url', '').strip()
+    title = data.get('title', '').strip()
+
+    if not url:
+        return Response({'error': 'url is required'}, status=400)
+    if not title:
+        return Response({'error': 'title is required'}, status=400)
+
+    # Check for duplicate by URL
+    existing = Source.objects.filter(url=url).first()
+    if existing:
+        logger.info('Promote: source already exists for URL %s (slug=%s)', url, existing.slug)
+        return Response({
+            'slug': existing.slug,
+            'id': existing.id,
+            'title': existing.title,
+            'existing': True,
+        }, status=409)
+
+    # Determine source type
+    source_type = data.get('source_type', '')
+    if not source_type or source_type not in dict(SourceType.choices):
+        source_type = _infer_source_type(url)
+
+    source = Source.objects.create(
+        title=title,
+        slug=_unique_slug(title),
+        url=url,
+        source_type=source_type,
+        publication=data.get('site_name', ''),
+        public_annotation=data.get('description', ''),
+        tags=data.get('tags', []),
+        public=True,
+        date_encountered=timezone.now().date(),
+    )
+
+    logger.info('Promote: created source %s (slug=%s) from URL %s', source.id, source.slug, url)
+
+    return Response({
+        'slug': source.slug,
+        'id': source.id,
+        'title': source.title,
+    }, status=201)

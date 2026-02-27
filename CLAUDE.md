@@ -47,8 +47,10 @@ Next.js 15 (App Router), React 19, Tailwind CSS v4 (`@tailwindcss/postcss`), rou
 | `research_api/` | Django research API: source tracking, backlinks, Webmention receiver, DRF read-only API. Sibling service to publishing_api |
 | `research_api/apps/research/` | Source, SourceLink, ResearchThread, ThreadEntry models + backlink computation service |
 | `research_api/apps/mentions/` | Webmention model + W3C webhook receiver |
-| `research_api/apps/api/` | DRF read-only viewsets (sources, links, threads, mentions, backlinks) |
+| `research_api/apps/api/` | DRF read-only viewsets (sources, links, threads, mentions, backlinks, graph, activity) + internal promote endpoint |
+| `research_api/apps/paper_trail/` | Public browsing pages: explorer (D3 graph), essay trail, threads, community wall with HTMX suggestion form |
 | `research_api/apps/publisher/` | PublishLog model, GitHub API client, JSON serializers, publish orchestrator (commits to `src/data/research/`) |
+| `publishing_api/apps/intake/services.py` | OG metadata scraping (`scrape_og_metadata`) + cross-service source promotion (`promote_to_research` via httpx) |
 | `research_api/apps/research/recaptcha.py` | reCAPTCHA v3 server-side verification; single `verify_recaptcha()` returning `(passed, score)` tuple |
 | `research_api/apps/research/views.py` | Public submission endpoints (suggest source, suggest connection) with reCAPTCHA + approved suggestions read endpoint |
 | `research_api/apps/research/services.py` | `detect_content_type()` (essay vs field_note heuristic), `get_backlinks()`, `get_all_backlinks()` |
@@ -374,11 +376,12 @@ Key capabilities:
 
 Django check passes (0 issues). Brand component library deployed to main. Not yet deployed to Railway or tested end-to-end.
 
-**Research API:** Complete: models (13 source types, SourceLink roles, public/private annotations, geolocation), DRF read-only API (trail BFF, sources, threads, mentions, backlinks, graph), community submissions (suggest source/connection with reCAPTCHA v3), publish orchestrator (static JSON to `src/data/research/`), admin with annotated querysets. Architecture reviewed and all findings resolved. Django check passes (0 issues). Not yet deployed.
+**Research API:** Deployed to Railway at research.travisgilbert.me. Models (13 source types, SourceLink roles, public/private annotations, geolocation), DRF read-only API (trail BFF, sources, threads, mentions, backlinks, graph), community submissions (suggest source/connection with reCAPTCHA v3), publish orchestrator (static JSON to `src/data/research/`), admin with annotated querysets, Paper Trail public pages (explorer, essay trail, threads, community wall). Source promotion pipeline: Sourcebox triage accept in publishing_api calls research_api's `/api/v1/internal/promote/` endpoint via Bearer token auth to create Source records. Graph API and Paper Trail explorer include orphaned sources (promoted but not yet linked) as isolated nodes.
 
-**Next step:** Deploy both Django services to Railway (publishing_api + research_api), create superusers, test publish pipelines, set `NEXT_PUBLIC_STUDIO_URL` in Vercel.
+**Next step:** Deploy publishing_api to Railway, set cross-service env vars (`INTERNAL_API_KEY` on both, `RESEARCH_API_URL`/`RESEARCH_API_KEY` on publishing_api), test promotion pipeline end-to-end, set `NEXT_PUBLIC_STUDIO_URL` in Vercel.
 
 **Remaining backlog:**
+- Sourcebox UX redesign (brainstorm in progress)
 - Additional content pages and essays (not started)
 - Dark mode (deferred; tokens ready in `global.css`)
 - Collage hero fragment library (desk item photography, `public/collage/`)
@@ -409,6 +412,8 @@ Django check passes (0 issues). Brand component library deployed to main. Not ye
 | research_api: admin as authoring UI | Django admin with rich fieldsets and inlines (no custom Studio editor) | Simpler than publishing_api's HTMX Studio; source tracking is data entry, not content editing |
 | Source.public + custom managers | `.public()` manager filters to `public=True` across API, publisher, and management commands | Two-layer access: admin sees everything, public sees only curated sources |
 | Studio UI library | django-cotton + django-crispy-forms + django-tailwind (replacing 600+ line custom studio.css) | Declarative components, consistent form rendering, utility-first CSS with brand tokens; eliminates all custom CSS |
+| Source promotion pipeline | HTTP API call from publishing_api to research_api (not shared DB) | Two separate Railway services with own databases; Bearer token auth, idempotent (409 on duplicate URL), source type inferred from URL domain |
+| Graph orphaned nodes | Second query for `Source.objects.public().exclude(...)` after SourceLink iteration | Promoted sources with no SourceLinks yet must still appear in graph and explorer; D3 force simulation floats them naturally |
 
 ## Gotchas
 
@@ -454,3 +459,5 @@ Django check passes (0 issues). Brand component library deployed to main. Not ye
 - **research_api publishes to `src/data/research/`**: Five JSON files (sources.json, links.json, threads.json, backlinks.json) plus per-slug trail files, committed atomically via Git Trees API. Next.js site reads these at build time
 - **reCAPTCHA v3 tokens are single-use**: Google's `siteverify` consumes the token on first call; a second call returns `success: false, score: 0.0`. Never split verification and scoring into separate HTTP calls
 - **Content-type detection lives in `services.py`**: `detect_content_type(slug)` centralizes the essay-first/field_note-fallback heuristic. Used by trail API, backlinks API, and publisher
+- **Source promotion requires 3 env vars**: `INTERNAL_API_KEY` (same value on both services), `RESEARCH_API_URL` and `RESEARCH_API_KEY` on publishing_api. Without these, promotion silently returns `{"error": "Research API not configured"}` and triage still works (just without cross-service sync)
+- **httpx required in publishing_api**: The promotion service uses `httpx.post()` (not requests). Ensure `httpx` is in `requirements/base.txt`

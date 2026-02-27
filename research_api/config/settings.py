@@ -171,6 +171,9 @@ WEBMENTION_TARGET_DOMAIN = os.environ.get(
 )
 WEBHOOK_SECRET = os.environ.get('WEBHOOK_SECRET', '')
 
+# Internal API key (shared with publishing_api for source promotion)
+INTERNAL_API_KEY = os.environ.get('INTERNAL_API_KEY', '')
+
 # Production security (only when DEBUG is False)
 
 if not DEBUG:

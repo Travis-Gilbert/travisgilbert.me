@@ -33,8 +33,11 @@ urlpatterns = [
     # Activity data (for heatmap visualization)
     path('activity/', views.research_activity, name='research-activity'),
 
-    # Community contributions (the only write endpoints)
+    # Community contributions
     path('suggest/source/', suggest_source, name='suggest-source'),
     path('suggest/connection/', suggest_connection, name='suggest-connection'),
     path('suggestions/<slug:slug>/', approved_suggestions, name='approved-suggestions'),
+
+    # Internal: source promotion from publishing_api Sourcebox
+    path('internal/promote/', views.promote_source, name='promote-source'),
 ]
