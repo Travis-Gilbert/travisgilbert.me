@@ -1,0 +1,158 @@
+{% extends "base.html" %}
+
+{% block title %}{{ page_title }}{% endblock %}
+
+{% block content %}
+{# ------------------------------------------------------------------ #}
+{# Header                                                              #}
+{# ------------------------------------------------------------------ #}
+<section class="mb-8">
+    <span class="font-mono text-[11px] tracking-widest uppercase text-gold block mb-1">
+        Community
+    </span>
+    <h1 class="font-title text-3xl font-bold text-ink m-0 mb-2">Community Contributions</h1>
+    <p class="font-body text-ink-muted text-sm max-w-xl m-0">
+        Readers have suggested these sources to enrich the research behind published essays.
+        All suggestions are reviewed before appearing here.
+    </p>
+</section>
+
+{# ------------------------------------------------------------------ #}
+{# Suggest a source form                                               #}
+{# ------------------------------------------------------------------ #}
+<section class="mb-10">
+    <div class="bg-surface border border-border rounded-brand p-5 max-w-xl">
+        <h2 class="font-mono text-[11px] tracking-widest uppercase text-terracotta mb-3">Suggest a Source</h2>
+        <p class="font-body text-sm text-ink-muted mb-4">
+            Know a source that could inform one of the essays?
+            Submit it here for review.
+        </p>
+        <form
+            hx-post="{% url 'paper_trail:suggest' %}"
+            hx-target="#suggest-result"
+            hx-swap="outerHTML"
+            class="space-y-3"
+        >
+            {% csrf_token %}
+            <div>
+                <label class="block font-mono text-[10px] tracking-widest uppercase text-ink-muted mb-1" for="suggest-title">
+                    Source title
+                </label>
+                <input
+                    type="text"
+                    id="suggest-title"
+                    name="title"
+                    required
+                    class="w-full px-3 py-2 text-sm font-body bg-paper border border-border rounded-brand text-ink placeholder:text-ink-light focus:outline-none focus:border-terracotta transition-colors"
+                    placeholder="e.g. The Death and Life of Great American Cities"
+                >
+            </div>
+            <div>
+                <label class="block font-mono text-[10px] tracking-widest uppercase text-ink-muted mb-1" for="suggest-url">
+                    URL (optional)
+                </label>
+                <input
+                    type="url"
+                    id="suggest-url"
+                    name="url"
+                    class="w-full px-3 py-2 text-sm font-body bg-paper border border-border rounded-brand text-ink placeholder:text-ink-light focus:outline-none focus:border-terracotta transition-colors"
+                    placeholder="https://..."
+                >
+            </div>
+            <div>
+                <label class="block font-mono text-[10px] tracking-widest uppercase text-ink-muted mb-1" for="suggest-essay">
+                    Related essay slug
+                </label>
+                <input
+                    type="text"
+                    id="suggest-essay"
+                    name="target_slug"
+                    required
+                    class="w-full px-3 py-2 text-sm font-body bg-paper border border-border rounded-brand text-ink placeholder:text-ink-light focus:outline-none focus:border-terracotta transition-colors"
+                    placeholder="e.g. how-systems-shape-us"
+                >
+            </div>
+            <div>
+                <label class="block font-mono text-[10px] tracking-widest uppercase text-ink-muted mb-1" for="suggest-reason">
+                    Why this source? (optional)
+                </label>
+                <textarea
+                    id="suggest-reason"
+                    name="relevance_note"
+                    rows="2"
+                    class="w-full px-3 py-2 text-sm font-body bg-paper border border-border rounded-brand text-ink placeholder:text-ink-light focus:outline-none focus:border-terracotta transition-colors resize-y"
+                    placeholder="What makes this relevant..."
+                ></textarea>
+            </div>
+            <div>
+                <label class="block font-mono text-[10px] tracking-widest uppercase text-ink-muted mb-1" for="suggest-name">
+                    Your name
+                </label>
+                <input
+                    type="text"
+                    id="suggest-name"
+                    name="contributor_name"
+                    required
+                    class="w-full px-3 py-2 text-sm font-body bg-paper border border-border rounded-brand text-ink placeholder:text-ink-light focus:outline-none focus:border-terracotta transition-colors"
+                    placeholder="Your name"
+                >
+            </div>
+            <button
+                type="submit"
+                class="inline-flex items-center gap-2 px-4 py-2 bg-terracotta text-white font-mono text-[11px] tracking-wide uppercase rounded-brand hover:bg-terracotta-hover transition-colors"
+            >
+                Submit Suggestion
+            </button>
+        </form>
+        <div id="suggest-result"></div>
+    </div>
+</section>
+
+{# ------------------------------------------------------------------ #}
+{# Approved suggestions wall                                           #}
+{# ------------------------------------------------------------------ #}
+<section>
+    <h2 class="font-mono text-[11px] tracking-widest uppercase text-gold mb-4">Accepted Suggestions</h2>
+
+    {% if suggestions %}
+    <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
+        {% for s in suggestions %}
+        <div class="bg-surface border border-border rounded-brand p-4">
+            <p class="font-title text-[15px] font-semibold text-ink m-0 mb-1">{{ s.title }}</p>
+            {% if s.url %}
+            <a href="{{ s.url }}" target="_blank" rel="noopener" class="font-mono text-[10px] tracking-wide text-teal no-underline hover:underline block mb-2 truncate">
+                {{ s.url|truncatechars:45 }}
+            </a>
+            {% endif %}
+            {% if s.relevance_note %}
+            <p class="font-body text-[13px] text-ink-muted m-0 mb-2">{{ s.relevance_note }}</p>
+            {% endif %}
+            <div class="flex items-center gap-3">
+                <span class="font-mono text-[9px] tracking-wide text-ink-light">
+                    {{ s.contributor_name|default:"Anonymous" }}
+                </span>
+                {% if s.target_slug %}
+                <a href="{% url 'paper_trail:essay-trail' slug=s.target_slug %}"
+                   class="font-mono text-[9px] tracking-wide text-terracotta no-underline hover:underline">
+                    {{ s.target_slug }}
+                </a>
+                {% endif %}
+                {% if s.reviewed_at %}
+                <span class="font-mono text-[9px] tracking-wide text-ink-light ml-auto">
+                    {{ s.reviewed_at|date:"M j" }}
+                </span>
+                {% endif %}
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+    {% else %}
+    <div class="flex flex-col items-center gap-3 py-12 text-center">
+        <p class="font-title text-lg text-ink m-0">No suggestions yet</p>
+        <p class="font-mono text-[12px] tracking-wide text-ink-muted max-w-sm m-0">
+            Be the first to suggest a source using the form above.
+        </p>
+    </div>
+    {% endif %}
+</section>
+{% endblock %}

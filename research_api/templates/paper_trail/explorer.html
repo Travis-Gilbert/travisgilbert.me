@@ -1,0 +1,473 @@
+{% extends "base.html" %}
+
+{% block title %}{{ page_title }}{% endblock %}
+
+{% block head %}
+<script src="https://d3js.org/d3.v7.min.js"></script>
+<style>
+    /* Graph container */
+    #graph-container {
+        position: relative;
+        width: 100%;
+        min-height: 560px;
+        border: 1px solid #D4CCC4;
+        border-radius: 6px;
+        background: #F4EFE8;
+        overflow: hidden;
+    }
+    #graph-container svg { display: block; }
+
+    /* Nodes */
+    .node { cursor: pointer; }
+    .node circle, .node rect { transition: opacity 0.2s; }
+    .node text {
+        font-family: 'Courier Prime', monospace;
+        font-size: 10px;
+        fill: #2A2420;
+        pointer-events: none;
+    }
+    .node.dimmed circle,
+    .node.dimmed rect { opacity: 0.12; }
+    .node.dimmed text { opacity: 0.15; }
+    .node.highlighted circle,
+    .node.highlighted rect { opacity: 1; stroke-width: 2.5; }
+
+    /* Edges */
+    .edge { transition: opacity 0.2s; }
+    .edge.dimmed { opacity: 0.06; }
+    .edge.highlighted { opacity: 1; stroke-width: 2; }
+
+    /* Detail panel */
+    #detail-panel {
+        position: absolute;
+        top: 12px;
+        right: 12px;
+        width: 280px;
+        max-height: calc(100% - 24px);
+        overflow-y: auto;
+        background: #F0EBE4;
+        border: 1px solid #D4CCC4;
+        border-radius: 6px;
+        padding: 16px;
+        box-shadow: 0 4px 16px rgba(42,36,32,0.10);
+        display: none;
+        z-index: 20;
+    }
+    #detail-panel.open { display: block; }
+
+    /* Legend */
+    .legend-dot {
+        display: inline-block;
+        width: 10px;
+        height: 10px;
+        border-radius: 50%;
+        margin-right: 4px;
+        vertical-align: middle;
+    }
+    .legend-rect {
+        display: inline-block;
+        width: 12px;
+        height: 8px;
+        border-radius: 2px;
+        margin-right: 4px;
+        vertical-align: middle;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+{# ------------------------------------------------------------------ #}
+{# Header                                                              #}
+{# ------------------------------------------------------------------ #}
+<section class="mb-6">
+    <span class="font-mono text-[11px] tracking-widest uppercase text-terracotta block mb-1">
+        Explorer
+    </span>
+    <h1 class="font-title text-3xl font-bold text-ink m-0 mb-2">Source Graph</h1>
+    <p class="font-body text-ink-muted text-sm max-w-xl m-0">
+        Every source, essay, and field note connected by how they informed the work.
+        Click a node to see details. Drag to rearrange. Scroll to zoom.
+    </p>
+</section>
+
+{# ------------------------------------------------------------------ #}
+{# Stats + Legend                                                      #}
+{# ------------------------------------------------------------------ #}
+<div class="flex flex-wrap items-center gap-6 mb-4">
+    <div class="flex items-center gap-4">
+        <span class="font-mono text-[11px] tracking-wide text-ink-muted">
+            {{ node_count }} nodes
+        </span>
+        <span class="font-mono text-[11px] tracking-wide text-ink-muted">
+            {{ edge_count }} connections
+        </span>
+    </div>
+
+    <div class="flex items-center gap-4 ml-auto flex-wrap">
+        {# Content type legend #}
+        <span class="flex items-center gap-1">
+            <span class="legend-rect" style="background: #B45A2D;"></span>
+            <span class="font-mono text-[10px] tracking-wide text-ink-muted">Essay</span>
+        </span>
+        <span class="flex items-center gap-1">
+            <span class="legend-rect" style="background: #2D5F6B;"></span>
+            <span class="font-mono text-[10px] tracking-wide text-ink-muted">Field Note</span>
+        </span>
+        <span class="w-px h-3 bg-border"></span>
+        {# Source types from data #}
+        {% for st in source_types %}
+        <span class="flex items-center gap-1">
+            <span class="legend-dot source-type-dot" data-source-type="{{ st }}"></span>
+            <span class="font-mono text-[10px] tracking-wide text-ink-muted">{{ st|title }}</span>
+        </span>
+        {% endfor %}
+    </div>
+</div>
+
+{# ------------------------------------------------------------------ #}
+{# Graph                                                               #}
+{# ------------------------------------------------------------------ #}
+<div id="graph-container">
+    <div id="detail-panel">
+        <button
+            id="detail-close"
+            class="absolute top-2 right-2 w-6 h-6 flex items-center justify-center text-ink-muted hover:text-ink transition-colors text-lg leading-none"
+            aria-label="Close detail panel"
+        >&times;</button>
+        <div id="detail-body"></div>
+    </div>
+</div>
+
+{# Empty state #}
+{% if node_count == 0 %}
+<div class="flex flex-col items-center gap-3 py-12 text-center">
+    <p class="font-title text-lg text-ink m-0">No sources yet</p>
+    <p class="font-mono text-[12px] tracking-wide text-ink-muted max-w-sm m-0">
+        Sources and connections will appear here once research data is published.
+    </p>
+</div>
+{% endif %}
+{% endblock %}
+
+{% block scripts %}
+<script>
+(function() {
+    'use strict';
+
+    var graphData = {{ graph_data|safe }};
+    if (!graphData.nodes.length) return;
+
+    // ── Color maps ──────────────────────────────────────────
+    var SOURCE_TYPE_COLORS = {
+        book:       '#6B4C3B',
+        article:    '#B45A2D',
+        paper:      '#7A5C8A',
+        video:      '#C44040',
+        podcast:    '#2D5F6B',
+        dataset:    '#5A7A4A',
+        document:   '#8A7A5C',
+        report:     '#6A5E52',
+        map:        '#4A8A7A',
+        archive:    '#9A6A3A',
+        interview:  '#3A6A8A',
+        website:    '#7A8A5A',
+        other:      '#6A5E52'
+    };
+
+    var ROLE_COLORS = {
+        primary:          '#B45A2D',
+        background:       '#9A8E82',
+        inspiration:      '#C49A4A',
+        data:             '#5A7A4A',
+        counterargument:  '#A44A3A',
+        methodology:      '#2D5F6B',
+        reference:        '#6A5E52'
+    };
+
+    var CONTENT_COLORS = {
+        essay:      '#B45A2D',
+        field_note: '#2D5F6B'
+    };
+
+    // Color the legend dots
+    document.querySelectorAll('.source-type-dot').forEach(function(dot) {
+        var st = dot.getAttribute('data-source-type');
+        dot.style.backgroundColor = SOURCE_TYPE_COLORS[st] || '#6A5E52';
+    });
+
+    // ── SVG setup ───────────────────────────────────────────
+    var container = document.getElementById('graph-container');
+    var width = container.clientWidth;
+    var height = Math.max(560, container.clientHeight);
+
+    var svg = d3.select('#graph-container')
+        .append('svg')
+        .attr('width', width)
+        .attr('height', height);
+
+    var g = svg.append('g');
+
+    // Zoom
+    var zoom = d3.zoom()
+        .scaleExtent([0.3, 4])
+        .on('zoom', function(event) {
+            g.attr('transform', event.transform);
+        });
+    svg.call(zoom);
+
+    // ── Simulation ──────────────────────────────────────────
+    var simulation = d3.forceSimulation(graphData.nodes)
+        .force('link', d3.forceLink(graphData.edges)
+            .id(function(d) { return d.id; })
+            .distance(80)
+        )
+        .force('charge', d3.forceManyBody().strength(-120))
+        .force('center', d3.forceCenter(width / 2, height / 2))
+        .force('collide', d3.forceCollide(30))
+        .alphaDecay(0.02);
+
+    // ── Edges ───────────────────────────────────────────────
+    var edgeGroup = g.append('g').attr('class', 'edges');
+    var edgeElements = edgeGroup.selectAll('line')
+        .data(graphData.edges)
+        .enter()
+        .append('line')
+        .attr('class', 'edge')
+        .attr('stroke', function(d) { return ROLE_COLORS[d.role] || '#9A8E82'; })
+        .attr('stroke-opacity', 0.4)
+        .attr('stroke-width', 1.2);
+
+    // ── Nodes ───────────────────────────────────────────────
+    var nodeGroup = g.append('g').attr('class', 'nodes');
+    var nodeElements = nodeGroup.selectAll('g')
+        .data(graphData.nodes)
+        .enter()
+        .append('g')
+        .attr('class', 'node')
+        .call(d3.drag()
+            .on('start', dragStart)
+            .on('drag', dragging)
+            .on('end', dragEnd)
+        );
+
+    // Draw shape per node type
+    nodeElements.each(function(d) {
+        var el = d3.select(this);
+        if (d.type === 'source') {
+            el.append('circle')
+                .attr('r', 8)
+                .attr('fill', SOURCE_TYPE_COLORS[d.sourceType] || '#6A5E52')
+                .attr('fill-opacity', 0.85)
+                .attr('stroke', SOURCE_TYPE_COLORS[d.sourceType] || '#6A5E52')
+                .attr('stroke-width', 1.5);
+        } else {
+            // essay or field_note: rounded rect
+            var color = CONTENT_COLORS[d.type] || '#B45A2D';
+            el.append('rect')
+                .attr('x', -10)
+                .attr('y', -7)
+                .attr('width', 20)
+                .attr('height', 14)
+                .attr('rx', 3)
+                .attr('fill', color)
+                .attr('fill-opacity', 0.85)
+                .attr('stroke', color)
+                .attr('stroke-width', 1.5);
+        }
+
+        // Label
+        el.append('text')
+            .attr('dx', 14)
+            .attr('dy', 4)
+            .text(truncateLabel(d.label, 24));
+    });
+
+    // ── Tick ────────────────────────────────────────────────
+    simulation.on('tick', function() {
+        edgeElements
+            .attr('x1', function(d) { return d.source.x; })
+            .attr('y1', function(d) { return d.source.y; })
+            .attr('x2', function(d) { return d.target.x; })
+            .attr('y2', function(d) { return d.target.y; });
+
+        nodeElements
+            .attr('transform', function(d) {
+                return 'translate(' + d.x + ',' + d.y + ')';
+            });
+    });
+
+    // ── Interactions ────────────────────────────────────────
+    // Hover: highlight connected, dim rest
+    nodeElements
+        .on('mouseenter', function(event, d) {
+            var connectedIds = new Set();
+            connectedIds.add(d.id);
+            graphData.edges.forEach(function(e) {
+                var sid = typeof e.source === 'object' ? e.source.id : e.source;
+                var tid = typeof e.target === 'object' ? e.target.id : e.target;
+                if (sid === d.id) connectedIds.add(tid);
+                if (tid === d.id) connectedIds.add(sid);
+            });
+
+            nodeElements.classed('dimmed', function(n) { return !connectedIds.has(n.id); });
+            nodeElements.classed('highlighted', function(n) { return connectedIds.has(n.id); });
+            edgeElements.classed('dimmed', function(e) {
+                var sid = typeof e.source === 'object' ? e.source.id : e.source;
+                var tid = typeof e.target === 'object' ? e.target.id : e.target;
+                return sid !== d.id && tid !== d.id;
+            });
+            edgeElements.classed('highlighted', function(e) {
+                var sid = typeof e.source === 'object' ? e.source.id : e.source;
+                var tid = typeof e.target === 'object' ? e.target.id : e.target;
+                return sid === d.id || tid === d.id;
+            });
+        })
+        .on('mouseleave', function() {
+            nodeElements.classed('dimmed', false).classed('highlighted', false);
+            edgeElements.classed('dimmed', false).classed('highlighted', false);
+        })
+        .on('click', function(event, d) {
+            event.stopPropagation();
+            showDetail(d);
+        });
+
+    // Click background to close detail
+    svg.on('click', function() { closeDetail(); });
+
+    // Close button
+    document.getElementById('detail-close').addEventListener('click', function() {
+        closeDetail();
+    });
+
+    // ── Detail panel (safe DOM construction) ────────────────
+    function showDetail(d) {
+        var body = document.getElementById('detail-body');
+        var panel = document.getElementById('detail-panel');
+
+        // Clear previous content safely
+        while (body.firstChild) {
+            body.removeChild(body.firstChild);
+        }
+
+        // Type badge
+        var badge = document.createElement('span');
+        badge.className = 'inline-block px-2 py-0.5 rounded font-mono text-[10px] tracking-wide uppercase text-white mb-2';
+        if (d.type === 'source') {
+            badge.style.backgroundColor = SOURCE_TYPE_COLORS[d.sourceType] || '#6A5E52';
+            badge.textContent = d.sourceType || 'source';
+        } else {
+            badge.style.backgroundColor = CONTENT_COLORS[d.type] || '#B45A2D';
+            badge.textContent = d.type === 'field_note' ? 'field note' : d.type;
+        }
+        body.appendChild(badge);
+
+        // Title
+        var title = document.createElement('h3');
+        title.className = 'font-title text-base font-bold text-ink mt-2 mb-1';
+        title.textContent = d.label;
+        body.appendChild(title);
+
+        // Creator (sources only)
+        if (d.type === 'source' && d.creator) {
+            var creator = document.createElement('p');
+            creator.className = 'font-body text-sm text-ink-muted m-0 mb-3';
+            creator.textContent = d.creator;
+            body.appendChild(creator);
+        }
+
+        // Connected nodes
+        var connections = [];
+        graphData.edges.forEach(function(e) {
+            var sid = typeof e.source === 'object' ? e.source.id : e.source;
+            var tid = typeof e.target === 'object' ? e.target.id : e.target;
+            if (sid === d.id) {
+                var target = graphData.nodes.find(function(n) { return n.id === tid; });
+                if (target) connections.push({ node: target, role: e.role, direction: 'to' });
+            }
+            if (tid === d.id) {
+                var source = graphData.nodes.find(function(n) { return n.id === sid; });
+                if (source) connections.push({ node: source, role: e.role, direction: 'from' });
+            }
+        });
+
+        if (connections.length > 0) {
+            var countLabel = document.createElement('p');
+            countLabel.className = 'font-mono text-[11px] tracking-wide text-ink-muted mt-3 mb-2';
+            countLabel.textContent = connections.length + ' connection' + (connections.length !== 1 ? 's' : '');
+            body.appendChild(countLabel);
+
+            var list = document.createElement('ul');
+            list.className = 'space-y-1.5 list-none p-0 m-0';
+            connections.forEach(function(c) {
+                var li = document.createElement('li');
+                li.className = 'flex items-start gap-2';
+
+                var dot = document.createElement('span');
+                dot.className = 'mt-1.5 w-1.5 h-1.5 rounded-full flex-shrink-0';
+                dot.style.backgroundColor = ROLE_COLORS[c.role] || '#9A8E82';
+
+                var text = document.createElement('span');
+                text.className = 'font-body text-[13px] text-ink leading-tight';
+                text.textContent = c.node.label;
+
+                var roleTag = document.createElement('span');
+                roleTag.className = 'font-mono text-[9px] tracking-wide text-ink-light uppercase ml-1';
+                roleTag.textContent = c.role;
+
+                text.appendChild(roleTag);
+                li.appendChild(dot);
+                li.appendChild(text);
+                list.appendChild(li);
+            });
+            body.appendChild(list);
+        }
+
+        // Link to trail page (content nodes)
+        if (d.type !== 'source' && d.slug) {
+            var link = document.createElement('a');
+            link.href = '/essay/' + encodeURIComponent(d.slug) + '/';
+            link.className = 'inline-block mt-4 font-mono text-[11px] tracking-wide text-terracotta no-underline hover:underline';
+            link.textContent = 'View research trail \u2192';
+            body.appendChild(link);
+        }
+
+        panel.classList.add('open');
+    }
+
+    function closeDetail() {
+        document.getElementById('detail-panel').classList.remove('open');
+    }
+
+    // ── Drag handlers ───────────────────────────────────────
+    function dragStart(event, d) {
+        if (!event.active) simulation.alphaTarget(0.3).restart();
+        d.fx = d.x;
+        d.fy = d.y;
+    }
+    function dragging(event, d) {
+        d.fx = event.x;
+        d.fy = event.y;
+    }
+    function dragEnd(event, d) {
+        if (!event.active) simulation.alphaTarget(0);
+        d.fx = null;
+        d.fy = null;
+    }
+
+    // ── Helpers ──────────────────────────────────────────────
+    function truncateLabel(text, max) {
+        if (!text) return '';
+        return text.length > max ? text.slice(0, max - 1) + '\u2026' : text;
+    }
+
+    // Resize
+    window.addEventListener('resize', function() {
+        var w = container.clientWidth;
+        var h = Math.max(560, container.clientHeight);
+        svg.attr('width', w).attr('height', h);
+        simulation.force('center', d3.forceCenter(w / 2, h / 2));
+        simulation.alpha(0.3).restart();
+    });
+})();
+</script>
+{% endblock %}

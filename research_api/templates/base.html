@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}Paper Trail{% endblock %} · Travis Gilbert</title>
+
+    <!-- Fonts: matches Next.js site -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Cabin:wght@400;500;600;700&family=Courier+Prime:wght@400;700&family=Vollkorn:ital,wght@0,400..700;1,400..700&family=Caveat:wght@400;700&display=swap" rel="stylesheet">
+
+    <!-- Tailwind CDN with brand tokens -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+    tailwind.config = {
+        theme: {
+            extend: {
+                colors: {
+                    paper:      '#F0EBE4',
+                    surface:    '#F4EFE8',
+                    'bg-alt':   '#E8E0D6',
+                    ink:        '#2A2420',
+                    'ink-muted':'#6A5E52',
+                    'ink-light':'#9A8E82',
+                    terracotta: '#B45A2D',
+                    'terracotta-hover': '#9A4A22',
+                    teal:       '#2D5F6B',
+                    'teal-light':'#3A7A88',
+                    gold:       '#C49A4A',
+                    'gold-light':'#D4AA5A',
+                    rough:      '#3A3632',
+                    border:     '#D4CCC4',
+                    'border-light': '#E8E0D6',
+                    success:    '#5A7A4A',
+                    error:      '#A44A3A',
+                    'hero-ground': '#2A2824',
+                    cream:      '#F0EBE4',
+                },
+                fontFamily: {
+                    title:  ['Vollkorn', 'Georgia', 'serif'],
+                    body:   ['Cabin', 'sans-serif'],
+                    mono:   ['"Courier Prime"', '"Courier New"', 'monospace'],
+                    hand:   ['Caveat', 'cursive'],
+                },
+                boxShadow: {
+                    warm:    '0 2px 8px rgba(42,36,32,0.07), 0 1px 3px rgba(42,36,32,0.04)',
+                    'warm-lg': '0 4px 16px rgba(42,36,32,0.10), 0 2px 6px rgba(42,36,32,0.05)',
+                },
+                borderRadius: {
+                    brand: '6px',
+                },
+            },
+        },
+    }
+    </script>
+
+    <style>
+        /* Paper grain texture (matches Next.js site body::after) */
+        body::after {
+            content: '';
+            position: fixed;
+            inset: 0;
+            pointer-events: none;
+            z-index: 9999;
+            opacity: 0.025;
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='g'%3E%3CfeTurbulence baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23g)'/%3E%3C/svg%3E");
+        }
+
+        /* Prose styling */
+        .prose-trail p { margin-bottom: 1rem; line-height: 1.7; }
+        .prose-trail a { color: #B45A2D; text-decoration: underline; text-underline-offset: 3px; }
+        .prose-trail a:hover { color: #9A4A22; }
+    </style>
+
+    {% block head %}{% endblock %}
+</head>
+<body class="bg-paper text-ink font-body min-h-screen">
+    <!-- Top navigation bar -->
+    <header class="sticky top-0 z-40 bg-paper/95 backdrop-blur-sm border-b border-border">
+        <nav class="max-w-5xl mx-auto px-6 py-3 flex items-center justify-between">
+            <a href="{% url 'paper_trail:explorer' %}" class="font-title text-xl font-bold text-ink no-underline hover:text-terracotta transition-colors">
+                Paper Trail
+            </a>
+            <div class="flex items-center gap-6">
+                <a href="{% url 'paper_trail:explorer' %}" class="font-mono text-[11px] tracking-wide uppercase text-ink-muted no-underline hover:text-ink transition-colors {% if nav_section == 'explorer' %}text-terracotta{% endif %}">
+                    Explorer
+                </a>
+                <a href="{% url 'paper_trail:threads' %}" class="font-mono text-[11px] tracking-wide uppercase text-ink-muted no-underline hover:text-ink transition-colors {% if nav_section == 'threads' %}text-terracotta{% endif %}">
+                    Threads
+                </a>
+                <a href="{% url 'paper_trail:community' %}" class="font-mono text-[11px] tracking-wide uppercase text-ink-muted no-underline hover:text-ink transition-colors {% if nav_section == 'community' %}text-terracotta{% endif %}">
+                    Community
+                </a>
+                <span class="w-px h-4 bg-border"></span>
+                <a href="https://travisgilbert.com" class="font-mono text-[11px] tracking-wide uppercase text-ink-light no-underline hover:text-ink transition-colors">
+                    travisgilbert.com
+                </a>
+            </div>
+        </nav>
+    </header>
+
+    <main class="max-w-5xl mx-auto px-6 py-8">
+        {% block content %}{% endblock %}
+    </main>
+
+    <footer class="border-t border-border mt-16">
+        <div class="max-w-5xl mx-auto px-6 py-8 flex items-center justify-between">
+            <span class="font-mono text-[10px] tracking-widest uppercase text-ink-light">
+                Paper Trail · Travis Gilbert
+            </span>
+            <a href="https://travisgilbert.com" class="font-mono text-[10px] tracking-widest uppercase text-ink-light no-underline hover:text-ink transition-colors">
+                Back to site
+            </a>
+        </div>
+    </footer>
+
+    <!-- HTMX for interactive suggest forms -->
+    <script src="https://unpkg.com/htmx.org@2.0.4" defer></script>
+
+    {% block scripts %}{% endblock %}
+</body>
+</html>

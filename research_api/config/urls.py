@@ -32,9 +32,10 @@ def health_check(request):
 
 
 urlpatterns = [
-    path('', api_root, name='api-root'),
     path('admin/', admin.site.urls),
     path('api/v1/', include('apps.api.urls', namespace='api')),
     path('webhooks/', include('apps.mentions.urls', namespace='mentions')),
     path('health/', health_check, name='health-check'),
+    path('trail/', include('apps.paper_trail.urls')),
+    path('', api_root, name='api-root'),
 ]

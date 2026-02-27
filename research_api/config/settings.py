@@ -46,6 +46,7 @@ INSTALLED_APPS = [
     'apps.mentions',
     'apps.api',
     'apps.publisher',
+    'apps.paper_trail',
 ]
 
 MIDDLEWARE = [
