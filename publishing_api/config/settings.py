@@ -51,6 +51,7 @@ INSTALLED_APPS = [
     "apps.content",
     "apps.publisher",
     "apps.editor",
+    "apps.intake",
 ]
 
 MIDDLEWARE = [

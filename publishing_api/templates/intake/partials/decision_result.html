@@ -1,0 +1,57 @@
+{# Post-triage card: replaces source_card via HTMX outerHTML swap. #}
+<div id="source-{{ source.pk }}" class="rounded-brand border border-border bg-cream shadow-warm-sm overflow-hidden">
+
+  {# OG Image banner (muted after decision) #}
+  {% if source.og_image %}
+  <div class="h-36 overflow-hidden bg-parchment-alt opacity-60">
+    <img
+      src="{{ source.og_image }}"
+      alt=""
+      class="w-full h-full object-cover"
+      loading="lazy"
+    >
+  </div>
+  {% endif %}
+
+  <div class="p-4 space-y-3">
+    {# Decision badge + site name #}
+    <div class="flex items-center gap-2">
+      <c-badge
+        color="{% if source.decision == 'accepted' %}success{% elif source.decision == 'rejected' %}error{% else %}ink{% endif %}"
+      >
+        {{ source.get_decision_display }}
+      </c-badge>
+      {% if source.og_site_name %}
+      <span class="font-mono text-[10px] tracking-wide text-ink-muted uppercase truncate">
+        {{ source.og_site_name }}
+      </span>
+      {% endif %}
+    </div>
+
+    {# Title #}
+    <a
+      href="{{ source.url }}"
+      target="_blank"
+      rel="noopener noreferrer"
+      class="font-body text-[15px] text-ink-secondary hover:text-ink
+             no-underline transition-colors duration-150 line-clamp-2 block"
+    >
+      {{ source.display_title }}
+    </a>
+
+    {# Decision note (if provided) #}
+    {% if source.decision_note %}
+    <p class="font-body text-[12px] text-ink-muted italic leading-relaxed m-0">
+      "{{ source.decision_note }}"
+    </p>
+    {% endif %}
+
+    {# Timestamp #}
+    <time
+      datetime="{{ source.decided_at|date:'c' }}"
+      class="block font-mono text-[9px] tracking-wide text-ink-muted/50"
+    >
+      Decided {{ source.decided_at|date:"M j, g:i A" }}
+    </time>
+  </div>
+</div>

@@ -1,0 +1,93 @@
+{% extends "base.html" %}
+
+{% block title %}Sourcebox{% endblock %}
+
+{% block content %}
+{# ------------------------------------------------------------------ #}
+{# URL input bar                                                       #}
+{# ------------------------------------------------------------------ #}
+<section class="mb-8">
+  <c-section_label color="terracotta">Sourcebox</c-section_label>
+  <p class="font-mono text-[12px] tracking-wide text-ink-muted mt-1 mb-4">
+    Paste a URL to capture it for research triage.
+  </p>
+
+  <form
+    hx-post="{% url 'intake:sourcebox-add' %}"
+    hx-target="#source-grid"
+    hx-swap="afterbegin"
+    hx-on::after-request="if(event.detail.successful) this.reset()"
+  >
+    {% csrf_token %}
+    <div class="flex gap-3">
+      {{ add_form.url }}
+      <c-btn variant="primary" type="submit">
+        <c-icon name="magnifying-glass" size="16" color="currentColor" /> Add
+      </c-btn>
+    </div>
+  </form>
+</section>
+
+{# ------------------------------------------------------------------ #}
+{# Filter tabs                                                         #}
+{# ------------------------------------------------------------------ #}
+<div class="flex items-center gap-1 mb-6 border-b border-border pb-3">
+  {% for key, label in filter_tabs %}
+  <a
+    href="?filter={{ key }}"
+    class="
+      px-3 py-1.5 rounded-brand font-mono text-[11px] tracking-wide
+      no-underline transition-colors duration-150
+      {% if active_filter == key %}
+        bg-terracotta/10 text-terracotta border border-terracotta/20
+      {% else %}
+        text-ink-muted hover:bg-cream hover:text-ink
+      {% endif %}
+    "
+  >
+    {{ label }}
+  </a>
+  {% endfor %}
+</div>
+
+{# ------------------------------------------------------------------ #}
+{# Source cards grid                                                    #}
+{# ------------------------------------------------------------------ #}
+<div id="source-grid" class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+  {% for source in sources %}
+    {% include "intake/partials/source_card.html" with source=source %}
+  {% empty %}
+    <div class="col-span-full flex flex-col items-center gap-3 py-12 text-center">
+      <c-icon name="magnifying-glass" size="32" color="#B45A2D" class="opacity-30" />
+      <p class="font-title text-[18px] text-ink m-0">No sources here</p>
+      <p class="font-mono text-[12px] tracking-wide text-ink-muted max-w-sm m-0">
+        {% if active_filter == 'pending' %}
+          Paste a URL above to start building your research inbox.
+        {% else %}
+          No {{ active_filter }} sources yet.
+        {% endif %}
+      </p>
+    </div>
+  {% endfor %}
+</div>
+
+{# Pagination #}
+{% if page_obj.has_other_pages %}
+<div class="flex justify-center gap-2 mt-8">
+  {% if page_obj.has_previous %}
+    <c-btn variant="ghost" href="?filter={{ active_filter }}&page={{ page_obj.previous_page_number }}">
+      Previous
+    </c-btn>
+  {% endif %}
+  <span class="font-mono text-[11px] tracking-wide text-ink-muted self-center">
+    Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}
+  </span>
+  {% if page_obj.has_next %}
+    <c-btn variant="ghost" href="?filter={{ active_filter }}&page={{ page_obj.next_page_number }}">
+      Next
+    </c-btn>
+  {% endif %}
+</div>
+{% endif %}
+
+{% endblock %}

@@ -116,6 +116,20 @@
                        ">
                         <span class="flex items-center gap-2"><c-icon name="clock" size="16" />Now</span>
                     </a>
+                    <a href="{% url 'intake:sourcebox' %}"
+                       class="
+                           flex items-center justify-between
+                           px-3 py-[7px] rounded-brand text-sm
+                           text-cream/75 no-underline
+                           hover:bg-white/10 hover:text-cream
+                           transition-colors duration-150
+                           {% if nav_section == 'sourcebox' %}bg-white/10 border-l-2 border-terracotta text-cream{% endif %}
+                       ">
+                        <span class="flex items-center gap-2"><c-icon name="magnifying-glass" size="16" />Sourcebox</span>
+                        {% if sidebar_intake_pending %}
+                            <c-badge color="terracotta" outline>{{ sidebar_intake_pending }}</c-badge>
+                        {% endif %}
+                    </a>
                 </div>
 
                 {# Zone 2: Compose #}

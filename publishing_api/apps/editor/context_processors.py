@@ -6,6 +6,7 @@ templates rendered through Django's template engine.
 """
 
 from apps.content.models import Essay, FieldNote, PageComposition, Project
+from apps.intake.models import RawSource
 
 
 def sidebar_counts(request):
@@ -25,4 +26,7 @@ def sidebar_counts(request):
             "projects": Project.objects.filter(draft=True).count(),
         },
         "sidebar_compose_count": PageComposition.objects.count(),
+        "sidebar_intake_pending": RawSource.objects.filter(
+            decision=RawSource.Decision.PENDING
+        ).count(),
     }

@@ -19,6 +19,12 @@ out/
 # Private notes
 docs/notes/
 
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.sqlite3
+
 # OS
 .DS_Store
 Thumbs.db
