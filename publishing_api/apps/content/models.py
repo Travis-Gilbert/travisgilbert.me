@@ -487,7 +487,7 @@ class SiteSettings(TimeStampedModel):
     seo_title_template = models.CharField(
         max_length=200,
         blank=True,
-        default="%s | travisgilbert.com",
+        default="%s | travisgilbert.me",
     )
     seo_description = models.TextField(blank=True, default="")
     seo_og_image_fallback = models.CharField(

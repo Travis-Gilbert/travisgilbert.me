@@ -2,7 +2,7 @@
 Django settings for research_api.
 
 Research source tracking, backlink engine, and public conversation layer
-for travisgilbert.com. Single settings file with environment-based overrides
+for travisgilbert.me. Single settings file with environment-based overrides
 (mirrors publishing_api pattern).
 """
 
@@ -167,7 +167,7 @@ GITHUB_BRANCH = os.environ.get('GITHUB_BRANCH', 'main')
 # Webmention and webhooks
 
 WEBMENTION_TARGET_DOMAIN = os.environ.get(
-    'WEBMENTION_TARGET_DOMAIN', 'travisgilbert.com'
+    'WEBMENTION_TARGET_DOMAIN', 'travisgilbert.me'
 )
 WEBHOOK_SECRET = os.environ.get('WEBHOOK_SECRET', '')
 

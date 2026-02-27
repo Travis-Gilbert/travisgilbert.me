@@ -5,7 +5,7 @@ Two ingestion endpoints:
 
 1. W3C Webmention endpoint (open protocol):
    Accepts POST with source and target URL params. Validates that the
-   target is on travisgilbert.com, verifies the source actually links
+   target is on travisgilbert.me, verifies the source actually links
    to the target, extracts the target slug, and creates/updates a
    Mention record.
 
@@ -35,7 +35,7 @@ logger = logging.getLogger(__name__)
 
 # The domain we accept as valid targets
 ALLOWED_TARGET_DOMAIN = getattr(
-    settings, 'WEBMENTION_TARGET_DOMAIN', 'travisgilbert.com'
+    settings, 'WEBMENTION_TARGET_DOMAIN', 'travisgilbert.me'
 )
 
 

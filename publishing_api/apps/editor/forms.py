@@ -718,14 +718,14 @@ class SiteSettingsForm(forms.ModelForm):
             }),
             "footer_links": StructuredListWidget(fields_schema=FOOTER_LINKS_SCHEMA),
             "seo_title_template": forms.TextInput(attrs={
-                "placeholder": "%s | travisgilbert.com",
+                "placeholder": "%s | travisgilbert.me",
             }),
             "seo_description": forms.Textarea(attrs={
                 "rows": 3,
                 "placeholder": "Default meta description...",
             }),
             "seo_og_image_fallback": forms.TextInput(attrs={
-                "placeholder": "https://travisgilbert.com/og-image.png",
+                "placeholder": "https://travisgilbert.me/og-image.png",
             }),
             "global_toggles": JsonObjectListWidget(
                 attrs={"rows": 5},
