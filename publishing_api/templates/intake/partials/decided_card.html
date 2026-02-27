@@ -1,1 +1,65 @@
-<div id="card-{{ source.pk }}" class="source-card">{{ source.display_title }}</div>
+{# Decided card: muted styling with decision badge and promotion status. #}
+<div
+  id="source-{{ source.pk }}"
+  class="rounded-brand border border-border bg-cream shadow-warm-sm p-3 opacity-75"
+>
+  <div class="flex items-center gap-2 mb-2">
+    {# Decision badge #}
+    <c-badge
+      color="{% if source.decision == 'accepted' %}success{% elif source.decision == 'rejected' %}error{% else %}ink{% endif %}"
+    >
+      {{ source.get_decision_display }}
+    </c-badge>
+    {% if source.og_site_name %}
+    <span class="font-mono text-[9px] tracking-wide text-ink-muted uppercase truncate">
+      {{ source.og_site_name }}
+    </span>
+    {% endif %}
+  </div>
+
+  {# Title #}
+  {% if source.url %}
+  <a
+    href="{{ source.url }}"
+    target="_blank"
+    rel="noopener noreferrer"
+    class="font-body text-[13px] text-ink-secondary hover:text-ink
+           no-underline transition-colors duration-150 line-clamp-2 block"
+  >
+    {{ source.display_title|truncatechars:60 }}
+  </a>
+  {% else %}
+  <p class="font-body text-[13px] text-ink-secondary line-clamp-2 m-0">
+    {{ source.display_title|truncatechars:60 }}
+  </p>
+  {% endif %}
+
+  {# Decision note #}
+  {% if source.decision_note %}
+  <p class="font-body text-[11px] text-ink-muted italic leading-relaxed m-0 mt-1">
+    "{{ source.decision_note|truncatechars:100 }}"
+  </p>
+  {% endif %}
+
+  {# Promotion status #}
+  {% if source.promoted_source_slug %}
+  <div class="flex items-center gap-1.5 text-success mt-2">
+    <c-icon name="magnifying-glass" size="12" color="currentColor" />
+    <span class="font-mono text-[9px] tracking-wide">Promoted to Paper Trail</span>
+  </div>
+  {% elif promote_result.error %}
+  <div class="flex items-center gap-1.5 text-error mt-2">
+    <span class="font-mono text-[9px] tracking-wide">Promotion failed: {{ promote_result.error }}</span>
+  </div>
+  {% endif %}
+
+  {# Timestamp #}
+  {% if source.decided_at %}
+  <time
+    datetime="{{ source.decided_at|date:'c' }}"
+    class="block font-mono text-[9px] tracking-wide text-ink-muted/50 mt-2"
+  >
+    {{ source.decided_at|date:"M j, g:i A" }}
+  </time>
+  {% endif %}
+</div>
