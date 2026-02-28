@@ -47,12 +47,6 @@ INSTALLED_APPS = [
     'apps.api',
     'apps.publisher',
     'apps.paper_trail',
-    # other apps
-    "django_smartbase_admin",
-    "easy_thumbnails",
-    "widget_tweaks",
-    "ckeditor",
-    "ckeditor_uploader",
 ]
 
 MIDDLEWARE = [
