@@ -6,13 +6,12 @@
 // ~12% of dot positions render tiny 0s and 1s instead of circles,
 // creating a subtle digital texture. Seeded PRNG ensures deterministic
 // positions across redraws.
-//
-// Hero zone awareness: when --hero-height CSS var is set (by CollageHero),
-// DotGrid paints the dark ground fill and renders cream-colored dots
-// inside the hero zone, with a smoothstep crossfade at the boundary.
 
 import { useEffect, useRef, useCallback } from 'react';
 import { useThemeVersion, readCssVar, hexToRgb } from '@/hooks/useThemeColor';
+
+// Viewport inversion gradient: charcoal fades in at top, dots invert to cream
+const INVERSION_DEPTH = 0.22; // fraction of viewport height
 
 interface DotGridProps {
   dotRadius?: number;
@@ -30,11 +29,6 @@ interface DotGridProps {
   /** Fraction of dots replaced by binary characters (0 to 1) */
   binaryDensity?: number;
 }
-
-// Hero zone internal defaults (not props; tuned for cream on dark ground)
-const HERO_DOT_COLOR: [number, number, number] = [240, 235, 228]; // cream
-const HERO_DOT_OPACITY = 0.3;
-const HERO_CROSSFADE_HEIGHT = 50; // px, smooth transition band
 
 // Seeded PRNG (mulberry32): deterministic per grid position
 function mulberry32(seed: number): () => number {
@@ -66,8 +60,6 @@ export default function DotGrid({
   const mouseRef = useRef({ x: -9999, y: -9999, active: false });
   /** Ink trail: ring buffer of recent mouse positions with decay */
   const trailRef = useRef<{ x: number; y: number; age: number }[]>([]);
-  /** Hero zone height in px (read from --hero-height CSS var) */
-  const heroHeightRef = useRef<number>(0);
 
   // Dot state in typed arrays for performance
   const dotsRef = useRef<{
@@ -164,25 +156,6 @@ export default function DotGrid({
     // Binary text font (set once, reused)
     const binaryFont = '7px monospace';
 
-    // Hero zone color caches (recomputed on resize and style changes)
-    let heroGroundRgb: [number, number, number] = [42, 40, 36]; // #2A2824 fallback
-    let parchmentRgb: [number, number, number] = [240, 235, 228]; // #F0EBE4 fallback
-
-    /** Read hero zone CSS vars and cache the resolved RGB values */
-    function updateHeroColors() {
-      const cssHeroHeight = parseFloat(
-        getComputedStyle(document.documentElement)
-          .getPropertyValue('--hero-height') || '0'
-      );
-      heroHeightRef.current = cssHeroHeight;
-
-      const heroColorHex = readCssVar('--hero-color') || readCssVar('--color-hero-ground');
-      if (heroColorHex) heroGroundRgb = hexToRgb(heroColorHex);
-
-      const paperHex = readCssVar('--color-paper');
-      if (paperHex) parchmentRgb = hexToRgb(paperHex);
-    }
-
     let resizeRaf = 0;
 
     function resize() {
@@ -194,7 +167,6 @@ export default function DotGrid({
       canvas!.style.width = `${w}px`;
       canvas!.style.height = `${h}px`;
       ctx!.setTransform(dpr, 0, 0, dpr, 0, 0);
-      updateHeroColors();
       initDots(w, h);
       drawStatic();
     }
@@ -208,6 +180,41 @@ export default function DotGrid({
     const resolvedHex = readCssVar('--color-rough-light');
     const rgb = resolvedHex ? hexToRgb(resolvedHex) : dotColor;
 
+    // Resolve inversion colors from CSS (theme-aware)
+    const charcoalHex = readCssVar('--color-hero-ground');
+    const charcoalRgb: [number, number, number] = charcoalHex
+      ? hexToRgb(charcoalHex)
+      : [42, 40, 36];
+
+    const creamHex = readCssVar('--color-hero-text');
+    const creamRgb: [number, number, number] = creamHex
+      ? hexToRgb(creamHex)
+      : [240, 235, 228];
+
+    const paperHex = readCssVar('--color-paper');
+    const paperRgb: [number, number, number] = paperHex
+      ? hexToRgb(paperHex)
+      : [240, 235, 228];
+
+    /** Paint solid charcoal-to-parchment gradient over the top portion of the canvas */
+    function drawInversionGradient() {
+      const gradEnd = Math.round(h * INVERSION_DEPTH);
+      const grad = ctx!.createLinearGradient(0, 0, 0, gradEnd);
+      grad.addColorStop(0, `rgb(${charcoalRgb[0]},${charcoalRgb[1]},${charcoalRgb[2]})`);
+      grad.addColorStop(1, `rgb(${paperRgb[0]},${paperRgb[1]},${paperRgb[2]})`);
+      ctx!.fillStyle = grad;
+      ctx!.fillRect(0, 0, w, gradEnd);
+    }
+
+    /** Returns 1.0 at y=0 (full inversion), 0.0 at/below gradient end */
+    function getInversionFactor(baseY: number): number {
+      const gradEnd = h * INVERSION_DEPTH;
+      if (baseY >= gradEnd) return 0;
+      if (baseY <= 0) return 1;
+      const t = baseY / gradEnd;
+      return 1 - (t * t * (3 - 2 * t)); // Hermite smoothstep
+    }
+
     function drawDot(
       x: number, y: number, alpha: number, dotKind: number,
       r: number, g: number, b: number,
@@ -215,12 +222,10 @@ export default function DotGrid({
       ctx!.fillStyle = `rgba(${r},${g},${b},${alpha})`;
 
       if (dotKind === 0) {
-        // Circle
         ctx!.beginPath();
         ctx!.arc(x, y, dotRadius, 0, Math.PI * 2);
         ctx!.fill();
       } else {
-        // Binary character
         ctx!.font = binaryFont;
         ctx!.textAlign = 'center';
         ctx!.textBaseline = 'middle';
@@ -228,68 +233,21 @@ export default function DotGrid({
       }
     }
 
-    /**
-     * Per-dot color and opacity based on Y position relative to hero zone.
-     * Three zones: deep hero (cream), crossfade band (interpolated), parchment (standard).
-     */
-    function getHeroDotParams(baseY: number): {
-      r: number; g: number; b: number; opacityMul: number;
-    } {
-      const hh = heroHeightRef.current;
-      const cf = HERO_CROSSFADE_HEIGHT;
-
-      if (hh <= 0 || baseY > hh + cf) {
-        return { r: rgb[0], g: rgb[1], b: rgb[2], opacityMul: dotOpacity };
-      }
-
-      if (baseY < hh - cf) {
-        return {
-          r: HERO_DOT_COLOR[0], g: HERO_DOT_COLOR[1], b: HERO_DOT_COLOR[2],
-          opacityMul: HERO_DOT_OPACITY,
-        };
-      }
-
-      // Crossfade band: Hermite smoothstep interpolation
-      const t = (baseY - (hh - cf)) / (cf * 2);
-      const smoothT = t * t * (3 - 2 * t);
-      return {
-        r: Math.round(HERO_DOT_COLOR[0] + (rgb[0] - HERO_DOT_COLOR[0]) * smoothT),
-        g: Math.round(HERO_DOT_COLOR[1] + (rgb[1] - HERO_DOT_COLOR[1]) * smoothT),
-        b: Math.round(HERO_DOT_COLOR[2] + (rgb[2] - HERO_DOT_COLOR[2]) * smoothT),
-        opacityMul: HERO_DOT_OPACITY + (dotOpacity - HERO_DOT_OPACITY) * smoothT,
-      };
-    }
-
-    /** Paint dark ground fill and gradient transition for the hero zone */
-    function drawHeroBackground() {
-      const hh = heroHeightRef.current;
-      if (hh <= 0) return;
-
-      // Dark ground fill
-      ctx!.fillStyle = `rgb(${heroGroundRgb[0]},${heroGroundRgb[1]},${heroGroundRgb[2]})`;
-      ctx!.fillRect(0, 0, w, hh);
-
-      // Gradient transition to parchment at the bottom edge
-      const gradH = 64;
-      const grad = ctx!.createLinearGradient(0, hh - gradH, 0, hh);
-      grad.addColorStop(0, `rgb(${heroGroundRgb[0]},${heroGroundRgb[1]},${heroGroundRgb[2]})`);
-      grad.addColorStop(1, `rgb(${parchmentRgb[0]},${parchmentRgb[1]},${parchmentRgb[2]})`);
-      ctx!.fillStyle = grad;
-      ctx!.fillRect(0, hh - gradH, w, gradH);
-    }
-
     function drawStatic() {
       const dots = dotsRef.current;
       if (!dots) return;
       ctx!.clearRect(0, 0, w, h);
-
-      drawHeroBackground();
+      drawInversionGradient();
 
       for (let i = 0; i < dots.count; i++) {
         if (dots.fade[i] < 0.01) continue;
-        const { r, g, b, opacityMul } = getHeroDotParams(dots.gy[i]);
-        const alpha = opacityMul * dots.fade[i];
-        drawDot(dots.gx[i], dots.gy[i], alpha, dots.kind[i], r, g, b);
+        const baseY = dots.gy[i];
+        const inv = getInversionFactor(baseY);
+        const dr = Math.round(rgb[0] + (creamRgb[0] - rgb[0]) * inv);
+        const dg = Math.round(rgb[1] + (creamRgb[1] - rgb[1]) * inv);
+        const db = Math.round(rgb[2] + (creamRgb[2] - rgb[2]) * inv);
+        const alpha = (dotOpacity + inv * 0.15) * dots.fade[i];
+        drawDot(dots.gx[i], dots.gy[i], alpha, dots.kind[i], dr, dg, db);
       }
     }
 
@@ -298,12 +256,10 @@ export default function DotGrid({
       if (!dots) { animRef.current = requestAnimationFrame(tick); return; }
 
       ctx!.clearRect(0, 0, w, h);
-
-      drawHeroBackground();
+      drawInversionGradient();
 
       // Draw ink trail (underneath grid dots)
       const trail = trailRef.current;
-      const hh = heroHeightRef.current;
       for (let t = trail.length - 1; t >= 0; t--) {
         trail[t].age++;
         if (trail[t].age > 60) {
@@ -312,11 +268,10 @@ export default function DotGrid({
         }
         const opacity = (1 - trail[t].age / 60) * 0.12;
         const radius = 1.2 + (trail[t].age / 60) * 0.5;
-        // Cream trail inside hero zone, standard color below
-        const inHero = hh > 0 && trail[t].y < hh;
-        const tr = inHero ? HERO_DOT_COLOR[0] : rgb[0];
-        const tg = inHero ? HERO_DOT_COLOR[1] : rgb[1];
-        const tb = inHero ? HERO_DOT_COLOR[2] : rgb[2];
+        const tInv = getInversionFactor(trail[t].y);
+        const tr = Math.round(rgb[0] + (creamRgb[0] - rgb[0]) * tInv);
+        const tg = Math.round(rgb[1] + (creamRgb[1] - rgb[1]) * tInv);
+        const tb = Math.round(rgb[2] + (creamRgb[2] - rgb[2]) * tInv);
         ctx!.fillStyle = `rgba(${tr},${tg},${tb},${opacity})`;
         ctx!.beginPath();
         ctx!.arc(trail[t].x, trail[t].y, radius, 0, Math.PI * 2);
@@ -362,10 +317,12 @@ export default function DotGrid({
           anyDisplaced = true;
         }
 
-        // Per-dot hero zone color selection
-        const { r, g, b, opacityMul } = getHeroDotParams(baseY);
-        const alpha = opacityMul * dots.fade[i];
-        drawDot(baseX + dots.ox[i], baseY + dots.oy[i], alpha, dots.kind[i], r, g, b);
+        const inv = getInversionFactor(baseY);
+        const dr = Math.round(rgb[0] + (creamRgb[0] - rgb[0]) * inv);
+        const dg = Math.round(rgb[1] + (creamRgb[1] - rgb[1]) * inv);
+        const db = Math.round(rgb[2] + (creamRgb[2] - rgb[2]) * inv);
+        const alpha = (dotOpacity + inv * 0.15) * dots.fade[i];
+        drawDot(baseX + dots.ox[i], baseY + dots.oy[i], alpha, dots.kind[i], dr, dg, db);
       }
 
       if (!anyDisplaced) {
@@ -402,24 +359,6 @@ export default function DotGrid({
       mouseRef.current.active = false;
     }
 
-    // Watch for --hero-height / --hero-color changes on <html> style attribute.
-    // Handles client-side navigation: CollageHero mounts/unmounts and sets/removes
-    // CSS vars without triggering a window resize.
-    const styleObserver = new MutationObserver(() => {
-      const newHH = parseFloat(
-        getComputedStyle(document.documentElement)
-          .getPropertyValue('--hero-height') || '0'
-      );
-      if (newHH !== heroHeightRef.current) {
-        updateHeroColors();
-        drawStatic();
-      }
-    });
-    styleObserver.observe(document.documentElement, {
-      attributes: true,
-      attributeFilter: ['style'],
-    });
-
     // Initialize
     resize();
 
@@ -432,7 +371,6 @@ export default function DotGrid({
     return () => {
       cancelAnimationFrame(animRef.current);
       cancelAnimationFrame(resizeRaf);
-      styleObserver.disconnect();
       if (!isTouchOnly) {
         window.removeEventListener('mousemove', onMouseMove);
       }

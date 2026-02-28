@@ -13,6 +13,17 @@ sources:
     url: "https://parkingreform.org/"
 related: ["the-sidewalk-tax"]
 stage: research
+thesis: "Parking minimums are the most consequential design policy most people have never heard of, and their repeal is rewriting the American landscape."
+sourceCount: 3
+researchStarted: "2025-12-01"
+revisionCount: 2
+researchNotes:
+  - "Primary source: Shoup's research on parking economics and the 3:1 ratio"
+  - "Tracked parking reform movement from Buffalo (2017) through 70+ cities by 2025"
+  - "Validated cost ranges from Parking Reform Network data"
+sourceSummary: "1 book, 1 academic monograph, 1 policy research network"
+connectedTypes: ["essay"]
+connectionNotes: "Paired with The Sidewalk Tax; both investigate how mundane infrastructure decisions accumulate into massive spatial consequences."
 annotations:
   - paragraph: 1
     text: "This changed how cities think about space"

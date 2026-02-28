@@ -186,7 +186,7 @@ export default function EssayHero({
                 color: 'rgba(240, 235, 228, 0.5)',
               }}
             >
-              {sourceCount} {sourceCount === 1 ? 'source' : 'sources'}
+              BASED ON {sourceCount} {sourceCount === 1 ? 'SOURCE' : 'SOURCES'}
             </span>
           )}
         </div>
@@ -227,10 +227,14 @@ export default function EssayHero({
         {/* Thesis: cognitive anchor below title */}
         {thesis && (
           <p
-            className="font-body text-base md:text-lg max-w-prose leading-relaxed mb-4 line-clamp-2"
+            className="text-base md:text-lg leading-relaxed mb-4 line-clamp-2"
             style={{
-              color: 'rgba(240, 235, 228, 0.8)',
+              fontFamily: 'var(--font-body-alt)',
               fontStyle: 'italic',
+              color: 'rgba(240, 235, 228, 0.8)',
+              borderLeft: '3px solid var(--color-terracotta)',
+              paddingLeft: '1rem',
+              maxWidth: '55ch',
             }}
           >
             {thesis}

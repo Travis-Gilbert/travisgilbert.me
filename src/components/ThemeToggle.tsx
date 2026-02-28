@@ -12,7 +12,8 @@ export default function ThemeToggle() {
         theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'
       }
       title={theme === 'dark' ? 'Light mode' : 'Dark mode'}
-      className="p-3.5 bg-transparent border-none cursor-pointer text-ink-secondary hover:text-terracotta transition-colors -m-2"
+      className="p-3.5 bg-transparent border-none cursor-pointer hover:text-terracotta transition-colors -m-2"
+      style={{ color: 'var(--color-hero-text-muted)' }}
     >
       {theme === 'dark' ? (
         <svg

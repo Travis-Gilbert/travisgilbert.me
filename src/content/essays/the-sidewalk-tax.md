@@ -11,6 +11,16 @@ sources:
     url: "https://www.ada.gov/law-and-regs/design-standards/"
 related: ["the-parking-lot-problem"]
 stage: drafting
+thesis: "Designing for the margins improves conditions at the center: the curb cut is proof that accessibility is better engineering, not charity."
+sourceCount: 2
+researchStarted: "2025-10-01"
+revisionCount: 3
+researchNotes:
+  - "Started from the Kalamazoo veterans' story, traced forward to modern curb-cut effect research"
+  - "Cross-referenced ADA design standards with SSIR curb-cut effect analysis"
+sourceSummary: "1 social impact journal, 1 federal design standard"
+connectedTypes: ["essay"]
+connectionNotes: "Companion piece to The Parking Lot Problem; both examine how small infrastructure choices cascade into citywide consequences."
 annotations:
   - paragraph: 1
     text: "Kalamazoo, 1945. The origin story."

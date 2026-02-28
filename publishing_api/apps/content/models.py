@@ -71,6 +71,33 @@ class Essay(TimeStampedModel):
         help_text="Per-instance visual overrides (heroStyle, overlay, accent)",
     )
 
+    # Process proof fields
+    thesis = models.TextField(blank=True, default="")
+    source_count = models.PositiveIntegerField(default=0)
+    research_started = models.DateField(null=True, blank=True)
+    revision_count = models.PositiveIntegerField(default=0)
+    research_notes = models.TextField(
+        blank=True,
+        default="",
+        help_text="Bullet-point research process notes (one per line)",
+    )
+    source_summary = models.CharField(
+        max_length=255,
+        blank=True,
+        default="",
+        help_text="Human-readable summary of source types",
+    )
+    connected_types = models.JSONField(
+        default=list,
+        blank=True,
+        help_text="Content types this essay connects to",
+    )
+    connection_notes = models.TextField(
+        blank=True,
+        default="",
+        help_text="Notes on how this essay relates to other content",
+    )
+
     class Meta:
         ordering = ["-date"]
 

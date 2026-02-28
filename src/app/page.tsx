@@ -7,7 +7,7 @@ import DateStamp from '@/components/DateStamp';
 import TagList from '@/components/TagList';
 import RoughBox from '@/components/rough/RoughBox';
 import RoughLine from '@/components/rough/RoughLine';
-import RoughCallout from '@/components/rough/RoughCallout';
+import CodeComment from '@/components/CodeComment';
 import ScrollReveal from '@/components/ScrollReveal';
 import PipelineCounter from '@/components/PipelineCounter';
 import { CompactTracker, NOTE_STAGES } from '@/components/ProgressTracker';
@@ -40,7 +40,6 @@ export default function HomePage() {
   const featured = essays[0];
 
   // Hero data from the featured essay's frontmatter
-  const heroColor = featured?.data.heroColor ?? '#4A4528';
   const heroImage = featured?.data.heroImage;
   const heroAlt = featured ? `Visual artifact for ${featured.data.title}` : 'Hero artifact';
 
@@ -51,13 +50,12 @@ export default function HomePage() {
           Identity (name, PipelineCounter), featured essay (title, summary,
           tags, progress), and composed visual artifact.
           CollageHero breaks out of max-w-4xl to span full viewport width.
-          DotGrid renders cream dots over this dark zone via --hero-height.
+          DotGrid renders cream dots in top viewport zone via inversion gradient.
           ═══════════════════════════════════════════════ */}
       <CollageHero
         name="Travis Gilbert"
         pipelineStatus={<PipelineCounter />}
         nowPreview={<NowPreviewCompact inverted />}
-        heroColor={heroColor}
         artifact={
           <HeroArtifact
             imageSrc={heroImage}
@@ -117,18 +115,17 @@ export default function HomePage() {
                         </p>
                       )}
                     </Link>
-                    {/* Handwritten margin callout (outside Link, inside RoughBox) */}
+                    {/* Code-style margin annotation (outside Link, inside RoughBox) */}
                     {(() => {
                       const callouts = note.data.callouts ?? (note.data.callout ? [note.data.callout] : []);
                       return callouts[0] ? (
-                        <RoughCallout
+                        <CodeComment
                           side={i % 2 === 0 ? 'left' : 'right'}
                           tint="teal"
                           offsetY={12}
-                          seed={100 + i}
                         >
                           {callouts[0]}
-                        </RoughCallout>
+                        </CodeComment>
                       ) : null;
                     })()}
                     {note.data.tags.length > 0 && (

@@ -474,6 +474,39 @@ def research_activity(request):
 
 
 # ---------------------------------------------------------------------------
+# Stats
+# ---------------------------------------------------------------------------
+
+
+@api_view(['GET'])
+def research_stats(request):
+    """
+    GET /api/v1/stats/
+
+    Aggregate counts for the research collection: total public sources,
+    links, threads, and a breakdown of sources by type.
+    """
+    total_sources = Source.objects.public().count()
+    total_links = SourceLink.objects.count()
+    total_threads = ResearchThread.objects.public().count()
+
+    type_rows = (
+        Source.objects.public()
+        .values('source_type')
+        .annotate(count=Count('id'))
+        .order_by('source_type')
+    )
+    sources_by_type = {row['source_type']: row['count'] for row in type_rows}
+
+    return Response({
+        'total_sources': total_sources,
+        'total_links': total_links,
+        'total_threads': total_threads,
+        'sources_by_type': sources_by_type,
+    })
+
+
+# ---------------------------------------------------------------------------
 # Internal: Source promotion (from publishing_api Sourcebox)
 # ---------------------------------------------------------------------------
 

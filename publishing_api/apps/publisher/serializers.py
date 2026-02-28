@@ -81,6 +81,25 @@ def serialize_essay(essay):
         data["annotations"] = essay.annotations
     if essay.composition:
         data["composition"] = essay.composition
+    # Process proof fields
+    if essay.thesis:
+        data["thesis"] = essay.thesis
+    if essay.source_count:
+        data["sourceCount"] = essay.source_count
+    if essay.research_started:
+        data["researchStarted"] = _date_str(essay.research_started)
+    if essay.revision_count:
+        data["revisionCount"] = essay.revision_count
+    if essay.research_notes:
+        lines = [ln for ln in essay.research_notes.split("\n") if ln.strip()]
+        if lines:
+            data["researchNotes"] = lines
+    if essay.source_summary:
+        data["sourceSummary"] = essay.source_summary
+    if essay.connected_types:
+        data["connectedTypes"] = essay.connected_types
+    if essay.connection_notes:
+        data["connectionNotes"] = essay.connection_notes
 
     return _to_yaml_frontmatter(data, essay.body)
 

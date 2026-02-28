@@ -1,5 +1,3 @@
-'use client';
-
 /**
  * CollageHero: full-bleed homepage hero (transparent over DotGrid).
  *
@@ -10,12 +8,9 @@
  * Two-column grid on desktop (55% text / 45% artifact).
  * Single-column stack on mobile.
  *
- * No background color: DotGrid canvas paints the dark ground.
- * Reports height and color to `--hero-height` and `--hero-color`
- * on <html> via ResizeObserver so DotGrid can render the hero zone.
+ * Transparent: DotGrid canvas shows through behind content.
  */
 
-import { useRef, useEffect } from 'react';
 import Link from 'next/link';
 import TagList from './TagList';
 import { CompactTracker, ESSAY_STAGES } from './ProgressTracker';
@@ -40,8 +35,6 @@ interface CollageHeroProps {
   nowPreview: React.ReactNode;
   /** Optional artifact component for the right column */
   artifact?: React.ReactNode;
-  /** Deep saturated hero background color, from essay frontmatter */
-  heroColor?: string;
   /** Featured essay data (merged into the hero) */
   featured?: FeaturedEssay | null;
 }
@@ -59,41 +52,12 @@ export default function CollageHero({
   pipelineStatus,
   nowPreview,
   artifact,
-  heroColor = '#4A4528',
   featured,
 }: CollageHeroProps) {
-  const containerRef = useRef<HTMLDivElement>(null);
-
-  // Report hero height + color to <html> for DotGrid zone awareness
-  useEffect(() => {
-    const el = containerRef.current;
-    if (!el) return;
-
-    const observer = new ResizeObserver((entries) => {
-      for (const entry of entries) {
-        document.documentElement.style.setProperty(
-          '--hero-height',
-          `${entry.contentRect.height}px`,
-        );
-        document.documentElement.style.setProperty(
-          '--hero-color',
-          heroColor,
-        );
-      }
-    });
-
-    observer.observe(el);
-    return () => {
-      observer.disconnect();
-      document.documentElement.style.removeProperty('--hero-height');
-      document.documentElement.style.removeProperty('--hero-color');
-    };
-  }, [heroColor]);
-
   const latestHref = featured ? `/essays/${featured.slug}` : '/essays';
 
   return (
-    <div ref={containerRef}>
+    <div>
       <div
         className="relative"
         style={{
@@ -130,7 +94,7 @@ export default function CollageHero({
                     fontFamily: 'var(--font-title)',
                     fontWeight: 700,
                     fontSize: 26,
-                    background: 'linear-gradient(to right, var(--color-hero-text-muted), var(--color-terracotta-light))',
+                    background: 'linear-gradient(to right, var(--color-hero-text), var(--color-terracotta))',
                     WebkitBackgroundClip: 'text',
                     WebkitTextFillColor: 'transparent',
                     backgroundClip: 'text',
@@ -158,7 +122,7 @@ export default function CollageHero({
                       fontSize: 9,
                       textTransform: 'uppercase',
                       letterSpacing: '0.12em',
-                      color: 'var(--color-terracotta-light)',
+                      color: 'var(--color-terracotta)',
                     }}
                   >
                     Currently Writing
@@ -177,7 +141,7 @@ export default function CollageHero({
                         color: 'var(--color-hero-text)',
                       }}
                     >
-                      <span className="group-hover:text-[var(--color-terracotta-light)] transition-colors">
+                      <span className="group-hover:text-[var(--color-terracotta)] transition-colors">
                         {featured.title}
                       </span>
                     </h2>
@@ -195,13 +159,12 @@ export default function CollageHero({
                   </p>
 
                   <div className="mt-4 flex flex-wrap items-center gap-3">
-                    {/* Inline date (hero-colored, since DateStamp lacks inverted support) */}
                     <time
                       dateTime={new Date(featured.date).toISOString()}
                       className="inline-block font-mono text-[11px] uppercase tracking-widest px-2 py-0.5 rounded select-none"
                       style={{
-                        color: 'var(--color-terracotta-light)',
-                        background: 'rgba(212, 135, 90, 0.1)',
+                        color: 'var(--color-terracotta)',
+                        background: 'rgba(180, 90, 45, 0.08)',
                       }}
                     >
                       {formatDate(featured.date)}
@@ -211,14 +174,14 @@ export default function CollageHero({
                       <CompactTracker
                         stages={ESSAY_STAGES}
                         currentStage={featured.stage}
-                        color="var(--color-terracotta-light)"
+                        color="var(--color-terracotta)"
                       />
                     )}
                   </div>
 
                   {featured.tags.length > 0 && (
                     <div className="mt-3">
-                      <TagList tags={featured.tags} tint="terracotta" inverted />
+                      <TagList tags={featured.tags} tint="terracotta" />
                     </div>
                   )}
                 </div>

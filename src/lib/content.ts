@@ -54,6 +54,12 @@ export const essaySchema = z.object({
   revisionCount: z.number().optional(),
   /** Bullet-point research process notes */
   researchNotes: z.array(z.string()).optional(),
+  /** Human-readable summary of source types (e.g., "3 academic papers, 2 interviews") */
+  sourceSummary: z.string().optional(),
+  /** Content types this essay connects to (e.g., ["field-note", "project"]) */
+  connectedTypes: z.array(z.string()).optional(),
+  /** Notes on how this essay relates to other content */
+  connectionNotes: z.string().optional(),
 });
 
 export const fieldNoteSchema = z.object({

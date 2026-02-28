@@ -634,6 +634,25 @@ blockquote {
   hyphens: none;
 }
 
+.prose h4 {
+  font-family: var(--font-body-alt);
+  text-transform: uppercase;
+  font-size: 0.85em;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  margin-top: 2rem;
+  margin-bottom: 0.5rem;
+  hyphens: none;
+}
+
+.prose figcaption {
+  font-family: var(--font-metadata);
+  font-size: 0.75rem;
+  text-align: center;
+  color: var(--color-ink-secondary);
+  margin-top: 0.5rem;
+}
+
 .prose p { margin-bottom: 1.25rem; }
 .prose ul, .prose ol { margin-bottom: 1.25rem; padding-left: 1.5rem; }
 .prose li { margin-bottom: 0.5rem; }
@@ -659,7 +678,7 @@ blockquote {
   border-left: 3px solid var(--color-terracotta);
   border-radius: 0 8px 8px 0;
   padding: 0.75rem 0.875rem;
-  margin-left: 0;
+  margin-left: -1em;
   margin-bottom: 1.25rem;
   color: var(--color-ink-secondary);
   position: relative;

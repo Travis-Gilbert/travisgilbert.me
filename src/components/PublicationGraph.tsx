@@ -1,14 +1,14 @@
 /**
- * PublicationGraph: SVG bar chart of publication activity by month.
+ * PublicationGraph: SVG cumulative step chart of publication output by month.
  *
  * Async Server Component that aggregates content publication dates at build time.
- * 12-month rolling window, grouped by month. Three stacked series:
- *   terracotta (bottom): essays
- *   teal (middle): field notes
- *   gold (top): published videos
+ * 12-month rolling window, grouped by month. Three stepped line series:
+ *   terracotta: essays (cumulative)
+ *   teal: field notes (cumulative)
+ *   gold: published videos (cumulative)
  *
  * Renders inside a RoughBox on the /now page.
- * Accessible: <title>, role="img", bar labels as <text> elements.
+ * Accessible: <title>, role="img", month labels as <text> elements.
  */
 
 import { getCollection } from '@/lib/content';
@@ -17,6 +17,13 @@ import { fetchAllVideos } from '@/lib/videos';
 import RoughBox from '@/components/rough/RoughBox';
 
 interface MonthBucket {
+  label: string;
+  essays: number;
+  notes: number;
+  videos: number;
+}
+
+interface CumulativeBucket {
   label: string;
   essays: number;
   notes: number;
@@ -57,6 +64,42 @@ function buildMonthBuckets(videoPublishDates: Date[]): MonthBucket[] {
   return buckets;
 }
 
+function buildStepPoints(
+  cumulative: CumulativeBucket[],
+  field: keyof Omit<CumulativeBucket, 'label'>,
+  maxValue: number,
+  chartWidth: number,
+  chartHeight: number,
+  paddingLeft: number,
+  paddingTop: number,
+): string {
+  const colWidth = chartWidth / cumulative.length;
+  const points: string[] = [];
+
+  for (let i = 0; i < cumulative.length; i++) {
+    const value = cumulative[i][field];
+    const y = paddingTop + chartHeight - (value / maxValue) * chartHeight;
+    const xLeft = paddingLeft + i * colWidth;
+    const xRight = paddingLeft + (i + 1) * colWidth;
+    points.push(`${xLeft},${y}`);
+    points.push(`${xRight},${y}`);
+  }
+
+  return points.join(' ');
+}
+
+function buildAreaPoints(
+  stepPoints: string,
+  chartWidth: number,
+  chartHeight: number,
+  paddingLeft: number,
+  paddingTop: number,
+): string {
+  const baseline = paddingTop + chartHeight;
+  const rightEdge = paddingLeft + chartWidth;
+  return `${paddingLeft},${baseline} ${stepPoints} ${rightEdge},${baseline}`;
+}
+
 export default async function PublicationGraph() {
   // Fetch published videos from Studio API (graceful: empty array on failure)
   const allVideos = await fetchAllVideos();
@@ -65,7 +108,22 @@ export default async function PublicationGraph() {
     .map((v) => new Date(v.published_at!));
 
   const buckets = buildMonthBuckets(videoPublishDates);
-  const maxTotal = Math.max(...buckets.map((b) => b.essays + b.notes + b.videos), 1);
+
+  // Compute cumulative totals per content type
+  let essayCum = 0;
+  let noteCum = 0;
+  let videoCum = 0;
+  const cumulative: CumulativeBucket[] = buckets.map((b) => {
+    essayCum += b.essays;
+    noteCum += b.notes;
+    videoCum += b.videos;
+    return { label: b.label, essays: essayCum, notes: noteCum, videos: videoCum };
+  });
+
+  const maxCumulative = Math.max(
+    ...cumulative.map((c) => Math.max(c.essays, c.notes, c.videos)),
+    1,
+  );
 
   // Chart dimensions
   const width = 400;
@@ -73,14 +131,29 @@ export default async function PublicationGraph() {
   const padding = { top: 8, right: 8, bottom: 24, left: 8 };
   const chartWidth = width - padding.left - padding.right;
   const chartHeight = height - padding.top - padding.bottom;
-  const barWidth = chartWidth / buckets.length;
-  const barGap = 4;
+  const colWidth = chartWidth / cumulative.length;
 
-  // Compute summary stats
+  // Summary stats (raw totals, same as cumulative endpoints)
   const totalEssays = buckets.reduce((sum, b) => sum + b.essays, 0);
   const totalNotes = buckets.reduce((sum, b) => sum + b.notes, 0);
   const totalVideos = buckets.reduce((sum, b) => sum + b.videos, 0);
   const activeMonths = buckets.filter((b) => b.essays + b.notes + b.videos > 0).length;
+
+  // Build step polyline points for each series
+  const essayPoints = buildStepPoints(
+    cumulative, 'essays', maxCumulative, chartWidth, chartHeight, padding.left, padding.top,
+  );
+  const notePoints = buildStepPoints(
+    cumulative, 'notes', maxCumulative, chartWidth, chartHeight, padding.left, padding.top,
+  );
+  const videoPoints = buildStepPoints(
+    cumulative, 'videos', maxCumulative, chartWidth, chartHeight, padding.left, padding.top,
+  );
+
+  // Build closed polygon points for area fills
+  const essayArea = buildAreaPoints(essayPoints, chartWidth, chartHeight, padding.left, padding.top);
+  const noteArea = buildAreaPoints(notePoints, chartWidth, chartHeight, padding.left, padding.top);
+  const videoArea = buildAreaPoints(videoPoints, chartWidth, chartHeight, padding.left, padding.top);
 
   return (
     <section className="py-4">
@@ -101,82 +174,62 @@ export default async function PublicationGraph() {
           width="100%"
           viewBox={`0 0 ${width} ${height}`}
           role="img"
-          aria-label={`Publication activity: ${totalEssays} essays, ${totalNotes} field notes, and ${totalVideos} videos over 12 months`}
+          aria-label={`Cumulative publication output: ${totalEssays} essays, ${totalNotes} field notes, and ${totalVideos} videos over 12 months`}
           style={{ maxWidth: width }}
         >
-          <title>Publication activity over 12 months</title>
+          <title>Cumulative publication output over 12 months</title>
 
-          {buckets.map((bucket, i) => {
-            const x = padding.left + i * barWidth + barGap / 2;
-            const bw = barWidth - barGap;
+          {/* Area fills (rendered first, behind the lines) */}
+          <polygon points={essayArea} fill="var(--color-terracotta)" opacity={0.08} />
+          <polygon points={noteArea} fill="var(--color-teal)" opacity={0.08} />
+          <polygon points={videoArea} fill="var(--color-gold)" opacity={0.08} />
 
-            // Essay bar (bottom)
-            const essayHeight = (bucket.essays / maxTotal) * chartHeight;
-            const essayY = padding.top + chartHeight - essayHeight;
+          {/* Step lines */}
+          <polyline
+            points={essayPoints}
+            fill="none"
+            stroke="var(--color-terracotta)"
+            strokeWidth={2}
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            opacity={1.0}
+          />
+          <polyline
+            points={notePoints}
+            fill="none"
+            stroke="var(--color-teal)"
+            strokeWidth={2}
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            opacity={1.0}
+          />
+          <polyline
+            points={videoPoints}
+            fill="none"
+            stroke="var(--color-gold)"
+            strokeWidth={2}
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            opacity={1.0}
+          />
 
-            // Field note bar (stacked on top of essay)
-            const noteHeight = (bucket.notes / maxTotal) * chartHeight;
-            const noteY = essayY - noteHeight;
-
-            // Video bar (stacked on top of field notes)
-            const videoHeight = (bucket.videos / maxTotal) * chartHeight;
-            const videoY = noteY - videoHeight;
-
+          {/* Month labels */}
+          {cumulative.map((bucket, i) => {
+            const x = padding.left + i * colWidth + colWidth / 2;
             return (
-              <g key={i}>
-                {/* Essay bar */}
-                {bucket.essays > 0 && (
-                  <rect
-                    x={x}
-                    y={essayY}
-                    width={bw}
-                    height={essayHeight}
-                    rx={2}
-                    fill="var(--color-terracotta)"
-                    opacity={0.7}
-                  />
-                )}
-
-                {/* Field note bar */}
-                {bucket.notes > 0 && (
-                  <rect
-                    x={x}
-                    y={noteY}
-                    width={bw}
-                    height={noteHeight}
-                    rx={2}
-                    fill="var(--color-teal)"
-                    opacity={0.7}
-                  />
-                )}
-
-                {/* Video bar */}
-                {bucket.videos > 0 && (
-                  <rect
-                    x={x}
-                    y={videoY}
-                    width={bw}
-                    height={videoHeight}
-                    rx={2}
-                    fill="var(--color-gold)"
-                    opacity={0.7}
-                  />
-                )}
-
-                {/* Month label */}
-                <text
-                  x={x + bw / 2}
-                  y={height - 4}
-                  textAnchor="middle"
-                  fill="var(--color-ink-faint)"
-                  style={{
-                    fontSize: 8,
-                    fontFamily: 'var(--font-mono)',
-                  }}
-                >
-                  {bucket.label}
-                </text>
-              </g>
+              <text
+                key={i}
+                x={x}
+                y={height - 4}
+                textAnchor="middle"
+                fill="var(--color-ink-faint)"
+                style={{
+                  fontSize: 8,
+                  fontFamily: 'var(--font-mono)',
+                }}
+              >
+                {bucket.label}
+              </text>
             );
           })}
 

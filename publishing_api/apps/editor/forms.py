@@ -55,6 +55,14 @@ class EssayForm(forms.ModelForm):
             "stage",
             "annotations",
             "composition",
+            "thesis",
+            "source_count",
+            "research_started",
+            "revision_count",
+            "research_notes",
+            "source_summary",
+            "connected_types",
+            "connection_notes",
         ]
         widgets = {
             "title": forms.TextInput(attrs={
@@ -104,6 +112,28 @@ class EssayForm(forms.ModelForm):
             }),
             "callouts": StructuredListWidget(fields_schema=CALLOUTS_SCHEMA),
             "annotations": StructuredListWidget(fields_schema=ANNOTATIONS_SCHEMA),
+            # Process proof fields
+            "thesis": forms.Textarea(attrs={
+                "rows": 2,
+                "placeholder": "One-sentence thesis for this essay...",
+            }),
+            "research_started": forms.DateInput(attrs={
+                "type": "date",
+            }),
+            "source_summary": forms.TextInput(attrs={
+                "placeholder": "e.g. 4 articles, 2 books, 1 interview",
+            }),
+            "connected_types": TagsWidget(attrs={
+                "placeholder": "field-note, project, shelf-entry",
+            }),
+            "research_notes": forms.Textarea(attrs={
+                "rows": 4,
+                "placeholder": "Research notes, open questions, leads...",
+            }),
+            "connection_notes": forms.Textarea(attrs={
+                "rows": 3,
+                "placeholder": "How this essay connects to other content...",
+            }),
         }
 
     def __init__(self, *args, **kwargs):
@@ -135,6 +165,13 @@ class EssayForm(forms.ModelForm):
                 "Structured Data",
                 "sources", "annotations", "callouts", "callout",
                 css_class="section-gold with-grid",
+            ),
+            Fieldset(
+                "Process Proof",
+                "thesis", "source_count", "research_started",
+                "revision_count", "source_summary", "connected_types",
+                "research_notes", "connection_notes",
+                css_class="section-teal",
             ),
             Fieldset(
                 "Advanced",

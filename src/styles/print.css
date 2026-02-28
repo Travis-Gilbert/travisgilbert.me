@@ -16,6 +16,7 @@
   @page {
     size: auto;
     margin: 2cm;
+    marks: crop cross;
   }
 
   /* ──────────────────────────────────────────────
@@ -136,6 +137,17 @@
     color: #000 !important;
     page-break-after: avoid;
     break-after: avoid;
+    font-variant: small-caps;
+  }
+
+  .prose h1,
+  .prose h2,
+  .prose h3 {
+    font-family: 'Vollkorn', Georgia, serif;
+  }
+
+  .prose h4 {
+    font-family: 'IBM Plex Sans', 'Helvetica Neue', sans-serif;
   }
 
   .prose blockquote {
@@ -179,7 +191,7 @@
     vertical-align: super;
     line-height: 0;
     color: #555;
-    font-family: var(--font-mono, 'Courier Prime', monospace);
+    font-family: 'Courier Prime', 'Courier New', monospace;
   }
 
   .fn-table {
@@ -191,7 +203,7 @@
   }
 
   .fn-table-title {
-    font-family: var(--font-mono, 'Courier Prime', monospace);
+    font-family: 'Courier Prime', 'Courier New', monospace;
     font-size: 9pt;
     text-transform: uppercase;
     letter-spacing: 0.1em;
@@ -207,14 +219,14 @@
   }
 
   .fn-num {
-    font-family: var(--font-mono, 'Courier Prime', monospace);
+    font-family: 'Courier Prime', 'Courier New', monospace;
     color: #555;
     display: inline-block;
     min-width: 2em;
   }
 
   .fn-url {
-    font-family: var(--font-mono, 'Courier Prime', monospace);
+    font-family: 'Courier Prime', 'Courier New', monospace;
     color: #666;
   }
 
@@ -241,12 +253,12 @@
    * Colophon (appended to article)
    * ──────────────────────────────────────────────*/
   article::after {
-    content: 'travisgilbert.me  \2022  Printed from the digital workbench';
+    content: 'travisgilbert.com  \2022  Essays, projects, and field notes on how design decisions shape human outcomes';
     display: block;
     margin-top: 3rem;
     padding-top: 1rem;
     border-top: 0.5pt solid #ccc;
-    font-family: var(--font-mono, 'Courier Prime', monospace);
+    font-family: 'Courier Prime', 'Courier New', monospace;
     font-size: 8pt;
     color: #999;
     text-align: center;

@@ -253,6 +253,8 @@ export default async function EssayDetailPage({ params }: Props) {
         revisionCount={entry.data.revisionCount}
         sourceCount={entry.data.sourceCount}
         researchNotes={entry.data.researchNotes}
+        sourceSummary={entry.data.sourceSummary}
+        connectedTypes={entry.data.connectedTypes}
         videoPhase={primaryVideoDetail?.phase_display}
         videoSceneCount={primaryVideoDetail?.scenes.length}
         videoScriptWords={primaryVideoDetail?.script_word_count}

@@ -33,6 +33,9 @@ urlpatterns = [
     # Activity data (for heatmap visualization)
     path('activity/', views.research_activity, name='research-activity'),
 
+    # Aggregate stats
+    path('stats/', views.research_stats, name='research-stats'),
+
     # Community contributions
     path('suggest/source/', suggest_source, name='suggest-source'),
     path('suggest/connection/', suggest_connection, name='suggest-connection'),

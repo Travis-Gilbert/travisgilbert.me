@@ -23,6 +23,7 @@ interface TopNavProps {
 
 const DEFAULT_NAV_LINKS: NavLink[] = [
   { href: '/essays', label: 'Works in Progress', icon: 'file-text' },
+  { href: '/research', label: 'Paper Trail', icon: 'magnifying-glass' },
   { href: '/field-notes', label: 'Field Notes', icon: 'note-pencil' },
   { href: '/projects', label: 'Projects', icon: 'briefcase' },
   { href: '/toolkit', label: 'Toolkit', icon: 'wrench' },
@@ -96,41 +97,43 @@ export default function TopNav({ navItems }: TopNavProps) {
   }, [pathname, closeMobile]);
 
   return (
-    <nav aria-label="Main navigation" className="sticky top-0 z-50 backdrop-blur-sm border-b border-border" style={{ backgroundColor: 'color-mix(in srgb, var(--color-nav-bg) 95%, transparent)' }}>
-      <div className="w-full px-4 sm:px-6 py-3 flex items-center justify-between">
-        {/* Site title */}
+    <nav aria-label="Main navigation" className="sticky top-0 z-50 backdrop-blur-sm" style={{ backgroundColor: 'color-mix(in srgb, var(--color-hero-ground) 95%, transparent)', borderBottom: '1px solid rgba(240, 235, 228, 0.1)' }}>
+      <div className="w-full px-4 sm:px-6 py-3 flex items-center">
+        {/* Site title (left) */}
         <Link
           href="/"
-          className="text-xl text-ink no-underline hover:text-terracotta transition-colors"
-          style={{ fontFamily: 'var(--font-name)', fontWeight: 400 }}
+          className="text-xl no-underline hover:text-terracotta transition-colors shrink-0"
+          style={{ color: 'var(--color-hero-text)', fontFamily: 'var(--font-name)', fontWeight: 400 }}
         >
           Travis Gilbert
         </Link>
 
-        <div className="flex items-center gap-3">
-          {/* Desktop nav */}
-          <ul className="hidden md:flex items-center gap-4 list-none m-0 p-0">
-            {navLinks.map((link) => {
-              const active = isActive(link.href);
-              return (
-                <li key={link.href}>
-                  <Link
-                    href={link.href}
-                    aria-current={active ? 'page' : undefined}
-                    className={`font-mono text-xs uppercase tracking-widest no-underline transition-colors inline-flex items-center gap-1.5 ${
-                      active
-                        ? 'text-terracotta font-bold'
-                        : 'text-ink-secondary hover:text-terracotta'
-                    }`}
-                  >
-                    <SketchIcon name={link.icon} size={16} />
-                    {link.label}
-                  </Link>
-                </li>
-              );
-            })}
-          </ul>
+        {/* Desktop nav (centered, fills middle) */}
+        <ul className="hidden md:flex items-center justify-center gap-4 list-none m-0 p-0 flex-1">
+          {navLinks.map((link) => {
+            const active = isActive(link.href);
+            return (
+              <li key={link.href}>
+                <Link
+                  href={link.href}
+                  aria-current={active ? 'page' : undefined}
+                  className={`font-mono text-xs uppercase tracking-widest no-underline transition-colors inline-flex items-center gap-1.5 ${
+                    active
+                      ? 'text-terracotta font-bold'
+                      : 'hover:text-terracotta'
+                  }`}
+                  style={active ? undefined : { color: 'var(--color-hero-text-muted)' }}
+                >
+                  <SketchIcon name={link.icon} size={16} />
+                  {link.label}
+                </Link>
+              </li>
+            );
+          })}
+        </ul>
 
+        {/* Utilities (right) */}
+        <div className="flex items-center gap-3 shrink-0 ml-auto">
           {/* Theme toggle (visible at all breakpoints) */}
           <ThemeToggle />
 
@@ -143,19 +146,22 @@ export default function TopNav({ navItems }: TopNavProps) {
             onClick={() => setMobileOpen(!mobileOpen)}
           >
             <span
-              className={`block w-5 h-0.5 bg-ink transition-transform ${
+              className={`block w-5 h-0.5 transition-transform ${
                 mobileOpen ? 'translate-y-2 rotate-45' : ''
               }`}
+              style={{ backgroundColor: 'var(--color-hero-text)' }}
             />
             <span
-              className={`block w-5 h-0.5 bg-ink transition-opacity ${
+              className={`block w-5 h-0.5 transition-opacity ${
                 mobileOpen ? 'opacity-0' : ''
               }`}
+              style={{ backgroundColor: 'var(--color-hero-text)' }}
             />
             <span
-              className={`block w-5 h-0.5 bg-ink transition-transform ${
+              className={`block w-5 h-0.5 transition-transform ${
                 mobileOpen ? '-translate-y-2 -rotate-45' : ''
               }`}
+              style={{ backgroundColor: 'var(--color-hero-text)' }}
             />
           </button>
         </div>
@@ -163,7 +169,7 @@ export default function TopNav({ navItems }: TopNavProps) {
 
       {/* Mobile menu panel */}
       {mobileOpen && (
-        <div ref={mobileMenuRef} className="md:hidden bg-paper border-t border-border">
+        <div ref={mobileMenuRef} className="md:hidden" style={{ backgroundColor: 'var(--color-hero-ground)', borderTop: '1px solid rgba(240, 235, 228, 0.1)' }}>
           <ul className="list-none m-0 p-4 flex flex-col gap-3">
             {navLinks.map((link) => {
               const active = isActive(link.href);
@@ -175,8 +181,9 @@ export default function TopNav({ navItems }: TopNavProps) {
                     className={`font-mono text-sm uppercase tracking-widest no-underline py-2 inline-flex items-center gap-2 ${
                       active
                         ? 'text-terracotta font-bold'
-                        : 'text-ink-secondary hover:text-terracotta'
+                        : 'hover:text-terracotta'
                     }`}
+                    style={active ? undefined : { color: 'var(--color-hero-text-muted)' }}
                     onClick={closeMobile}
                   >
                     <SketchIcon name={link.icon} size={16} />

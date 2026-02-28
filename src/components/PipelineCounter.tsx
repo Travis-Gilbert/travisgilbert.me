@@ -74,7 +74,7 @@ export default async function PipelineCounter() {
       {active.map((bucket, i) => (
         <span key={bucket.label} className="inline-flex items-center gap-1.5">
           {i > 0 && (
-            <span style={{ color: 'var(--color-ink-muted)' }} aria-hidden="true">
+            <span style={{ color: 'var(--color-hero-text-muted)' }} aria-hidden="true">
               &middot;
             </span>
           )}
@@ -86,7 +86,7 @@ export default async function PipelineCounter() {
       {videoLabel && (
         <span className="inline-flex items-center gap-1.5">
           {active.length > 0 && (
-            <span style={{ color: 'var(--color-ink-muted)' }} aria-hidden="true">
+            <span style={{ color: 'var(--color-hero-text-muted)' }} aria-hidden="true">
               &middot;
             </span>
           )}

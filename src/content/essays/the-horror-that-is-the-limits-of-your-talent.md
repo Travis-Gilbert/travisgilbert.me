@@ -8,6 +8,12 @@ tags:
 sources: []
 related: []
 stage: drafting
+thesis: "The gap between ambition and ability is where real creative work begins: the wall you hit at 2 AM is not a limit, it is the material."
+sourceCount: 0
+researchStarted: "2026-02-28"
+revisionCount: 1
+researchNotes:
+  - "Raw first draft; personal reflection on the creative struggle at the edge of capability"
 draft: true
 ---
 
