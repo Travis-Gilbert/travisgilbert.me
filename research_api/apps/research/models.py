@@ -219,10 +219,9 @@ class Source(TimeStampedModel):
             self.slug = slugify(self.title)[:500]
         super().save(*args, **kwargs)
 
-    @property
-    def link_count(self):
-        """Number of content pieces that reference this source."""
-        return self.links.count()
+    # link_count is provided by queryset annotation (Count('links'))
+    # in API views and publisher. Do not define a @property here
+    # because it conflicts with Django's annotate() attribute setting.
 
     @property
     def linked_content(self):
