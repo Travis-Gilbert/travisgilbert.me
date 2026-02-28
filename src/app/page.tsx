@@ -78,6 +78,7 @@ export default function HomePage() {
           ═══════════════════════════════════════════════ */}
       <CollageHero
         name="Travis Gilbert"
+        latestHref={featured ? `/essays/${featured.slug}` : '/essays'}
         pipelineStatus={<PipelineCounter />}
         nowPreview={<NowPreviewCompact />}
       />

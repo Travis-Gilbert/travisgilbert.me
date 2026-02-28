@@ -6,10 +6,12 @@
  * content area and the spacer with the RoughLine label gap below.
  */
 
-import RoughUnderline from '@/components/rough/RoughUnderline';
+import Link from 'next/link';
 
 interface CollageHeroProps {
   name: string;
+  /** URL to the newest piece of content (linked via "here" in subtitle) */
+  latestHref: string;
   /** Slot for PipelineCounter component */
   pipelineStatus: React.ReactNode;
   /** Slot for NowPreviewCompact component */
@@ -18,6 +20,7 @@ interface CollageHeroProps {
 
 export default function CollageHero({
   name,
+  latestHref,
   pipelineStatus,
   nowPreview,
 }: CollageHeroProps) {
@@ -58,19 +61,20 @@ export default function CollageHero({
                 fontFamily: 'var(--font-title)',
                 fontWeight: 700,
                 fontSize: 26,
-                color: 'var(--color-ink-secondary)',
+                background:
+                  'linear-gradient(to right, var(--color-ink-secondary), var(--color-terracotta))',
+                WebkitBackgroundClip: 'text',
+                backgroundClip: 'text',
+                WebkitTextFillColor: 'transparent',
               }}
             >
               Hey, I&apos;m working{' '}
-              <RoughUnderline
-                type="underline"
-                color="var(--color-terracotta)"
-                strokeWidth={2}
-                animate
-                animationDuration={600}
+              <Link
+                href={latestHref}
+                className="no-underline hover:opacity-80 transition-opacity"
               >
                 here
-              </RoughUnderline>
+              </Link>
             </p>
 
             <div className="mt-4">{pipelineStatus}</div>
