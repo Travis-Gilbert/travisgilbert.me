@@ -19,7 +19,7 @@ Next.js 15 (App Router), React 19, Tailwind CSS v4 (`@tailwindcss/postcss`), rou
 | Path | Purpose |
 |------|---------|
 | `src/app/` | App Router pages and layouts |
-| `src/app/fonts.ts` | All 7 font declarations (`next/font/google` + `next/font/local`) |
+| `src/app/fonts.ts` | All 7 font declarations: Vollkorn, Cabin, IBM Plex Sans, Ysabeau, Courier Prime, JetBrains Mono (Google) + Amarna (local) |
 | `src/app/layout.tsx` | Root layout (DotGrid, TopNav, Footer, ArchitectureEasterEgg, metadata) |
 | `src/components/` | React components (Server + Client) |
 | `src/components/rough/` | Client Components for rough.js visuals (RoughBox, RoughLine, RoughUnderline) |
@@ -36,7 +36,8 @@ Next.js 15 (App Router), React 19, Tailwind CSS v4 (`@tailwindcss/postcss`), rou
 | `public/fonts/` | Self-hosted Amarna variable font |
 | `src/config/site.json` | Site configuration (tokens, nav, footer, SEO, pages); Django commits updates via GitHub API |
 | `src/lib/siteConfig.ts` | Zod-validated config loader with in-memory cache; `getSiteConfig()`, `getPageComposition()`, `getVisibleNav()` |
-| `src/lib/connectionEngine.ts` | Graph-based content relationship engine for ThreadLines and ConnectionDots |
+| `src/lib/connectionEngine.ts` | Graph-based content relationship engine for ThreadLines, ConnectionDots, and ConnectionMap |
+| `src/app/connections/page.tsx` | Connection Map page: pre-computed D3 graph data for content relationships |
 | `publishing_api/` | Django Studio: full site management control panel (content, tokens, nav, composition, SEO). See design doc in `docs/plans/` |
 | `publishing_api/apps/editor/widgets.py` | Custom form widgets: TagsWidget, SlugListWidget, StructuredListWidget, ColorPickerWidget, JsonObjectListWidget |
 | `publishing_api/apps/editor/context_processors.py` | Injects `studio_nav` context (content types, compose pages, settings links) into all templates |
@@ -139,7 +140,11 @@ Most components are **Server Components** by default. Components needing browser
 | `StudioShortcut.tsx` | Invisible Ctrl+Shift+E handler; maps current path to Django Studio URL via `NEXT_PUBLIC_STUDIO_URL` |
 | `ConnectionDots.tsx` | Interactive paragraph dots in essay margins; click to reveal connection threads; uses `connectionEngine` |
 | `ThreadLines.tsx` | rough.js canvas lines connecting related content paragraphs; reads `ThreadPair` data from connectionEngine |
-| `ArchitectureEasterEgg.tsx` | Hidden site map easter egg; 5-phase state machine (seed/connecting/expanding/open/collapsing), rough.js border, wobble SVG connectors, rAF animation loop |
+| `DesignLanguageEasterEgg.tsx` | Hidden design language easter egg (replaces ArchitectureEasterEgg); 5-phase state machine, rough.js border, wobble SVG connectors, rAF animation loop |
+| `ConnectionMap.tsx` | D3 force-directed graph with rough.js canvas edges for `/connections` page; synchronous 300-iteration layout |
+| `StampDot.tsx` | Animated current-stage dot with scatter micro-dots; plays stamp animation on mount, respects prefers-reduced-motion |
+| `ParallaxStack.tsx` | Subtle scroll-driven vertical parallax between child layers; capped at +/- 15px, touch devices get 50% intensity |
+| `PipelineCounter.tsx` | Live build counter on homepage showing content stats (essays, notes, projects, shelf items, connections) |
 
 Server Components can import and render Client Components; children pass through as a slot without hydrating.
 
@@ -201,7 +206,7 @@ global.css > --font-title: var(--font-vollkorn), Georgia, serif
 Tailwind > font-title class
 ```
 
-7 fonts: Vollkorn, Cabin, IBM Plex Sans, Ysabeau, Courier Prime, Space Mono (Google), Amarna (local).
+7 fonts: Vollkorn, Cabin, IBM Plex Sans, Ysabeau, Courier Prime, JetBrains Mono (Google), Amarna (local). JetBrains Mono replaced Space Mono as `--font-code` for code comments and the `font-code` Tailwind class.
 
 ### Content Loading
 
@@ -361,22 +366,11 @@ Vercel with native Next.js builder. Git integration auto-deploys on push to `mai
 
 Phases 1 through 4 (Foundation, Micro-interactions, Animations, Polish) are **all complete**. See `docs/records/001-site-wide-redesign.md` for full history.
 
-**Django Studio:** Full site management control panel. Brand component library redesign complete: all 12 templates rewritten with Cotton components + Tailwind utility classes, 10 custom widgets updated, crispy-forms `studio` template pack, FormHelper layouts on all 10 forms. See `docs/plans/2026-02-25-studio-redesign-design.md` for the design doc and `docs/records/002-publishing-api.md` for the original scaffold.
+**Branding Overhaul (plan-01):** Complete (8 phases) on branch `feature/branding-homepage-interactions`, pushed to remote. See `docs/plans/plan-01-branding-homepage-interactions.md` for the full spec. Key changes: font system overhaul (Space Mono removed, JetBrains Mono added as `--font-code`), CodeComment component for workbench annotations, PipelineCounter live build counter on homepage, ParallaxStack subtle scroll parallax, ConnectionMap D3 force graph at `/connections`, DesignLanguageEasterEgg (replaces ArchitectureEasterEgg), StampDot animation on ProgressTracker for recently advanced content. Merge to `main` pending review.
 
-Key capabilities:
-- Content CRUD for all 6 types (essays, field notes, shelf, projects, toolkit, now)
-- Design tokens editor (colors, fonts, spacing) with live preview
-- Nav editor with drag-to-reorder
-- Page composition editor (per-page visual overrides)
-- SEO settings (title template, description)
-- Publish log with status history
-- Visual status pipeline (draft/review/published) replacing checkbox + dropdown
-- Git Trees API for atomic multi-file commits
-- `import_content` management command imports all 24 content files (6 types)
+**Django Studio:** Full site management control panel. Brand component library redesign complete. See `docs/plans/2026-02-25-studio-redesign-design.md` for the design doc and `docs/records/002-publishing-api.md` for the original scaffold. Django check passes (0 issues). Not yet deployed to Railway or tested end-to-end.
 
-Django check passes (0 issues). Brand component library deployed to main. Not yet deployed to Railway or tested end-to-end.
-
-**Research API:** Deployed to Railway at research.travisgilbert.me. Models (13 source types, SourceLink roles, public/private annotations, geolocation), DRF read-only API (trail BFF, sources, threads, mentions, backlinks, graph), community submissions (suggest source/connection with reCAPTCHA v3), publish orchestrator (static JSON to `src/data/research/`), admin with annotated querysets, Paper Trail public pages (explorer, essay trail, threads, community wall). Source promotion pipeline: Sourcebox triage accept in publishing_api calls research_api's `/api/v1/internal/promote/` endpoint via Bearer token auth to create Source records. Graph API and Paper Trail explorer include orphaned sources (promoted but not yet linked) as isolated nodes.
+**Research API:** Deployed to Railway at research.travisgilbert.me. Source promotion pipeline: Sourcebox triage accept in publishing_api calls research_api's `/api/v1/internal/promote/` endpoint via Bearer token auth. See `docs/records/003-research-api.md`.
 
 **Next step:** Deploy publishing_api to Railway, set cross-service env vars (`INTERNAL_API_KEY` on both, `RESEARCH_API_URL`/`RESEARCH_API_KEY` on publishing_api), test promotion pipeline end-to-end, set `NEXT_PUBLIC_STUDIO_URL` in Vercel.
 
@@ -414,6 +408,11 @@ Django check passes (0 issues). Brand component library deployed to main. Not ye
 | Studio UI library | django-cotton + django-crispy-forms + django-tailwind (replacing 600+ line custom studio.css) | Declarative components, consistent form rendering, utility-first CSS with brand tokens; eliminates all custom CSS |
 | Source promotion pipeline | HTTP API call from publishing_api to research_api (not shared DB) | Two separate Railway services with own databases; Bearer token auth, idempotent (409 on duplicate URL), source type inferred from URL domain |
 | Graph orphaned nodes | Second query for `Source.objects.public().exclude(...)` after SourceLink iteration | Promoted sources with no SourceLinks yet must still appear in graph and explorer; D3 force simulation floats them naturally |
+| Font system overhaul | Removed Space Mono, added JetBrains Mono as `--font-code` | Code comments need monospace with ligatures; Courier Prime stays for labels/metadata |
+| StampDot as separate Client Component | Extracted animated dot from Server Component ProgressTracker | Minimizes JS bundle; ProgressTracker stays Server Component, only the animated dot hydrates |
+| StampDot 24-hour window | `isRecent()` checks if `lastAdvanced` is within 24 hours | Stamp animation fires only for freshly advanced content; prevents visual noise on every page load |
+| ConnectionMap synchronous layout | 300 D3 force iterations computed at render time (not animated) | Instant layout without jank; graph is small enough (<50 nodes) that sync computation is cheap |
+| CodeComment over RoughCallout | Static CSS code annotations instead of canvas-drawn callouts for homepage | "Workbench" aesthetic: code comments feel like developer notes; cheaper to render than rough.js canvas |
 
 ## Gotchas
 
@@ -461,3 +460,7 @@ Django check passes (0 issues). Brand component library deployed to main. Not ye
 - **Content-type detection lives in `services.py`**: `detect_content_type(slug)` centralizes the essay-first/field_note-fallback heuristic. Used by trail API, backlinks API, and publisher
 - **Source promotion requires 3 env vars**: `INTERNAL_API_KEY` (same value on both services), `RESEARCH_API_URL` and `RESEARCH_API_KEY` on publishing_api. Without these, promotion silently returns `{"error": "Research API not configured"}` and triage still works (just without cross-service sync)
 - **httpx required in publishing_api**: The promotion service uses `httpx.post()` (not requests). Ensure `httpx` is in `requirements/base.txt`
+- **StampDot CSS custom properties**: `@keyframes scatter-out` uses `--scatter-x`, `--scatter-y`, `--scatter-opacity` set inline per element. Generic keyframe with unique per-dot endpoints
+- **ConnectionMap two-layer rendering**: Canvas (behind) for rough.js hand-drawn edges, SVG (front) for colored nodes and hover interactions. Canvas redraws on hover state change
+- **DesignLanguageEasterEgg replaces ArchitectureEasterEgg**: Same 5-phase state machine but renamed. Update layout.tsx import if reverting
+- **JetBrains Mono `--font-code` vs Courier Prime `--font-metadata`**: Code comments use `--font-code` (JetBrains Mono); section labels and metadata use `--font-metadata` (Courier Prime). Don't swap them
