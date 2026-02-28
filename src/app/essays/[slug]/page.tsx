@@ -20,6 +20,8 @@ import type { AllContent } from '@/lib/connectionEngine';
 import ResearchTrail from '@/components/research/ResearchTrail';
 import DocumentStamp from '@/components/DocumentStamp';
 import ProcessNotes from '@/components/ProcessNotes';
+import { fetchVideosForEssay, fetchVideoDetail } from '@/lib/videos';
+import RoughBox from '@/components/rough/RoughBox';
 
 interface Props {
   params: Promise<{ slug: string }>;
@@ -48,6 +50,14 @@ export default async function EssayDetailPage({ params }: Props) {
   const rawHtml = await renderMarkdown(entry.body);
   const annotatedHtml = injectAnnotations(rawHtml, entry.data.annotations ?? []);
   const readingTime = estimateReadingTime(entry.body);
+
+  // Fetch linked video projects from Studio API (graceful: empty array on failure)
+  const linkedVideos = await fetchVideosForEssay(slug);
+
+  // Fetch detail for first linked video (for ProcessNotes metrics)
+  const primaryVideoDetail = linkedVideos.length > 0
+    ? await fetchVideoDetail(linkedVideos[0].slug)
+    : null;
 
   // Prev/next navigation
   const allEssays = getCollection<Essay>('essays')
@@ -197,12 +207,55 @@ export default async function EssayDetailPage({ params }: Props) {
         </>
       )}
 
+      {/* Linked video projects from Studio */}
+      {linkedVideos.filter((v) => v.youtube_id).length > 0 && (
+        <>
+          <RoughLine />
+          <section className="py-4">
+            <h2 className="font-mono text-[11px] uppercase tracking-[0.1em] text-terracotta mb-3">
+              Watch the Video
+            </h2>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              {linkedVideos
+                .filter((v) => v.youtube_id)
+                .map((video) => (
+                  <RoughBox key={video.slug} padding={16} tint="terracotta">
+                    <a
+                      href={`https://www.youtube.com/watch?v=${video.youtube_id}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="block no-underline text-ink hover:text-terracotta transition-colors"
+                    >
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img
+                        src={`https://img.youtube.com/vi/${video.youtube_id}/mqdefault.jpg`}
+                        alt={video.title}
+                        className="w-full rounded mb-2"
+                        loading="lazy"
+                      />
+                      <span className="block font-title text-sm font-semibold">
+                        {video.short_title || video.title}
+                      </span>
+                      <span className="block font-mono text-[10px] uppercase tracking-[0.08em] text-ink-faint mt-1">
+                        Watch on YouTube
+                      </span>
+                    </a>
+                  </RoughBox>
+                ))}
+            </div>
+          </section>
+        </>
+      )}
+
       {/* Process Notes: research metadata (returns null if all fields empty) */}
       <ProcessNotes
         researchStarted={entry.data.researchStarted}
         revisionCount={entry.data.revisionCount}
         sourceCount={entry.data.sourceCount}
         researchNotes={entry.data.researchNotes}
+        videoPhase={primaryVideoDetail?.phase_display}
+        videoSceneCount={primaryVideoDetail?.scenes.length}
+        videoScriptWords={primaryVideoDetail?.script_word_count}
       />
 
       {/* Research Trail: fetches from research API, renders nothing if empty */}

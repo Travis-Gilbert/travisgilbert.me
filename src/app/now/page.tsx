@@ -6,6 +6,8 @@ import matter from 'gray-matter';
 import DrawOnIcon from '@/components/rough/DrawOnIcon';
 import RoughBox from '@/components/rough/RoughBox';
 import PublicationGraph from '@/components/PublicationGraph';
+import { fetchActiveVideos, PHASE_LABELS, VIDEO_PHASES } from '@/lib/videos';
+import type { VideoSummary, VideoPhase } from '@/lib/videos';
 
 interface NowData {
   updated: string;
@@ -60,14 +62,75 @@ const QUADRANTS: {
   },
 ];
 
+function VideoProductionCard({ video }: { video: VideoSummary }) {
+  const phase = video.phase as VideoPhase;
+  const phaseIndex = VIDEO_PHASES.indexOf(phase);
+
+  return (
+    <div className="flex flex-col gap-2">
+      <div className="flex items-baseline justify-between gap-3">
+        <span className="font-title text-sm font-semibold text-ink">
+          {video.short_title || video.title}
+        </span>
+        <span
+          className="font-mono flex-shrink-0"
+          style={{
+            fontSize: 9,
+            textTransform: 'uppercase',
+            letterSpacing: '0.08em',
+            color: 'var(--color-green)',
+          }}
+        >
+          P{video.phase_number} {video.phase_display}
+        </span>
+      </div>
+
+      {/* Phase pipeline indicator */}
+      <div className="flex gap-0.5">
+        {VIDEO_PHASES.slice(0, -1).map((p, i) => (
+          <div
+            key={p}
+            className="h-1 flex-1 rounded-full"
+            style={{
+              backgroundColor:
+                i < phaseIndex
+                  ? 'var(--color-green)'
+                  : i === phaseIndex
+                    ? 'var(--color-gold)'
+                    : 'var(--color-border)',
+              opacity: i <= phaseIndex ? 0.8 : 0.3,
+            }}
+            title={PHASE_LABELS[p]}
+          />
+        ))}
+      </div>
+
+      {/* Linked essay */}
+      {video.linked_essay_slugs.length > 0 && (
+        <span className="text-xs text-ink-faint">
+          Linked to{' '}
+          <Link
+            href={`/essays/${video.linked_essay_slugs[0]}`}
+            className="underline hover:text-terracotta"
+          >
+            essay
+          </Link>
+        </span>
+      )}
+    </div>
+  );
+}
+
 export const metadata: Metadata = {
   title: 'Now',
   description: 'What I am currently researching, reading, building, and listening to.',
 };
 
-export default function NowPage() {
+export default async function NowPage() {
   const data = getNowData();
   if (!data) return null;
+
+  const activeVideos = await fetchActiveVideos();
 
   const updatedDate = new Date(data.updated);
   const formattedDate = updatedDate.toLocaleDateString('en-US', {
@@ -119,6 +182,30 @@ export default function NowPage() {
           </RoughBox>
         ))}
       </div>
+
+      {/* Currently Producing: active video projects from Studio API */}
+      {activeVideos.length > 0 && (
+        <div className="mt-8 max-w-2xl">
+          <RoughBox padding={20} tint="neutral">
+            <span
+              className="font-mono block mb-3"
+              style={{
+                fontSize: 11,
+                textTransform: 'uppercase',
+                letterSpacing: '0.1em',
+                color: 'var(--color-green)',
+              }}
+            >
+              Currently Producing
+            </span>
+            <div className="space-y-4">
+              {activeVideos.map((video) => (
+                <VideoProductionCard key={video.slug} video={video} />
+              ))}
+            </div>
+          </RoughBox>
+        </div>
+      )}
 
       {/* Publication activity scorecard */}
       <div className="mt-8 max-w-2xl">

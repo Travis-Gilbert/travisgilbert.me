@@ -60,6 +60,8 @@ Next.js 15 (App Router), React 19, Tailwind CSS v4 (`@tailwindcss/postcss`), rou
 | `publishing_api/templates/editor/partials/video_scenes.html` | Scene inline editor with HTMX toggle checkboxes |
 | `publishing_api/templates/editor/partials/video_deliverables.html` | Deliverable management panel |
 | `publishing_api/templates/editor/partials/video_sessions.html` | Session log with start/stop controls |
+| `publishing_api/templates/editor/production_dashboard.html` | Video production dashboard: active projects, 30-day heatmap, weekly summary, cumulative output |
+| `src/lib/videos.ts` | Video fetch utility: `fetchAllVideos()`, `fetchVideoBySlug()`, `StudioVideo` type; reads from Studio API at build time |
 
 ## Development Commands
 
@@ -132,9 +134,11 @@ Most components are **Server Components** by default. Components needing browser
 | `SourcesCollapsible.tsx` | Radix Collapsible for essay sources |
 | `PatternImage.tsx` | Seeded generative canvas (3 layers: dots, curves, contours) |
 | `rough/DrawOnIcon.tsx` | IntersectionObserver SVG stroke draw animation for page headers |
-| `CollageHero.tsx` | Full-bleed dark-ground homepage hero, ResizeObserver reports height to `--hero-height` |
+| `CollageHero.tsx` | Full-bleed dark-ground homepage hero, two-column grid with featured essay + artifact, ResizeObserver reports height to `--hero-height` |
+| `HeroArtifact.tsx` | Composed image container with next/image fill, -1.5deg rotation, fallback panel, HeroAccents overlay |
+| `HeroAccents.tsx` | Deterministic SVG overlay (djb2+LCG PRNG): circles, connector lines, rotated tag labels |
 | `EssayHero.tsx` | Full-bleed editorial header for essay detail pages, YouTube/PatternImage background |
-| `ArticleBody.tsx` | Prose wrapper with paragraph click-to-comment and position tracking |
+| `ArticleBody.tsx` | Prose wrapper with paragraph click-to-comment, position tracking, and hover-gated reading guide line |
 | `ArticleComments.tsx` | Orchestrates sticky note layer and mobile comment list for essays |
 | `CommentForm.tsx` | reCAPTCHA-protected comment submission form (sticky note style) |
 | `StickyNote.tsx` | Individual reader comment card with flag/date |
@@ -179,13 +183,15 @@ Props: `name`, `size` (default 32), `color` (default currentColor), `className`.
 
 Two full-bleed editorial hero components share a common pattern: dark ground with cream typography, ResizeObserver reporting height to `--hero-height`, and a multi-stop gradient fade to parchment.
 
-**CollageHero** (`src/components/CollageHero.tsx`): Homepage hero. Dark ground (#2A2824), paper grain overlay, optional PNG fragments (desk objects in `public/collage/`), 3-column grid (1fr 118px 1fr) matching RoughLine label alignment. Name uses Vollkorn 700 (`--font-title`). Receives CyclingTagline and NowPreviewCompact as `inverted` slots. Breaks out of `max-w-4xl` via `margin-left: calc(-50vw + 50%); width: 100vw`. Pulls into main's padding via negative top margin reading `--main-pad-y`.
+**CollageHero** (`src/components/CollageHero.tsx`): Unified homepage hero. Two-column grid (`55% 1fr`) on desktop (lg+), single stack on mobile. Left column: Zone A (identity: h1 name, CyclingTagline, PipelineCounter) + Zone B (featured essay: "CURRENTLY WRITING" label, title linking to essay, summary, DateStamp, TagList, CompactTracker). Right column: HeroArtifact (composed image + HeroAccents SVG overlay) + NowPreviewCompact below. Background color from `heroColor` prop (default `#4A4528`), 56px gradient fade to parchment. Breaks out of content width via `marginLeft: calc(-50vw + 50%); width: 100vw`. Pulls into main's padding via negative top margin reading `--main-pad-y`.
 
 **EssayHero** (`src/components/EssayHero.tsx`): Essay detail page header. YouTube thumbnail (via `next/image` with `fill`) or PatternImage as background with dark overlay (`--color-hero-overlay` at 70%). Category label (first tag, Courier Prime 11px, uppercase, terracotta with short rule). Date + reading time in top-right corner (9px, cream 50%). Large cream title, summary, inverted TagList and ProgressTracker slots. Same breakout and height-reporting pattern as CollageHero.
 
 **DotGrid zone awareness**: Both heroes set `--hero-height` on `<html>`. DotGrid reads this to render cream dots (`[240, 235, 228]` at 35%) over the dark zone, standard dark dots below, with a 50px crossfade band. Scroll listener redraws static dots so the color boundary moves as the user scrolls.
 
-**Fragment layer** (CollageHero): `FRAGMENTS` array of `CollageFragment` objects with `src`, `alt`, `left`, `top`, `width`, `height`, `rotate`, `z`, `opacity`, `hideOnMobile`. Renders as absolute-positioned `next/image` elements. Currently has 4 fragments; gracefully renders empty.
+**HeroArtifact** (`src/components/HeroArtifact.tsx`): Composed image container with `next/image` fill, static rotation (`-1.5deg`), hover scale (disabled for reduced-motion). Fallback panel when no image (parchment rect with border). HeroAccents renders as absolute SVG layer on top.
+
+**HeroAccents** (`src/components/HeroAccents.tsx`): Deterministic SVG overlay using djb2 hash + LCG PRNG seeded from first tag string. 4 circles (varying radius/opacity in top-right and bottom-left quadrants), 2 thin gold connector lines, up to 2 rotated Courier Prime tag labels. No `Math.random()` (SSG-safe).
 
 ### MarginAnnotation System
 
@@ -374,20 +380,23 @@ Phases 1 through 4 (Foundation, Micro-interactions, Animations, Polish) are **al
 
 **Branding Overhaul (plan-01):** Complete (8 phases), merged to `main`. See `docs/plans/plan-01-branding-homepage-interactions.md` for the full spec. Key changes: font system overhaul (Space Mono removed, JetBrains Mono added as `--font-code`), CodeComment component for workbench annotations, PipelineCounter live build counter on homepage, ParallaxStack subtle scroll parallax, ConnectionMap D3 force graph at `/connections`, DesignLanguageEasterEgg (replaces ArchitectureEasterEgg), StampDot animation on ProgressTracker for recently advanced content.
 
-**Django Studio:** Full site management control panel. Brand component library redesign complete. See `docs/plans/2026-02-25-studio-redesign-design.md` for the design doc and `docs/records/002-publishing-api.md` for the original scaffold. Django check passes (0 issues). Not yet deployed to Railway or tested end-to-end.
+**Django Studio:** Full site management control panel. Brand component library redesign complete. Deployed to Railway at draftroom.travisgilbert.me. See `docs/plans/2026-02-25-studio-redesign-design.md` for the design doc and `docs/records/002-publishing-api.md` for the original scaffold. Django check passes (0 issues).
 
 **Research API:** Deployed to Railway at research.travisgilbert.me. Source promotion pipeline: Sourcebox triage accept in publishing_api calls research_api's `/api/v1/internal/promote/` endpoint via Bearer token auth. See `docs/records/003-research-api.md`.
 
-**YouTube Production Pipeline:** Batches 1 through 4 complete (models, admin, forms, CRUD views, URLs, sidebar, phase-aware editor template, HTMX inline panels for scenes/deliverables/sessions). Spec: `docs/plan-03-studio-youtube-production.md`. Plan: `.claude/plans/merry-scribbling-noodle.md`. Remaining: Batch 5 (Orchestra API endpoints + research integration), Batch 6 (Next.js frontend stubs).
+**YouTube Production Pipeline:** All 7 batches complete. Models, admin, forms, CRUD views, phase-aware editor, HTMX inline panels (Batches 1 through 4). Orchestra API endpoints at `/editor/api/videos/` with 7 JSON views for conductor integration (Batch 5). Next.js frontend: `src/lib/videos.ts` fetch utility, Currently Producing section on `/now`, linked video embeds on essay pages (Batch 6). Process tracking: video metrics in ProcessNotes and PublicationGraph, production dashboard in Studio at `/production/` (Batch 7). Spec: `docs/plan-03-studio-youtube-production.md`.
 
-**Next step:** Deploy publishing_api to Railway, set cross-service env vars (`INTERNAL_API_KEY` on both, `RESEARCH_API_URL`/`RESEARCH_API_KEY` on publishing_api), test promotion pipeline end-to-end, set `NEXT_PUBLIC_STUDIO_URL` in Vercel.
+**Hero Redesign:** Complete, merged to `main`. CollageHero rewritten as unified above-the-fold zone (identity + featured essay + artifact). EruptingCollage and secondary essay grid removed from homepage. HeroArtifact and HeroAccents created. Reading guide line added to ArticleBody (hover-gated, transparent, gradient-edged). Schema extended with `heroColor` and `heroImage` fields.
+
+**Next step:** Set `NEXT_PUBLIC_STUDIO_URL=https://draftroom.travisgilbert.me` in Vercel for StudioShortcut. Set cross-service env vars (`INTERNAL_API_KEY` on both, `RESEARCH_API_URL`/`RESEARCH_API_KEY` on publishing_api) and test source promotion pipeline end-to-end.
 
 **Remaining backlog:**
 - Sourcebox UX redesign (brainstorm in progress)
 - Additional content pages and essays (not started)
 - Dark mode (deferred; tokens ready in `global.css`)
-- Collage hero fragment library (desk item photography, `public/collage/`)
+- Hero artifact photography (composed still-life images for `public/hero/`)
 - Component integration: TopNav, layout.tsx, CollageHero, DotGrid could consume siteConfig instead of hardcoded values
+- Orchestra MCP conductor integration with video API endpoints
 
 ## Recent Decisions
 
@@ -424,6 +433,9 @@ Phases 1 through 4 (Foundation, Micro-interactions, Animations, Polish) are **al
 | Video phase view | Dedicated `VideoSetPhaseView` (not generic `SetStageView`) | Video phases have lock semantics (permanent locking, sequential-only advancement) that generic view doesn't support |
 | Video editor template | Dedicated `video_edit.html` (not generic `edit.html`) | Phase-dependent panel visibility (8 phases) is unique to videos; generic template can't accommodate it |
 | Video HTMX panel pattern | Single toggle endpoint + field name via `hx-vals` | One `VideoSceneToggleView` handles 5 boolean fields; validates against whitelist set; avoids 5 separate views |
+| Unified hero over split sections | Merged CollageHero + EruptingCollage into single above-the-fold zone | One editorial spread: identity, featured essay, artifact together; fragments were the weakest visual element |
+| Deterministic PRNG in HeroAccents | djb2 hash + LCG seeded from tag string (not Math.random()) | SSG builds must produce identical output across runs; hash-based seeding gives visual variety per essay |
+| Reading guide as gradient line | CSS gradient with transparent edges, 18% opacity, `(hover: hover)` gated | Subtle enough to guide without distracting; progressive enhancement avoids touch-device annoyance |
 
 ## Gotchas
 
@@ -455,7 +467,8 @@ Phases 1 through 4 (Foundation, Micro-interactions, Animations, Polish) are **al
 - **Phase-aware overflow for hover labels**: DesignLanguageEasterEgg uses `overflow: isExpanded ? 'hidden' : 'visible'` so the SITE.MAP hover label can extend below the 72px seed wrapper in seed phase, while expanded panel content stays clipped
 - **rAF never fires in headless Playwright**: Preview tool's headless browser doesn't trigger `requestAnimationFrame`. To test rAF-driven animations, use React fiber manipulation (`hook.queue.dispatch()`) to force state, or test in a real browser
 - **CSS `ch` unit is font-relative in `::after`**: Margin annotation `::after` inherits `font-annotation` (Caveat), making `calc(65ch + ...)` resolve differently than `65ch` in the prose body font. Use `calc(100% + ...)` for font-agnostic positioning
-- **Hero grid alignment math**: The `1fr 118px 1fr` grid in the hero (max-w-6xl, 1152px) aligns with the RoughLine label gap inside max-w-4xl (896px) because each hero `1fr` extends exactly `(1152-896)/2 = 128px` beyond the content area. The `lg:pl-[128px]` on the left column shifts the name to align with the content area's left edge. If either max-width changes, both values must be recalculated
+- **Webpack `.next/` cache corruption**: After major file deletions or renames, Next.js build may fail with `TypeError: Cannot read properties of null (reading 'hash')`. Fix: `rm -rf .next` and rebuild
+- **Preview tools can't test `(hover: hover)` features**: Headless Chrome returns `false` for `(hover: hover)` media query. Features gated behind `canHover` (e.g., reading guide line) must be verified via code review, not visual testing
 - **StudioShortcut `NEXT_PUBLIC_STUDIO_URL`**: Defaults to `http://localhost:8000`. Must be set in Vercel environment when Django Studio is deployed to Railway. The `NEXT_PUBLIC_` prefix means the value is inlined at build time, not runtime
 - **Django JSONField silent data loss**: If a JSONField is in `Meta.fields` but not rendered in the template, Django treats absent POST data as empty and resets the field on save. Every JSONField must have both an explicit widget in the form AND a rendering slot in the template
 - **ShelfEntry uses `annotation` not `body`**: The main content field for ShelfEntry is `annotation` (textarea in writing area), not `body` like other content types. The edit.html template falls back: `{% if form.body %}...{% elif form.annotation %}...{% endif %}`

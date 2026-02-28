@@ -1,17 +1,18 @@
 'use client';
 
 /**
- * CollageHero: full-bleed dark-ground homepage hero.
+ * CollageHero: full-bleed homepage hero (transparent over DotGrid).
  *
- * Unified editorial spread containing identity (name, tagline,
- * PipelineCounter), the featured essay (title, summary, tags,
- * progress), and a composed visual artifact.
+ * Unified editorial spread containing identity (name, tagline gradient,
+ * PipelineCounter), the featured essay, and a /now snapshot in the left
+ * column. Right column: composed visual artifact.
  *
  * Two-column grid on desktop (55% text / 45% artifact).
  * Single-column stack on mobile.
  *
- * Reports its height to `--hero-height` on <html> via ResizeObserver
- * so DotGrid can render cream dots over the dark zone.
+ * No background color: DotGrid canvas paints the dark ground.
+ * Reports height and color to `--hero-height` and `--hero-color`
+ * on <html> via ResizeObserver so DotGrid can render the hero zone.
  */
 
 import { useRef, useEffect } from 'react';
@@ -63,7 +64,7 @@ export default function CollageHero({
 }: CollageHeroProps) {
   const containerRef = useRef<HTMLDivElement>(null);
 
-  // Report hero height to <html> for DotGrid zone awareness
+  // Report hero height + color to <html> for DotGrid zone awareness
   useEffect(() => {
     const el = containerRef.current;
     if (!el) return;
@@ -74,12 +75,20 @@ export default function CollageHero({
           '--hero-height',
           `${entry.contentRect.height}px`,
         );
+        document.documentElement.style.setProperty(
+          '--hero-color',
+          heroColor,
+        );
       }
     });
 
     observer.observe(el);
-    return () => observer.disconnect();
-  }, []);
+    return () => {
+      observer.disconnect();
+      document.documentElement.style.removeProperty('--hero-height');
+      document.documentElement.style.removeProperty('--hero-color');
+    };
+  }, [heroColor]);
 
   const latestHref = featured ? `/essays/${featured.slug}` : '/essays';
 
@@ -92,7 +101,6 @@ export default function CollageHero({
           marginRight: 'calc(-50vw + 50%)',
           marginTop: 'calc(-1 * var(--main-pad-y, 1.5rem))',
           width: '100vw',
-          backgroundColor: heroColor,
         }}
       >
         {/* Content layer */}
@@ -122,16 +130,18 @@ export default function CollageHero({
                     fontFamily: 'var(--font-title)',
                     fontWeight: 700,
                     fontSize: 26,
-                    color: 'var(--color-hero-text-muted)',
+                    background: 'linear-gradient(to right, var(--color-hero-text-muted), var(--color-terracotta-light))',
+                    WebkitBackgroundClip: 'text',
+                    WebkitTextFillColor: 'transparent',
+                    backgroundClip: 'text',
                   }}
                 >
-                  Hey, I&apos;m working{' '}
                   <Link
                     href={latestHref}
-                    className="no-underline transition-colors"
-                    style={{ color: 'var(--color-terracotta-light)' }}
+                    className="no-underline"
+                    style={{ color: 'inherit', WebkitTextFillColor: 'inherit' }}
                   >
-                    here
+                    Hey, I&apos;m working here
                   </Link>
                 </p>
 
@@ -213,28 +223,22 @@ export default function CollageHero({
                   )}
                 </div>
               )}
+
+              {/* Zone C: /now snapshot */}
+              <div className="mt-6 lg:mt-8">
+                {nowPreview}
+              </div>
             </div>
 
-            {/* Right column: artifact + /now snapshot */}
-            <div className="flex flex-col gap-6 lg:gap-8">
-              {/* Artifact */}
+            {/* Right column: artifact only */}
+            <div className="flex flex-col">
               <div className="max-w-sm mx-auto lg:max-w-none lg:mx-0">
                 {artifact}
               </div>
-
-              {/* /now preview */}
-              <div>{nowPreview}</div>
             </div>
           </div>
         </div>
 
-        {/* Bottom gradient fade to parchment */}
-        <div
-          style={{
-            height: 56,
-            background: `linear-gradient(to bottom, ${heroColor}, var(--color-bg))`,
-          }}
-        />
       </div>
     </div>
   );

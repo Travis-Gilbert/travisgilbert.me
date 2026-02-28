@@ -1,9 +1,11 @@
 /**
  * PublicationGraph: SVG bar chart of publication activity by month.
  *
- * Server Component that aggregates content publication dates at build time.
- * 12-month rolling window, grouped by month. Terracotta bars for essays,
- * teal bars stacked above for field notes.
+ * Async Server Component that aggregates content publication dates at build time.
+ * 12-month rolling window, grouped by month. Three stacked series:
+ *   terracotta (bottom): essays
+ *   teal (middle): field notes
+ *   gold (top): published videos
  *
  * Renders inside a RoughBox on the /now page.
  * Accessible: <title>, role="img", bar labels as <text> elements.
@@ -11,15 +13,17 @@
 
 import { getCollection } from '@/lib/content';
 import type { Essay, FieldNote } from '@/lib/content';
+import { fetchAllVideos } from '@/lib/videos';
 import RoughBox from '@/components/rough/RoughBox';
 
 interface MonthBucket {
   label: string;
   essays: number;
   notes: number;
+  videos: number;
 }
 
-function buildMonthBuckets(): MonthBucket[] {
+function buildMonthBuckets(videoPublishDates: Date[]): MonthBucket[] {
   const essays = getCollection<Essay>('essays').filter((e) => !e.data.draft);
   const fieldNotes = getCollection<FieldNote>('field-notes').filter((n) => !n.data.draft);
 
@@ -43,15 +47,25 @@ function buildMonthBuckets(): MonthBucket[] {
       return nd.getFullYear() === year && nd.getMonth() === month;
     }).length;
 
-    buckets.push({ label, essays: essayCount, notes: noteCount });
+    const videoCount = videoPublishDates.filter((vd) => {
+      return vd.getFullYear() === year && vd.getMonth() === month;
+    }).length;
+
+    buckets.push({ label, essays: essayCount, notes: noteCount, videos: videoCount });
   }
 
   return buckets;
 }
 
-export default function PublicationGraph() {
-  const buckets = buildMonthBuckets();
-  const maxTotal = Math.max(...buckets.map((b) => b.essays + b.notes), 1);
+export default async function PublicationGraph() {
+  // Fetch published videos from Studio API (graceful: empty array on failure)
+  const allVideos = await fetchAllVideos();
+  const videoPublishDates = allVideos
+    .filter((v) => v.phase === 'published' && v.published_at)
+    .map((v) => new Date(v.published_at!));
+
+  const buckets = buildMonthBuckets(videoPublishDates);
+  const maxTotal = Math.max(...buckets.map((b) => b.essays + b.notes + b.videos), 1);
 
   // Chart dimensions
   const width = 400;
@@ -65,7 +79,8 @@ export default function PublicationGraph() {
   // Compute summary stats
   const totalEssays = buckets.reduce((sum, b) => sum + b.essays, 0);
   const totalNotes = buckets.reduce((sum, b) => sum + b.notes, 0);
-  const activeMonths = buckets.filter((b) => b.essays + b.notes > 0).length;
+  const totalVideos = buckets.reduce((sum, b) => sum + b.videos, 0);
+  const activeMonths = buckets.filter((b) => b.essays + b.notes + b.videos > 0).length;
 
   return (
     <section className="py-4">
@@ -86,7 +101,7 @@ export default function PublicationGraph() {
           width="100%"
           viewBox={`0 0 ${width} ${height}`}
           role="img"
-          aria-label={`Publication activity: ${totalEssays} essays and ${totalNotes} field notes over 12 months`}
+          aria-label={`Publication activity: ${totalEssays} essays, ${totalNotes} field notes, and ${totalVideos} videos over 12 months`}
           style={{ maxWidth: width }}
         >
           <title>Publication activity over 12 months</title>
@@ -102,6 +117,10 @@ export default function PublicationGraph() {
             // Field note bar (stacked on top of essay)
             const noteHeight = (bucket.notes / maxTotal) * chartHeight;
             const noteY = essayY - noteHeight;
+
+            // Video bar (stacked on top of field notes)
+            const videoHeight = (bucket.videos / maxTotal) * chartHeight;
+            const videoY = noteY - videoHeight;
 
             return (
               <g key={i}>
@@ -127,6 +146,19 @@ export default function PublicationGraph() {
                     height={noteHeight}
                     rx={2}
                     fill="var(--color-teal)"
+                    opacity={0.7}
+                  />
+                )}
+
+                {/* Video bar */}
+                {bucket.videos > 0 && (
+                  <rect
+                    x={x}
+                    y={videoY}
+                    width={bw}
+                    height={videoHeight}
+                    rx={2}
+                    fill="var(--color-gold)"
                     opacity={0.7}
                   />
                 )}
@@ -160,7 +192,7 @@ export default function PublicationGraph() {
         </svg>
 
         {/* Legend and stats */}
-        <div className="flex items-center gap-4 mt-3">
+        <div className="flex flex-wrap items-center gap-4 mt-3">
           <div className="flex items-center gap-1.5">
             <span
               className="inline-block w-2 h-2 rounded-sm"
@@ -195,6 +227,25 @@ export default function PublicationGraph() {
               Field Notes ({totalNotes})
             </span>
           </div>
+          {totalVideos > 0 && (
+            <div className="flex items-center gap-1.5">
+              <span
+                className="inline-block w-2 h-2 rounded-sm"
+                style={{ backgroundColor: 'var(--color-gold)', opacity: 0.7 }}
+              />
+              <span
+                className="font-mono"
+                style={{
+                  fontSize: 9,
+                  textTransform: 'uppercase',
+                  letterSpacing: '0.08em',
+                  color: 'var(--color-ink-faint)',
+                }}
+              >
+                Videos ({totalVideos})
+              </span>
+            </div>
+          )}
           <span
             className="font-mono ml-auto"
             style={{

@@ -45,6 +45,9 @@ urlpatterns = [
     path("toolkit/<slug:slug>/", views.ToolkitEditView.as_view(), name="toolkit-edit"),
     path("toolkit/<slug:slug>/publish/", views.ToolkitPublishView.as_view(), name="toolkit-publish"),
 
+    # Production Dashboard
+    path("production/", views.ProductionDashboardView.as_view(), name="production-dashboard"),
+
     # Video Projects
     path("video/", views.VideoListView.as_view(), name="video-list"),
     path("video/new/", views.VideoCreateView.as_view(), name="video-create"),
@@ -62,6 +65,21 @@ urlpatterns = [
     path("video/<slug:slug>/deliverables/<int:pk>/delete/", views.VideoDeliverableDeleteView.as_view(), name="video-deliverable-delete"),
     path("video/<slug:slug>/sessions/start/", views.VideoSessionStartView.as_view(), name="video-session-start"),
     path("video/<slug:slug>/sessions/<int:pk>/stop/", views.VideoSessionStopView.as_view(), name="video-session-stop"),
+
+    # Video research integration (HTMX, login-protected)
+    path("video/<slug:slug>/pull-research/", views.VideoPullResearchView.as_view(), name="video-pull-research"),
+    path("video/<slug:slug>/generate-description/", views.VideoGenerateDescriptionView.as_view(), name="video-generate-description"),
+
+    # -----------------------------------------------------------------------
+    # Video API (JSON, for Orchestra Conductor + frontend)
+    # -----------------------------------------------------------------------
+    path("api/videos/", views.VideoAPIListView.as_view(), name="api-video-list"),
+    path("api/videos/<slug:slug>/", views.VideoAPIDetailView.as_view(), name="api-video-detail"),
+    path("api/videos/<slug:slug>/sessions/", views.VideoAPISessionsView.as_view(), name="api-video-sessions"),
+    path("api/videos/<slug:slug>/log-session/", views.VideoAPILogSessionView.as_view(), name="api-video-log-session"),
+    path("api/videos/<slug:slug>/advance/", views.VideoAPIAdvanceView.as_view(), name="api-video-advance"),
+    path("api/videos/<slug:slug>/deliverable/", views.VideoAPIDeliverableView.as_view(), name="api-video-deliverable"),
+    path("api/videos/<slug:slug>/next-action/", views.VideoAPINextActionView.as_view(), name="api-video-next-action"),
 
     # Now page
     path("now/", views.NowPageEditView.as_view(), name="now-edit"),

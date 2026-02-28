@@ -28,10 +28,13 @@ All views require login (enforced via LoginRequiredMixin). The URL structure:
 import json
 import logging
 import traceback
+from collections import defaultdict
+from datetime import timedelta
 
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.http import Http404, JsonResponse
-from django.db.models import Max
+from django.db.models import Count, Max, Sum
+from django.db.models.functions import TruncDate
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
 from django.urls import reverse
@@ -1309,3 +1312,744 @@ class UploadCollageImageView(LoginRequiredMixin, View):
             {"success": False, "error": result.get("error", "Upload failed.")},
             status=500,
         )
+
+
+# ---------------------------------------------------------------------------
+# Video API endpoints (for Orchestra Conductor + frontend)
+# ---------------------------------------------------------------------------
+
+
+def _serialize_scene(scene):
+    """Compact JSON dict for a VideoScene."""
+    return {
+        "id": scene.pk,
+        "order": scene.order,
+        "title": scene.title,
+        "scene_type": scene.scene_type,
+        "word_count": scene.word_count,
+        "estimated_seconds": scene.estimated_seconds,
+        "script_locked": scene.script_locked,
+        "vo_recorded": scene.vo_recorded,
+        "filmed": scene.filmed,
+        "assembled": scene.assembled,
+        "polished": scene.polished,
+    }
+
+
+def _serialize_deliverable(d):
+    """Compact JSON dict for a VideoDeliverable."""
+    return {
+        "id": d.pk,
+        "phase": d.phase,
+        "type": d.deliverable_type,
+        "file_path": d.file_path,
+        "file_url": d.file_url,
+        "approved": d.approved,
+        "created_at": d.created_at.isoformat(),
+    }
+
+
+def _serialize_session(s):
+    """Compact JSON dict for a VideoSession."""
+    return {
+        "id": s.pk,
+        "phase": s.phase,
+        "started_at": s.started_at.isoformat(),
+        "ended_at": s.ended_at.isoformat() if s.ended_at else None,
+        "duration_minutes": s.duration_minutes,
+        "summary": s.summary,
+        "subtasks_completed": s.subtasks_completed,
+        "next_action": s.next_action,
+        "next_tool": s.next_tool,
+    }
+
+
+def _serialize_video(video, detail=False):
+    """
+    Serialize a VideoProject to a JSON-safe dict.
+    detail=True includes scenes, deliverables, and richer metadata.
+    """
+    data = {
+        "slug": video.slug,
+        "title": video.title,
+        "short_title": video.short_title,
+        "phase": video.phase,
+        "phase_display": video.get_phase_display(),
+        "phase_number": video.phase_number,
+        "draft": video.draft,
+        "updated_at": video.updated_at.isoformat(),
+        "youtube_id": video.youtube_id,
+        "linked_essay_slugs": [e.slug for e in video.linked_essays.all()],
+        "published_at": video.published_at.isoformat() if video.published_at else None,
+    }
+
+    if detail:
+        data.update({
+            "thesis": video.thesis,
+            "sources": video.sources,
+            "script_word_count": video.script_word_count,
+            "script_estimated_duration": video.script_estimated_duration,
+            "youtube_id": video.youtube_id,
+            "youtube_url": video.youtube_url,
+            "youtube_title": video.youtube_title,
+            "linked_essays": [
+                {"slug": e.slug, "title": e.title}
+                for e in video.linked_essays.all()
+            ],
+            "linked_field_notes": [
+                {"slug": n.slug, "title": n.title}
+                for n in video.linked_field_notes.all()
+            ],
+            "scenes": [_serialize_scene(s) for s in video.scenes.all()],
+            "deliverables": [
+                _serialize_deliverable(d) for d in video.deliverables.all()
+            ],
+        })
+
+    return data
+
+
+# Phase to scene boolean field mapping (which boolean tracks completion for each phase)
+_PHASE_SCENE_FIELD = {
+    "scripting": "script_locked",
+    "voiceover": "vo_recorded",
+    "filming": "filmed",
+    "assembly": "assembled",
+    "polish": "polished",
+}
+
+# Phase to suggested tool
+_PHASE_TOOL = {
+    "research": "Browser / Zotero",
+    "scripting": "Ulysses",
+    "voiceover": "Descript",
+    "filming": "Camera",
+    "assembly": "DaVinci Resolve",
+    "polish": "DaVinci Resolve",
+    "metadata": "Studio",
+    "publish": "YouTube Studio",
+}
+
+
+class VideoAPIListView(View):
+    """GET /api/videos/ : list active (non-published) video projects."""
+
+    def get(self, request):
+        qs = VideoProject.objects.prefetch_related("linked_essays").all()
+        if request.GET.get("active") == "true":
+            qs = qs.exclude(phase="published")
+        return JsonResponse(
+            {"videos": [_serialize_video(v) for v in qs]},
+        )
+
+
+class VideoAPIDetailView(View):
+    """GET /api/videos/<slug>/ : full project detail with scenes and deliverables."""
+
+    def get(self, request, slug):
+        video = get_object_or_404(VideoProject, slug=slug)
+        return JsonResponse(_serialize_video(video, detail=True))
+
+
+class VideoAPISessionsView(View):
+    """GET /api/videos/<slug>/sessions/ : session history for a project."""
+
+    def get(self, request, slug):
+        video = get_object_or_404(VideoProject, slug=slug)
+        sessions = video.sessions.all()
+        return JsonResponse({
+            "video": video.slug,
+            "sessions": [_serialize_session(s) for s in sessions],
+        })
+
+
+class VideoAPILogSessionView(View):
+    """
+    POST /api/videos/<slug>/log-session/
+    Log a completed work session. Body (JSON):
+    {
+        "phase": "voiceover",
+        "started_at": "2026-02-28T14:00:00Z",
+        "ended_at": "2026-02-28T15:30:00Z",
+        "summary": "Recorded scenes 1-3",
+        "subtasks_completed": ["Scene 1", "Scene 2", "Scene 3"],
+        "next_action": "Record Scene 4",
+        "next_tool": "Descript"
+    }
+    """
+
+    def post(self, request, slug):
+        video = get_object_or_404(VideoProject, slug=slug)
+        try:
+            data = json.loads(request.body)
+        except json.JSONDecodeError:
+            return JsonResponse({"error": "Invalid JSON"}, status=400)
+
+        phase = data.get("phase", video.phase)
+        started_at = data.get("started_at")
+        ended_at = data.get("ended_at")
+
+        if not started_at:
+            return JsonResponse(
+                {"error": "started_at is required"}, status=400
+            )
+
+        from django.utils.dateparse import parse_datetime
+
+        started_dt = parse_datetime(started_at)
+        ended_dt = parse_datetime(ended_at) if ended_at else None
+
+        if not started_dt:
+            return JsonResponse(
+                {"error": "Invalid started_at format"}, status=400
+            )
+
+        duration = 0
+        if started_dt and ended_dt:
+            duration = int((ended_dt - started_dt).total_seconds() / 60)
+
+        session = VideoSession.objects.create(
+            video=video,
+            phase=phase,
+            started_at=started_dt,
+            ended_at=ended_dt,
+            duration_minutes=duration,
+            summary=data.get("summary", ""),
+            subtasks_completed=data.get("subtasks_completed", []),
+            next_action=data.get("next_action", ""),
+            next_tool=data.get("next_tool", ""),
+        )
+
+        return JsonResponse({
+            "success": True,
+            "session": _serialize_session(session),
+        }, status=201)
+
+
+class VideoAPIAdvanceView(View):
+    """
+    POST /api/videos/<slug>/advance/
+    Advance video to the next phase. Validates that phase criteria are met.
+    """
+
+    def post(self, request, slug):
+        video = get_object_or_404(VideoProject, slug=slug)
+
+        if not video.can_advance():
+            return JsonResponse(
+                {"error": "Video is already published"}, status=400
+            )
+
+        # Check phase-specific criteria
+        current = video.phase
+        issues = []
+
+        if current == "scripting":
+            unlocked = video.scenes.filter(script_locked=False)
+            if unlocked.exists():
+                titles = [s.title for s in unlocked]
+                issues.append(
+                    f"Scenes not script-locked: {', '.join(titles)}"
+                )
+
+        elif current == "voiceover":
+            vo_scenes = video.scenes.filter(
+                scene_type__in=["vo", "mixed"]
+            )
+            unrecorded = vo_scenes.filter(vo_recorded=False)
+            if unrecorded.exists():
+                titles = [s.title for s in unrecorded]
+                issues.append(
+                    f"VO not recorded: {', '.join(titles)}"
+                )
+
+        elif current == "filming":
+            cam_scenes = video.scenes.filter(
+                scene_type__in=["on_camera", "mixed"]
+            )
+            unfilmed = cam_scenes.filter(filmed=False)
+            if unfilmed.exists():
+                titles = [s.title for s in unfilmed]
+                issues.append(
+                    f"Scenes not filmed: {', '.join(titles)}"
+                )
+
+        elif current == "assembly":
+            unassembled = video.scenes.filter(assembled=False)
+            if unassembled.exists():
+                titles = [s.title for s in unassembled]
+                issues.append(
+                    f"Scenes not assembled: {', '.join(titles)}"
+                )
+
+        elif current == "polish":
+            unpolished = video.scenes.filter(polished=False)
+            if unpolished.exists():
+                titles = [s.title for s in unpolished]
+                issues.append(
+                    f"Scenes not polished: {', '.join(titles)}"
+                )
+
+        elif current == "metadata":
+            if not video.youtube_title:
+                issues.append("YouTube title not set")
+            if not video.youtube_description:
+                issues.append("YouTube description not set")
+
+        # Allow force advance even with issues
+        force = False
+        try:
+            body = json.loads(request.body) if request.body else {}
+            force = body.get("force", False)
+        except json.JSONDecodeError:
+            pass
+
+        if issues and not force:
+            return JsonResponse({
+                "error": "Phase criteria not met",
+                "issues": issues,
+                "hint": "Send {\"force\": true} to advance anyway",
+            }, status=409)
+
+        new_phase = video.advance_phase()
+        return JsonResponse({
+            "success": True,
+            "previous_phase": current,
+            "new_phase": new_phase,
+            "new_phase_display": video.get_phase_display(),
+        })
+
+
+class VideoAPIDeliverableView(View):
+    """
+    POST /api/videos/<slug>/deliverable/
+    Register a new deliverable. Body (JSON):
+    {
+        "phase": "voiceover",
+        "type": "vo_audio",
+        "file_path": "/path/to/audio.wav",
+        "file_url": "",
+        "notes": "Clean recording, no retakes needed"
+    }
+    """
+
+    def post(self, request, slug):
+        video = get_object_or_404(VideoProject, slug=slug)
+        try:
+            data = json.loads(request.body)
+        except json.JSONDecodeError:
+            return JsonResponse({"error": "Invalid JSON"}, status=400)
+
+        d_type = data.get("type", "")
+        valid_types = [c[0] for c in VideoDeliverable.DeliverableType.choices]
+        if d_type not in valid_types:
+            return JsonResponse(
+                {"error": f"Invalid deliverable type: {d_type}"}, status=400
+            )
+
+        deliverable = VideoDeliverable.objects.create(
+            video=video,
+            phase=data.get("phase", video.phase),
+            deliverable_type=d_type,
+            file_path=data.get("file_path", ""),
+            file_url=data.get("file_url", ""),
+            notes=data.get("notes", ""),
+        )
+
+        return JsonResponse({
+            "success": True,
+            "deliverable": _serialize_deliverable(deliverable),
+        }, status=201)
+
+
+class VideoAPINextActionView(View):
+    """
+    GET /api/videos/<slug>/next-action/
+    Session Launcher logic: determines the recommended next action
+    based on current phase and scene completion status.
+    """
+
+    def get(self, request, slug):
+        video = get_object_or_404(VideoProject, slug=slug)
+        scenes = list(video.scenes.all())
+        current = video.phase
+
+        if current == "published":
+            return JsonResponse({
+                "video": video.short_title or video.title,
+                "phase": "Published",
+                "phase_name": "Published",
+                "progress": "Complete",
+                "next_action": "No action needed",
+                "next_tool": None,
+                "estimated_minutes": 0,
+                "done_when": None,
+                "context": [],
+            })
+
+        # Determine progress and next action based on phase
+        scene_field = _PHASE_SCENE_FIELD.get(current)
+        tool = _PHASE_TOOL.get(current, "Studio")
+
+        phase_label = video.get_phase_display()
+        phase_code = f"P{video.phase_number}"
+
+        # Default next action for phases without per-scene tracking
+        if not scene_field:
+            # Research, metadata, publish phases
+            next_action, done_when, est_min, context = (
+                _phase_action_no_scenes(video, current, scenes)
+            )
+            return JsonResponse({
+                "video": video.short_title or video.title,
+                "phase": phase_code,
+                "phase_name": phase_label,
+                "progress": "In progress",
+                "next_action": next_action,
+                "next_tool": tool,
+                "estimated_minutes": est_min,
+                "done_when": done_when,
+                "context": context,
+            })
+
+        # Phases with per-scene completion (scripting through polish)
+        total = len(scenes)
+        done = sum(1 for s in scenes if getattr(s, scene_field))
+        incomplete = [s for s in scenes if not getattr(s, scene_field)]
+
+        if not incomplete:
+            return JsonResponse({
+                "video": video.short_title or video.title,
+                "phase": phase_code,
+                "phase_name": phase_label,
+                "progress": f"{done}/{total} complete",
+                "next_action": f"All scenes complete for {phase_label}. Ready to advance.",
+                "next_tool": "Studio",
+                "estimated_minutes": 2,
+                "done_when": f"Phase advanced from {phase_label}",
+                "context": [f"Use POST /api/videos/{video.slug}/advance/ to proceed"],
+            })
+
+        next_scene = incomplete[0]
+        est_seconds = next_scene.estimated_seconds or 120
+        est_minutes = max(5, est_seconds // 60 * 2)  # Rough 2x multiplier for production overhead
+
+        field_label = scene_field.replace("_", " ").title()
+        action = f"{field_label}: Scene {next_scene.order}: {next_scene.title}"
+
+        context_lines = []
+        if next_scene.word_count:
+            context_lines.append(
+                f"Scene {next_scene.order} is {next_scene.word_count} words, "
+                f"estimated {next_scene.estimated_seconds}s"
+            )
+
+        last_session = video.sessions.first()
+        if last_session and last_session.summary:
+            context_lines.append(
+                f"Previous session: {last_session.summary}"
+            )
+
+        return JsonResponse({
+            "video": video.short_title or video.title,
+            "phase": phase_code,
+            "phase_name": phase_label,
+            "progress": f"{done}/{total} scenes complete",
+            "next_action": action,
+            "next_tool": tool,
+            "estimated_minutes": est_minutes,
+            "done_when": f"Scene {next_scene.order} {field_label.lower()} exported",
+            "context": context_lines,
+        })
+
+
+def _phase_action_no_scenes(video, phase, scenes):
+    """
+    Return (next_action, done_when, estimated_minutes, context_lines)
+    for phases that don't track per-scene booleans.
+    """
+    if phase == "research":
+        has_thesis = bool(video.thesis)
+        has_sources = bool(video.sources)
+        if not has_thesis and not has_sources:
+            return (
+                "Define thesis and gather initial sources",
+                "Thesis statement written and at least 3 sources collected",
+                30,
+                ["Start with the central question this video will answer"],
+            )
+        if not has_thesis:
+            return (
+                "Write the thesis statement",
+                "One-sentence thesis captured in project",
+                15,
+                [f"{len(video.sources)} sources already collected"],
+            )
+        return (
+            "Review sources and finalize research notes",
+            "Research notes complete, ready to outline script",
+            20,
+            [
+                f"Thesis: {video.thesis[:80]}",
+                f"{len(video.sources)} sources collected",
+            ],
+        )
+
+    if phase == "metadata":
+        missing = []
+        if not video.youtube_title:
+            missing.append("title")
+        if not video.youtube_description:
+            missing.append("description")
+        if not video.youtube_tags:
+            missing.append("tags")
+        if not video.youtube_chapters:
+            missing.append("chapters")
+        if missing:
+            return (
+                f"Complete YouTube metadata: {', '.join(missing)}",
+                "All metadata fields populated",
+                20,
+                [f"Use Generate Description button for a starting point"],
+            )
+        return (
+            "Review and finalize all metadata",
+            "Metadata approved, ready for export",
+            10,
+            [],
+        )
+
+    if phase == "publish":
+        return (
+            "Upload video to YouTube and set publish date",
+            "Video live on YouTube, youtube_id recorded in project",
+            15,
+            ["Export final render from DaVinci Resolve first"],
+        )
+
+    return ("Continue working", "Phase complete", 30, [])
+
+
+# ---------------------------------------------------------------------------
+# Video research integration
+# ---------------------------------------------------------------------------
+
+
+class VideoPullResearchView(LoginRequiredMixin, View):
+    """
+    POST /video/<slug>/pull-research/
+    Pull sources and annotations from linked essays into the video project.
+    One-time merge operation (idempotent on URL match).
+    """
+
+    def post(self, request, slug):
+        video = get_object_or_404(VideoProject, slug=slug)
+        essays = video.linked_essays.all()
+
+        if not essays.exists():
+            if request.headers.get("HX-Request"):
+                return JsonResponse(
+                    {"message": "No linked essays to pull from."}, status=200
+                )
+            return redirect(
+                reverse("editor:video-edit", kwargs={"slug": slug})
+            )
+
+        existing_urls = {
+            s.get("url", "") for s in (video.sources or []) if s.get("url")
+        }
+        new_sources = list(video.sources or [])
+        notes_additions = []
+
+        for essay in essays:
+            # Merge sources (skip duplicates by URL)
+            essay_sources = getattr(essay, "sources", None) or []
+            if isinstance(essay_sources, list):
+                for src in essay_sources:
+                    url = src.get("url", "")
+                    if url and url not in existing_urls:
+                        new_sources.append(src)
+                        existing_urls.add(url)
+
+            # Append annotations to research notes
+            annotations = getattr(essay, "annotations", None) or []
+            if isinstance(annotations, list) and annotations:
+                notes_lines = [f"\n\n## From: {essay.title}\n"]
+                for ann in annotations:
+                    text = ann.get("text", "") if isinstance(ann, dict) else str(ann)
+                    if text:
+                        notes_lines.append(f"- {text}")
+                notes_additions.append("\n".join(notes_lines))
+
+        video.sources = new_sources
+        if notes_additions:
+            video.research_notes = (
+                video.research_notes + "\n".join(notes_additions)
+            )
+        video.save()
+
+        if request.headers.get("HX-Request"):
+            return JsonResponse({
+                "success": True,
+                "sources_count": len(new_sources),
+                "message": f"Pulled research from {essays.count()} essay(s)",
+            })
+        return redirect(
+            reverse("editor:video-edit", kwargs={"slug": slug})
+        )
+
+
+class VideoGenerateDescriptionView(LoginRequiredMixin, View):
+    """
+    POST /video/<slug>/generate-description/
+    Generate YouTube description from project data and update the field.
+    Returns the generated text for HTMX to inject into the textarea.
+    """
+
+    def post(self, request, slug):
+        from apps.content.description_generator import generate_description
+
+        video = get_object_or_404(VideoProject, slug=slug)
+        description = generate_description(video)
+        video.youtube_description = description
+        video.save(update_fields=["youtube_description", "updated_at"])
+
+        if request.headers.get("HX-Request"):
+            return JsonResponse({
+                "success": True,
+                "description": description,
+            })
+        return redirect(
+            reverse("editor:video-edit", kwargs={"slug": slug})
+        )
+
+
+class ProductionDashboardView(LoginRequiredMixin, TemplateView):
+    """
+    GET /production/
+    Production dashboard: active video projects, session heatmap,
+    cumulative output, and weekly summary.
+    """
+
+    template_name = "editor/production_dashboard.html"
+
+    def get_context_data(self, **kwargs):
+        ctx = super().get_context_data(**kwargs)
+        now = timezone.now()
+
+        # ── Active projects (everything except published) ─────────────
+        active_projects = (
+            VideoProject.objects
+            .exclude(phase=VideoProject.Phase.PUBLISHED)
+            .defer("script_body", "research_notes", "composition")
+            .order_by("-updated_at")
+        )
+
+        # Annotate each project with its latest session info
+        project_data = []
+        for project in active_projects:
+            latest_session = project.sessions.first()  # ordered by -started_at
+            total_hours = (
+                project.sessions
+                .aggregate(total=Sum("duration_minutes"))["total"] or 0
+            ) / 60
+            project_data.append({
+                "project": project,
+                "latest_session": latest_session,
+                "total_hours": round(total_hours, 1),
+                "session_count": project.sessions.count(),
+            })
+        ctx["active_projects"] = project_data
+
+        # ── Production calendar (30-day session heatmap) ──────────────
+        thirty_days_ago = now - timedelta(days=30)
+        daily_sessions = (
+            VideoSession.objects
+            .filter(started_at__gte=thirty_days_ago)
+            .annotate(day=TruncDate("started_at"))
+            .values("day")
+            .annotate(
+                count=Count("id"),
+                minutes=Sum("duration_minutes"),
+            )
+            .order_by("day")
+        )
+
+        # Build a dict of date -> {count, minutes} for template lookup
+        session_by_day = {}
+        max_minutes = 1
+        for row in daily_sessions:
+            session_by_day[row["day"]] = {
+                "count": row["count"],
+                "minutes": row["minutes"] or 0,
+            }
+            if (row["minutes"] or 0) > max_minutes:
+                max_minutes = row["minutes"] or 0
+
+        # Build calendar grid (30 days, most recent last)
+        calendar = []
+        for i in range(30):
+            day = (now - timedelta(days=29 - i)).date()
+            info = session_by_day.get(day, {"count": 0, "minutes": 0})
+            # Intensity 0..4 for CSS classes
+            if info["minutes"] == 0:
+                intensity = 0
+            elif info["minutes"] <= 30:
+                intensity = 1
+            elif info["minutes"] <= 90:
+                intensity = 2
+            elif info["minutes"] <= 180:
+                intensity = 3
+            else:
+                intensity = 4
+            calendar.append({
+                "date": day,
+                "weekday": day.strftime("%a"),
+                "day_num": day.day,
+                "count": info["count"],
+                "minutes": info["minutes"],
+                "intensity": intensity,
+            })
+        ctx["calendar"] = calendar
+
+        # ── Weekly summary (current week) ─────────────────────────────
+        week_start = now - timedelta(days=now.weekday())
+        week_start = week_start.replace(hour=0, minute=0, second=0, microsecond=0)
+
+        week_sessions = VideoSession.objects.filter(started_at__gte=week_start)
+        week_stats = week_sessions.aggregate(
+            count=Count("id"),
+            total_minutes=Sum("duration_minutes"),
+        )
+        ctx["week_session_count"] = week_stats["count"] or 0
+        ctx["week_total_hours"] = round((week_stats["total_minutes"] or 0) / 60, 1)
+
+        # Phases completed this week (sessions where video phase advanced)
+        week_phases = (
+            week_sessions
+            .values("phase")
+            .annotate(count=Count("id"))
+            .order_by("phase")
+        )
+        ctx["week_phases"] = list(week_phases)
+
+        # Next actions across all active projects
+        next_actions = []
+        for pd in project_data:
+            if pd["latest_session"] and pd["latest_session"].next_action:
+                next_actions.append({
+                    "project": pd["project"],
+                    "action": pd["latest_session"].next_action,
+                    "tool": pd["latest_session"].next_tool,
+                })
+        ctx["next_actions"] = next_actions
+
+        # ── Cumulative output (published counts) ──────────────────────
+        ctx["published_essays"] = Essay.objects.filter(draft=False).count()
+        ctx["published_notes"] = FieldNote.objects.filter(draft=False).count()
+        ctx["published_videos"] = VideoProject.objects.filter(
+            phase=VideoProject.Phase.PUBLISHED
+        ).count()
+
+        ctx["content_type"] = "production"
+        return ctx

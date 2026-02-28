@@ -120,6 +120,17 @@
                             <c-badge color="gold" outline>{{ sidebar_drafts.videos }}</c-badge>
                         {% endif %}
                     </a>
+                    <a href="{% url 'editor:production-dashboard' %}"
+                       class="
+                           flex items-center justify-between
+                           px-3 py-[7px] rounded-brand text-sm
+                           text-cream/75 no-underline
+                           hover:bg-white/10 hover:text-cream
+                           transition-colors duration-150
+                           {% if content_type == 'production' %}bg-white/10 border-l-2 border-success text-cream{% endif %}
+                       ">
+                        <span class="flex items-center gap-2 pl-4"><c-icon name="gears" size="14" />Dashboard</span>
+                    </a>
                     <a href="{% url 'editor:now-edit' %}"
                        class="
                            flex items-center justify-between

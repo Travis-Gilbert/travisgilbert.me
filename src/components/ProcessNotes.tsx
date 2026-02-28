@@ -15,6 +15,10 @@ interface ProcessNotesProps {
   revisionCount?: number;
   sourceCount?: number;
   researchNotes?: string[];
+  /** Video production metrics (from linked VideoProject) */
+  videoPhase?: string;
+  videoSceneCount?: number;
+  videoScriptWords?: number;
 }
 
 export default function ProcessNotes({
@@ -22,9 +26,15 @@ export default function ProcessNotes({
   revisionCount,
   sourceCount,
   researchNotes,
+  videoPhase,
+  videoSceneCount,
+  videoScriptWords,
 }: ProcessNotesProps) {
+  const hasWrittenMeta = !!(researchStarted || revisionCount || sourceCount || (researchNotes && researchNotes.length > 0));
+  const hasVideoMeta = !!(videoPhase || videoSceneCount || videoScriptWords);
+
   // Return null if all fields are empty
-  if (!researchStarted && !revisionCount && !sourceCount && (!researchNotes || researchNotes.length === 0)) {
+  if (!hasWrittenMeta && !hasVideoMeta) {
     return null;
   }
 
@@ -115,6 +125,69 @@ export default function ProcessNotes({
               </li>
             ))}
           </ul>
+        )}
+
+        {hasVideoMeta && (
+          <>
+            {hasWrittenMeta && (
+              <div
+                className="my-3 border-t"
+                style={{ borderColor: 'var(--color-border)' }}
+              />
+            )}
+            <span
+              className="font-mono block mb-2"
+              style={{
+                fontSize: 9,
+                textTransform: 'uppercase',
+                letterSpacing: '0.08em',
+                color: 'var(--color-green)',
+              }}
+            >
+              Video Production
+            </span>
+            <div className="flex flex-wrap gap-x-6 gap-y-2">
+              {videoPhase && (
+                <div className="flex items-baseline gap-2">
+                  <span
+                    className="font-mono"
+                    style={{ fontSize: 9, textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--color-ink-faint)' }}
+                  >
+                    Phase
+                  </span>
+                  <span className="font-title text-sm font-semibold" style={{ color: 'var(--color-ink)' }}>
+                    {videoPhase}
+                  </span>
+                </div>
+              )}
+              {videoSceneCount != null && videoSceneCount > 0 && (
+                <div className="flex items-baseline gap-2">
+                  <span
+                    className="font-mono"
+                    style={{ fontSize: 9, textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--color-ink-faint)' }}
+                  >
+                    Scenes
+                  </span>
+                  <span className="font-title text-sm font-semibold" style={{ color: 'var(--color-ink)' }}>
+                    {videoSceneCount}
+                  </span>
+                </div>
+              )}
+              {videoScriptWords != null && videoScriptWords > 0 && (
+                <div className="flex items-baseline gap-2">
+                  <span
+                    className="font-mono"
+                    style={{ fontSize: 9, textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--color-ink-faint)' }}
+                  >
+                    Script words
+                  </span>
+                  <span className="font-title text-sm font-semibold" style={{ color: 'var(--color-ink)' }}>
+                    {videoScriptWords.toLocaleString()}
+                  </span>
+                </div>
+              )}
+            </div>
+          </>
         )}
       </RoughBox>
     </section>
