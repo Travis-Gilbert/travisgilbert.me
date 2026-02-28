@@ -20,7 +20,7 @@ Next.js 15 (App Router), React 19, Tailwind CSS v4 (`@tailwindcss/postcss`), rou
 |------|---------|
 | `src/app/` | App Router pages and layouts |
 | `src/app/fonts.ts` | All 7 font declarations: Vollkorn, Cabin, IBM Plex Sans, Ysabeau, Courier Prime, JetBrains Mono (Google) + Amarna (local) |
-| `src/app/layout.tsx` | Root layout (DotGrid, TopNav, Footer, ArchitectureEasterEgg, metadata) |
+| `src/app/layout.tsx` | Root layout (DotGrid, TopNav, Footer, DesignLanguageEasterEgg, metadata) |
 | `src/components/` | React components (Server + Client) |
 | `src/components/rough/` | Client Components for rough.js visuals (RoughBox, RoughLine, RoughUnderline) |
 | `src/content/` | Markdown content collections (essays, field-notes, shelf, toolkit, projects) |
@@ -366,7 +366,7 @@ Vercel with native Next.js builder. Git integration auto-deploys on push to `mai
 
 Phases 1 through 4 (Foundation, Micro-interactions, Animations, Polish) are **all complete**. See `docs/records/001-site-wide-redesign.md` for full history.
 
-**Branding Overhaul (plan-01):** Complete (8 phases) on branch `feature/branding-homepage-interactions`, pushed to remote. See `docs/plans/plan-01-branding-homepage-interactions.md` for the full spec. Key changes: font system overhaul (Space Mono removed, JetBrains Mono added as `--font-code`), CodeComment component for workbench annotations, PipelineCounter live build counter on homepage, ParallaxStack subtle scroll parallax, ConnectionMap D3 force graph at `/connections`, DesignLanguageEasterEgg (replaces ArchitectureEasterEgg), StampDot animation on ProgressTracker for recently advanced content. Merge to `main` pending review.
+**Branding Overhaul (plan-01):** Complete (8 phases), merged to `main`. See `docs/plans/plan-01-branding-homepage-interactions.md` for the full spec. Key changes: font system overhaul (Space Mono removed, JetBrains Mono added as `--font-code`), CodeComment component for workbench annotations, PipelineCounter live build counter on homepage, ParallaxStack subtle scroll parallax, ConnectionMap D3 force graph at `/connections`, DesignLanguageEasterEgg (replaces ArchitectureEasterEgg), StampDot animation on ProgressTracker for recently advanced content.
 
 **Django Studio:** Full site management control panel. Brand component library redesign complete. See `docs/plans/2026-02-25-studio-redesign-design.md` for the design doc and `docs/records/002-publishing-api.md` for the original scaffold. Django check passes (0 issues). Not yet deployed to Railway or tested end-to-end.
 
@@ -441,7 +441,7 @@ Phases 1 through 4 (Foundation, Micro-interactions, Animations, Polish) are **al
 - **`pre code` word-break reset**: Inline `code` gets `word-break: break-word` but `pre code` resets to `normal` because code blocks should scroll horizontally, not wrap
 - **Absolute-positioned callout text needs explicit `width`**: `max-width` alone on absolute elements causes shrink-to-fit (one word per line). Both `RoughPivotCallout` and `RoughCallout` set `width: 450` on the outer wrapper div
 - **`overflow-hidden` clips absolute callouts**: Secondary essay cards had `overflow-hidden` on the `group` div which clipped `RoughCallout`. Only put `overflow-hidden` on image wrappers, not card-level containers that host absolute-positioned decorations
-- **Phase-aware overflow for hover labels**: ArchitectureEasterEgg uses `overflow: isExpanded ? 'hidden' : 'visible'` so the SITE.MAP hover label can extend below the 72px seed wrapper in seed phase, while expanded panel content stays clipped
+- **Phase-aware overflow for hover labels**: DesignLanguageEasterEgg uses `overflow: isExpanded ? 'hidden' : 'visible'` so the SITE.MAP hover label can extend below the 72px seed wrapper in seed phase, while expanded panel content stays clipped
 - **rAF never fires in headless Playwright**: Preview tool's headless browser doesn't trigger `requestAnimationFrame`. To test rAF-driven animations, use React fiber manipulation (`hook.queue.dispatch()`) to force state, or test in a real browser
 - **CSS `ch` unit is font-relative in `::after`**: Margin annotation `::after` inherits `font-annotation` (Caveat), making `calc(65ch + ...)` resolve differently than `65ch` in the prose body font. Use `calc(100% + ...)` for font-agnostic positioning
 - **Hero grid alignment math**: The `1fr 118px 1fr` grid in the hero (max-w-6xl, 1152px) aligns with the RoughLine label gap inside max-w-4xl (896px) because each hero `1fr` extends exactly `(1152-896)/2 = 128px` beyond the content area. The `lg:pl-[128px]` on the left column shifts the name to align with the content area's left edge. If either max-width changes, both values must be recalculated
