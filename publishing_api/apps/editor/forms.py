@@ -14,6 +14,9 @@ from apps.content.models import (
     ShelfEntry,
     SiteSettings,
     ToolkitEntry,
+    VideoDeliverable,
+    VideoProject,
+    VideoScene,
 )
 from apps.editor.widgets import (
     ANNOTATIONS_SCHEMA,
@@ -21,6 +24,8 @@ from apps.editor.widgets import (
     FOOTER_LINKS_SCHEMA,
     SOURCES_SCHEMA,
     URLS_SCHEMA,
+    VIDEO_SOURCES_SCHEMA,
+    YOUTUBE_CHAPTERS_SCHEMA,
     CompositionWidget,
     JsonObjectListWidget,
     SlugListWidget,
@@ -760,3 +765,226 @@ class SiteSettingsForm(forms.ModelForm):
                 css_class="section-gold",
             ),
         )
+
+
+# ---------------------------------------------------------------------------
+# Video production forms
+# ---------------------------------------------------------------------------
+
+
+class VideoProjectForm(forms.ModelForm):
+    class Meta:
+        model = VideoProject
+        fields = [
+            "title",
+            "slug",
+            "short_title",
+            "thesis",
+            "sources",
+            "research_notes",
+            "script_body",
+            "youtube_title",
+            "youtube_description",
+            "youtube_tags",
+            "youtube_category",
+            "youtube_chapters",
+            "youtube_thumbnail_path",
+            "youtube_id",
+            "youtube_url",
+            "ticktick_task_id",
+            "ulysses_sheet_id",
+            "descript_project_id",
+            "resolve_project_name",
+            "linked_essays",
+            "linked_field_notes",
+            "composition",
+        ]
+        widgets = {
+            "title": forms.TextInput(attrs={
+                "placeholder": "Video title...",
+                "autocomplete": "off",
+            }),
+            "slug": forms.TextInput(attrs={
+                "placeholder": "auto-generated-from-title",
+            }),
+            "short_title": forms.TextInput(attrs={
+                "placeholder": "Short title for dashboards...",
+            }),
+            "thesis": forms.Textarea(attrs={
+                "rows": 2,
+                "placeholder": "One-sentence thesis for this video...",
+            }),
+            "research_notes": forms.Textarea(attrs={
+                "rows": 6,
+                "placeholder": "Research notes (Markdown)...",
+            }),
+            "script_body": forms.Textarea(attrs={
+                "id": "editor-body",
+                "placeholder": "Full script with [VO], [ON-CAMERA], [B-ROLL], [GRAPHIC] tags...",
+                "class": (
+                    "w-full min-h-[400px] px-6 py-4 font-mono text-[14px]"
+                    " leading-relaxed text-ink bg-transparent border-none"
+                    " outline-none resize-y placeholder:text-ink-muted"
+                ),
+            }),
+            "youtube_title": forms.TextInput(attrs={
+                "placeholder": "YouTube title (max 100 chars)",
+                "maxlength": 100,
+            }),
+            "youtube_description": forms.Textarea(attrs={
+                "rows": 4,
+                "placeholder": "YouTube description...",
+            }),
+            "youtube_category": forms.TextInput(attrs={
+                "placeholder": "Education",
+            }),
+            "youtube_thumbnail_path": forms.TextInput(attrs={
+                "placeholder": "/videos/thumbnails/filename.png",
+            }),
+            "youtube_id": forms.TextInput(attrs={
+                "placeholder": "YouTube video ID after upload",
+            }),
+            "youtube_url": forms.URLInput(attrs={
+                "placeholder": "https://youtube.com/watch?v=...",
+            }),
+            "ticktick_task_id": forms.TextInput(attrs={
+                "placeholder": "TickTick task ID",
+            }),
+            "ulysses_sheet_id": forms.TextInput(attrs={
+                "placeholder": "Ulysses sheet identifier",
+            }),
+            "descript_project_id": forms.TextInput(attrs={
+                "placeholder": "Descript project ID",
+            }),
+            "resolve_project_name": forms.TextInput(attrs={
+                "placeholder": "DaVinci Resolve project name",
+            }),
+            # JSON fields with structured widgets
+            "sources": StructuredListWidget(fields_schema=VIDEO_SOURCES_SCHEMA),
+            "youtube_tags": TagsWidget(),
+            "youtube_chapters": StructuredListWidget(fields_schema=YOUTUBE_CHAPTERS_SCHEMA),
+            "composition": CompositionWidget(),
+        }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.helper = FormHelper()
+        self.helper.form_tag = False
+        self.helper.layout = Layout(
+            Fieldset(
+                "Identity",
+                "title", "slug", "short_title",
+                css_class="section-green",
+            ),
+            Fieldset(
+                "Research",
+                "thesis", "sources", "research_notes",
+                css_class="section-teal",
+            ),
+            Fieldset(
+                "Connections",
+                "linked_essays", "linked_field_notes",
+                css_class="section-teal",
+            ),
+            Fieldset(
+                "YouTube Metadata",
+                "youtube_title", "youtube_description",
+                "youtube_tags", "youtube_category",
+                "youtube_chapters", "youtube_thumbnail_path",
+                css_class="section-gold",
+            ),
+            Fieldset(
+                "Post-Publish",
+                "youtube_id", "youtube_url",
+                css_class="",
+            ),
+            Fieldset(
+                "External Tools",
+                "ticktick_task_id", "ulysses_sheet_id",
+                "descript_project_id", "resolve_project_name",
+                css_class="",
+            ),
+            Fieldset(
+                "Advanced",
+                "composition",
+                css_class="",
+            ),
+        )
+
+
+class VideoSceneForm(forms.ModelForm):
+    """Inline editing form for individual scenes."""
+
+    class Meta:
+        model = VideoScene
+        fields = [
+            "order",
+            "title",
+            "scene_type",
+            "script_text",
+            "notes",
+            "script_locked",
+            "vo_recorded",
+            "filmed",
+            "assembled",
+            "polished",
+        ]
+        widgets = {
+            "title": forms.TextInput(attrs={
+                "placeholder": "Scene title...",
+            }),
+            "script_text": forms.Textarea(attrs={
+                "rows": 6,
+                "placeholder": "Scene script text...",
+                "class": (
+                    "w-full px-4 py-3 font-mono text-[13px]"
+                    " leading-relaxed text-ink bg-transparent"
+                    " border-none outline-none resize-y"
+                    " placeholder:text-ink-muted"
+                ),
+            }),
+            "notes": forms.Textarea(attrs={
+                "rows": 2,
+                "placeholder": "Production notes...",
+            }),
+            "order": forms.NumberInput(attrs={
+                "min": 0,
+                "class": "w-20",
+            }),
+        }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.helper = FormHelper()
+        self.helper.form_tag = False
+
+
+class VideoDeliverableForm(forms.ModelForm):
+    """Inline editing form for deliverables."""
+
+    class Meta:
+        model = VideoDeliverable
+        fields = [
+            "phase",
+            "deliverable_type",
+            "file_path",
+            "file_url",
+            "notes",
+            "approved",
+        ]
+        widgets = {
+            "file_path": forms.TextInput(attrs={
+                "placeholder": "/videos/deliverables/...",
+            }),
+            "file_url": forms.URLInput(attrs={
+                "placeholder": "https://...",
+            }),
+            "notes": forms.Textarea(attrs={
+                "rows": 2,
+                "placeholder": "Notes about this deliverable...",
+            }),
+        }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.helper = FormHelper()

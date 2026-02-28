@@ -1,0 +1,94 @@
+{# ------------------------------------------------------------------ #}
+{#  Deliverables partial: production artifacts grouped by phase         #}
+{#  Included by video_edit.html inside the "Deliverables" details      #}
+{#  Context: deliverables (queryset), object (VideoProject)            #}
+{# ------------------------------------------------------------------ #}
+
+<div hx-headers='{"X-CSRFToken": "{{ csrf_token }}"}'>
+
+{% if deliverables %}
+<div class="space-y-2">
+  {% for d in deliverables %}
+  <div class="flex items-center gap-3 px-3 py-2.5 bg-parchment rounded-brand border border-border"
+       id="deliverable-{{ d.pk }}">
+    {# Approval indicator #}
+    {% if d.approved %}
+    <span class="text-success text-[14px] flex-shrink-0" title="Approved">&#10003;</span>
+    {% else %}
+    <span class="text-ink-muted text-[14px] flex-shrink-0" title="Pending">&#9675;</span>
+    {% endif %}
+
+    {# Deliverable type and phase #}
+    <div class="flex-1 min-w-0">
+      <span class="font-body text-[14px] text-ink block truncate">
+        {{ d.get_deliverable_type_display }}
+      </span>
+      <span class="font-mono text-[10px] uppercase tracking-wider text-ink-muted">
+        {{ d.get_phase_display }}
+      </span>
+    </div>
+
+    {# File link (if available) #}
+    {% if d.file_url %}
+    <a href="{{ d.file_url }}" target="_blank" rel="noopener"
+       class="font-mono text-[10px] uppercase tracking-wider text-teal
+              hover:text-teal-hover no-underline flex-shrink-0">
+      Open &nearr;
+    </a>
+    {% elif d.file_path %}
+    <span class="font-mono text-[10px] text-ink-muted truncate max-w-[160px] flex-shrink-0"
+          title="{{ d.file_path }}">
+      {{ d.file_path|truncatechars:30 }}
+    </span>
+    {% endif %}
+
+    {# Approval badge #}
+    {% if d.approved %}
+    <c-badge color="success">Approved</c-badge>
+    {% else %}
+    <c-badge color="gold" outline>Pending</c-badge>
+    {% endif %}
+
+    {# Delete button #}
+    <button type="button"
+            class="font-mono text-[10px] uppercase tracking-wider text-danger
+                   hover:text-danger-hover ml-1 flex-shrink-0"
+            hx-post="{% url 'editor:video-deliverable-delete' slug=object.slug pk=d.pk %}"
+            hx-target="#deliverables-panel"
+            hx-swap="innerHTML"
+            hx-confirm="Delete this deliverable?">
+      Delete
+    </button>
+  </div>
+  {% endfor %}
+</div>
+
+{# Approval summary #}
+<div class="flex items-center gap-4 mt-3 pt-2 border-t border-border-light">
+  <span class="font-mono text-[10px] uppercase tracking-wider text-ink-muted">
+    {{ deliverables|length }} deliverable{{ deliverables|length|pluralize }}
+  </span>
+</div>
+
+{% else %}
+<div class="text-center py-8">
+  <p class="font-mono text-[12px] tracking-wide text-ink-muted m-0 mb-3">
+    No deliverables yet. Artifacts are tracked as production advances.
+  </p>
+</div>
+{% endif %}
+
+{# Add deliverable button #}
+<div class="mt-3">
+  <button type="button"
+          class="font-mono text-[11px] uppercase tracking-wider text-teal
+                 hover:text-teal-hover border border-border rounded-brand
+                 px-3 py-1.5 bg-parchment hover:bg-surface transition-colors"
+          hx-post="{% url 'editor:video-deliverable-add' slug=object.slug %}"
+          hx-target="#deliverables-panel"
+          hx-swap="innerHTML">
+    + Add Deliverable
+  </button>
+</div>
+
+</div>

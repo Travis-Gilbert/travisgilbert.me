@@ -1,0 +1,181 @@
+{# ------------------------------------------------------------------ #}
+{#  Scene breakdown partial: displays scenes with completion checklist  #}
+{#  Included by video_edit.html inside the "Scene Breakdown" details   #}
+{#  Context: scenes (queryset), object (VideoProject), current_stage   #}
+{# ------------------------------------------------------------------ #}
+
+<div hx-headers='{"X-CSRFToken": "{{ csrf_token }}"}'>
+
+{% if scenes %}
+<div class="space-y-3">
+  {% for scene in scenes %}
+  <div class="p-3 bg-parchment rounded-brand border border-border"
+       id="scene-{{ scene.pk }}">
+    <div class="flex items-center gap-2 mb-2">
+      {# Order badge #}
+      <span class="inline-flex items-center justify-center w-6 h-6
+                    rounded-full bg-success/15 text-success
+                    font-mono text-[11px] font-bold flex-shrink-0">
+        {{ scene.order }}
+      </span>
+
+      {# Title and type #}
+      <span class="font-body text-[14px] text-ink flex-1">{{ scene.title }}</span>
+      <c-badge color="ink" outline>{{ scene.get_scene_type_display }}</c-badge>
+
+      {# Duration estimate #}
+      {% if scene.estimated_seconds %}
+      <span class="font-mono text-[10px] text-ink-muted">
+        {{ scene.estimated_seconds }}s
+      </span>
+      {% endif %}
+
+      {# Delete button #}
+      <button type="button"
+              class="font-mono text-[10px] uppercase tracking-wider text-danger
+                     hover:text-danger-hover ml-1 flex-shrink-0"
+              hx-post="{% url 'editor:video-scene-delete' slug=object.slug pk=scene.pk %}"
+              hx-target="#scenes-panel"
+              hx-swap="innerHTML"
+              hx-confirm="Delete this scene?">
+        Delete
+      </button>
+    </div>
+
+    {# Script text preview (truncated) #}
+    {% if scene.script_text %}
+    <p class="font-body text-[13px] text-ink-secondary leading-relaxed m-0 mb-2
+              line-clamp-2 overflow-hidden">
+      {{ scene.script_text|truncatewords:40 }}
+    </p>
+    {% endif %}
+
+    {# Word count #}
+    {% if scene.word_count %}
+    <span class="font-mono text-[10px] text-ink-muted">
+      {{ scene.word_count }} words
+    </span>
+    {% endif %}
+
+    {# Per-phase completion checklist (interactive toggles) #}
+    <div class="flex items-center gap-3 mt-2 pt-2 border-t border-border-light">
+      {# Script toggle #}
+      <label class="flex items-center gap-1.5 font-mono text-[10px] uppercase tracking-wider cursor-pointer
+                     {% if scene.script_locked %}text-success{% else %}text-ink-muted{% endif %}">
+        <input type="checkbox"
+               {% if scene.script_locked %}checked{% endif %}
+               class="sr-only peer"
+               hx-post="{% url 'editor:video-scene-toggle' slug=object.slug pk=scene.pk %}"
+               hx-vals='{"field": "script_locked"}'
+               hx-target="#scenes-panel"
+               hx-swap="innerHTML">
+        <span class="peer-checked:text-success">
+          {% if scene.script_locked %}&#10003;{% else %}&#9675;{% endif %}
+        </span>
+        Script
+      </label>
+
+      {# VO toggle #}
+      <label class="flex items-center gap-1.5 font-mono text-[10px] uppercase tracking-wider cursor-pointer
+                     {% if scene.vo_recorded %}text-success{% else %}text-ink-muted{% endif %}">
+        <input type="checkbox"
+               {% if scene.vo_recorded %}checked{% endif %}
+               class="sr-only peer"
+               hx-post="{% url 'editor:video-scene-toggle' slug=object.slug pk=scene.pk %}"
+               hx-vals='{"field": "vo_recorded"}'
+               hx-target="#scenes-panel"
+               hx-swap="innerHTML">
+        <span class="peer-checked:text-success">
+          {% if scene.vo_recorded %}&#10003;{% else %}&#9675;{% endif %}
+        </span>
+        VO
+      </label>
+
+      {# Filmed toggle #}
+      <label class="flex items-center gap-1.5 font-mono text-[10px] uppercase tracking-wider cursor-pointer
+                     {% if scene.filmed %}text-success{% else %}text-ink-muted{% endif %}">
+        <input type="checkbox"
+               {% if scene.filmed %}checked{% endif %}
+               class="sr-only peer"
+               hx-post="{% url 'editor:video-scene-toggle' slug=object.slug pk=scene.pk %}"
+               hx-vals='{"field": "filmed"}'
+               hx-target="#scenes-panel"
+               hx-swap="innerHTML">
+        <span class="peer-checked:text-success">
+          {% if scene.filmed %}&#10003;{% else %}&#9675;{% endif %}
+        </span>
+        Filmed
+      </label>
+
+      {# Assembled toggle #}
+      <label class="flex items-center gap-1.5 font-mono text-[10px] uppercase tracking-wider cursor-pointer
+                     {% if scene.assembled %}text-success{% else %}text-ink-muted{% endif %}">
+        <input type="checkbox"
+               {% if scene.assembled %}checked{% endif %}
+               class="sr-only peer"
+               hx-post="{% url 'editor:video-scene-toggle' slug=object.slug pk=scene.pk %}"
+               hx-vals='{"field": "assembled"}'
+               hx-target="#scenes-panel"
+               hx-swap="innerHTML">
+        <span class="peer-checked:text-success">
+          {% if scene.assembled %}&#10003;{% else %}&#9675;{% endif %}
+        </span>
+        Assembled
+      </label>
+
+      {# Polished toggle #}
+      <label class="flex items-center gap-1.5 font-mono text-[10px] uppercase tracking-wider cursor-pointer
+                     {% if scene.polished %}text-success{% else %}text-ink-muted{% endif %}">
+        <input type="checkbox"
+               {% if scene.polished %}checked{% endif %}
+               class="sr-only peer"
+               hx-post="{% url 'editor:video-scene-toggle' slug=object.slug pk=scene.pk %}"
+               hx-vals='{"field": "polished"}'
+               hx-target="#scenes-panel"
+               hx-swap="innerHTML">
+        <span class="peer-checked:text-success">
+          {% if scene.polished %}&#10003;{% else %}&#9675;{% endif %}
+        </span>
+        Polished
+      </label>
+    </div>
+
+    {# Scene notes #}
+    {% if scene.notes %}
+    <p class="font-mono text-[11px] text-ink-muted italic leading-relaxed m-0 mt-2">
+      {{ scene.notes|truncatewords:30 }}
+    </p>
+    {% endif %}
+  </div>
+  {% endfor %}
+</div>
+
+{# Summary stats #}
+<div class="flex items-center gap-4 mt-3 pt-2 border-t border-border-light">
+  <span class="font-mono text-[10px] uppercase tracking-wider text-ink-muted">
+    {{ scenes|length }} scene{{ scenes|length|pluralize }}
+  </span>
+</div>
+
+{% else %}
+<div class="text-center py-8">
+  <p class="font-mono text-[12px] tracking-wide text-ink-muted m-0 mb-3">
+    No scenes yet. Scenes will be managed here once the script takes shape.
+  </p>
+</div>
+{% endif %}
+
+{# Add scene button #}
+<div class="mt-3">
+  <button type="button"
+          class="font-mono text-[11px] uppercase tracking-wider text-teal
+                 hover:text-teal-hover border border-border rounded-brand
+                 px-3 py-1.5 bg-parchment hover:bg-surface transition-colors"
+          hx-post="{% url 'editor:video-scene-add' slug=object.slug %}"
+          hx-target="#scenes-panel"
+          hx-swap="innerHTML">
+    + Add Scene
+  </button>
+</div>
+
+</div>

@@ -59,6 +59,7 @@
   --section-projects: var(--color-gold);
   --section-toolkit: var(--color-teal);
   --section-shelf: var(--color-gold);
+  --section-video: var(--color-success);
 
   /* Layout */
   --max-prose: 65ch;

@@ -5,7 +5,13 @@ Provides sidebar navigation data (draft counts, composition counts) to all
 templates rendered through Django's template engine.
 """
 
-from apps.content.models import Essay, FieldNote, PageComposition, Project
+from apps.content.models import (
+    Essay,
+    FieldNote,
+    PageComposition,
+    Project,
+    VideoProject,
+)
 from apps.intake.models import RawSource
 
 
@@ -24,6 +30,7 @@ def sidebar_counts(request):
             "essays": Essay.objects.filter(draft=True).count(),
             "field_notes": FieldNote.objects.filter(draft=True).count(),
             "projects": Project.objects.filter(draft=True).count(),
+            "videos": VideoProject.objects.filter(draft=True).count(),
         },
         "sidebar_compose_count": PageComposition.objects.count(),
         "sidebar_intake_pending": RawSource.objects.filter(

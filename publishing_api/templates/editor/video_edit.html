@@ -1,0 +1,462 @@
+{% extends "base.html" %}
+{% load crispy_forms_tags %}
+
+{% block title %}Edit Video{% endblock %}
+
+{% block body_attrs %}data-content-type="video" data-slug="{{ object.slug }}"{% endblock %}
+
+{% block content %}
+{# ------------------------------------------------------------------ #}
+{#  Header bar: navigation, type badge, save indicator, actions       #}
+{# ------------------------------------------------------------------ #}
+<header class="flex items-center gap-3 mb-4">
+  <a href="{% url 'editor:video-list' %}"
+     class="font-mono text-[11px] uppercase tracking-wider text-ink-muted
+            hover:text-ink transition-colors no-underline">
+    &larr; Videos
+  </a>
+
+  <c-badge color="success">Video</c-badge>
+
+  {% if object.draft %}
+    <c-badge color="gold" outline>Draft</c-badge>
+  {% else %}
+    <c-badge color="success">Published</c-badge>
+  {% endif %}
+
+  <div class="flex-1"></div>
+
+  <span class="font-mono text-[10px] uppercase tracking-wider text-ink-muted"
+        id="save-indicator"></span>
+
+  <c-btn variant="primary" type="submit" form="content-form">
+    Save
+  </c-btn>
+
+  {% if publish_url %}
+  <c-btn variant="secondary" type="button"
+         hx-post="{{ publish_url }}"
+         hx-target="#publish-toast"
+         hx-swap="none"
+         hx-on-htmx-after-request="handlePublishResponse(event)">
+    Publish
+  </c-btn>
+  {% endif %}
+</header>
+
+{# ------------------------------------------------------------------ #}
+{#  Phase bar: horizontal production pipeline indicator                #}
+{# ------------------------------------------------------------------ #}
+<div class="mb-6" id="phase-bar">
+  <div class="flex items-center gap-1 px-4 py-3 bg-cream rounded-brand-lg border border-border shadow-warm-sm overflow-x-auto">
+    {% for value, label in phases %}
+    <button
+      type="button"
+      data-phase="{{ value }}"
+      data-phase-idx="{{ forloop.counter0 }}"
+      class="
+        flex items-center gap-1.5 px-3 py-1.5 rounded-brand
+        font-mono text-[10px] uppercase tracking-wider
+        border transition-all duration-150 cursor-pointer
+        whitespace-nowrap flex-shrink-0
+        {% if forloop.counter0 == phase_number %}
+          bg-success/15 border-success text-success font-bold
+        {% elif forloop.counter0 <= locked_phase_number %}
+          bg-parchment-alt/50 border-border text-ink-muted line-through
+        {% else %}
+          bg-transparent border-transparent text-ink-muted
+          hover:bg-parchment-alt hover:border-border
+        {% endif %}
+      "
+      {% if forloop.counter0 <= locked_phase_number or forloop.counter0 == phase_number %}
+        disabled
+      {% endif %}
+      onclick="handlePhaseClick('{{ value }}', {{ forloop.counter0 }})"
+    >
+      {# Lock icon for locked phases #}
+      {% if forloop.counter0 <= locked_phase_number %}
+        <span class="text-[9px] opacity-50">&#128274;</span>
+      {% elif forloop.counter0 == phase_number %}
+        <span class="inline-block w-1.5 h-1.5 rounded-full bg-success"></span>
+      {% endif %}
+      {{ label }}
+    </button>
+
+    {# Connector line between phases (except after last) #}
+    {% if not forloop.last %}
+    <span class="w-3 h-px bg-border flex-shrink-0"></span>
+    {% endif %}
+    {% endfor %}
+  </div>
+
+  {# Phase advance / rollback controls #}
+  <div class="flex items-center gap-3 mt-2">
+    <button
+      type="button"
+      id="btn-advance-phase"
+      class="font-mono text-[10px] uppercase tracking-wider text-success
+             hover:text-success/80 bg-transparent border-none cursor-pointer
+             transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+      onclick="handleAdvancePhase()"
+      {% if not object.can_advance %}disabled{% endif %}
+    >
+      Advance to next phase &rarr;
+    </button>
+    <button
+      type="button"
+      id="btn-rollback-phase"
+      class="font-mono text-[10px] uppercase tracking-wider text-ink-muted
+             hover:text-error bg-transparent border-none cursor-pointer
+             transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+      onclick="handleRollbackPhase()"
+      {% if phase_number <= 0 or locked_phase_number >= phase_number|add:"-1" %}disabled{% endif %}
+    >
+      &larr; Roll back
+    </button>
+  </div>
+</div>
+
+{# ------------------------------------------------------------------ #}
+{#  Main grid: script writing area (left) + sidebar fields (right)    #}
+{# ------------------------------------------------------------------ #}
+<form method="post" id="content-form"
+      class="grid grid-cols-[1fr_340px] gap-6 items-start">
+  {% csrf_token %}
+
+  {# ---- Script writing area (left column) ---- #}
+  <section class="bg-cream rounded-brand-lg border border-border shadow-warm-sm overflow-hidden">
+    {# Script phase indicator #}
+    <div class="flex items-center gap-2 px-4 py-2 border-b border-border bg-cream/80">
+      <c-icon name="video-camera" size="16" color="#5A7A4A" />
+      <span class="font-mono text-[11px] uppercase tracking-wider text-ink-muted">Script</span>
+      {% if object.script_word_count %}
+      <span class="font-mono text-[10px] text-ink-muted ml-auto">
+        {{ object.script_word_count }} words
+        {% if object.script_estimated_duration %}
+          &middot; ~{{ object.script_estimated_duration }}
+        {% endif %}
+      </span>
+      {% endif %}
+    </div>
+
+    {# Markdown toolbar (same pattern as edit.html) #}
+    <div class="flex flex-wrap items-center gap-1 px-4 py-2 border-b border-border bg-cream/60"
+         id="editor-toolbar">
+      {% with tb_cls="inline-flex items-center justify-center w-8 h-8 rounded-brand text-ink-muted hover:text-ink hover:bg-black/5 font-mono text-[13px] cursor-pointer bg-transparent border-none transition-colors" %}
+      <button type="button" class="{{ tb_cls }} font-bold" data-action="bold" title="Bold (Cmd+B)">B</button>
+      <button type="button" class="{{ tb_cls }} italic" data-action="italic" title="Italic (Cmd+I)">I</button>
+      <span class="w-px h-5 bg-border mx-1"></span>
+      <button type="button" class="{{ tb_cls }}" data-action="h2" title="Heading 2">H2</button>
+      <button type="button" class="{{ tb_cls }}" data-action="h3" title="Heading 3">H3</button>
+      <span class="w-px h-5 bg-border mx-1"></span>
+      <button type="button" class="{{ tb_cls }}" data-action="rule" title="Horizontal rule">&mdash;</button>
+      <button type="button" class="{{ tb_cls }}" data-action="ul" title="Unordered list">&bull;</button>
+      <button type="button" class="{{ tb_cls }}" data-action="ol" title="Ordered list">1.</button>
+      <button type="button" class="{{ tb_cls }}" data-action="blockquote" title="Blockquote">&ldquo;</button>
+      <span class="w-px h-5 bg-border mx-1"></span>
+      <button type="button" class="{{ tb_cls }}" data-action="code" title="Code">&lt;&gt;</button>
+      <button type="button" class="{{ tb_cls }}" data-action="link" title="Link (Cmd+K)">&#128279;</button>
+      {% endwith %}
+    </div>
+
+    {# Script body textarea (rendered by Django widget, not crispy) #}
+    <label for="editor-body" class="sr-only">Script</label>
+    {{ form.script_body }}
+  </section>
+
+  {# ---- Sidebar: form fields (right column) ---- #}
+  <aside>
+    {# Crispy renders all Layout fieldsets with studio template pack #}
+    {% crispy form %}
+
+    {# Hidden fields not in the crispy layout #}
+    {% for field in form.hidden_fields %}
+      {{ field }}
+    {% endfor %}
+
+    {# Non-field errors #}
+    {% if form.non_field_errors %}
+    <div class="mt-4 p-3 bg-error/5 border border-error/20 rounded-brand">
+      {% for error in form.non_field_errors %}
+      <p class="font-mono text-[11px] tracking-wide text-error leading-relaxed m-0">
+        {{ error }}
+      </p>
+      {% endfor %}
+    </div>
+    {% endif %}
+
+    {# Publish history #}
+    {% if recent_publishes %}
+    <div class="mt-6">
+      <c-section_label color="teal">Publish History</c-section_label>
+      <ul class="list-none p-0 mt-2 space-y-1.5">
+        {% for log in recent_publishes %}
+        <li class="flex items-center gap-2 font-mono text-[11px] tracking-wide">
+          <span class="text-ink-muted">{{ log.created_at|date:"M j, g:i A" }}</span>
+          {% if log.success %}
+            <c-badge color="success">OK</c-badge>
+          {% else %}
+            <c-badge color="error">FAILED</c-badge>
+          {% endif %}
+          {% if log.commit_url %}
+          <a href="{{ log.commit_url }}" target="_blank" rel="noopener"
+             class="text-teal hover:text-teal-hover underline">
+            {{ log.commit_sha|truncatechars:7 }}
+          </a>
+          {% endif %}
+        </li>
+        {% endfor %}
+      </ul>
+    </div>
+    {% endif %}
+  </aside>
+</form>
+
+{# ------------------------------------------------------------------ #}
+{#  Below-form panels: Scenes, Deliverables, Sessions                 #}
+{# ------------------------------------------------------------------ #}
+<div class="mt-8 space-y-6">
+
+  {# ---- Scene Breakdown ---- #}
+  <details class="group" {% if current_stage == "scripting" or current_stage == "voiceover" or current_stage == "filming" %}open{% endif %}>
+    <summary class="flex items-center gap-2 cursor-pointer select-none py-2">
+      <c-icon name="video-camera" size="18" color="#5A7A4A" />
+      <span class="font-title text-[18px] text-ink">Scene Breakdown</span>
+      {% if scenes %}
+      <c-badge color="ink">{{ scenes|length }}</c-badge>
+      {% endif %}
+      <span class="ml-auto font-mono text-[10px] uppercase tracking-wider text-ink-muted
+                    group-open:rotate-90 transition-transform">&#9654;</span>
+    </summary>
+    <div class="mt-3 p-4 bg-cream rounded-brand-lg border border-border shadow-warm-sm"
+         id="scenes-panel">
+      {% include "editor/partials/video_scenes.html" %}
+    </div>
+  </details>
+
+  {# ---- Deliverables ---- #}
+  <details class="group" {% if current_stage == "assembly" or current_stage == "polish" or current_stage == "metadata" %}open{% endif %}>
+    <summary class="flex items-center gap-2 cursor-pointer select-none py-2">
+      <c-icon name="briefcase" size="18" color="#C49A4A" />
+      <span class="font-title text-[18px] text-ink">Deliverables</span>
+      {% if deliverables %}
+      <c-badge color="ink">{{ deliverables|length }}</c-badge>
+      {% endif %}
+      <span class="ml-auto font-mono text-[10px] uppercase tracking-wider text-ink-muted
+                    group-open:rotate-90 transition-transform">&#9654;</span>
+    </summary>
+    <div class="mt-3 p-4 bg-cream rounded-brand-lg border border-border shadow-warm-sm"
+         id="deliverables-panel">
+      {% include "editor/partials/video_deliverables.html" %}
+    </div>
+  </details>
+
+  {# ---- Session Log ---- #}
+  <details class="group">
+    <summary class="flex items-center gap-2 cursor-pointer select-none py-2">
+      <c-icon name="clock" size="18" color="#2D5F6B" />
+      <span class="font-title text-[18px] text-ink">Session Log</span>
+      {% if sessions %}
+      <c-badge color="ink">{{ sessions|length }}</c-badge>
+      {% endif %}
+      <span class="ml-auto font-mono text-[10px] uppercase tracking-wider text-ink-muted
+                    group-open:rotate-90 transition-transform">&#9654;</span>
+    </summary>
+    <div class="mt-3 p-4 bg-cream rounded-brand-lg border border-border shadow-warm-sm"
+         id="sessions-panel">
+      {% include "editor/partials/video_sessions.html" %}
+    </div>
+  </details>
+</div>
+
+{# ------------------------------------------------------------------ #}
+{#  Delete section (separate form, outside main form)                 #}
+{# ------------------------------------------------------------------ #}
+{% if delete_url %}
+<div class="mt-8 pt-6 border-t border-border">
+  <details class="group">
+    <summary class="font-mono text-[11px] uppercase tracking-wider text-ink-muted
+                    hover:text-error cursor-pointer transition-colors select-none">
+      Delete this Video
+    </summary>
+    <form method="post" action="{{ delete_url }}"
+          class="mt-4 p-4 bg-error/5 border border-error/20 rounded-brand">
+      {% csrf_token %}
+      <p class="font-body text-[14px] text-ink mb-3">
+        Type <strong class="font-semibold">{{ object.slug }}</strong> to confirm:
+      </p>
+      <input type="text" name="confirm_slug" autocomplete="off" required
+             class="w-full px-4 py-[10px] font-body text-[15px] text-ink bg-cream
+                    border border-border rounded-brand shadow-warm-sm outline-none
+                    transition-all duration-200 mb-3
+                    focus:border-error focus:shadow-[0_0_0_3px_rgba(164,74,58,0.12)]">
+      <c-btn variant="danger" type="submit">Permanently Delete</c-btn>
+    </form>
+  </details>
+</div>
+{% endif %}
+
+{# Toast container is in base.html (do not duplicate #publish-toast here) #}
+{% endblock %}
+
+{% block scripts %}
+<script>
+/* ---- Phase transition handler ---- */
+function handlePhaseClick(phaseValue, phaseIdx) {
+  /* Phase buttons are disabled for locked/current phases, so this
+     only fires for upcoming phases. We confirm before advancing. */
+  if (!confirm('Advance to "' + phaseValue + '"? This will lock the current phase.')) {
+    return;
+  }
+  handleAdvancePhase();
+}
+
+function handleAdvancePhase() {
+  var url = '{{ set_stage_url }}';
+  var csrfToken = document.querySelector('[name=csrfmiddlewaretoken]').value;
+
+  fetch(url, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'X-CSRFToken': csrfToken,
+    },
+    body: JSON.stringify({action: 'advance'}),
+  })
+  .then(function(resp) { return resp.json(); })
+  .then(function(data) {
+    if (data.success) {
+      /* Reload to reflect new phase state across all panels */
+      window.location.reload();
+    } else {
+      buildToast('error', 'Phase advance failed: ' + (data.error || 'Unknown error'));
+    }
+  })
+  .catch(function(err) {
+    buildToast('error', 'Phase advance failed: ' + err.message);
+  });
+}
+
+function handleRollbackPhase() {
+  if (!confirm('Roll back to the previous phase? This cannot be undone if that phase is locked.')) {
+    return;
+  }
+
+  var url = '{{ set_stage_url }}';
+  var csrfToken = document.querySelector('[name=csrfmiddlewaretoken]').value;
+
+  fetch(url, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'X-CSRFToken': csrfToken,
+    },
+    body: JSON.stringify({action: 'rollback'}),
+  })
+  .then(function(resp) { return resp.json(); })
+  .then(function(data) {
+    if (data.success) {
+      window.location.reload();
+    } else {
+      buildToast('error', 'Rollback failed: ' + (data.error || 'Cannot roll back past a locked phase'));
+    }
+  })
+  .catch(function(err) {
+    buildToast('error', 'Rollback failed: ' + err.message);
+  });
+}
+
+/* ---- Validate JSON fields before submit ---- */
+document.getElementById('content-form').addEventListener('submit', function(e) {
+  var jsonFields = document.querySelectorAll('[data-json-field]');
+  for (var i = 0; i < jsonFields.length; i++) {
+    var field = jsonFields[i];
+    var val = field.value.trim();
+    if (val && val !== '[]' && val !== '{}') {
+      try {
+        JSON.parse(val);
+      } catch (err) {
+        e.preventDefault();
+        var wrapper = field.closest('.mb-5');
+        if (wrapper) wrapper.classList.add('ring-2', 'ring-error/30', 'rounded-brand');
+        field.focus();
+        alert('Invalid JSON in "' + (field.name || 'field') + '": ' + err.message);
+        return;
+      }
+    }
+  }
+});
+
+/* Clear error highlight on JSON field input */
+document.querySelectorAll('[data-json-field]').forEach(function(field) {
+  field.addEventListener('input', function() {
+    var wrapper = this.closest('.mb-5');
+    if (wrapper) wrapper.classList.remove('ring-2', 'ring-error/30', 'rounded-brand');
+  });
+});
+
+/* ---- Toast builder (safe DOM construction) ---- */
+function buildToast(type, message, link) {
+  var toast = document.getElementById('publish-toast');
+  while (toast.firstChild) toast.removeChild(toast.firstChild);
+
+  var bg = type === 'success'
+    ? 'bg-cream border border-teal/30 shadow-warm-sm'
+    : 'bg-cream border border-error/30 shadow-warm-sm';
+  toast.className = 'fixed bottom-6 right-6 max-w-sm z-50 px-5 py-3 rounded-brand relative ' + bg;
+
+  var msgEl = document.createElement('p');
+  msgEl.className = 'font-mono text-[12px] tracking-wide leading-relaxed m-0 pr-6 '
+    + (type === 'success' ? 'text-teal' : 'text-error');
+  msgEl.appendChild(document.createTextNode(message));
+
+  if (link) {
+    var a = document.createElement('a');
+    a.href = link.href;
+    a.target = '_blank';
+    a.rel = 'noopener';
+    a.className = 'underline';
+    a.textContent = link.text;
+    msgEl.appendChild(a);
+  }
+
+  toast.appendChild(msgEl);
+
+  var dismiss = document.createElement('button');
+  dismiss.type = 'button';
+  dismiss.className = 'absolute top-2 right-2 text-ink-muted hover:text-ink '
+    + 'bg-transparent border-none cursor-pointer text-lg leading-none';
+  dismiss.textContent = '\u00D7';
+  dismiss.addEventListener('click', function() { toast.style.display = 'none'; });
+  toast.appendChild(dismiss);
+
+  toast.style.display = 'block';
+  setTimeout(function() { toast.style.display = 'none'; }, 8000);
+}
+
+/* ---- Handle publish HTMX response ---- */
+function handlePublishResponse(event) {
+  var xhr = event.detail.xhr;
+  var status = xhr ? xhr.status : 0;
+
+  try {
+    var data = JSON.parse(xhr.responseText);
+    if (data.success) {
+      buildToast('success', 'Published! Commit: ', {
+        href: data.commit_url,
+        text: data.commit_sha.substring(0, 7)
+      });
+    } else {
+      buildToast('error', 'Publish failed: ' + (data.error || 'Unknown error'));
+    }
+  } catch(err) {
+    var msg = 'Publish failed: ';
+    if (status === 403) msg += 'CSRF or permission error (403)';
+    else if (status >= 500) msg += 'Server error (' + status + ')';
+    else if (status === 0) msg += 'Could not reach server';
+    else msg += 'Unexpected response (' + status + ')';
+    buildToast('error', msg);
+  }
+}
+</script>
+{% endblock %}

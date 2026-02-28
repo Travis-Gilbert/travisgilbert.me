@@ -1,0 +1,116 @@
+{# ------------------------------------------------------------------ #}
+{#  Session log partial: work sessions for the video project           #}
+{#  Included by video_edit.html inside the "Session Log" details       #}
+{#  Context: sessions (queryset, latest 10), object (VideoProject)     #}
+{# ------------------------------------------------------------------ #}
+
+<div hx-headers='{"X-CSRFToken": "{{ csrf_token }}"}'>
+
+{% if sessions %}
+<div class="space-y-2">
+  {% for s in sessions %}
+  <div class="px-3 py-2.5 bg-parchment rounded-brand border border-border"
+       id="session-{{ s.pk }}">
+    <div class="flex items-center gap-3">
+      {# Phase badge #}
+      <c-badge color="ink" outline>{{ s.get_phase_display }}</c-badge>
+
+      {# Date and time #}
+      <span class="font-mono text-[11px] text-ink-muted">
+        {{ s.started_at|date:"M j, Y" }}
+      </span>
+
+      {# Duration or in-progress indicator #}
+      {% if s.duration_minutes %}
+      <span class="font-mono text-[10px] text-ink-muted">
+        {{ s.duration_minutes }} min
+      </span>
+      {% elif s.ended_at %}
+      <span class="font-mono text-[10px] text-ink-muted">
+        {{ s.started_at|date:"g:i A" }} &ndash; {{ s.ended_at|date:"g:i A" }}
+      </span>
+      {% else %}
+      <c-badge color="success" outline>In progress</c-badge>
+      {% endif %}
+
+      <div class="flex-1"></div>
+
+      {# Next tool indicator #}
+      {% if s.next_tool %}
+      <span class="font-mono text-[10px] uppercase tracking-wider text-teal" title="Next tool">
+        {{ s.next_tool }}
+      </span>
+      {% endif %}
+
+      {# Stop button for active sessions #}
+      {% if not s.ended_at %}
+      <button type="button"
+              class="font-mono text-[10px] uppercase tracking-wider text-danger
+                     hover:text-danger-hover border border-danger/30 rounded-brand
+                     px-2 py-0.5 bg-danger/5 hover:bg-danger/10 transition-colors"
+              hx-post="{% url 'editor:video-session-stop' slug=object.slug pk=s.pk %}"
+              hx-target="#sessions-panel"
+              hx-swap="innerHTML">
+        Stop
+      </button>
+      {% endif %}
+    </div>
+
+    {# Summary #}
+    {% if s.summary %}
+    <p class="font-body text-[13px] text-ink-secondary leading-relaxed m-0 mt-2">
+      {{ s.summary|truncatewords:50 }}
+    </p>
+    {% endif %}
+
+    {# Subtasks completed #}
+    {% if s.subtasks_completed %}
+    <div class="mt-2 flex flex-wrap gap-1.5">
+      {% for subtask in s.subtasks_completed %}
+      <span class="font-mono text-[10px] text-success bg-success/10 px-2 py-0.5 rounded-brand">
+        &#10003; {{ subtask }}
+      </span>
+      {% endfor %}
+    </div>
+    {% endif %}
+
+    {# Next action #}
+    {% if s.next_action %}
+    <div class="mt-2 pt-2 border-t border-border-light">
+      <span class="font-mono text-[10px] uppercase tracking-wider text-ink-muted">Next:</span>
+      <span class="font-mono text-[11px] text-ink ml-1">{{ s.next_action|truncatewords:25 }}</span>
+    </div>
+    {% endif %}
+  </div>
+  {% endfor %}
+</div>
+
+{# Log count #}
+<div class="flex items-center gap-4 mt-3 pt-2 border-t border-border-light">
+  <span class="font-mono text-[10px] uppercase tracking-wider text-ink-muted">
+    Showing {{ sessions|length }} recent session{{ sessions|length|pluralize }}
+  </span>
+</div>
+
+{% else %}
+<div class="text-center py-8">
+  <p class="font-mono text-[12px] tracking-wide text-ink-muted m-0 mb-3">
+    No sessions recorded yet. Sessions track focused work on the project.
+  </p>
+</div>
+{% endif %}
+
+{# Start session button #}
+<div class="mt-3">
+  <button type="button"
+          class="font-mono text-[11px] uppercase tracking-wider text-teal
+                 hover:text-teal-hover border border-border rounded-brand
+                 px-3 py-1.5 bg-parchment hover:bg-surface transition-colors"
+          hx-post="{% url 'editor:video-session-start' slug=object.slug %}"
+          hx-target="#sessions-panel"
+          hx-swap="innerHTML">
+    + Start Session
+  </button>
+</div>
+
+</div>

@@ -31,7 +31,9 @@ import traceback
 
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.http import Http404, JsonResponse
-from django.shortcuts import get_object_or_404, redirect
+from django.db.models import Max
+from django.shortcuts import get_object_or_404, redirect, render
+from django.utils import timezone
 from django.urls import reverse
 from django.views import View
 from django.views.generic import CreateView, ListView, TemplateView, UpdateView
@@ -50,6 +52,10 @@ from apps.content.models import (
     ShelfEntry,
     SiteSettings,
     ToolkitEntry,
+    VideoProject,
+    VideoScene,
+    VideoDeliverable,
+    VideoSession,
 )
 from apps.editor.forms import (
     DesignTokenSetForm,
@@ -62,6 +68,9 @@ from apps.editor.forms import (
     ShelfEntryForm,
     SiteSettingsForm,
     ToolkitEntryForm,
+    VideoProjectForm,
+    VideoSceneForm,
+    VideoDeliverableForm,
 )
 from apps.publisher.github import publish_binary_file
 from apps.publisher.publish import (
@@ -113,6 +122,7 @@ CONTENT_REGISTRY = {
     "shelf": {"model": ShelfEntry, "stage_field": "stage"},
     "project": {"model": Project, "stage_field": "stage"},
     "toolkit": {"model": ToolkitEntry, "stage_field": "stage"},
+    "video": {"model": VideoProject, "stage_field": "phase"},
 }
 
 # Icon name + brand color for each content type. Used in list/edit headers
@@ -125,6 +135,7 @@ CONTENT_META = {
     "project": {"icon": "briefcase", "color": "#C49A4A"},
     "toolkit": {"icon": "wrench", "color": "#B45A2D"},
     "now": {"icon": "clock", "color": "#2D5F6B"},
+    "video": {"icon": "video-camera", "color": "#5A7A4A"},
 }
 
 
@@ -147,17 +158,22 @@ class DashboardView(LoginRequiredMixin, TemplateView):
         ctx["shelf_entries"] = ShelfEntry.objects.defer("annotation", "composition").all()[:20]
         ctx["projects"] = Project.objects.defer(*_body_models).all()[:20]
         ctx["toolkit_entries"] = ToolkitEntry.objects.defer(*_body_models).all()[:20]
+        ctx["video_projects"] = VideoProject.objects.defer(
+            "script_body", "research_notes", "composition",
+        ).all()[:20]
         ctx["now_page"] = NowPage.objects.first()
         ctx["recent_publishes"] = PublishLog.objects.all()[:10]
         ctx["draft_counts"] = {
             "essays": Essay.objects.filter(draft=True).count(),
             "field_notes": FieldNote.objects.filter(draft=True).count(),
             "projects": Project.objects.filter(draft=True).count(),
+            "videos": VideoProject.objects.filter(draft=True).count(),
         }
         ctx["has_drafts"] = (
             ctx["draft_counts"]["essays"]
             or ctx["draft_counts"]["field_notes"]
             or ctx["draft_counts"]["projects"]
+            or ctx["draft_counts"]["videos"]
         )
         return ctx
 
@@ -570,6 +586,309 @@ class ToolkitPublishView(LoginRequiredMixin, View):
 
 
 # ---------------------------------------------------------------------------
+# Video Project CRUD
+# ---------------------------------------------------------------------------
+
+
+class VideoListView(LoginRequiredMixin, ListView):
+    model = VideoProject
+    template_name = "editor/content_list.html"
+    context_object_name = "items"
+
+    def get_context_data(self, **kwargs):
+        ctx = super().get_context_data(**kwargs)
+        ctx["content_type"] = "video"
+        ctx["content_type_plural"] = "Video Projects"
+        ctx["content_type_display"] = "Video Project"
+        ctx["new_url"] = reverse("editor:video-create")
+        ctx["content_icon"] = CONTENT_META["video"]["icon"]
+        ctx["content_color"] = CONTENT_META["video"]["color"]
+        return ctx
+
+
+class VideoCreateView(LoginRequiredMixin, CreateView):
+    model = VideoProject
+    form_class = VideoProjectForm
+    template_name = "editor/edit.html"
+
+    def get_context_data(self, **kwargs):
+        ctx = super().get_context_data(**kwargs)
+        ctx["content_type"] = "video"
+        ctx["is_new"] = True
+        return ctx
+
+    def get_success_url(self):
+        return reverse("editor:video-edit", kwargs={"slug": self.object.slug})
+
+
+class VideoEditView(LoginRequiredMixin, UpdateView):
+    model = VideoProject
+    form_class = VideoProjectForm
+    template_name = "editor/video_edit.html"
+    slug_field = "slug"
+    slug_url_kwarg = "slug"
+
+    def get_context_data(self, **kwargs):
+        ctx = super().get_context_data(**kwargs)
+        ctx["content_type"] = "video"
+        ctx["is_new"] = False
+        ctx["publish_url"] = reverse(
+            "editor:video-publish", kwargs={"slug": self.object.slug}
+        )
+        ctx["delete_url"] = reverse(
+            "editor:delete-content",
+            kwargs={"content_type": "video", "slug": self.object.slug},
+        )
+        # Video uses dedicated set-phase endpoint (lock semantics)
+        ctx["set_stage_url"] = reverse(
+            "editor:video-set-phase",
+            kwargs={"slug": self.object.slug},
+        )
+        ctx["stage_choices"] = json.dumps(self.object.stage_list)
+        ctx["current_stage"] = self.object.phase
+        ctx["recent_publishes"] = PublishLog.objects.filter(
+            content_type="video", content_slug=self.object.slug
+        )[:5]
+        # Phase bar context: choices tuples + numeric indices for template
+        ctx["phases"] = VideoProject.Phase.choices
+        ctx["phase_number"] = self.object.phase_number
+        ctx["locked_phase_number"] = self.object.locked_phase_number
+
+        # Video-specific context: scenes, deliverables, sessions
+        ctx["scenes"] = self.object.scenes.all()
+        ctx["deliverables"] = self.object.deliverables.all()
+        ctx["sessions"] = self.object.sessions.all()[:10]
+        return ctx
+
+    def get_success_url(self):
+        return reverse("editor:video-edit", kwargs={"slug": self.object.slug})
+
+
+class VideoPublishView(LoginRequiredMixin, View):
+    """POST-only: publish a video project to GitHub (deferred; stub for now)."""
+
+    def post(self, request, slug):
+        video = get_object_or_404(VideoProject, slug=slug)
+        redirect_url = reverse("editor:video-edit", kwargs={"slug": slug})
+        # Publish function will be created in Batch 5; for now return a
+        # placeholder response so the route is wired and testable.
+        if request.headers.get("HX-Request"):
+            return JsonResponse({
+                "success": False,
+                "commit_sha": "",
+                "commit_url": "",
+                "error": "Video publishing not yet implemented.",
+            })
+        return redirect(redirect_url)
+
+
+class VideoSetPhaseView(LoginRequiredMixin, View):
+    """
+    POST-only endpoint: advance or roll back a video project's phase.
+
+    Unlike the generic SetStageView, this enforces sequential advancement
+    and lock semantics via VideoProject.advance_phase() / rollback_phase().
+
+    POST body (JSON): {"phase": "scripting"}
+    Returns JSON with the updated phase and locked boundary.
+    """
+
+    def post(self, request, slug):
+        video = get_object_or_404(VideoProject, slug=slug)
+
+        try:
+            data = json.loads(request.body)
+        except json.JSONDecodeError:
+            return JsonResponse({"error": "Invalid JSON"}, status=400)
+
+        new_phase = data.get("phase", "")
+
+        # Validate against the Phase choices
+        valid_phases = [c[0] for c in VideoProject.Phase.choices]
+        if new_phase not in valid_phases:
+            return JsonResponse(
+                {"error": f"Invalid phase: {new_phase}"}, status=400
+            )
+
+        current_number = video.phase_number
+        target_number = list(dict(VideoProject.Phase.choices).keys()).index(
+            new_phase
+        )
+
+        if target_number > current_number:
+            # Advancing: use advance_phase() which handles locks
+            if not video.can_advance:
+                return JsonResponse(
+                    {"error": "Cannot advance: video is published."},
+                    status=400,
+                )
+            # Advance one step at a time to respect sequential lock semantics
+            while video.phase_number < target_number:
+                video.advance_phase()
+        elif target_number < current_number:
+            # Roll back one step at a time, respecting phase locks
+            while video.phase_number > target_number:
+                result = video.rollback_phase()
+                if result is None:
+                    return JsonResponse(
+                        {"error": f"Cannot roll back past locked phase: {video.phase}"},
+                        status=400,
+                    )
+        # else: same phase, no-op
+
+        return JsonResponse({
+            "phase": video.phase,
+            "phase_locked_through": video.phase_locked_through,
+            "success": True,
+        })
+
+
+# ---------------------------------------------------------------------------
+# Video HTMX Inline Endpoints (scenes, deliverables, sessions)
+# ---------------------------------------------------------------------------
+
+
+def _render_scenes_panel(request, video):
+    """Re-render the scenes partial for an HTMX swap."""
+    return render(request, "editor/partials/video_scenes.html", {
+        "scenes": video.scenes.all(),
+        "object": video,
+        "current_stage": video.phase,
+    })
+
+
+def _render_deliverables_panel(request, video):
+    """Re-render the deliverables partial for an HTMX swap."""
+    return render(request, "editor/partials/video_deliverables.html", {
+        "deliverables": video.deliverables.all(),
+        "object": video,
+    })
+
+
+def _render_sessions_panel(request, video):
+    """Re-render the sessions partial for an HTMX swap."""
+    return render(request, "editor/partials/video_sessions.html", {
+        "sessions": video.sessions.all()[:10],
+        "object": video,
+    })
+
+
+class VideoSceneAddView(LoginRequiredMixin, View):
+    """POST: create a new blank scene, return refreshed scenes panel."""
+
+    def post(self, request, slug):
+        video = get_object_or_404(VideoProject, slug=slug)
+        max_order = video.scenes.aggregate(Max("order"))["order__max"] or 0
+        VideoScene.objects.create(
+            video=video,
+            order=max_order + 1,
+            title=f"Scene {max_order + 1}",
+        )
+        return _render_scenes_panel(request, video)
+
+
+class VideoSceneUpdateView(LoginRequiredMixin, View):
+    """POST: update a scene via form data, return refreshed scenes panel."""
+
+    def post(self, request, slug, pk):
+        video = get_object_or_404(VideoProject, slug=slug)
+        scene = get_object_or_404(VideoScene, pk=pk, video=video)
+        form = VideoSceneForm(request.POST, instance=scene)
+        if form.is_valid():
+            form.save()
+        return _render_scenes_panel(request, video)
+
+
+class VideoSceneDeleteView(LoginRequiredMixin, View):
+    """POST: delete a scene, return refreshed scenes panel."""
+
+    def post(self, request, slug, pk):
+        video = get_object_or_404(VideoProject, slug=slug)
+        scene = get_object_or_404(VideoScene, pk=pk, video=video)
+        scene.delete()
+        return _render_scenes_panel(request, video)
+
+
+class VideoSceneToggleView(LoginRequiredMixin, View):
+    """POST: toggle a boolean completion field on a scene."""
+
+    def post(self, request, slug, pk):
+        video = get_object_or_404(VideoProject, slug=slug)
+        scene = get_object_or_404(VideoScene, pk=pk, video=video)
+        field = request.POST.get("field", "")
+        toggleable = {
+            "script_locked", "vo_recorded", "filmed", "assembled", "polished",
+        }
+        if field in toggleable:
+            setattr(scene, field, not getattr(scene, field))
+            scene.save()
+        return _render_scenes_panel(request, video)
+
+
+class VideoDeliverableAddView(LoginRequiredMixin, View):
+    """POST: create a new deliverable at the current phase."""
+
+    def post(self, request, slug):
+        video = get_object_or_404(VideoProject, slug=slug)
+        VideoDeliverable.objects.create(
+            video=video,
+            phase=video.phase,
+            deliverable_type=VideoDeliverable.DeliverableType.RESEARCH_NOTES,
+        )
+        return _render_deliverables_panel(request, video)
+
+
+class VideoDeliverableUpdateView(LoginRequiredMixin, View):
+    """POST: update a deliverable via form data."""
+
+    def post(self, request, slug, pk):
+        video = get_object_or_404(VideoProject, slug=slug)
+        deliverable = get_object_or_404(VideoDeliverable, pk=pk, video=video)
+        form = VideoDeliverableForm(request.POST, instance=deliverable)
+        if form.is_valid():
+            form.save()
+        return _render_deliverables_panel(request, video)
+
+
+class VideoDeliverableDeleteView(LoginRequiredMixin, View):
+    """POST: delete a deliverable."""
+
+    def post(self, request, slug, pk):
+        video = get_object_or_404(VideoProject, slug=slug)
+        deliverable = get_object_or_404(VideoDeliverable, pk=pk, video=video)
+        deliverable.delete()
+        return _render_deliverables_panel(request, video)
+
+
+class VideoSessionStartView(LoginRequiredMixin, View):
+    """POST: start a new work session at the current phase."""
+
+    def post(self, request, slug):
+        video = get_object_or_404(VideoProject, slug=slug)
+        VideoSession.objects.create(
+            video=video,
+            phase=video.phase,
+            started_at=timezone.now(),
+        )
+        return _render_sessions_panel(request, video)
+
+
+class VideoSessionStopView(LoginRequiredMixin, View):
+    """POST: stop an active session, compute duration."""
+
+    def post(self, request, slug, pk):
+        video = get_object_or_404(VideoProject, slug=slug)
+        session = get_object_or_404(VideoSession, pk=pk, video=video)
+        if not session.ended_at:
+            session.ended_at = timezone.now()
+            session.duration_minutes = int(
+                (session.ended_at - session.started_at).total_seconds() / 60
+            )
+            session.save()
+        return _render_sessions_panel(request, video)
+
+
+# ---------------------------------------------------------------------------
 # Now Page
 # ---------------------------------------------------------------------------
 
@@ -631,6 +950,7 @@ class DeleteContentView(LoginRequiredMixin, View):
         "shelf": "editor:shelf-list",
         "project": "editor:project-list",
         "toolkit": "editor:toolkit-list",
+        "video": "editor:video-list",
     }
 
     def post(self, request, content_type, slug):
@@ -877,6 +1197,7 @@ class AutoSaveView(LoginRequiredMixin, View):
         "shelf": (ShelfEntry, ShelfEntryForm),
         "project": (Project, ProjectForm),
         "toolkit": (ToolkitEntry, ToolkitEntryForm),
+        "video": (VideoProject, VideoProjectForm),
     }
 
     def post(self, request):

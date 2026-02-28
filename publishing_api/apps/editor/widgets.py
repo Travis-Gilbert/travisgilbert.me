@@ -178,6 +178,18 @@ FOOTER_LINKS_SCHEMA = [
     {"name": "url", "type": "text", "label": "URL", "placeholder": "https://..."},
 ]
 
+VIDEO_SOURCES_SCHEMA = [
+    {"name": "title", "type": "text", "label": "Title", "placeholder": "Source name"},
+    {"name": "url", "type": "text", "label": "URL", "placeholder": "https://..."},
+    {"name": "type", "type": "text", "label": "Type", "placeholder": "article, book, video..."},
+    {"name": "role", "type": "text", "label": "Role", "placeholder": "primary, background..."},
+]
+
+YOUTUBE_CHAPTERS_SCHEMA = [
+    {"name": "timecode", "type": "text", "label": "Timecode", "placeholder": "0:00"},
+    {"name": "label", "type": "text", "label": "Label", "placeholder": "Chapter title"},
+]
+
 COLLAGE_FRAGMENTS_SCHEMA = [
     {"name": "src", "type": "text", "label": "Image Path", "placeholder": "/collage/filename.png"},
     {"name": "alt", "type": "text", "label": "Alt Text", "placeholder": "Description of image"},

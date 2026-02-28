@@ -12,6 +12,10 @@ from apps.content.models import (
     ShelfEntry,
     SiteSettings,
     ToolkitEntry,
+    VideoDeliverable,
+    VideoProject,
+    VideoScene,
+    VideoSession,
 )
 
 
@@ -80,6 +84,36 @@ class PageCompositionAdmin(admin.ModelAdmin):
 @admin.register(SiteSettings)
 class SiteSettingsAdmin(admin.ModelAdmin):
     list_display = ["__str__", "updated_at"]
+
+
+class VideoSceneInline(admin.TabularInline):
+    model = VideoScene
+    extra = 1
+    fields = ["order", "title", "scene_type", "script_locked", "vo_recorded",
+              "filmed", "assembled", "polished"]
+    ordering = ["order"]
+
+
+class VideoDeliverableInline(admin.TabularInline):
+    model = VideoDeliverable
+    extra = 0
+    fields = ["phase", "deliverable_type", "file_path", "approved"]
+
+
+@admin.register(VideoProject)
+class VideoProjectAdmin(admin.ModelAdmin):
+    list_display = ["title", "phase", "draft", "updated_at"]
+    list_filter = ["draft", "phase"]
+    search_fields = ["title", "short_title", "thesis"]
+    prepopulated_fields = {"slug": ("title",)}
+    inlines = [VideoSceneInline, VideoDeliverableInline]
+
+
+@admin.register(VideoSession)
+class VideoSessionAdmin(admin.ModelAdmin):
+    list_display = ["video", "phase", "started_at", "duration_minutes", "next_tool"]
+    list_filter = ["phase"]
+    search_fields = ["summary", "next_action"]
 
 
 @admin.register(PublishLog)

@@ -45,6 +45,24 @@ urlpatterns = [
     path("toolkit/<slug:slug>/", views.ToolkitEditView.as_view(), name="toolkit-edit"),
     path("toolkit/<slug:slug>/publish/", views.ToolkitPublishView.as_view(), name="toolkit-publish"),
 
+    # Video Projects
+    path("video/", views.VideoListView.as_view(), name="video-list"),
+    path("video/new/", views.VideoCreateView.as_view(), name="video-create"),
+    path("video/<slug:slug>/", views.VideoEditView.as_view(), name="video-edit"),
+    path("video/<slug:slug>/publish/", views.VideoPublishView.as_view(), name="video-publish"),
+    path("video/<slug:slug>/set-phase/", views.VideoSetPhaseView.as_view(), name="video-set-phase"),
+
+    # Video HTMX inline endpoints (scenes, deliverables, sessions)
+    path("video/<slug:slug>/scenes/add/", views.VideoSceneAddView.as_view(), name="video-scene-add"),
+    path("video/<slug:slug>/scenes/<int:pk>/update/", views.VideoSceneUpdateView.as_view(), name="video-scene-update"),
+    path("video/<slug:slug>/scenes/<int:pk>/delete/", views.VideoSceneDeleteView.as_view(), name="video-scene-delete"),
+    path("video/<slug:slug>/scenes/<int:pk>/toggle/", views.VideoSceneToggleView.as_view(), name="video-scene-toggle"),
+    path("video/<slug:slug>/deliverables/add/", views.VideoDeliverableAddView.as_view(), name="video-deliverable-add"),
+    path("video/<slug:slug>/deliverables/<int:pk>/update/", views.VideoDeliverableUpdateView.as_view(), name="video-deliverable-update"),
+    path("video/<slug:slug>/deliverables/<int:pk>/delete/", views.VideoDeliverableDeleteView.as_view(), name="video-deliverable-delete"),
+    path("video/<slug:slug>/sessions/start/", views.VideoSessionStartView.as_view(), name="video-session-start"),
+    path("video/<slug:slug>/sessions/<int:pk>/stop/", views.VideoSessionStopView.as_view(), name="video-session-stop"),
+
     # Now page
     path("now/", views.NowPageEditView.as_view(), name="now-edit"),
     path("now/publish/", views.NowPagePublishView.as_view(), name="now-publish"),
