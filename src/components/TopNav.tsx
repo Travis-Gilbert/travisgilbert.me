@@ -31,6 +31,17 @@ const DEFAULT_NAV_LINKS: NavLink[] = [
   { href: '/connect', label: 'Connect', icon: 'chat-circle' },
 ];
 
+// Section brand colors brightened for charcoal nav background readability
+const NAV_COLORS: Record<string, string> = {
+  '/essays':      '#D4875A',  // terracotta (bright)
+  '/research':    '#A090B5',  // muted purple (bright)
+  '/field-notes': '#6BABB8',  // teal (bright)
+  '/projects':    '#D9B868',  // gold (bright)
+  '/toolkit':     '#D4875A',  // terracotta (bright)
+  '/shelf':       '#D9B868',  // gold (bright)
+  '/connect':     '#6BABB8',  // teal (bright)
+};
+
 export default function TopNav({ navItems }: TopNavProps) {
   const navLinks: NavLink[] = navItems
     ? navItems.map((item) => ({
@@ -118,11 +129,9 @@ export default function TopNav({ navItems }: TopNavProps) {
                   href={link.href}
                   aria-current={active ? 'page' : undefined}
                   className={`font-mono text-xs uppercase tracking-widest no-underline transition-colors inline-flex items-center gap-1.5 ${
-                    active
-                      ? 'text-terracotta font-bold'
-                      : 'hover:text-terracotta'
+                    active ? 'font-bold' : ''
                   }`}
-                  style={active ? undefined : { color: 'var(--color-hero-text-muted)' }}
+                  style={{ color: NAV_COLORS[link.href] || 'var(--color-hero-text-muted)' }}
                 >
                   <SketchIcon name={link.icon} size={16} />
                   {link.label}
@@ -179,11 +188,9 @@ export default function TopNav({ navItems }: TopNavProps) {
                     href={link.href}
                     aria-current={active ? 'page' : undefined}
                     className={`font-mono text-sm uppercase tracking-widest no-underline py-2 inline-flex items-center gap-2 ${
-                      active
-                        ? 'text-terracotta font-bold'
-                        : 'hover:text-terracotta'
+                      active ? 'font-bold' : ''
                     }`}
-                    style={active ? undefined : { color: 'var(--color-hero-text-muted)' }}
+                    style={{ color: NAV_COLORS[link.href] || 'var(--color-hero-text-muted)' }}
                     onClick={closeMobile}
                   >
                     <SketchIcon name={link.icon} size={16} />

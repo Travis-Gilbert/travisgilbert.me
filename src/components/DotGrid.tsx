@@ -11,7 +11,7 @@ import { useEffect, useRef, useCallback } from 'react';
 import { useThemeVersion, readCssVar, hexToRgb } from '@/hooks/useThemeColor';
 
 // Viewport inversion gradient: charcoal fades in at top, dots invert to cream
-const INVERSION_DEPTH = 0.22; // fraction of viewport height
+const INVERSION_DEPTH = 0.35; // fraction of viewport height
 
 interface DotGridProps {
   dotRadius?: number;
@@ -196,12 +196,25 @@ export default function DotGrid({
       ? hexToRgb(paperHex)
       : [240, 235, 228];
 
-    /** Paint solid charcoal-to-parchment gradient over the top portion of the canvas */
+    // Dark mode: invert gradient direction and dot inversion color
+    const isDarkMode = document.documentElement.getAttribute('data-theme') === 'dark';
+    const gradTopRgb: [number, number, number] = isDarkMode ? creamRgb : charcoalRgb;
+    const gradBottomRgb: [number, number, number] = isDarkMode ? charcoalRgb : paperRgb;
+    const invertedDotRgb: [number, number, number] = isDarkMode ? charcoalRgb : creamRgb;
+
+    /** Paint Hermite-eased gradient over the top portion of the canvas */
     function drawInversionGradient() {
       const gradEnd = Math.round(h * INVERSION_DEPTH);
       const grad = ctx!.createLinearGradient(0, 0, 0, gradEnd);
-      grad.addColorStop(0, `rgb(${charcoalRgb[0]},${charcoalRgb[1]},${charcoalRgb[2]})`);
-      grad.addColorStop(1, `rgb(${paperRgb[0]},${paperRgb[1]},${paperRgb[2]})`);
+      const stops = [0, 0.15, 0.35, 0.55, 0.75, 0.90, 1.0];
+      for (let i = 0; i < stops.length; i++) {
+        const t = stops[i];
+        const eased = t * t * (3 - 2 * t);
+        const r = Math.round(gradTopRgb[0] + (gradBottomRgb[0] - gradTopRgb[0]) * eased);
+        const g = Math.round(gradTopRgb[1] + (gradBottomRgb[1] - gradTopRgb[1]) * eased);
+        const b = Math.round(gradTopRgb[2] + (gradBottomRgb[2] - gradTopRgb[2]) * eased);
+        grad.addColorStop(t, `rgb(${r},${g},${b})`);
+      }
       ctx!.fillStyle = grad;
       ctx!.fillRect(0, 0, w, gradEnd);
     }
@@ -243,10 +256,10 @@ export default function DotGrid({
         if (dots.fade[i] < 0.01) continue;
         const baseY = dots.gy[i];
         const inv = getInversionFactor(baseY);
-        const dr = Math.round(rgb[0] + (creamRgb[0] - rgb[0]) * inv);
-        const dg = Math.round(rgb[1] + (creamRgb[1] - rgb[1]) * inv);
-        const db = Math.round(rgb[2] + (creamRgb[2] - rgb[2]) * inv);
-        const alpha = (dotOpacity + inv * 0.15) * dots.fade[i];
+        const dr = Math.round(rgb[0] + (invertedDotRgb[0] - rgb[0]) * inv);
+        const dg = Math.round(rgb[1] + (invertedDotRgb[1] - rgb[1]) * inv);
+        const db = Math.round(rgb[2] + (invertedDotRgb[2] - rgb[2]) * inv);
+        const alpha = (dotOpacity + inv * (isDarkMode ? 0.20 : 0.15)) * dots.fade[i];
         drawDot(dots.gx[i], dots.gy[i], alpha, dots.kind[i], dr, dg, db);
       }
     }
@@ -269,9 +282,9 @@ export default function DotGrid({
         const opacity = (1 - trail[t].age / 60) * 0.12;
         const radius = 1.2 + (trail[t].age / 60) * 0.5;
         const tInv = getInversionFactor(trail[t].y);
-        const tr = Math.round(rgb[0] + (creamRgb[0] - rgb[0]) * tInv);
-        const tg = Math.round(rgb[1] + (creamRgb[1] - rgb[1]) * tInv);
-        const tb = Math.round(rgb[2] + (creamRgb[2] - rgb[2]) * tInv);
+        const tr = Math.round(rgb[0] + (invertedDotRgb[0] - rgb[0]) * tInv);
+        const tg = Math.round(rgb[1] + (invertedDotRgb[1] - rgb[1]) * tInv);
+        const tb = Math.round(rgb[2] + (invertedDotRgb[2] - rgb[2]) * tInv);
         ctx!.fillStyle = `rgba(${tr},${tg},${tb},${opacity})`;
         ctx!.beginPath();
         ctx!.arc(trail[t].x, trail[t].y, radius, 0, Math.PI * 2);
@@ -318,10 +331,10 @@ export default function DotGrid({
         }
 
         const inv = getInversionFactor(baseY);
-        const dr = Math.round(rgb[0] + (creamRgb[0] - rgb[0]) * inv);
-        const dg = Math.round(rgb[1] + (creamRgb[1] - rgb[1]) * inv);
-        const db = Math.round(rgb[2] + (creamRgb[2] - rgb[2]) * inv);
-        const alpha = (dotOpacity + inv * 0.15) * dots.fade[i];
+        const dr = Math.round(rgb[0] + (invertedDotRgb[0] - rgb[0]) * inv);
+        const dg = Math.round(rgb[1] + (invertedDotRgb[1] - rgb[1]) * inv);
+        const db = Math.round(rgb[2] + (invertedDotRgb[2] - rgb[2]) * inv);
+        const alpha = (dotOpacity + inv * (isDarkMode ? 0.20 : 0.15)) * dots.fade[i];
         drawDot(baseX + dots.ox[i], baseY + dots.oy[i], alpha, dots.kind[i], dr, dg, db);
       }
 

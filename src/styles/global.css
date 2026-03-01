@@ -7,10 +7,10 @@
 
 @theme inline {
   /* Backgrounds */
-  --color-paper: #F0EBE4;
-  --color-surface: #F4EFE8;
+  --color-paper: #F2EDE5;
+  --color-surface: #FAF6F1;
   --color-bg-alt: #E8E0D6;
-  --color-card: #F4EFE8;           /* alias → surface */
+  --color-card: #FAF6F1;           /* alias → surface */
   --color-code: #E8E0D6;           /* alias → bg-alt */
   --color-nav-bg: #F0EBE4;         /* nav: matches paper in light, hero-ground in dark */
 
