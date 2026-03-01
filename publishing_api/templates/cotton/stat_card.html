@@ -1,0 +1,45 @@
+<a
+  href="{{ href }}"
+  class="
+    flex items-center gap-3 px-4 py-3
+    bg-cream rounded-brand border border-border
+    no-underline text-ink
+    hover:shadow-warm-sm hover:border-border/80
+    transition-all duration-200
+    {{ class }}
+  "
+>
+  {% if icon %}
+    <div class="
+      w-9 h-9 rounded-brand flex items-center justify-center
+      {% if color == 'terracotta' %}bg-terracotta/10
+      {% elif color == 'teal' %}bg-teal/10
+      {% elif color == 'gold' %}bg-gold/10
+      {% elif color == 'green' %}bg-success/10
+      {% else %}bg-ink/5{% endif %}
+    ">
+      <c-icon
+        name="{{ icon }}"
+        size="18"
+        color="{% if color == 'terracotta' %}#B45A2D{% elif color == 'teal' %}#2D5F6B{% elif color == 'gold' %}#C49A4A{% elif color == 'green' %}#5A7A4A{% else %}currentColor{% endif %}"
+      />
+    </div>
+  {% endif %}
+  <div class="flex-1 min-w-0">
+    <span class="font-mono text-[11px] uppercase tracking-widest text-ink-muted block">
+      {{ label }}
+    </span>
+    <span class="font-title text-[20px] font-bold leading-tight block">
+      {{ value }}
+    </span>
+  </div>
+  {% if badge %}
+    <c-badge
+      color="{% if badge_color %}{{ badge_color }}{% else %}gold{% endif %}"
+      outline
+    >
+      {{ badge }}
+    </c-badge>
+  {% endif %}
+  {{ slot }}
+</a>

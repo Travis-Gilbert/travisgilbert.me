@@ -4,7 +4,11 @@
 {% block content %}
 <header class="mb-6">
   <div class="flex items-center gap-3 mb-3">
-    <c-icon name="{{ content_icon|default:'file-text' }}" size="24" color="{{ content_color|default:'currentColor' }}" />
+    <c-icon
+      name="{{ content_icon|default:'file-text' }}"
+      size="24"
+      color="{{ content_color|default:'currentColor' }}"
+    />
     <h1 class="font-title text-[22px] text-ink m-0">{{ content_type_plural }}</h1>
     {% if items %}
     <c-badge color="ink">{{ items|length }}</c-badge>
@@ -17,39 +21,27 @@
 
 <div class="space-y-2">
   {% for item in items %}
-  <c-card hover href="{% if content_type == 'essay' %}{% url 'editor:essay-edit' slug=item.slug %}{% elif content_type == 'field_note' %}{% url 'editor:field-note-edit' slug=item.slug %}{% elif content_type == 'shelf' %}{% url 'editor:shelf-edit' slug=item.slug %}{% elif content_type == 'project' %}{% url 'editor:project-edit' slug=item.slug %}{% elif content_type == 'toolkit' %}{% url 'editor:toolkit-edit' slug=item.slug %}{% elif content_type == 'video' %}{% url 'editor:video-edit' slug=item.slug %}{% endif %}">
-    <div class="flex items-center gap-3">
-      <c-icon name="{{ content_icon|default:'file-text' }}" size="18" color="{{ content_color|default:'currentColor' }}" />
-      <span class="font-body text-[15px] flex-1">{{ item.title }}</span>
-      {% if item.stage %}
-      <c-stage_pill stage="{{ item.stage }}" />
-      {% endif %}
-      {% if item.status %}
-      <c-badge color="teal">{{ item.get_status_display }}</c-badge>
-      {% endif %}
-      {% if item.draft %}
-      <c-badge color="gold" outline>Draft</c-badge>
-      {% else %}
-      <c-badge color="success">Published</c-badge>
-      {% endif %}
-      <span class="font-mono text-[10px] tracking-wide text-ink-muted">
-        {% if item.date %}{{ item.date|date:"M j, Y" }}{% else %}{{ item.updated_at|date:"M j, Y" }}{% endif %}
-      </span>
-    </div>
-  </c-card>
+  <c-content_row
+    href="{% url edit_url_name slug=item.slug %}"
+    icon="{{ content_icon|default:'file-text' }}"
+    color="{{ content_color|default:'currentColor' }}"
+    title="{{ item.title }}"
+    {% if item.stage %}stage="{{ item.stage }}"{% endif %}
+    {% if item.status %}status="{{ item.get_status_display }}"{% endif %}
+    draft="{{ item.draft }}"
+    date="{% if item.date %}{{ item.date|date:'M j, Y' }}{% else %}{{ item.updated_at|date:'M j, Y' }}{% endif %}"
+  />
   {% empty %}
-  <div class="flex flex-col items-center gap-3 py-12 text-center">
-    <c-icon name="{{ content_icon|default:'file-text' }}" size="40" color="{{ content_color|default:'currentColor' }}" class="opacity-25" />
-    <p class="font-title text-[18px] text-ink m-0">
-      {% if content_type == 'essay' %}No essays yet{% elif content_type == 'field_note' %}No field notes yet{% elif content_type == 'shelf' %}Nothing on the shelf{% elif content_type == 'project' %}No projects yet{% elif content_type == 'toolkit' %}No toolkit entries yet{% elif content_type == 'video' %}No video projects yet{% else %}Nothing here yet{% endif %}
-    </p>
-    <p class="font-mono text-[12px] tracking-wide text-ink-muted max-w-sm m-0">
-      {% if content_type == 'essay' %}Start writing your first long-form investigation.{% elif content_type == 'field_note' %}Capture an observation or developing idea.{% elif content_type == 'shelf' %}Add books, articles, and sources that inform your work.{% elif content_type == 'project' %}Document the work you have built and organized.{% elif content_type == 'toolkit' %}Add a tool, technique, or resource to your workshop.{% elif content_type == 'video' %}Start planning your first YouTube production.{% else %}Create your first piece of content.{% endif %}
-    </p>
+  <c-empty_state
+    icon="{{ content_icon|default:'file-text' }}"
+    color="{{ content_color|default:'currentColor' }}"
+    title="{{ empty_title|default:'Nothing here yet' }}"
+    description="{{ empty_description|default:'Create your first piece of content.' }}"
+  >
     <c-btn variant="primary" href="{{ new_url }}">
       <c-icon name="plus" size="14" color="currentColor" /> Create {{ content_type_display }}
     </c-btn>
-  </div>
+  </c-empty_state>
   {% endfor %}
 </div>
 {% endblock %}

@@ -9,23 +9,12 @@
 {# ------------------------------------------------------------------ #}
 {#  Header bar: navigation, content type badge, stage, actions        #}
 {# ------------------------------------------------------------------ #}
-<header class="flex items-center gap-3 mb-6">
-  <a href="{% url 'editor:dashboard' %}"
-     class="font-mono text-[11px] uppercase tracking-wider text-ink-muted
-            hover:text-ink transition-colors no-underline">
-    &larr; Dashboard
-  </a>
-
-  <c-badge color="ink">{{ content_type|title }}</c-badge>
-
-  {% if not is_new and stage_choices %}
-  <c-stage_pill stage="{{ current_stage }}"
-                {% if set_stage_url %}interactive{% endif %}
-                content_type="{{ content_type }}"
-                slug="{{ object.slug }}" />
-  {% endif %}
-
-  <div class="flex-1"></div>
+<c-toolbar back_url="{% url 'editor:dashboard' %}" content_type="{{ content_type|title }}" content_color="{{ content_color }}">
+  <c-slot name="left">
+    {% if not is_new and stage_choices %}
+    <c-stage_pipeline stages="{{ stage_choices }}" current="{{ current_stage }}" color="{{ content_color }}" />
+    {% endif %}
+  </c-slot>
 
   {% if not is_new %}
   <span class="font-mono text-[10px] uppercase tracking-wider text-ink-muted"
@@ -38,6 +27,7 @@
 
   {% if not is_new and publish_url %}
   <c-btn variant="secondary" type="button"
+         title="Publish (Cmd+Shift+P)"
          hx-post="{{ publish_url }}"
          hx-target="#publish-toast"
          hx-swap="none"
@@ -45,7 +35,7 @@
     Publish
   </c-btn>
   {% endif %}
-</header>
+</c-toolbar>
 
 {# ------------------------------------------------------------------ #}
 {#  Main grid: writing area (left) + sidebar fields (right)           #}
@@ -58,38 +48,98 @@
   {% csrf_token %}
 
   {% if form.body or form.annotation %}
-  {# ---- Writing area (left column) ---- #}
-  <section class="bg-cream rounded-brand-lg border border-border shadow-warm-sm overflow-hidden">
-    {# Markdown toolbar #}
+  {# ---- Writing area (left column) with split-pane preview ---- #}
+  <section class="bg-cream rounded-brand-lg border border-border shadow-warm-sm overflow-hidden"
+           x-data="{
+             mode: $persist('edit').as('editor_mode'),
+             previewHtml: '',
+             loading: false,
+             cycle() {
+               if (this.mode === 'edit') this.mode = 'split';
+               else if (this.mode === 'split') this.mode = 'preview';
+               else this.mode = 'edit';
+             }
+           }"
+           @keydown.window.prevent.cmd.e="cycle()"
+           @keydown.window.prevent.ctrl.e="cycle()"
+  >
+    {# Markdown toolbar + mode toggle #}
     <div class="flex flex-wrap items-center gap-1 px-4 py-2 border-b border-border bg-cream/80"
          id="editor-toolbar">
-      {% with tb_cls="inline-flex items-center justify-center w-8 h-8 rounded-brand text-ink-muted hover:text-ink hover:bg-black/5 font-mono text-[13px] cursor-pointer bg-transparent border-none transition-colors" %}
-      <button type="button" class="{{ tb_cls }} font-bold" data-action="bold" title="Bold (Cmd+B)">B</button>
-      <button type="button" class="{{ tb_cls }} italic" data-action="italic" title="Italic (Cmd+I)">I</button>
-      <span class="w-px h-5 bg-border mx-1"></span>
-      <button type="button" class="{{ tb_cls }}" data-action="h2" title="Heading 2">H2</button>
-      <button type="button" class="{{ tb_cls }}" data-action="h3" title="Heading 3">H3</button>
-      <button type="button" class="{{ tb_cls }}" data-action="h4" title="Heading 4">H4</button>
-      <span class="w-px h-5 bg-border mx-1"></span>
-      <button type="button" class="{{ tb_cls }}" data-action="rule" title="Horizontal rule">&mdash;</button>
-      <button type="button" class="{{ tb_cls }}" data-action="ul" title="Unordered list">&bull;</button>
-      <button type="button" class="{{ tb_cls }}" data-action="ol" title="Ordered list">1.</button>
-      <button type="button" class="{{ tb_cls }}" data-action="blockquote" title="Blockquote">&ldquo;</button>
-      <span class="w-px h-5 bg-border mx-1"></span>
-      <button type="button" class="{{ tb_cls }}" data-action="code" title="Code">&lt;&gt;</button>
-      <button type="button" class="{{ tb_cls }}" data-action="link" title="Link (Cmd+K)">&#128279;</button>
-      {% endwith %}
+      {# Formatting buttons (hidden in preview-only mode) #}
+      <template x-if="mode !== 'preview'">
+        <div class="flex flex-wrap items-center gap-1">
+          {% with tb_cls="inline-flex items-center justify-center w-8 h-8 rounded-brand text-ink-muted hover:text-ink hover:bg-black/5 font-mono text-[13px] cursor-pointer bg-transparent border-none transition-colors" %}
+          <button type="button" class="{{ tb_cls }} font-bold" data-action="bold" title="Bold (Cmd+B)">B</button>
+          <button type="button" class="{{ tb_cls }} italic" data-action="italic" title="Italic (Cmd+I)">I</button>
+          <span class="w-px h-5 bg-border mx-1"></span>
+          <button type="button" class="{{ tb_cls }}" data-action="h2" title="Heading 2">H2</button>
+          <button type="button" class="{{ tb_cls }}" data-action="h3" title="Heading 3">H3</button>
+          <button type="button" class="{{ tb_cls }}" data-action="h4" title="Heading 4">H4</button>
+          <span class="w-px h-5 bg-border mx-1"></span>
+          <button type="button" class="{{ tb_cls }}" data-action="rule" title="Horizontal rule">&mdash;</button>
+          <button type="button" class="{{ tb_cls }}" data-action="ul" title="Unordered list">&bull;</button>
+          <button type="button" class="{{ tb_cls }}" data-action="ol" title="Ordered list">1.</button>
+          <button type="button" class="{{ tb_cls }}" data-action="blockquote" title="Blockquote">&ldquo;</button>
+          <span class="w-px h-5 bg-border mx-1"></span>
+          <button type="button" class="{{ tb_cls }}" data-action="code" title="Code">&lt;&gt;</button>
+          <button type="button" class="{{ tb_cls }}" data-action="link" title="Link (Cmd+K)">&#128279;</button>
+          {% endwith %}
+        </div>
+      </template>
+
+      {# Spacer pushes mode toggle to the right #}
+      <span class="flex-1"></span>
+
+      {# Mode toggle: Edit | Split | Preview #}
+      <div class="flex items-center bg-black/5 rounded-brand overflow-hidden">
+        {% with mode_cls="px-2.5 py-1 font-mono text-[10px] uppercase tracking-wider cursor-pointer border-none transition-colors" %}
+        <button type="button" class="{{ mode_cls }}"
+                :class="mode === 'edit' ? 'bg-cream text-ink shadow-warm-sm' : 'bg-transparent text-ink-muted hover:text-ink'"
+                @click="mode = 'edit'" title="Edit (Cmd+E)">Edit</button>
+        <button type="button" class="{{ mode_cls }}"
+                :class="mode === 'split' ? 'bg-cream text-ink shadow-warm-sm' : 'bg-transparent text-ink-muted hover:text-ink'"
+                @click="mode = 'split'" title="Split view">Split</button>
+        <button type="button" class="{{ mode_cls }}"
+                :class="mode === 'preview' ? 'bg-cream text-ink shadow-warm-sm' : 'bg-transparent text-ink-muted hover:text-ink'"
+                @click="mode = 'preview'" title="Preview">Preview</button>
+        {% endwith %}
+      </div>
     </div>
 
-    {# Body or annotation textarea (rendered by Django widget, not crispy) #}
-    <label for="editor-body" class="sr-only">
-      {% if form.body %}Body{% else %}Annotation{% endif %}
-    </label>
-    {% if form.body %}
-      {{ form.body }}
-    {% elif form.annotation %}
-      {{ form.annotation }}
-    {% endif %}
+    {# Split-pane container #}
+    <div :class="mode === 'split' ? 'grid grid-cols-2' : ''">
+      {# Textarea pane #}
+      <div x-show="mode !== 'preview'" x-cloak
+           :class="mode === 'split' ? 'border-r border-border' : ''">
+        <label for="editor-body" class="sr-only">
+          {% if form.body %}Body{% else %}Annotation{% endif %}
+        </label>
+        {% if form.body %}
+          {{ form.body }}
+        {% elif form.annotation %}
+          {{ form.annotation }}
+        {% endif %}
+      </div>
+
+      {# Preview pane #}
+      <div x-show="mode !== 'edit'" x-cloak
+           class="min-h-[400px] overflow-y-auto">
+        <div class="px-6 py-4">
+          <template x-if="loading && !previewHtml">
+            <p class="font-mono text-[11px] text-ink-muted tracking-wide">Rendering preview...</p>
+          </template>
+          <template x-if="!loading && !previewHtml">
+            <p class="font-mono text-[11px] text-ink-muted tracking-wide">
+              Start typing to see a live preview.
+            </p>
+          </template>
+          <div x-show="previewHtml"
+               x-html="previewHtml"
+               class="prose prose-parchment max-w-none font-body text-[15px] leading-relaxed"></div>
+        </div>
+      </div>
+    </div>
   </section>
   {% endif %}
 
@@ -114,28 +164,29 @@
     </div>
     {% endif %}
 
-    {# Publish history #}
+    {# Publish history (collapsible panel) #}
     {% if recent_publishes %}
     <div class="mt-6">
-      <c-section_label color="teal">Publish History</c-section_label>
-      <ul class="list-none p-0 mt-2 space-y-1.5">
-        {% for log in recent_publishes %}
-        <li class="flex items-center gap-2 font-mono text-[11px] tracking-wide">
-          <span class="text-ink-muted">{{ log.created_at|date:"M j, g:i A" }}</span>
-          {% if log.success %}
-            <c-badge color="success">OK</c-badge>
-          {% else %}
-            <c-badge color="error">FAILED</c-badge>
-          {% endif %}
-          {% if log.commit_url %}
-          <a href="{{ log.commit_url }}" target="_blank" rel="noopener"
-             class="text-teal hover:text-teal-hover underline">
-            {{ log.commit_sha|truncatechars:7 }}
-          </a>
-          {% endif %}
-        </li>
-        {% endfor %}
-      </ul>
+      <c-panel title="Publish History" open="false">
+        <ul class="list-none p-0 space-y-1.5">
+          {% for log in recent_publishes %}
+          <li class="flex items-center gap-2 font-mono text-[11px] tracking-wide">
+            <span class="text-ink-muted">{{ log.created_at|date:"M j, g:i A" }}</span>
+            {% if log.success %}
+              <c-badge color="success">OK</c-badge>
+            {% else %}
+              <c-badge color="error">FAILED</c-badge>
+            {% endif %}
+            {% if log.commit_url %}
+            <a href="{{ log.commit_url }}" target="_blank" rel="noopener"
+               class="text-teal hover:text-teal-hover underline">
+              {{ log.commit_sha|truncatechars:7 }}
+            </a>
+            {% endif %}
+          </li>
+          {% endfor %}
+        </ul>
+      </c-panel>
     </div>
     {% endif %}
   </aside>
@@ -311,5 +362,83 @@ function handlePublishResponse(event) {
     buildToast('error', msg);
   }
 }
+
+/* ---- Live markdown preview (debounced fetch to /preview-markdown/) ---- */
+document.addEventListener('alpine:init', function() {
+  var textarea = document.getElementById('editor-body');
+  if (!textarea) return;
+
+  var timer = null;
+  var DEBOUNCE_MS = 500;
+  var previewUrl = '{% url "editor:preview-markdown" %}';
+  var csrfToken = document.querySelector('[name=csrfmiddlewaretoken]').value;
+
+  /* Locate the Alpine component wrapping the writing area */
+  var section = textarea.closest('[x-data]');
+  if (!section) return;
+
+  function getAlpineData() {
+    if (section._x_dataStack && section._x_dataStack.length) {
+      return section._x_dataStack[0];
+    }
+    return null;
+  }
+
+  function fetchPreview() {
+    var data = getAlpineData();
+    if (!data) return;
+
+    /* Skip fetch if user is in edit-only mode */
+    if (data.mode === 'edit') return;
+
+    var raw = textarea.value;
+    if (!raw.trim()) {
+      data.previewHtml = '';
+      data.loading = false;
+      return;
+    }
+
+    data.loading = true;
+    fetch(previewUrl, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-CSRFToken': csrfToken
+      },
+      body: JSON.stringify({ text: raw })
+    })
+    .then(function(resp) { return resp.json(); })
+    .then(function(json) {
+      data.previewHtml = json.html || '';
+      data.loading = false;
+    })
+    .catch(function() {
+      data.loading = false;
+    });
+  }
+
+  /* Debounce on textarea input */
+  textarea.addEventListener('input', function() {
+    clearTimeout(timer);
+    timer = setTimeout(fetchPreview, DEBOUNCE_MS);
+  });
+
+  /* Trigger preview when mode changes away from edit-only */
+  var lastMode = '';
+  var checkMode = setInterval(function() {
+    var data = getAlpineData();
+    if (!data) return;
+    if (data.mode !== lastMode) {
+      lastMode = data.mode;
+      if (data.mode !== 'edit' && textarea.value.trim()) {
+        fetchPreview();
+      }
+    }
+  }, 200);
+
+  window.addEventListener('beforeunload', function() {
+    clearInterval(checkMode);
+  });
+});
 </script>
 {% endblock %}

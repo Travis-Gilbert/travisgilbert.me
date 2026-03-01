@@ -1,0 +1,29 @@
+<c-card hover href="{{ href }}">
+  <div class="flex items-center gap-3">
+    {% if icon %}
+      <c-icon
+        name="{{ icon }}"
+        size="18"
+        color="{{ color|default:'currentColor' }}"
+      />
+    {% endif %}
+    <span class="font-body text-[15px] flex-1">{{ title }}</span>
+    {% if stage %}
+      <c-stage_pill stage="{{ stage }}" />
+    {% endif %}
+    {% if status %}
+      <c-badge color="teal">{{ status }}</c-badge>
+    {% endif %}
+    {% if draft == 'true' or draft == 'True' %}
+      <c-badge color="gold" outline>Draft</c-badge>
+    {% elif draft == 'false' or draft == 'False' %}
+      <c-badge color="success">Published</c-badge>
+    {% endif %}
+    {{ slot }}
+    {% if date %}
+      <span class="font-mono text-[10px] tracking-wide text-ink-muted">
+        {{ date }}
+      </span>
+    {% endif %}
+  </div>
+</c-card>

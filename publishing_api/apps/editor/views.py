@@ -152,32 +152,181 @@ class DashboardView(LoginRequiredMixin, TemplateView):
 
     def get_context_data(self, **kwargs):
         ctx = super().get_context_data(**kwargs)
-        # Defer large text fields not displayed on the dashboard.
-        # Each model has different text fields: ShelfEntry uses
-        # "annotation" instead of "body"; Essay has "annotations" (plural).
-        _body_models = ("body", "composition")
-        ctx["essays"] = Essay.objects.defer(*_body_models).all()[:20]
-        ctx["field_notes"] = FieldNote.objects.defer(*_body_models).all()[:20]
-        ctx["shelf_entries"] = ShelfEntry.objects.defer("annotation", "composition").all()[:20]
-        ctx["projects"] = Project.objects.defer(*_body_models).all()[:20]
-        ctx["toolkit_entries"] = ToolkitEntry.objects.defer(*_body_models).all()[:20]
-        ctx["video_projects"] = VideoProject.objects.defer(
-            "script_body", "research_notes", "composition",
-        ).all()[:20]
-        ctx["now_page"] = NowPage.objects.first()
-        ctx["recent_publishes"] = PublishLog.objects.all()[:10]
+        _body = ("body", "composition")
+
+        # ── Totals and draft counts ──────────────────────────────────
+        essay_total = Essay.objects.count()
+        note_total = FieldNote.objects.count()
+        shelf_total = ShelfEntry.objects.count()
+        project_total = Project.objects.count()
+        toolkit_total = ToolkitEntry.objects.count()
+        video_total = VideoProject.objects.count()
+
+        essay_drafts = Essay.objects.filter(draft=True).count()
+        note_drafts = FieldNote.objects.filter(draft=True).count()
+        project_drafts = Project.objects.filter(draft=True).count()
+        video_drafts = VideoProject.objects.filter(draft=True).count()
+
+        ctx["totals"] = {
+            "essays": essay_total,
+            "field_notes": note_total,
+            "shelf": shelf_total,
+            "projects": project_total,
+            "toolkit": toolkit_total,
+            "videos": video_total,
+            "all": (
+                essay_total + note_total + shelf_total
+                + project_total + toolkit_total + video_total
+            ),
+        }
         ctx["draft_counts"] = {
-            "essays": Essay.objects.filter(draft=True).count(),
-            "field_notes": FieldNote.objects.filter(draft=True).count(),
-            "projects": Project.objects.filter(draft=True).count(),
-            "videos": VideoProject.objects.filter(draft=True).count(),
+            "essays": essay_drafts,
+            "field_notes": note_drafts,
+            "projects": project_drafts,
+            "videos": video_drafts,
         }
         ctx["has_drafts"] = (
-            ctx["draft_counts"]["essays"]
-            or ctx["draft_counts"]["field_notes"]
-            or ctx["draft_counts"]["projects"]
-            or ctx["draft_counts"]["videos"]
+            essay_drafts or note_drafts or project_drafts or video_drafts
         )
+
+        # ── Pipeline: essay stage distribution ───────────────────────
+        essay_stages = dict(
+            Essay.objects.values_list("stage")
+            .annotate(n=Count("id"))
+            .values_list("stage", "n")
+        )
+        ctx["pipeline"] = {
+            "research": essay_stages.get("research", 0),
+            "drafting": essay_stages.get("drafting", 0),
+            "production": essay_stages.get("production", 0),
+            "published": essay_stages.get("published", 0),
+        }
+
+        # ── Continue editing: most recently updated draft ────────────
+        candidates = []
+        latest_essay = (
+            Essay.objects.filter(draft=True)
+            .defer(*_body)
+            .order_by("-updated_at")
+            .first()
+        )
+        if latest_essay:
+            candidates.append(
+                (latest_essay.updated_at, {
+                    "title": latest_essay.title,
+                    "url": reverse("editor:essay-edit", kwargs={"slug": latest_essay.slug}),
+                    "type": "Essay",
+                    "icon": "file-text",
+                    "color": "#B45A2D",
+                    "date": latest_essay.updated_at,
+                })
+            )
+        latest_note = (
+            FieldNote.objects.filter(draft=True)
+            .defer(*_body)
+            .order_by("-updated_at")
+            .first()
+        )
+        if latest_note:
+            candidates.append(
+                (latest_note.updated_at, {
+                    "title": latest_note.title,
+                    "url": reverse("editor:field-note-edit", kwargs={"slug": latest_note.slug}),
+                    "type": "Field Note",
+                    "icon": "note-pencil",
+                    "color": "#2D5F6B",
+                    "date": latest_note.updated_at,
+                })
+            )
+        latest_project = (
+            Project.objects.filter(draft=True)
+            .defer(*_body)
+            .order_by("-updated_at")
+            .first()
+        )
+        if latest_project:
+            candidates.append(
+                (latest_project.updated_at, {
+                    "title": latest_project.title,
+                    "url": reverse("editor:project-edit", kwargs={"slug": latest_project.slug}),
+                    "type": "Project",
+                    "icon": "briefcase",
+                    "color": "#C49A4A",
+                    "date": latest_project.updated_at,
+                })
+            )
+        latest_video = (
+            VideoProject.objects.filter(draft=True)
+            .defer("script_body", "research_notes", "composition")
+            .order_by("-updated_at")
+            .first()
+        )
+        if latest_video:
+            candidates.append(
+                (latest_video.updated_at, {
+                    "title": latest_video.title,
+                    "url": reverse("editor:video-edit", kwargs={"slug": latest_video.slug}),
+                    "type": "Video",
+                    "icon": "video-camera",
+                    "color": "#5A7A4A",
+                    "date": latest_video.updated_at,
+                })
+            )
+        if candidates:
+            candidates.sort(key=lambda c: c[0], reverse=True)
+            ctx["continue_editing"] = candidates[0][1]
+
+        # ── Activity timeline: 10 most recently touched items ────────
+        activity = []
+        for essay in Essay.objects.defer(*_body).order_by("-updated_at")[:5]:
+            activity.append({
+                "title": essay.title,
+                "url": reverse("editor:essay-edit", kwargs={"slug": essay.slug}),
+                "type": "Essay",
+                "icon": "file-text",
+                "color": "#B45A2D",
+                "date": essay.updated_at,
+                "draft": essay.draft,
+            })
+        for note in FieldNote.objects.defer(*_body).order_by("-updated_at")[:5]:
+            activity.append({
+                "title": note.title,
+                "url": reverse("editor:field-note-edit", kwargs={"slug": note.slug}),
+                "type": "Field Note",
+                "icon": "note-pencil",
+                "color": "#2D5F6B",
+                "date": note.updated_at,
+                "draft": note.draft,
+            })
+        for proj in Project.objects.defer(*_body).order_by("-updated_at")[:3]:
+            activity.append({
+                "title": proj.title,
+                "url": reverse("editor:project-edit", kwargs={"slug": proj.slug}),
+                "type": "Project",
+                "icon": "briefcase",
+                "color": "#C49A4A",
+                "date": proj.updated_at,
+                "draft": proj.draft,
+            })
+        for vid in VideoProject.objects.defer(
+            "script_body", "research_notes", "composition",
+        ).order_by("-updated_at")[:3]:
+            activity.append({
+                "title": vid.title,
+                "url": reverse("editor:video-edit", kwargs={"slug": vid.slug}),
+                "type": "Video",
+                "icon": "video-camera",
+                "color": "#5A7A4A",
+                "date": vid.updated_at,
+                "draft": vid.draft,
+            })
+        activity.sort(key=lambda a: a["date"], reverse=True)
+        ctx["activity"] = activity[:10]
+
+        # ── Supporting data ──────────────────────────────────────────
+        ctx["now_page"] = NowPage.objects.first()
+        ctx["recent_publishes"] = PublishLog.objects.all()[:5]
+
         return ctx
 
 
@@ -197,8 +346,13 @@ class EssayListView(LoginRequiredMixin, ListView):
         ctx["content_type_plural"] = "Essays"
         ctx["content_type_display"] = "Essay"
         ctx["new_url"] = reverse("editor:essay-create")
+        ctx["edit_url_name"] = "editor:essay-edit"
         ctx["content_icon"] = CONTENT_META["essay"]["icon"]
         ctx["content_color"] = CONTENT_META["essay"]["color"]
+        ctx["empty_title"] = "No essays yet"
+        ctx["empty_description"] = (
+            "Start writing your first long-form investigation."
+        )
         return ctx
 
 
@@ -210,6 +364,7 @@ class EssayCreateView(LoginRequiredMixin, CreateView):
     def get_context_data(self, **kwargs):
         ctx = super().get_context_data(**kwargs)
         ctx["content_type"] = "essay"
+        ctx["content_color"] = CONTENT_META["essay"]["color"]
         ctx["is_new"] = True
         return ctx
 
@@ -227,6 +382,7 @@ class EssayEditView(LoginRequiredMixin, UpdateView):
     def get_context_data(self, **kwargs):
         ctx = super().get_context_data(**kwargs)
         ctx["content_type"] = "essay"
+        ctx["content_color"] = CONTENT_META["essay"]["color"]
         ctx["is_new"] = False
         ctx["publish_url"] = reverse(
             "editor:essay-publish", kwargs={"slug": self.object.slug}
@@ -280,8 +436,13 @@ class FieldNoteListView(LoginRequiredMixin, ListView):
         ctx["content_type_plural"] = "Field Notes"
         ctx["content_type_display"] = "Field Note"
         ctx["new_url"] = reverse("editor:field-note-create")
+        ctx["edit_url_name"] = "editor:field-note-edit"
         ctx["content_icon"] = CONTENT_META["field_note"]["icon"]
         ctx["content_color"] = CONTENT_META["field_note"]["color"]
+        ctx["empty_title"] = "No field notes yet"
+        ctx["empty_description"] = (
+            "Capture an observation or developing idea."
+        )
         return ctx
 
 
@@ -293,6 +454,7 @@ class FieldNoteCreateView(LoginRequiredMixin, CreateView):
     def get_context_data(self, **kwargs):
         ctx = super().get_context_data(**kwargs)
         ctx["content_type"] = "field_note"
+        ctx["content_color"] = CONTENT_META["field_note"]["color"]
         ctx["is_new"] = True
         return ctx
 
@@ -310,6 +472,7 @@ class FieldNoteEditView(LoginRequiredMixin, UpdateView):
     def get_context_data(self, **kwargs):
         ctx = super().get_context_data(**kwargs)
         ctx["content_type"] = "field_note"
+        ctx["content_color"] = CONTENT_META["field_note"]["color"]
         ctx["is_new"] = False
         ctx["publish_url"] = reverse(
             "editor:field-note-publish", kwargs={"slug": self.object.slug}
@@ -361,8 +524,13 @@ class ShelfListView(LoginRequiredMixin, ListView):
         ctx["content_type_plural"] = "Shelf"
         ctx["content_type_display"] = "Shelf Entry"
         ctx["new_url"] = reverse("editor:shelf-create")
+        ctx["edit_url_name"] = "editor:shelf-edit"
         ctx["content_icon"] = CONTENT_META["shelf"]["icon"]
         ctx["content_color"] = CONTENT_META["shelf"]["color"]
+        ctx["empty_title"] = "Nothing on the shelf"
+        ctx["empty_description"] = (
+            "Add books, articles, and sources that inform your work."
+        )
         return ctx
 
 
@@ -374,6 +542,7 @@ class ShelfCreateView(LoginRequiredMixin, CreateView):
     def get_context_data(self, **kwargs):
         ctx = super().get_context_data(**kwargs)
         ctx["content_type"] = "shelf"
+        ctx["content_color"] = CONTENT_META["shelf"]["color"]
         ctx["is_new"] = True
         return ctx
 
@@ -391,6 +560,7 @@ class ShelfEditView(LoginRequiredMixin, UpdateView):
     def get_context_data(self, **kwargs):
         ctx = super().get_context_data(**kwargs)
         ctx["content_type"] = "shelf"
+        ctx["content_color"] = CONTENT_META["shelf"]["color"]
         ctx["is_new"] = False
         ctx["publish_url"] = reverse(
             "editor:shelf-publish", kwargs={"slug": self.object.slug}
@@ -442,8 +612,13 @@ class ProjectListView(LoginRequiredMixin, ListView):
         ctx["content_type_plural"] = "Projects"
         ctx["content_type_display"] = "Project"
         ctx["new_url"] = reverse("editor:project-create")
+        ctx["edit_url_name"] = "editor:project-edit"
         ctx["content_icon"] = CONTENT_META["project"]["icon"]
         ctx["content_color"] = CONTENT_META["project"]["color"]
+        ctx["empty_title"] = "No projects yet"
+        ctx["empty_description"] = (
+            "Document the work you have built and organized."
+        )
         return ctx
 
 
@@ -455,6 +630,7 @@ class ProjectCreateView(LoginRequiredMixin, CreateView):
     def get_context_data(self, **kwargs):
         ctx = super().get_context_data(**kwargs)
         ctx["content_type"] = "project"
+        ctx["content_color"] = CONTENT_META["project"]["color"]
         ctx["is_new"] = True
         return ctx
 
@@ -472,6 +648,7 @@ class ProjectEditView(LoginRequiredMixin, UpdateView):
     def get_context_data(self, **kwargs):
         ctx = super().get_context_data(**kwargs)
         ctx["content_type"] = "project"
+        ctx["content_color"] = CONTENT_META["project"]["color"]
         ctx["is_new"] = False
         ctx["publish_url"] = reverse(
             "editor:project-publish", kwargs={"slug": self.object.slug}
@@ -523,8 +700,13 @@ class ToolkitListView(LoginRequiredMixin, ListView):
         ctx["content_type_plural"] = "Toolkit"
         ctx["content_type_display"] = "Toolkit Entry"
         ctx["new_url"] = reverse("editor:toolkit-create")
+        ctx["edit_url_name"] = "editor:toolkit-edit"
         ctx["content_icon"] = CONTENT_META["toolkit"]["icon"]
         ctx["content_color"] = CONTENT_META["toolkit"]["color"]
+        ctx["empty_title"] = "No toolkit entries yet"
+        ctx["empty_description"] = (
+            "Add a tool, technique, or resource to your workshop."
+        )
         return ctx
 
 
@@ -536,6 +718,7 @@ class ToolkitCreateView(LoginRequiredMixin, CreateView):
     def get_context_data(self, **kwargs):
         ctx = super().get_context_data(**kwargs)
         ctx["content_type"] = "toolkit"
+        ctx["content_color"] = CONTENT_META["toolkit"]["color"]
         ctx["is_new"] = True
         return ctx
 
@@ -553,6 +736,7 @@ class ToolkitEditView(LoginRequiredMixin, UpdateView):
     def get_context_data(self, **kwargs):
         ctx = super().get_context_data(**kwargs)
         ctx["content_type"] = "toolkit"
+        ctx["content_color"] = CONTENT_META["toolkit"]["color"]
         ctx["is_new"] = False
         ctx["publish_url"] = reverse(
             "editor:toolkit-publish", kwargs={"slug": self.object.slug}
@@ -604,8 +788,13 @@ class VideoListView(LoginRequiredMixin, ListView):
         ctx["content_type_plural"] = "Video Projects"
         ctx["content_type_display"] = "Video Project"
         ctx["new_url"] = reverse("editor:video-create")
+        ctx["edit_url_name"] = "editor:video-edit"
         ctx["content_icon"] = CONTENT_META["video"]["icon"]
         ctx["content_color"] = CONTENT_META["video"]["color"]
+        ctx["empty_title"] = "No video projects yet"
+        ctx["empty_description"] = (
+            "Start planning your first YouTube production."
+        )
         return ctx
 
 
@@ -617,6 +806,7 @@ class VideoCreateView(LoginRequiredMixin, CreateView):
     def get_context_data(self, **kwargs):
         ctx = super().get_context_data(**kwargs)
         ctx["content_type"] = "video"
+        ctx["content_color"] = CONTENT_META["video"]["color"]
         ctx["is_new"] = True
         return ctx
 
@@ -634,6 +824,7 @@ class VideoEditView(LoginRequiredMixin, UpdateView):
     def get_context_data(self, **kwargs):
         ctx = super().get_context_data(**kwargs)
         ctx["content_type"] = "video"
+        ctx["content_color"] = CONTENT_META["video"]["color"]
         ctx["is_new"] = False
         ctx["publish_url"] = reverse(
             "editor:video-publish", kwargs={"slug": self.object.slug}
@@ -1231,6 +1422,38 @@ class AutoSaveView(LoginRequiredMixin, View):
             form.save()
             return JsonResponse({"saved": True})
         return JsonResponse({"saved": False, "errors": form.errors}, status=400)
+
+
+# ---------------------------------------------------------------------------
+# Markdown preview (HTMX endpoint)
+# ---------------------------------------------------------------------------
+
+
+class MarkdownPreviewView(LoginRequiredMixin, View):
+    """
+    HTMX POST endpoint: render markdown text to HTML for the split-pane editor.
+
+    Accepts JSON body with a ``text`` field containing raw markdown.
+    Returns JSON with the rendered HTML string.
+    """
+
+    def post(self, request):
+        import markdown as md
+
+        try:
+            data = json.loads(request.body)
+        except json.JSONDecodeError:
+            return JsonResponse({"error": "Invalid JSON"}, status=400)
+
+        raw = data.get("text", "")
+        html = md.markdown(
+            raw,
+            extensions=["extra", "codehilite", "smarty", "toc"],
+            extension_configs={
+                "codehilite": {"css_class": "highlight", "guess_lang": False},
+            },
+        )
+        return JsonResponse({"html": html})
 
 
 # ---------------------------------------------------------------------------

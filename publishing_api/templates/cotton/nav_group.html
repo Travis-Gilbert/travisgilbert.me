@@ -1,0 +1,53 @@
+<div
+  x-data="{ open: $persist({{ open|default:'true' }}).as('nav_{{ key }}') }"
+  class="{{ class }}"
+>
+  <button
+    @click="open = !open"
+    class="w-full flex items-center justify-between px-2 py-1.5 group cursor-pointer border-0 bg-transparent"
+    type="button"
+  >
+    <div class="flex items-center gap-2">
+      <div
+        class="
+          w-[3px] h-4 rounded-sm
+          {% if color == 'terracotta' %}bg-terracotta
+          {% elif color == 'teal' %}bg-teal
+          {% elif color == 'gold' %}bg-gold
+          {% elif color == 'green' %}bg-success
+          {% else %}bg-cream/30{% endif %}
+        "
+      ></div>
+      <span
+        class="
+          font-mono text-[11px] uppercase tracking-widest font-bold
+          {% if color == 'terracotta' %}text-terracotta
+          {% elif color == 'teal' %}text-teal
+          {% elif color == 'gold' %}text-gold
+          {% elif color == 'green' %}text-success
+          {% else %}text-cream/50{% endif %}
+        "
+      >
+        {{ label }}
+      </span>
+    </div>
+    <div class="flex items-center gap-1.5">
+      {% if badge %}
+        <c-badge color="{{ badge_color|default:color }}" outline>{{ badge }}</c-badge>
+      {% endif %}
+      <span
+        class="text-cream/30 transition-transform duration-200"
+        :class="{ '-rotate-90': !open }"
+      >
+        <c-icon name="chevron-down" size="12" color="currentColor" />
+      </span>
+    </div>
+  </button>
+  <div
+    x-show="open"
+    x-collapse
+    class="mt-0.5"
+  >
+    {{ slot }}
+  </div>
+</div>
