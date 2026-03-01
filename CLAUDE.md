@@ -12,7 +12,7 @@ Personal "creative workbench" site: a living record of work, interests, and thin
 
 ## Tech Stack
 
-Next.js 15 (App Router), React 19, Tailwind CSS v4 (`@tailwindcss/postcss`), rough.js, rough-notation, `next/font` (Google + local), Zod, gray-matter + remark, Django 5.x (publishing_api + research_api), DRF, django-cotton, django-crispy-forms (`studio` pack), django-tailwind, django-template-partials
+Next.js 16 (App Router, Turbopack, React Compiler), React 19, Tailwind CSS v4 (`@tailwindcss/postcss`), rough.js, rough-notation, `next/font` (Google + local), Zod, gray-matter + remark, Django 5.x (publishing_api + research_api), DRF, django-cotton, django-crispy-forms (`studio` pack), django-tailwind, django-template-partials
 
 ## Key Directories
 
@@ -70,7 +70,7 @@ npm install        # Install dependencies
 npm run dev        # Start Next.js dev server
 npm run build      # Production build (SSG)
 npm run start      # Serve production build locally
-npm run lint       # Run Next.js linter
+npm run lint       # Run ESLint (standalone; `next lint` removed in Next.js 16)
 ```
 
 ```bash
@@ -443,7 +443,7 @@ Phases 1 through 4 (Foundation, Micro-interactions, Animations, Polish) are **al
 - **Canvas DPR scaling**: Multiply canvas dimensions by `devicePixelRatio`, use `ctx.scale(dpr, dpr)`, set CSS size to logical pixels
 - **Phosphor icons in Server Components**: Import from `@phosphor-icons/react/dist/ssr` (not default export)
 - **Route handlers need force-static**: `sitemap.ts` and `rss.xml/route.ts` require `export const dynamic = 'force-static'`
-- **Next.js 15 async params**: Dynamic route `params` is `Promise<{ slug: string }>`; must `await` it
+- **Async params (Next.js 16)**: Dynamic route `params` is `Promise<{ slug: string }>`; must `await` it
 - **Vercel Output Directory**: Dashboard must have Output Directory blank/default. `dist` setting from old Astro config breaks Next.js builds
 - **Font variable bridging**: `next/font` vars (e.g., `--font-vollkorn`) are distinct from Tailwind theme aliases (e.g., `--font-title`). Bridge in `global.css` `@theme inline`
 - **RoughBox needs `position: relative`** for absolute-positioned children like RoughPivotCallout to anchor correctly
