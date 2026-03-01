@@ -11,12 +11,15 @@
     <link href="https://fonts.googleapis.com/css2?family=Cabin:ital,wght@0,400..700;1,400..700&family=Courier+Prime:ital,wght@0,400;0,700;1,400;1,700&family=Vollkorn:ital,wght@0,400..700;1,400..700&display=swap" rel="stylesheet">
     {% tailwind_css %}
     <script src="https://unpkg.com/htmx.org@2.0.4" defer></script>
+    <script defer src="https://cdn.jsdelivr.net/npm/@alpinejs/persist@3.x.x/dist/cdn.min.js"></script>
+    <script defer src="https://cdn.jsdelivr.net/npm/@alpinejs/collapse@3.x.x/dist/cdn.min.js"></script>
+    <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
     {% block head %}{% endblock %}
 </head>
 <body class="bg-parchment text-ink font-body" {% block body_attrs %}{% endblock %}>
     <div class="flex min-h-screen">
         {# ------------------------------------------------------------------ #}
-        {# Sidebar: three-zone vertical navigation                            #}
+        {# Sidebar: five-zone collapsible navigation                          #}
         {# ------------------------------------------------------------------ #}
         <aside class="
             fixed top-0 left-0 bottom-0 w-[220px]
@@ -38,193 +41,110 @@
                 </a>
             </div>
 
-            <nav class="flex-1 overflow-y-auto px-3 space-y-5">
-                {# Zone 1: Make Stuff #}
-                <div>
-                    <c-section_label color="terracotta" class="px-2 mb-2" size="text-[13px]">Make Stuff</c-section_label>
-                    <a href="{% url 'editor:essay-list' %}"
-                       class="
-                           flex items-center justify-between
-                           px-3 py-[7px] rounded-brand text-sm
-                           text-cream/75 no-underline
-                           hover:bg-white/10 hover:text-cream
-                           transition-colors duration-150
-                           {% if content_type == 'essay' %}bg-white/10 border-l-2 border-terracotta text-cream{% endif %}
-                       ">
-                        <span class="flex items-center gap-2"><c-icon name="file-text" size="16" />Essays</span>
-                        {% if sidebar_drafts.essays %}
-                            <c-badge color="gold" outline>{{ sidebar_drafts.essays }}</c-badge>
-                        {% endif %}
-                    </a>
-                    <a href="{% url 'editor:field-note-list' %}"
-                       class="
-                           flex items-center justify-between
-                           px-3 py-[7px] rounded-brand text-sm
-                           text-cream/75 no-underline
-                           hover:bg-white/10 hover:text-cream
-                           transition-colors duration-150
-                           {% if content_type == 'field_note' %}bg-white/10 border-l-2 border-terracotta text-cream{% endif %}
-                       ">
-                        <span class="flex items-center gap-2"><c-icon name="note-pencil" size="16" />Field Notes</span>
-                        {% if sidebar_drafts.field_notes %}
-                            <c-badge color="gold" outline>{{ sidebar_drafts.field_notes }}</c-badge>
-                        {% endif %}
-                    </a>
-                    <a href="{% url 'editor:shelf-list' %}"
-                       class="
-                           flex items-center justify-between
-                           px-3 py-[7px] rounded-brand text-sm
-                           text-cream/75 no-underline
-                           hover:bg-white/10 hover:text-cream
-                           transition-colors duration-150
-                           {% if content_type == 'shelf' %}bg-white/10 border-l-2 border-terracotta text-cream{% endif %}
-                       ">
-                        <span class="flex items-center gap-2"><c-icon name="book-open" size="16" />Shelf</span>
-                    </a>
-                    <a href="{% url 'editor:project-list' %}"
-                       class="
-                           flex items-center justify-between
-                           px-3 py-[7px] rounded-brand text-sm
-                           text-cream/75 no-underline
-                           hover:bg-white/10 hover:text-cream
-                           transition-colors duration-150
-                           {% if content_type == 'project' %}bg-white/10 border-l-2 border-terracotta text-cream{% endif %}
-                       ">
-                        <span class="flex items-center gap-2"><c-icon name="briefcase" size="16" />Projects</span>
-                        {% if sidebar_drafts.projects %}
-                            <c-badge color="gold" outline>{{ sidebar_drafts.projects }}</c-badge>
-                        {% endif %}
-                    </a>
-                    <a href="{% url 'editor:toolkit-list' %}"
-                       class="
-                           flex items-center justify-between
-                           px-3 py-[7px] rounded-brand text-sm
-                           text-cream/75 no-underline
-                           hover:bg-white/10 hover:text-cream
-                           transition-colors duration-150
-                           {% if content_type == 'toolkit' %}bg-white/10 border-l-2 border-terracotta text-cream{% endif %}
-                       ">
-                        <span class="flex items-center gap-2"><c-icon name="wrench" size="16" />Toolkit</span>
-                    </a>
-                    <a href="{% url 'editor:video-list' %}"
-                       class="
-                           flex items-center justify-between
-                           px-3 py-[7px] rounded-brand text-sm
-                           text-cream/75 no-underline
-                           hover:bg-white/10 hover:text-cream
-                           transition-colors duration-150
-                           {% if content_type == 'video' %}bg-white/10 border-l-2 border-success text-cream{% endif %}
-                       ">
-                        <span class="flex items-center gap-2"><c-icon name="video-camera" size="16" />Video</span>
-                        {% if sidebar_drafts.videos %}
-                            <c-badge color="gold" outline>{{ sidebar_drafts.videos }}</c-badge>
-                        {% endif %}
-                    </a>
-                    <a href="{% url 'editor:production-dashboard' %}"
-                       class="
-                           flex items-center justify-between
-                           px-3 py-[7px] rounded-brand text-sm
-                           text-cream/75 no-underline
-                           hover:bg-white/10 hover:text-cream
-                           transition-colors duration-150
-                           {% if content_type == 'production' %}bg-white/10 border-l-2 border-success text-cream{% endif %}
-                       ">
-                        <span class="flex items-center gap-2 pl-4"><c-icon name="gears" size="14" />Dashboard</span>
-                    </a>
-                    <a href="{% url 'editor:now-edit' %}"
-                       class="
-                           flex items-center justify-between
-                           px-3 py-[7px] rounded-brand text-sm
-                           text-cream/75 no-underline
-                           hover:bg-white/10 hover:text-cream
-                           transition-colors duration-150
-                           {% if content_type == 'now' %}bg-white/10 border-l-2 border-terracotta text-cream{% endif %}
-                       ">
-                        <span class="flex items-center gap-2"><c-icon name="clock" size="16" />Now</span>
-                    </a>
-                    <a href="{% url 'intake:sourcebox' %}"
-                       class="
-                           flex items-center justify-between
-                           px-3 py-[7px] rounded-brand text-sm
-                           text-cream/75 no-underline
-                           hover:bg-white/10 hover:text-cream
-                           transition-colors duration-150
-                           {% if nav_section == 'sourcebox' %}bg-white/10 border-l-2 border-terracotta text-cream{% endif %}
-                       ">
-                        <span class="flex items-center gap-2"><c-icon name="magnifying-glass" size="16" />Sourcebox</span>
-                        {% if sidebar_intake_pending %}
-                            <c-badge color="terracotta" outline>{{ sidebar_intake_pending }}</c-badge>
-                        {% endif %}
-                    </a>
-                </div>
+            <nav class="flex-1 overflow-y-auto px-3 space-y-2 py-1">
+                {# ── Zone 1: Make Stuff ── #}
+                <c-nav_group key="make" label="Make Stuff" color="terracotta"
+                    {% if sidebar_groups.make %}badge="{{ sidebar_groups.make }}"{% endif %}
+                >
+                    <c-nav_item href="{% url 'editor:essay-list' %}" icon="file-text"
+                        {% if sidebar_drafts.essays %}badge="{{ sidebar_drafts.essays }}"{% endif %}
+                        {% if content_type == 'essay' %}active active_color="terracotta"{% endif %}
+                    >
+                        Essays
+                    </c-nav_item>
+                    <c-nav_item href="{% url 'editor:field-note-list' %}" icon="note-pencil"
+                        {% if sidebar_drafts.field_notes %}badge="{{ sidebar_drafts.field_notes }}"{% endif %}
+                        {% if content_type == 'field_note' %}active active_color="terracotta"{% endif %}
+                    >
+                        Field Notes
+                    </c-nav_item>
+                    <c-nav_item href="{% url 'editor:now-edit' %}" icon="clock"
+                        {% if content_type == 'now' %}active active_color="terracotta"{% endif %}
+                    >
+                        Now
+                    </c-nav_item>
+                </c-nav_group>
 
-                {# Zone 2: Compose #}
-                <div>
-                    <c-section_label color="gold" class="px-2 mb-2" size="text-[13px]">Compose</c-section_label>
-                    <a href="{% url 'editor:compose-list' %}"
-                       class="
-                           flex items-center justify-between
-                           px-3 py-[7px] rounded-brand text-sm
-                           text-cream/75 no-underline
-                           hover:bg-white/10 hover:text-cream
-                           transition-colors duration-150
-                           {% if nav_section == 'compose' %}bg-white/10 border-l-2 border-gold text-cream{% endif %}
-                       ">
-                        <span class="flex items-center gap-2"><c-icon name="palette" size="16" />Pages</span>
-                        {% if sidebar_compose_count %}
-                            <c-badge color="ink" outline>{{ sidebar_compose_count }}</c-badge>
-                        {% endif %}
-                    </a>
-                </div>
+                {# ── Zone 2: Collect Stuff ── #}
+                <c-nav_group key="collect" label="Collect Stuff" color="gold"
+                    {% if sidebar_groups.collect %}badge="{{ sidebar_groups.collect }}" badge_color="terracotta"{% endif %}
+                >
+                    <c-nav_item href="{% url 'editor:shelf-list' %}" icon="book-open"
+                        {% if content_type == 'shelf' %}active active_color="gold"{% endif %}
+                    >
+                        Shelf
+                    </c-nav_item>
+                    <c-nav_item href="{% url 'editor:toolkit-list' %}" icon="wrench"
+                        {% if content_type == 'toolkit' %}active active_color="gold"{% endif %}
+                    >
+                        Toolkit
+                    </c-nav_item>
+                    <c-nav_item href="{% url 'intake:sourcebox' %}" icon="magnifying-glass"
+                        {% if sidebar_intake_pending %}badge="{{ sidebar_intake_pending }}" badge_color="terracotta"{% endif %}
+                        {% if nav_section == 'sourcebox' %}active active_color="gold"{% endif %}
+                    >
+                        Sourcebox
+                    </c-nav_item>
+                </c-nav_group>
 
-                {# Zone 3: Settings #}
-                <div>
-                    <c-section_label color="teal" class="px-2 mb-2">Settings</c-section_label>
-                    <a href="{% url 'editor:tokens-edit' %}"
-                       class="
-                           flex items-center justify-between
-                           px-3 py-[7px] rounded-brand text-sm
-                           text-cream/75 no-underline
-                           hover:bg-white/10 hover:text-cream
-                           transition-colors duration-150
-                           {% if nav_section == 'tokens' %}bg-white/10 border-l-2 border-teal text-cream{% endif %}
-                       ">
-                        <span class="flex items-center gap-2"><c-icon name="gears" size="16" />Design Tokens</span>
-                    </a>
-                    <a href="{% url 'editor:nav-editor' %}"
-                       class="
-                           flex items-center justify-between
-                           px-3 py-[7px] rounded-brand text-sm
-                           text-cream/75 no-underline
-                           hover:bg-white/10 hover:text-cream
-                           transition-colors duration-150
-                           {% if nav_section == 'nav' %}bg-white/10 border-l-2 border-teal text-cream{% endif %}
-                       ">
-                        <span class="flex items-center gap-2"><c-icon name="compass" size="16" />Navigation</span>
-                    </a>
-                    <a href="{% url 'editor:site-settings' %}"
-                       class="
-                           flex items-center justify-between
-                           px-3 py-[7px] rounded-brand text-sm
-                           text-cream/75 no-underline
-                           hover:bg-white/10 hover:text-cream
-                           transition-colors duration-150
-                           {% if nav_section == 'site_settings' %}bg-white/10 border-l-2 border-teal text-cream{% endif %}
-                       ">
-                        <span class="flex items-center gap-2"><c-icon name="info" size="16" />Site</span>
-                    </a>
-                    <a href="{% url 'editor:publish-log' %}"
-                       class="
-                           flex items-center justify-between
-                           px-3 py-[7px] rounded-brand text-sm
-                           text-cream/75 no-underline
-                           hover:bg-white/10 hover:text-cream
-                           transition-colors duration-150
-                           {% if nav_section == 'publish_log' %}bg-white/10 border-l-2 border-teal text-cream{% endif %}
-                       ">
-                        <span class="flex items-center gap-2"><c-icon name="clock" size="16" />Publish Log</span>
-                    </a>
-                </div>
+                {# ── Zone 3: Build Stuff ── #}
+                <c-nav_group key="build" label="Build Stuff" color="green"
+                    {% if sidebar_groups.build %}badge="{{ sidebar_groups.build }}"{% endif %}
+                >
+                    <c-nav_item href="{% url 'editor:project-list' %}" icon="briefcase"
+                        {% if sidebar_drafts.projects %}badge="{{ sidebar_drafts.projects }}"{% endif %}
+                        {% if content_type == 'project' %}active active_color="green"{% endif %}
+                    >
+                        Projects
+                    </c-nav_item>
+                    <c-nav_item href="{% url 'editor:video-list' %}" icon="video-camera"
+                        {% if sidebar_drafts.videos %}badge="{{ sidebar_drafts.videos }}"{% endif %}
+                        {% if content_type == 'video' %}active active_color="green"{% endif %}
+                    >
+                        Video
+                    </c-nav_item>
+                    <c-nav_item href="{% url 'editor:production-dashboard' %}" icon="gears" nested
+                        {% if content_type == 'production' %}active active_color="green"{% endif %}
+                    >
+                        Production
+                    </c-nav_item>
+                </c-nav_group>
+
+                {# ── Zone 4: Design Stuff ── #}
+                <c-nav_group key="design" label="Design Stuff" color="teal"
+                    {% if sidebar_groups.design %}badge="{{ sidebar_groups.design }}"{% endif %}
+                >
+                    <c-nav_item href="{% url 'editor:compose-list' %}" icon="palette"
+                        {% if sidebar_compose_count %}badge="{{ sidebar_compose_count }}" badge_color="ink"{% endif %}
+                        {% if nav_section == 'compose' %}active active_color="teal"{% endif %}
+                    >
+                        Pages
+                    </c-nav_item>
+                    <c-nav_item href="{% url 'editor:tokens-edit' %}" icon="gears"
+                        {% if nav_section == 'tokens' %}active active_color="teal"{% endif %}
+                    >
+                        Tokens
+                    </c-nav_item>
+                    <c-nav_item href="{% url 'editor:nav-editor' %}" icon="compass"
+                        {% if nav_section == 'nav' %}active active_color="teal"{% endif %}
+                    >
+                        Navigation
+                    </c-nav_item>
+                </c-nav_group>
+
+                {# ── Zone 5: Site ── #}
+                <c-nav_group key="site" label="Site">
+                    <c-nav_item href="{% url 'editor:site-settings' %}" icon="info"
+                        {% if nav_section == 'site_settings' %}active{% endif %}
+                    >
+                        Settings
+                    </c-nav_item>
+                    <c-nav_item href="{% url 'editor:publish-log' %}" icon="history"
+                        {% if nav_section == 'publish_log' %}active{% endif %}
+                    >
+                        Publish Log
+                    </c-nav_item>
+                </c-nav_group>
             </nav>
 
             <div class="px-5 py-4 border-t border-white/10 mt-auto">

@@ -1,0 +1,20 @@
+<div class="flex items-center justify-between gap-4 mb-6 {{ class }}">
+  <div class="flex items-center gap-3">
+    {% if back_url %}
+      <c-btn variant="ghost" href="{{ back_url }}">
+        <c-icon name="chevron-right" size="14" color="currentColor" class="rotate-180" /> Back
+      </c-btn>
+    {% endif %}
+    {% if content_type %}
+      <c-badge
+        color="{% if content_color %}{{ content_color }}{% else %}ink{% endif %}"
+      >
+        {{ content_type }}
+      </c-badge>
+    {% endif %}
+    {{ left }}
+  </div>
+  <div class="flex items-center gap-3">
+    {{ slot }}
+  </div>
+</div>

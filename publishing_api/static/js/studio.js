@@ -4,7 +4,7 @@
  * Systems:
  *   1. Markdown Toolbar: formatting buttons for the body textarea
  *   2. Autosave: debounced field-level saves
- *   3. Character counters, Tab indent, Cmd+S
+ *   3. Character counters, Tab indent, global shortcuts (Cmd+S, Cmd+Shift+P)
  *   4. Structured list widget: add/remove rows via <template> cloning
  */
 
@@ -239,14 +239,24 @@
         });
     }
 
-    // ─── 5. Cmd/Ctrl+S to Save ──────────────────────────────────────────
+    // ─── 5. Global Keyboard Shortcuts ────────────────────────────────────
 
-    function initSaveShortcut() {
+    function initGlobalShortcuts() {
         document.addEventListener('keydown', function (e) {
-            if ((e.metaKey || e.ctrlKey) && e.key === 's') {
+            if (!(e.metaKey || e.ctrlKey)) return;
+
+            // Cmd+S: save via form submit
+            if (e.key === 's' && !e.shiftKey) {
                 e.preventDefault();
                 var form = document.getElementById('content-form');
                 if (form) form.submit();
+            }
+
+            // Cmd+Shift+P: publish (triggers the HTMX publish button)
+            if (e.key === 'p' && e.shiftKey) {
+                e.preventDefault();
+                var publishBtn = document.querySelector('[hx-post*="publish"]');
+                if (publishBtn) publishBtn.click();
             }
         });
     }
@@ -330,7 +340,7 @@
         initAutosave();
         initCharCounters();
         initTabIndent();
-        initSaveShortcut();
+        initGlobalShortcuts();
         initStructuredLists();
     });
 })();

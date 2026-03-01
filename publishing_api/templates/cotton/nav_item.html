@@ -1,0 +1,28 @@
+<a
+  href="{{ href }}"
+  class="
+    flex items-center justify-between
+    px-3 py-[7px] rounded-brand text-sm
+    text-cream/75 no-underline
+    hover:bg-white/10 hover:text-cream
+    transition-colors duration-150
+    {% if active %}bg-white/10 border-l-2
+      {% if active_color == 'terracotta' %}border-terracotta
+      {% elif active_color == 'teal' %}border-teal
+      {% elif active_color == 'gold' %}border-gold
+      {% elif active_color == 'green' %}border-success
+      {% else %}border-terracotta{% endif %}
+      text-cream
+    {% endif %}
+    {% if nested %}pl-7{% endif %}
+    {{ class }}
+  "
+>
+  <span class="flex items-center gap-2">
+    {% if icon %}<c-icon name="{{ icon }}" size="{{ icon_size|default:'16' }}" />{% endif %}
+    {{ slot }}
+  </span>
+  {% if badge %}
+    <c-badge color="{{ badge_color|default:'gold' }}" outline>{{ badge }}</c-badge>
+  {% endif %}
+</a>

@@ -1,0 +1,19 @@
+<div class="flex flex-col items-center gap-3 py-12 text-center {{ class }}">
+  {% if icon %}
+    <c-icon
+      name="{{ icon }}"
+      size="{{ icon_size|default:'40' }}"
+      color="{{ color|default:'currentColor' }}"
+      class="opacity-25"
+    />
+  {% endif %}
+  {% if title %}
+    <p class="font-title text-[18px] text-ink m-0">{{ title }}</p>
+  {% endif %}
+  {% if description %}
+    <p class="font-mono text-[12px] tracking-wide text-ink-muted max-w-sm m-0">
+      {{ description }}
+    </p>
+  {% endif %}
+  {{ slot }}
+</div>

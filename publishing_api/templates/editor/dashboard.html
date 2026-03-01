@@ -4,160 +4,207 @@
 
 {% block content %}
 {# ------------------------------------------------------------------ #}
-{#  Create invitation: full-width tinted card                          #}
+{#  Continue Editing: most recently updated draft (if any)             #}
+{# ------------------------------------------------------------------ #}
+{% if continue_editing %}
+<section class="mb-6">
+  <a
+    href="{{ continue_editing.url }}"
+    class="
+      flex items-center gap-4 px-5 py-4
+      bg-cream rounded-brand border border-border
+      border-l-[3px]
+      no-underline text-ink
+      hover:shadow-warm-sm hover:border-border/80
+      transition-all duration-200
+    "
+    style="border-left-color: {{ continue_editing.color }}"
+  >
+    <div class="
+      w-10 h-10 rounded-brand flex items-center justify-center
+      bg-ink/5
+    ">
+      <c-icon
+        name="{{ continue_editing.icon }}"
+        size="20"
+        color="{{ continue_editing.color }}"
+      />
+    </div>
+    <div class="flex-1 min-w-0">
+      <span class="font-mono text-[10px] uppercase tracking-widest text-ink-muted block">
+        Continue editing &middot; {{ continue_editing.type }}
+      </span>
+      <span class="font-title text-[18px] font-bold leading-tight block truncate">
+        {{ continue_editing.title }}
+      </span>
+    </div>
+    <span class="font-mono text-[10px] tracking-wide text-ink-muted hidden sm:block">
+      {{ continue_editing.date|date:"M j, g:ia" }}
+    </span>
+    <c-icon name="chevron-right" size="16" color="currentColor" class="text-ink-muted" />
+  </a>
+</section>
+{% endif %}
+
+{# ------------------------------------------------------------------ #}
+{#  Quick Create: action buttons for new content                       #}
 {# ------------------------------------------------------------------ #}
 <section class="mb-8">
-  <c-card variant="tint-terracotta">
-    <c-section_label color="terracotta">What are you making?</c-section_label>
-    <div class="flex flex-wrap items-center gap-3 mt-4">
-      <c-btn variant="primary" href="{% url 'editor:essay-create' %}">
-        <c-icon name="file-text" size="16" color="currentColor" /> New Essay
-      </c-btn>
-      <c-btn variant="secondary" href="{% url 'editor:field-note-create' %}">
-        <c-icon name="note-pencil" size="16" /> Field Note
-      </c-btn>
-      <c-btn variant="secondary" href="{% url 'editor:shelf-create' %}">
-        <c-icon name="book-open" size="16" /> Shelf Entry
-      </c-btn>
-      <c-btn variant="secondary" href="{% url 'editor:project-create' %}">
-        <c-icon name="briefcase" size="16" /> Project
-      </c-btn>
-      <c-btn variant="ghost" href="{% url 'editor:now-edit' %}">
-        <c-icon name="clock" size="16" /> Now Page
-      </c-btn>
-    </div>
-  </c-card>
+  <div class="flex flex-wrap items-center gap-3">
+    <c-btn variant="primary" href="{% url 'editor:essay-create' %}">
+      <c-icon name="file-text" size="16" color="currentColor" /> New Essay
+    </c-btn>
+    <c-btn variant="secondary" href="{% url 'editor:field-note-create' %}">
+      <c-icon name="note-pencil" size="16" /> Field Note
+    </c-btn>
+    <c-btn variant="secondary" href="{% url 'editor:shelf-create' %}">
+      <c-icon name="book-open" size="16" /> Shelf Entry
+    </c-btn>
+    <c-btn variant="secondary" href="{% url 'editor:project-create' %}">
+      <c-icon name="briefcase" size="16" /> Project
+    </c-btn>
+    <c-btn variant="ghost" href="{% url 'editor:now-edit' %}">
+      <c-icon name="clock" size="16" /> Now Page
+    </c-btn>
+  </div>
 </section>
 
 {# ------------------------------------------------------------------ #}
-{#  Two-column grid: active work + workbench                           #}
+{#  Stats Grid: content type counts with draft badges                  #}
+{# ------------------------------------------------------------------ #}
+<section class="mb-8">
+  <c-section_label color="gold">Workbench</c-section_label>
+  <div class="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-3 mt-3">
+    <c-stat_card
+      href="{% url 'editor:essay-list' %}"
+      icon="file-text" color="terracotta"
+      label="Essays" value="{{ totals.essays }}"
+      {% if draft_counts.essays %}badge="{{ draft_counts.essays }}d"{% endif %}
+    />
+    <c-stat_card
+      href="{% url 'editor:field-note-list' %}"
+      icon="note-pencil" color="teal"
+      label="Field Notes" value="{{ totals.field_notes }}"
+      {% if draft_counts.field_notes %}badge="{{ draft_counts.field_notes }}d"{% endif %}
+    />
+    <c-stat_card
+      href="{% url 'editor:shelf-list' %}"
+      icon="book-open" color="gold"
+      label="Shelf" value="{{ totals.shelf }}"
+    />
+    <c-stat_card
+      href="{% url 'editor:project-list' %}"
+      icon="briefcase" color="green"
+      label="Projects" value="{{ totals.projects }}"
+      {% if draft_counts.projects %}badge="{{ draft_counts.projects }}d"{% endif %}
+    />
+    <c-stat_card
+      href="{% url 'editor:toolkit-list' %}"
+      icon="wrench" color="terracotta"
+      label="Toolkit" value="{{ totals.toolkit }}"
+    />
+    <c-stat_card
+      href="{% url 'editor:video-list' %}"
+      icon="video-camera" color="green"
+      label="Videos" value="{{ totals.videos }}"
+      {% if draft_counts.videos %}badge="{{ draft_counts.videos }}d"{% endif %}
+    />
+  </div>
+</section>
+
+{# ------------------------------------------------------------------ #}
+{#  Two-column layout: Pipeline + Activity / Publishes                 #}
 {# ------------------------------------------------------------------ #}
 <div class="grid grid-cols-1 lg:grid-cols-[1fr_340px] gap-6 mb-8">
 
-  {# ---- Left: Active Work (drafts in progress) ---- #}
-  <section>
-    <c-section_label color="terracotta">Active Work</c-section_label>
-    <div class="mt-3 space-y-2">
-      {% for essay in essays %}
-        {% if essay.draft %}
-        <c-card hover href="{% url 'editor:essay-edit' slug=essay.slug %}">
-          <div class="flex items-center gap-3">
-            <c-icon name="file-text" size="20" color="#B45A2D" />
-            <span class="font-body text-[15px] flex-1">{{ essay.title }}</span>
-            <c-stage_pill stage="{{ essay.stage }}" />
-            <span class="font-mono text-[10px] tracking-wide text-ink-muted">
-              {{ essay.updated_at|date:"M j" }}
+  {# ---- Left column ---- #}
+  <div class="space-y-8">
+
+    {# Essay Pipeline: proportional stage bar #}
+    <section>
+      <c-section_label color="terracotta">Essay Pipeline</c-section_label>
+      {% with total=pipeline.research|add:pipeline.drafting|add:pipeline.production|add:pipeline.published %}
+      <div class="mt-3 flex items-stretch h-9 bg-ink/5 rounded-brand overflow-hidden">
+        {% if total %}
+          {% if pipeline.research %}
+          <div class="flex items-center justify-center px-3 bg-ink/10"
+               style="flex: {{ pipeline.research }}">
+            <span class="font-mono text-[10px] tracking-wide text-ink-muted whitespace-nowrap">
+              {{ pipeline.research }} research
             </span>
           </div>
-        </c-card>
-        {% endif %}
-      {% endfor %}
-
-      {% for note in field_notes %}
-        {% if note.draft %}
-        <c-card hover href="{% url 'editor:field-note-edit' slug=note.slug %}">
-          <div class="flex items-center gap-3">
-            <c-icon name="note-pencil" size="20" color="#2D5F6B" />
-            <span class="font-body text-[15px] flex-1">{{ note.title }}</span>
-            <span class="font-mono text-[10px] tracking-wide text-ink-muted">
-              {{ note.updated_at|date:"M j" }}
+          {% endif %}
+          {% if pipeline.drafting %}
+          <div class="flex items-center justify-center px-3 bg-terracotta/15"
+               style="flex: {{ pipeline.drafting }}">
+            <span class="font-mono text-[10px] tracking-wide text-terracotta whitespace-nowrap">
+              {{ pipeline.drafting }} drafting
             </span>
           </div>
-        </c-card>
-        {% endif %}
-      {% endfor %}
-
-      {% for project in projects %}
-        {% if project.draft %}
-        <c-card hover href="{% url 'editor:project-edit' slug=project.slug %}">
-          <div class="flex items-center gap-3">
-            <c-icon name="briefcase" size="20" color="#C49A4A" />
-            <span class="font-body text-[15px] flex-1">{{ project.title }}</span>
-            <span class="font-mono text-[10px] tracking-wide text-ink-muted">
-              {{ project.updated_at|date:"M j" }}
+          {% endif %}
+          {% if pipeline.production %}
+          <div class="flex items-center justify-center px-3 bg-gold/15"
+               style="flex: {{ pipeline.production }}">
+            <span class="font-mono text-[10px] tracking-wide text-gold whitespace-nowrap">
+              {{ pipeline.production }} production
             </span>
           </div>
-        </c-card>
+          {% endif %}
+          {% if pipeline.published %}
+          <div class="flex items-center justify-center px-3 bg-success/15"
+               style="flex: {{ pipeline.published }}">
+            <span class="font-mono text-[10px] tracking-wide text-success whitespace-nowrap">
+              {{ pipeline.published }} published
+            </span>
+          </div>
+          {% endif %}
+        {% else %}
+          <div class="flex-1 flex items-center justify-center">
+            <span class="font-mono text-[10px] tracking-wide text-ink-muted">
+              No essays yet
+            </span>
+          </div>
         {% endif %}
-      {% endfor %}
-
-      {% if not has_drafts %}
-      <div class="flex flex-col items-center gap-3 py-10 text-center">
-        <c-icon name="file-text" size="32" color="#B45A2D" class="opacity-30" />
-        <p class="font-title text-[18px] text-ink m-0">All clear</p>
-        <p class="font-mono text-[12px] tracking-wide text-ink-muted max-w-sm m-0">
-          No drafts in progress. Start something new with the buttons above.
-        </p>
       </div>
-      {% endif %}
-    </div>
-  </section>
+      {% endwith %}
+    </section>
 
-  {# ---- Right: Workbench ---- #}
+    {# Activity Timeline #}
+    <section>
+      <c-section_label color="teal">Recent Activity</c-section_label>
+      <div class="mt-3 space-y-2">
+        {% for item in activity %}
+        <c-content_row
+          href="{{ item.url }}"
+          icon="{{ item.icon }}"
+          color="{{ item.color }}"
+          title="{{ item.title }}"
+          date="{{ item.date|date:'M j' }}"
+        >
+          <c-badge
+            color="{% if item.draft %}gold{% else %}success{% endif %}"
+            {% if not item.draft %}outline{% endif %}
+          >
+            {{ item.type }}
+          </c-badge>
+        </c-content_row>
+        {% empty %}
+        <c-empty_state
+          icon="file-text"
+          color="#B45A2D"
+          title="No activity yet"
+          description="Create your first piece of content to see activity here."
+        />
+        {% endfor %}
+      </div>
+    </section>
+
+  </div>
+
+  {# ---- Right column ---- #}
   <aside class="space-y-6">
 
-    {# Content overview #}
-    <div>
-      <c-section_label color="gold">Make Stuff</c-section_label>
-      <div class="mt-3 space-y-1.5">
-        <a href="{% url 'editor:essay-list' %}"
-           class="flex items-center gap-3 px-4 py-2.5 bg-cream rounded-brand border border-border
-                  hover:shadow-warm-sm transition-all duration-200 no-underline text-ink">
-          <c-icon name="file-text" size="16" color="#B45A2D" />
-          <span class="font-mono text-[12px] tracking-wide flex-1">Essays</span>
-          <span class="font-mono text-[11px] tracking-wide text-ink-muted">
-            {{ essays|length }}
-          </span>
-          {% if draft_counts.essays %}
-          <c-badge color="gold" outline>{{ draft_counts.essays }}d</c-badge>
-          {% endif %}
-        </a>
-        <a href="{% url 'editor:field-note-list' %}"
-           class="flex items-center gap-3 px-4 py-2.5 bg-cream rounded-brand border border-border
-                  hover:shadow-warm-sm transition-all duration-200 no-underline text-ink">
-          <c-icon name="note-pencil" size="16" color="#2D5F6B" />
-          <span class="font-mono text-[12px] tracking-wide flex-1">Field Notes</span>
-          <span class="font-mono text-[11px] tracking-wide text-ink-muted">
-            {{ field_notes|length }}
-          </span>
-          {% if draft_counts.field_notes %}
-          <c-badge color="gold" outline>{{ draft_counts.field_notes }}d</c-badge>
-          {% endif %}
-        </a>
-        <a href="{% url 'editor:shelf-list' %}"
-           class="flex items-center gap-3 px-4 py-2.5 bg-cream rounded-brand border border-border
-                  hover:shadow-warm-sm transition-all duration-200 no-underline text-ink">
-          <c-icon name="book-open" size="16" color="#C49A4A" />
-          <span class="font-mono text-[12px] tracking-wide flex-1">Shelf</span>
-          <span class="font-mono text-[11px] tracking-wide text-ink-muted">
-            {{ shelf_entries|length }}
-          </span>
-        </a>
-        <a href="{% url 'editor:project-list' %}"
-           class="flex items-center gap-3 px-4 py-2.5 bg-cream rounded-brand border border-border
-                  hover:shadow-warm-sm transition-all duration-200 no-underline text-ink">
-          <c-icon name="briefcase" size="16" color="#C49A4A" />
-          <span class="font-mono text-[12px] tracking-wide flex-1">Projects</span>
-          <span class="font-mono text-[11px] tracking-wide text-ink-muted">
-            {{ projects|length }}
-          </span>
-          {% if draft_counts.projects %}
-          <c-badge color="gold" outline>{{ draft_counts.projects }}d</c-badge>
-          {% endif %}
-        </a>
-        <a href="{% url 'editor:toolkit-list' %}"
-           class="flex items-center gap-3 px-4 py-2.5 bg-cream rounded-brand border border-border
-                  hover:shadow-warm-sm transition-all duration-200 no-underline text-ink">
-          <c-icon name="wrench" size="16" color="#B45A2D" />
-          <span class="font-mono text-[12px] tracking-wide flex-1">Toolkit</span>
-          <span class="font-mono text-[11px] tracking-wide text-ink-muted">
-            {{ toolkit_entries|length }}
-          </span>
-        </a>
-      </div>
-    </div>
-
-    {# Recent publishes #}
+    {# Recent Publishes #}
     <div>
       <c-section_label color="teal">Recent Publishes</c-section_label>
       <div class="mt-3 space-y-1.5">

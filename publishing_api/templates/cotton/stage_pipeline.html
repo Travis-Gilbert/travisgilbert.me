@@ -1,0 +1,40 @@
+<div x-data="{
+       stages: {{ stages|default:'[]' }},
+       current: '{{ current|default:'' }}',
+       color: '{{ color|default:'#B45A2D' }}',
+       get currentIdx() { return this.stages.indexOf(this.current); }
+     }"
+     class="flex items-center gap-0"
+     x-show="stages.length > 0"
+>
+  <template x-for="(stage, i) in stages" :key="stage">
+    <div class="flex items-center">
+      {# Connector line (before every dot except the first) #}
+      <div x-show="i > 0"
+           class="h-px w-4 transition-colors duration-200"
+           :style="i <= currentIdx
+             ? 'background-color:' + color
+             : 'background-color: var(--color-border)'"
+      ></div>
+
+      {# Stage dot + label group #}
+      <div class="flex flex-col items-center relative group">
+        {# Dot #}
+        <div class="w-2.5 h-2.5 rounded-full border-2 transition-all duration-200"
+             :style="i < currentIdx
+               ? 'background-color:' + color + '; border-color:' + color
+               : i === currentIdx
+                 ? 'background-color:' + color + '; border-color:' + color + '; box-shadow: 0 0 0 3px ' + color + '22'
+                 : 'background-color: transparent; border-color: var(--color-border)'"
+        ></div>
+
+        {# Hover label #}
+        <span class="absolute top-full mt-1.5 font-mono text-[9px] uppercase tracking-widest whitespace-nowrap
+                      opacity-0 group-hover:opacity-100 transition-opacity duration-150 pointer-events-none"
+              :class="i <= currentIdx ? 'text-ink' : 'text-ink-muted'"
+              x-text="stage"
+        ></span>
+      </div>
+    </div>
+  </template>
+</div>

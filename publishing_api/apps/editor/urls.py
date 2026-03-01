@@ -8,8 +8,9 @@ urlpatterns = [
     # Dashboard
     path("", views.DashboardView.as_view(), name="dashboard"),
 
-    # Auto-save (HTMX)
+    # HTMX utility endpoints
     path("auto-save/", views.AutoSaveView.as_view(), name="auto-save"),
+    path("preview-markdown/", views.MarkdownPreviewView.as_view(), name="preview-markdown"),
 
     # -----------------------------------------------------------------------
     # Content types
