@@ -134,9 +134,6 @@ export default async function EssayDetailPage({ params }: Props) {
   // Final pipeline step: footnote markers (hidden on screen, shown in print)
   const html = injectFootnoteMarkers(calloutHtml);
 
-  // Only pass fallback connections (no text mention) to margin dots
-  const fallbackConnections = positionedConnections.filter((c) => !c.mentionFound);
-
   return (
     <>
     <ArticleJsonLd
@@ -192,7 +189,8 @@ export default async function EssayDetailPage({ params }: Props) {
         className="prose prose-essays mt-8"
         contentType="essays"
         articleSlug={slug}
-        positionedConnections={fallbackConnections}
+        essayTitle={entry.data.title}
+        positionedConnections={positionedConnections}
         annotations={entry.data.annotations ?? []}
       />
 

@@ -30,6 +30,8 @@ interface AnnotatedArticleProps {
   className?: string;
   contentType: ContentType;
   articleSlug: string;
+  /** Essay title forwarded to ConnectionDots for the popup graph header */
+  essayTitle?: string;
   positionedConnections?: PositionedConnection[];
   /** Frontmatter annotations for scroll-reveal margin notes */
   annotations?: Annotation[];
@@ -40,6 +42,7 @@ export default function AnnotatedArticle({
   className = 'prose',
   contentType,
   articleSlug,
+  essayTitle,
   positionedConnections,
   annotations = [],
 }: AnnotatedArticleProps) {
@@ -52,6 +55,7 @@ export default function AnnotatedArticle({
         className={className}
         contentType={contentType}
         articleSlug={articleSlug}
+        essayTitle={essayTitle}
         positionedConnections={positionedConnections}
         externalProseRef={proseRef}
       />

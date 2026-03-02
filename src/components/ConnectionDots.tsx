@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback, type RefObject } from 'react';
 import { useRouter } from 'next/navigation';
 import { measureParagraphOffsets } from '@/lib/paragraphPositions';
 import type { PositionedConnection } from '@/lib/connectionEngine';
+import ConnectionGraphPopup from '@/components/ConnectionGraphPopup';
 
 /** URL prefix per connection type (internal site navigation) */
 const TYPE_URL: Record<string, string> = {
@@ -38,15 +39,23 @@ function researcherHref(type: string, slug: string): string {
 interface ConnectionDotsProps {
   connections: PositionedConnection[];
   proseRef: RefObject<HTMLDivElement | null>;
+  /** Essay title for the graph popup header */
+  essayTitle?: string;
+  /** Essay slug for the graph popup center node */
+  essaySlug?: string;
 }
 
 export default function ConnectionDots({
   connections,
   proseRef,
+  essayTitle = '',
+  essaySlug = '',
 }: ConnectionDotsProps) {
   const router = useRouter();
   const [offsets, setOffsets] = useState<Map<number, number>>(new Map());
   const [hoveredId, setHoveredId] = useState<string | null>(null);
+  const [showGraph, setShowGraph] = useState(false);
+  const [graphTriggerHovered, setGraphTriggerHovered] = useState(false);
 
   const measure = useCallback(() => {
     if (!proseRef.current) return;
@@ -65,11 +74,16 @@ export default function ConnectionDots({
     return () => observer.disconnect();
   }, [measure]);
 
-  // Only render fallback connections (mentionFound === false)
-  const fallback = connections.filter((c) => !c.mentionFound);
-  if (fallback.length === 0) return null;
+  // Guard: nothing to show
+  if (connections.length === 0) return null;
 
-  // Group by paragraph index for stacking
+  // Only render fallback connections (mentionFound === false) as paragraph dots
+  const fallback = connections.filter((c) => !c.mentionFound);
+
+  // All connection objects for the popup graph (includes inline-mentioned ones)
+  const allConnectionData = connections.map((pc) => pc.connection);
+
+  // Group fallback by paragraph index for stacking
   const byParagraph = new Map<number, PositionedConnection[]>();
   for (const pc of fallback) {
     const group = byParagraph.get(pc.paragraphIndex) || [];
@@ -83,131 +97,231 @@ export default function ConnectionDots({
   }
 
   return (
-    <div
-      className="hidden xl:block absolute pointer-events-none"
-      style={{
-        top: 0,
-        right: '100%',
-        width: 48,
-        height: '100%',
-      }}
-    >
-      {Array.from(byParagraph.entries()).map(([paraIdx, group]) => {
-        const yOffset = offsets.get(paraIdx);
-        if (yOffset === undefined) return null;
+    <>
+      <div
+        className="hidden xl:block absolute pointer-events-none"
+        style={{
+          top: 0,
+          right: '100%',
+          width: 48,
+          height: '100%',
+        }}
+      >
+        {/*
+         * Graph trigger: soft-square terracotta dot, fixed at the top of the
+         * margin. Visually distinct from paragraph dots (rounded-square vs
+         * circle, terracotta vs connection color). Opens ConnectionGraphPopup.
+         */}
+        <div
+          className="absolute pointer-events-none"
+          style={{ top: 8, right: 14 }}
+        >
+          <button
+            className="pointer-events-auto transition-all duration-200"
+            style={{
+              width: 10,
+              height: 10,
+              borderRadius: 2,
+              backgroundColor: '#B45A2D',
+              opacity: graphTriggerHovered ? 1 : 0.65,
+              transform: graphTriggerHovered ? 'scale(1.4)' : 'scale(1)',
+              boxShadow: graphTriggerHovered ? '0 0 0 2px #B45A2D40' : 'none',
+              border: 'none',
+              padding: 0,
+              cursor: 'pointer',
+            }}
+            onClick={() => setShowGraph(true)}
+            onMouseEnter={() => setGraphTriggerHovered(true)}
+            onMouseLeave={() => setGraphTriggerHovered(false)}
+            onFocus={() => setGraphTriggerHovered(true)}
+            onBlur={() => setGraphTriggerHovered(false)}
+            aria-label={`Open connection map: ${allConnectionData.length} connection${allConnectionData.length !== 1 ? 's' : ''}`}
+          />
 
-        return group.map((pc, i) => {
-          const isHovered = hoveredId === pc.connection.id;
-          const href = researcherHref(pc.connection.type, pc.connection.slug);
-
-          return (
-            <div
-              key={pc.connection.id}
-              className="absolute pointer-events-none"
-              style={{ top: yOffset + i * 12, right: 16 }}
+          {/* Hover card for graph trigger (same leftward-expansion pattern as dot cards) */}
+          <div
+            className="absolute transition-all duration-200"
+            style={{
+              top: -4,
+              right: 0,
+              width: 160,
+              padding: graphTriggerHovered ? '6px 8px' : '0 8px',
+              borderRight: '2px solid #B45A2D',
+              backgroundColor: graphTriggerHovered ? 'var(--color-paper)' : 'transparent',
+              boxShadow: graphTriggerHovered ? 'var(--shadow-warm)' : 'none',
+              opacity: graphTriggerHovered ? 1 : 0,
+              transform: graphTriggerHovered ? 'translateX(0)' : 'translateX(4px)',
+              overflow: 'hidden',
+              maxHeight: graphTriggerHovered ? 100 : 0,
+              borderRadius: '4px 0 0 4px',
+              pointerEvents: graphTriggerHovered ? 'auto' : 'none',
+            }}
+            onMouseEnter={() => setGraphTriggerHovered(true)}
+            onMouseLeave={() => setGraphTriggerHovered(false)}
+          >
+            <span
+              className="block font-mono uppercase tracking-[0.08em]"
+              style={{ fontSize: 9, color: '#B45A2D', opacity: 0.7 }}
             >
-              {/* Dot button: navigates to the connected content internally */}
-              <button
-                className="pointer-events-auto transition-all duration-200"
-                style={{
-                  width: 8,
-                  height: 8,
-                  borderRadius: '50%',
-                  backgroundColor: pc.connection.color,
-                  opacity: isHovered ? 1 : 0.7,
-                  transform: isHovered ? 'scale(1.5)' : 'scale(1)',
-                  boxShadow: isHovered
-                    ? `0 0 0 2px ${pc.connection.color}40`
-                    : 'none',
-                  border: 'none',
-                  padding: 0,
-                  cursor: 'pointer',
-                }}
-                onClick={() => handleDotClick(pc)}
-                onMouseEnter={() => setHoveredId(pc.connection.id)}
-                onMouseLeave={() => setHoveredId(null)}
-                onFocus={() => setHoveredId(pc.connection.id)}
-                onBlur={() => setHoveredId(null)}
-                aria-label={`Connected: ${pc.connection.title}`}
-              />
+              Connection Map
+            </span>
+            <span
+              className="block leading-tight mt-0.5"
+              style={{
+                fontFamily: 'var(--font-annotation)',
+                fontSize: 13,
+                color: '#B45A2D',
+              }}
+            >
+              {allConnectionData.length} connection{allConnectionData.length !== 1 ? 's' : ''}
+            </span>
+            <button
+              className="block mt-1.5 font-mono uppercase tracking-[0.08em] transition-opacity duration-150 hover:opacity-100 pointer-events-auto"
+              style={{
+                fontSize: 8,
+                color: '#B45A2D',
+                opacity: 0.55,
+                background: 'none',
+                border: 'none',
+                padding: 0,
+                cursor: 'pointer',
+                textAlign: 'left',
+              }}
+              onClick={() => setShowGraph(true)}
+            >
+              Open map &rarr;
+            </button>
+          </div>
+        </div>
 
-              {/*
-               * Hover card: always expands LEFTWARD into the margin.
-               *
-               * Positioning: right: 0 anchors the card's right edge to the
-               * dot's right edge. width: 160 fills leftward into the margin.
-               * borderRight (not borderLeft) marks the prose-facing edge.
-               * borderRadius: left corners rounded, right corners flat.
-               * Transform slides from right (translateX 4px) to rest.
-               *
-               * pointer-events-auto when visible so the Researcher link is
-               * clickable. onMouseEnter/Leave mirror the button's to keep
-               * the card visible as the mouse traverses from dot to card.
-               */}
+        {/* Paragraph dots for fallback connections (no inline mention) */}
+        {Array.from(byParagraph.entries()).map(([paraIdx, group]) => {
+          const yOffset = offsets.get(paraIdx);
+          if (yOffset === undefined) return null;
+
+          return group.map((pc, i) => {
+            const isHovered = hoveredId === pc.connection.id;
+            const href = researcherHref(pc.connection.type, pc.connection.slug);
+
+            return (
               <div
-                className="absolute transition-all duration-200"
-                style={{
-                  top: -4,
-                  right: 0,
-                  width: 160,
-                  padding: isHovered ? '6px 8px' : '0 8px',
-                  borderRight: `2px solid ${pc.connection.color}`,
-                  backgroundColor: isHovered ? 'var(--color-paper)' : 'transparent',
-                  boxShadow: isHovered ? 'var(--shadow-warm)' : 'none',
-                  opacity: isHovered ? 1 : 0,
-                  transform: isHovered ? 'translateX(0)' : 'translateX(4px)',
-                  overflow: 'hidden',
-                  maxHeight: isHovered ? 120 : 0,
-                  borderRadius: '4px 0 0 4px',
-                  pointerEvents: isHovered ? 'auto' : 'none',
-                }}
-                onMouseEnter={() => setHoveredId(pc.connection.id)}
-                onMouseLeave={() => setHoveredId(null)}
+                key={pc.connection.id}
+                className="absolute pointer-events-none"
+                style={{ top: yOffset + i * 12, right: 16 }}
               >
-                {/* Connection type label */}
-                <span
-                  className="block font-mono uppercase tracking-[0.08em]"
+                {/* Dot button: navigates to the connected content internally */}
+                <button
+                  className="pointer-events-auto transition-all duration-200"
                   style={{
-                    fontSize: 9,
-                    color: pc.connection.color,
-                    opacity: 0.7,
+                    width: 8,
+                    height: 8,
+                    borderRadius: '50%',
+                    backgroundColor: pc.connection.color,
+                    opacity: isHovered ? 1 : 0.7,
+                    transform: isHovered ? 'scale(1.5)' : 'scale(1)',
+                    boxShadow: isHovered
+                      ? `0 0 0 2px ${pc.connection.color}40`
+                      : 'none',
+                    border: 'none',
+                    padding: 0,
+                    cursor: 'pointer',
                   }}
-                >
-                  {TYPE_LABEL[pc.connection.type] ?? pc.connection.type}
-                </span>
+                  onClick={() => handleDotClick(pc)}
+                  onMouseEnter={() => setHoveredId(pc.connection.id)}
+                  onMouseLeave={() => setHoveredId(null)}
+                  onFocus={() => setHoveredId(pc.connection.id)}
+                  onBlur={() => setHoveredId(null)}
+                  aria-label={`Connected: ${pc.connection.title}`}
+                />
 
-                {/* Connection title */}
-                <span
-                  className="block leading-tight mt-0.5"
+                {/*
+                 * Hover card: always expands LEFTWARD into the margin.
+                 *
+                 * Positioning: right: 0 anchors the card's right edge to the
+                 * dot's right edge. width: 160 fills leftward into the margin.
+                 * borderRight (not borderLeft) marks the prose-facing edge.
+                 * borderRadius: left corners rounded, right corners flat.
+                 * Transform slides from right (translateX 4px) to rest.
+                 *
+                 * pointer-events-auto when visible so the Researcher link is
+                 * clickable. onMouseEnter/Leave mirror the button's to keep
+                 * the card visible as the mouse traverses from dot to card.
+                 */}
+                <div
+                  className="absolute transition-all duration-200"
                   style={{
-                    fontFamily: 'var(--font-annotation)',
-                    fontSize: 13,
-                    color: pc.connection.color,
+                    top: -4,
+                    right: 0,
+                    width: 160,
+                    padding: isHovered ? '6px 8px' : '0 8px',
+                    borderRight: `2px solid ${pc.connection.color}`,
+                    backgroundColor: isHovered ? 'var(--color-paper)' : 'transparent',
+                    boxShadow: isHovered ? 'var(--shadow-warm)' : 'none',
+                    opacity: isHovered ? 1 : 0,
+                    transform: isHovered ? 'translateX(0)' : 'translateX(4px)',
+                    overflow: 'hidden',
+                    maxHeight: isHovered ? 120 : 0,
+                    borderRadius: '4px 0 0 4px',
+                    pointerEvents: isHovered ? 'auto' : 'none',
                   }}
+                  onMouseEnter={() => setHoveredId(pc.connection.id)}
+                  onMouseLeave={() => setHoveredId(null)}
                 >
-                  {pc.connection.title}
-                </span>
+                  {/* Connection type label */}
+                  <span
+                    className="block font-mono uppercase tracking-[0.08em]"
+                    style={{
+                      fontSize: 9,
+                      color: pc.connection.color,
+                      opacity: 0.7,
+                    }}
+                  >
+                    {TYPE_LABEL[pc.connection.type] ?? pc.connection.type}
+                  </span>
 
-                {/* Researcher backend link */}
-                <a
-                  href={href}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="block mt-1.5 font-mono uppercase tracking-[0.08em] no-underline transition-opacity duration-150 hover:opacity-100"
-                  style={{
-                    fontSize: 8,
-                    color: pc.connection.color,
-                    opacity: 0.55,
-                  }}
-                  onClick={(e) => e.stopPropagation()}
-                >
-                  View in Researcher →
-                </a>
+                  {/* Connection title */}
+                  <span
+                    className="block leading-tight mt-0.5"
+                    style={{
+                      fontFamily: 'var(--font-annotation)',
+                      fontSize: 13,
+                      color: pc.connection.color,
+                    }}
+                  >
+                    {pc.connection.title}
+                  </span>
+
+                  {/* Researcher backend link */}
+                  <a
+                    href={href}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="block mt-1.5 font-mono uppercase tracking-[0.08em] no-underline transition-opacity duration-150 hover:opacity-100"
+                    style={{
+                      fontSize: 8,
+                      color: pc.connection.color,
+                      opacity: 0.55,
+                    }}
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    View in Researcher &rarr;
+                  </a>
+                </div>
               </div>
-            </div>
-          );
-        });
-      })}
-    </div>
+            );
+          });
+        })}
+      </div>
+
+      {/* D3 popup graph: portal to document.body, shown on graph trigger click */}
+      {showGraph && essayTitle && essaySlug && (
+        <ConnectionGraphPopup
+          connections={allConnectionData}
+          essayTitle={essayTitle}
+          essaySlug={essaySlug}
+          onClose={() => setShowGraph(false)}
+        />
+      )}
+    </>
   );
 }

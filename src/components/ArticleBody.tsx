@@ -22,6 +22,8 @@ interface ArticleBodyProps {
   className?: string;
   contentType: ContentType;
   articleSlug: string;
+  /** Essay title forwarded to ConnectionDots for the popup graph header */
+  essayTitle?: string;
   /** Serializable connection data (computed at build time in the Server Component) */
   positionedConnections?: PositionedConnection[];
   /** When true, ConnectionDots are not rendered (caller handles them externally) */
@@ -35,6 +37,7 @@ export default function ArticleBody({
   className = 'prose',
   contentType,
   articleSlug,
+  essayTitle,
   positionedConnections,
   hideConnectionDots = false,
   externalProseRef,
@@ -99,6 +102,8 @@ export default function ArticleBody({
         <ConnectionDots
           connections={positionedConnections}
           proseRef={proseRef}
+          essayTitle={essayTitle}
+          essaySlug={articleSlug}
         />
       )}
       <ArticleComments
