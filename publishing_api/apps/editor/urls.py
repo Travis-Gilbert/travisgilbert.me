@@ -82,6 +82,30 @@ urlpatterns = [
     path("api/videos/<slug:slug>/deliverable/", views.VideoAPIDeliverableView.as_view(), name="api-video-deliverable"),
     path("api/videos/<slug:slug>/next-action/", views.VideoAPINextActionView.as_view(), name="api-video-next-action"),
 
+    # -----------------------------------------------------------------------
+    # Research Panel API (JSON, proxies research_api + local notes)
+    # -----------------------------------------------------------------------
+    path(
+        "api/research/<slug:content_type>/<slug:slug>/context/",
+        views.ResearchContextView.as_view(),
+        name="api-research-context",
+    ),
+    path(
+        "api/research/<slug:content_type>/<slug:slug>/graph/",
+        views.ResearchGraphView.as_view(),
+        name="api-research-graph",
+    ),
+    path(
+        "api/research/<slug:content_type>/<slug:slug>/notes/",
+        views.ResearchNoteListView.as_view(),
+        name="api-research-notes",
+    ),
+    path(
+        "api/research/<slug:content_type>/<slug:slug>/notes/<int:pk>/delete/",
+        views.ResearchNoteDeleteView.as_view(),
+        name="api-research-note-delete",
+    ),
+
     # Now page
     path("now/", views.NowPageEditView.as_view(), name="now-edit"),
     path("now/publish/", views.NowPagePublishView.as_view(), name="now-publish"),

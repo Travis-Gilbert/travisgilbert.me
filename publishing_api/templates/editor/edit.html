@@ -38,18 +38,66 @@
 </c-toolbar>
 
 {# ------------------------------------------------------------------ #}
-{#  Main grid: writing area (left) + sidebar fields (right)           #}
-{#  The <form> IS the grid container so body/annotation submit with   #}
-{#  the rest of the fields (fixes original bug where textarea was     #}
-{#  outside the form tag).                                            #}
+{#  Editor form: single column layout with dockable metadata panel    #}
+{#                                                                     #}
+{#  The <form> wraps everything so body/annotation, metadata fields,  #}
+{#  and hidden fields all submit together. Panel position is persisted #}
+{#  to localStorage via Alpine $persist.                              #}
 {# ------------------------------------------------------------------ #}
 <form method="post" id="content-form"
-      class="{% if form.body or form.annotation %}grid grid-cols-[1fr_340px] gap-6 items-start{% else %}max-w-2xl{% endif %}">
+      x-data="{
+        panelPos: $persist('collapsed').as('editor_panel_pos'),
+        panelH: $persist(340).as('editor_panel_h'),
+        panelW: $persist(380).as('editor_panel_w'),
+        dragging: false,
+        startDrag(axis) {
+          this.dragging = true;
+          const startY = event.clientY;
+          const startX = event.clientX;
+          const startH = this.panelH;
+          const startW = this.panelW;
+          const pos = this.panelPos;
+          const self = this;
+
+          document.body.style.userSelect = 'none';
+          document.body.style.cursor = pos === 'bottom' ? 'row-resize' : 'col-resize';
+
+          function onMove(e) {
+            if (pos === 'bottom') {
+              self.panelH = Math.max(200, Math.min(startH - (e.clientY - startY), window.innerHeight * 0.7));
+            } else {
+              self.panelW = Math.max(300, Math.min(startW - (e.clientX - startX), window.innerWidth * 0.5));
+            }
+          }
+          function onUp() {
+            self.dragging = false;
+            document.body.style.userSelect = '';
+            document.body.style.cursor = '';
+            document.removeEventListener('mousemove', onMove);
+            document.removeEventListener('mouseup', onUp);
+          }
+          document.addEventListener('mousemove', onMove);
+          document.addEventListener('mouseup', onUp);
+        }
+      }"
+      :class="{
+        'flex flex-col': panelPos === 'bottom' || panelPos === 'collapsed',
+        'flex flex-row': panelPos === 'right'
+      }"
+      class="{% if not form.body and not form.annotation %}max-w-2xl{% endif %}"
+>
   {% csrf_token %}
 
   {% if form.body or form.annotation %}
-  {# ---- Writing area (left column) with split-pane preview ---- #}
-  <section class="bg-cream rounded-brand-lg border border-border shadow-warm-sm overflow-hidden"
+  {# ================================================================ #}
+  {#  Writing + Research vertical stack                                #}
+  {# ================================================================ #}
+  <div class="flex flex-col flex-1 min-w-0 gap-2">
+
+  {# ================================================================ #}
+  {#  Writing area: split-pane editor + preview                       #}
+  {# ================================================================ #}
+  <section class="bg-cream rounded-brand-lg border border-border shadow-warm-sm overflow-clip flex-1 min-w-0"
            x-data="{
              mode: $persist('edit').as('editor_mode'),
              previewHtml: '',
@@ -69,21 +117,25 @@
       {# Formatting buttons (hidden in preview-only mode) #}
       <template x-if="mode !== 'preview'">
         <div class="flex flex-wrap items-center gap-1">
-          {% with tb_cls="inline-flex items-center justify-center w-8 h-8 rounded-brand text-ink-muted hover:text-ink hover:bg-black/5 font-mono text-[13px] cursor-pointer bg-transparent border-none transition-colors" %}
-          <button type="button" class="{{ tb_cls }} font-bold" data-action="bold" title="Bold (Cmd+B)">B</button>
-          <button type="button" class="{{ tb_cls }} italic" data-action="italic" title="Italic (Cmd+I)">I</button>
+          {% with tb_cls="inline-flex items-center justify-center w-8 h-8 rounded-brand text-ink-muted hover:text-ink hover:bg-black/5 cursor-pointer bg-transparent border-none transition-colors" %}
+          {# ── Inline formatting ── #}
+          <button type="button" class="{{ tb_cls }}" data-action="bold" title="Bold (Cmd+B)"><c-icon name="bold" size="15" /></button>
+          <button type="button" class="{{ tb_cls }}" data-action="italic" title="Italic (Cmd+I)"><c-icon name="italic" size="15" /></button>
           <span class="w-px h-5 bg-border mx-1"></span>
-          <button type="button" class="{{ tb_cls }}" data-action="h2" title="Heading 2">H2</button>
-          <button type="button" class="{{ tb_cls }}" data-action="h3" title="Heading 3">H3</button>
-          <button type="button" class="{{ tb_cls }}" data-action="h4" title="Heading 4">H4</button>
+          {# ── Headings ── #}
+          <button type="button" class="{{ tb_cls }}" data-action="h2" title="Heading 2"><c-icon name="heading-2" size="15" /></button>
+          <button type="button" class="{{ tb_cls }}" data-action="h3" title="Heading 3"><c-icon name="heading-3" size="15" /></button>
+          <button type="button" class="{{ tb_cls }}" data-action="h4" title="Heading 4"><c-icon name="heading-4" size="15" /></button>
           <span class="w-px h-5 bg-border mx-1"></span>
-          <button type="button" class="{{ tb_cls }}" data-action="rule" title="Horizontal rule">&mdash;</button>
-          <button type="button" class="{{ tb_cls }}" data-action="ul" title="Unordered list">&bull;</button>
-          <button type="button" class="{{ tb_cls }}" data-action="ol" title="Ordered list">1.</button>
-          <button type="button" class="{{ tb_cls }}" data-action="blockquote" title="Blockquote">&ldquo;</button>
+          {# ── Block structures ── #}
+          <button type="button" class="{{ tb_cls }}" data-action="ul" title="Unordered list"><c-icon name="list-bullets" size="15" /></button>
+          <button type="button" class="{{ tb_cls }}" data-action="ol" title="Ordered list"><c-icon name="list-numbers" size="15" /></button>
+          <button type="button" class="{{ tb_cls }}" data-action="blockquote" title="Blockquote"><c-icon name="quotes" size="15" /></button>
+          <button type="button" class="{{ tb_cls }}" data-action="rule" title="Horizontal rule"><c-icon name="horizontal-rule" size="15" /></button>
           <span class="w-px h-5 bg-border mx-1"></span>
-          <button type="button" class="{{ tb_cls }}" data-action="code" title="Code">&lt;&gt;</button>
-          <button type="button" class="{{ tb_cls }}" data-action="link" title="Link (Cmd+K)">&#128279;</button>
+          {# ── Code and links ── #}
+          <button type="button" class="{{ tb_cls }}" data-action="code" title="Code"><c-icon name="code" size="15" /></button>
+          <button type="button" class="{{ tb_cls }}" data-action="link" title="Link (Cmd+K)"><c-icon name="link" size="15" /></button>
           {% endwith %}
         </div>
       </template>
@@ -111,7 +163,7 @@
     <div :class="mode === 'split' ? 'grid grid-cols-2' : ''">
       {# Textarea pane #}
       <div x-show="mode !== 'preview'" x-cloak
-           :class="mode === 'split' ? 'border-r border-border' : ''">
+           :class="mode === 'split' ? 'border-r-[3px] border-border' : ''">
         <label for="editor-body" class="sr-only">
           {% if form.body %}Body{% else %}Annotation{% endif %}
         </label>
@@ -124,7 +176,7 @@
 
       {# Preview pane #}
       <div x-show="mode !== 'edit'" x-cloak
-           class="min-h-[400px] overflow-y-auto">
+           class="min-h-[400px]">
         <div class="px-6 py-4">
           <template x-if="loading && !previewHtml">
             <p class="font-mono text-[11px] text-ink-muted tracking-wide">Rendering preview...</p>
@@ -136,24 +188,175 @@
           </template>
           <div x-show="previewHtml"
                x-html="previewHtml"
-               class="prose prose-parchment max-w-none font-body text-[15px] leading-relaxed"></div>
+               class="prose prose-parchment max-w-none font-body text-[17px] leading-relaxed"></div>
         </div>
       </div>
     </div>
   </section>
+
+  {# ================================================================ #}
+  {#  Research panel (below writing area, VS Code terminal style)      #}
+  {# ================================================================ #}
+  {% if not is_new %}
+  {% include "editor/partials/research_panel.html" %}
   {% endif %}
 
-  {# ---- Sidebar: form fields (right column, or only column) ---- #}
-  <aside>
-    {# Crispy renders all Layout fields with studio template pack #}
-    {% crispy form %}
+  </div>{# end writing + research stack #}
+  {% endif %}
 
-    {# Hidden fields not in the crispy layout #}
+  {# ================================================================ #}
+  {#  Drag handle: visible between writing area and metadata panel     #}
+  {# ================================================================ #}
+  {% if form.body or form.annotation %}
+  <div x-show="panelPos !== 'collapsed'" x-cloak
+       @mousedown.prevent="startDrag(panelPos === 'bottom' ? 'y' : 'x')"
+       :class="{
+         'h-2 cursor-row-resize flex items-center justify-center my-1': panelPos === 'bottom',
+         'w-2 cursor-col-resize flex items-center justify-center mx-1': panelPos === 'right'
+       }"
+       class="flex-shrink-0 group select-none">
+    {# Drag grip dots #}
+    <div :class="{
+           'w-8 h-[3px] rounded-full bg-border group-hover:bg-ink-muted transition-colors': panelPos === 'bottom',
+           'h-8 w-[3px] rounded-full bg-border group-hover:bg-ink-muted transition-colors': panelPos === 'right'
+         }"></div>
+  </div>
+  {% endif %}
+
+  {# ================================================================ #}
+  {#  Metadata panel: dockable (bottom / right / collapsed)           #}
+  {#                                                                   #}
+  {#  Contains all crispy form fields, hidden fields, errors, and     #}
+  {#  publish history. Uses x-show (not x-if) so fields stay in DOM   #}
+  {#  for autosave and form submission even when collapsed.            #}
+  {# ================================================================ #}
+  <div x-show="panelPos !== 'collapsed'" x-cloak
+       :style="{
+         height: panelPos === 'bottom' ? panelH + 'px' : 'auto',
+         width: panelPos === 'right' ? panelW + 'px' : 'auto',
+         minHeight: panelPos === 'bottom' ? '200px' : 'auto',
+         minWidth: panelPos === 'right' ? '300px' : 'auto'
+       }"
+       class="border border-border rounded-brand-lg bg-cream shadow-warm-sm overflow-hidden flex flex-col flex-shrink-0">
+
+    {# Panel header: title + dock position toggles #}
+    <div class="flex items-center justify-between px-4 py-2 border-b border-border bg-parchment-alt/50">
+      <span class="font-mono text-[10px] uppercase tracking-widest font-bold text-ink-secondary">
+        Metadata
+      </span>
+      <div class="flex items-center gap-1">
+        {# Dock bottom #}
+        <button type="button"
+                @click="panelPos = 'bottom'"
+                :class="panelPos === 'bottom' ? 'text-ink' : 'text-ink-muted hover:text-ink'"
+                class="p-1 bg-transparent border-none cursor-pointer transition-colors"
+                title="Dock to bottom">
+          <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="2" y="2" width="12" height="12" rx="2" />
+            <line x1="2" y1="10" x2="14" y2="10" />
+          </svg>
+        </button>
+        {# Dock right #}
+        <button type="button"
+                @click="panelPos = 'right'"
+                :class="panelPos === 'right' ? 'text-ink' : 'text-ink-muted hover:text-ink'"
+                class="p-1 bg-transparent border-none cursor-pointer transition-colors"
+                title="Dock to right">
+          <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="2" y="2" width="12" height="12" rx="2" />
+            <line x1="10" y1="2" x2="10" y2="14" />
+          </svg>
+        </button>
+        {# Collapse #}
+        <button type="button"
+                @click="panelPos = 'collapsed'"
+                class="p-1 bg-transparent border-none cursor-pointer text-ink-muted hover:text-ink transition-colors"
+                title="Collapse panel">
+          <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="4" y1="4" x2="12" y2="12" />
+            <line x1="12" y1="4" x2="4" y2="12" />
+          </svg>
+        </button>
+      </div>
+    </div>
+
+    {# Scrollable fields area #}
+    <div class="flex-1 overflow-y-auto p-4">
+      {# Crispy renders all Layout fields with studio template pack #}
+      {% crispy form %}
+
+      {# Hidden fields not in the crispy layout #}
+      {% for field in form.hidden_fields %}
+        {{ field }}
+      {% endfor %}
+
+      {# Non-field errors #}
+      {% if form.non_field_errors %}
+      <div class="mt-4 p-3 bg-error/5 border border-error/20 rounded-brand">
+        {% for error in form.non_field_errors %}
+        <p class="font-mono text-[11px] tracking-wide text-error leading-relaxed m-0">
+          {{ error }}
+        </p>
+        {% endfor %}
+      </div>
+      {% endif %}
+
+      {# Publish history (collapsible panel) #}
+      {% if recent_publishes %}
+      <div class="mt-4">
+        <c-panel title="Publish History" open="false">
+          <ul class="list-none p-0 space-y-1.5">
+            {% for log in recent_publishes %}
+            <li class="flex items-center gap-2 font-mono text-[11px] tracking-wide">
+              <span class="text-ink-muted">{{ log.created_at|date:"M j, g:i A" }}</span>
+              {% if log.success %}
+                <c-badge color="success">OK</c-badge>
+              {% else %}
+                <c-badge color="error">FAILED</c-badge>
+              {% endif %}
+              {% if log.commit_url %}
+              <a href="{{ log.commit_url }}" target="_blank" rel="noopener"
+                 class="text-teal hover:text-teal-hover underline">
+                {{ log.commit_sha|truncatechars:7 }}
+              </a>
+              {% endif %}
+            </li>
+            {% endfor %}
+          </ul>
+        </c-panel>
+      </div>
+      {% endif %}
+    </div>
+  </div>
+
+  {# ================================================================ #}
+  {#  Collapsed bar: thin toggle to reopen the metadata panel         #}
+  {# ================================================================ #}
+  {% if form.body or form.annotation %}
+  <div x-show="panelPos === 'collapsed'" x-cloak
+       class="mt-2">
+    <button type="button"
+            @click="panelPos = 'bottom'"
+            class="w-full flex items-center justify-center gap-2 py-1.5
+                   bg-cream/60 border border-border rounded-brand
+                   cursor-pointer hover:bg-cream transition-colors">
+      <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" class="text-ink-muted">
+        <polyline points="4,10 8,6 12,10" />
+      </svg>
+      <span class="font-mono text-[10px] uppercase tracking-widest text-ink-muted">
+        Metadata
+      </span>
+    </button>
+  </div>
+  {% endif %}
+
+  {# ---- Fallback: no writing area, just form fields ---- #}
+  {% if not form.body and not form.annotation %}
+  <div>
+    {% crispy form %}
     {% for field in form.hidden_fields %}
       {{ field }}
     {% endfor %}
-
-    {# Non-field errors #}
     {% if form.non_field_errors %}
     <div class="mt-4 p-3 bg-error/5 border border-error/20 rounded-brand">
       {% for error in form.non_field_errors %}
@@ -163,33 +366,8 @@
       {% endfor %}
     </div>
     {% endif %}
-
-    {# Publish history (collapsible panel) #}
-    {% if recent_publishes %}
-    <div class="mt-6">
-      <c-panel title="Publish History" open="false">
-        <ul class="list-none p-0 space-y-1.5">
-          {% for log in recent_publishes %}
-          <li class="flex items-center gap-2 font-mono text-[11px] tracking-wide">
-            <span class="text-ink-muted">{{ log.created_at|date:"M j, g:i A" }}</span>
-            {% if log.success %}
-              <c-badge color="success">OK</c-badge>
-            {% else %}
-              <c-badge color="error">FAILED</c-badge>
-            {% endif %}
-            {% if log.commit_url %}
-            <a href="{{ log.commit_url }}" target="_blank" rel="noopener"
-               class="text-teal hover:text-teal-hover underline">
-              {{ log.commit_sha|truncatechars:7 }}
-            </a>
-            {% endif %}
-          </li>
-          {% endfor %}
-        </ul>
-      </c-panel>
-    </div>
-    {% endif %}
-  </aside>
+  </div>
+  {% endif %}
 </form>
 
 {# ------------------------------------------------------------------ #}
@@ -223,6 +401,12 @@
 {% endblock %}
 
 {% block scripts %}
+{% load static %}
+{# D3.js v7 for the research panel graph (loaded only on edit pages with content) #}
+{% if not is_new %}
+<script src="https://d3js.org/d3.v7.min.js"></script>
+<script src="{% static 'js/research-graph.js' %}"></script>
+{% endif %}
 <script>
 /* ---- Auto-generate slug from title on new content ---- */
 {% if is_new %}

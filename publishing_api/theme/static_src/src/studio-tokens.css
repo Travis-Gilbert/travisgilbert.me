@@ -47,6 +47,7 @@
   --font-body-alt: "IBM Plex Sans", sans-serif;
   --font-mono: "Courier Prime", monospace;
   --font-mono-alt: "Space Mono", monospace;
+  --font-input: "Amarna", sans-serif;
 
   /* Shadows */
   --shadow-warm-sm: 0 1px 2px rgba(42, 36, 32, 0.05);
@@ -67,6 +68,9 @@
   --radius: 10px;
   --radius-lg: 14px;
 }
+
+/* Alpine.js: hide elements until x-data initializes */
+[x-cloak] { display: none !important; }
 
 /*
  * Paper grain texture (global).

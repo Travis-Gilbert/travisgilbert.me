@@ -2276,3 +2276,117 @@ class ProductionDashboardView(LoginRequiredMixin, TemplateView):
 
         ctx["content_type"] = "production"
         return ctx
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# Research Panel API (JSON endpoints for the editor research window)
+# ═══════════════════════════════════════════════════════════════════════════
+
+class ResearchContextView(LoginRequiredMixin, View):
+    """
+    Proxy the research_api trail endpoint for a given content slug.
+
+    Returns JSON: { sources, backlinks, thread, mentions }
+    Falls back gracefully when research_api is unavailable.
+    """
+
+    def get(self, request, content_type, slug):
+        from apps.editor.services import fetch_research_trail
+
+        data = fetch_research_trail(slug)
+        return JsonResponse(data)
+
+
+class ResearchGraphView(LoginRequiredMixin, View):
+    """
+    Proxy the research_api graph endpoint, optionally focused on a slug.
+
+    Returns JSON: { nodes, edges } for D3.js force graph rendering.
+    """
+
+    def get(self, request, content_type, slug):
+        from apps.editor.services import fetch_research_graph
+
+        data = fetch_research_graph(slug=slug)
+        return JsonResponse(data)
+
+
+class ResearchNoteListView(LoginRequiredMixin, View):
+    """
+    GET: return all research notes for a content item as JSON.
+    POST: create a new research note and return the updated list.
+
+    Used by the research panel's note input area (HTMX or fetch).
+    """
+
+    def get(self, request, content_type, slug):
+        from apps.editor.models import ResearchNote
+
+        notes = ResearchNote.objects.filter(
+            content_type=content_type,
+            content_slug=slug,
+        ).values("id", "text", "created_at")
+
+        return JsonResponse({
+            "notes": [
+                {
+                    "id": n["id"],
+                    "text": n["text"],
+                    "created_at": n["created_at"].isoformat(),
+                }
+                for n in notes
+            ]
+        })
+
+    def post(self, request, content_type, slug):
+        from apps.editor.models import ResearchNote
+
+        try:
+            body = json.loads(request.body)
+        except (json.JSONDecodeError, ValueError):
+            return JsonResponse({"error": "Invalid JSON"}, status=400)
+
+        text = body.get("text", "").strip()
+        if not text:
+            return JsonResponse({"error": "text is required"}, status=400)
+
+        ResearchNote.objects.create(
+            content_type=content_type,
+            content_slug=slug,
+            text=text,
+            author=request.user,
+        )
+
+        # Return refreshed notes list
+        notes = ResearchNote.objects.filter(
+            content_type=content_type,
+            content_slug=slug,
+        ).values("id", "text", "created_at")
+
+        return JsonResponse({
+            "saved": True,
+            "notes": [
+                {
+                    "id": n["id"],
+                    "text": n["text"],
+                    "created_at": n["created_at"].isoformat(),
+                }
+                for n in notes
+            ]
+        })
+
+
+class ResearchNoteDeleteView(LoginRequiredMixin, View):
+    """Delete a single research note. Returns JSON confirmation."""
+
+    def post(self, request, content_type, slug, pk):
+        from apps.editor.models import ResearchNote
+
+        note = get_object_or_404(
+            ResearchNote,
+            pk=pk,
+            content_type=content_type,
+            content_slug=slug,
+        )
+        note.delete()
+        return JsonResponse({"deleted": True})

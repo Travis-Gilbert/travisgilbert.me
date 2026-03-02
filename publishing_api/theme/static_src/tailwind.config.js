@@ -80,6 +80,9 @@ module.exports = {
 
         // Display / Masthead
         display: ["Instrument Serif", "serif"],
+
+        // Input fields (Amarna: high readability for dyslexia)
+        input: ["Amarna", "sans-serif"],
       },
 
       fontSize: {
