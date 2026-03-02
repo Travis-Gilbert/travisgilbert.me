@@ -31,15 +31,15 @@ const DEFAULT_NAV_LINKS: NavLink[] = [
   { href: '/connect', label: 'Connect', icon: 'chat-circle' },
 ];
 
-// Section brand colors using CSS custom properties (adapt to light/dark mode)
+// Nav link colors: dedicated tokens tuned for 4.5:1+ contrast on #1E1620
 const NAV_COLORS: Record<string, string> = {
-  '/essays':      'var(--color-terracotta)',
-  '/research':    'var(--color-teal)',
-  '/field-notes': 'var(--color-teal)',
-  '/projects':    'var(--color-gold)',
-  '/toolkit':     'var(--color-terracotta)',
-  '/shelf':       'var(--color-gold)',
-  '/connect':     'var(--color-teal)',
+  '/essays':      'var(--color-nav-terracotta)',
+  '/research':    'var(--color-nav-teal)',
+  '/field-notes': 'var(--color-nav-teal)',
+  '/projects':    'var(--color-nav-gold)',
+  '/toolkit':     'var(--color-nav-terracotta)',
+  '/shelf':       'var(--color-nav-gold)',
+  '/connect':     'var(--color-nav-teal)',
 };
 
 export default function TopNav({ navItems }: TopNavProps) {
@@ -108,7 +108,7 @@ export default function TopNav({ navItems }: TopNavProps) {
   }, [pathname, closeMobile]);
 
   return (
-    <nav aria-label="Main navigation" className="sticky top-0 z-50" style={{ backgroundColor: 'rgba(30, 22, 32, 0.85)', backdropFilter: 'blur(4px)', WebkitBackdropFilter: 'blur(4px)', boxShadow: '0 1px 12px rgba(30, 22, 32, 0.5)' }}>
+    <nav aria-label="Main navigation" className="sticky top-0 z-50" style={{ backgroundColor: 'var(--color-nav-bg)', boxShadow: '0 1px 12px rgba(30, 22, 32, 0.5)' }}>
       <div className="w-full px-4 sm:px-6 py-3 flex items-center">
         {/* Site title (left) */}
         <Link
@@ -120,7 +120,7 @@ export default function TopNav({ navItems }: TopNavProps) {
         </Link>
 
         {/* Desktop nav (centered, fills middle) */}
-        <ul className="hidden md:flex items-center justify-center gap-4 list-none m-0 p-0 flex-1">
+        <ul className="hidden lg:flex items-center justify-center gap-4 list-none m-0 p-0 flex-1">
           {navLinks.map((link) => {
             const active = isActive(link.href);
             return (
@@ -149,7 +149,7 @@ export default function TopNav({ navItems }: TopNavProps) {
           {/* Mobile hamburger */}
           <button
             ref={hamburgerRef}
-            className="md:hidden flex flex-col gap-1.5 p-3 -m-1 bg-transparent border-none cursor-pointer"
+            className="lg:hidden flex flex-col gap-1.5 p-3 -m-1 bg-transparent border-none cursor-pointer"
             aria-label="Toggle navigation menu"
             aria-expanded={mobileOpen}
             onClick={() => setMobileOpen(!mobileOpen)}
@@ -178,7 +178,7 @@ export default function TopNav({ navItems }: TopNavProps) {
 
       {/* Mobile menu panel */}
       {mobileOpen && (
-        <div ref={mobileMenuRef} className="md:hidden" style={{ backgroundColor: 'var(--color-nav-bg)' }}>
+        <div ref={mobileMenuRef} className="lg:hidden" style={{ backgroundColor: 'var(--color-nav-bg)' }}>
           <ul className="list-none m-0 p-4 flex flex-col gap-3">
             {navLinks.map((link) => {
               const active = isActive(link.href);

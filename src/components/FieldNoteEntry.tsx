@@ -27,7 +27,7 @@ export default function FieldNoteEntry({
         <Link href={href} className="block no-underline text-ink hover:text-ink">
           <div className="flex flex-col gap-2">
             <div className="flex justify-between items-center">
-              <DateStamp date={date} />
+              <DateStamp date={date} tint="teal" />
               {status && (
                 <CompactTracker
                   stages={NOTE_STAGES}

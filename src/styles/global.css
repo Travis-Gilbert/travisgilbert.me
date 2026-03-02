@@ -18,8 +18,8 @@
   --color-ink: #2A2420;
   --color-ink-muted: #6A5E52;
   --color-ink-light: #9A8E82;
-  --color-ink-secondary: #6A5E52;  /* alias → ink-muted */
-  --color-ink-faint: #9A8E82;      /* alias → ink-light */
+  --color-ink-secondary: #6A5E52;  /* alias: prefer --color-ink-muted */
+  --color-ink-faint: #9A8E82;      /* alias: prefer --color-ink-light */
 
   /* Accent:Terracotta (brand constant across all modes) */
   --color-terracotta: #B45A2D;
@@ -33,6 +33,11 @@
   /* Highlight:Gold */
   --color-gold: #C49A4A;
   --color-gold-light: #D4AA5A;
+
+  /* Nav link colors: tuned for 4.5:1+ contrast on --color-nav-bg (#1E1620) */
+  --color-nav-terracotta: #D4935F;
+  --color-nav-teal: #5AB0C0;
+  --color-nav-gold: #D4B46A;
 
   /* Ink (rough.js strokes) */
   --color-rough: #3A3632;
@@ -74,10 +79,14 @@
   --font-title-alt: var(--font-ysabeau), sans-serif;
   --font-body: var(--font-cabin), sans-serif;
   --font-body-alt: var(--font-ibm-plex), sans-serif;
+  /* Monospace: two faces, two roles
+     --font-mono  (Courier Prime):   labels, metadata, nav, tags, DateStamp
+     --font-code  (JetBrains Mono):  CodeComment annotations, inline code */
   --font-mono: var(--font-courier-prime), 'Courier New', monospace;
   --font-mono-alt: var(--font-jetbrains-mono), monospace;
   --font-code: var(--font-jetbrains-mono), var(--font-courier-prime), monospace;
   --font-name: var(--font-amarna), serif;
+  /* Caveat: only used for margin annotations, candidate for font-display:swap deferred loading */
   --font-handwritten: var(--font-caveat), 'Comic Sans MS', cursive;
   --font-annotation: var(--font-caveat), cursive;
 
@@ -107,8 +116,8 @@ html[data-theme="dark"] {
   --color-ink: #E8E0D6;
   --color-ink-muted: #A89E92;
   --color-ink-light: #7A7268;
-  --color-ink-secondary: #A89E92;
-  --color-ink-faint: #7A7268;
+  --color-ink-secondary: #A89E92;  /* alias: prefer --color-ink-muted */
+  --color-ink-faint: #7A7268;      /* alias: prefer --color-ink-light */
 
   /* Accent: Terracotta (warmed for dark backgrounds, retaining brown-red richness) */
   --color-terracotta: #C46A3A;

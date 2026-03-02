@@ -59,6 +59,7 @@ export default function DotGrid({
   const themeVersion = useThemeVersion();
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const animRef = useRef<number>(0);
+  const visibleRef = useRef(true);
   const mouseRef = useRef({ x: -9999, y: -9999, active: false });
   /** Ink trail: ring buffer of recent mouse positions with decay */
   const trailRef = useRef<{ x: number; y: number; age: number }[]>([]);
@@ -329,6 +330,9 @@ export default function DotGrid({
       const dots = dotsRef.current;
       if (!dots) { animRef.current = requestAnimationFrame(tick); return; }
 
+      // Skip work when canvas is off-screen (defensive; fixed canvas is typically always visible)
+      if (!visibleRef.current) { animRef.current = requestAnimationFrame(tick); return; }
+
       ctx!.clearRect(0, 0, w, h);
       drawInversionGradient();
 
@@ -433,8 +437,33 @@ export default function DotGrid({
       mouseRef.current.active = false;
     }
 
+    // Reduced motion: draw a single static frame, skip all animation
+    const prefersReducedMotion =
+      typeof window !== 'undefined' &&
+      window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+    // Pause rAF when canvas scrolls off-screen or tab is hidden
+    // (defensive: position:fixed canvas is typically always in viewport)
+    const observer = new IntersectionObserver(
+      ([entry]) => { visibleRef.current = entry.isIntersecting; },
+      { threshold: 0 },
+    );
+    observer.observe(canvas);
+
     // Initialize
     resize();
+
+    if (prefersReducedMotion) {
+      // Static mode: dots render, gradient renders, no rAF, no trail, no spring physics
+      // ResizeObserver still repaints the static frame on resize
+      window.addEventListener('resize', debouncedResize);
+
+      return () => {
+        cancelAnimationFrame(resizeRaf);
+        observer.disconnect();
+        window.removeEventListener('resize', debouncedResize);
+      };
+    }
 
     if (!isTouchOnly) {
       window.addEventListener('mousemove', onMouseMove, { passive: true });
@@ -445,6 +474,7 @@ export default function DotGrid({
     return () => {
       cancelAnimationFrame(animRef.current);
       cancelAnimationFrame(resizeRaf);
+      observer.disconnect();
       if (!isTouchOnly) {
         window.removeEventListener('mousemove', onMouseMove);
       }

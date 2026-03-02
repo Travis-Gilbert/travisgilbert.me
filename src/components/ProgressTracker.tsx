@@ -96,9 +96,9 @@ export default function ProgressTracker({
               <span
                 className="font-mono whitespace-nowrap"
                 style={{
-                  fontSize: 9,
+                  fontSize: 11,
                   textTransform: 'uppercase',
-                  letterSpacing: '0.08em',
+                  letterSpacing: '0.06em',
                   color: isCurrent ? color : isComplete
                     ? (inverted ? 'var(--color-hero-text-muted)' : 'var(--color-ink-muted)')
                     : (inverted ? 'color-mix(in srgb, var(--color-hero-text) 35%, transparent)' : 'var(--color-ink-light)'),
@@ -175,9 +175,9 @@ export function CompactTracker({
       <span
         className="font-mono ml-1"
         style={{
-          fontSize: 9,
+          fontSize: 10,
           textTransform: 'uppercase',
-          letterSpacing: '0.06em',
+          letterSpacing: '0.05em',
           color,
         }}
       >

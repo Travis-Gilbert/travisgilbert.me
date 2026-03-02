@@ -41,6 +41,8 @@ export default function EssayCard({
                 <img
                   src={thumbnailUrl}
                   alt={`Thumbnail for ${title}`}
+                  width={320}
+                  height={180}
                   className="w-full h-40 md:h-full object-cover"
                   loading="lazy"
                 />

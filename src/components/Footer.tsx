@@ -55,7 +55,7 @@ export default function Footer() {
             <GitBranch size={12} weight="regular" />
             Paper Trails
           </Link>
-          <span className="text-border-light">|</span>
+          <span className="text-border-light" aria-hidden="true">|</span>
           <Link
             href="/colophon"
             className="text-terracotta hover:text-terracotta-hover no-underline"
