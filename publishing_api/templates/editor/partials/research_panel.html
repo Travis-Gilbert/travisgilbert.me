@@ -1,17 +1,19 @@
 {# ================================================================ #}
-{#  Research Panel: VS Code terminal style, two tabs               #}
+{#  Research Panel: VS Code terminal style, dockable              #}
 {#                                                                  #}
-{#  Sits below the writing area. Dark terminal aesthetic.           #}
-{#  Two tabs: Research (list of sources/backlinks/notes) and        #}
-{#  Graph (D3.js force directed connections).                       #}
+{#  Position controlled by rpPos (bottom | right | collapsed),    #}
+{#  which lives on the PARENT form's x-data scope so that the    #}
+{#  writing+research wrapper can also react to it.               #}
 {#                                                                  #}
-{#  Data attributes are read by Alpine init() to build API URLs.   #}
-{#  CSRF token is read from the parent form for POST requests.     #}
+{#  rpPos and rpW are inherited via Alpine mergeProxies:          #}
+{#  child x-data reads/writes parent scope properties directly.  #}
+{#                                                                  #}
+{#  Two tabs: Research (list of sources/backlinks/notes) and      #}
+{#  Graph (D3.js force directed connections).                     #}
 {# ================================================================ #}
 {% load editor_urls %}
 
 <div x-data="{
-       rpOpen: $persist(true).as('editor_rp_open'),
        rpHeight: $persist(350).as('editor_rp_height'),
        rpTab: $persist('research').as('editor_rp_tab'),
        rpDragging: false,
@@ -39,8 +41,8 @@
        init() {
          /* Read URLs from data attributes */
          this.contextUrl = this.$el.dataset.contextUrl || '';
-         this.graphUrl = this.$el.dataset.graphUrl || '';
-         this.notesUrl = this.$el.dataset.notesUrl || '';
+         this.graphUrl   = this.$el.dataset.graphUrl   || '';
+         this.notesUrl   = this.$el.dataset.notesUrl   || '';
          this.notesDeleteBaseUrl = this.$el.dataset.notesDeleteBase || '';
 
          /* Read CSRF from the parent form */
@@ -59,11 +61,11 @@
          })
          .then(r => r.json())
          .then(data => {
-           this.sources = data.sources || [];
+           this.sources   = data.sources   || [];
            this.backlinks = data.backlinks || [];
-           this.thread = data.thread || null;
-           this.mentions = data.mentions || [];
-           this.loading = false;
+           this.thread    = data.thread    || null;
+           this.mentions  = data.mentions  || [];
+           this.loading   = false;
          })
          .catch(() => { this.loading = false; });
        },
@@ -108,7 +110,7 @@
          })
          .then(r => r.json())
          .then(data => {
-           this.notes = data.notes || [];
+           this.notes    = data.notes || [];
            this.noteText = '';
            this.noteSaving = false;
          })
@@ -129,34 +131,53 @@
        },
 
        startRpDrag() {
-         this.rpDragging = true;
+         /* Direction-aware resize: col-resize when right-docked,        */
+         /* row-resize when bottom-docked.                               */
+         /* rpPos and rpW live on the PARENT form scope (mergeProxies).  */
+         var self   = this;                  /* merged proxy — owns rpPos + rpW */
          var startY = event.clientY;
+         var startX = event.clientX;
          var startH = this.rpHeight;
-         var self = this;
+         var startW = this.rpW;              /* from parent form scope */
+         var pos    = this.rpPos;            /* from parent form scope */
 
          document.body.style.userSelect = 'none';
-         document.body.style.cursor = 'row-resize';
+         document.body.style.cursor = pos === 'right' ? 'col-resize' : 'row-resize';
 
          function onMove(e) {
-           self.rpHeight = Math.max(200, Math.min(startH - (e.clientY - startY), window.innerHeight * 0.6));
+           if (pos === 'right') {
+             /* Dragging the left edge of the right panel: wider when dragged left */
+             self.rpW = Math.max(280, Math.min(
+               startW - (e.clientX - startX),
+               window.innerWidth * 0.5
+             ));
+           } else {
+             /* Dragging the top edge of the bottom panel: taller when dragged up */
+             self.rpHeight = Math.max(200, Math.min(
+               startH - (e.clientY - startY),
+               window.innerHeight * 0.6
+             ));
+           }
          }
          function onUp() {
            self.rpDragging = false;
            document.body.style.userSelect = '';
-           document.body.style.cursor = '';
+           document.body.style.cursor     = '';
            document.removeEventListener('mousemove', onMove);
-           document.removeEventListener('mouseup', onUp);
+           document.removeEventListener('mouseup',   onUp);
          }
+
+         this.rpDragging = true;
          document.addEventListener('mousemove', onMove);
-         document.addEventListener('mouseup', onUp);
+         document.addEventListener('mouseup',   onUp);
        },
 
        get hasResearch() {
-         return this.sources.length > 0
+         return this.sources.length   > 0
              || this.backlinks.length > 0
-             || this.thread !== null
-             || this.mentions.length > 0
-             || this.notes.length > 0;
+             || this.thread           !== null
+             || this.mentions.length  > 0
+             || this.notes.length     > 0;
        },
 
        get isEmpty() {
@@ -176,276 +197,336 @@
      data-graph-url="{% url 'editor:api-research-graph' content_type=content_type slug=object.slug %}"
      data-notes-url="{% url 'editor:api-research-notes' content_type=content_type slug=object.slug %}"
      data-notes-delete-base="{% research_note_delete_url content_type object.slug %}"
-     class="mt-2 flex-shrink-0"
+     :class="{
+       'mt-2 flex-shrink-0 w-full': rpPos !== 'right',
+       'flex-shrink-0 h-full':       rpPos === 'right'
+     }"
+     :style="rpPos === 'bottom'
+           ? { height: rpHeight + 'px', minHeight: '200px' }
+           : rpPos === 'right'
+               ? { width: rpW + 'px', minWidth: '280px', maxWidth: '50vw' }
+               : {}"
 >
 
-  {# ---- Collapsed state: thin dark bar ---- #}
-  <div x-show="!rpOpen"
-       @click="rpOpen = true"
-       class="flex items-center gap-2 px-4 py-1.5
-              bg-dark-ground/80 border border-white/10 rounded-brand
-              cursor-pointer hover:bg-dark-ground transition-colors">
-    <span class="w-1.5 h-1.5 rounded-full bg-teal animate-pulse"></span>
-    <span class="font-mono text-[10px] uppercase tracking-widest text-cream/60">
+  {# ---- Collapsed state: thin dark tab bar ---- #}
+  {# Full-opacity cream on full-opacity dark-ground for legibility #}
+  <button x-show="rpPos === 'collapsed'"
+          type="button"
+          @click="setRpPos('bottom')"
+          class="w-full flex items-center gap-2 px-4 py-2
+                 bg-dark-ground border border-white/10 rounded-brand
+                 cursor-pointer hover:opacity-80 transition-opacity text-left">
+    <span class="w-1.5 h-1.5 rounded-full bg-teal animate-pulse flex-shrink-0"></span>
+    <span class="font-mono text-[10px] uppercase tracking-widest text-cream">
       Research
     </span>
+    {# Chevron up: signals "click to expand" #}
     <svg width="10" height="10" viewBox="0 0 16 16" fill="none" stroke="currentColor"
-         stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"
-         class="text-cream/40 ml-auto">
+         stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+         class="text-cream/60 ml-auto flex-shrink-0">
       <polyline points="4,10 8,6 12,10" />
     </svg>
-  </div>
+  </button>
 
   {# ---- Open panel ---- #}
-  <div x-show="rpOpen"
-       :style="{ height: rpHeight + 'px', minHeight: '200px' }"
+  <div x-show="rpPos !== 'collapsed'"
        class="bg-dark-ground text-cream rounded-brand-lg border border-white/10
-              overflow-hidden flex flex-col">
+              overflow-hidden flex h-full"
+       :class="rpPos === 'right' ? 'flex-row-reverse' : 'flex-col'">
 
-    {# ---- Drag handle (top edge) ---- #}
+    {# -------- Drag handle -------- #}
+    {# Direction-aware: horizontal bar on top (bottom dock), #}
+    {# vertical bar on left edge (right dock).              #}
     <div @mousedown.prevent="startRpDrag()"
-         class="h-2 cursor-row-resize flex items-center justify-center flex-shrink-0 group">
-      <div class="w-8 h-[3px] rounded-full bg-white/10 group-hover:bg-white/25 transition-colors"></div>
+         :class="rpPos === 'right'
+               ? 'w-2 cursor-col-resize flex items-center justify-center flex-shrink-0 group'
+               : 'h-2 cursor-row-resize flex items-center justify-center flex-shrink-0 group'"
+         class="select-none">
+      <div :class="rpPos === 'right'
+                   ? 'h-8 w-[3px] rounded-full bg-white/10 group-hover:bg-white/25 transition-colors'
+                   : 'w-8 h-[3px] rounded-full bg-white/10 group-hover:bg-white/25 transition-colors'">
+      </div>
     </div>
 
-    {# ---- Panel header: tabs + collapse toggle ---- #}
-    <div class="flex items-center gap-0.5 px-3 pb-1 border-b border-white/10 flex-shrink-0">
-      {# Tabs #}
-      <button type="button"
-              @click="rpTab = 'research'"
-              :class="rpTab === 'research'
-                ? 'text-cream border-b-2 border-teal'
-                : 'text-cream/50 border-b-2 border-transparent hover:text-cream/80'"
-              class="px-2 py-1.5 font-mono text-[10px] uppercase tracking-widest
-                     bg-transparent cursor-pointer transition-colors">
-        Research
-      </button>
-      <button type="button"
-              @click="rpTab = 'graph'; fetchGraph()"
-              :class="rpTab === 'graph'
-                ? 'text-cream border-b-2 border-teal'
-                : 'text-cream/50 border-b-2 border-transparent hover:text-cream/80'"
-              class="px-2 py-1.5 font-mono text-[10px] uppercase tracking-widest
-                     bg-transparent cursor-pointer transition-colors">
-        Graph
-      </button>
+    {# -------- Inner content column -------- #}
+    <div class="flex flex-col flex-1 min-w-0 min-h-0">
 
-      <span class="flex-1"></span>
+      {# ---- Panel header: RESEARCH label, tabs, dock controls ---- #}
+      <div class="flex items-center gap-0.5 px-3 py-1 border-b border-white/10 flex-shrink-0">
 
-      {# Collapse #}
-      <button type="button"
-              @click="rpOpen = false"
-              class="p-1 bg-transparent border-none cursor-pointer
-                     text-cream/40 hover:text-cream/80 transition-colors"
-              title="Collapse research panel">
-        <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor"
-             stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-          <polyline points="4,6 8,10 12,6" />
-        </svg>
-      </button>
-    </div>
+        {# Section identity #}
+        <span class="flex items-center gap-1.5 mr-2">
+          <span class="w-1.5 h-1.5 rounded-full bg-teal flex-shrink-0"></span>
+          <span class="font-mono text-[9px] uppercase tracking-[0.18em] text-cream/50">
+            Research
+          </span>
+        </span>
 
-    {# ---- Tab content ---- #}
-    <div class="flex-1 overflow-y-auto">
+        {# Tab buttons #}
+        <button type="button"
+                @click="rpTab = 'research'"
+                :class="rpTab === 'research'
+                  ? 'text-cream border-b-2 border-teal'
+                  : 'text-cream/40 border-b-2 border-transparent hover:text-cream/70'"
+                class="px-2 py-1 font-mono text-[10px] uppercase tracking-widest
+                       bg-transparent cursor-pointer transition-colors">
+          Sources
+        </button>
+        <button type="button"
+                @click="rpTab = 'graph'; fetchGraph()"
+                :class="rpTab === 'graph'
+                  ? 'text-cream border-b-2 border-teal'
+                  : 'text-cream/40 border-b-2 border-transparent hover:text-cream/70'"
+                class="px-2 py-1 font-mono text-[10px] uppercase tracking-widest
+                       bg-transparent cursor-pointer transition-colors">
+          Graph
+        </button>
 
-      {# ======== Research tab ======== #}
-      <div x-show="rpTab === 'research'" class="p-4 space-y-4">
+        <span class="flex-1"></span>
 
-        {# Loading state #}
-        <template x-if="loading">
-          <p class="font-mono text-[11px] text-cream/40 tracking-wide animate-pulse">
-            Loading research context...
-          </p>
-        </template>
+        {# Dock position controls #}
+        {# Bottom dock #}
+        <button type="button"
+                @click="setRpPos('bottom')"
+                :class="rpPos === 'bottom' ? 'text-teal' : 'text-cream/30 hover:text-cream/60'"
+                class="p-1.5 bg-transparent border-none cursor-pointer transition-colors"
+                title="Dock to bottom">
+          {# Two horizontal lines (terminal-style) #}
+          <svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor"
+               stroke-width="1.5" stroke-linecap="round">
+            <rect x="2" y="2" width="12" height="12" rx="1.5" />
+            <line x1="2" y1="10" x2="14" y2="10" />
+          </svg>
+        </button>
 
-        {# Empty state #}
-        <template x-if="isEmpty">
-          <div class="text-center py-6">
-            <p class="font-body text-[14px] text-cream/50 leading-relaxed mb-2">
-              No research linked yet.
-            </p>
-            <p class="font-body text-[13px] text-cream/35 leading-relaxed">
-              Add sources from the
-              <a href="{% url 'intake:sourcebox' %}"
-                 class="text-teal/80 hover:text-teal underline">Sourcebox</a>
-              or the Research API.
-            </p>
-          </div>
-        </template>
+        {# Right dock #}
+        <button type="button"
+                @click="setRpPos('right')"
+                :class="rpPos === 'right' ? 'text-teal' : 'text-cream/30 hover:text-cream/60'"
+                class="p-1.5 bg-transparent border-none cursor-pointer transition-colors"
+                title="Dock to right side">
+          {# Vertical split icon #}
+          <svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor"
+               stroke-width="1.5" stroke-linecap="round">
+            <rect x="2" y="2" width="12" height="12" rx="1.5" />
+            <line x1="10" y1="2" x2="10" y2="14" />
+          </svg>
+        </button>
 
-        {# ---- Sources ---- #}
-        <template x-if="!loading && sources.length > 0">
-          <div>
-            <h4 class="font-mono text-[9px] uppercase tracking-[0.15em] text-cream/40 mb-2
-                       flex items-center gap-2">
-              <span class="w-1.5 h-1.5 rounded-full bg-terracotta"></span>
-              Sources
-            </h4>
-            <ul class="space-y-1.5 list-none p-0 m-0">
-              <template x-for="src in sources" :key="src.id || src.url">
-                <li class="flex items-start gap-2 text-[13px] font-body leading-snug">
-                  <span class="text-terracotta/60 mt-0.5 flex-shrink-0">&bull;</span>
-                  <div>
-                    <a x-show="src.url" :href="src.url" target="_blank" rel="noopener"
-                       class="text-cream/80 hover:text-cream underline decoration-cream/20
-                              hover:decoration-cream/50 transition-colors"
-                       x-text="src.title || src.url"></a>
-                    <span x-show="!src.url" class="text-cream/80"
-                          x-text="src.title || 'Untitled source'"></span>
-                    <span x-show="src.domain"
-                          class="font-mono text-[10px] text-cream/30 ml-1"
-                          x-text="src.domain"></span>
-                  </div>
-                </li>
-              </template>
-            </ul>
-          </div>
-        </template>
-
-        {# ---- Backlinks ---- #}
-        <template x-if="!loading && backlinks.length > 0">
-          <div>
-            <h4 class="font-mono text-[9px] uppercase tracking-[0.15em] text-cream/40 mb-2
-                       flex items-center gap-2">
-              <span class="w-1.5 h-1.5 rounded-full bg-teal"></span>
-              Backlinks
-            </h4>
-            <ul class="space-y-1.5 list-none p-0 m-0">
-              <template x-for="bl in backlinks" :key="bl.id || bl.slug">
-                <li class="text-[13px] font-body leading-snug flex items-start gap-2">
-                  <span class="text-teal/60 mt-0.5 flex-shrink-0">&larr;</span>
-                  <span class="text-cream/80" x-text="bl.title || bl.slug"></span>
-                </li>
-              </template>
-            </ul>
-          </div>
-        </template>
-
-        {# ---- Thread ---- #}
-        <template x-if="!loading && thread">
-          <div>
-            <h4 class="font-mono text-[9px] uppercase tracking-[0.15em] text-cream/40 mb-2
-                       flex items-center gap-2">
-              <span class="w-1.5 h-1.5 rounded-full bg-cream/40"></span>
-              Thread
-            </h4>
-            <div class="space-y-2">
-              <template x-for="entry in (thread.entries || [])" :key="entry.id">
-                <div class="pl-3 border-l-2 border-white/10">
-                  <p class="text-[13px] font-body text-cream/70 leading-relaxed m-0"
-                     x-text="entry.text"></p>
-                  <span class="font-mono text-[10px] text-cream/30"
-                        x-text="formatDate(entry.created_at)"></span>
-                </div>
-              </template>
-            </div>
-          </div>
-        </template>
-
-        {# ---- Mentions ---- #}
-        <template x-if="!loading && mentions.length > 0">
-          <div>
-            <h4 class="font-mono text-[9px] uppercase tracking-[0.15em] text-cream/40 mb-2
-                       flex items-center gap-2">
-              <span class="w-1.5 h-1.5 rounded-full bg-gold"></span>
-              Mentions
-            </h4>
-            <ul class="space-y-1.5 list-none p-0 m-0">
-              <template x-for="m in mentions" :key="m.id || m.source">
-                <li class="text-[13px] font-body leading-snug flex items-start gap-2">
-                  <span class="text-gold/60 mt-0.5 flex-shrink-0">&rsaquo;</span>
-                  <div>
-                    <a x-show="m.source" :href="m.source" target="_blank" rel="noopener"
-                       class="text-cream/80 hover:text-cream underline decoration-cream/20
-                              hover:decoration-cream/50 transition-colors"
-                       x-text="m.source"></a>
-                    <span x-show="m.content"
-                          class="block text-[12px] text-cream/50 mt-0.5"
-                          x-text="m.content"></span>
-                  </div>
-                </li>
-              </template>
-            </ul>
-          </div>
-        </template>
-
-        {# ---- Research notes ---- #}
-        <template x-if="!loading && notes.length > 0">
-          <div>
-            <h4 class="font-mono text-[9px] uppercase tracking-[0.15em] text-cream/40 mb-2
-                       flex items-center gap-2">
-              <span class="w-1.5 h-1.5 rounded-full bg-cream/60"></span>
-              Notes
-            </h4>
-            <div class="space-y-2">
-              <template x-for="note in notes" :key="note.id">
-                <div class="group/note flex items-start gap-2 pl-3 border-l-2 border-white/10
-                            hover:border-white/20 transition-colors">
-                  <div class="flex-1 min-w-0">
-                    <p class="text-[13px] font-body text-cream/70 leading-relaxed m-0 whitespace-pre-wrap"
-                       x-text="note.text"></p>
-                    <span class="font-mono text-[10px] text-cream/30"
-                          x-text="formatDate(note.created_at)"></span>
-                  </div>
-                  <button type="button"
-                          @click="deleteNote(note.id)"
-                          class="opacity-0 group-hover/note:opacity-100
-                                 p-0.5 bg-transparent border-none cursor-pointer
-                                 text-cream/30 hover:text-error transition-all flex-shrink-0"
-                          title="Delete note">
-                    <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor"
-                         stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-                      <line x1="4" y1="4" x2="12" y2="12" />
-                      <line x1="12" y1="4" x2="4" y2="12" />
-                    </svg>
-                  </button>
-                </div>
-              </template>
-            </div>
-          </div>
-        </template>
+        {# Collapse #}
+        <button type="button"
+                @click="setRpPos('collapsed')"
+                class="p-1.5 bg-transparent border-none cursor-pointer
+                       text-cream/30 hover:text-cream/60 transition-colors"
+                title="Collapse research panel">
+          <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor"
+               stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="4,6 8,10 12,6" />
+          </svg>
+        </button>
       </div>
 
-      {# ======== Graph tab ======== #}
-      <div x-show="rpTab === 'graph'" class="flex-1 min-h-0">
-        {# D3 graph container: sized by parent flex #}
-        <div x-ref="graphContainer"
-             class="w-full h-full min-h-[300px] flex items-center justify-center">
-          <template x-if="!graphData">
+      {# ---- Tab content ---- #}
+      <div class="flex-1 overflow-y-auto min-h-0">
+
+        {# ======== Research tab ======== #}
+        <div x-show="rpTab === 'research'" class="p-4 space-y-4">
+
+          {# Loading state #}
+          <template x-if="loading">
             <p class="font-mono text-[11px] text-cream/40 tracking-wide animate-pulse">
-              Loading graph...
+              Loading research context...
             </p>
           </template>
-          {# D3 renders SVG here via window.initResearchGraph() #}
+
+          {# Empty state #}
+          <template x-if="isEmpty">
+            <div class="text-center py-6">
+              <p class="font-body text-[14px] text-cream/50 leading-relaxed mb-2">
+                No research linked yet.
+              </p>
+              <p class="font-body text-[13px] text-cream/35 leading-relaxed">
+                Add sources from the
+                <a href="{% url 'intake:sourcebox' %}"
+                   class="text-teal/80 hover:text-teal underline">Sourcebox</a>
+                or the Research API.
+              </p>
+            </div>
+          </template>
+
+          {# ---- Sources ---- #}
+          <template x-if="!loading && sources.length > 0">
+            <div>
+              <h4 class="font-mono text-[9px] uppercase tracking-[0.15em] text-cream/40 mb-2
+                         flex items-center gap-2">
+                <span class="w-1.5 h-1.5 rounded-full bg-terracotta"></span>
+                Sources
+              </h4>
+              <ul class="space-y-1.5 list-none p-0 m-0">
+                <template x-for="src in sources" :key="src.id || src.url">
+                  <li class="flex items-start gap-2 text-[13px] font-body leading-snug">
+                    <span class="text-terracotta/60 mt-0.5 flex-shrink-0">&bull;</span>
+                    <div>
+                      <a x-show="src.url" :href="src.url" target="_blank" rel="noopener"
+                         class="text-cream/80 hover:text-cream underline decoration-cream/20
+                                hover:decoration-cream/50 transition-colors"
+                         x-text="src.title || src.url"></a>
+                      <span x-show="!src.url" class="text-cream/80"
+                            x-text="src.title || 'Untitled source'"></span>
+                      <span x-show="src.domain"
+                            class="font-mono text-[10px] text-cream/30 ml-1"
+                            x-text="src.domain"></span>
+                    </div>
+                  </li>
+                </template>
+              </ul>
+            </div>
+          </template>
+
+          {# ---- Backlinks ---- #}
+          <template x-if="!loading && backlinks.length > 0">
+            <div>
+              <h4 class="font-mono text-[9px] uppercase tracking-[0.15em] text-cream/40 mb-2
+                         flex items-center gap-2">
+                <span class="w-1.5 h-1.5 rounded-full bg-teal"></span>
+                Backlinks
+              </h4>
+              <ul class="space-y-1.5 list-none p-0 m-0">
+                <template x-for="bl in backlinks" :key="bl.id || bl.slug">
+                  <li class="text-[13px] font-body leading-snug flex items-start gap-2">
+                    <span class="text-teal/60 mt-0.5 flex-shrink-0">&larr;</span>
+                    <span class="text-cream/80" x-text="bl.title || bl.slug"></span>
+                  </li>
+                </template>
+              </ul>
+            </div>
+          </template>
+
+          {# ---- Thread ---- #}
+          <template x-if="!loading && thread">
+            <div>
+              <h4 class="font-mono text-[9px] uppercase tracking-[0.15em] text-cream/40 mb-2
+                         flex items-center gap-2">
+                <span class="w-1.5 h-1.5 rounded-full bg-cream/40"></span>
+                Thread
+              </h4>
+              <div class="space-y-2">
+                <template x-for="entry in (thread.entries || [])" :key="entry.id">
+                  <div class="pl-3 border-l-2 border-white/10">
+                    <p class="text-[13px] font-body text-cream/70 leading-relaxed m-0"
+                       x-text="entry.text"></p>
+                    <span class="font-mono text-[10px] text-cream/30"
+                          x-text="formatDate(entry.created_at)"></span>
+                  </div>
+                </template>
+              </div>
+            </div>
+          </template>
+
+          {# ---- Mentions ---- #}
+          <template x-if="!loading && mentions.length > 0">
+            <div>
+              <h4 class="font-mono text-[9px] uppercase tracking-[0.15em] text-cream/40 mb-2
+                         flex items-center gap-2">
+                <span class="w-1.5 h-1.5 rounded-full bg-gold"></span>
+                Mentions
+              </h4>
+              <ul class="space-y-1.5 list-none p-0 m-0">
+                <template x-for="m in mentions" :key="m.id || m.source">
+                  <li class="text-[13px] font-body leading-snug flex items-start gap-2">
+                    <span class="text-gold/60 mt-0.5 flex-shrink-0">&rsaquo;</span>
+                    <div>
+                      <a x-show="m.source" :href="m.source" target="_blank" rel="noopener"
+                         class="text-cream/80 hover:text-cream underline decoration-cream/20
+                                hover:decoration-cream/50 transition-colors"
+                         x-text="m.source"></a>
+                      <span x-show="m.content"
+                            class="block text-[12px] text-cream/50 mt-0.5"
+                            x-text="m.content"></span>
+                    </div>
+                  </li>
+                </template>
+              </ul>
+            </div>
+          </template>
+
+          {# ---- Research notes ---- #}
+          <template x-if="!loading && notes.length > 0">
+            <div>
+              <h4 class="font-mono text-[9px] uppercase tracking-[0.15em] text-cream/40 mb-2
+                         flex items-center gap-2">
+                <span class="w-1.5 h-1.5 rounded-full bg-cream/60"></span>
+                Notes
+              </h4>
+              <div class="space-y-2">
+                <template x-for="note in notes" :key="note.id">
+                  <div class="group/note flex items-start gap-2 pl-3 border-l-2 border-white/10
+                              hover:border-white/20 transition-colors">
+                    <div class="flex-1 min-w-0">
+                      <p class="text-[13px] font-body text-cream/70 leading-relaxed m-0 whitespace-pre-wrap"
+                         x-text="note.text"></p>
+                      <span class="font-mono text-[10px] text-cream/30"
+                            x-text="formatDate(note.created_at)"></span>
+                    </div>
+                    <button type="button"
+                            @click="deleteNote(note.id)"
+                            class="opacity-0 group-hover/note:opacity-100
+                                   p-0.5 bg-transparent border-none cursor-pointer
+                                   text-cream/30 hover:text-error transition-all flex-shrink-0"
+                            title="Delete note">
+                      <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor"
+                           stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                        <line x1="4" y1="4" x2="12" y2="12" />
+                        <line x1="12" y1="4" x2="4" y2="12" />
+                      </svg>
+                    </button>
+                  </div>
+                </template>
+              </div>
+            </div>
+          </template>
+        </div>
+
+        {# ======== Graph tab ======== #}
+        <div x-show="rpTab === 'graph'" class="flex-1 min-h-0 h-full">
+          <div x-ref="graphContainer"
+               class="w-full h-full min-h-[300px] flex items-center justify-center">
+            <template x-if="!graphData">
+              <p class="font-mono text-[11px] text-cream/40 tracking-wide animate-pulse">
+                Loading graph...
+              </p>
+            </template>
+            {# D3 renders SVG here via window.initResearchGraph() #}
+          </div>
         </div>
       </div>
-    </div>
 
-    {# ---- Note input area (always visible at bottom of panel) ---- #}
-    <div x-show="rpTab === 'research'"
-         class="border-t border-white/10 p-3 flex-shrink-0">
-      <div class="flex gap-2">
-        <textarea x-model="noteText"
-                  @keydown.cmd.enter.prevent="addNote()"
-                  @keydown.ctrl.enter.prevent="addNote()"
-                  placeholder="Add a research note... (Cmd+Enter to save)"
-                  rows="2"
-                  class="flex-1 px-3 py-2 bg-dark-surface text-cream text-[13px] font-body
-                         border border-white/10 rounded-brand
-                         placeholder:text-cream/25
-                         focus:border-teal/40 focus:outline-none
-                         resize-none"></textarea>
-        <button type="button"
-                @click="addNote()"
-                :disabled="noteSaving || !noteText.trim()"
-                :class="noteSaving || !noteText.trim()
-                  ? 'opacity-30 cursor-not-allowed'
-                  : 'hover:bg-teal/20 cursor-pointer'"
-                class="self-end px-3 py-2 font-mono text-[10px] uppercase tracking-widest
-                       text-teal bg-teal/10 border border-teal/20 rounded-brand
-                       transition-colors">
-          <span x-text="noteSaving ? '...' : 'Add'"></span>
-        </button>
+      {# ---- Note input area (always visible at bottom of panel) ---- #}
+      <div x-show="rpTab === 'research'"
+           class="border-t border-white/10 p-3 flex-shrink-0">
+        <div class="flex gap-2">
+          <textarea x-model="noteText"
+                    @keydown.cmd.enter.prevent="addNote()"
+                    @keydown.ctrl.enter.prevent="addNote()"
+                    placeholder="Add a research note... (Cmd+Enter to save)"
+                    rows="2"
+                    class="flex-1 px-3 py-2 bg-dark-surface text-cream text-[13px] font-body
+                           border border-white/10 rounded-brand
+                           placeholder:text-cream/25
+                           focus:border-teal/40 focus:outline-none
+                           resize-none"></textarea>
+          <button type="button"
+                  @click="addNote()"
+                  :disabled="noteSaving || !noteText.trim()"
+                  :class="noteSaving || !noteText.trim()
+                    ? 'opacity-30 cursor-not-allowed'
+                    : 'hover:bg-teal/20 cursor-pointer'"
+                  class="self-end px-3 py-2 font-mono text-[10px] uppercase tracking-widest
+                         text-teal bg-teal/10 border border-teal/20 rounded-brand
+                         transition-colors">
+            <span x-text="noteSaving ? '...' : 'Add'"></span>
+          </button>
+        </div>
       </div>
     </div>
   </div>
