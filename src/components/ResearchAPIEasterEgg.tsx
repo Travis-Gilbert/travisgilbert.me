@@ -1337,7 +1337,7 @@ export default function ResearchAPIEasterEgg() {
               right: 0,
               height: 40,
               background:
-                'linear-gradient(to bottom, rgba(244, 239, 232, 0) 0%, rgba(244, 239, 232, 0.95) 100%)',
+                'linear-gradient(in srgb, to bottom, rgba(244, 239, 232, 0) 0%, rgba(244, 239, 232, 0.95) 100%)',
               pointerEvents: 'none',
               zIndex: 3,
             }}

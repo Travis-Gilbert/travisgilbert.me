@@ -1128,7 +1128,7 @@ export default function ArchitectureEasterEgg() {
               right: 0,
               height: 40,
               background:
-                'linear-gradient(to bottom, color-mix(in srgb, var(--color-paper) 0%, transparent) 0%, color-mix(in srgb, var(--color-paper) 95%, transparent) 100%)',
+                'linear-gradient(in srgb, to bottom, var(--color-paper-0) 0%, color-mix(in srgb, var(--color-paper) 95%, var(--color-paper-0)) 100%)',
               pointerEvents: 'none',
               zIndex: 3,
             }}

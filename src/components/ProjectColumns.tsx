@@ -281,7 +281,7 @@ function RoleColumn({
           style={{
             left: 3,
             width: 1,
-            background: `linear-gradient(to bottom, ${mix(role.cssVar, 25)}, ${mix(role.cssVar, 5)})`,
+            background: `linear-gradient(in srgb, to bottom, ${mix(role.cssVar, 25)}, ${mix(role.cssVar, 5)})`,
           }}
         />
 

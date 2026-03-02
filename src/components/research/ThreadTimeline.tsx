@@ -89,7 +89,7 @@ export default function ThreadTimeline({ thread }: ThreadTimelineProps) {
         {/* Gold-to-border gradient line */}
         <div
           className="absolute left-[7px] top-1.5 bottom-1.5 w-px"
-          style={{ background: 'linear-gradient(to bottom, var(--color-gold), var(--color-border))' }}
+          style={{ background: 'linear-gradient(in srgb, to bottom, var(--color-gold), var(--color-border))' }}
         />
 
         {thread.entries.map((entry, i) => (

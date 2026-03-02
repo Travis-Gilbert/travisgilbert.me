@@ -94,7 +94,7 @@ export default function CollageHero({
                     fontFamily: 'var(--font-title)',
                     fontWeight: 700,
                     fontSize: 26,
-                    background: 'linear-gradient(to right, var(--color-ink), var(--color-terracotta))',
+                    background: 'linear-gradient(in srgb, to right, var(--color-ink), var(--color-terracotta))',
                     WebkitBackgroundClip: 'text',
                     WebkitTextFillColor: 'transparent',
                     backgroundClip: 'text',
