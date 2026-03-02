@@ -12,7 +12,7 @@
   --color-bg-alt: #E8E0D6;
   --color-card: #FAF6F1;           /* alias → surface */
   --color-code: #E8E0D6;           /* alias → bg-alt */
-  --color-nav-bg: #1E1620;         /* nav: dusty purple, blends into hero gradient */
+  --color-nav-bg: #221A1C;         /* nav: warm dark wine, no cool purple cast */
 
   /* Text */
   --color-ink: #2A2420;
@@ -34,11 +34,11 @@
   --color-gold: #C49A4A;
   --color-gold-light: #D4AA5A;
 
-  /* Nav link colors: tuned for 4.5:1+ contrast on --color-nav-bg (#1E1620)
-     Terracotta target: H 15-18deg (brick, not orange), L 52-56%, 5.1:1 ratio */
-  --color-nav-terracotta: #C96A3E;
-  --color-nav-teal: #5AB0C0;
-  --color-nav-gold: #D4B46A;
+  /* Nav link colors: tuned for 4.5:1+ contrast on --color-nav-bg (#221A1C)
+     Earthy hues: brick H~13, teal H~173, amber H~38 */
+  --color-nav-terracotta: #CC6A4E;
+  --color-nav-teal: #5AA89F;
+  --color-nav-gold: #C89C52;
 
   /* Ink (rough.js strokes) */
   --color-rough: #3A3632;
@@ -107,7 +107,7 @@
 html[data-theme="dark"] {
   /* Backgrounds: warm charcoal, not blue-gray */
   --color-paper: #1A1816;
-  --color-nav-bg: #1E1620;
+  --color-nav-bg: #221A1C;
   --color-surface: #222018;
   --color-bg-alt: #2E2A26;
   --color-card: #222018;

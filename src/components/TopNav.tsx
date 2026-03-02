@@ -31,7 +31,7 @@ const DEFAULT_NAV_LINKS: NavLink[] = [
   { href: '/connect', label: 'Connect', icon: 'chat-circle' },
 ];
 
-// Nav link colors: dedicated tokens tuned for 4.5:1+ contrast on #1E1620
+// Nav link colors: dedicated tokens tuned for 4.5:1+ contrast on #221A1C
 const NAV_COLORS: Record<string, string> = {
   '/essays':      'var(--color-nav-terracotta)',
   '/research':    'var(--color-nav-teal)',
@@ -108,7 +108,7 @@ export default function TopNav({ navItems }: TopNavProps) {
   }, [pathname, closeMobile]);
 
   return (
-    <nav aria-label="Main navigation" className="sticky top-0 z-50" style={{ backgroundColor: 'var(--color-nav-bg)', boxShadow: '0 1px 12px rgba(30, 22, 32, 0.5)' }}>
+    <nav aria-label="Main navigation" className="sticky top-0 z-50" style={{ backgroundColor: 'var(--color-nav-bg)', boxShadow: '0 1px 12px rgba(34, 26, 28, 0.5)' }}>
       <div className="w-full px-4 sm:px-6 py-3 flex items-center">
         {/* Site title (left) */}
         <Link
