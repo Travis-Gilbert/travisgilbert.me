@@ -87,7 +87,7 @@ export default function ProgressTracker({
                     width: 10,
                     height: 10,
                     background: isComplete || isCurrent ? color : 'transparent',
-                    border: `2px solid ${isUpcoming ? (inverted ? 'color-mix(in srgb, var(--color-hero-text) 20%, transparent)' : 'var(--color-border)') : color}`,
+                    border: `2px solid ${isUpcoming ? (inverted ? 'color-mix(in srgb, var(--color-hero-text) 40%, transparent)' : 'var(--color-border)') : color}`,
                     boxShadow: isCurrent ? `0 0 0 3px color-mix(in srgb, ${color} 13%, transparent)` : 'none',
                   }}
                 />
@@ -101,7 +101,7 @@ export default function ProgressTracker({
                   letterSpacing: '0.06em',
                   color: isCurrent ? color : isComplete
                     ? (inverted ? 'var(--color-hero-text-muted)' : 'var(--color-ink-muted)')
-                    : (inverted ? 'color-mix(in srgb, var(--color-hero-text) 35%, transparent)' : 'var(--color-ink-light)'),
+                    : (inverted ? 'color-mix(in srgb, var(--color-hero-text) 55%, transparent)' : 'var(--color-ink-light)'),
                   fontWeight: isCurrent ? 700 : 400,
                 }}
               >
@@ -115,7 +115,7 @@ export default function ProgressTracker({
                 style={{
                   width: 32,
                   height: 2,
-                  background: isComplete ? color : (inverted ? 'color-mix(in srgb, var(--color-hero-text) 15%, transparent)' : 'var(--color-border-light)'),
+                  background: isComplete ? color : (inverted ? 'color-mix(in srgb, var(--color-hero-text) 30%, transparent)' : 'var(--color-border-light)'),
                   marginBottom: 16,
                   marginLeft: 2,
                   marginRight: 2,
@@ -132,7 +132,7 @@ export default function ProgressTracker({
             fontSize: 9,
             textTransform: 'uppercase',
             letterSpacing: '0.06em',
-            color: inverted ? 'color-mix(in srgb, var(--color-hero-text) 50%, transparent)' : 'var(--color-ink-light)',
+            color: inverted ? 'color-mix(in srgb, var(--color-hero-text) 70%, transparent)' : 'var(--color-ink-light)',
           }}
         >
           {annotationCount} margin note{annotationCount !== 1 ? 's' : ''}

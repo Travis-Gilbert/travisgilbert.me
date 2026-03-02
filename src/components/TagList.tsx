@@ -22,13 +22,13 @@ const tintStyles: Record<TagTint, string> = {
 };
 
 const invertedTintStyles: Record<TagTint, string> = {
-  neutral: 'border-white/20 text-white/60 hover:border-white/40 hover:text-white/80',
+  neutral: 'border-white/30 text-white/75 hover:border-white/50 hover:text-white/90',
   terracotta:
-    'border-terracotta-light/30 text-white/60 bg-terracotta/[0.15] hover:border-terracotta-light/50 hover:text-white/90',
+    'border-terracotta-light/40 text-white/80 bg-terracotta/[0.20] hover:border-terracotta-light/60 hover:text-white',
   teal:
-    'border-teal-light/30 text-white/60 bg-teal/[0.15] hover:border-teal-light/50 hover:text-white/90',
+    'border-teal-light/40 text-white/80 bg-teal/[0.20] hover:border-teal-light/60 hover:text-white',
   gold:
-    'border-gold-light/30 text-white/60 bg-gold/[0.15] hover:border-gold-light/50 hover:text-white/90',
+    'border-gold-light/40 text-white/80 bg-gold/[0.20] hover:border-gold-light/60 hover:text-white',
 };
 
 export default function TagList({ tags, tint = 'neutral', inverted = false }: TagListProps) {

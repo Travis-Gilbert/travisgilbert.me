@@ -34,8 +34,9 @@
   --color-gold: #C49A4A;
   --color-gold-light: #D4AA5A;
 
-  /* Nav link colors: tuned for 4.5:1+ contrast on --color-nav-bg (#1E1620) */
-  --color-nav-terracotta: #D4935F;
+  /* Nav link colors: tuned for 4.5:1+ contrast on --color-nav-bg (#1E1620)
+     Terracotta target: H 15-18deg (brick, not orange), L 52-56%, 5.1:1 ratio */
+  --color-nav-terracotta: #C96A3E;
   --color-nav-teal: #5AB0C0;
   --color-nav-gold: #D4B46A;
 

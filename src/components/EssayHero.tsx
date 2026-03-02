@@ -129,13 +129,20 @@ export default function EssayHero({
         )}
       </div>
 
-      {/* Dark overlay for text legibility (skipped for collage: ground is baked in) */}
-      {!collageImage && (
-        <div
-          className="absolute inset-0"
-          style={{ backgroundColor: 'var(--color-hero-overlay)' }}
-        />
-      )}
+      {/* Dark overlay for text legibility.
+          Collage images have a dark ground baked in, so we use a lighter
+          supplemental overlay (35%) instead of the full hero overlay.
+          This handles bright patches in the composited image without
+          killing the collage aesthetic. YouTube and PatternImage get
+          the full overlay as before. */}
+      <div
+        className="absolute inset-0"
+        style={{
+          backgroundColor: collageImage
+            ? 'rgba(14, 10, 14, 0.35)'
+            : 'var(--color-hero-overlay)',
+        }}
+      />
 
       {/* Subtle paper grain on the dark overlay */}
       <div
@@ -157,10 +164,11 @@ export default function EssayHero({
           <span
             className="font-mono block"
             style={{
-              fontSize: 9,
+              fontSize: 10,
               textTransform: 'uppercase',
               letterSpacing: '0.08em',
-              color: 'rgba(240, 235, 228, 0.5)',
+              color: 'rgba(240, 235, 228, 0.82)',
+              textShadow: '0 1px 4px rgba(0,0,0,0.9)',
             }}
           >
             {formattedDate}
@@ -168,10 +176,11 @@ export default function EssayHero({
           <span
             className="font-mono block"
             style={{
-              fontSize: 9,
+              fontSize: 10,
               textTransform: 'uppercase',
               letterSpacing: '0.08em',
-              color: 'rgba(240, 235, 228, 0.5)',
+              color: 'rgba(240, 235, 228, 0.82)',
+              textShadow: '0 1px 4px rgba(0,0,0,0.9)',
             }}
           >
             {readingTime} min read
@@ -180,10 +189,11 @@ export default function EssayHero({
             <span
               className="font-mono block"
               style={{
-                fontSize: 9,
+                fontSize: 10,
                 textTransform: 'uppercase',
                 letterSpacing: '0.08em',
-                color: 'rgba(240, 235, 228, 0.5)',
+                color: 'rgba(240, 235, 228, 0.82)',
+                textShadow: '0 1px 4px rgba(0,0,0,0.9)',
               }}
             >
               BASED ON {sourceCount} {sourceCount === 1 ? 'SOURCE' : 'SOURCES'}
@@ -201,6 +211,7 @@ export default function EssayHero({
                 textTransform: 'uppercase',
                 letterSpacing: '0.12em',
                 color: 'var(--color-terracotta-light)',
+                textShadow: '0 1px 4px rgba(0,0,0,0.85)',
               }}
             >
               {category}
@@ -219,7 +230,10 @@ export default function EssayHero({
         {/* Title: large, editorial, uncontained */}
         <h1
           className="font-title text-3xl sm:text-4xl md:text-[3.25rem] lg:text-[3.75rem] font-bold leading-[1.1] mb-4"
-          style={{ color: 'var(--color-hero-text)' }}
+          style={{
+            color: 'var(--color-hero-text)',
+            textShadow: '0 1px 3px rgba(0,0,0,0.95), 0 3px 18px rgba(0,0,0,0.5)',
+          }}
         >
           {title}
         </h1>
@@ -231,10 +245,11 @@ export default function EssayHero({
             style={{
               fontFamily: 'var(--font-body-alt)',
               fontStyle: 'italic',
-              color: 'rgba(240, 235, 228, 0.8)',
+              color: 'rgba(240, 235, 228, 0.88)',
               borderLeft: '3px solid var(--color-terracotta)',
               paddingLeft: '1rem',
               maxWidth: '55ch',
+              textShadow: '0 1px 4px rgba(0,0,0,0.85)',
             }}
           >
             {thesis}
@@ -245,7 +260,10 @@ export default function EssayHero({
         {summary && (
           <p
             className="text-lg md:text-xl max-w-prose leading-relaxed mb-5"
-            style={{ color: 'var(--color-hero-text-muted)' }}
+            style={{
+              color: 'var(--color-hero-text-muted)',
+              textShadow: '0 1px 4px rgba(0,0,0,0.8)',
+            }}
           >
             {summary}
           </p>
