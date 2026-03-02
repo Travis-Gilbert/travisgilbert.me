@@ -368,6 +368,27 @@ body::after {
   }
 }
 
+/* Nav atmospheric fade: dark spill below sticky nav into parchment.
+   Uses position: absolute on ::after; sticky nav is a positioned ancestor.
+   rgb(34, 26, 28) matches --color-nav-bg (#221A1C). */
+.nav-fade::after {
+  content: '';
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  height: 120px;
+  background: linear-gradient(
+    in srgb,
+    to bottom,
+    var(--color-nav-bg),
+    rgba(34, 26, 28, 0.4) 40%,
+    rgba(34, 26, 28, 0)
+  );
+  pointer-events: none;
+  z-index: 30;
+}
+
 /* Hero artifact: subtle scale on hover, disabled for reduced-motion */
 .hero-artifact:hover {
   transform: rotate(-1.5deg) scale(1.02);

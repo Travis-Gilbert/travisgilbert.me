@@ -108,7 +108,7 @@ export default function TopNav({ navItems }: TopNavProps) {
   }, [pathname, closeMobile]);
 
   return (
-    <nav aria-label="Main navigation" className="sticky top-0 z-50" style={{ backgroundColor: 'var(--color-nav-bg)', boxShadow: '0 1px 12px rgba(34, 26, 28, 0.5)' }}>
+    <nav aria-label="Main navigation" className="sticky top-0 z-50 nav-fade" style={{ backgroundColor: 'var(--color-nav-bg)', boxShadow: '0 1px 12px rgba(34, 26, 28, 0.5)' }}>
       <div className="w-full px-4 sm:px-6 py-3 flex items-center">
         {/* Site title (left) */}
         <Link
