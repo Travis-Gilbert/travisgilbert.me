@@ -48,6 +48,9 @@
   --color-border: #D4CCC4;
   --color-border-light: #E8E0D6;
 
+  /* Paper at zero alpha (for gradient fades; avoids OKLAB green shift) */
+  --color-paper-0: rgba(242, 237, 229, 0);
+
   /* Utility */
   --color-shadow: rgba(42, 36, 32, 0.08);
 
@@ -121,17 +124,17 @@ html[data-theme="dark"] {
   --color-ink-faint: #7A7268;      /* alias: prefer --color-ink-light */
 
   /* Accent: Terracotta (warmed for dark backgrounds, retaining brown-red richness) */
-  --color-terracotta: #C46A3A;
-  --color-terracotta-hover: #D47A4A;
-  --color-terracotta-light: #E0956A;
+  --color-terracotta: #C0623A;
+  --color-terracotta-hover: #D07245;
+  --color-terracotta-light: #D8885E;
 
   /* Secondary: Teal (lifted) */
-  --color-teal: #3A8898;
-  --color-teal-light: #4EA0B2;
+  --color-teal: #358090;
+  --color-teal-light: #4898A8;
 
   /* Highlight: Gold (lifted) */
-  --color-gold: #D4AA5A;
-  --color-gold-light: #E4BA6A;
+  --color-gold: #CCA050;
+  --color-gold-light: #DCB060;
 
   /* Rough.js strokes: lighter for visibility */
   --color-rough: #8A8480;
@@ -140,6 +143,9 @@ html[data-theme="dark"] {
   /* Borders: darker but still visible */
   --color-border: #3A3632;
   --color-border-light: #4A4642;
+
+  /* Paper at zero alpha (for gradient fades; avoids OKLAB green shift) */
+  --color-paper-0: rgba(26, 24, 22, 0);
 
   /* Utility */
   --color-shadow: rgba(0, 0, 0, 0.25);

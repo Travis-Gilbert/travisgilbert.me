@@ -83,7 +83,7 @@ export default function ArticleBody({
             left: '5%',
             width: '90%',
             height: 1,
-            background: 'linear-gradient(to right, transparent, var(--color-ink-muted) 15%, var(--color-ink-muted) 85%, transparent)',
+            background: 'linear-gradient(in srgb, to right, transparent, var(--color-ink-muted) 15%, var(--color-ink-muted) 85%, transparent)',
             opacity: 0,
             pointerEvents: 'none',
             transition: 'opacity 300ms ease',

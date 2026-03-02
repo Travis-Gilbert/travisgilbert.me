@@ -37,7 +37,7 @@ export default function ProjectsPage() {
             position: 'absolute',
             inset: 0,
             backgroundImage:
-              'linear-gradient(var(--color-border) 1px, transparent 1px), linear-gradient(90deg, var(--color-border) 1px, transparent 1px)',
+              'linear-gradient(in srgb, var(--color-border) 1px, transparent 1px), linear-gradient(in srgb, 90deg, var(--color-border) 1px, transparent 1px)',
             backgroundSize: '40px 40px',
             opacity: 0.06,
             pointerEvents: 'none',

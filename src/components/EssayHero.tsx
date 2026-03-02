@@ -282,11 +282,12 @@ export default function EssayHero({
         style={{
           height: 120,
           background: `linear-gradient(
+            in srgb,
             to bottom,
-            transparent 0%,
-            color-mix(in srgb, var(--color-paper) 15%, transparent) 30%,
-            color-mix(in srgb, var(--color-paper) 50%, transparent) 55%,
-            color-mix(in srgb, var(--color-paper) 80%, transparent) 75%,
+            var(--color-paper-0) 0%,
+            color-mix(in srgb, var(--color-paper) 15%, var(--color-paper-0)) 30%,
+            color-mix(in srgb, var(--color-paper) 50%, var(--color-paper-0)) 55%,
+            color-mix(in srgb, var(--color-paper) 80%, var(--color-paper-0)) 75%,
             var(--color-paper) 100%
           )`,
         }}
