@@ -102,3 +102,58 @@ body::after {
   background-size: 40px 40px;
   opacity: 0.15;
 }
+
+/*
+ * Focus mode: distraction-free writing.
+ * Toggled via Cmd+Shift+F (adds .focus-mode to <html>).
+ * Hides sidebar, toolbar header, metadata panel, and research panel.
+ * Main content area expands to fill the viewport.
+ */
+html.focus-mode aside {
+  transform: translateX(-100%);
+  opacity: 0;
+  pointer-events: none;
+}
+
+html.focus-mode main {
+  margin-left: 0 !important;
+  transition: margin-left 0.3s ease;
+}
+
+html.focus-mode aside,
+html.focus-mode main {
+  transition: all 0.3s ease;
+}
+
+/* Hide toolbar header and metadata panel in focus mode */
+html.focus-mode [class*="c-toolbar"],
+html.focus-mode #writing-stats {
+  opacity: 0.3;
+  transition: opacity 0.3s ease;
+}
+
+html.focus-mode [class*="c-toolbar"]:hover,
+html.focus-mode #writing-stats:hover {
+  opacity: 1;
+}
+
+/* Escape hatch: show Esc key hint in focus mode */
+html.focus-mode body::before {
+  content: "Cmd+Shift+F to exit focus mode";
+  position: fixed;
+  top: 12px;
+  right: 16px;
+  z-index: 9998;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--color-ink-muted);
+  opacity: 0;
+  transition: opacity 0.3s ease;
+  pointer-events: none;
+}
+
+html.focus-mode body:hover::before {
+  opacity: 0.5;
+}

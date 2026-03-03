@@ -100,24 +100,121 @@
        class="flex-1 min-w-0 gap-2">
 
   {# ================================================================ #}
-  {#  Writing area: split-pane editor + preview                       #}
+  {#  Writing area: inline title, toolbar, split-pane editor + preview #}
   {# ================================================================ #}
-  <section class="bg-cream rounded-brand-lg border border-border shadow-warm-sm overflow-clip flex-1 min-w-0"
+  <section class="bg-cream rounded-brand-lg border border-border shadow-warm-sm overflow-clip flex-1 min-w-0 flex flex-col"
            x-data="{
              mode: $persist('edit').as('editor_mode'),
              previewHtml: '',
              loading: false,
+             focusMode: false,
              cycle() {
                if (this.mode === 'edit') this.mode = 'split';
                else if (this.mode === 'split') this.mode = 'preview';
                else this.mode = 'edit';
+             },
+             toggleFocus() {
+               this.focusMode = !this.focusMode;
+               document.documentElement.classList.toggle('focus-mode', this.focusMode);
              }
            }"
            @keydown.window.prevent.cmd.e="cycle()"
            @keydown.window.prevent.ctrl.e="cycle()"
+           @keydown.window.prevent.cmd.shift.f="toggleFocus()"
+           @keydown.window.prevent.ctrl.shift.f="toggleFocus()"
   >
+    {# ── Inline title + summary: natural writing flow ── #}
+    <div class="px-6 pt-5 pb-0">
+      {% if form.title %}
+      <label for="id_title" class="sr-only">Title</label>
+      <input type="text"
+             name="title"
+             id="id_title"
+             value="{{ form.title.value|default:'' }}"
+             placeholder="{% if form.body %}Title your essay...{% elif form.annotation %}Title...{% else %}Title...{% endif %}"
+             autocomplete="off"
+             class="w-full font-title text-[28px] font-bold text-ink bg-transparent
+                    border-none outline-none placeholder:text-ink-muted/40
+                    leading-tight tracking-tight pb-1
+                    {% if form.title.errors %}placeholder:text-error/40{% endif %}">
+      {% if form.title.errors %}
+      <p class="font-mono text-[11px] text-error tracking-wide mt-0.5">
+        {{ form.title.errors.0 }}
+      </p>
+      {% elif not is_new %}
+      <span class="font-mono text-[10px] text-ink-muted/40 tracking-wide">
+        /{{ content_type|lower }}s/{{ object.slug }}
+      </span>
+      {% endif %}
+      {% endif %}
+      {% if form.summary %}
+      <label for="id_summary" class="sr-only">Summary</label>
+      <textarea name="summary"
+                id="id_summary"
+                rows="1"
+                maxlength="200"
+                placeholder="Write a brief summary..."
+                class="w-full font-body text-[15px] text-ink-secondary bg-transparent
+                       border-none outline-none resize-none placeholder:text-ink-muted/30
+                       leading-relaxed mt-1 overflow-hidden"
+                data-autogrow
+      >{{ form.summary.value|default:'' }}</textarea>
+      <div class="flex items-center gap-2 mt-1 mb-1">
+        {% if form.summary.errors %}
+        <span class="font-mono text-[11px] text-error tracking-wide">
+          {{ form.summary.errors.0 }}
+        </span>
+        {% endif %}
+        <span class="font-mono text-[10px] text-ink-muted/50 tracking-wide"
+              id="summary-count"
+              data-field="id_summary" data-max="200"></span>
+      </div>
+      {% elif form.excerpt %}
+      <label for="id_excerpt" class="sr-only">Excerpt</label>
+      <textarea name="excerpt"
+                id="id_excerpt"
+                rows="1"
+                maxlength="300"
+                placeholder="Brief excerpt..."
+                class="w-full font-body text-[15px] text-ink-secondary bg-transparent
+                       border-none outline-none resize-none placeholder:text-ink-muted/30
+                       leading-relaxed mt-1 overflow-hidden"
+                data-autogrow
+      >{{ form.excerpt.value|default:'' }}</textarea>
+      <div class="flex items-center gap-2 mt-1 mb-1">
+        {% if form.excerpt.errors %}
+        <span class="font-mono text-[11px] text-error tracking-wide">
+          {{ form.excerpt.errors.0 }}
+        </span>
+        {% endif %}
+        <span class="font-mono text-[10px] text-ink-muted/50 tracking-wide"
+              id="excerpt-count"
+              data-field="id_excerpt" data-max="300"></span>
+      </div>
+      {% elif form.description %}
+      <label for="id_description" class="sr-only">Description</label>
+      <textarea name="description"
+                id="id_description"
+                rows="1"
+                maxlength="300"
+                placeholder="Brief description..."
+                class="w-full font-body text-[15px] text-ink-secondary bg-transparent
+                       border-none outline-none resize-none placeholder:text-ink-muted/30
+                       leading-relaxed mt-1 overflow-hidden"
+                data-autogrow
+      >{{ form.description.value|default:'' }}</textarea>
+      <div class="flex items-center gap-2 mt-1 mb-1">
+        <span class="font-mono text-[10px] text-ink-muted/50 tracking-wide"
+              id="description-count"
+              data-field="id_description" data-max="300"></span>
+      </div>
+      {% endif %}
+      {# Thin separator between header and toolbar #}
+      <div class="border-b border-border/50 mt-2"></div>
+    </div>
+
     {# Markdown toolbar + mode toggle #}
-    <div class="flex flex-wrap items-center gap-1 px-4 py-2 border-b border-border bg-cream/80"
+    <div class="flex flex-wrap items-center gap-1 px-4 py-2 border-b border-border bg-cream/80 sticky top-0 z-10"
          id="editor-toolbar">
       {# Formatting buttons (hidden in preview-only mode) #}
       <template x-if="mode !== 'preview'">
@@ -148,6 +245,23 @@
       {# Spacer pushes mode toggle to the right #}
       <span class="flex-1"></span>
 
+      {# Focus mode toggle #}
+      <button type="button"
+              @click="toggleFocus()"
+              :class="focusMode ? 'text-terracotta bg-terracotta/10' : 'text-ink-muted hover:text-ink hover:bg-black/5'"
+              class="inline-flex items-center justify-center w-8 h-8 rounded-brand cursor-pointer
+                     bg-transparent border-none transition-colors mr-2"
+              title="Focus mode (Cmd+Shift+F)">
+        <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor"
+             stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+          <rect x="3" y="3" width="10" height="10" rx="1" />
+          <line x1="1" y1="1" x2="4" y2="1" /><line x1="1" y1="1" x2="1" y2="4" />
+          <line x1="15" y1="1" x2="12" y2="1" /><line x1="15" y1="1" x2="15" y2="4" />
+          <line x1="1" y1="15" x2="4" y2="15" /><line x1="1" y1="15" x2="1" y2="12" />
+          <line x1="15" y1="15" x2="12" y2="15" /><line x1="15" y1="15" x2="15" y2="12" />
+        </svg>
+      </button>
+
       {# Mode toggle: Edit | Split | Preview #}
       <div class="flex items-center bg-black/5 rounded-brand overflow-hidden">
         {% with mode_cls="px-2.5 py-1 font-mono text-[10px] uppercase tracking-wider cursor-pointer border-none transition-colors" %}
@@ -165,10 +279,10 @@
     </div>
 
     {# Split-pane container #}
-    <div :class="mode === 'split' ? 'grid grid-cols-2' : ''">
+    <div class="flex-1 min-h-0" :class="mode === 'split' ? 'grid grid-cols-2' : ''">
       {# Textarea pane #}
       <div x-show="mode !== 'preview'" x-cloak
-           :class="mode === 'split' ? 'border-r-[3px] border-border' : ''">
+           :class="mode === 'split' ? 'border-r-[3px] border-border overflow-y-auto' : ''">
         <label for="editor-body" class="sr-only">
           {% if form.body %}Body{% else %}Annotation{% endif %}
         </label>
@@ -181,7 +295,7 @@
 
       {# Preview pane #}
       <div x-show="mode !== 'edit'" x-cloak
-           class="min-h-[400px]">
+           class="min-h-[400px] overflow-y-auto">
         <div class="px-6 py-4">
           <template x-if="loading && !previewHtml">
             <p class="font-mono text-[11px] text-ink-muted tracking-wide">Rendering preview...</p>
@@ -196,6 +310,16 @@
                class="prose prose-parchment max-w-none font-body text-[17px] leading-relaxed"></div>
         </div>
       </div>
+    </div>
+
+    {# ── Word count + reading time footer ── #}
+    <div class="flex items-center gap-4 px-5 py-2 border-t border-border/50 bg-cream/60"
+         id="writing-stats">
+      <span class="font-mono text-[10px] text-ink-muted tracking-wide" id="word-count">0 words</span>
+      <span class="w-px h-3 bg-border"></span>
+      <span class="font-mono text-[10px] text-ink-muted tracking-wide" id="reading-time">0 min read</span>
+      <span class="flex-1"></span>
+      <span class="font-mono text-[10px] tracking-wide transition-colors" id="dirty-indicator"></span>
     </div>
   </section>
 

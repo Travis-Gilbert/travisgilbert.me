@@ -6,6 +6,10 @@
  *   2. Autosave: debounced field-level saves
  *   3. Character counters, Tab indent, global shortcuts (Cmd+S, Cmd+Shift+P)
  *   4. Structured list widget: add/remove rows via <template> cloning
+ *   5. Auto-grow textareas: expand height with content
+ *   6. Word count + reading time: live writing statistics
+ *   7. Inline field counters: character count for inline summary/excerpt
+ *   8. Unsaved changes warning: beforeunload prompt when dirty
  */
 
 (function () {
@@ -180,6 +184,9 @@
                         lastSavedValues[key] = changed[key];
                     });
                     setIndicator('Saved', 'var(--color-success)');
+                    // Mark clean after successful save
+                    _dirtyFields = {};
+                    updateDirtyIndicator();
                     setTimeout(function () { setIndicator(''); }, 3000);
                 } else {
                     setIndicator('Save failed', 'var(--color-error)');
@@ -249,7 +256,11 @@
             if (e.key === 's' && !e.shiftKey) {
                 e.preventDefault();
                 var form = document.getElementById('content-form');
-                if (form) form.submit();
+                if (form) {
+                    _dirtyFields = {};
+                    updateDirtyIndicator();
+                    form.submit();
+                }
             }
 
             // Cmd+Shift+P: publish (triggers the HTMX publish button)
@@ -264,12 +275,6 @@
     // ─── 6. Structured List Widget: add/remove rows via <template> ─────
 
     function initStructuredLists() {
-        // Each StructuredListWidget container has:
-        //   data-field="<field_name>"  data-schema-count="<N>"
-        // Inside: a rows div (<id>-rows), a <template> (<id>-template),
-        //   and an add button with data-field="<field_name>"
-        // Each row has data-index="<N>" and a remove button (last <button>)
-
         document.querySelectorAll('[data-field][data-schema-count]').forEach(function (container) {
             var fieldName = container.dataset.field;
             var rowsDiv = container.querySelector('[id$="-rows"]');
@@ -333,6 +338,152 @@
         });
     }
 
+    // ─── 7. Auto-grow Textareas ─────────────────────────────────────────
+
+    function initAutoGrow() {
+        // Textareas with [data-autogrow] expand to fit their content.
+        // Used for inline summary/excerpt fields in the writing header.
+        document.querySelectorAll('textarea[data-autogrow]').forEach(function (ta) {
+            function resize() {
+                ta.style.height = 'auto';
+                ta.style.height = ta.scrollHeight + 'px';
+            }
+            ta.addEventListener('input', resize);
+            // Initial sizing after content loads
+            resize();
+        });
+    }
+
+    // ─── 8. Word Count + Reading Time ───────────────────────────────────
+
+    function initWordCount() {
+        var textarea = document.getElementById('editor-body');
+        if (!textarea) return;
+
+        var wordCountEl = document.getElementById('word-count');
+        var readingTimeEl = document.getElementById('reading-time');
+        if (!wordCountEl || !readingTimeEl) return;
+
+        function update() {
+            var text = textarea.value.trim();
+            if (!text) {
+                wordCountEl.textContent = '0 words';
+                readingTimeEl.textContent = '0 min read';
+                return;
+            }
+            var words = text.split(/\s+/).length;
+            var minutes = Math.max(1, Math.ceil(words / 230));
+            wordCountEl.textContent = words.toLocaleString() + ' word' + (words === 1 ? '' : 's');
+            readingTimeEl.textContent = minutes + ' min read';
+        }
+
+        textarea.addEventListener('input', update);
+        // Initial count
+        update();
+    }
+
+    // ─── 9. Inline Field Counters ───────────────────────────────────────
+
+    function initInlineCounters() {
+        // Counters for inline summary/excerpt/description fields.
+        // These use a different selector than the crispy .field-count pattern.
+        var counters = document.querySelectorAll(
+            '#summary-count, #excerpt-count, #description-count'
+        );
+        counters.forEach(function (counter) {
+            var fieldId = counter.dataset.field;
+            var max = parseInt(counter.dataset.max, 10);
+            var field = document.getElementById(fieldId);
+            if (!field || !max) return;
+
+            function update() {
+                var len = field.value.length;
+                counter.textContent = len + ' / ' + max;
+                if (len > max) {
+                    counter.style.color = 'var(--color-error)';
+                } else if (len > max * 0.9) {
+                    counter.style.color = 'var(--color-gold)';
+                } else {
+                    counter.style.color = '';
+                }
+            }
+
+            field.addEventListener('input', update);
+            update();
+        });
+    }
+
+    // ─── 10. Unsaved Changes Warning ────────────────────────────────────
+
+    // Shared dirty state tracking. Fields marked dirty on input,
+    // cleared on autosave success or form submit.
+    var _dirtyFields = {};
+
+    function updateDirtyIndicator() {
+        var el = document.getElementById('dirty-indicator');
+        if (!el) return;
+        var isDirty = Object.keys(_dirtyFields).length > 0;
+        if (isDirty) {
+            el.textContent = 'Unsaved changes';
+            el.style.color = 'var(--color-gold)';
+        } else {
+            el.textContent = '';
+            el.style.color = '';
+        }
+    }
+
+    function initUnsavedWarning() {
+        var form = document.getElementById('content-form');
+        if (!form) return;
+
+        var trackedFields = form.querySelectorAll(
+            'input:not([type=hidden]):not([type=submit]),' +
+            'textarea, select'
+        );
+
+        // Snapshot initial values
+        var initialValues = {};
+        trackedFields.forEach(function (field) {
+            if (field.name) {
+                initialValues[field.name] = field.type === 'checkbox'
+                    ? String(field.checked) : field.value;
+            }
+        });
+
+        function markDirty(e) {
+            var field = e.target;
+            if (!field.name) return;
+            var current = field.type === 'checkbox'
+                ? String(field.checked) : field.value;
+            if (current !== initialValues[field.name]) {
+                _dirtyFields[field.name] = true;
+            } else {
+                delete _dirtyFields[field.name];
+            }
+            updateDirtyIndicator();
+        }
+
+        trackedFields.forEach(function (field) {
+            field.addEventListener('input', markDirty);
+            field.addEventListener('change', markDirty);
+        });
+
+        // Warn before closing/navigating with unsaved changes
+        window.addEventListener('beforeunload', function (e) {
+            if (Object.keys(_dirtyFields).length > 0) {
+                e.preventDefault();
+                // Modern browsers ignore custom messages but still show prompt
+                e.returnValue = '';
+            }
+        });
+
+        // Clear dirty state on form submit
+        form.addEventListener('submit', function () {
+            _dirtyFields = {};
+            updateDirtyIndicator();
+        });
+    }
+
     // ─── Init ───────────────────────────────────────────────────────────
 
     document.addEventListener('DOMContentLoaded', function () {
@@ -342,5 +493,9 @@
         initTabIndent();
         initGlobalShortcuts();
         initStructuredLists();
+        initAutoGrow();
+        initWordCount();
+        initInlineCounters();
+        initUnsavedWarning();
     });
 })();

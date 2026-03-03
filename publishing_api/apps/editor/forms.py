@@ -140,15 +140,17 @@ class EssayForm(forms.ModelForm):
         super().__init__(*args, **kwargs)
         self.helper = FormHelper()
         self.helper.form_tag = False
+        # Title and summary are rendered inline in the writing area header,
+        # so they are excluded from the crispy layout to avoid duplication.
         self.helper.layout = Layout(
             Fieldset(
                 "Identity",
-                "title", "slug", "date",
+                "slug", "date",
                 css_class="section-terracotta",
             ),
             Fieldset(
                 "Content",
-                "summary", "stage",
+                "stage",
                 css_class="",
             ),
             Fieldset(
@@ -243,15 +245,16 @@ class FieldNoteForm(forms.ModelForm):
         super().__init__(*args, **kwargs)
         self.helper = FormHelper()
         self.helper.form_tag = False
+        # Title and excerpt are rendered inline in the writing area header.
         self.helper.layout = Layout(
             Fieldset(
                 "Identity",
-                "title", "slug", "date",
+                "slug", "date",
                 css_class="section-terracotta",
             ),
             Fieldset(
                 "Content",
-                "excerpt", "status",
+                "status",
                 css_class="",
             ),
             Fieldset(
@@ -330,10 +333,11 @@ class ShelfEntryForm(forms.ModelForm):
         super().__init__(*args, **kwargs)
         self.helper = FormHelper()
         self.helper.form_tag = False
+        # Title is rendered inline in the writing area header.
         self.helper.layout = Layout(
             Fieldset(
                 "Identity",
-                "title", "slug", "date",
+                "slug", "date",
                 css_class="section-terracotta",
             ),
             Fieldset(
@@ -431,15 +435,16 @@ class ProjectForm(forms.ModelForm):
         super().__init__(*args, **kwargs)
         self.helper = FormHelper()
         self.helper.form_tag = False
+        # Title and description are rendered inline in the writing area header.
         self.helper.layout = Layout(
             Fieldset(
                 "Identity",
-                "title", "slug", "date", "year",
+                "slug", "date", "year",
                 css_class="section-terracotta",
             ),
             Fieldset(
                 "Details",
-                "role", "organization", "description", "order",
+                "role", "organization", "order",
                 css_class="",
             ),
             Fieldset(
@@ -511,10 +516,11 @@ class ToolkitEntryForm(forms.ModelForm):
         super().__init__(*args, **kwargs)
         self.helper = FormHelper()
         self.helper.form_tag = False
+        # Title is rendered inline in the writing area header.
         self.helper.layout = Layout(
             Fieldset(
                 "Identity",
-                "title", "slug",
+                "slug",
                 css_class="section-terracotta",
             ),
             Fieldset(
