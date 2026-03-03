@@ -1,12 +1,6 @@
 {# ================================================================ #}
-{#  Research Panel: VS Code terminal style, dockable              #}
-{#                                                                  #}
-{#  Position controlled by rpPos (bottom | right | collapsed),    #}
-{#  which lives on the PARENT form's x-data scope so that the    #}
-{#  writing+research wrapper can also react to it.               #}
-{#                                                                  #}
-{#  rpPos and rpW are inherited via Alpine mergeProxies:          #}
-{#  child x-data reads/writes parent scope properties directly.  #}
+{#  Research Panel: docks at bottom of writing card.               #}
+{#  Two states: bottom (expanded) and collapsed.                   #}
 {#                                                                  #}
 {#  Two tabs: Research (list of sources/backlinks/notes) and      #}
 {#  Graph (D3.js force directed connections).                     #}
@@ -16,6 +10,7 @@
 <div x-data="{
        rpHeight: $persist(350).as('editor_rp_height'),
        rpTab: $persist('research').as('editor_rp_tab'),
+       rpPos: $persist('bottom').as('editor_rp_pos'),
        rpDragging: false,
 
        /* Data */
@@ -52,6 +47,8 @@
          /* Load research data */
          this.fetchContext();
          this.fetchNotes();
+         /* Safety timeout: don't show spinner forever */
+         setTimeout(() => { this.loading = false; }, 8000);
        },
 
        fetchContext() {
@@ -131,33 +128,18 @@
        },
 
        startRpDrag() {
-         /* Direction-aware resize: col-resize when right-docked,        */
-         /* row-resize when bottom-docked.                               */
-         /* rpPos and rpW live on the PARENT form scope (mergeProxies).  */
-         var self   = this;                  /* merged proxy — owns rpPos + rpW */
+         var self   = this;
          var startY = event.clientY;
-         var startX = event.clientX;
          var startH = this.rpHeight;
-         var startW = this.rpW;              /* from parent form scope */
-         var pos    = this.rpPos;            /* from parent form scope */
 
          document.body.style.userSelect = 'none';
-         document.body.style.cursor = pos === 'right' ? 'col-resize' : 'row-resize';
+         document.body.style.cursor = 'row-resize';
 
          function onMove(e) {
-           if (pos === 'right') {
-             /* Dragging the left edge of the right panel: wider when dragged left */
-             self.rpW = Math.max(280, Math.min(
-               startW - (e.clientX - startX),
-               window.innerWidth * 0.5
-             ));
-           } else {
-             /* Dragging the top edge of the bottom panel: taller when dragged up */
-             self.rpHeight = Math.max(200, Math.min(
-               startH - (e.clientY - startY),
-               window.innerHeight * 0.6
-             ));
-           }
+           self.rpHeight = Math.max(200, Math.min(
+             startH - (e.clientY - startY),
+             window.innerHeight * 0.6
+           ));
          }
          function onUp() {
            self.rpDragging = false;
@@ -197,15 +179,10 @@
      data-graph-url="{% url 'editor:api-research-graph' content_type=content_type slug=object.slug %}"
      data-notes-url="{% url 'editor:api-research-notes' content_type=content_type slug=object.slug %}"
      data-notes-delete-base="{% research_note_delete_url content_type object.slug %}"
-     :class="{
-       'mt-2 flex-shrink-0 w-full': rpPos !== 'right',
-       'flex-shrink-0 h-full':       rpPos === 'right'
-     }"
+     class="flex-shrink-0 w-full isolate"
      :style="rpPos === 'bottom'
            ? { height: rpHeight + 'px', minHeight: '200px' }
-           : rpPos === 'right'
-               ? { width: rpW + 'px', minWidth: '280px', maxWidth: '50vw' }
-               : {}"
+           : {}"
 >
 
   {# ---- Collapsed state: thin dark tab bar ---- #}
@@ -231,20 +208,14 @@
   {# ---- Open panel ---- #}
   <div x-show="rpPos !== 'collapsed'"
        class="bg-dark-ground text-cream rounded-brand-lg border border-white/10
-              overflow-hidden flex h-full"
-       :class="rpPos === 'right' ? 'flex-row-reverse' : 'flex-col'">
+              overflow-hidden flex flex-col h-full">
 
     {# -------- Drag handle -------- #}
     {# Direction-aware: horizontal bar on top (bottom dock), #}
     {# vertical bar on left edge (right dock).              #}
     <div @mousedown.prevent="startRpDrag()"
-         :class="rpPos === 'right'
-               ? 'w-2 cursor-col-resize flex items-center justify-center flex-shrink-0 group'
-               : 'h-2 cursor-row-resize flex items-center justify-center flex-shrink-0 group'"
-         class="select-none">
-      <div :class="rpPos === 'right'
-                   ? 'h-8 w-[3px] rounded-full bg-white/10 group-hover:bg-white/25 transition-colors'
-                   : 'w-8 h-[3px] rounded-full bg-white/10 group-hover:bg-white/25 transition-colors'">
+         class="h-2 cursor-row-resize flex items-center justify-center flex-shrink-0 group select-none">
+      <div class="w-8 h-[3px] rounded-full bg-white/10 group-hover:bg-white/25 transition-colors">
       </div>
     </div>
 
@@ -284,38 +255,9 @@
 
         <span class="flex-1"></span>
 
-        {# Dock position controls #}
-        {# Bottom dock #}
+        {# Collapse toggle #}
         <button type="button"
-                @click="setRpPos('bottom')"
-                :class="rpPos === 'bottom' ? 'text-teal' : 'text-cream/30 hover:text-cream/60'"
-                class="p-1.5 bg-transparent border-none cursor-pointer transition-colors"
-                title="Dock to bottom">
-          {# Two horizontal lines (terminal-style) #}
-          <svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor"
-               stroke-width="1.5" stroke-linecap="round">
-            <rect x="2" y="2" width="12" height="12" rx="1.5" />
-            <line x1="2" y1="10" x2="14" y2="10" />
-          </svg>
-        </button>
-
-        {# Right dock #}
-        <button type="button"
-                @click="setRpPos('right')"
-                :class="rpPos === 'right' ? 'text-teal' : 'text-cream/30 hover:text-cream/60'"
-                class="p-1.5 bg-transparent border-none cursor-pointer transition-colors"
-                title="Dock to right side">
-          {# Vertical split icon #}
-          <svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor"
-               stroke-width="1.5" stroke-linecap="round">
-            <rect x="2" y="2" width="12" height="12" rx="1.5" />
-            <line x1="10" y1="2" x2="10" y2="14" />
-          </svg>
-        </button>
-
-        {# Collapse #}
-        <button type="button"
-                @click="setRpPos('collapsed')"
+                @click="rpPos = 'collapsed'"
                 class="p-1.5 bg-transparent border-none cursor-pointer
                        text-cream/30 hover:text-cream/60 transition-colors"
                 title="Collapse research panel">

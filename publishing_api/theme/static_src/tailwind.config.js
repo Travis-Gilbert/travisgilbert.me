@@ -42,7 +42,7 @@ module.exports = {
         },
 
         // Surfaces
-        parchment: "#F0EBE4",
+        parchment: "#F2EDE5",
         "parchment-alt": "#E8E0D6",
         cream: "#FAF6F1",
         "dark-ground": "#1A1816",

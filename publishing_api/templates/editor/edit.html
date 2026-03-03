@@ -50,10 +50,6 @@
         panelH: $persist(340).as('editor_panel_h'),
         panelW: $persist(380).as('editor_panel_w'),
         dragging: false,
-        /* Research panel position: bottom | right | collapsed */
-        rpPos: $persist('bottom').as('editor_rp_pos'),
-        rpW: $persist(380).as('editor_rp_w'),
-        setRpPos(p) { this.rpPos = p; },
         startDrag(axis) {
           this.dragging = true;
           const startY = event.clientY;
@@ -96,13 +92,12 @@
   {# ================================================================ #}
   {#  Writing + Research vertical stack                                #}
   {# ================================================================ #}
-  <div :class="rpPos === 'right' ? 'flex flex-row' : 'flex flex-col'"
-       class="flex-1 min-w-0 gap-2">
+  <div class="flex flex-col flex-1 min-w-0 gap-2">
 
   {# ================================================================ #}
   {#  Writing area: split-pane editor + preview                       #}
   {# ================================================================ #}
-  <section class="bg-cream rounded-brand-lg border border-border shadow-warm-sm overflow-clip flex-1 min-w-0"
+  <section class="bg-cream rounded-brand-lg border border-border shadow-warm-sm overflow-clip flex flex-col flex-1 min-w-0"
            x-data="{
              mode: $persist('edit').as('editor_mode'),
              previewHtml: '',
@@ -165,10 +160,10 @@
     </div>
 
     {# Split-pane container #}
-    <div :class="mode === 'split' ? 'grid grid-cols-2' : ''">
+    <div :class="mode === 'split' ? 'grid grid-cols-2' : ''" class="flex-1 min-h-0">
       {# Textarea pane #}
       <div x-show="mode !== 'preview'" x-cloak
-           :class="mode === 'split' ? 'border-r-[3px] border-border' : ''">
+           :class="mode === 'split' ? 'border-r border-border-light' : ''">
         <label for="editor-body" class="sr-only">
           {% if form.body %}Body{% else %}Annotation{% endif %}
         </label>
@@ -197,14 +192,13 @@
         </div>
       </div>
     </div>
-  </section>
-
   {# ================================================================ #}
-  {#  Research panel (below writing area, VS Code terminal style)      #}
+  {#  Research panel (docked at bottom of writing card)                #}
   {# ================================================================ #}
   {% if not is_new %}
   {% include "editor/partials/research_panel.html" %}
   {% endif %}
+  </section>
 
   </div>{# end writing + research stack #}
   {% endif %}

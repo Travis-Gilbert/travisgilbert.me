@@ -2,12 +2,13 @@
   href="{{ href }}"
   class="
     flex items-center gap-3 px-4 py-3
-    bg-cream rounded-brand border border-border
+    rounded-brand shadow-warm-sm
     no-underline text-ink
-    hover:shadow-warm-sm hover:border-border/80
+    hover:shadow-warm hover:translate-y-[-1px]
     transition-all duration-200
     {{ class }}
   "
+  style="background-color: {% if color == 'terracotta' %}rgba(180, 90, 45, 0.04){% elif color == 'teal' %}rgba(45, 95, 107, 0.04){% elif color == 'gold' %}rgba(196, 154, 74, 0.04){% elif color == 'green' %}rgba(90, 122, 74, 0.04){% else %}rgba(250, 246, 241, 1){% endif %}"
 >
   {% if icon %}
     <div class="

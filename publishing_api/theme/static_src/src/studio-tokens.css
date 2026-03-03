@@ -19,7 +19,7 @@
   --color-gold-light: #D4AA5A;
 
   /* Surfaces */
-  --color-parchment: #F0EBE4;
+  --color-parchment: #F2EDE5;
   --color-parchment-alt: #E8E0D6;
   --color-cream: #FAF6F1;
   --color-dark-ground: #1A1816;
@@ -34,6 +34,9 @@
   --color-border: #D4CCC4;
   --color-border-light: #E8E0D6;
   --color-border-dark: #3A3632;
+
+  /* Sidebar */
+  --color-sidebar-purple: #1E1620;
 
   /* Status */
   --color-success: #5A7A4A;
@@ -82,7 +85,7 @@ body::after {
   inset: 0;
   pointer-events: none;
   z-index: 9999;
-  opacity: 0.025;
+  opacity: 0.04;
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
 }
 
@@ -101,4 +104,44 @@ body::after {
     linear-gradient(90deg, var(--color-border-light) 1px, transparent 1px);
   background-size: 40px 40px;
   opacity: 0.15;
+}
+
+/*
+ * Sidebar purple wash.
+ * Radial gradient from upper-left corner, fading into dark-ground.
+ * Add to the <aside> sidebar element.
+ */
+.sidebar-purple-wash::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+  background: radial-gradient(
+    ellipse 200px 280px at 0% 0%,
+    rgba(30, 22, 32, 0.85) 0%,
+    rgba(30, 22, 32, 0.4) 40%,
+    transparent 70%
+  );
+  border-radius: inherit;
+}
+
+/*
+ * Terracotta drafting-table grid.
+ * Fixed-positioned behind all content.
+ * Add to the outer flex wrapper in base.html.
+ */
+.studio-grid-bg {
+  position: relative;
+}
+.studio-grid-bg::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+  background-image:
+    linear-gradient(rgba(180, 90, 45, 0.06) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(180, 90, 45, 0.06) 1px, transparent 1px);
+  background-size: 40px 40px;
 }

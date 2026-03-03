@@ -25,7 +25,7 @@
     {% block head %}{% endblock %}
 </head>
 <body class="bg-parchment text-ink font-body" {% block body_attrs %}{% endblock %}>
-    <div class="flex min-h-screen">
+    <div class="flex min-h-screen studio-grid-bg">
         {# ------------------------------------------------------------------ #}
         {# Sidebar: five-zone collapsible navigation                          #}
         {# ------------------------------------------------------------------ #}
@@ -35,8 +35,9 @@
             flex flex-col
             border-r border-white/5
             z-40
+            sidebar-purple-wash
         ">
-            <div class="px-5 pt-6 pb-5">
+            <div class="px-5 pt-6 pb-5 relative z-10">
                 <a
                     href="{% url 'editor:dashboard' %}"
                     class="
@@ -49,7 +50,7 @@
                 </a>
             </div>
 
-            <nav class="flex-1 overflow-y-auto px-3 space-y-2 py-1">
+            <nav class="flex-1 overflow-y-auto px-3 space-y-2 py-1 relative z-10">
                 {# ── Zone 1: Make Stuff ── #}
                 <c-nav_group key="make" label="Make Stuff" color="terracotta"
                     {% if sidebar_groups.make %}badge="{{ sidebar_groups.make }}"{% endif %}
@@ -155,7 +156,7 @@
                 </c-nav_group>
             </nav>
 
-            <div class="px-5 py-4 border-t border-white/10 mt-auto">
+            <div class="px-5 py-4 border-t border-white/10 mt-auto relative z-10">
                 <span class="block font-mono text-[10px] text-cream/50 uppercase tracking-widest mb-1">
                     {{ request.user.username }}
                 </span>

@@ -12,10 +12,10 @@
     href="{{ continue_editing.url }}"
     class="
       flex items-center gap-4 px-5 py-4
-      bg-cream rounded-brand border border-border
+      bg-cream rounded-brand shadow-warm-sm
       border-l-[3px]
       no-underline text-ink
-      hover:shadow-warm-sm hover:border-border/80
+      hover:shadow-warm hover:translate-y-[-1px]
       transition-all duration-200
     "
     style="border-left-color: {{ continue_editing.color }}"
@@ -51,19 +51,19 @@
 {# ------------------------------------------------------------------ #}
 <section class="mb-8">
   <div class="flex flex-wrap items-center gap-3">
-    <c-btn variant="primary" href="{% url 'editor:essay-create' %}">
+    <c-btn variant="primary" href="{% url 'editor:essay-create' %}" class="!font-body !normal-case !tracking-normal !font-medium !text-sm">
       <c-icon name="file-text" size="16" color="currentColor" /> New Essay
     </c-btn>
-    <c-btn variant="secondary" href="{% url 'editor:field-note-create' %}">
+    <c-btn variant="ghost" href="{% url 'editor:field-note-create' %}" class="!font-body !normal-case !tracking-normal !font-medium !text-sm">
       <c-icon name="note-pencil" size="16" /> Field Note
     </c-btn>
-    <c-btn variant="secondary" href="{% url 'editor:shelf-create' %}">
+    <c-btn variant="ghost" href="{% url 'editor:shelf-create' %}" class="!font-body !normal-case !tracking-normal !font-medium !text-sm">
       <c-icon name="book-open" size="16" /> Shelf Entry
     </c-btn>
-    <c-btn variant="secondary" href="{% url 'editor:project-create' %}">
+    <c-btn variant="ghost" href="{% url 'editor:project-create' %}" class="!font-body !normal-case !tracking-normal !font-medium !text-sm">
       <c-icon name="briefcase" size="16" /> Project
     </c-btn>
-    <c-btn variant="ghost" href="{% url 'editor:now-edit' %}">
+    <c-btn variant="ghost" href="{% url 'editor:now-edit' %}" class="!font-body !normal-case !tracking-normal !font-medium !text-sm">
       <c-icon name="clock" size="16" /> Now Page
     </c-btn>
   </div>
@@ -127,25 +127,25 @@
       <div class="mt-3 flex items-stretch h-9 bg-ink/5 rounded-brand overflow-hidden">
         {% if total %}
           {% if pipeline.research %}
-          <div class="flex items-center justify-center px-3 bg-ink/10"
+          <div class="flex items-center justify-center px-3 bg-terracotta/15"
                style="flex: {{ pipeline.research }}">
-            <span class="font-mono text-[10px] tracking-wide text-ink-muted whitespace-nowrap">
+            <span class="font-mono text-[10px] tracking-wide text-terracotta whitespace-nowrap">
               {{ pipeline.research }} research
             </span>
           </div>
           {% endif %}
           {% if pipeline.drafting %}
-          <div class="flex items-center justify-center px-3 bg-terracotta/15"
+          <div class="flex items-center justify-center px-3 bg-gold/15"
                style="flex: {{ pipeline.drafting }}">
-            <span class="font-mono text-[10px] tracking-wide text-terracotta whitespace-nowrap">
+            <span class="font-mono text-[10px] tracking-wide text-gold whitespace-nowrap">
               {{ pipeline.drafting }} drafting
             </span>
           </div>
           {% endif %}
           {% if pipeline.production %}
-          <div class="flex items-center justify-center px-3 bg-gold/15"
+          <div class="flex items-center justify-center px-3 bg-teal/15"
                style="flex: {{ pipeline.production }}">
-            <span class="font-mono text-[10px] tracking-wide text-gold whitespace-nowrap">
+            <span class="font-mono text-[10px] tracking-wide text-teal whitespace-nowrap">
               {{ pipeline.production }} production
             </span>
           </div>
