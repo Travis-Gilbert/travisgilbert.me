@@ -3,6 +3,16 @@
 from django.db import migrations, models
 
 
+def convert_connection_notes_to_json(apps, schema_editor):
+    """Convert empty string connection_notes values to empty JSON arrays.
+
+    PostgreSQL cannot cast '' to jsonb. This data migration sets all
+    non-JSON values to '[]' before the field type change.
+    """
+    Essay = apps.get_model('content', 'Essay')
+    Essay.objects.filter(connection_notes='').update(connection_notes='[]')
+
+
 class Migration(migrations.Migration):
 
     dependencies = [
@@ -10,6 +20,10 @@ class Migration(migrations.Migration):
     ]
 
     operations = [
+        migrations.RunPython(
+            convert_connection_notes_to_json,
+            reverse_code=migrations.RunPython.noop,
+        ),
         migrations.AlterField(
             model_name='essay',
             name='connection_notes',
