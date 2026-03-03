@@ -137,6 +137,10 @@
     color: #000 !important;
     page-break-after: avoid;
     break-after: avoid;
+  }
+
+  .prose h2,
+  .prose h3 {
     font-variant: small-caps;
   }
 
@@ -148,6 +152,14 @@
 
   .prose h4 {
     font-family: 'IBM Plex Sans', 'Helvetica Neue', sans-serif;
+  }
+
+  body {
+    font-family: 'Cabin', sans-serif;
+  }
+
+  code, pre code {
+    font-family: 'Courier Prime', 'Courier New', monospace;
   }
 
   .prose blockquote {
@@ -252,9 +264,28 @@
   /* ──────────────────────────────────────────────
    * Colophon (appended to article)
    * ──────────────────────────────────────────────*/
+  /* Print colophon: CSS fallback for static text.
+     Dynamic URL/date colophon rendered by .print-colophon element in essay template. */
   article::after {
-    content: 'travisgilbert.com  \2022  Essays, projects, and field notes on how design decisions shape human outcomes';
+    content: 'travisgilbert.com  \2022  Travis Gilbert';
     display: block;
+    margin-top: 3rem;
+    padding-top: 1rem;
+    border-top: 0.5pt solid #ccc;
+    font-family: 'Courier Prime', 'Courier New', monospace;
+    font-size: 8pt;
+    color: #999;
+    text-align: center;
+    letter-spacing: 0.05em;
+  }
+
+  /* When JS-rendered colophon is present, hide the CSS fallback */
+  article:has(.print-colophon)::after {
+    display: none;
+  }
+
+  .print-colophon {
+    display: block !important;
     margin-top: 3rem;
     padding-top: 1rem;
     border-top: 0.5pt solid #ccc;

@@ -683,10 +683,12 @@ blockquote {
 }
 
 .prose figcaption {
-  font-family: var(--font-metadata);
-  font-size: 0.75rem;
+  font-family: var(--font-mono);
+  font-size: 0.6875rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
   text-align: center;
-  color: var(--color-ink-secondary);
+  color: var(--color-ink-faint);
   margin-top: 0.5rem;
 }
 
@@ -715,7 +717,6 @@ blockquote {
   border-left: 3px solid var(--color-terracotta);
   border-radius: 0 8px 8px 0;
   padding: 0.75rem 0.875rem;
-  margin-left: -1em;
   margin-bottom: 1.25rem;
   color: var(--color-ink-secondary);
   position: relative;
@@ -723,6 +724,9 @@ blockquote {
 
 @media (min-width: 640px) {
   .prose blockquote { padding: 1rem 1.25rem; }
+}
+@media (min-width: 768px) {
+  .prose blockquote { margin-left: -1em; }
 }
 
 /* Note callout labels:

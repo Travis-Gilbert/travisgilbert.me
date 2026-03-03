@@ -353,6 +353,11 @@ export default async function EssayDetailPage({ params }: Props) {
           )}
         </div>
       </nav>
+
+      {/* Dynamic colophon for print (hidden on screen, replaces CSS ::after fallback) */}
+      <div className="print-colophon hidden">
+        travisgilbert.me/essays/{slug} | Travis Gilbert
+      </div>
     </article>
     </>
   );
