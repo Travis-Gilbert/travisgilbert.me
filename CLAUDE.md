@@ -397,9 +397,11 @@ Phases 1 through 4 (Foundation, Micro-interactions, Animations, Polish) are **al
 
 **Hero Redesign:** Complete, merged to `main`. CollageHero rewritten as unified above-the-fold zone (identity + featured essay + artifact). EruptingCollage and secondary essay grid removed from homepage. HeroArtifact and HeroAccents created. Reading guide line added to ArticleBody (hover-gated, transparent, gradient-edged). Schema extended with `heroColor` and `heroImage` fields.
 
-**Next step:** Set `NEXT_PUBLIC_STUDIO_URL=https://draftroom.travisgilbert.me` in Vercel for StudioShortcut. Set cross-service env vars (`INTERNAL_API_KEY` on both, `RESEARCH_API_URL`/`RESEARCH_API_KEY` on publishing_api) and test source promotion pipeline end-to-end.
+**Next step:** Notebook Session 3: DRF API endpoints + admin polish for the knowledge graph app (see `notebook-v2-object-oriented-plan (1).md`). Also pending: set `NEXT_PUBLIC_STUDIO_URL=https://draftroom.travisgilbert.me` in Vercel, set cross-service env vars (`INTERNAL_API_KEY` on both, `RESEARCH_API_URL`/`RESEARCH_API_KEY` on publishing_api) and test source promotion pipeline end-to-end.
 
 **Remaining backlog:**
+- Notebook Session 3: DRF API endpoints + admin polish
+- Notebook Sessions 4+: daily log views, publisher, Next.js frontend
 - Sourcebox UX redesign (brainstorm in progress)
 - Additional content pages and essays (not started)
 - Dark mode (deferred; tokens ready in `global.css`)
@@ -414,39 +416,17 @@ Phases 1 through 4 (Foundation, Micro-interactions, Animations, Polish) are **al
 | UI library | Radix Primitives (not shadcn/ui) | Full custom styling over brand; shadcn opinionated defaults fight the aesthetic |
 | Section color system | terracotta=essays, teal=field-notes, gold=projects | Creates wayfinding language; color tells you where you are on the site |
 | No dashes | Colons, periods, parentheses, semicolons | User style preference; applies to all code, comments, and content |
-| Nav restructure | Essays on... / Field Notes / Projects / Toolkit / Shelf / Connect | 6 items; Shelf promoted to top-level nav; Colophon in footer only |
-| Section icons | SketchIcon (hand-drawn SVG) for pages, Phosphor for UI glyphs | Brand identity icons match rough.js aesthetic; utility icons stay crisp |
-| MarginAnnotation approach | Frontmatter array + CSS-only rendering (no Client Component) | Zero JS overhead; `::after` pseudo-elements + `attr()` read data attributes directly |
 | Dark mode | Deferred to separate future effort | Tokens ready in global.css but scope was too large |
-| DotGrid zone-aware rendering | Cream dots over hero zone, dark dots over parchment, 50px crossfade | Hero component reports height to `--hero-height` via ResizeObserver; DotGrid reads it |
-| Comment system | File-based JSON in `data/comments/`, reCAPTCHA v3, sticky notes in margin | Low-infrastructure reader engagement; matches the handwritten margin note aesthetic |
 | Publishing delivery | GitHub Contents API + Git Trees API (not runtime API or direct git) | SSG preserved; Trees API enables atomic multi-file commits (content + config together) |
 | Studio editor tech | Django templates + HTMX (not React SPA) | Avoids second SPA; HTMX gives interactivity; simpler than building API + React client |
-| Studio owner shortcut | Invisible keyboard shortcut Ctrl+Shift+E (not nav link or FAB) | Zero visual footprint for visitors; Django auth still protects the editor |
-| JSON field widgets | Custom widgets at widget layer, not form clean | Serialization in `format_value()`/`value_from_datadict()` keeps forms and views clean |
 | Site config cascade | global.css -> site.json -> page composition -> per-instance composition | Four optional layers; site works with zero config (hardcoded defaults are the fallback) |
-| Composition JSONField | Added to all content models (Essay, FieldNote, ShelfEntry, Project, ToolkitEntry) | Per-instance visual overrides without schema migration; loose `z.record()` in Zod |
-| Studio three-zone sidebar | Content / Compose / Settings navigation groups | Maps to the three concerns: writing, visual design, site-wide settings |
-| StructuredListWidget | Row-based JSON editing with add/remove/reorder | Replaces raw JSON textarea for nav items, sources, annotations; prevents syntax errors |
-| Backlinks as computed data | `get_backlinks()` derives from SourceLink joins (no Backlink model) | Avoids sync overhead; cheap for single-user scale; backlink graph published as static JSON |
+| Studio UI library | django-cotton + django-crispy-forms + django-tailwind | Declarative components, consistent form rendering, utility-first CSS with brand tokens |
+| Source promotion pipeline | HTTP API call from publishing_api to research_api (not shared DB) | Two separate Railway services with own databases; Bearer token auth, idempotent |
 | research_api: admin as authoring UI | Django admin with rich fieldsets and inlines (no custom Studio editor) | Simpler than publishing_api's HTMX Studio; source tracking is data entry, not content editing |
-| Source.public + custom managers | `.public()` manager filters to `public=True` across API, publisher, and management commands | Two-layer access: admin sees everything, public sees only curated sources |
-| Studio UI library | django-cotton + django-crispy-forms + django-tailwind (replacing 600+ line custom studio.css) | Declarative components, consistent form rendering, utility-first CSS with brand tokens; eliminates all custom CSS |
-| Source promotion pipeline | HTTP API call from publishing_api to research_api (not shared DB) | Two separate Railway services with own databases; Bearer token auth, idempotent (409 on duplicate URL), source type inferred from URL domain |
-| Graph orphaned nodes | Second query for `Source.objects.public().exclude(...)` after SourceLink iteration | Promoted sources with no SourceLinks yet must still appear in graph and explorer; D3 force simulation floats them naturally |
-| Font system overhaul | Removed Space Mono, added JetBrains Mono as `--font-code` | Code comments need monospace with ligatures; Courier Prime stays for labels/metadata |
-| StampDot as separate Client Component | Extracted animated dot from Server Component ProgressTracker | Minimizes JS bundle; ProgressTracker stays Server Component, only the animated dot hydrates |
-| StampDot 24-hour window | `isRecent()` checks if `lastAdvanced` is within 24 hours | Stamp animation fires only for freshly advanced content; prevents visual noise on every page load |
-| ConnectionMap synchronous layout | 300 D3 force iterations computed at render time (not animated) | Instant layout without jank; graph is small enough (<50 nodes) that sync computation is cheap |
-| CodeComment over RoughCallout | Static CSS code annotations instead of canvas-drawn callouts for homepage | "Workbench" aesthetic: code comments feel like developer notes; cheaper to render than rough.js canvas |
-| Video phase view | Dedicated `VideoSetPhaseView` (not generic `SetStageView`) | Video phases have lock semantics (permanent locking, sequential-only advancement) that generic view doesn't support |
-| Video editor template | Dedicated `video_edit.html` (not generic `edit.html`) | Phase-dependent panel visibility (8 phases) is unique to videos; generic template can't accommodate it |
-| Video HTMX panel pattern | Single toggle endpoint + field name via `hx-vals` | One `VideoSceneToggleView` handles 5 boolean fields; validates against whitelist set; avoids 5 separate views |
-| Unified hero over split sections | Merged CollageHero + EruptingCollage into single above-the-fold zone | One editorial spread: identity, featured essay, artifact together; fragments were the weakest visual element |
-| Deterministic PRNG in HeroAccents | djb2 hash + LCG seeded from tag string (not Math.random()) | SSG builds must produce identical output across runs; hash-based seeding gives visual variety per essay |
-| Reading guide as gradient line | CSS gradient with transparent edges, 18% opacity, `(hover: hover)` gated | Subtle enough to guide without distracting; progressive enhancement avoids touch-device annoyance |
+| Unified hero over split sections | Merged CollageHero + EruptingCollage into single above-the-fold zone | One editorial spread: identity, featured essay, artifact together |
+| Deterministic PRNG in HeroAccents | djb2 hash + LCG seeded from tag string (not Math.random()) | SSG builds must produce identical output across runs |
 | Notebook: object-oriented graph | Typed nodes + explained edges (not flat tags or source-only links) | Everything is an object with a type; edges carry plain English `reason` field; enables serendipitous discovery |
-| Notebook: admin as authoring UI | Django admin with rich fieldsets and inlines (not custom HTMX editor) | Consistent with research_api pattern; notebook is data entry, not content authoring like publishing_api |
+| Notebook: admin as authoring UI | Django admin with rich fieldsets and inlines (not custom HTMX editor) | Consistent with research_api pattern; notebook is data entry, not content authoring |
 
 ## Gotchas
 
