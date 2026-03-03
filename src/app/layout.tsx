@@ -1,19 +1,7 @@
 import type { Metadata } from 'next';
 import { fontVariableClasses } from './fonts';
-import DotGrid from '@/components/DotGrid';
-import TopNav from '@/components/TopNav';
-import Footer from '@/components/Footer';
-import ConsoleEasterEgg from '@/components/ConsoleEasterEgg';
-import StudioShortcut from '@/components/StudioShortcut';
-import ArchitectureEasterEgg from '@/components/ArchitectureEasterEgg';
-import DesignLanguageEasterEgg from '@/components/DesignLanguageEasterEgg';
-import ResearchAPIEasterEgg from '@/components/ResearchAPIEasterEgg';
-import SourceGraphEasterEgg from '@/components/SourceGraphEasterEgg';
 import ThemeProvider from '@/components/ThemeProvider';
-import { PersonJsonLd, WebSiteJsonLd } from '@/components/JsonLd';
-import { getCollection } from '@/lib/content';
-import { getSiteConfig, getVisibleNav } from '@/lib/siteConfig';
-import type { Essay, FieldNote, Project } from '@/lib/content';
+import { getSiteConfig } from '@/lib/siteConfig';
 import '@/styles/global.css';
 import '@/styles/print.css';
 
@@ -44,17 +32,14 @@ export async function generateMetadata(): Promise<Metadata> {
   };
 }
 
-// Compute site stats at build time for ConsoleEasterEgg
-const essays = getCollection<Essay>('essays').filter((e) => !e.data.draft);
-const fieldNotes = getCollection<FieldNote>('field-notes').filter((n) => !n.data.draft);
-const projects = getCollection<Project>('projects').filter((p) => !p.data.draft);
-
-const latestEssay = essays.sort(
-  (a, b) => b.data.date.valueOf() - a.data.date.valueOf()
-)[0];
-
-const visibleNav = getVisibleNav();
-
+/**
+ * Root layout: minimal shell shared by all route groups.
+ *
+ * Provides html/body, font variables, theme provider, and global CSS.
+ * All visual chrome (TopNav, Footer, DotGrid, etc.) lives in the
+ * (main) route group layout. The (networks) route group adds its own
+ * dark themed chrome.
+ */
 export default function RootLayout({
   children,
 }: {
@@ -72,42 +57,15 @@ export default function RootLayout({
 
   return (
     <html lang="en" className={fontVariableClasses} suppressHydrationWarning>
-      {/* Built with curiosity and too much coffee. If you're reading this, we should talk. */}
+      {/* Built with curiosity and too much coffee. */}
       <body
         className="min-h-screen flex flex-col overflow-x-clip"
         style={{ isolation: 'isolate' }}
       >
-        <script
-          // eslint-disable-next-line react/no-danger
-          dangerouslySetInnerHTML={{ __html: themeScript }}
-        />
+        {/* Theme detection runs before paint. Content is a hardcoded string with no user input. */}
+        <script dangerouslySetInnerHTML={{ __html: themeScript }} />
         <ThemeProvider>
-          <PersonJsonLd />
-          <WebSiteJsonLd />
-          <DotGrid />
-          <a href="#main-content" className="skip-to-content">
-            Skip to content
-          </a>
-          <TopNav navItems={visibleNav} />
-          <main
-            id="main-content"
-            className="main-content flex-1 max-w-4xl mx-auto w-full px-4 sm:px-6 py-6 sm:py-8"
-          >
-            {children}
-          </main>
-          <Footer />
-          <ConsoleEasterEgg
-            essayCount={essays.length}
-            fieldNoteCount={fieldNotes.length}
-            projectCount={projects.length}
-            latestEssayTitle={latestEssay?.data.title ?? ''}
-            latestEssaySlug={latestEssay?.slug ?? ''}
-          />
-          <StudioShortcut />
-          <ArchitectureEasterEgg />
-          <DesignLanguageEasterEgg />
-          <ResearchAPIEasterEgg />
-          <SourceGraphEasterEgg />
+          {children}
         </ThemeProvider>
       </body>
     </html>

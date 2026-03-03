@@ -1,0 +1,233 @@
+/* ─────────────────────────────────────────────────
+   Networks Dark Theme Tokens
+   Deep purple ground with warm cream typography.
+   Isolated from the parchment palette; loaded only
+   inside the (networks) route group layout.
+   ───────────────────────────────────────────────── */
+
+.networks-theme {
+  /* Backgrounds */
+  --nw-bg: #1E1620;
+  --nw-sidebar: #15111A;
+  --nw-surface: #261E2A;
+  --nw-surface-hover: #2E2532;
+  --nw-card: #2A2230;
+  --nw-card-hover: #322838;
+
+  /* Text */
+  --nw-text: #F5F0E8;
+  --nw-text-muted: #9B8FA0;
+  --nw-text-faint: #6B5F70;
+
+  /* Accent: Terracotta (gradient edge, active states) */
+  --nw-terracotta: #C45D3E;
+  --nw-terracotta-light: #D4875A;
+  --nw-terracotta-glow: rgba(196, 93, 62, 0.15);
+
+  /* Secondary palette */
+  --nw-teal: #2D5F6B;
+  --nw-teal-light: #3A7A88;
+  --nw-gold: #D4A843;
+  --nw-gold-light: #E0BC60;
+  --nw-green: #5A7A4A;
+  --nw-purple: #8B6FA0;
+  --nw-blue: #4A7A9A;
+  --nw-pink: #B06080;
+  --nw-amber: #C49A4A;
+  --nw-orange: #C47A3A;
+  --nw-yellow: #C4A83A;
+
+  /* Borders */
+  --nw-border: rgba(245, 240, 232, 0.08);
+  --nw-border-strong: rgba(245, 240, 232, 0.15);
+
+  /* Shadows */
+  --nw-shadow: rgba(0, 0, 0, 0.3);
+  --nw-shadow-lg: rgba(0, 0, 0, 0.5);
+
+  /* Typography */
+  --nw-font-title: var(--font-vollkorn), Georgia, serif;
+  --nw-font-body: var(--font-cabin), sans-serif;
+  --nw-font-mono: var(--font-courier-prime), 'Courier New', monospace;
+  --nw-font-code: var(--font-jetbrains-mono), monospace;
+}
+
+/* ─────────────────────────────────────────────────
+   Sidebar corner glow: terracotta bloom from top-left
+   descending quickly into warm black.
+   ───────────────────────────────────────────────── */
+
+.nw-sidebar-glow {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: radial-gradient(
+    ellipse at 0% 0%,
+    rgba(196, 93, 62, 0.30) 0%,
+    rgba(196, 93, 62, 0.12) 15%,
+    rgba(196, 93, 62, 0.04) 30%,
+    transparent 50%
+  );
+}
+
+/* ─────────────────────────────────────────────────
+   Sidebar section styles
+   ───────────────────────────────────────────────── */
+
+.nw-sidebar-section-title {
+  font-family: var(--nw-font-mono);
+  font-size: 10px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--nw-text-faint);
+  padding: 0 12px;
+  margin-bottom: 4px;
+}
+
+.nw-sidebar-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 12px;
+  border-radius: 6px;
+  color: var(--nw-text-muted);
+  font-family: var(--nw-font-body);
+  font-size: 13px;
+  cursor: pointer;
+  transition: background-color 150ms, color 150ms;
+}
+
+.nw-sidebar-item:hover {
+  background-color: var(--nw-surface-hover);
+  color: var(--nw-text);
+}
+
+.nw-sidebar-item[data-active="true"] {
+  background-color: var(--nw-terracotta-glow);
+  color: var(--nw-text);
+}
+
+/* ─────────────────────────────────────────────────
+   Node type color dots
+   ───────────────────────────────────────────────── */
+
+.nw-type-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+/* ─────────────────────────────────────────────────
+   Quick-filter pills
+   ───────────────────────────────────────────────── */
+
+.nw-pill {
+  font-family: var(--nw-font-mono);
+  font-size: 11px;
+  letter-spacing: 0.05em;
+  padding: 4px 12px;
+  border-radius: 999px;
+  border: 1px solid var(--nw-border);
+  color: var(--nw-text-muted);
+  background: transparent;
+  cursor: pointer;
+  transition: all 150ms;
+  white-space: nowrap;
+}
+
+.nw-pill:hover {
+  border-color: var(--nw-border-strong);
+  color: var(--nw-text);
+}
+
+.nw-pill[data-active="true"] {
+  border-color: var(--nw-terracotta);
+  color: var(--nw-terracotta-light);
+  background: var(--nw-terracotta-glow);
+}
+
+/* ─────────────────────────────────────────────────
+   NodeCard styles
+   ───────────────────────────────────────────────── */
+
+.nw-node-card {
+  background: var(--nw-card);
+  border: 1px solid var(--nw-border);
+  border-radius: 8px;
+  padding: 16px;
+  transition: all 200ms;
+}
+
+.nw-node-card:hover {
+  background: var(--nw-card-hover);
+  border-color: var(--nw-border-strong);
+  box-shadow: 0 4px 12px var(--nw-shadow);
+}
+
+/* ─────────────────────────────────────────────────
+   CaptureBar styles
+   ───────────────────────────────────────────────── */
+
+.nw-capture-bar {
+  background: var(--nw-surface);
+  border: 1px solid var(--nw-border);
+  border-radius: 12px;
+  transition: border-color 200ms, box-shadow 200ms;
+}
+
+.nw-capture-bar:focus-within {
+  border-color: var(--nw-terracotta);
+  box-shadow: 0 0 0 3px var(--nw-terracotta-glow);
+}
+
+.nw-capture-input {
+  background: transparent;
+  color: var(--nw-text);
+  font-family: var(--nw-font-body);
+  font-size: 15px;
+  width: 100%;
+  border: none;
+  outline: none;
+  padding: 14px 16px;
+}
+
+.nw-capture-input::placeholder {
+  color: var(--nw-text-faint);
+  transition: opacity 300ms;
+}
+
+/* ─────────────────────────────────────────────────
+   Scrollbar styling for sidebar
+   ───────────────────────────────────────────────── */
+
+.nw-scrollbar::-webkit-scrollbar {
+  width: 4px;
+}
+
+.nw-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.nw-scrollbar::-webkit-scrollbar-thumb {
+  background: var(--nw-text-faint);
+  border-radius: 2px;
+}
+
+.nw-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: var(--nw-text-muted);
+}
+
+/* ─────────────────────────────────────────────────
+   Paper grain: boost visibility on dark ground.
+   The root body::after grain (global.css) already
+   covers this layout via position:fixed. We scope
+   the overlay blend mode so the noise reads as
+   subtle fiber texture rather than disappearing
+   into the dark background.
+   ───────────────────────────────────────────────── */
+
+:root:has(.networks-theme) body::after {
+  mix-blend-mode: overlay;
+  opacity: 0.04;
+}

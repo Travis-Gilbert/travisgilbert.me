@@ -30,6 +30,8 @@ interface DotGridProps {
   repulsionStrength?: number;
   /** Fraction of dots replaced by binary characters (0 to 1) */
   binaryDensity?: number;
+  /** Skip the hero zone inversion gradient; use uniform dotColor. For dark contexts like Networks. */
+  noGradient?: boolean;
 }
 
 // Seeded PRNG (mulberry32): deterministic per grid position
@@ -55,6 +57,7 @@ export default function DotGrid({
   influenceRadius = 100,
   repulsionStrength = 5,
   binaryDensity = 0.12,
+  noGradient = false,
 }: DotGridProps) {
   const themeVersion = useThemeVersion();
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -196,8 +199,9 @@ export default function DotGrid({
       resizeRaf = requestAnimationFrame(resize);
     }
 
-    // Resolve dot color from CSS (theme-aware), fall back to prop
-    const resolvedHex = readCssVar('--color-rough-light');
+    // Resolve dot color from CSS (theme-aware), fall back to prop.
+    // noGradient mode: skip CSS var lookup, use dotColor directly.
+    const resolvedHex = noGradient ? '' : readCssVar('--color-rough-light');
     const rgb = resolvedHex ? hexToRgb(resolvedHex) : dotColor;
 
     // Resolve nav background for purple band at top of gradient
@@ -275,6 +279,7 @@ export default function DotGrid({
 
     /** Returns 1.0 at y=0 (full inversion), fades through tail zone to 0.0 */
     function getInversionFactor(baseY: number): number {
+      if (noGradient) return 0;
       const gradEnd = h * inversionDepth;
       const tailEnd = gradEnd + h * GRADIENT_TAIL;
       if (baseY <= 0) return 1;
@@ -312,7 +317,7 @@ export default function DotGrid({
       const dots = dotsRef.current;
       if (!dots) return;
       ctx!.clearRect(0, 0, w, h);
-      drawInversionGradient();
+      if (!noGradient) drawInversionGradient();
 
       for (let i = 0; i < dots.count; i++) {
         if (dots.fade[i] < 0.01) continue;
@@ -334,7 +339,7 @@ export default function DotGrid({
       if (!visibleRef.current) { animRef.current = requestAnimationFrame(tick); return; }
 
       ctx!.clearRect(0, 0, w, h);
-      drawInversionGradient();
+      if (!noGradient) drawInversionGradient();
 
       // Draw ink trail (underneath grid dots)
       const trail = trailRef.current;
@@ -481,7 +486,7 @@ export default function DotGrid({
       window.removeEventListener('resize', debouncedResize);
       document.removeEventListener('mouseleave', onMouseLeave);
     };
-  }, [dotRadius, spacing, dotColor, dotOpacity, stiffness, damping, influenceRadius, repulsionStrength, initDots, themeVersion]);
+  }, [dotRadius, spacing, dotColor, dotOpacity, stiffness, damping, influenceRadius, repulsionStrength, initDots, themeVersion, noGradient]);
 
   return (
     <canvas
