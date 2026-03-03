@@ -23,7 +23,7 @@ researchNotes:
   - "Validated cost ranges from Parking Reform Network data"
 sourceSummary: "1 book, 1 academic monograph, 1 policy research network"
 connectedTypes: ["essay"]
-connectionNotes: "Paired with The Sidewalk Tax; both investigate how mundane infrastructure decisions accumulate into massive spatial consequences."
+connectionSummary: "Paired with The Sidewalk Tax; both investigate how mundane infrastructure decisions accumulate into massive spatial consequences."
 annotations:
   - paragraph: 1
     text: "This changed how cities think about space"

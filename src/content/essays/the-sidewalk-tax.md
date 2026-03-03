@@ -20,7 +20,7 @@ researchNotes:
   - "Cross-referenced ADA design standards with SSIR curb-cut effect analysis"
 sourceSummary: "1 social impact journal, 1 federal design standard"
 connectedTypes: ["essay"]
-connectionNotes: "Companion piece to The Parking Lot Problem; both examine how small infrastructure choices cascade into citywide consequences."
+connectionSummary: "Companion piece to The Parking Lot Problem; both examine how small infrastructure choices cascade into citywide consequences."
 annotations:
   - paragraph: 1
     text: "Kalamazoo, 1945. The origin story."
