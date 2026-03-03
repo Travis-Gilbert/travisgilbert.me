@@ -8,9 +8,13 @@
  * as ScrollReveal but self-positioning via measureParagraphOffsets().
  *
  * Renders only at xl+ (1280px); hidden on smaller viewports via CSS.
+ *
+ * Includes a rough.js SVG leader line above the text that visually connects
+ * the annotation to its paragraph.
  */
 
 import { useRef, useEffect, useState, type RefObject } from 'react';
+import rough from 'roughjs';
 import { measureParagraphOffsets } from '@/lib/paragraphPositions';
 
 type AnnotationStyle = 'handwritten' | 'typed';
@@ -37,6 +41,7 @@ export default function ScrollAnnotation({
   style = 'handwritten',
 }: ScrollAnnotationProps) {
   const ref = useRef<HTMLDivElement>(null);
+  const svgRef = useRef<SVGSVGElement>(null);
   const [visible, setVisible] = useState(false);
   const [topOffset, setTopOffset] = useState<number | null>(null);
 
@@ -81,6 +86,28 @@ export default function ScrollAnnotation({
     return () => ro.disconnect();
   }, [proseRef, paragraphIndex]);
 
+  // Draw rough.js SVG leader line once on mount
+  useEffect(() => {
+    const svg = svgRef.current;
+    if (!svg) return;
+
+    // Clear any previous drawing
+    while (svg.firstChild) svg.removeChild(svg.firstChild);
+
+    const rc = rough.svg(svg);
+    const lineLength = 40;
+    const midY = 4;
+
+    const node = rc.line(0, midY, lineLength, midY, {
+      roughness: 1.5,
+      strokeWidth: 0.8,
+      stroke: 'rgba(180, 90, 45, 0.4)',
+      bowing: 1,
+    });
+
+    svg.appendChild(node);
+  }, []);
+
   if (topOffset == null) return null;
 
   const font = STYLE_MAP[style];
@@ -104,6 +131,20 @@ export default function ScrollAnnotation({
         maxWidth: '200px',
       }}
     >
+      {/* Rough.js hand-drawn leader line pointing toward the paragraph */}
+      <svg
+        ref={svgRef}
+        aria-hidden="true"
+        width={40}
+        height={8}
+        style={{
+          display: 'block',
+          marginBottom: 4,
+          // Right-side: line aligns left (toward paragraph on the left)
+          // Left-side: line aligns right (toward paragraph on the right)
+          ...(side === 'left' ? { marginLeft: 'auto' } : {}),
+        }}
+      />
       {text}
     </div>
   );

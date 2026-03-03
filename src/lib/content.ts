@@ -262,9 +262,10 @@ export function injectAnnotations(html: string, annotations: Annotation[]): stri
 
   let paragraphIndex = 0;
   let sideToggle = 0; // alternates 0 (right) and 1 (left)
-  const closingTag = '</p>';
+  let letterIndex = 0; // for print footnote letters [a],[b],[c]
+  const footnotes: { letter: string; text: string }[] = [];
 
-  return html.replace(/<\/p>/gi, (match) => {
+  const markedHtml = html.replace(/<\/p>/gi, (match) => {
     paragraphIndex++;
     const anns = annotationMap.get(paragraphIndex);
     if (!anns) return match;
@@ -273,10 +274,28 @@ export function injectAnnotations(html: string, annotations: Annotation[]): stri
     for (const ann of anns) {
       const side = sideToggle % 2 === 0 ? 'right' : 'left';
       sideToggle++;
+      const letter = String.fromCharCode(97 + letterIndex); // a, b, c ...
+      letterIndex++;
+      footnotes.push({ letter, text: ann.text });
+      injected += `<sup class="annotation-fn-marker" aria-hidden="true">[${letter}]</sup>`;
       injected += `<span class="margin-annotation-anchor" data-annotation-text="${escapeAttr(ann.text)}" data-annotation-side="${side}"></span>`;
     }
     return injected;
   });
+
+  if (footnotes.length === 0) return markedHtml;
+
+  // Build the print-only annotation footnote table
+  const rows = footnotes
+    .map(
+      (fn) =>
+        `<div class="annotation-fn-row"><span class="annotation-fn-num">[${fn.letter}]</span> <span class="annotation-fn-text">${escapeAttr(fn.text)}</span></div>`,
+    )
+    .join('\n');
+
+  const table = `\n<div class="annotation-footnotes" aria-hidden="true">\n<div class="annotation-footnotes-title">Margin Notes</div>\n${rows}\n</div>`;
+
+  return markedHtml + table;
 }
 
 // ─────────────────────────────────────────────────

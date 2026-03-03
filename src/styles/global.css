@@ -924,6 +924,12 @@ blockquote {
   display: none;
 }
 
+/* Annotation footnotes: hidden on screen, shown in print (see print.css) */
+.annotation-fn-marker,
+.annotation-footnotes {
+  display: none;
+}
+
 /* The absolute-positioned layer that floats sticky notes in the margin */
 .sticky-note-layer {
   position: absolute;
