@@ -21,6 +21,7 @@ def health_check(request):
 urlpatterns = [
     path('admin/', admin.site.urls),
     path('api/v1/', include('apps.api.urls', namespace='api')),
+    path('api/v1/notebook/', include('apps.notebook.urls', namespace='notebook')),
     path('webhooks/', include('apps.mentions.urls', namespace='mentions')),
     path('health/', health_check, name='health-check'),
     path('', include('apps.paper_trail.urls')),
