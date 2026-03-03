@@ -47,6 +47,7 @@ INSTALLED_APPS = [
     'apps.api',
     'apps.publisher',
     'apps.paper_trail',
+    'apps.notebook',
 ]
 
 MIDDLEWARE = [

@@ -12,7 +12,7 @@ Personal "creative workbench" site: a living record of work, interests, and thin
 
 ## Tech Stack
 
-Next.js 16 (App Router, Turbopack, React Compiler), React 19, Tailwind CSS v4 (`@tailwindcss/postcss`), rough.js, rough-notation, `next/font` (Google + local), Zod, gray-matter + remark, Django 5.x (publishing_api + research_api), DRF, django-cotton, django-crispy-forms (`studio` pack), django-tailwind, django-template-partials
+Next.js 16 (App Router, Turbopack, React Compiler), React 19, Tailwind CSS v4 (`@tailwindcss/postcss`), rough.js, rough-notation, `next/font` (Google + local), Zod, gray-matter + remark, Django 5.x (publishing_api + research_api), DRF, spaCy (en_core_web_sm), django-cotton, django-crispy-forms (`studio` pack), django-tailwind, django-template-partials
 
 ## Key Directories
 
@@ -51,6 +51,9 @@ Next.js 16 (App Router, Turbopack, React Compiler), React 19, Tailwind CSS v4 (`
 | `research_api/apps/api/` | DRF read-only viewsets (sources, links, threads, mentions, backlinks, graph, activity) + internal promote endpoint |
 | `research_api/apps/paper_trail/` | Public browsing pages: explorer (D3 graph), essay trail, threads, community wall with HTMX suggestion form |
 | `research_api/apps/publisher/` | PublishLog model, GitHub API client, JSON serializers, publish orchestrator (commits to `src/data/research/`) |
+| `research_api/apps/notebook/` | Knowledge graph app: NodeType, KnowledgeNode, Edge, ResolvedEntity, DailyLog, Notebook models |
+| `research_api/apps/notebook/engine.py` | Three-pass spaCy connection engine: entity extraction, shared entity edges, topic similarity (Jaccard) |
+| `research_api/apps/notebook/signals.py` | DailyLog auto-population via post_save signals on KnowledgeNode, Edge, ResolvedEntity |
 | `publishing_api/apps/intake/services.py` | OG metadata scraping (`scrape_og_metadata`) + cross-service source promotion (`promote_to_research` via httpx) |
 | `research_api/apps/research/recaptcha.py` | reCAPTCHA v3 server-side verification; single `verify_recaptcha()` returning `(passed, score)` tuple |
 | `research_api/apps/research/views.py` | Public submission endpoints (suggest source, suggest connection) with reCAPTCHA + approved suggestions read endpoint |
@@ -92,6 +95,10 @@ python manage.py tailwind build          # Production Tailwind build
 python3 manage.py runserver 8001          # Dev server (8001 to avoid conflict with publishing_api)
 python3 manage.py publish_research        # Publish all research data as JSON to Next.js repo
 python3 manage.py publish_research --dry-run  # Preview without committing
+python3 manage.py seed_node_types             # Create default NodeType records (Person, Source, Concept, etc.)
+python3 manage.py run_connection_engine        # Process inbox + active nodes through spaCy NER
+python3 manage.py run_connection_engine --all  # Process every node regardless of status
+python3 manage.py run_connection_engine --dry-run  # Preview without writing edges
 ```
 
 ## Content Workflow
@@ -384,6 +391,8 @@ Phases 1 through 4 (Foundation, Micro-interactions, Animations, Polish) are **al
 
 **Research API:** Deployed to Railway at research.travisgilbert.me. Source promotion pipeline: Sourcebox triage accept in publishing_api calls research_api's `/api/v1/internal/promote/` endpoint via Bearer token auth. See `docs/records/003-research-api.md`.
 
+**Notebook (Knowledge Graph):** Sessions 1+2 complete. 6 models (NodeType, KnowledgeNode, Edge, ResolvedEntity, DailyLog, Notebook), spaCy NER engine with three-pass connection logic (entity extraction, shared entity edges, topic similarity), auto-objectification of PERSON/ORG entities, DailyLog signals, rich Django admin, seed_node_types and run_connection_engine management commands. Tested on 10 sample nodes: 39 entities, 32 edges, 17 auto-created nodes. See `notebook-v2-object-oriented-plan (1).md` for full plan. Next: Session 3 (DRF API + admin polish).
+
 **YouTube Production Pipeline:** All 7 batches complete. Models, admin, forms, CRUD views, phase-aware editor, HTMX inline panels (Batches 1 through 4). Orchestra API endpoints at `/editor/api/videos/` with 7 JSON views for conductor integration (Batch 5). Next.js frontend: `src/lib/videos.ts` fetch utility, Currently Producing section on `/now`, linked video embeds on essay pages (Batch 6). Process tracking: video metrics in ProcessNotes and PublicationGraph, production dashboard in Studio at `/production/` (Batch 7). Spec: `docs/plan-03-studio-youtube-production.md`.
 
 **Hero Redesign:** Complete, merged to `main`. CollageHero rewritten as unified above-the-fold zone (identity + featured essay + artifact). EruptingCollage and secondary essay grid removed from homepage. HeroArtifact and HeroAccents created. Reading guide line added to ArticleBody (hover-gated, transparent, gradient-edged). Schema extended with `heroColor` and `heroImage` fields.
@@ -436,6 +445,8 @@ Phases 1 through 4 (Foundation, Micro-interactions, Animations, Polish) are **al
 | Unified hero over split sections | Merged CollageHero + EruptingCollage into single above-the-fold zone | One editorial spread: identity, featured essay, artifact together; fragments were the weakest visual element |
 | Deterministic PRNG in HeroAccents | djb2 hash + LCG seeded from tag string (not Math.random()) | SSG builds must produce identical output across runs; hash-based seeding gives visual variety per essay |
 | Reading guide as gradient line | CSS gradient with transparent edges, 18% opacity, `(hover: hover)` gated | Subtle enough to guide without distracting; progressive enhancement avoids touch-device annoyance |
+| Notebook: object-oriented graph | Typed nodes + explained edges (not flat tags or source-only links) | Everything is an object with a type; edges carry plain English `reason` field; enables serendipitous discovery |
+| Notebook: admin as authoring UI | Django admin with rich fieldsets and inlines (not custom HTMX editor) | Consistent with research_api pattern; notebook is data entry, not content authoring like publishing_api |
 
 ## Gotchas
 
@@ -491,3 +502,7 @@ Phases 1 through 4 (Foundation, Micro-interactions, Animations, Polish) are **al
 - **VideoScene `unique_together` constraint**: `("project", "order")` means adding a scene must compute `max(order) + 1`. The `VideoSceneAddView` handles this, but manual shell creation must respect it
 - **HTMX CSRF outside `<form>`**: Video partials use standalone buttons (not inside a `<form>`). Wrap the partial in `<div hx-headers='{"X-CSRFToken": "{{ csrf_token }}"}'>`; without this, all HTMX POST requests get 403
 - **VideoProject inherits TimeStampedModel**: Required by DashboardView `.defer()` and AutoSaveView `hasattr` checks. Using bare `models.Model` breaks both
+- **spaCy model must be installed separately**: `python3 -m spacy download en_core_web_sm` after `pip install spacy`. The model is not a pip dependency; engine.py gracefully falls back to regex-only extraction if missing
+- **ResolvedEntity has two FKs to KnowledgeNode**: `source_node` and `resolved_node`. Admin inlines require `fk_name = 'source_node'` or Django raises admin.E202
+- **Connection engine pass order matters**: Pass 1 (entity extraction) must run before Pass 2 (shared entity edges) because Pass 2 queries ResolvedEntity records created by Pass 1
+- **Auto-objectification only creates PERSON and ORG nodes**: Other entity types (DATE, GPE, etc.) are stored as ResolvedEntity records but don't get auto-created KnowledgeNode records
