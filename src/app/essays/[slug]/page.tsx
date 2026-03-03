@@ -126,7 +126,7 @@ export default async function EssayDetailPage({ params }: Props) {
     shelf: allShelf,
   };
   const engineConnections = computeConnections(entry, allContent);
-  const positionedConnections = positionConnections(engineConnections, annotatedHtml);
+  const positionedConnections = positionConnections(engineConnections, annotatedHtml, entry.data.connectionNotes);
 
   // Inject inline callouts for connections with text mentions
   const calloutHtml = injectConnectionCallouts(annotatedHtml, positionedConnections);
@@ -248,6 +248,7 @@ export default async function EssayDetailPage({ params }: Props) {
       {/* Process Notes: research metadata (returns null if all fields empty) */}
       <ProcessNotes
         researchStarted={entry.data.researchStarted}
+        essayDate={entry.data.date.toISOString()}
         revisionCount={entry.data.revisionCount}
         sourceCount={entry.data.sourceCount}
         researchNotes={entry.data.researchNotes}

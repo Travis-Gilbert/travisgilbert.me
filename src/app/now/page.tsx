@@ -8,6 +8,8 @@ import RoughBox from '@/components/rough/RoughBox';
 import PublicationGraph from '@/components/PublicationGraph';
 import { fetchActiveVideos, PHASE_LABELS, VIDEO_PHASES } from '@/lib/videos';
 import type { VideoSummary, VideoPhase } from '@/lib/videos';
+import { getCollection } from '@/lib/content';
+import type { Essay, FieldNote } from '@/lib/content';
 
 interface NowData {
   updated: string;
@@ -28,6 +30,33 @@ function getNowData(): NowData | null {
   const raw = fs.readFileSync(filePath, 'utf-8');
   const { data } = matter(raw);
   return data as NowData;
+}
+
+const RESEARCH_API =
+  process.env.NEXT_PUBLIC_RESEARCH_URL ?? 'https://research.travisgilbert.me';
+
+async function fetchResearchStats(): Promise<{ totalLinks: number }> {
+  try {
+    const res = await fetch(`${RESEARCH_API}/api/v1/stats/`, {
+      next: { revalidate: 3600 },
+    });
+    if (!res.ok) return { totalLinks: 0 };
+    const data = await res.json();
+    return { totalLinks: data.total_links ?? 0 };
+  } catch {
+    return { totalLinks: 0 };
+  }
+}
+
+function computeScorecard() {
+  const essays = getCollection<Essay>('essays').filter((e) => !e.data.draft);
+  const fieldNotes = getCollection<FieldNote>('field-notes').filter((n) => !n.data.draft);
+  const totalPublished = essays.length + fieldNotes.length;
+  const totalRevisions = essays.reduce(
+    (sum, e) => sum + (e.data.revisionCount ?? 0),
+    0,
+  );
+  return { totalPublished, totalRevisions };
 }
 
 const QUADRANTS: {
@@ -130,7 +159,11 @@ export default async function NowPage() {
   const data = getNowData();
   if (!data) return null;
 
-  const activeVideos = await fetchActiveVideos();
+  const [activeVideos, researchStats] = await Promise.all([
+    fetchActiveVideos(),
+    fetchResearchStats(),
+  ]);
+  const { totalPublished, totalRevisions } = computeScorecard();
 
   const updatedDate = new Date(data.updated);
   const formattedDate = updatedDate.toLocaleDateString('en-US', {
@@ -207,7 +240,56 @@ export default async function NowPage() {
         </div>
       )}
 
-      {/* Publication activity scorecard */}
+      {/* Aggregate scorecard */}
+      <div className="mt-8 max-w-2xl">
+        <RoughBox padding={20} tint="neutral">
+          <span
+            className="font-mono block mb-3"
+            style={{
+              fontSize: 11,
+              textTransform: 'uppercase',
+              letterSpacing: '0.1em',
+              color: 'var(--color-ink-muted)',
+            }}
+          >
+            By the Numbers
+          </span>
+          <div className="flex items-center justify-around gap-4">
+            {[
+              { label: 'Published', value: totalPublished },
+              { label: 'Connections', value: researchStats.totalLinks },
+              { label: 'Revisions', value: totalRevisions },
+            ].map((metric, i) => (
+              <div key={metric.label} className="flex items-center gap-4">
+                {i > 0 && (
+                  <div
+                    className="h-8 w-px flex-shrink-0"
+                    style={{ backgroundColor: 'var(--color-border)' }}
+                  />
+                )}
+                <div className="text-center">
+                  <span className="font-title text-2xl font-bold text-ink block">
+                    {metric.value}
+                  </span>
+                  <span
+                    className="font-mono block mt-0.5"
+                    style={{
+                      fontSize: 9,
+                      textTransform: 'uppercase',
+                      letterSpacing: '0.08em',
+                      color: 'var(--color-ink-faint)',
+                    }}
+                  >
+                    {metric.label}
+                  </span>
+                </div>
+              </div>
+            ))}
+          </div>
+        </RoughBox>
+      </div>
+
+      {/* Publication activity graph */}
       <div className="mt-8 max-w-2xl">
         <PublicationGraph />
       </div>

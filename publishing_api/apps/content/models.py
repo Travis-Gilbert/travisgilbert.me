@@ -92,10 +92,10 @@ class Essay(TimeStampedModel):
         blank=True,
         help_text="Content types this essay connects to",
     )
-    connection_notes = models.TextField(
+    connection_notes = models.JSONField(
+        default=list,
         blank=True,
-        default="",
-        help_text="Notes on how this essay relates to other content",
+        help_text="Array of {slug, note} objects explaining connections",
     )
 
     class Meta:

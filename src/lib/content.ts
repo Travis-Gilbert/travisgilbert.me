@@ -58,8 +58,10 @@ export const essaySchema = z.object({
   sourceSummary: z.string().optional(),
   /** Content types this essay connects to (e.g., ["field-note", "project"]) */
   connectedTypes: z.array(z.string()).optional(),
-  /** Notes on how this essay relates to other content */
-  connectionNotes: z.string().optional(),
+  /** Summary of how this essay relates to other content */
+  connectionSummary: z.string().optional(),
+  /** Per-connection research notes for ResearchDropdown in ConnectionDots */
+  connectionNotes: z.array(z.object({ slug: z.string(), note: z.string() })).optional(),
 });
 
 export const fieldNoteSchema = z.object({

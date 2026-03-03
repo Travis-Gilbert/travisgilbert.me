@@ -23,6 +23,8 @@ export interface PositionedConnection {
   connection: Connection;
   paragraphIndex: number;
   mentionFound: boolean;
+  /** Author's research note for this specific connection (from essay frontmatter) */
+  researchNote?: string;
 }
 
 export interface AllContent {
@@ -196,13 +198,19 @@ const FALLBACK_PARAGRAPH = 1;
 export function positionConnections(
   connections: Connection[],
   html: string,
+  connectionNotes?: { slug: string; note: string }[],
 ): PositionedConnection[] {
+  const noteMap = new Map(
+    (connectionNotes ?? []).map((n) => [n.slug, n.note]),
+  );
+
   return connections.map((connection) => {
     const rawIndex = findMentionIndex(connection, html);
     return {
       connection,
       paragraphIndex: rawIndex ?? FALLBACK_PARAGRAPH,
       mentionFound: rawIndex !== null,
+      researchNote: noteMap.get(connection.slug),
     };
   });
 }

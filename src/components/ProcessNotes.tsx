@@ -12,6 +12,8 @@ import RoughBox from '@/components/rough/RoughBox';
 
 interface ProcessNotesProps {
   researchStarted?: string;
+  /** Essay publication date (used to compute research duration) */
+  essayDate?: string;
   revisionCount?: number;
   sourceCount?: number;
   researchNotes?: string[];
@@ -25,25 +27,30 @@ interface ProcessNotesProps {
   videoScriptWords?: number;
 }
 
-function formatResearchDuration(startDate: string): string | null {
+function formatResearchDuration(startDate: string, endDate?: string): string | null {
   const start = new Date(startDate);
-  const now = new Date();
-  const days = Math.floor((now.getTime() - start.getTime()) / (1000 * 60 * 60 * 24));
+  const end = endDate ? new Date(endDate) : new Date();
+  const days = Math.floor((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24));
 
   if (days < 0) return null;
-  if (days >= 60) {
+
+  // 12+ months: express in years
+  if (days >= 365) {
+    const years = Math.floor(days / 365);
+    return `Researched over ${years} year${years === 1 ? '' : 's'}`;
+  }
+  // 1+ months: express in months
+  if (days >= 30) {
     const months = Math.floor(days / 30);
-    return `${months} month${months === 1 ? '' : 's'}`;
+    return `Researched over ${months} month${months === 1 ? '' : 's'}`;
   }
-  if (days >= 14) {
-    const weeks = Math.floor(days / 7);
-    return `${weeks} week${weeks === 1 ? '' : 's'}`;
-  }
-  return `${days} day${days === 1 ? '' : 's'}`;
+  // Less than a month
+  return 'Researched over a few weeks';
 }
 
 export default function ProcessNotes({
   researchStarted,
+  essayDate,
   revisionCount,
   sourceCount,
   researchNotes,
@@ -63,6 +70,14 @@ export default function ProcessNotes({
   }
 
   const metadata: { label: string; value: string }[] = [];
+
+  // Research duration first (computed from researchStarted to essayDate)
+  if (researchStarted) {
+    const duration = formatResearchDuration(researchStarted, essayDate);
+    if (duration) {
+      metadata.push({ label: 'Research period', value: duration });
+    }
+  }
 
   if (researchStarted) {
     const date = new Date(researchStarted);
@@ -85,13 +100,6 @@ export default function ProcessNotes({
       label: 'Sources consulted',
       value: String(sourceCount),
     });
-  }
-
-  if (researchStarted) {
-    const duration = formatResearchDuration(researchStarted);
-    if (duration) {
-      metadata.push({ label: 'Research period', value: duration });
-    }
   }
 
   return (

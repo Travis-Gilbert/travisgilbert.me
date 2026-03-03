@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { measureParagraphOffsets } from '@/lib/paragraphPositions';
 import type { PositionedConnection } from '@/lib/connectionEngine';
 import ConnectionGraphPopup from '@/components/ConnectionGraphPopup';
+import ResearchDropdown from '@/components/ResearchDropdown';
 
 /** URL prefix per connection type (internal site navigation) */
 const TYPE_URL: Record<string, string> = {
@@ -260,7 +261,7 @@ export default function ConnectionDots({
                     opacity: isHovered ? 1 : 0,
                     transform: isHovered ? 'translateX(0)' : 'translateX(4px)',
                     overflow: 'hidden',
-                    maxHeight: isHovered ? 120 : 0,
+                    maxHeight: isHovered ? 200 : 0,
                     borderRadius: '4px 0 0 4px',
                     pointerEvents: isHovered ? 'auto' : 'none',
                   }}
@@ -306,6 +307,7 @@ export default function ConnectionDots({
                   >
                     View in Researcher &rarr;
                   </a>
+                  <ResearchDropdown researchNote={pc.researchNote} color={pc.connection.color} />
                 </div>
               </div>
             );
