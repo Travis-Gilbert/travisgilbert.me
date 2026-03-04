@@ -51,7 +51,7 @@ Next.js 16 (App Router, Turbopack, React Compiler), React 19, Tailwind CSS v4 (`
 | `research_api/apps/api/` | DRF read-only viewsets (sources, links, threads, mentions, backlinks, graph, activity) + internal promote endpoint |
 | `research_api/apps/paper_trail/` | Public browsing pages: explorer (D3 graph), essay trail, threads, community wall with HTMX suggestion form |
 | `research_api/apps/publisher/` | PublishLog model, GitHub API client, JSON serializers, publish orchestrator (commits to `src/data/research/`) |
-| `research_api/apps/notebook/` | Knowledge graph app: NodeType, KnowledgeNode, Edge, ResolvedEntity, DailyLog, Notebook models |
+| `research_api/apps/notebook/` | CommonPlace knowledge graph: 12 models (ObjectType, Object, ComponentType, Component, Timeline, Node, Edge, ResolvedEntity, DailyLog, Notebook, Project, Layout), DRF API with 11 ViewSets + 6 custom endpoints |
 | `research_api/apps/notebook/engine.py` | Three-pass spaCy connection engine: entity extraction, shared entity edges, topic similarity (Jaccard) |
 | `research_api/apps/notebook/signals.py` | DailyLog auto-population via post_save signals on KnowledgeNode, Edge, ResolvedEntity |
 | `publishing_api/apps/intake/services.py` | OG metadata scraping (`scrape_og_metadata`) + cross-service source promotion (`promote_to_research` via httpx) |
@@ -65,6 +65,16 @@ Next.js 16 (App Router, Turbopack, React Compiler), React 19, Tailwind CSS v4 (`
 | `publishing_api/templates/editor/partials/video_sessions.html` | Session log with start/stop controls |
 | `publishing_api/templates/editor/production_dashboard.html` | Video production dashboard: active projects, 30-day heatmap, weekly summary, cumulative output |
 | `src/lib/videos.ts` | Video fetch utility: `fetchAllVideos()`, `fetchVideoBySlug()`, `StudioVideo` type; reads from Studio API at build time |
+| `src/app/(commonplace)/layout.tsx` | CommonPlace route group layout: warm studio shell with sidebar, blueprint grid, split pane system, scoped CSS tokens |
+| `src/app/(commonplace)/commonplace/page.tsx` | CommonPlace home page: timeline landing with stat cards |
+| `src/components/commonplace/` | CommonPlace Client Components: capture, timeline, network, split pane, sidebar |
+| `src/styles/commonplace.css` | CommonPlace theme tokens: cream/parchment surfaces, warm dark sidebar, blueprint grid, paper grain, terracotta glow |
+| `src/lib/commonplace.ts` | Shared constants, types, sidebar structure, object type visual identity, view registry |
+| `src/lib/commonplace-layout.ts` | Split pane layout: recursive binary tree types, presets, serialization, key bindings |
+| `src/lib/commonplace-capture.ts` | Capture logic: local-first object creation, URL detection, optimistic IDs, mock OG enrichment |
+| `src/lib/commonplace-mock-data.ts` | Deterministic PRNG mock data generator: 35 to 45 objects across 10 types with edges (SSG safe) |
+| `src/lib/commonplace-graph.ts` | D3 graph data prep: force simulation config, frame serialization, type-based clustering helpers |
+| `research_api/apps/notebook/services.py` | Service layer: `enrich_url()` OG metadata fetch, `quick_capture()` object creation from raw input |
 
 ## Development Commands
 
@@ -96,6 +106,11 @@ python3 manage.py runserver 8001          # Dev server (8001 to avoid conflict w
 python3 manage.py publish_research        # Publish all research data as JSON to Next.js repo
 python3 manage.py publish_research --dry-run  # Preview without committing
 python3 manage.py seed_node_types             # Create default NodeType records (Person, Source, Concept, etc.)
+python3 manage.py seed_object_types           # Create built-in ObjectType records (Note, Source, Person, etc.)
+python3 manage.py seed_component_types        # Create built-in ComponentType records (Text, Date, URL, etc.)
+python3 manage.py seed_commonplace            # Combined seed: ObjectTypes + ComponentTypes + master Timeline
+python3 manage.py create_sample_data          # Create ~15 sample Objects with Components for testing
+python3 manage.py create_sample_data --clean  # Delete all notebook data first, then create samples
 python3 manage.py run_connection_engine        # Process inbox + active nodes through spaCy NER
 python3 manage.py run_connection_engine --all  # Process every node regardless of status
 python3 manage.py run_connection_engine --dry-run  # Preview without writing edges
@@ -161,6 +176,26 @@ Most components are **Server Components** by default. Components needing browser
 | `StampDot.tsx` | Animated current-stage dot with scatter micro-dots; plays stamp animation on mount, respects prefers-reduced-motion |
 | `ParallaxStack.tsx` | Subtle scroll-driven vertical parallax between child layers; capped at +/- 15px, touch devices get 50% intensity |
 | `PipelineCounter.tsx` | Live build counter on homepage showing content stats (essays, notes, projects, shelf items, connections) |
+| `DotGridEasterEgg.tsx` | Interactive dotgrid easter egg: seeded PRNG generative pattern with rough.js, click-to-trigger overlay |
+| `commonplace/CommonPlaceSidebar.tsx` | Warm dark sidebar (#1A1614) with capture button, object palette, recent captures, drop zone, navigation links |
+| `commonplace/SplitPaneContainer.tsx` | Recursive binary tree split pane system with drag handles, tab bar, keyboard shortcuts, layout presets |
+| `commonplace/DragHandle.tsx` | Drag handle for resizing split panes; pointer events + container-relative ratio calculation |
+| `commonplace/LayoutPresetSelector.tsx` | Layout preset selector: SVG icons representing split configurations (Focus, Split, Research, Studio) |
+| `commonplace/CaptureButton.tsx` | Spring-animated capture input with URL detection, type auto-selection, keyboard shortcuts |
+| `commonplace/ObjectPalette.tsx` | 2-column type grid overlay: 10 object types with color and icon, click-to-select for capture |
+| `commonplace/DropZone.tsx` | Full-screen drag-and-drop overlay for file/URL capture with visual feedback |
+| `commonplace/RecentCaptures.tsx` | Sidebar capture list: last 5 captured objects with type icon, title, relative timestamp |
+| `commonplace/DateHeader.tsx` | Sticky date separator for timeline: relative labels ("Today", "Yesterday") or formatted dates, Courier Prime monospace |
+| `commonplace/NodeCard.tsx` | Timeline entry card: type icon badge, title, excerpt, timestamp, connection count, retrospective note |
+| `commonplace/ConnectionLabel.tsx` | Edge badge pill: displays edge reason text with source/target type color gradient |
+| `commonplace/RetroNote.tsx` | Reflection prompt card: surfaces old objects for retrospective annotation |
+| `commonplace/TimelineSearch.tsx` | Search + type filter bar: text query, multi-select object type toggles, date range |
+| `commonplace/TimelineView.tsx` | Main timeline feed: paginated NodeCards grouped by date, search/filter, mock data integration |
+| `commonplace/KnowledgeMap.tsx` | D3 force-directed graph with rough.js canvas edges for knowledge network; mirrors ConnectionMap pattern |
+| `commonplace/EntityNetwork.tsx` | Filtered Person/Org network view: entity-type clustering, hover detail panel |
+| `commonplace/TimelineViz.tsx` | D3 chronological dot plot with arcs: time on x-axis, type on y-axis, arc connections between related objects |
+| `commonplace/FrameManager.tsx` | Save/restore named view configurations: zoom level, filter state, layout preset |
+| `commonplace/NetworkView.tsx` | Network sub-view wrapper: toggle toolbar switching between KnowledgeMap, EntityNetwork, and TimelineViz |
 
 Server Components can import and render Client Components; children pass through as a slot without hydrating.
 
@@ -391,17 +426,20 @@ Phases 1 through 4 (Foundation, Micro-interactions, Animations, Polish) are **al
 
 **Research API:** Deployed to Railway at research.travisgilbert.me. Source promotion pipeline: Sourcebox triage accept in publishing_api calls research_api's `/api/v1/internal/promote/` endpoint via Bearer token auth. See `docs/records/003-research-api.md`.
 
-**Notebook (Knowledge Graph):** Sessions 1+2 complete. 6 models (NodeType, KnowledgeNode, Edge, ResolvedEntity, DailyLog, Notebook), spaCy NER engine with three-pass connection logic (entity extraction, shared entity edges, topic similarity), auto-objectification of PERSON/ORG entities, DailyLog signals, rich Django admin, seed_node_types and run_connection_engine management commands. Tested on 10 sample nodes: 39 entities, 32 edges, 17 auto-created nodes. See `notebook-v2-object-oriented-plan (1).md` for full plan. Next: Session 3 (DRF API + admin polish).
+**Notebook (Knowledge Graph):** Sessions 1 through 3 complete. Evolved from 6 models (v2) to 12 models (v4 Object/Node/Component architecture): ObjectType, Object, ComponentType, Component, Timeline, Node, Edge, ResolvedEntity, DailyLog, Notebook, Project, Layout. Session 3 added full DRF API layer: 11 ViewSets (ObjectType, ComponentType, Object, Component, Node, Edge, Notebook, Project, Timeline, Layout, DailyLog) + 6 custom endpoints (capture, feed, graph, resurface, object export, notebook export). Service layer with URL enrichment and quick capture. Management commands: seed_object_types, seed_component_types, seed_commonplace (combined), create_sample_data. spaCy NER engine with three-pass connection logic preserved from v2.
 
 **YouTube Production Pipeline:** All 7 batches complete. Models, admin, forms, CRUD views, phase-aware editor, HTMX inline panels (Batches 1 through 4). Orchestra API endpoints at `/editor/api/videos/` with 7 JSON views for conductor integration (Batch 5). Next.js frontend: `src/lib/videos.ts` fetch utility, Currently Producing section on `/now`, linked video embeds on essay pages (Batch 6). Process tracking: video metrics in ProcessNotes and PublicationGraph, production dashboard in Studio at `/production/` (Batch 7). Spec: `docs/plan-03-studio-youtube-production.md`.
 
 **Hero Redesign:** Complete, merged to `main`. CollageHero rewritten as unified above-the-fold zone (identity + featured essay + artifact). EruptingCollage and secondary essay grid removed from homepage. HeroArtifact and HeroAccents created. Reading guide line added to ArticleBody (hover-gated, transparent, gradient-edged). Schema extended with `heroColor` and `heroImage` fields.
 
-**Next step:** Notebook Session 3: DRF API endpoints + admin polish for the knowledge graph app (see `notebook-v2-object-oriented-plan (1).md`). Also pending: set `NEXT_PUBLIC_STUDIO_URL=https://draftroom.travisgilbert.me` in Vercel, set cross-service env vars (`INTERNAL_API_KEY` on both, `RESEARCH_API_URL`/`RESEARCH_API_KEY` on publishing_api) and test source promotion pipeline end-to-end.
+**CommonPlace Frontend (Phase 3):** Sessions 5 through 8 complete. Full Next.js frontend shell at `/commonplace` route group with warm studio theme (cream parchment + dark sidebar). Session 5: split pane system (SplitPaneContainer, DragHandle, LayoutPresetSelector, CommonPlaceSidebar) with recursive binary tree layout, keyboard shortcuts, 4 layout presets. Session 6 (Capture): CaptureButton with spring animation, ObjectPalette type grid, DropZone drag-and-drop, RecentCaptures sidebar list, local-first capture with optimistic IDs. Session 7 (Timeline): TimelineView with deterministic mock data (35 to 45 objects), NodeCard, DateHeader, RetroNote reflection prompts, ConnectionLabel edge badges, TimelineSearch with type filters. Session 8 (Network): KnowledgeMap (D3 force graph + rough.js canvas edges, mirrors ConnectionMap pattern), EntityNetwork (Person/Org filtered view), TimelineViz (chronological dot plot with arcs), FrameManager (save/restore view configs), NetworkView (toggle toolbar wrapper). All components use CommonPlace scoped CSS tokens from `commonplace.css`.
+
+**Next step:** Wire CommonPlace frontend to live Django API (replace mock data with fetch calls to `/api/v1/notebook/` endpoints). Also pending: set `NEXT_PUBLIC_STUDIO_URL=https://draftroom.travisgilbert.me` in Vercel, set cross-service env vars (`INTERNAL_API_KEY` on both, `RESEARCH_API_URL`/`RESEARCH_API_KEY` on publishing_api) and test source promotion pipeline end-to-end.
 
 **Remaining backlog:**
-- Notebook Session 3: DRF API endpoints + admin polish
-- Notebook Sessions 4+: daily log views, publisher, Next.js frontend
+- CommonPlace: wire frontend to live API (replace mock data with fetch calls)
+- CommonPlace: real-time capture sync (replace local-first stubs with POST to `/capture/`)
+- Notebook Sessions 4+: daily log views, publisher, Next.js data publishing
 - Sourcebox UX redesign (brainstorm in progress)
 - Additional content pages and essays (not started)
 - Dark mode (deferred; tokens ready in `global.css`)
@@ -427,6 +465,12 @@ Phases 1 through 4 (Foundation, Micro-interactions, Animations, Polish) are **al
 | Deterministic PRNG in HeroAccents | djb2 hash + LCG seeded from tag string (not Math.random()) | SSG builds must produce identical output across runs |
 | Notebook: object-oriented graph | Typed nodes + explained edges (not flat tags or source-only links) | Everything is an object with a type; edges carry plain English `reason` field; enables serendipitous discovery |
 | Notebook: admin as authoring UI | Django admin with rich fieldsets and inlines (not custom HTMX editor) | Consistent with research_api pattern; notebook is data entry, not content authoring |
+| Notebook v4: Object/Node/Component architecture | Objects exist (typed entities with Components), Nodes happen (immutable timeline events) | Everything is an Object; changes are tracked as Nodes; Components are typed properties; edges connect Objects with explanations |
+| CommonPlace: scoped route group | `(commonplace)` route group with own layout.tsx, does NOT share root DotGrid/TopNav/Footer | Completely different visual language (warm studio vs parchment site); avoids fighting root layout styles |
+| CommonPlace: local-first capture | Optimistic creation with `local-` prefixed UUIDs, sync to API later | Objects appear instantly in UI; API integration deferred to avoid blocking frontend development |
+| CommonPlace: deterministic mock data | djb2 + LCG PRNG seeded from fixed string (same pattern as HeroAccents) | SSG-safe; builds produce identical mock objects; replaced when real API is wired |
+| CommonPlace: split pane system | Recursive binary tree layout (not fixed panels) | Arbitrary nesting; JSON-serializable for saved layouts; 4 presets (Focus, Split, Research, Studio) |
+| CommonPlace: two-layer graph rendering | Canvas (rough.js edges) + SVG (interactive nodes), same as ConnectionMap | Consistent with existing site pattern; rough.js requires canvas; hover/click requires SVG |
 
 ## Gotchas
 
@@ -486,3 +530,12 @@ Phases 1 through 4 (Foundation, Micro-interactions, Animations, Polish) are **al
 - **ResolvedEntity has two FKs to KnowledgeNode**: `source_node` and `resolved_node`. Admin inlines require `fk_name = 'source_node'` or Django raises admin.E202
 - **Connection engine pass order matters**: Pass 1 (entity extraction) must run before Pass 2 (shared entity edges) because Pass 2 queries ResolvedEntity records created by Pass 1
 - **Auto-objectification only creates PERSON and ORG nodes**: Other entity types (DATE, GPE, etc.) are stored as ResolvedEntity records but don't get auto-created KnowledgeNode records
+- **CommonPlace route group scoping**: The `(commonplace)` group has its own layout.tsx that does NOT render html/body (root layout handles that). It applies `commonplace-theme` class to scope all CSS custom properties. Do not add DotGrid, TopNav, or Footer here
+- **CommonPlace CSS tokens are scoped**: All `--cp-*` variables only exist inside `.commonplace-theme`. Using them outside the CommonPlace route group returns `undefined`. Use site `--color-*` tokens for the main site
+- **CommonPlace mock data is SSG-safe**: `commonplace-mock-data.ts` uses the same djb2+LCG PRNG as HeroAccents. No `Math.random()`. When replacing with real API data, ensure the mock generator is fully removed (not just bypassed) to avoid dead code in the bundle
+- **SplitPaneContainer recursive rendering**: The pane tree can nest arbitrarily deep. Each split creates two children with their own DragHandle. Deep nesting (4+ levels) may cause layout overflow on small viewports. The layout presets cap at 2 levels
+- **CommonPlace layout presets are index-based**: `LAYOUT_PRESETS` in `commonplace-layout.ts` are accessed by array index. Reordering or removing presets will break saved layout references. Always append new presets at the end
+- **Notebook v4 model naming vs v2**: The models were renamed from v2 (NodeType, KnowledgeNode) to v4 (ObjectType, Object, Node). Some management commands still reference v2 names (e.g., `seed_node_types`). New commands use v4 names (e.g., `seed_object_types`)
+- **DragHandle pointer capture**: Split pane resize uses `setPointerCapture` on pointerdown so dragging works even when the cursor leaves the handle element. Missing pointer capture causes resize to "stick" when the cursor moves fast
+- **CommonPlace `NEXT_PUBLIC_RESEARCH_API_URL`**: Defaults to `http://localhost:8001`. Must be set in Vercel when research_api is deployed. The `NEXT_PUBLIC_` prefix means the value is inlined at build time, like `NEXT_PUBLIC_STUDIO_URL`
+- **KnowledgeMap mirrors ConnectionMap pattern**: Both use canvas (behind) for rough.js edges + SVG (front) for interactive nodes. Both run D3 force simulation synchronously with 300 iterations. Changes to one should be considered for the other
