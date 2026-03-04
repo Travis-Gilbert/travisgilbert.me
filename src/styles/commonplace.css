@@ -1,0 +1,564 @@
+/* ─────────────────────────────────────────────────
+   CommonPlace: Warm Studio Theme Tokens
+   Cream/parchment main area with warm dark sidebar.
+   Paper grain, blueprint grid, terracotta ambient glow.
+   Loaded only inside the (commonplace) route group.
+   ───────────────────────────────────────────────── */
+
+.commonplace-theme {
+  /* Main area backgrounds */
+  --cp-bg: #F2EDE5;
+  --cp-surface: #FAF6F1;
+  --cp-surface-hover: #F5EFE7;
+  --cp-card: #FFFCF8;
+  --cp-card-hover: #FAF6F1;
+
+  /* Sidebar backgrounds */
+  --cp-sidebar: #1A1614;
+  --cp-sidebar-surface: #241F1C;
+  --cp-sidebar-surface-hover: #2E2824;
+
+  /* Main text */
+  --cp-text: #2A2420;
+  --cp-text-muted: #6A5E52;
+  --cp-text-faint: #9A8E82;
+
+  /* Sidebar text */
+  --cp-sidebar-text: #F5F0E8;
+  --cp-sidebar-text-muted: #9A8E82;
+  --cp-sidebar-text-faint: #6B5F52;
+
+  /* Accent: Terracotta (primary interaction color) */
+  --cp-terracotta: #B45A2D;
+  --cp-terracotta-light: #D4875A;
+  --cp-terracotta-glow: rgba(180, 90, 45, 0.08);
+  --cp-terracotta-sidebar-glow: rgba(180, 90, 45, 0.15);
+
+  /* Secondary palette */
+  --cp-teal: #2D5F6B;
+  --cp-teal-light: #3A7A88;
+  --cp-gold: #C49A4A;
+  --cp-gold-light: #E0BC60;
+  --cp-green: #5A7A4A;
+  --cp-purple: #8B6FA0;
+  --cp-blue: #4A7A9A;
+  --cp-pink: #B06080;
+  --cp-amber: #C49A4A;
+  --cp-orange: #C47A3A;
+  --cp-steel: #6B7A8A;
+
+  /* Object type colors (matching architecture spec) */
+  --cp-type-note: #F5F0E8;
+  --cp-type-source: #2D5F6B;
+  --cp-type-person: #B45A2D;
+  --cp-type-place: #C49A4A;
+  --cp-type-organization: #5A7A4A;
+  --cp-type-concept: #8B6FA0;
+  --cp-type-quote: #C49A4A;
+  --cp-type-hunch: #B06080;
+  --cp-type-script: #6B7A8A;
+  --cp-type-task: #C47A3A;
+
+  /* Borders */
+  --cp-border: #D4CCC4;
+  --cp-border-faint: #E4DCD4;
+  --cp-sidebar-border: rgba(245, 240, 232, 0.08);
+  --cp-sidebar-border-strong: rgba(245, 240, 232, 0.15);
+
+  /* Shadows: always brown-tinted, never gray */
+  --cp-shadow-sm: 0 1px 3px rgba(42, 36, 32, 0.06);
+  --cp-shadow: 0 2px 8px rgba(42, 36, 32, 0.08);
+  --cp-shadow-lg: 0 8px 24px rgba(42, 36, 32, 0.12);
+
+  /* Typography */
+  --cp-font-title: var(--font-vollkorn), Georgia, serif;
+  --cp-font-body: var(--font-cabin), system-ui, sans-serif;
+  --cp-font-mono: var(--font-courier-prime), 'Courier New', monospace;
+  --cp-font-code: var(--font-jetbrains-mono), monospace;
+
+  /* Layout constants */
+  --cp-sidebar-width: 240px;
+  --cp-grid-size: 40px;
+  --cp-grid-opacity: 0.055;
+  --cp-pane-gap: 1px;
+  --cp-tab-height: 36px;
+  --cp-drag-handle-size: 5px;
+}
+
+/* ─────────────────────────────────────────────────
+   Paper grain: SVG noise texture overlay.
+   Different intensity per surface type.
+   Main: smooth drafting paper (~3%).
+   Sidebar: matte card stock (~5%).
+   Cards: barely there (~2%).
+   ───────────────────────────────────────────────── */
+
+.cp-grain {
+  position: relative;
+  isolation: isolate;
+}
+
+.cp-grain::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 1;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='300' height='300'%3E%3Cfilter id='g'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23g)' opacity='1'/%3E%3C/svg%3E");
+  background-repeat: repeat;
+  background-size: 300px 300px;
+  mix-blend-mode: multiply;
+  opacity: 0.03;
+}
+
+.cp-grain-sidebar::after {
+  mix-blend-mode: overlay;
+  opacity: 0.05;
+}
+
+.cp-grain-card::after {
+  opacity: 0.02;
+}
+
+/* ─────────────────────────────────────────────────
+   Blueprint grid: 40px engineering paper lines.
+   Only on the main content area.
+   ───────────────────────────────────────────────── */
+
+.cp-blueprint-grid {
+  background-image:
+    linear-gradient(
+      to right,
+      rgba(180, 90, 45, var(--cp-grid-opacity)) 1px,
+      transparent 1px
+    ),
+    linear-gradient(
+      to bottom,
+      rgba(180, 90, 45, var(--cp-grid-opacity)) 1px,
+      transparent 1px
+    );
+  background-size: var(--cp-grid-size) var(--cp-grid-size);
+}
+
+/* Brighten grid on drag-over (capture drop zone feedback) */
+.cp-blueprint-grid[data-drag-active="true"] {
+  --cp-grid-opacity: 0.15;
+  transition: --cp-grid-opacity 300ms;
+}
+
+/* ─────────────────────────────────────────────────
+   Terracotta upper-right glow: ambient desk lamp.
+   Large radius, very subtle. Not a spot; an atmosphere.
+   ───────────────────────────────────────────────── */
+
+.cp-ambient-glow {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+  background: radial-gradient(
+    ellipse at 85% 5%,
+    rgba(180, 90, 45, 0.045) 0%,
+    rgba(180, 90, 45, 0.02) 25%,
+    rgba(180, 90, 45, 0.005) 50%,
+    transparent 70%
+  );
+}
+
+/* ─────────────────────────────────────────────────
+   Sidebar glow: terracotta bloom from top-left,
+   warm studio light falling on the desk edge.
+   ───────────────────────────────────────────────── */
+
+.cp-sidebar-glow {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: radial-gradient(
+    ellipse at 0% 0%,
+    rgba(180, 90, 45, 0.25) 0%,
+    rgba(180, 90, 45, 0.10) 20%,
+    rgba(180, 90, 45, 0.03) 40%,
+    transparent 60%
+  );
+}
+
+/* ─────────────────────────────────────────────────
+   Sidebar section styles
+   ───────────────────────────────────────────────── */
+
+.cp-section-title {
+  font-family: var(--cp-font-mono);
+  font-size: 10px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--cp-sidebar-text-faint);
+  padding: 0 12px;
+  margin-bottom: 6px;
+  margin-top: 4px;
+}
+
+.cp-sidebar-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 7px 12px;
+  border-radius: 6px;
+  color: var(--cp-sidebar-text-muted);
+  font-family: var(--cp-font-body);
+  font-size: 13px;
+  cursor: pointer;
+  transition: background-color 150ms, color 150ms;
+  text-decoration: none;
+}
+
+.cp-sidebar-item:hover {
+  background-color: var(--cp-sidebar-surface-hover);
+  color: var(--cp-sidebar-text);
+}
+
+.cp-sidebar-item[data-active="true"] {
+  background-color: var(--cp-terracotta-sidebar-glow);
+  color: var(--cp-sidebar-text);
+}
+
+/* ─────────────────────────────────────────────────
+   Sidebar dividers between sections
+   ───────────────────────────────────────────────── */
+
+.cp-sidebar-divider {
+  height: 1px;
+  background: var(--cp-sidebar-border);
+  margin: 8px 12px;
+}
+
+/* ─────────────────────────────────────────────────
+   Object type color dots
+   ───────────────────────────────────────────────── */
+
+.cp-type-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+/* ─────────────────────────────────────────────────
+   Split pane layout
+   ───────────────────────────────────────────────── */
+
+.cp-pane-container {
+  display: flex;
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.cp-pane-container[data-direction="horizontal"] {
+  flex-direction: row;
+}
+
+.cp-pane-container[data-direction="vertical"] {
+  flex-direction: column;
+}
+
+.cp-pane {
+  display: flex;
+  flex-direction: column;
+  min-width: 120px;
+  min-height: 80px;
+  overflow: hidden;
+  position: relative;
+}
+
+/* ─────────────────────────────────────────────────
+   Pane tab bar
+   ───────────────────────────────────────────────── */
+
+.cp-tab-bar {
+  display: flex;
+  align-items: stretch;
+  height: var(--cp-tab-height);
+  background: var(--cp-surface);
+  border-bottom: 1px solid var(--cp-border-faint);
+  overflow-x: auto;
+  flex-shrink: 0;
+}
+
+.cp-tab-bar::-webkit-scrollbar {
+  display: none;
+}
+
+.cp-tab {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 14px;
+  font-family: var(--cp-font-mono);
+  font-size: 11px;
+  letter-spacing: 0.03em;
+  color: var(--cp-text-faint);
+  border-right: 1px solid var(--cp-border-faint);
+  cursor: pointer;
+  white-space: nowrap;
+  transition: color 150ms, background-color 150ms;
+  user-select: none;
+}
+
+.cp-tab:hover {
+  color: var(--cp-text-muted);
+  background-color: var(--cp-surface-hover);
+}
+
+.cp-tab[data-active="true"] {
+  color: var(--cp-text);
+  background-color: var(--cp-bg);
+  border-bottom: 2px solid var(--cp-terracotta);
+  margin-bottom: -1px;
+}
+
+.cp-tab-close {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  border-radius: 3px;
+  border: none;
+  background: transparent;
+  color: var(--cp-text-faint);
+  font-size: 12px;
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 150ms, background-color 150ms;
+}
+
+.cp-tab:hover .cp-tab-close {
+  opacity: 1;
+}
+
+.cp-tab-close:hover {
+  background-color: rgba(180, 90, 45, 0.15);
+  color: var(--cp-terracotta);
+}
+
+/* ─────────────────────────────────────────────────
+   Drag handle for resizing panes
+   ───────────────────────────────────────────────── */
+
+.cp-drag-handle {
+  flex-shrink: 0;
+  background: var(--cp-border-faint);
+  transition: background-color 200ms;
+  position: relative;
+  z-index: 10;
+}
+
+.cp-drag-handle[data-direction="horizontal"] {
+  width: var(--cp-pane-gap);
+  cursor: col-resize;
+}
+
+.cp-drag-handle[data-direction="vertical"] {
+  height: var(--cp-pane-gap);
+  cursor: row-resize;
+}
+
+.cp-drag-handle:hover,
+.cp-drag-handle[data-dragging="true"] {
+  background: var(--cp-terracotta);
+}
+
+/* Invisible hit area so the 1px line is easy to grab */
+.cp-drag-handle::before {
+  content: '';
+  position: absolute;
+}
+
+.cp-drag-handle[data-direction="horizontal"]::before {
+  top: 0;
+  bottom: 0;
+  left: -3px;
+  right: -3px;
+}
+
+.cp-drag-handle[data-direction="vertical"]::before {
+  left: 0;
+  right: 0;
+  top: -3px;
+  bottom: -3px;
+}
+
+/* ─────────────────────────────────────────────────
+   Pane content area
+   ───────────────────────────────────────────────── */
+
+.cp-pane-content {
+  flex: 1;
+  overflow: auto;
+  background: var(--cp-bg);
+}
+
+/* ─────────────────────────────────────────────────
+   Empty pane placeholder
+   ───────────────────────────────────────────────── */
+
+.cp-pane-empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: 1;
+  color: var(--cp-text-faint);
+  font-family: var(--cp-font-mono);
+  font-size: 12px;
+  letter-spacing: 0.05em;
+}
+
+/* ─────────────────────────────────────────────────
+   Layout preset selector
+   ───────────────────────────────────────────────── */
+
+.cp-layout-selector {
+  display: flex;
+  gap: 8px;
+  padding: 8px 12px;
+}
+
+.cp-layout-preset {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 28px;
+  border: 1px solid var(--cp-sidebar-border);
+  border-radius: 4px;
+  background: transparent;
+  cursor: pointer;
+  transition: all 150ms;
+  color: var(--cp-sidebar-text-faint);
+}
+
+.cp-layout-preset:hover {
+  border-color: var(--cp-sidebar-border-strong);
+  color: var(--cp-sidebar-text-muted);
+}
+
+.cp-layout-preset[data-active="true"] {
+  border-color: var(--cp-terracotta);
+  color: var(--cp-terracotta-light);
+  background: var(--cp-terracotta-sidebar-glow);
+}
+
+/* ─────────────────────────────────────────────────
+   Scrollbar styling (sidebar)
+   ───────────────────────────────────────────────── */
+
+.cp-scrollbar::-webkit-scrollbar {
+  width: 4px;
+}
+
+.cp-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.cp-scrollbar::-webkit-scrollbar-thumb {
+  background: var(--cp-sidebar-text-faint);
+  border-radius: 2px;
+}
+
+.cp-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: var(--cp-sidebar-text-muted);
+}
+
+/* ─────────────────────────────────────────────────
+   Mobile: single pane mode
+   ───────────────────────────────────────────────── */
+
+@media (max-width: 768px) {
+  .cp-sidebar-desktop {
+    display: none;
+  }
+
+  .cp-mobile-drawer {
+    position: fixed;
+    top: 0;
+    left: 0;
+    bottom: 0;
+    width: 280px;
+    z-index: 100;
+    transform: translateX(-100%);
+    transition: transform 300ms cubic-bezier(0.4, 0, 0.2, 1);
+    background: var(--cp-sidebar);
+  }
+
+  .cp-mobile-drawer[data-open="true"] {
+    transform: translateX(0);
+  }
+
+  .cp-mobile-backdrop {
+    position: fixed;
+    inset: 0;
+    background: rgba(26, 22, 20, 0.5);
+    z-index: 99;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 300ms;
+  }
+
+  .cp-mobile-backdrop[data-open="true"] {
+    opacity: 1;
+    pointer-events: auto;
+  }
+
+  .cp-mobile-tab-bar {
+    display: flex;
+    align-items: stretch;
+    height: 48px;
+    background: var(--cp-surface);
+    border-top: 1px solid var(--cp-border-faint);
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    z-index: 50;
+  }
+
+  .cp-mobile-tab {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 2px;
+    color: var(--cp-text-faint);
+    font-family: var(--cp-font-mono);
+    font-size: 9px;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    border: none;
+    background: transparent;
+    cursor: pointer;
+  }
+
+  .cp-mobile-tab[data-active="true"] {
+    color: var(--cp-terracotta);
+  }
+}
+
+@media (min-width: 769px) {
+  .cp-mobile-only {
+    display: none !important;
+  }
+}
+
+/* ─────────────────────────────────────────────────
+   Override root body grain for CommonPlace.
+   Suppress the global body::after grain since
+   we apply per-surface grain with different
+   intensities.
+   ───────────────────────────────────────────────── */
+
+:root:has(.commonplace-theme) body::after {
+  display: none;
+}
