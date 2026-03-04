@@ -553,6 +553,361 @@
 }
 
 /* ─────────────────────────────────────────────────
+   Capture system animations
+   ───────────────────────────────────────────────── */
+
+/* Spring open: overshoot cubic-bezier for expand */
+@keyframes cp-spring-open {
+  from {
+    opacity: 0;
+    transform: scaleY(0.6) translateY(-8px);
+  }
+  to {
+    opacity: 1;
+    transform: scaleY(1) translateY(0);
+  }
+}
+
+/* Typing cursor blink */
+.cp-capture-cursor {
+  animation: cp-cursor-blink 600ms steps(1) infinite;
+  color: var(--cp-terracotta-light);
+  font-weight: 300;
+}
+
+@keyframes cp-cursor-blink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0; }
+}
+
+/* Collapsed capture bar hover */
+.cp-capture-collapsed:hover {
+  border-color: var(--cp-sidebar-border-strong) !important;
+  background-color: var(--cp-sidebar-surface-hover) !important;
+}
+
+/* Sync pulse for local (unsynced) objects */
+@keyframes cp-sync-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.4; }
+}
+
+/* Drop zone overlay */
+.cp-dropzone-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 200;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(242, 237, 229, 0.85);
+  backdrop-filter: blur(4px);
+  animation: cp-dropzone-fade-in 200ms ease-out both;
+}
+
+@keyframes cp-dropzone-fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+/* Drop zone inner dashed border area */
+.cp-dropzone-inner {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  width: calc(100% - 48px);
+  height: calc(100% - 48px);
+  border: 2px dashed var(--cp-terracotta);
+  border-radius: 16px;
+  opacity: 0.7;
+}
+
+/* Absorb dot: the captured content shrinks to a dot */
+.cp-absorb-dot {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  animation: cp-absorb 600ms cubic-bezier(0.34, 1.56, 0.64, 1) both;
+}
+
+@keyframes cp-absorb {
+  0% {
+    transform: scale(1.2);
+    opacity: 0;
+  }
+  30% {
+    transform: scale(1);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(0.5) translateX(-60vw);
+    opacity: 0;
+  }
+}
+
+/* ─────────────────────────────────────────────────
+   Timeline view styles
+   ───────────────────────────────────────────────── */
+
+/* Date header: sticky separator with terracotta rule */
+.cp-date-header {
+  position: sticky;
+  top: 0;
+  z-index: 5;
+  padding: 16px 0 6px;
+  font-family: var(--cp-font-mono);
+  font-size: 10px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--cp-text-muted);
+  background: var(--cp-bg);
+  border-bottom: 1px solid var(--cp-terracotta);
+  margin-bottom: 8px;
+}
+
+.cp-date-header::before {
+  content: '';
+  position: absolute;
+  bottom: -1px;
+  left: 0;
+  width: 40px;
+  height: 1px;
+  background: var(--cp-terracotta);
+  opacity: 0.6;
+}
+
+/* Node card: timeline entry with type-colored left border */
+.cp-node-card {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  padding: 12px 14px;
+  margin-bottom: 4px;
+  border: none;
+  border-left: 3px solid transparent;
+  border-radius: 6px;
+  background: transparent;
+  text-align: left;
+  cursor: pointer;
+  color: inherit;
+  font: inherit;
+  transition:
+    background-color 200ms,
+    box-shadow 200ms;
+}
+
+.cp-node-card:hover {
+  background-color: rgba(180, 90, 45, 0.04);
+  box-shadow: 0 2px 8px rgba(60, 50, 40, 0.06);
+}
+
+.cp-node-card:active {
+  background-color: rgba(180, 90, 45, 0.07);
+}
+
+/* Connection label: pill badge for edges */
+.cp-connection-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 1px 8px;
+  border-radius: 10px;
+  border: 1px solid transparent;
+  cursor: pointer;
+  transition:
+    background-color 150ms,
+    border-color 150ms,
+    box-shadow 150ms;
+  max-width: 200px;
+}
+
+/* Retro note: reflection prompt card */
+.cp-retro-note {
+  margin: 8px 0 12px;
+  padding: 12px 16px;
+  border-radius: 6px;
+  border: 1px dashed var(--cp-border);
+  background: rgba(180, 90, 45, 0.025);
+}
+
+/* Timeline search bar */
+.cp-timeline-search {
+  padding: 12px 12px 8px;
+  border-bottom: 1px solid var(--cp-border);
+  flex-shrink: 0;
+}
+
+/* ─────────────────────────────────────────────────
+   Network view styles
+   ───────────────────────────────────────────────── */
+
+/* Graph canvas container */
+.cp-graph-canvas {
+  background: var(--cp-parchment);
+}
+
+/* Timeline viz container */
+.cp-timeline-viz {
+  background: var(--cp-parchment);
+}
+
+/* Node tooltip */
+.cp-node-tooltip {
+  background: var(--cp-surface);
+  border: 1px solid var(--cp-border);
+  border-radius: 6px;
+  padding: 6px 10px;
+  font-family: var(--cp-font-body);
+  font-size: 11px;
+  color: var(--cp-text);
+  box-shadow: 0 2px 8px rgba(26, 22, 20, 0.15);
+  white-space: nowrap;
+  max-width: 260px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Zoom controls */
+.cp-zoom-btn {
+  width: 28px;
+  height: 28px;
+  border-radius: 6px;
+  border: 1px solid var(--cp-border);
+  background: var(--cp-surface);
+  color: var(--cp-text-muted);
+  font-family: var(--cp-font-mono);
+  font-size: 14px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 150ms ease, color 150ms ease;
+}
+
+.cp-zoom-btn:hover {
+  background: var(--cp-border);
+  color: var(--cp-text);
+}
+
+/* Frame manager button */
+.cp-frame-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 8px;
+  border-radius: 4px;
+  border: 1px solid var(--cp-border);
+  background: transparent;
+  color: var(--cp-text-muted);
+  font-family: var(--cp-font-mono);
+  font-size: 9px;
+  letter-spacing: 0.05em;
+  cursor: pointer;
+  transition: background 150ms ease, color 150ms ease;
+}
+
+.cp-frame-btn:hover {
+  background: rgba(180, 90, 45, 0.06);
+  color: var(--cp-text);
+}
+
+/* Frame dropdown */
+.cp-frame-dropdown {
+  position: absolute;
+  top: 100%;
+  right: 0;
+  margin-top: 4px;
+  min-width: 180px;
+  background: var(--cp-surface);
+  border: 1px solid var(--cp-border);
+  border-radius: 6px;
+  box-shadow: 0 4px 16px rgba(26, 22, 20, 0.12);
+  z-index: 20;
+  padding: 4px 0;
+}
+
+/* Frame list item */
+.cp-frame-item {
+  display: flex;
+  align-items: center;
+  padding: 0 4px 0 0;
+}
+
+.cp-frame-item-btn {
+  flex: 1;
+  text-align: left;
+  padding: 5px 10px;
+  border: none;
+  background: transparent;
+  color: var(--cp-text);
+  font-family: var(--cp-font-body);
+  font-size: 11px;
+  cursor: pointer;
+  border-radius: 3px;
+  transition: background 150ms ease;
+}
+
+.cp-frame-item-btn:hover {
+  background: rgba(180, 90, 45, 0.06);
+}
+
+/* Frame delete button */
+.cp-frame-delete-btn {
+  width: 20px;
+  height: 20px;
+  border: none;
+  background: transparent;
+  color: var(--cp-text-faint);
+  font-size: 14px;
+  cursor: pointer;
+  border-radius: 3px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: color 150ms ease, background 150ms ease;
+}
+
+.cp-frame-delete-btn:hover {
+  color: #b45a2d;
+  background: rgba(180, 90, 45, 0.08);
+}
+
+/* Network toolbar (sub-view toggle) */
+.cp-network-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
+  border-bottom: 1px solid var(--cp-border);
+  flex-shrink: 0;
+}
+
+.cp-network-toggle {
+  padding: 3px 8px;
+  border-radius: 4px;
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--cp-text-muted);
+  font-family: var(--cp-font-mono);
+  font-size: 9px;
+  letter-spacing: 0.05em;
+  cursor: pointer;
+  transition: background 150ms ease, color 150ms ease, border-color 150ms ease;
+}
+
+.cp-network-toggle:hover {
+  background: rgba(180, 90, 45, 0.04);
+  color: var(--cp-text);
+}
+
+.cp-network-toggle[data-active="true"] {
+  border-color: var(--cp-accent);
+  color: var(--cp-accent);
+  background: rgba(180, 90, 45, 0.06);
+}
+
+/* ─────────────────────────────────────────────────
    Override root body grain for CommonPlace.
    Suppress the global body::after grain since
    we apply per-surface grain with different

@@ -1,9 +1,15 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useCallback } from 'react';
 import { usePathname } from 'next/navigation';
 import Link from 'next/link';
 import { SIDEBAR_SECTIONS, OBJECT_TYPES } from '@/lib/commonplace';
+import type { CapturedObject } from '@/lib/commonplace';
+import { createCapturedObject } from '@/lib/commonplace-capture';
+import CaptureButton from './CaptureButton';
+import ObjectPalette from './ObjectPalette';
+import RecentCaptures from './RecentCaptures';
+import DropZone from './DropZone';
 
 /**
  * CommonPlace sidebar: warm dark panel (#1A1614) with terracotta
@@ -24,6 +30,8 @@ export default function CommonPlaceSidebar() {
   const [expandedGroups, setExpandedGroups] = useState<Set<string>>(
     new Set(['Notebooks', 'Projects'])
   );
+  const [isPaletteOpen, setIsPaletteOpen] = useState(false);
+  const [captures, setCaptures] = useState<CapturedObject[]>([]);
 
   function toggleGroup(label: string) {
     setExpandedGroups((prev) => {
@@ -33,6 +41,10 @@ export default function CommonPlaceSidebar() {
       return next;
     });
   }
+
+  const handleCapture = useCallback((object: CapturedObject) => {
+    setCaptures((prev) => [object, ...prev]);
+  }, []);
 
   return (
     <aside
@@ -73,25 +85,103 @@ export default function CommonPlaceSidebar() {
       {/* Navigation sections */}
       <nav style={{ flex: 1, padding: '0 8px', position: 'relative', zIndex: 2 }}>
         {SIDEBAR_SECTIONS.map((section, sectionIdx) => (
-          <div key={section.title}>
+          <div key={section.title} style={{ position: 'relative' }}>
             {sectionIdx > 0 && <div className="cp-sidebar-divider" />}
             <div className="cp-section-title">{section.title}</div>
 
-            {section.items.map((item) => {
-              const isActive =
-                pathname === item.href ||
-                (pathname?.startsWith(item.href + '/') && item.href !== '/commonplace') ||
-                (item.href === '/commonplace' && pathname === '/commonplace');
+            {/* Capture section: replace action buttons with real components */}
+            {section.title === 'Capture' ? (
+              <div style={{ padding: '0 4px' }}>
+                <CaptureButton onCapture={handleCapture} />
+                <div style={{ marginTop: 4, position: 'relative' }}>
+                  <button
+                    type="button"
+                    className="cp-sidebar-item"
+                    onClick={() => setIsPaletteOpen(!isPaletteOpen)}
+                    style={{
+                      width: '100%',
+                      border: 'none',
+                      background: 'transparent',
+                      textAlign: 'left',
+                    }}
+                  >
+                    <SidebarIcon name="molecule" />
+                    <span>+ Object</span>
+                  </button>
+                  <ObjectPalette
+                    isOpen={isPaletteOpen}
+                    onClose={() => setIsPaletteOpen(false)}
+                    onCapture={handleCapture}
+                  />
+                </div>
+              </div>
+            ) : (
+              section.items.map((item) => {
+                const isActive =
+                  pathname === item.href ||
+                  (pathname?.startsWith(item.href + '/') && item.href !== '/commonplace') ||
+                  (item.href === '/commonplace' && pathname === '/commonplace');
 
-              if (item.expandable) {
-                const isExpanded = expandedGroups.has(item.label);
-                return (
-                  <div key={item.href}>
+                if (item.expandable) {
+                  const isExpanded = expandedGroups.has(item.label);
+                  return (
+                    <div key={item.href}>
+                      <button
+                        type="button"
+                        className="cp-sidebar-item"
+                        data-active={isActive}
+                        onClick={() => toggleGroup(item.label)}
+                        style={{
+                          width: '100%',
+                          border: 'none',
+                          background: 'transparent',
+                          textAlign: 'left',
+                        }}
+                      >
+                        <SidebarIcon name={item.icon} />
+                        <span style={{ flex: 1 }}>{item.label}</span>
+                        <ChevronIcon open={isExpanded} />
+                      </button>
+                      {isExpanded && item.children && item.children.length > 0 && (
+                        <div style={{ paddingLeft: 20 }}>
+                          {item.children.map((child) => (
+                            <Link
+                              key={child.href}
+                              href={child.href}
+                              className="cp-sidebar-item"
+                              data-active={pathname === child.href}
+                              style={{ textDecoration: 'none', fontSize: 12 }}
+                            >
+                              <SidebarIcon name={child.icon} />
+                              <span>{child.label}</span>
+                            </Link>
+                          ))}
+                        </div>
+                      )}
+                      {isExpanded && (!item.children || item.children.length === 0) && (
+                        <div
+                          style={{
+                            padding: '4px 12px 4px 32px',
+                            fontFamily: 'var(--cp-font-mono)',
+                            fontSize: 11,
+                            color: 'var(--cp-sidebar-text-faint)',
+                            fontStyle: 'italic',
+                          }}
+                        >
+                          None yet
+                        </div>
+                      )}
+                    </div>
+                  );
+                }
+
+                /* Any remaining action buttons (shouldn't appear outside Capture) */
+                if (item.href.startsWith('#')) {
+                  return (
                     <button
+                      key={item.href}
                       type="button"
                       className="cp-sidebar-item"
-                      data-active={isActive}
-                      onClick={() => toggleGroup(item.label)}
                       style={{
                         width: '100%',
                         border: 'none',
@@ -100,90 +190,40 @@ export default function CommonPlaceSidebar() {
                       }}
                     >
                       <SidebarIcon name={item.icon} />
-                      <span style={{ flex: 1 }}>{item.label}</span>
-                      <ChevronIcon open={isExpanded} />
+                      <span>{item.label}</span>
                     </button>
-                    {isExpanded && item.children && item.children.length > 0 && (
-                      <div style={{ paddingLeft: 20 }}>
-                        {item.children.map((child) => (
-                          <Link
-                            key={child.href}
-                            href={child.href}
-                            className="cp-sidebar-item"
-                            data-active={pathname === child.href}
-                            style={{ textDecoration: 'none', fontSize: 12 }}
-                          >
-                            <SidebarIcon name={child.icon} />
-                            <span>{child.label}</span>
-                          </Link>
-                        ))}
-                      </div>
-                    )}
-                    {isExpanded && (!item.children || item.children.length === 0) && (
-                      <div
-                        style={{
-                          padding: '4px 12px 4px 32px',
-                          fontFamily: 'var(--cp-font-mono)',
-                          fontSize: 11,
-                          color: 'var(--cp-sidebar-text-faint)',
-                          fontStyle: 'italic',
-                        }}
-                      >
-                        None yet
-                      </div>
-                    )}
-                  </div>
-                );
-              }
+                  );
+                }
 
-              /* Capture and + Object are action buttons, not nav links */
-              if (item.href.startsWith('#')) {
                 return (
-                  <button
+                  <Link
                     key={item.href}
-                    type="button"
+                    href={item.href}
                     className="cp-sidebar-item"
-                    style={{
-                      width: '100%',
-                      border: 'none',
-                      background: 'transparent',
-                      textAlign: 'left',
-                    }}
+                    data-active={isActive}
+                    style={{ textDecoration: 'none' }}
                   >
                     <SidebarIcon name={item.icon} />
                     <span>{item.label}</span>
-                  </button>
+                    {item.badge !== undefined && item.badge > 0 && (
+                      <span
+                        style={{
+                          marginLeft: 'auto',
+                          fontSize: 10,
+                          fontFamily: 'var(--cp-font-mono)',
+                          color: 'var(--cp-sidebar-text-faint)',
+                          backgroundColor: 'var(--cp-sidebar-surface)',
+                          padding: '1px 6px',
+                          borderRadius: 4,
+                        }}
+                      >
+                        {item.badge}
+                      </span>
+                    )}
+                  </Link>
                 );
-              }
-
-              return (
-                <Link
-                  key={item.href}
-                  href={item.href}
-                  className="cp-sidebar-item"
-                  data-active={isActive}
-                  style={{ textDecoration: 'none' }}
-                >
-                  <SidebarIcon name={item.icon} />
-                  <span>{item.label}</span>
-                  {item.badge !== undefined && item.badge > 0 && (
-                    <span
-                      style={{
-                        marginLeft: 'auto',
-                        fontSize: 10,
-                        fontFamily: 'var(--cp-font-mono)',
-                        color: 'var(--cp-sidebar-text-faint)',
-                        backgroundColor: 'var(--cp-sidebar-surface)',
-                        padding: '1px 6px',
-                        borderRadius: 4,
-                      }}
-                    >
-                      {item.badge}
-                    </span>
-                  )}
-                </Link>
-              );
-            })}
+              })
+            )}
           </div>
         ))}
 
@@ -204,6 +244,15 @@ export default function CommonPlaceSidebar() {
               type="button"
               title={`New ${objType.label}`}
               className="cp-sidebar-item"
+              onClick={() => {
+                const object = createCapturedObject({
+                  text: '',
+                  objectType: objType.slug,
+                  captureMethod: 'quick-create',
+                });
+                object.title = `New ${objType.label}`;
+                handleCapture(object);
+              }}
               style={{
                 padding: '4px 8px',
                 fontSize: 11,
@@ -228,7 +277,19 @@ export default function CommonPlaceSidebar() {
             </button>
           ))}
         </div>
+
+        {/* Recent captures feed */}
+        {captures.length > 0 && (
+          <>
+            <div className="cp-sidebar-divider" />
+            <div className="cp-section-title">Recent</div>
+            <RecentCaptures captures={captures} />
+          </>
+        )}
       </nav>
+
+      {/* DropZone: fixed overlay, lives here to share capture state */}
+      <DropZone onCapture={handleCapture} />
 
       {/* Bottom: back to main site */}
       <div

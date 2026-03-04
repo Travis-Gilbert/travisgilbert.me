@@ -162,6 +162,84 @@ export const SIDEBAR_SECTIONS: SidebarSection[] = [
 ];
 
 /* ─────────────────────────────────────────────────
+   Captured object: local-first representation
+   used by the capture system before API sync.
+   ───────────────────────────────────────────────── */
+
+export type CaptureMethod = 'typed' | 'pasted' | 'dropped' | 'quick-create';
+
+export type CaptureStatus = 'local' | 'syncing' | 'synced' | 'error';
+
+export interface CapturedObject {
+  id: string;
+  title: string;
+  body: string;
+  objectType: string;
+  capturedAt: string;
+  captureMethod: CaptureMethod;
+  status: CaptureStatus;
+  /** Original URL if the capture was a link */
+  sourceUrl?: string;
+  /** Enriched OG title (populated after mock delay) */
+  enrichedTitle?: string;
+}
+
+/* ─────────────────────────────────────────────────
+   Mock data types for timeline and network views.
+   These mirror the Django API response shapes so
+   the switch from mock to live data is mechanical.
+   ───────────────────────────────────────────────── */
+
+export interface MockEdge {
+  id: string;
+  sourceId: string;
+  targetId: string;
+  reason: string;
+  createdAt: string;
+}
+
+export interface MockNode {
+  id: string;
+  objectType: string;
+  title: string;
+  summary: string;
+  capturedAt: string;
+  edgeCount: number;
+  edges: MockEdge[];
+}
+
+/* ─────────────────────────────────────────────────
+   Graph types for D3 force layout (Session 8).
+   ───────────────────────────────────────────────── */
+
+export interface GraphNode {
+  id: string;
+  objectType: string;
+  title: string;
+  edgeCount: number;
+  x?: number;
+  y?: number;
+  fx?: number | null;
+  fy?: number | null;
+}
+
+export interface GraphLink {
+  source: string | GraphNode;
+  target: string | GraphNode;
+  reason: string;
+}
+
+export interface ViewFrame {
+  id: string;
+  name: string;
+  zoom: number;
+  centerX: number;
+  centerY: number;
+  highlightedNodeIds: string[];
+  createdAt: string;
+}
+
+/* ─────────────────────────────────────────────────
    Capture bar placeholders
    ───────────────────────────────────────────────── */
 

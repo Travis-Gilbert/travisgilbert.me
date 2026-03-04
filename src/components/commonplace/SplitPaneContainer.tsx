@@ -26,6 +26,8 @@ import type { ViewType } from '@/lib/commonplace';
 import { VIEW_REGISTRY } from '@/lib/commonplace';
 import DragHandle from './DragHandle';
 import LayoutPresetSelector from './LayoutPresetSelector';
+import TimelineView from './TimelineView';
+import NetworkView from './NetworkView';
 
 const STORAGE_KEY = 'commonplace-layout';
 
@@ -721,6 +723,17 @@ function PaneViewContent({ viewType }: { viewType: ViewType }) {
     );
   }
 
+  /* Live view: Timeline */
+  if (viewType === 'timeline') {
+    return <TimelineView />;
+  }
+
+  /* Live view: Network (Map / Entities / Timeline viz) */
+  if (viewType === 'network') {
+    return <NetworkView />;
+  }
+
+  /* Placeholder for views not yet implemented */
   return (
     <div
       className="cp-pane-content"

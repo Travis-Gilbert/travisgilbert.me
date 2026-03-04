@@ -1,0 +1,356 @@
+'use client';
+
+/**
+ * TimelineViz: chronological visualization for CommonPlace.
+ *
+ * Objects plotted as colored dots on a horizontal time axis.
+ * Edges rendered as arcs above the axis connecting related objects.
+ * Scroll to zoom time range, drag to pan.
+ *
+ * Uses D3 scaleTime for the axis and D3 zoom for interaction.
+ * Canvas layer for arcs, SVG layer for dots and axis.
+ */
+
+import { useRef, useEffect, useState, useMemo, useCallback } from 'react';
+import * as d3 from 'd3';
+import { getMockData } from '@/lib/commonplace-mock-data';
+import { getObjectTypeIdentity, OBJECT_TYPES } from '@/lib/commonplace';
+import { getNodeColor, truncateLabel } from '@/lib/commonplace-graph';
+
+interface TimelineVizProps {
+  onOpenObject?: (objectId: string) => void;
+}
+
+/** Vertical offset: axis sits at 60% height, dots above and below */
+const AXIS_Y_RATIO = 0.6;
+/** Minimum arc height */
+const MIN_ARC_HEIGHT = 30;
+/** Max arc height */
+const MAX_ARC_HEIGHT = 120;
+
+export default function TimelineViz({ onOpenObject }: TimelineVizProps) {
+  const containerRef = useRef<HTMLDivElement>(null);
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const svgRef = useRef<SVGSVGElement>(null);
+  const [size, setSize] = useState({ width: 600, height: 300 });
+  const [hoveredId, setHoveredId] = useState<string | null>(null);
+  const [transform, setTransform] = useState(d3.zoomIdentity);
+
+  /* ── Data ───────────────────────────── */
+
+  const { nodes, edges } = useMemo(() => getMockData(), []);
+
+  /* Time extent */
+  const timeExtent = useMemo(() => {
+    const times = nodes.map((n) => new Date(n.capturedAt).getTime());
+    const min = Math.min(...times);
+    const max = Math.max(...times);
+    /* Add 5% padding on each side */
+    const pad = (max - min) * 0.05 || 86400000;
+    return [new Date(min - pad), new Date(max + pad)] as [Date, Date];
+  }, [nodes]);
+
+  /* Base X scale (before zoom transform) */
+  const xScale = useMemo(
+    () => d3.scaleTime().domain(timeExtent).range([60, size.width - 30]),
+    [timeExtent, size.width],
+  );
+
+  /* Zoomed X scale */
+  const zoomedX = useMemo(
+    () => transform.rescaleX(xScale),
+    [transform, xScale],
+  );
+
+  const axisY = size.height * AXIS_Y_RATIO;
+
+  /* Node positions */
+  const nodePositions = useMemo(() => {
+    /* Stagger dots vertically to reduce overlap */
+    const typeSlots = new Map(OBJECT_TYPES.map((t, i) => [t.slug, i]));
+    const totalTypes = OBJECT_TYPES.length;
+
+    return nodes.map((n) => {
+      const x = zoomedX(new Date(n.capturedAt));
+      const slot = typeSlots.get(n.objectType) ?? 0;
+      /* Distribute types in vertical band above axis */
+      const bandHeight = axisY - 40;
+      const y = 20 + (slot / totalTypes) * bandHeight;
+      return { node: n, x, y };
+    });
+  }, [nodes, zoomedX, axisY]);
+
+  /* Position lookup */
+  const posLookup = useMemo(
+    () => new Map(nodePositions.map((p) => [p.node.id, p])),
+    [nodePositions],
+  );
+
+  /* Connected IDs for hover */
+  const connectedIds = useMemo(() => {
+    const ids = new Set<string>();
+    if (!hoveredId) return ids;
+    ids.add(hoveredId);
+    edges.forEach((e) => {
+      if (e.sourceId === hoveredId) ids.add(e.targetId);
+      if (e.targetId === hoveredId) ids.add(e.sourceId);
+    });
+    return ids;
+  }, [hoveredId, edges]);
+
+  /* ── Resize observer ───────────────────────────── */
+
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el) return;
+    const ro = new ResizeObserver((entries) => {
+      const { width, height } = entries[0].contentRect;
+      if (width > 0 && height > 0) {
+        setSize({ width: Math.round(width), height: Math.round(Math.max(250, height)) });
+      }
+    });
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+
+  /* ── D3 zoom (horizontal only) ───────────────────── */
+
+  useEffect(() => {
+    const svg = svgRef.current;
+    if (!svg) return;
+
+    const zoomBehavior = d3
+      .zoom<SVGSVGElement, unknown>()
+      .scaleExtent([0.5, 10])
+      .translateExtent([
+        [-200, 0],
+        [size.width + 200, size.height],
+      ])
+      .on('zoom', (event) => {
+        setTransform(event.transform);
+      });
+
+    d3.select(svg).call(zoomBehavior);
+    return () => { d3.select(svg).on('.zoom', null); };
+  }, [size.width, size.height]);
+
+  /* ── Draw arc edges on canvas ───────────────────── */
+
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+
+    const dpr = window.devicePixelRatio || 1;
+    canvas.width = size.width * dpr;
+    canvas.height = size.height * dpr;
+    canvas.style.width = `${size.width}px`;
+    canvas.style.height = `${size.height}px`;
+
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    ctx.clearRect(0, 0, size.width, size.height);
+
+    edges.forEach((e) => {
+      const from = posLookup.get(e.sourceId);
+      const to = posLookup.get(e.targetId);
+      if (!from || !to) return;
+
+      /* Skip if both off-screen */
+      if ((from.x < -50 && to.x < -50) || (from.x > size.width + 50 && to.x > size.width + 50)) {
+        return;
+      }
+
+      let alpha = 0.15;
+      if (hoveredId) {
+        const isConn = connectedIds.has(e.sourceId) && connectedIds.has(e.targetId);
+        alpha = isConn ? 0.45 : 0.03;
+      }
+
+      /* Arc height proportional to time distance */
+      const dx = Math.abs(to.x - from.x);
+      const arcHeight = Math.min(MAX_ARC_HEIGHT, Math.max(MIN_ARC_HEIGHT, dx * 0.3));
+
+      ctx.beginPath();
+      ctx.strokeStyle = `rgba(140, 130, 120, ${alpha})`;
+      ctx.lineWidth = 1;
+
+      /* Quadratic bezier arc above the nodes */
+      const midX = (from.x + to.x) / 2;
+      const midY = Math.min(from.y, to.y) - arcHeight;
+
+      ctx.moveTo(from.x, from.y);
+      ctx.quadraticCurveTo(midX, midY, to.x, to.y);
+      ctx.stroke();
+    });
+  }, [edges, posLookup, hoveredId, connectedIds, size]);
+
+  /* ── Click handler ───────────────────────────── */
+
+  const handleClick = useCallback(
+    (nodeId: string) => {
+      onOpenObject?.(nodeId);
+    },
+    [onOpenObject],
+  );
+
+  /* ── Present types for legend ───────────────── */
+
+  const presentTypes = useMemo(() => {
+    const types = new Set(nodes.map((n) => n.objectType));
+    return OBJECT_TYPES.filter((t) => types.has(t.slug));
+  }, [nodes]);
+
+  /* ── Hovered node for tooltip ───────────────── */
+
+  const hoveredPos = hoveredId ? posLookup.get(hoveredId) : null;
+
+  return (
+    <div
+      ref={containerRef}
+      className="cp-timeline-viz"
+      style={{ position: 'relative', flex: 1, overflow: 'hidden' }}
+    >
+      {/* Canvas: arc edges */}
+      <canvas
+        ref={canvasRef}
+        aria-hidden="true"
+        style={{ position: 'absolute', top: 0, left: 0, pointerEvents: 'none' }}
+      />
+
+      {/* SVG: axis + dots */}
+      <svg
+        ref={svgRef}
+        width={size.width}
+        height={size.height}
+        style={{ position: 'relative', zIndex: 1, cursor: 'grab' }}
+        role="img"
+        aria-label="Chronological timeline visualization"
+      >
+        {/* Time axis */}
+        <g transform={`translate(0,${axisY})`}>
+          <line
+            x1={0}
+            y1={0}
+            x2={size.width}
+            y2={0}
+            stroke="var(--cp-border)"
+            strokeWidth={1}
+          />
+          {/* Tick marks */}
+          {zoomedX.ticks(Math.max(3, Math.floor(size.width / 120))).map((tick, i) => {
+            const x = zoomedX(tick);
+            if (x < 20 || x > size.width - 20) return null;
+            return (
+              <g key={i} transform={`translate(${x},0)`}>
+                <line y1={0} y2={6} stroke="var(--cp-border)" strokeWidth={1} />
+                <text
+                  y={18}
+                  textAnchor="middle"
+                  fill="var(--cp-text-faint)"
+                  style={{
+                    fontFamily: 'var(--cp-font-mono)',
+                    fontSize: 8,
+                    letterSpacing: '0.04em',
+                  }}
+                >
+                  {d3.timeFormat('%b %d')(tick)}
+                </text>
+              </g>
+            );
+          })}
+        </g>
+
+        {/* Nodes as dots */}
+        {nodePositions.map(({ node, x, y }) => {
+          const dimmed = hoveredId !== null && !connectedIds.has(node.id);
+          const color = getNodeColor(node.objectType);
+
+          return (
+            <circle
+              key={node.id}
+              cx={x}
+              cy={y}
+              r={hoveredId === node.id ? 7 : 5}
+              fill={color}
+              fillOpacity={dimmed ? 0.12 : 0.7}
+              stroke={color}
+              strokeWidth={hoveredId === node.id ? 1.5 : 0.8}
+              style={{
+                cursor: 'pointer',
+                pointerEvents: 'all',
+                transition: 'r 150ms ease, fill-opacity 200ms ease',
+              }}
+              onMouseEnter={() => setHoveredId(node.id)}
+              onMouseLeave={() => setHoveredId(null)}
+              onClick={() => handleClick(node.id)}
+            />
+          );
+        })}
+      </svg>
+
+      {/* Tooltip */}
+      {hoveredPos && (
+        <div
+          className="cp-node-tooltip"
+          style={{
+            position: 'absolute',
+            left: hoveredPos.x,
+            top: hoveredPos.y - 32,
+            transform: 'translateX(-50%)',
+            pointerEvents: 'none',
+            zIndex: 10,
+          }}
+        >
+          <div style={{ fontWeight: 600, marginBottom: 2 }}>{hoveredPos.node.title}</div>
+          <div style={{ opacity: 0.6, fontSize: 9 }}>
+            {getObjectTypeIdentity(hoveredPos.node.objectType).label} ·{' '}
+            {new Date(hoveredPos.node.capturedAt).toLocaleDateString('en-US', {
+              month: 'short',
+              day: 'numeric',
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* Legend (bottom-right) */}
+      <div
+        style={{
+          position: 'absolute',
+          bottom: 8,
+          right: 12,
+          zIndex: 5,
+          display: 'flex',
+          gap: 12,
+        }}
+      >
+        {presentTypes.map((t) => (
+          <div
+            key={t.slug}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 4,
+              fontFamily: 'var(--cp-font-mono)',
+              fontSize: 8,
+              letterSpacing: '0.05em',
+              color: 'var(--cp-text-muted)',
+            }}
+          >
+            <span
+              style={{
+                display: 'inline-block',
+                width: 6,
+                height: 6,
+                borderRadius: '50%',
+                backgroundColor: t.color,
+                opacity: 0.7,
+              }}
+            />
+            {t.label}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
