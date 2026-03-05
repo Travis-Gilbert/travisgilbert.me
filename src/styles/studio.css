@@ -1,0 +1,621 @@
+/* ─────────────────────────────────────────────────
+   Studio: Blueprint Slate Design Tokens
+   Dark-mode only creative workbench. #0F1012 ground,
+   warm cream text, terracotta primary accent.
+   Loaded only inside the (studio) route group.
+   ───────────────────────────────────────────────── */
+
+.studio-theme {
+  /* Page backgrounds */
+  --studio-bg: #0F1012;
+  --studio-bg-sidebar: #090B0A;
+  --studio-surface: #1A1C1E;
+  --studio-surface-hover: #22252A;
+  --studio-surface-raised: #1C211F;
+
+  /* Text: warm cream, not cold white */
+  --studio-text-1: #F0EAE0;
+  --studio-text-2: #C4BCB0;
+  --studio-text-3: #7A7268;
+  --studio-text-bright: #F5EFE4;
+
+  /* Terracotta: primary brand accent */
+  --studio-tc: #B45A2D;
+  --studio-tc-bright: #D4743A;
+  --studio-tc-dim: rgba(180, 90, 45, 0.22);
+  --studio-tc-glow: rgba(180, 90, 45, 0.6);
+
+  /* Secondary palette */
+  --studio-teal: #3A8A9A;
+  --studio-gold: #D4AA4A;
+  --studio-green: #6A9A5A;
+
+  /* Stage colors */
+  --studio-stage-idea: #9A8E82;
+  --studio-stage-research: #2D8A9A;
+  --studio-stage-drafting: #D4AA4A;
+  --studio-stage-revising: #8A6A9A;
+  --studio-stage-production: #B45A2D;
+  --studio-stage-published: #6A9A5A;
+
+  /* Borders */
+  --studio-border: rgba(237, 231, 220, 0.09);
+  --studio-border-tc: rgba(180, 90, 45, 0.25);
+  --studio-border-strong: rgba(237, 231, 220, 0.14);
+
+  /* Shadows */
+  --studio-shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.3);
+  --studio-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
+  --studio-shadow-lg: 0 6px 28px rgba(0, 0, 0, 0.5);
+
+  /* Typography: map existing font vars to studio usage */
+  --studio-font-title: var(--font-vollkorn), Georgia, serif;
+  --studio-font-body: var(--font-cabin), system-ui, sans-serif;
+  --studio-font-mono: var(--font-jetbrains-mono), monospace;
+  --studio-font-metadata: var(--font-courier-prime), 'Courier New', monospace;
+  --studio-font-writing: var(--font-amarna), Georgia, serif;
+
+  /* Layout constants */
+  --studio-sidebar-width: 218px;
+  --studio-topbar-height: 42px;
+  --studio-stage-bar-height: 48px;
+}
+
+/* ─────────────────────────────────────────────────
+   Background layers: dot field + grid
+   ───────────────────────────────────────────────── */
+
+.studio-bg-dots {
+  background-image: radial-gradient(
+    circle,
+    rgba(180, 90, 45, 0.13) 1px,
+    transparent 1px
+  );
+  background-size: 28px 28px;
+}
+
+.studio-bg-grid {
+  background-image:
+    linear-gradient(
+      rgba(180, 90, 45, 0.025) 1px,
+      transparent 1px
+    ),
+    linear-gradient(
+      90deg,
+      rgba(180, 90, 45, 0.025) 1px,
+      transparent 1px
+    );
+  background-size: 40px 40px;
+}
+
+/* ─────────────────────────────────────────────────
+   Corner glow: upper-left terracotta radial
+   ───────────────────────────────────────────────── */
+
+.studio-corner-glow {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+  background: radial-gradient(
+    ellipse at 0% 0%,
+    rgba(180, 90, 45, 0.06) 0%,
+    rgba(180, 90, 45, 0.02) 25%,
+    transparent 50%
+  );
+}
+
+/* ─────────────────────────────────────────────────
+   Sidebar corner glow: terracotta bloom from top-left
+   ───────────────────────────────────────────────── */
+
+.studio-sidebar-glow {
+  position: absolute;
+  top: -40px;
+  left: -40px;
+  width: 160px;
+  height: 160px;
+  border-radius: 50%;
+  background: radial-gradient(
+    circle,
+    rgba(180, 90, 45, 0.6) 0%,
+    rgba(180, 90, 45, 0.18) 40%,
+    transparent 70%
+  );
+  pointer-events: none;
+  z-index: 1;
+}
+
+/* ─────────────────────────────────────────────────
+   Paper grain: SVG noise overlay (dark variant)
+   ───────────────────────────────────────────────── */
+
+.studio-grain {
+  position: relative;
+  isolation: isolate;
+}
+
+.studio-grain::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 1;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='300' height='300'%3E%3Cfilter id='g'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23g)' opacity='1'/%3E%3C/svg%3E");
+  background-repeat: repeat;
+  background-size: 300px 300px;
+  mix-blend-mode: overlay;
+  opacity: 0.03;
+}
+
+/* ─────────────────────────────────────────────────
+   Evidence cards: dark card with type-colored left border
+   ───────────────────────────────────────────────── */
+
+.studio-evidence-card {
+  background: var(--studio-surface);
+  border: 1px solid var(--studio-border);
+  border-radius: 5px;
+  padding: 12px 15px;
+  display: flex;
+  align-items: center;
+  gap: 13px;
+  cursor: pointer;
+  transition: all 0.1s ease;
+  position: relative;
+  overflow: hidden;
+}
+
+.studio-evidence-card::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 3px;
+  border-radius: 0 1px 1px 0;
+}
+
+.studio-evidence-card[data-type="essay"]::before { background: var(--studio-tc); }
+.studio-evidence-card[data-type="field-note"]::before { background: var(--studio-teal); }
+.studio-evidence-card[data-type="shelf"]::before { background: var(--studio-gold); }
+.studio-evidence-card[data-type="video"]::before { background: var(--studio-green); }
+.studio-evidence-card[data-type="project"]::before { background: var(--studio-gold); }
+.studio-evidence-card[data-type="toolkit"]::before { background: var(--studio-tc); }
+
+.studio-evidence-card:hover {
+  background: var(--studio-surface-hover);
+  border-color: var(--studio-border-strong);
+  transform: translateX(1px);
+}
+
+/* ─────────────────────────────────────────────────
+   Stage badge pills
+   ───────────────────────────────────────────────── */
+
+.studio-stage-badge {
+  font-family: var(--studio-font-mono);
+  font-weight: 700;
+  font-size: 8.5px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  padding: 2px 7px;
+  border-radius: 3px;
+  flex-shrink: 0;
+}
+
+.studio-stage-badge[data-stage="idea"] {
+  background: rgba(154, 142, 130, 0.14);
+  color: var(--studio-stage-idea);
+  border: 1px solid rgba(154, 142, 130, 0.25);
+}
+
+.studio-stage-badge[data-stage="research"] {
+  background: rgba(45, 138, 154, 0.12);
+  color: var(--studio-stage-research);
+  border: 1px solid rgba(45, 138, 154, 0.22);
+}
+
+.studio-stage-badge[data-stage="drafting"] {
+  background: rgba(212, 170, 74, 0.14);
+  color: var(--studio-stage-drafting);
+  border: 1px solid rgba(212, 170, 74, 0.25);
+}
+
+.studio-stage-badge[data-stage="revising"] {
+  background: rgba(138, 106, 154, 0.12);
+  color: var(--studio-stage-revising);
+  border: 1px solid rgba(138, 106, 154, 0.22);
+}
+
+.studio-stage-badge[data-stage="production"] {
+  background: rgba(180, 90, 45, 0.13);
+  color: var(--studio-stage-production);
+  border: 1px solid rgba(180, 90, 45, 0.25);
+}
+
+.studio-stage-badge[data-stage="published"] {
+  background: rgba(106, 154, 90, 0.12);
+  color: var(--studio-stage-published);
+  border: 1px solid rgba(106, 154, 90, 0.22);
+}
+
+/* ─────────────────────────────────────────────────
+   Section headers
+   ───────────────────────────────────────────────── */
+
+.studio-section-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 12px;
+  margin-top: 22px;
+}
+
+.studio-section-label {
+  font-family: var(--studio-font-mono);
+  font-weight: 700;
+  font-size: 9.5px;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: rgba(237, 231, 220, 0.38);
+  white-space: nowrap;
+}
+
+.studio-section-line {
+  flex: 1;
+  height: 1px;
+  background: rgba(180, 90, 45, 0.1);
+}
+
+.studio-section-count {
+  font-family: var(--studio-font-mono);
+  font-weight: 600;
+  font-size: 9px;
+  color: var(--studio-text-3);
+  letter-spacing: 0.08em;
+  white-space: nowrap;
+}
+
+/* ─────────────────────────────────────────────────
+   Sidebar nav items
+   ───────────────────────────────────────────────── */
+
+.studio-nav-section-label {
+  font-family: var(--studio-font-mono);
+  font-weight: 600;
+  font-size: 9px;
+  letter-spacing: 0.22em;
+  color: rgba(237, 231, 220, 0.3);
+  text-transform: uppercase;
+  padding: 10px 18px 4px;
+}
+
+.studio-nav-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 7px 18px;
+  cursor: pointer;
+  transition: all 0.1s ease;
+  position: relative;
+  color: var(--studio-text-2);
+  font-family: var(--studio-font-body);
+  font-size: 13.5px;
+  font-weight: 500;
+  text-decoration: none;
+}
+
+.studio-nav-item:hover {
+  color: var(--studio-text-1);
+  background: rgba(180, 90, 45, 0.06);
+}
+
+.studio-nav-item[data-active="true"] {
+  color: var(--studio-text-bright);
+  background: rgba(180, 90, 45, 0.1);
+}
+
+.studio-nav-item[data-active="true"]::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  background: var(--studio-tc);
+  box-shadow: 0 0 8px rgba(180, 90, 45, 0.6);
+  border-radius: 0 1px 1px 0;
+}
+
+.studio-nav-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.studio-nav-badge {
+  margin-left: auto;
+  font-family: var(--studio-font-mono);
+  font-weight: 700;
+  font-size: 9px;
+  background: rgba(180, 90, 45, 0.2);
+  color: var(--studio-tc-bright);
+  padding: 1px 6px;
+  border-radius: 3px;
+}
+
+/* ─────────────────────────────────────────────────
+   Continue card (dashboard hero)
+   ───────────────────────────────────────────────── */
+
+.studio-continue-card {
+  background: var(--studio-surface-raised);
+  border: 1px solid var(--studio-border-tc);
+  border-left: 3px solid var(--studio-tc);
+  border-radius: 7px;
+  padding: 20px 24px;
+  margin-bottom: 22px;
+  cursor: pointer;
+  transition: all 0.14s ease;
+  position: relative;
+  overflow: hidden;
+}
+
+.studio-continue-card::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(135deg, rgba(180, 90, 45, 0.04) 0%, transparent 55%);
+  pointer-events: none;
+}
+
+.studio-continue-card:hover {
+  border-color: rgba(180, 90, 45, 0.5);
+  box-shadow: var(--studio-shadow-lg);
+  transform: translateY(-1px);
+}
+
+/* ─────────────────────────────────────────────────
+   Pulse animation (active work indicator)
+   ───────────────────────────────────────────────── */
+
+@keyframes studio-pulse {
+  0% { box-shadow: 0 0 0 0 rgba(180, 90, 45, 0.5); }
+  70% { box-shadow: 0 0 0 7px rgba(180, 90, 45, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(180, 90, 45, 0); }
+}
+
+.studio-pulse {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--studio-tc);
+  flex-shrink: 0;
+  animation: studio-pulse 1.8s infinite;
+}
+
+/* ─────────────────────────────────────────────────
+   Scrollbar styling (dark variant)
+   ───────────────────────────────────────────────── */
+
+.studio-scrollbar::-webkit-scrollbar {
+  width: 4px;
+}
+
+.studio-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.studio-scrollbar::-webkit-scrollbar-thumb {
+  background: var(--studio-text-3);
+  border-radius: 2px;
+}
+
+.studio-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: var(--studio-text-2);
+}
+
+/* ─────────────────────────────────────────────────
+   Override root body grain for Studio.
+   Suppress the global body::after grain since
+   we apply per-surface grain with different
+   intensities.
+   ───────────────────────────────────────────────── */
+
+:root:has(.studio-theme) body::after {
+  display: none;
+}
+
+/* ─────────────────────────────────────────────────
+   Mobile: sidebar becomes a drawer
+   ───────────────────────────────────────────────── */
+
+@media (max-width: 768px) {
+  .studio-sidebar-desktop {
+    display: none;
+  }
+
+  .studio-sidebar-mobile {
+    position: fixed;
+    top: 0;
+    left: 0;
+    bottom: 0;
+    width: 280px;
+    z-index: 100;
+    transform: translateX(-100%);
+    transition: transform 300ms cubic-bezier(0.4, 0, 0.2, 1);
+    background: var(--studio-bg-sidebar);
+    overflow-y: auto;
+  }
+
+  .studio-sidebar-mobile[data-open="true"] {
+    transform: translateX(0);
+  }
+
+  .studio-mobile-backdrop {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.6);
+    z-index: 99;
+  }
+
+  .studio-mobile-header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 14px 16px;
+    border-bottom: 1px solid var(--studio-border);
+  }
+
+  .studio-mobile-menu-btn {
+    background: none;
+    border: none;
+    color: var(--studio-text-2);
+    cursor: pointer;
+    padding: 4px;
+  }
+}
+
+/* Desktop: hide mobile elements */
+@media (min-width: 769px) {
+  .studio-sidebar-mobile {
+    display: none !important;
+  }
+  .studio-mobile-header {
+    display: none !important;
+  }
+}
+
+/* ─────────────────────────────────────────────────
+   Main content area backgrounds
+   ───────────────────────────────────────────────── */
+
+.studio-dot-field {
+  position: absolute;
+  inset: 0;
+  background-image: radial-gradient(
+    circle,
+    rgba(180, 90, 45, 0.13) 1px,
+    transparent 1px
+  );
+  background-size: 28px 28px;
+  pointer-events: none;
+  z-index: 0;
+}
+
+.studio-grid-lines {
+  position: absolute;
+  inset: 0;
+  background-image:
+    linear-gradient(rgba(180, 90, 45, 0.025) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(180, 90, 45, 0.025) 1px, transparent 1px);
+  background-size: 40px 40px;
+  pointer-events: none;
+  z-index: 0;
+}
+
+/* ── Tiptap Editor ────────────────────────────── */
+
+.studio-tiptap-wrapper {
+  background-color: var(--studio-bg);
+}
+
+.studio-tiptap-content {
+  font-family: var(--font-amarna, 'Georgia', serif);
+  font-size: 18px;
+  line-height: 1.75;
+  color: var(--studio-text-1);
+  max-width: 680px;
+  min-height: 400px;
+  outline: none;
+}
+
+.studio-tiptap-content h2 {
+  font-family: var(--studio-font-title);
+  font-size: 24px;
+  font-weight: 700;
+  color: var(--studio-text-bright);
+  margin: 2em 0 0.5em;
+  line-height: 1.3;
+}
+
+.studio-tiptap-content h3 {
+  font-family: var(--studio-font-title);
+  font-size: 20px;
+  font-weight: 600;
+  color: var(--studio-text-bright);
+  margin: 1.5em 0 0.4em;
+  line-height: 1.4;
+}
+
+.studio-tiptap-content p {
+  margin: 0 0 1em;
+}
+
+.studio-tiptap-content blockquote {
+  border-left: 3px solid var(--studio-tc);
+  padding-left: 16px;
+  margin: 1.5em 0;
+  color: var(--studio-text-2);
+  font-style: italic;
+}
+
+.studio-tiptap-content ul,
+.studio-tiptap-content ol {
+  padding-left: 24px;
+  margin: 0.5em 0 1em;
+}
+
+.studio-tiptap-content li {
+  margin: 0.3em 0;
+}
+
+.studio-tiptap-content code {
+  font-family: var(--studio-font-mono);
+  font-size: 0.88em;
+  background-color: var(--studio-surface);
+  border: 1px solid var(--studio-border);
+  border-radius: 3px;
+  padding: 1px 5px;
+  color: var(--studio-text-2);
+}
+
+.studio-tiptap-content pre {
+  background-color: var(--studio-surface);
+  border: 1px solid var(--studio-border);
+  border-radius: 6px;
+  padding: 16px 20px;
+  margin: 1.5em 0;
+  overflow-x: auto;
+}
+
+.studio-tiptap-content pre code {
+  background: none;
+  border: none;
+  padding: 0;
+  font-size: 14px;
+  line-height: 1.6;
+}
+
+.studio-tiptap-content hr {
+  border: none;
+  border-top: 1px solid var(--studio-border);
+  margin: 2em 0;
+}
+
+.studio-tiptap-content strong {
+  color: var(--studio-text-bright);
+  font-weight: 700;
+}
+
+/* Placeholder styling */
+.studio-tiptap-content p.is-editor-empty:first-child::before {
+  content: attr(data-placeholder);
+  float: left;
+  color: var(--studio-text-3);
+  pointer-events: none;
+  height: 0;
+  font-style: italic;
+}
