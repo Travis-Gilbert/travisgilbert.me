@@ -184,4 +184,5 @@ urlpatterns = [
         name="api-content-set-stage",
     ),
     path("editor/api/timeline/", views.StudioApiTimelineView.as_view(), name="api-timeline"),
+    path("editor/api/settings/", views.StudioApiSettingsView.as_view(), name="api-settings"),
 ]

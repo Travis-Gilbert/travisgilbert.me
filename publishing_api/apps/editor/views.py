@@ -2878,3 +2878,66 @@ class StudioApiTimelineView(StudioApiBaseView):
             })
 
         return self._json(request, entries)
+
+
+class StudioApiSettingsView(StudioApiBaseView):
+    """GET /editor/api/settings/."""
+
+    def get(self, request):
+        tokens = DesignTokenSet.load()
+        site_settings = SiteSettings.load()
+        nav_items = list(NavItem.objects.order_by("order", "id"))
+
+        recent_logs = list(
+            PublishLog.objects.order_by("-created_at")[:10]
+        )
+        last_deploy = next((log for log in recent_logs if log.success), None)
+
+        def serialize_log(log):
+            return {
+                "id": str(log.pk),
+                "content_type": log.content_type,
+                "content_slug": log.content_slug,
+                "content_title": log.content_title,
+                "success": log.success,
+                "commit_sha": log.commit_sha,
+                "commit_url": log.commit_url,
+                "error_message": log.error_message,
+                "created_at": log.created_at.isoformat(),
+            }
+
+        payload = {
+            "connection": {
+                "status": "ok",
+                "checked_at": timezone.now().isoformat(),
+                "message": "Connected to Django editor API",
+            },
+            "design_tokens": {
+                "colors": tokens.colors or {},
+                "fonts": tokens.fonts or {},
+                "spacing": tokens.spacing or {},
+                "section_colors": tokens.section_colors or {},
+            },
+            "navigation": [
+                {
+                    "id": str(item.pk),
+                    "label": item.label,
+                    "path": item.path,
+                    "icon": item.icon,
+                    "visible": item.visible,
+                    "order": item.order,
+                }
+                for item in nav_items
+            ],
+            "seo": {
+                "title_template": site_settings.seo_title_template or "",
+                "description": site_settings.seo_description or "",
+                "og_fallback": site_settings.seo_og_image_fallback or "",
+            },
+            "publishing": {
+                "last_deploy": serialize_log(last_deploy) if last_deploy else None,
+                "publish_log": [serialize_log(log) for log in recent_logs],
+            },
+        }
+
+        return self._json(request, payload)
