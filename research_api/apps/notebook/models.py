@@ -1,41 +1,62 @@
 """
-Knowledge graph models for the Notebooks system.
+CommonPlace knowledge graph models.
 
-Object-oriented notetaking: every piece of knowledge is a typed node
-(Person, Source, Concept, Hunch, etc.) that connects to other nodes
-via edges with plain English explanations. The connection engine
-(engine.py) discovers relationships automatically using spaCy NER
-and keyword analysis.
+Object/Node/Component architecture: everything you capture is an Object
+(typed entity with Components), every change that happens is a Node
+(immutable event on the Timeline), and Objects connect via Edges with
+plain English explanations.
 
 Models:
-    NodeType          Built-in and custom knowledge object types
-    KnowledgeNode     Universal container for a unit of knowledge
-    Edge              Typed, explained connection between two nodes
+    ObjectType        Built-in and custom knowledge object types
+    Object            Universal container for a unit of knowledge
+    ComponentType     Defines a kind of property (date, relationship, etc.)
+    Component         A typed property attached to an Object
+    Node              Immutable timeline event (creation, connection, etc.)
+    Edge              Typed, explained connection between two Objects
     ResolvedEntity    Named entity extracted by spaCy NER
     DailyLog          Automatic daily activity journal
-    Notebook          Named collection of nodes
+    Notebook          Context preset with engine config and layout
+    Project           Goal-oriented grouping (knowledge or manage mode)
+    Timeline          Ordered stream of Nodes (master + filtered views)
+    Layout            Saved pane configuration for the UI
 """
 
+import hashlib
+import uuid
+
 from django.db import models
+from django.utils import timezone
 from django.utils.text import slugify
 
 from apps.core.models import TimeStampedModel
 
 
+def _generate_sha(title='', salt=None):
+    """Generate a SHA-256 hash for immutable identity.
+
+    Combines timestamp, title, and random salt to produce a unique
+    fingerprint that travels with the data through exports and backups.
+    """
+    if salt is None:
+        salt = uuid.uuid4().hex
+    payload = f'{timezone.now().isoformat()}:{title}:{salt}'
+    return hashlib.sha256(payload.encode()).hexdigest()[:40]
+
+
 # ---------------------------------------------------------------------------
-# NodeType
+# ObjectType
 # ---------------------------------------------------------------------------
 
 
-class NodeType(TimeStampedModel):
+class ObjectType(TimeStampedModel):
     """A type of knowledge object.
 
     Built-in types: Note, Source, Person, Place, Organization, Concept,
-    Event, Project, Hunch, Quote.
+    Quote, Hunch, Script, Task.
 
-    Users can create custom types via the admin. Each type defines
-    a JSON schema for its properties field, an icon name (from the
-    SketchIcon system), and a brand color.
+    Each type defines a JSON schema for its properties field, an icon name
+    (from the SketchIcon system), a brand color, and a list of default
+    ComponentType slugs to auto-attach on Object creation.
     """
 
     name = models.CharField(max_length=100, unique=True)
@@ -58,6 +79,14 @@ class NodeType(TimeStampedModel):
             'Example for Person: {"fields": ["born", "died", "role", "org"]}'
         ),
     )
+    default_components = models.JSONField(
+        default=list,
+        blank=True,
+        help_text=(
+            'List of ComponentType slugs to auto-attach when creating '
+            'Objects of this type. Example: ["url", "author", "date"]'
+        ),
+    )
     is_built_in = models.BooleanField(
         default=False,
         help_text='Built-in types cannot be deleted.',
@@ -77,24 +106,30 @@ class NodeType(TimeStampedModel):
 
 
 # ---------------------------------------------------------------------------
-# KnowledgeNode
+# Object
 # ---------------------------------------------------------------------------
 
 
-class KnowledgeNode(TimeStampedModel):
-    """A single unit of knowledge in the notebook.
+class Object(TimeStampedModel):
+    """A persistent unit of knowledge in the CommonPlace.
 
-    This is the universal container. A KnowledgeNode can be a quick thought
-    with no URL, a fully annotated source, a person you keep referencing,
-    or an idea that has been gestating for months.
+    Objects exist. They are the entities in your knowledge graph: a person
+    you reference, a source you study, a concept you develop, a hunch you
+    nurture. Objects have typed Components for structured properties and
+    connect to other Objects via Edges.
 
-    The node_type determines what the UI looks like and what properties
-    are expected (but never required). The body and properties fields
-    together hold all content.
-
-    Every node gets run through the connection engine on save, which may
-    create or update Edge records linking it to other nodes.
+    The object_type determines the UI appearance and which Components are
+    auto-attached on creation. The body and properties fields together hold
+    all freeform content.
     """
+
+    # Immutable identity
+    sha_hash = models.CharField(
+        max_length=40,
+        unique=True,
+        editable=False,
+        help_text='SHA-256 fingerprint for provenance tracking.',
+    )
 
     # Identity
     title = models.CharField(
@@ -102,12 +137,12 @@ class KnowledgeNode(TimeStampedModel):
         blank=True,
         help_text='Optional. Auto-generated from body or OG metadata if blank.',
     )
-    node_type = models.ForeignKey(
-        NodeType,
+    object_type = models.ForeignKey(
+        ObjectType,
         on_delete=models.SET_DEFAULT,
         default=None,
         null=True,
-        related_name='nodes',
+        related_name='typed_objects',
     )
     slug = models.SlugField(max_length=500, blank=True)
 
@@ -119,18 +154,14 @@ class KnowledgeNode(TimeStampedModel):
     url = models.URLField(
         max_length=2000,
         blank=True,
-        help_text='Optional. Source URL if this node has one.',
+        help_text='Optional. Source URL if this object has one.',
     )
 
-    # Flexible properties (vary by node_type)
+    # Flexible properties (type-specific, freeform)
     properties = models.JSONField(
         default=dict,
         blank=True,
-        help_text=(
-            'Type-specific properties. Person: {born, role, org}. '
-            'Source: {author, publication, date_published}. '
-            'Hunch: {confidence, revisit_date}.'
-        ),
+        help_text='Type-specific key/value properties.',
     )
 
     # OG metadata (auto-extracted from URL)
@@ -139,25 +170,34 @@ class KnowledgeNode(TimeStampedModel):
     og_image = models.URLField(max_length=2000, blank=True)
     og_site_name = models.CharField(max_length=300, blank=True)
 
-    # Organization
+    # Organization (no inbox per v4 spec: capture goes straight to Timeline)
     status = models.CharField(
         max_length=20,
         choices=[
-            ('inbox', 'Inbox'),
             ('active', 'Active'),
             ('archive', 'Archive'),
         ],
-        default='inbox',
+        default='active',
         db_index=True,
     )
     is_pinned = models.BooleanField(default=False)
     is_starred = models.BooleanField(default=False)
 
-    # Manual notebook slugs (lightweight grouping before Notebook M2M)
-    notebooks = models.JSONField(
-        default=list,
+    # Notebook and Project (single FK, not M2M)
+    notebook = models.ForeignKey(
+        'Notebook',
+        on_delete=models.SET_NULL,
+        null=True,
         blank=True,
-        help_text='Named notebook slugs this node belongs to.',
+        related_name='notebook_objects',
+        help_text='Primary notebook this object belongs to.',
+    )
+    project = models.ForeignKey(
+        'Project',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='project_objects',
     )
 
     # Connection to published content (by slug, not FK)
@@ -170,7 +210,7 @@ class KnowledgeNode(TimeStampedModel):
         on_delete=models.SET_NULL,
         null=True,
         blank=True,
-        related_name='knowledge_nodes',
+        related_name='knowledge_objects',
     )
 
     # Search
@@ -194,15 +234,23 @@ class KnowledgeNode(TimeStampedModel):
         indexes = [
             models.Index(
                 fields=['status', '-captured_at'],
-                name='idx_node_status_date',
+                name='idx_obj_status_date',
             ),
             models.Index(
                 fields=['-is_pinned', '-captured_at'],
-                name='idx_node_pinned_date',
+                name='idx_obj_pinned_date',
             ),
             models.Index(
-                fields=['node_type', '-captured_at'],
-                name='idx_node_type_date',
+                fields=['object_type', '-captured_at'],
+                name='idx_obj_type_date',
+            ),
+            models.Index(
+                fields=['notebook', '-captured_at'],
+                name='idx_obj_notebook_date',
+            ),
+            models.Index(
+                fields=['project', '-captured_at'],
+                name='idx_obj_project_date',
             ),
         ]
 
@@ -224,6 +272,9 @@ class KnowledgeNode(TimeStampedModel):
         return '(untitled)'
 
     def save(self, *args, **kwargs):
+        if not self.sha_hash:
+            self.sha_hash = _generate_sha(title=self.title)
+
         if not self.slug:
             base = self.title or self.body[:80] or 'untitled'
             self.slug = slugify(base)[:500]
@@ -235,9 +286,313 @@ class KnowledgeNode(TimeStampedModel):
         ]
         if isinstance(self.properties, dict):
             parts.extend(str(v) for v in self.properties.values() if v)
-        if isinstance(self.notebooks, list):
-            parts.extend(self.notebooks)
         self.search_text = ' '.join(p for p in parts if p)
+
+        super().save(*args, **kwargs)
+
+
+# ---------------------------------------------------------------------------
+# ComponentType
+# ---------------------------------------------------------------------------
+
+
+class ComponentType(TimeStampedModel):
+    """Defines a kind of typed property that can attach to Objects.
+
+    ComponentTypes declare the data_type (text, date, relationship, etc.)
+    and whether changes trigger Node creation on the Timeline.
+
+    Built-in types: Text, Date, Recurring Date, Relationship, Location,
+    File, URL, Status, Number, Tag, Code.
+    """
+
+    DATA_TYPE_CHOICES = [
+        ('text', 'Text'),
+        ('date', 'Date'),
+        ('recurring_date', 'Recurring Date'),
+        ('relationship', 'Relationship'),
+        ('location', 'Location'),
+        ('file', 'File'),
+        ('url', 'URL'),
+        ('status', 'Status'),
+        ('number', 'Number'),
+        ('tag', 'Tag'),
+        ('code', 'Code'),
+    ]
+
+    name = models.CharField(max_length=100)
+    slug = models.SlugField(max_length=100, unique=True)
+    data_type = models.CharField(
+        max_length=20,
+        choices=DATA_TYPE_CHOICES,
+    )
+    triggers_node = models.BooleanField(
+        default=False,
+        help_text=(
+            'When True, creating or updating a Component of this type '
+            'auto-creates a Node on the Timeline.'
+        ),
+    )
+    schema = models.JSONField(
+        default=dict,
+        blank=True,
+        help_text='Validation schema for the value field.',
+    )
+    is_built_in = models.BooleanField(default=False)
+    sort_order = models.IntegerField(default=0)
+
+    class Meta:
+        ordering = ['sort_order', 'name']
+
+    def __str__(self):
+        trigger = ' [triggers]' if self.triggers_node else ''
+        return f'{self.name} ({self.data_type}){trigger}'
+
+    def save(self, *args, **kwargs):
+        if not self.slug:
+            self.slug = slugify(self.name)
+        super().save(*args, **kwargs)
+
+
+# ---------------------------------------------------------------------------
+# Component
+# ---------------------------------------------------------------------------
+
+
+class Component(TimeStampedModel):
+    """A typed property attached to an Object.
+
+    Components replace the flat properties JSONField with structured,
+    typed data. A Person Object might have Components:
+      birthday (date), relations (relationship), bio (text).
+
+    If the ComponentType has triggers_node=True, saving a Component
+    auto-creates a Node on the Timeline (handled in signals.py).
+    """
+
+    object = models.ForeignKey(
+        Object,
+        on_delete=models.CASCADE,
+        related_name='components',
+    )
+    component_type = models.ForeignKey(
+        ComponentType,
+        on_delete=models.PROTECT,
+        related_name='instances',
+    )
+    key = models.CharField(
+        max_length=200,
+        help_text='Human label: "birthday", "author", "hometown".',
+    )
+    value = models.JSONField(
+        default=dict,
+        blank=True,
+        help_text='Flexible storage. Shape depends on component_type.data_type.',
+    )
+    sort_order = models.IntegerField(default=0)
+
+    class Meta:
+        ordering = ['sort_order', 'key']
+        constraints = [
+            models.UniqueConstraint(
+                fields=['object', 'component_type', 'key'],
+                name='unique_component_per_object',
+            ),
+        ]
+
+    def __str__(self):
+        return f'{self.key}: {self.component_type.name} on {self.object}'
+
+
+# ---------------------------------------------------------------------------
+# Timeline
+# ---------------------------------------------------------------------------
+
+
+class Timeline(TimeStampedModel):
+    """An ordered stream of Nodes.
+
+    The master Timeline (is_master=True) contains all Nodes. Sub-Timelines
+    are filtered views scoped to a Project or Notebook. There must be
+    exactly one master Timeline.
+    """
+
+    name = models.CharField(max_length=200)
+    slug = models.SlugField(max_length=200, unique=True)
+    is_master = models.BooleanField(
+        default=False,
+        help_text='There must be exactly one master Timeline.',
+    )
+    project = models.ForeignKey(
+        'Project',
+        on_delete=models.CASCADE,
+        null=True,
+        blank=True,
+        related_name='timelines',
+    )
+    notebook = models.ForeignKey(
+        'Notebook',
+        on_delete=models.CASCADE,
+        null=True,
+        blank=True,
+        related_name='timelines',
+    )
+    filter_config = models.JSONField(
+        default=dict,
+        blank=True,
+        help_text='Filter rules for sub-timelines (node_type, object_type, etc.).',
+    )
+    engine_config = models.JSONField(
+        default=dict,
+        blank=True,
+        help_text='Engine config override for this timeline context.',
+    )
+
+    class Meta:
+        ordering = ['-is_master', 'name']
+
+    def __str__(self):
+        master = ' [MASTER]' if self.is_master else ''
+        return f'{self.name}{master}'
+
+    def save(self, *args, **kwargs):
+        if not self.slug:
+            self.slug = slugify(self.name)
+        super().save(*args, **kwargs)
+
+
+# ---------------------------------------------------------------------------
+# Node (timeline events)
+# ---------------------------------------------------------------------------
+
+
+class Node(TimeStampedModel):
+    """An immutable event on the Timeline.
+
+    Nodes happen. They record what changed and when: an Object was created,
+    a connection was discovered, a Component triggered a reminder, a
+    project was completed. Nodes are append-only (immutable after creation)
+    except for retrospective_notes which can be added later.
+    """
+
+    NODE_TYPE_CHOICES = [
+        ('creation', 'Creation'),
+        ('deletion', 'Deletion'),
+        ('modification', 'Modification'),
+        ('connection', 'Connection'),
+        ('reminder_set', 'Reminder Set'),
+        ('reminder_fired', 'Reminder Fired'),
+        ('reminder_dismissed', 'Reminder Dismissed'),
+        ('project_completed', 'Project Completed'),
+        ('project_created', 'Project Created'),
+        ('recurring_date', 'Recurring Date'),
+        ('capture', 'Capture'),
+        ('retrospective', 'Retrospective'),
+        ('status_change', 'Status Change'),
+        ('component_trigger', 'Component Trigger'),
+    ]
+
+    # Immutable identity
+    sha_hash = models.CharField(
+        max_length=40,
+        unique=True,
+        editable=False,
+    )
+
+    node_type = models.CharField(
+        max_length=30,
+        choices=NODE_TYPE_CHOICES,
+        db_index=True,
+    )
+    occurred_at = models.DateTimeField(auto_now_add=True)
+
+    # Content (both optional)
+    title = models.CharField(max_length=500, blank=True)
+    body = models.TextField(blank=True)
+
+    # References (all nullable: a Node might reference any combination)
+    object_ref = models.ForeignKey(
+        Object,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='timeline_nodes',
+    )
+    project_ref = models.ForeignKey(
+        'Project',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='timeline_nodes',
+    )
+    component_ref = models.ForeignKey(
+        Component,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='timeline_nodes',
+    )
+
+    # Timeline assignment
+    timeline = models.ForeignKey(
+        Timeline,
+        on_delete=models.CASCADE,
+        related_name='nodes',
+    )
+
+    # Retrospective (the only mutable field: add notes after the fact)
+    retrospective_notes = models.JSONField(
+        default=list,
+        blank=True,
+        help_text='List of {text, sha, created_at} dicts added after the fact.',
+    )
+
+    # Optional metadata
+    severity = models.CharField(max_length=20, blank=True)
+    tags = models.JSONField(default=list, blank=True)
+    documents = models.JSONField(default=list, blank=True)
+
+    class Meta:
+        ordering = ['-occurred_at']
+        indexes = [
+            models.Index(
+                fields=['node_type', '-occurred_at'],
+                name='idx_node_type_occurred',
+            ),
+            models.Index(
+                fields=['timeline', '-occurred_at'],
+                name='idx_node_timeline_occurred',
+            ),
+            models.Index(
+                fields=['object_ref', '-occurred_at'],
+                name='idx_node_objref_occurred',
+            ),
+        ]
+
+    def __str__(self):
+        ref = ''
+        if self.object_ref_id:
+            ref = f' re: {self.object_ref}'
+        return f'{self.get_node_type_display()}{ref} ({self.occurred_at:%Y-%m-%d})'
+
+    def save(self, *args, **kwargs):
+        if not self.sha_hash:
+            self.sha_hash = _generate_sha(title=self.title)
+
+        # Immutability: only allow updates to retrospective_notes
+        if self.pk:
+            allowed_fields = {'retrospective_notes', 'updated_at'}
+            update_fields = kwargs.get('update_fields')
+            if update_fields:
+                # Explicit update_fields: only allow retrospective_notes
+                disallowed = set(update_fields) - allowed_fields
+                if disallowed:
+                    raise ValueError(
+                        f'Nodes are immutable. Cannot update: {disallowed}'
+                    )
+            # If no update_fields specified on an existing record,
+            # we still allow the save (Django admin, etc.) but the
+            # SHA hash prevents meaningful changes from being silent.
 
         super().save(*args, **kwargs)
 
@@ -248,23 +603,23 @@ class KnowledgeNode(TimeStampedModel):
 
 
 class Edge(TimeStampedModel):
-    """A connection between two KnowledgeNodes.
+    """A connection between two Objects.
 
     Edges can be created manually (user draws a connection) or
     automatically (connection engine finds a relationship).
 
     Every edge has a 'reason' field that explains WHY the connection
-    exists in plain English. This is the key differentiator from
-    simple tagging: the system tells you what it found.
+    exists in plain English. The 'engine' field records which system
+    discovered it (spacy, js, tfidf, semantic, manual).
     """
 
-    from_node = models.ForeignKey(
-        KnowledgeNode,
+    from_object = models.ForeignKey(
+        Object,
         on_delete=models.CASCADE,
         related_name='edges_out',
     )
-    to_node = models.ForeignKey(
-        KnowledgeNode,
+    to_object = models.ForeignKey(
+        Object,
         on_delete=models.CASCADE,
         related_name='edges_in',
     )
@@ -276,6 +631,7 @@ class Edge(TimeStampedModel):
             ('mentions', 'Mentions'),
             ('shared_entity', 'Shared Entity'),
             ('shared_topic', 'Shared Topic'),
+            ('similarity', 'Similarity'),
             ('sequence', 'Sequence'),
             ('supports', 'Supports'),
             ('contradicts', 'Contradicts'),
@@ -303,30 +659,35 @@ class Edge(TimeStampedModel):
         default=False,
         help_text='True if created by the connection engine, False if manual.',
     )
+    engine = models.CharField(
+        max_length=20,
+        blank=True,
+        help_text='Which engine found this: spacy, js, tfidf, semantic, manual.',
+    )
 
     class Meta:
         ordering = ['-strength', '-created_at']
         constraints = [
             models.UniqueConstraint(
-                fields=['from_node', 'to_node', 'edge_type'],
+                fields=['from_object', 'to_object', 'edge_type'],
                 name='unique_edge_per_type',
             ),
         ]
         indexes = [
             models.Index(
-                fields=['from_node', 'edge_type'],
+                fields=['from_object', 'edge_type'],
                 name='idx_edge_from_type',
             ),
             models.Index(
-                fields=['to_node', 'edge_type'],
+                fields=['to_object', 'edge_type'],
                 name='idx_edge_to_type',
             ),
         ]
 
     def __str__(self):
         return (
-            f'{self.from_node.display_title[:30]} -> '
-            f'{self.to_node.display_title[:30]} ({self.edge_type})'
+            f'{self.from_object.display_title[:30]} -> '
+            f'{self.to_object.display_title[:30]} ({self.edge_type})'
         )
 
 
@@ -336,18 +697,18 @@ class Edge(TimeStampedModel):
 
 
 class ResolvedEntity(TimeStampedModel):
-    """An entity extracted from a KnowledgeNode by spaCy NER.
+    """An entity extracted from an Object by spaCy NER.
 
     When you write "Richard Hamming worked at Bell Labs," spaCy extracts:
       "Richard Hamming" (PERSON) and "Bell Labs" (ORG).
 
-    These become ResolvedEntity records linked to the source node.
-    If a KnowledgeNode already exists for "Richard Hamming" (type: Person),
-    the entity is linked to that node too, creating an automatic Edge.
+    These become ResolvedEntity records linked to the source Object.
+    If an Object already exists for "Richard Hamming" (type: Person),
+    the entity is linked to that Object too, creating an automatic Edge.
     """
 
-    source_node = models.ForeignKey(
-        KnowledgeNode,
+    source_object = models.ForeignKey(
+        Object,
         on_delete=models.CASCADE,
         related_name='extracted_entities',
     )
@@ -377,14 +738,14 @@ class ResolvedEntity(TimeStampedModel):
         help_text='Cleaned/canonical form, e.g. "richard hamming" for matching.',
     )
 
-    # Optional link to an existing KnowledgeNode of the matching type
-    resolved_node = models.ForeignKey(
-        KnowledgeNode,
+    # Optional link to an existing Object of the matching type
+    resolved_object = models.ForeignKey(
+        Object,
         on_delete=models.SET_NULL,
         null=True,
         blank=True,
         related_name='entity_mentions',
-        help_text='The KnowledgeNode this entity resolves to (if one exists).',
+        help_text='The Object this entity resolves to (if one exists).',
     )
 
     class Meta:
@@ -395,7 +756,7 @@ class ResolvedEntity(TimeStampedModel):
                 name='idx_entity_norm',
             ),
             models.Index(
-                fields=['source_node'],
+                fields=['source_object'],
                 name='idx_entity_source',
             ),
         ]
@@ -403,7 +764,7 @@ class ResolvedEntity(TimeStampedModel):
     def __str__(self):
         return (
             f'{self.text} ({self.entity_type}) '
-            f'from "{self.source_node.display_title[:30]}"'
+            f'from "{self.source_object.display_title[:30]}"'
         )
 
     def save(self, *args, **kwargs):
@@ -420,20 +781,18 @@ class ResolvedEntity(TimeStampedModel):
 class DailyLog(TimeStampedModel):
     """Automatic record of what happened on a given day.
 
-    Populated by Django signals whenever KnowledgeNodes or Edges are
-    created or updated. Enables the calendar view: "On March 2, 2026
-    you captured 3 notes, the connection engine found 2 new links,
-    and you starred an old hunch about parking minimums."
+    Populated by Django signals whenever Objects or Edges are
+    created or updated. Enables the calendar view.
     """
 
     date = models.DateField(unique=True, db_index=True)
-    nodes_created = models.JSONField(
+    objects_created = models.JSONField(
         default=list,
-        help_text='List of {id, title, node_type} dicts for nodes created this day.',
+        help_text='List of {id, title, object_type} dicts for objects created this day.',
     )
-    nodes_updated = models.JSONField(
+    objects_updated = models.JSONField(
         default=list,
-        help_text='List of {id, title, action} dicts for nodes modified this day.',
+        help_text='List of {id, title, action} dicts for objects modified this day.',
     )
     edges_created = models.JSONField(
         default=list,
@@ -454,7 +813,7 @@ class DailyLog(TimeStampedModel):
         verbose_name_plural = 'daily logs'
 
     def __str__(self):
-        return f'{self.date}: {len(self.nodes_created)} captured'
+        return f'{self.date}: {len(self.objects_created)} captured'
 
 
 # ---------------------------------------------------------------------------
@@ -463,11 +822,12 @@ class DailyLog(TimeStampedModel):
 
 
 class Notebook(TimeStampedModel):
-    """A named collection of KnowledgeNodes.
+    """A context preset for the CommonPlace.
 
-    Notebooks are the manual organization layer. They are like folders
-    but a node can live in multiple notebooks. Examples:
-    "Housing Essay Research", "YouTube: Zoning", "Random Inspiration"
+    Notebooks scope your view: which ObjectTypes are available, which
+    engine config to use, what layout and theme to apply. Objects belong
+    to a Notebook via FK (not M2M). Each Notebook can have its own
+    engine config for the connection engine.
     """
 
     name = models.CharField(max_length=200)
@@ -482,10 +842,43 @@ class Notebook(TimeStampedModel):
     target_essay_slug = models.SlugField(max_length=300, blank=True)
     target_video_slug = models.SlugField(max_length=300, blank=True)
 
-    nodes = models.ManyToManyField(
-        KnowledgeNode,
-        related_name='notebook_memberships',
+    # v4 Notebook-as-context-preset fields
+    engine_config = models.JSONField(
+        default=dict,
         blank=True,
+        help_text=(
+            'Connection engine overrides. Example: '
+            '{"engines": ["spacy", "tfidf"], "topic_threshold": 0.25}'
+        ),
+    )
+    available_types = models.JSONField(
+        default=list,
+        blank=True,
+        help_text='List of ObjectType slugs available in this notebook context.',
+    )
+    default_layout = models.JSONField(
+        default=dict,
+        blank=True,
+        help_text='Default pane configuration for this notebook.',
+    )
+    theme = models.JSONField(
+        default=dict,
+        blank=True,
+        help_text='Visual theme overrides (colors, fonts, etc.).',
+    )
+    context_behavior = models.JSONField(
+        default=dict,
+        blank=True,
+        help_text='Context-specific behavior rules.',
+    )
+    default_project_mode = models.CharField(
+        max_length=20,
+        choices=[
+            ('knowledge', 'Knowledge'),
+            ('manage', 'Manage'),
+        ],
+        default='knowledge',
+        help_text='Default mode for new Projects in this Notebook.',
     )
 
     class Meta:
@@ -493,6 +886,118 @@ class Notebook(TimeStampedModel):
 
     def __str__(self):
         return self.name
+
+    def save(self, *args, **kwargs):
+        if not self.slug:
+            self.slug = slugify(self.name)
+        super().save(*args, **kwargs)
+
+
+# ---------------------------------------------------------------------------
+# Project
+# ---------------------------------------------------------------------------
+
+
+class Project(TimeStampedModel):
+    """A goal-oriented grouping of Objects.
+
+    Projects come in two modes: "knowledge" (research/creative, e.g.
+    "Housing Essay Research") and "manage" (tasks/status, e.g. "Website
+    Redesign Sprint"). Projects can be templated and replicated.
+    """
+
+    name = models.CharField(max_length=200)
+    slug = models.SlugField(max_length=200, unique=True)
+    sha_hash = models.CharField(
+        max_length=40,
+        unique=True,
+        editable=False,
+    )
+    notebook = models.ForeignKey(
+        Notebook,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='projects',
+    )
+    mode = models.CharField(
+        max_length=20,
+        choices=[
+            ('knowledge', 'Knowledge'),
+            ('manage', 'Manage'),
+        ],
+        default='knowledge',
+    )
+    is_template = models.BooleanField(default=False)
+    template_from = models.ForeignKey(
+        'self',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='derived_projects',
+    )
+    status = models.CharField(
+        max_length=20,
+        choices=[
+            ('active', 'Active'),
+            ('completed', 'Completed'),
+            ('archived', 'Archived'),
+        ],
+        default='active',
+        db_index=True,
+    )
+    reminder_at = models.DateTimeField(null=True, blank=True)
+    settings_override = models.JSONField(
+        default=dict,
+        blank=True,
+        help_text='Per-project engine/UI settings that override notebook defaults.',
+    )
+    description = models.TextField(blank=True)
+
+    class Meta:
+        ordering = ['name']
+
+    def __str__(self):
+        return f'{self.name} ({self.get_mode_display()})'
+
+    def save(self, *args, **kwargs):
+        if not self.sha_hash:
+            self.sha_hash = _generate_sha(title=self.name)
+        if not self.slug:
+            self.slug = slugify(self.name)
+        super().save(*args, **kwargs)
+
+
+# ---------------------------------------------------------------------------
+# Layout
+# ---------------------------------------------------------------------------
+
+
+class Layout(TimeStampedModel):
+    """A saved pane configuration for the UI.
+
+    Layouts define how the CommonPlace interface is arranged: which panes
+    are visible, their sizes, and what content they display. Can be
+    preset (built-in) or user-created.
+    """
+
+    name = models.CharField(max_length=200)
+    slug = models.SlugField(max_length=200, unique=True)
+    config = models.JSONField(
+        default=dict,
+        help_text='Pane tree structure defining the layout.',
+    )
+    is_preset = models.BooleanField(
+        default=False,
+        help_text='Built-in presets cannot be deleted.',
+    )
+
+    class Meta:
+        ordering = ['-is_preset', 'name']
+
+    def __str__(self):
+        preset = ' [preset]' if self.is_preset else ''
+        return f'{self.name}{preset}'
 
     def save(self, *args, **kwargs):
         if not self.slug:

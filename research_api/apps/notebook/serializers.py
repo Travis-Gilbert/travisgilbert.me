@@ -1,162 +1,78 @@
 """
-DRF serializers for the Notebook knowledge graph API.
+DRF serializers for the CommonPlace knowledge graph API.
 
-Unlike the research API (read-only), this API supports writes:
-KnowledgeNode create/update and QuickCapture.
+Provides List/Detail/Write serializer tiers for Object, Node, Component,
+plus flat serializers for supporting models.
 """
 
 from rest_framework import serializers
 
 from .models import (
+    Component,
+    ComponentType,
     DailyLog,
     Edge,
-    KnowledgeNode,
-    NodeType,
+    Layout,
+    Node,
     Notebook,
+    Object,
+    ObjectType,
+    Project,
     ResolvedEntity,
+    Timeline,
 )
 
 
 # ---------------------------------------------------------------------------
-# NodeType
+# ObjectType
 # ---------------------------------------------------------------------------
 
-class NodeTypeSerializer(serializers.ModelSerializer):
+class ObjectTypeSerializer(serializers.ModelSerializer):
     class Meta:
-        model = NodeType
+        model = ObjectType
         fields = [
             'id', 'name', 'slug', 'icon', 'color',
-            'schema', 'is_built_in', 'sort_order',
+            'schema', 'default_components', 'is_built_in', 'sort_order',
         ]
 
 
 # ---------------------------------------------------------------------------
-# KnowledgeNode
+# ComponentType
 # ---------------------------------------------------------------------------
 
-class KnowledgeNodeListSerializer(serializers.ModelSerializer):
-    """Compact node for list views."""
-    display_title = serializers.CharField(read_only=True)
-    node_type_name = serializers.CharField(
-        source='node_type.name', read_only=True, default='',
-    )
-    node_type_slug = serializers.CharField(
-        source='node_type.slug', read_only=True, default='',
-    )
-    node_type_icon = serializers.CharField(
-        source='node_type.icon', read_only=True, default='',
-    )
-    node_type_color = serializers.CharField(
-        source='node_type.color', read_only=True, default='',
-    )
-    edge_count = serializers.IntegerField(read_only=True)
-
+class ComponentTypeSerializer(serializers.ModelSerializer):
     class Meta:
-        model = KnowledgeNode
+        model = ComponentType
         fields = [
-            'id', 'title', 'display_title', 'slug',
-            'node_type', 'node_type_name', 'node_type_slug',
-            'node_type_icon', 'node_type_color',
-            'url', 'status', 'is_pinned', 'is_starred',
-            'captured_at', 'capture_method',
-            'edge_count',
+            'id', 'name', 'slug', 'data_type',
+            'triggers_node', 'schema', 'is_built_in', 'sort_order',
         ]
 
 
-class KnowledgeNodeDetailSerializer(serializers.ModelSerializer):
-    """Full node with nested edges and entities."""
-    display_title = serializers.CharField(read_only=True)
-    node_type_name = serializers.CharField(
-        source='node_type.name', read_only=True, default='',
+# ---------------------------------------------------------------------------
+# Component
+# ---------------------------------------------------------------------------
+
+class ComponentSerializer(serializers.ModelSerializer):
+    component_type_name = serializers.CharField(
+        source='component_type.name', read_only=True,
     )
-    node_type_slug = serializers.CharField(
-        source='node_type.slug', read_only=True, default='',
+    data_type = serializers.CharField(
+        source='component_type.data_type', read_only=True,
     )
-    node_type_icon = serializers.CharField(
-        source='node_type.icon', read_only=True, default='',
-    )
-    node_type_color = serializers.CharField(
-        source='node_type.color', read_only=True, default='',
-    )
-    edges_out = serializers.SerializerMethodField()
-    edges_in = serializers.SerializerMethodField()
-    entities = serializers.SerializerMethodField()
-    edge_count = serializers.IntegerField(read_only=True)
 
     class Meta:
-        model = KnowledgeNode
+        model = Component
         fields = [
-            'id', 'title', 'display_title', 'slug',
-            'node_type', 'node_type_name', 'node_type_slug',
-            'node_type_icon', 'node_type_color',
-            'body', 'url', 'properties',
-            'og_title', 'og_description', 'og_image', 'og_site_name',
-            'status', 'is_pinned', 'is_starred',
-            'notebooks', 'related_essays', 'related_field_notes',
-            'captured_at', 'capture_method',
-            'edge_count', 'edges_out', 'edges_in', 'entities',
-            'created_at', 'updated_at',
+            'id', 'object', 'component_type', 'component_type_name',
+            'data_type', 'key', 'value', 'sort_order',
         ]
 
-    def get_edges_out(self, obj):
-        edges = obj.edges_out.select_related('to_node__node_type')[:20]
-        return EdgeCompactSerializer(edges, many=True).data
 
-    def get_edges_in(self, obj):
-        edges = obj.edges_in.select_related('from_node__node_type')[:20]
-        return EdgeCompactSerializer(edges, many=True).data
-
-    def get_entities(self, obj):
-        entities = obj.extracted_entities.all()[:30]
-        return ResolvedEntitySerializer(entities, many=True).data
-
-
-class KnowledgeNodeWriteSerializer(serializers.ModelSerializer):
-    """Writable serializer for create/update operations."""
-
+class ComponentWriteSerializer(serializers.ModelSerializer):
     class Meta:
-        model = KnowledgeNode
-        fields = [
-            'title', 'node_type', 'body', 'url', 'properties',
-            'status', 'is_pinned', 'is_starred',
-            'notebooks', 'related_essays', 'related_field_notes',
-        ]
-        extra_kwargs = {
-            'title': {'required': False},
-            'body': {'required': False},
-        }
-
-    def validate(self, data):
-        """At least title, body, or url must be provided."""
-        title = data.get('title', getattr(self.instance, 'title', ''))
-        body = data.get('body', getattr(self.instance, 'body', ''))
-        url = data.get('url', getattr(self.instance, 'url', ''))
-        if not any([title, body, url]):
-            raise serializers.ValidationError(
-                'At least one of title, body, or url is required.'
-            )
-        return data
-
-
-class QuickCaptureSerializer(serializers.Serializer):
-    """Minimal serializer for quick capture: URL or body, nothing else required."""
-    url = serializers.URLField(required=False, allow_blank=True, default='')
-    body = serializers.CharField(required=False, allow_blank=True, default='')
-    title = serializers.CharField(required=False, allow_blank=True, default='')
-    node_type = serializers.SlugRelatedField(
-        slug_field='slug',
-        queryset=NodeType.objects.all(),
-        required=False,
-        allow_null=True,
-        default=None,
-    )
-
-    def validate(self, data):
-        if not data.get('url') and not data.get('body'):
-            raise serializers.ValidationError(
-                'Provide at least url or body.'
-            )
-        return data
+        model = Component
+        fields = ['object', 'component_type', 'key', 'value', 'sort_order']
 
 
 # ---------------------------------------------------------------------------
@@ -164,68 +80,66 @@ class QuickCaptureSerializer(serializers.Serializer):
 # ---------------------------------------------------------------------------
 
 class EdgeSerializer(serializers.ModelSerializer):
-    """Full edge with denormalized node info."""
-    from_node_title = serializers.CharField(
-        source='from_node.display_title', read_only=True,
+    from_title = serializers.CharField(
+        source='from_object.display_title', read_only=True,
     )
-    from_node_slug = serializers.CharField(
-        source='from_node.slug', read_only=True,
+    from_slug = serializers.SlugField(
+        source='from_object.slug', read_only=True,
     )
-    from_node_type = serializers.CharField(
-        source='from_node.node_type.slug', read_only=True, default='',
+    from_type = serializers.CharField(
+        source='from_object.object_type.slug', read_only=True, default='',
     )
-    to_node_title = serializers.CharField(
-        source='to_node.display_title', read_only=True,
+    to_title = serializers.CharField(
+        source='to_object.display_title', read_only=True,
     )
-    to_node_slug = serializers.CharField(
-        source='to_node.slug', read_only=True,
+    to_slug = serializers.SlugField(
+        source='to_object.slug', read_only=True,
     )
-    to_node_type = serializers.CharField(
-        source='to_node.node_type.slug', read_only=True, default='',
+    to_type = serializers.CharField(
+        source='to_object.object_type.slug', read_only=True, default='',
     )
 
     class Meta:
         model = Edge
         fields = [
-            'id', 'from_node', 'to_node',
-            'from_node_title', 'from_node_slug', 'from_node_type',
-            'to_node_title', 'to_node_slug', 'to_node_type',
-            'edge_type', 'reason', 'strength', 'is_auto',
+            'id', 'from_object', 'to_object',
+            'from_title', 'from_slug', 'from_type',
+            'to_title', 'to_slug', 'to_type',
+            'edge_type', 'reason', 'strength', 'is_auto', 'engine',
             'created_at',
         ]
 
 
 class EdgeCompactSerializer(serializers.ModelSerializer):
-    """Compact edge for nesting inside node detail."""
-    other_node_id = serializers.SerializerMethodField()
-    other_node_title = serializers.SerializerMethodField()
-    other_node_slug = serializers.SerializerMethodField()
-    other_node_type = serializers.SerializerMethodField()
+    """Compact edge for nesting in Object detail."""
+    other_title = serializers.SerializerMethodField()
+    other_id = serializers.SerializerMethodField()
+    direction = serializers.SerializerMethodField()
 
     class Meta:
         model = Edge
         fields = [
-            'id', 'edge_type', 'reason', 'strength', 'is_auto',
-            'other_node_id', 'other_node_title',
-            'other_node_slug', 'other_node_type',
+            'id', 'other_id', 'other_title', 'direction',
+            'edge_type', 'reason', 'strength', 'engine',
         ]
 
-    def get_other_node_id(self, obj):
-        return obj.to_node_id
+    def get_other_title(self, edge):
+        context_obj_id = self.context.get('object_id')
+        if edge.from_object_id == context_obj_id:
+            return edge.to_object.display_title
+        return edge.from_object.display_title
 
-    def get_other_node_title(self, obj):
-        node = obj.to_node
-        return node.display_title if node else ''
+    def get_other_id(self, edge):
+        context_obj_id = self.context.get('object_id')
+        if edge.from_object_id == context_obj_id:
+            return edge.to_object_id
+        return edge.from_object_id
 
-    def get_other_node_slug(self, obj):
-        node = obj.to_node
-        return node.slug if node else ''
-
-    def get_other_node_type(self, obj):
-        node = obj.to_node
-        if node and node.node_type:
-            return node.node_type.slug
-        return ''
+    def get_direction(self, edge):
+        context_obj_id = self.context.get('object_id')
+        if edge.from_object_id == context_obj_id:
+            return 'outgoing'
+        return 'incoming'
 
 
 # ---------------------------------------------------------------------------
@@ -233,20 +147,274 @@ class EdgeCompactSerializer(serializers.ModelSerializer):
 # ---------------------------------------------------------------------------
 
 class ResolvedEntitySerializer(serializers.ModelSerializer):
-    resolved_node_title = serializers.CharField(
-        source='resolved_node.display_title', read_only=True, default='',
+    source_title = serializers.CharField(
+        source='source_object.display_title', read_only=True,
     )
-    resolved_node_slug = serializers.CharField(
-        source='resolved_node.slug', read_only=True, default='',
+    resolved_title = serializers.CharField(
+        source='resolved_object.display_title', read_only=True, default='',
     )
 
     class Meta:
         model = ResolvedEntity
         fields = [
             'id', 'text', 'entity_type', 'normalized_text',
-            'resolved_node', 'resolved_node_title', 'resolved_node_slug',
+            'source_object', 'source_title',
+            'resolved_object', 'resolved_title',
             'created_at',
         ]
+
+
+# ---------------------------------------------------------------------------
+# Node (timeline events)
+# ---------------------------------------------------------------------------
+
+class NodeListSerializer(serializers.ModelSerializer):
+    object_title = serializers.CharField(
+        source='object_ref.display_title', read_only=True, default='',
+    )
+    object_type = serializers.CharField(
+        source='object_ref.object_type.slug', read_only=True, default='',
+    )
+
+    class Meta:
+        model = Node
+        fields = [
+            'id', 'sha_hash', 'node_type', 'occurred_at',
+            'title', 'object_ref', 'object_title', 'object_type',
+        ]
+
+
+class NodeDetailSerializer(serializers.ModelSerializer):
+    object_title = serializers.CharField(
+        source='object_ref.display_title', read_only=True, default='',
+    )
+    project_name = serializers.CharField(
+        source='project_ref.name', read_only=True, default='',
+    )
+    timeline_name = serializers.CharField(
+        source='timeline.name', read_only=True, default='',
+    )
+
+    class Meta:
+        model = Node
+        fields = [
+            'id', 'sha_hash', 'node_type', 'occurred_at',
+            'title', 'body',
+            'object_ref', 'object_title',
+            'project_ref', 'project_name',
+            'component_ref',
+            'timeline', 'timeline_name',
+            'retrospective_notes', 'severity', 'tags', 'documents',
+            'created_at', 'updated_at',
+        ]
+
+
+class RetrospectiveNoteSerializer(serializers.Serializer):
+    """For adding retrospective notes to an existing Node."""
+    text = serializers.CharField(max_length=2000)
+
+
+# ---------------------------------------------------------------------------
+# Object
+# ---------------------------------------------------------------------------
+
+class ObjectListSerializer(serializers.ModelSerializer):
+    display_title = serializers.CharField(read_only=True)
+    object_type_name = serializers.CharField(
+        source='object_type.name', read_only=True, default='',
+    )
+    object_type_color = serializers.CharField(
+        source='object_type.color', read_only=True, default='',
+    )
+    object_type_icon = serializers.CharField(
+        source='object_type.icon', read_only=True, default='',
+    )
+    edge_count = serializers.IntegerField(read_only=True, default=0)
+    component_count = serializers.IntegerField(read_only=True, default=0)
+
+    class Meta:
+        model = Object
+        fields = [
+            'id', 'title', 'display_title', 'slug',
+            'object_type', 'object_type_name', 'object_type_color', 'object_type_icon',
+            'status', 'is_pinned', 'is_starred',
+            'captured_at', 'capture_method',
+            'edge_count', 'component_count',
+        ]
+
+
+class ObjectDetailSerializer(serializers.ModelSerializer):
+    display_title = serializers.CharField(read_only=True)
+    object_type_data = ObjectTypeSerializer(source='object_type', read_only=True)
+    components = ComponentSerializer(many=True, read_only=True)
+    entities = ResolvedEntitySerializer(
+        source='extracted_entities', many=True, read_only=True,
+    )
+    edges = serializers.SerializerMethodField()
+    recent_nodes = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Object
+        fields = [
+            'id', 'title', 'display_title', 'slug', 'sha_hash',
+            'object_type', 'object_type_data',
+            'body', 'url', 'properties',
+            'og_title', 'og_description', 'og_image', 'og_site_name',
+            'status', 'is_pinned', 'is_starred',
+            'notebook', 'project',
+            'related_essays', 'related_field_notes',
+            'promoted_source',
+            'captured_at', 'capture_method',
+            'created_at', 'updated_at',
+            'components', 'entities', 'edges', 'recent_nodes',
+        ]
+
+    def get_edges(self, obj):
+        all_edges = list(obj.edges_out.all()) + list(obj.edges_in.all())
+        return EdgeCompactSerializer(
+            all_edges, many=True,
+            context={'object_id': obj.id},
+        ).data
+
+    def get_recent_nodes(self, obj):
+        nodes = obj.timeline_nodes.order_by('-occurred_at')[:10]
+        return NodeListSerializer(nodes, many=True).data
+
+
+class ObjectWriteSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Object
+        fields = [
+            'title', 'object_type', 'body', 'url', 'properties',
+            'status', 'is_pinned', 'is_starred',
+            'notebook', 'project',
+            'related_essays', 'related_field_notes',
+        ]
+
+
+# ---------------------------------------------------------------------------
+# Notebook
+# ---------------------------------------------------------------------------
+
+class NotebookListSerializer(serializers.ModelSerializer):
+    object_count = serializers.IntegerField(read_only=True, default=0)
+
+    class Meta:
+        model = Notebook
+        fields = [
+            'id', 'name', 'slug', 'description',
+            'color', 'icon', 'is_active', 'sort_order',
+            'object_count',
+        ]
+
+
+class NotebookDetailSerializer(serializers.ModelSerializer):
+    objects = ObjectListSerializer(
+        source='notebook_objects', many=True, read_only=True,
+    )
+    object_count = serializers.IntegerField(read_only=True, default=0)
+
+    class Meta:
+        model = Notebook
+        fields = [
+            'id', 'name', 'slug', 'description',
+            'color', 'icon', 'is_active', 'sort_order',
+            'target_essay_slug', 'target_video_slug',
+            'engine_config', 'available_types', 'default_layout',
+            'theme', 'context_behavior', 'default_project_mode',
+            'object_count', 'objects',
+        ]
+
+
+class NotebookWriteSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Notebook
+        fields = [
+            'name', 'slug', 'description', 'color', 'icon',
+            'is_active', 'sort_order',
+            'engine_config', 'available_types', 'default_layout',
+            'theme', 'context_behavior', 'default_project_mode',
+        ]
+
+
+# ---------------------------------------------------------------------------
+# Project
+# ---------------------------------------------------------------------------
+
+class ProjectListSerializer(serializers.ModelSerializer):
+    notebook_name = serializers.CharField(
+        source='notebook.name', read_only=True, default='',
+    )
+
+    class Meta:
+        model = Project
+        fields = [
+            'id', 'name', 'slug', 'mode', 'status',
+            'notebook', 'notebook_name',
+            'is_template', 'reminder_at',
+        ]
+
+
+class ProjectDetailSerializer(serializers.ModelSerializer):
+    notebook_name = serializers.CharField(
+        source='notebook.name', read_only=True, default='',
+    )
+    objects = ObjectListSerializer(
+        source='project_objects', many=True, read_only=True,
+    )
+
+    class Meta:
+        model = Project
+        fields = [
+            'id', 'name', 'slug', 'sha_hash',
+            'mode', 'status', 'description',
+            'notebook', 'notebook_name',
+            'is_template', 'template_from', 'reminder_at',
+            'settings_override',
+            'objects',
+        ]
+
+
+class ProjectWriteSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Project
+        fields = [
+            'name', 'slug', 'mode', 'status', 'description',
+            'notebook', 'is_template', 'template_from', 'reminder_at',
+            'settings_override',
+        ]
+
+
+# ---------------------------------------------------------------------------
+# Timeline
+# ---------------------------------------------------------------------------
+
+class TimelineSerializer(serializers.ModelSerializer):
+    recent_nodes = serializers.SerializerMethodField()
+    node_count = serializers.IntegerField(read_only=True, default=0)
+
+    class Meta:
+        model = Timeline
+        fields = [
+            'id', 'name', 'slug', 'is_master',
+            'project', 'notebook',
+            'filter_config', 'engine_config',
+            'node_count', 'recent_nodes',
+        ]
+
+    def get_recent_nodes(self, obj):
+        nodes = obj.nodes.order_by('-occurred_at')[:20]
+        return NodeListSerializer(nodes, many=True).data
+
+
+# ---------------------------------------------------------------------------
+# Layout
+# ---------------------------------------------------------------------------
+
+class LayoutSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Layout
+        fields = ['id', 'name', 'slug', 'config', 'is_preset']
 
 
 # ---------------------------------------------------------------------------
@@ -258,39 +426,7 @@ class DailyLogSerializer(serializers.ModelSerializer):
         model = DailyLog
         fields = [
             'id', 'date',
-            'nodes_created', 'nodes_updated',
+            'objects_created', 'objects_updated',
             'edges_created', 'entities_resolved',
             'summary',
-        ]
-
-
-# ---------------------------------------------------------------------------
-# Notebook
-# ---------------------------------------------------------------------------
-
-class NotebookListSerializer(serializers.ModelSerializer):
-    node_count = serializers.IntegerField(read_only=True)
-
-    class Meta:
-        model = Notebook
-        fields = [
-            'id', 'name', 'slug', 'description',
-            'color', 'icon', 'is_active', 'sort_order',
-            'target_essay_slug', 'target_video_slug',
-            'node_count',
-        ]
-
-
-class NotebookDetailSerializer(serializers.ModelSerializer):
-    nodes = KnowledgeNodeListSerializer(many=True, read_only=True)
-    node_count = serializers.IntegerField(read_only=True)
-
-    class Meta:
-        model = Notebook
-        fields = [
-            'id', 'name', 'slug', 'description',
-            'color', 'icon', 'is_active', 'sort_order',
-            'target_essay_slug', 'target_video_slug',
-            'node_count', 'nodes',
-            'created_at', 'updated_at',
         ]

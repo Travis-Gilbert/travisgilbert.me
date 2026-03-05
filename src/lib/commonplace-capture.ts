@@ -2,16 +2,15 @@
  * CommonPlace capture logic: local-first object creation.
  *
  * Objects are created optimistically with a `local-` prefixed UUID.
- * They appear in the UI immediately. Once the Django API is wired
- * in a future session, the `syncCapture()` stub will POST to the
- * server and replace the local ID with a real one.
+ * They appear in the UI immediately. syncCapture() POSTs to the
+ * Django API and replaces the local ID with a real slug on success.
  *
- * URL detection regex, mock OG enrichment, and capture helpers
+ * URL detection regex, type inference, and capture helpers
  * all live here to keep components thin.
  */
 
-import type { CapturedObject, CaptureMethod, CaptureStatus } from './commonplace';
-import { getObjectTypeIdentity } from './commonplace';
+import type { CapturedObject, CaptureMethod } from './commonplace';
+import { syncCapturedObject } from './commonplace-api';
 
 /* ─────────────────────────────────────────────────
    URL detection
@@ -78,32 +77,8 @@ export function inferObjectType(text: string): string {
 }
 
 /* ─────────────────────────────────────────────────
-   Mock OG enrichment (simulated 1s delay)
+   (Mock OG enrichment removed: API handles server-side)
    ───────────────────────────────────────────────── */
-
-const MOCK_OG_TITLES: Record<string, string> = {
-  'github.com': 'GitHub Repository',
-  'youtube.com': 'YouTube Video',
-  'twitter.com': 'Tweet',
-  'x.com': 'Post on X',
-  'nytimes.com': 'New York Times Article',
-  'wikipedia.org': 'Wikipedia Entry',
-  'medium.com': 'Medium Article',
-  'arxiv.org': 'arXiv Paper',
-  'substack.com': 'Substack Post',
-};
-
-export function mockEnrichUrl(url: string): Promise<string> {
-  return new Promise((resolve) => {
-    const domain = domainFromUrl(url);
-    const ogTitle =
-      Object.entries(MOCK_OG_TITLES).find(([key]) =>
-        domain.includes(key)
-      )?.[1] ?? `Link from ${domain}`;
-
-    setTimeout(() => resolve(ogTitle), 800 + Math.random() * 400);
-  });
-}
 
 /* ─────────────────────────────────────────────────
    Create a captured object (local-first)
@@ -139,15 +114,33 @@ export function createCapturedObject(opts: {
 }
 
 /* ─────────────────────────────────────────────────
-   Sync stub (future: POST to Django API)
+   Sync to Django API (POST /capture/)
    ───────────────────────────────────────────────── */
 
+export interface SyncResult {
+  ok: boolean;
+  /** API-assigned slug (replaces local ID on success) */
+  slug?: string;
+  /** Enriched title from OG metadata (populated by API) */
+  enrichedTitle?: string;
+  error?: string;
+}
+
 export async function syncCapture(
-  _object: CapturedObject
-): Promise<{ ok: boolean; error?: string }> {
-  /* In this session, objects stay local. Future sessions wire
-     this to the Django research_api quickCapture endpoint. */
-  return { ok: true };
+  object: CapturedObject,
+): Promise<SyncResult> {
+  try {
+    const resp = await syncCapturedObject(object);
+    return {
+      ok: true,
+      slug: resp.object.slug,
+      enrichedTitle: resp.object.og_title ?? resp.object.display_title,
+    };
+  } catch (err) {
+    const message =
+      err instanceof Error ? err.message : 'Sync failed';
+    return { ok: false, error: message };
+  }
 }
 
 /* ─────────────────────────────────────────────────

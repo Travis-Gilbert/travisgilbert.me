@@ -1,223 +1,256 @@
 'use client';
 
-import { getMockDashboardStats, getMostRecentItem } from '@/lib/studio-mock-data';
+import { getMockDashboardIntel } from '@/lib/studio-mock-data';
 import { getContentTypeIdentity, getStage } from '@/lib/studio';
+import type { StudioContentItemWithMetrics } from '@/lib/studio';
+import StudioCard from './StudioCard';
+import DashboardSection from './DashboardSection';
 
 /**
- * Studio dashboard: landing view at /studio.
+ * Studio dashboard: intelligence-driven landing view at /studio.
  *
- * Shows ContinueCard (last edited piece), pipeline stats,
- * and recent evidence cards. Full implementation in Batch 2.
+ * Five categorized sections surface actionable items:
+ *   1. Next Session: active drafts/revisions to work on
+ *   2. Stuck Items: pieces stalled too long in one stage
+ *   3. Closest to Publish: revising/production items near done
+ *   4. Research to Convert: research with rich sources
+ *   5. Dormant Ideas Worth Reviving: old ideas with strong hooks
  *
- * Currently renders a functional summary with mock data
- * so the shell is navigable and demonstrates the data flow.
+ * Pipeline stats and activity feed live in the WorkbenchPanel
+ * (collapsible right sidebar). This dashboard focuses on decisions.
  */
 export default function Dashboard() {
-  const stats = getMockDashboardStats();
-  const recent = getMostRecentItem();
-  const recentType = recent ? getContentTypeIdentity(recent.contentType) : null;
-  const recentStage = recent ? getStage(recent.stage) : null;
+  const intel = getMockDashboardIntel();
 
   return (
     <div style={{ padding: '32px 40px' }}>
-      {/* Continue Card */}
-      {recent && recentType && recentStage && (
-        <div
-          className="studio-continue-card"
+      {/* Page header */}
+      <div className="studio-section-head" style={{ marginBottom: '28px' }}>
+        <span className="studio-section-label">Dashboard</span>
+        <span className="studio-section-line" />
+      </div>
+
+      {/* 1. Next Session */}
+      <DashboardSection
+        title="Next Session"
+        count={intel.nextSession.length}
+        emptyMessage="No active drafts or revisions. Start something new."
+      >
+        {intel.nextSession.length > 0
+          ? intel.nextSession.map((item) => (
+              <IntelCard key={item.id} item={item} />
+            ))
+          : null}
+      </DashboardSection>
+
+      {/* 2. Stuck Items */}
+      <DashboardSection
+        title="Stuck Items"
+        count={intel.stuckItems.length}
+        emptyMessage="Everything is moving. Nice work."
+      >
+        {intel.stuckItems.length > 0
+          ? intel.stuckItems.map((item) => (
+              <IntelCard key={item.id} item={item} variant="stuck" />
+            ))
+          : null}
+      </DashboardSection>
+
+      {/* 3. Closest to Publish */}
+      <DashboardSection
+        title="Closest to Publish"
+        count={intel.closestToPublish.length}
+        emptyMessage="Nothing in the home stretch yet."
+      >
+        {intel.closestToPublish.length > 0
+          ? intel.closestToPublish.map((item) => (
+              <IntelCard key={item.id} item={item} />
+            ))
+          : null}
+      </DashboardSection>
+
+      {/* 4. Research to Convert */}
+      <DashboardSection
+        title="Research to Convert"
+        count={intel.researchToConvert.length}
+        emptyMessage="No research items with enough sources to convert."
+      >
+        {intel.researchToConvert.length > 0
+          ? intel.researchToConvert.map((item) => (
+              <IntelCard key={item.id} item={item} variant="research" />
+            ))
+          : null}
+      </DashboardSection>
+
+      {/* 5. Dormant Ideas Worth Reviving */}
+      <DashboardSection
+        title="Dormant Ideas Worth Reviving"
+        count={intel.dormantIdeas.length}
+        emptyMessage="No dormant ideas with strong hooks."
+      >
+        {intel.dormantIdeas.length > 0
+          ? intel.dormantIdeas.map((item) => (
+              <IntelCard key={item.id} item={item} variant="dormant" />
+            ))
+          : null}
+      </DashboardSection>
+    </div>
+  );
+}
+
+/* ── Intelligence card ─────────────────────────── */
+
+type IntelVariant = 'default' | 'stuck' | 'research' | 'dormant';
+
+function IntelCard({
+  item,
+  variant = 'default',
+}: {
+  item: StudioContentItemWithMetrics;
+  variant?: IntelVariant;
+}) {
+  const typeInfo = getContentTypeIdentity(item.contentType);
+  const stage = getStage(item.stage);
+
+  return (
+    <StudioCard
+      typeColor={typeInfo.color}
+      href={`/studio/${typeInfo.route}/${item.slug}`}
+    >
+      {/* Title */}
+      <div
+        style={{
+          fontFamily: 'var(--studio-font-title)',
+          fontSize: '15px',
+          fontWeight: 600,
+          color: 'var(--studio-text-bright)',
+          marginBottom: '6px',
+          lineHeight: 1.3,
+        }}
+      >
+        {item.title}
+      </div>
+
+      {/* Metadata row */}
+      <div
+        style={{
+          display: 'flex',
+          flexWrap: 'wrap',
+          gap: '8px',
+          alignItems: 'center',
+        }}
+      >
+        <span className="studio-stage-badge" data-stage={item.stage}>
+          {stage.label}
+        </span>
+
+        {/* Variant-specific metrics */}
+        {variant === 'stuck' && (
+          <MetricChip
+            label={`${item.metrics.stageAgeDays}d in stage`}
+            warn
+          />
+        )}
+
+        {variant === 'research' && (
+          <>
+            <MetricChip
+              label={`${item.metrics.sourcesCollected} sources`}
+            />
+            <MetricChip
+              label={`${item.metrics.linkedNotes} notes`}
+            />
+          </>
+        )}
+
+        {variant === 'dormant' && (
+          <>
+            <MetricChip
+              label={`${item.metrics.daysSinceLastTouched}d dormant`}
+            />
+            <HookDots strength={item.metrics.hookStrength} />
+          </>
+        )}
+
+        {variant === 'default' && (
+          <MetricChip
+            label={`${item.metrics.daysSinceLastTouched}d ago`}
+          />
+        )}
+
+        <span
           style={{
-            marginBottom: '32px',
-            padding: '24px 28px',
-            borderLeft: `3px solid ${recentType.color}`,
+            fontFamily: 'var(--studio-font-mono)',
+            fontSize: '11px',
+            color: 'var(--studio-text-3)',
+            marginLeft: 'auto',
           }}
         >
-          <div
-            style={{
-              fontFamily: 'var(--studio-font-mono)',
-              fontSize: '9px',
-              fontWeight: 600,
-              letterSpacing: '0.12em',
-              textTransform: 'uppercase' as const,
-              color: 'var(--studio-text-3)',
-              marginBottom: '8px',
-            }}
-          >
-            Continue where you left off
-          </div>
-          <div
-            style={{
-              fontFamily: 'var(--studio-font-title)',
-              fontSize: '22px',
-              fontWeight: 700,
-              color: 'var(--studio-text-bright)',
-              marginBottom: '8px',
-            }}
-          >
-            {recent.title}
-          </div>
-          <div
-            style={{
-              display: 'flex',
-              gap: '16px',
-              alignItems: 'center',
-              fontFamily: 'var(--studio-font-body)',
-              fontSize: '13px',
-              color: 'var(--studio-text-2)',
-            }}
-          >
-            <span
-              className="studio-stage-badge"
-              data-stage={recent.stage}
-            >
-              {recentStage.label}
-            </span>
-            <span style={{ fontFamily: 'var(--studio-font-mono)', fontSize: '12px' }}>
-              {recent.wordCount.toLocaleString()} words
-            </span>
-          </div>
-        </div>
-      )}
-
-      {/* Pipeline Stats */}
-      <div className="studio-section-head">
-        <span className="studio-section-label">Workbench</span>
-        <span className="studio-section-line" />
+          {item.wordCount.toLocaleString()}w
+        </span>
       </div>
-
-      <div
-        style={{
-          display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))',
-          gap: '12px',
-          marginTop: '16px',
-          marginBottom: '32px',
-        }}
-      >
-        <StatCard label="Total pieces" value={stats.totalPieces} />
-        <StatCard label="Total words" value={stats.totalWords} />
-        {Object.entries(stats.byStage).map(([stage, count]) => {
-          const s = getStage(stage);
-          return (
-            <StatCard
-              key={stage}
-              label={s?.label ?? stage}
-              value={count}
-              color={s?.color}
-            />
-          );
-        })}
-      </div>
-
-      {/* Recent Activity */}
-      <div className="studio-section-head">
-        <span className="studio-section-label">Recent Activity</span>
-        <span className="studio-section-line" />
-      </div>
-
-      <div style={{ marginTop: '16px' }}>
-        {stats.recentActivity.map((entry) => {
-          const typeId = getContentTypeIdentity(entry.contentType);
-          return (
-            <div
-              key={entry.id}
-              style={{
-                display: 'flex',
-                gap: '12px',
-                alignItems: 'baseline',
-                padding: '8px 0',
-                borderBottom: '1px solid var(--studio-border)',
-                fontFamily: 'var(--studio-font-body)',
-                fontSize: '13px',
-              }}
-            >
-              <span
-                style={{
-                  width: '6px',
-                  height: '6px',
-                  borderRadius: '50%',
-                  backgroundColor: typeId?.color ?? 'var(--studio-text-3)',
-                  flexShrink: 0,
-                  marginTop: '6px',
-                }}
-              />
-              <span style={{ color: 'var(--studio-text-2)', flex: 1 }}>
-                {entry.detail}
-              </span>
-              <span
-                style={{
-                  fontFamily: 'var(--studio-font-mono)',
-                  fontSize: '11px',
-                  color: 'var(--studio-text-3)',
-                  whiteSpace: 'nowrap',
-                }}
-              >
-                {formatRelative(entry.occurredAt)}
-              </span>
-            </div>
-          );
-        })}
-      </div>
-    </div>
+    </StudioCard>
   );
 }
 
-/* ── Stat card ─────────────────────────────────── */
+/* ── Metric chip: compact metadata pill ───────── */
 
-function StatCard({
+function MetricChip({
   label,
-  value,
-  color,
+  warn = false,
 }: {
   label: string;
-  value: number;
-  color?: string;
+  warn?: boolean;
 }) {
   return (
-    <div
+    <span
       style={{
-        backgroundColor: 'var(--studio-surface)',
-        border: '1px solid var(--studio-border)',
-        borderRadius: '6px',
-        padding: '14px 16px',
-        borderTop: color ? `2px solid ${color}` : undefined,
+        fontFamily: 'var(--studio-font-mono)',
+        fontSize: '10px',
+        fontWeight: 600,
+        color: warn ? 'var(--studio-gold)' : 'var(--studio-text-3)',
+        backgroundColor: warn
+          ? 'rgba(212, 170, 74, 0.12)'
+          : 'var(--studio-surface)',
+        border: `1px solid ${
+          warn ? 'rgba(212, 170, 74, 0.2)' : 'var(--studio-border)'
+        }`,
+        borderRadius: '3px',
+        padding: '1px 6px',
+        letterSpacing: '0.04em',
       }}
     >
-      <div
-        style={{
-          fontFamily: 'var(--studio-font-mono)',
-          fontSize: '24px',
-          fontWeight: 700,
-          color: 'var(--studio-text-bright)',
-          lineHeight: 1.1,
-        }}
-      >
-        {value.toLocaleString()}
-      </div>
-      <div
-        style={{
-          fontFamily: 'var(--studio-font-body)',
-          fontSize: '11px',
-          color: 'var(--studio-text-3)',
-          marginTop: '4px',
-          textTransform: 'uppercase' as const,
-          letterSpacing: '0.06em',
-        }}
-      >
-        {label}
-      </div>
-    </div>
+      {label}
+    </span>
   );
 }
 
-/* ── Helpers ───────────────────────────────────── */
+/* ── Hook strength indicator: 1 to 5 dots ─────── */
 
-function formatRelative(iso: string): string {
-  const now = new Date('2026-03-04T14:00:00Z').getTime();
-  const then = new Date(iso).getTime();
-  const hours = Math.floor((now - then) / 3600000);
-  if (hours < 1) return 'just now';
-  if (hours < 24) return `${hours}h ago`;
-  const days = Math.floor(hours / 24);
-  if (days === 1) return 'yesterday';
-  if (days < 7) return `${days}d ago`;
-  return `${Math.floor(days / 7)}w ago`;
+function HookDots({ strength }: { strength: number }) {
+  return (
+    <span
+      style={{
+        display: 'inline-flex',
+        gap: '2px',
+        alignItems: 'center',
+      }}
+      title={`Hook strength: ${strength}/5`}
+    >
+      {Array.from({ length: 5 }, (_, i) => (
+        <span
+          key={i}
+          style={{
+            width: '5px',
+            height: '5px',
+            borderRadius: '50%',
+            backgroundColor:
+              i < strength
+                ? 'var(--studio-tc)'
+                : 'var(--studio-surface-hover)',
+          }}
+        />
+      ))}
+    </span>
+  );
 }

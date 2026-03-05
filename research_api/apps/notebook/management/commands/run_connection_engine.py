@@ -1,69 +1,84 @@
 """
-Run the connection engine across KnowledgeNodes.
+Run the connection engine across Objects.
 
 Usage:
-  python3 manage.py run_connection_engine           # Process all inbox + active nodes
-  python3 manage.py run_connection_engine --node 42  # Process a single node by PK
-  python3 manage.py run_connection_engine --all      # Process every node regardless of status
-  python3 manage.py run_connection_engine --dry-run  # Show what would happen without writing
-
-The engine extracts entities via spaCy NER, finds shared entity and
-topic connections, auto-creates Person/Org nodes, and logs everything
-to DailyLog via signals.
+  python3 manage.py run_connection_engine                # Process active Objects
+  python3 manage.py run_connection_engine --object 42    # Single Object by PK
+  python3 manage.py run_connection_engine --all          # Every Object regardless of status
+  python3 manage.py run_connection_engine --notebook creative-research  # Scope to Notebook
+  python3 manage.py run_connection_engine --dry-run      # Preview without writing
 """
 
 from django.core.management.base import BaseCommand, CommandError
 
 from apps.notebook.engine import run_engine
-from apps.notebook.models import KnowledgeNode
+from apps.notebook.models import Notebook, Object
 
 
 class Command(BaseCommand):
-    help = 'Run the connection engine to discover relationships between knowledge nodes.'
+    help = 'Run the connection engine to discover relationships between Objects.'
 
     def add_arguments(self, parser):
         parser.add_argument(
-            '--node',
+            '--object',
             type=int,
-            help='Process a single node by primary key.',
+            help='Process a single Object by primary key.',
         )
         parser.add_argument(
             '--all',
             action='store_true',
-            help='Process all nodes (default: inbox + active only).',
+            help='Process all Objects (default: active only).',
+        )
+        parser.add_argument(
+            '--notebook',
+            type=str,
+            help='Scope to a Notebook slug and use its engine config.',
         )
         parser.add_argument(
             '--dry-run',
             action='store_true',
-            help='Preview which nodes would be processed without running the engine.',
+            help='Preview which Objects would be processed without running the engine.',
         )
 
     def handle(self, *args, **options):
-        if options['node']:
-            try:
-                node = KnowledgeNode.objects.get(pk=options['node'])
-            except KnowledgeNode.DoesNotExist:
-                raise CommandError(f'KnowledgeNode with pk={options["node"]} not found.')
-            nodes = [node]
-        elif options['all']:
-            nodes = list(KnowledgeNode.objects.all().order_by('-captured_at'))
-        else:
-            nodes = list(
-                KnowledgeNode.objects
-                .filter(status__in=['inbox', 'active'])
-                .order_by('-captured_at')
-            )
+        notebook = None
 
-        if not nodes:
-            self.stdout.write('No nodes to process.')
+        if options['notebook']:
+            try:
+                notebook = Notebook.objects.get(slug=options['notebook'])
+                self.stdout.write(f'Using Notebook: {notebook.name}')
+                if notebook.engine_config:
+                    self.stdout.write(f'  Engine config: {notebook.engine_config}')
+            except Notebook.DoesNotExist:
+                raise CommandError(f'Notebook with slug="{options["notebook"]}" not found.')
+
+        if options['object']:
+            try:
+                obj = Object.objects.get(pk=options['object'])
+            except Object.DoesNotExist:
+                raise CommandError(f'Object with pk={options["object"]} not found.')
+            objects = [obj]
+        elif options['all']:
+            qs = Object.objects.all()
+            if notebook:
+                qs = qs.filter(notebook=notebook)
+            objects = list(qs.order_by('-captured_at'))
+        else:
+            qs = Object.objects.filter(status='active')
+            if notebook:
+                qs = qs.filter(notebook=notebook)
+            objects = list(qs.order_by('-captured_at'))
+
+        if not objects:
+            self.stdout.write('No Objects to process.')
             return
 
-        self.stdout.write(f'Processing {len(nodes)} node(s)...\n')
+        self.stdout.write(f'Processing {len(objects)} Object(s)...\n')
 
         if options['dry_run']:
-            for node in nodes:
-                self.stdout.write(f'  Would process: [{node.pk}] {node.display_title[:60]}')
-            self.stdout.write(self.style.WARNING(f'\nDry run: {len(nodes)} node(s) would be processed.'))
+            for obj in objects:
+                self.stdout.write(f'  Would process: [{obj.pk}] {obj.display_title[:60]}')
+            self.stdout.write(self.style.WARNING(f'\nDry run: {len(objects)} Object(s) would be processed.'))
             return
 
         totals = {
@@ -71,16 +86,21 @@ class Command(BaseCommand):
             'edges_from_entities': 0,
             'edges_from_shared': 0,
             'edges_from_topics': 0,
-            'nodes_auto_created': 0,
+            'edges_from_tfidf': 0,
+            'edges_from_semantic': 0,
+            'objects_auto_created': 0,
+            'connection_nodes_created': 0,
         }
 
-        for node in nodes:
-            self.stdout.write(f'\n  [{node.pk}] {node.display_title[:60]}')
-            results = run_engine(node)
+        for obj in objects:
+            self.stdout.write(f'\n  [{obj.pk}] {obj.display_title[:60]}')
+            results = run_engine(obj, notebook=notebook)
 
             for key in totals:
-                totals[key] += results[key]
+                totals[key] += results.get(key, 0)
 
+            if results.get('engines_active'):
+                self.stdout.write(f'    Engines: {", ".join(results["engines_active"])}')
             if results['entities_extracted']:
                 self.stdout.write(f'    Entities: {results["entities_extracted"]}')
             if results['edges_from_entities']:
@@ -89,16 +109,24 @@ class Command(BaseCommand):
                 self.stdout.write(f'    Shared entity edges: {results["edges_from_shared"]}')
             if results['edges_from_topics']:
                 self.stdout.write(f'    Topic edges: {results["edges_from_topics"]}')
-            if results['nodes_auto_created']:
+            if results.get('edges_from_tfidf'):
+                self.stdout.write(f'    TF-IDF edges: {results["edges_from_tfidf"]}')
+            if results.get('edges_from_semantic'):
+                self.stdout.write(f'    Semantic edges: {results["edges_from_semantic"]}')
+            if results['objects_auto_created']:
                 self.stdout.write(
-                    self.style.SUCCESS(f'    Auto-created nodes: {results["nodes_auto_created"]}')
+                    self.style.SUCCESS(f'    Auto-created Objects: {results["objects_auto_created"]}')
                 )
+            if results.get('connection_nodes_created'):
+                self.stdout.write(f'    Connection Nodes: {results["connection_nodes_created"]}')
 
         self.stdout.write(self.style.SUCCESS(
-            f'\nDone. Totals across {len(nodes)} node(s):\n'
+            f'\nDone. Totals across {len(objects)} Object(s):\n'
             f'  Entities extracted: {totals["entities_extracted"]}\n'
             f'  Mention edges: {totals["edges_from_entities"]}\n'
             f'  Shared entity edges: {totals["edges_from_shared"]}\n'
             f'  Topic edges: {totals["edges_from_topics"]}\n'
-            f'  Auto-created nodes: {totals["nodes_auto_created"]}'
+            f'  TF-IDF edges: {totals["edges_from_tfidf"]}\n'
+            f'  Auto-created Objects: {totals["objects_auto_created"]}\n'
+            f'  Connection Nodes: {totals["connection_nodes_created"]}'
         ))

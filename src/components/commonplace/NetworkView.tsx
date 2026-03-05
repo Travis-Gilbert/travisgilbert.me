@@ -10,13 +10,13 @@
  * Registers as the 'network' view type in SplitPaneContainer.
  */
 
-import { useState, useCallback, useRef } from 'react';
-import * as d3 from 'd3';
+import { useState, useCallback } from 'react';
 import KnowledgeMap from './KnowledgeMap';
 import EntityNetwork from './EntityNetwork';
 import TimelineViz from './TimelineViz';
 import FrameManager from './FrameManager';
-import type { ViewFrame } from '@/lib/commonplace';
+import type { ViewFrame, GraphNode, GraphLink } from '@/lib/commonplace';
+import { fetchGraph, useApiData } from '@/lib/commonplace-api';
 
 type NetworkSubView = 'map' | 'entities' | 'timeline';
 

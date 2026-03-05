@@ -8,14 +8,16 @@ import { getMockContentItems } from '@/lib/studio-mock-data';
 import NewContentModal from './NewContentModal';
 
 /**
- * Studio sidebar: 218px fixed navigation panel.
+ * Studio sidebar: 232px fixed navigation panel.
  *
- * Sections: Write (essays, field notes, shelf),
- * Manage (projects, videos, toolkit), Track (timeline, settings).
+ * Sections: Make Stuff (essays, field notes, videos),
+ * Collect (shelf, toolkit), Build (projects),
+ * System (timeline, settings).
  *
- * "Studio." wordmark at top with Vollkorn font, terracotta period.
- * Content type counts from mock data. Active route highlighting
- * with 2px terracotta left bar.
+ * "Studio." wordmark at top (54px Vollkorn), terracotta period.
+ * Terracotta glow bloom from upper left, grid lines at 5% opacity,
+ * heavier grain texture. Content type counts from mock data.
+ * Active route highlighting with 2px terracotta left bar.
  */
 export default function StudioSidebar() {
   const pathname = usePathname();
@@ -41,7 +43,7 @@ export default function StudioSidebar() {
 
   return (
     <aside
-      className="studio-sidebar-desktop studio-scrollbar studio-grain"
+      className="studio-sidebar-desktop studio-sidebar-grid studio-scrollbar studio-grain"
       style={{
         width: 'var(--studio-sidebar-width)',
         flexShrink: 0,
@@ -61,7 +63,7 @@ export default function StudioSidebar() {
         href="/studio"
         style={{
           display: 'block',
-          padding: '22px 20px 8px',
+          padding: '26px 20px 10px',
           textDecoration: 'none',
           position: 'relative',
           zIndex: 2,
@@ -71,9 +73,10 @@ export default function StudioSidebar() {
           style={{
             fontFamily: 'var(--studio-font-title)',
             fontWeight: 700,
-            fontSize: '27px',
+            fontSize: '54px',
             color: 'var(--studio-text-bright)',
-            letterSpacing: '-0.02em',
+            letterSpacing: '-0.03em',
+            lineHeight: 1,
           }}
         >
           Studio
@@ -88,10 +91,10 @@ export default function StudioSidebar() {
             letterSpacing: '0.15em',
             textTransform: 'uppercase' as const,
             color: 'var(--studio-text-3)',
-            marginTop: '2px',
+            marginTop: '4px',
           }}
         >
-          Publishing Workbench
+          TRAVISGILBERT.ME
         </span>
       </Link>
 

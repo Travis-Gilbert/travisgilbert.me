@@ -2,22 +2,22 @@
 
 Personal creative workbench: a living record of work, interests, and thinking. Studio-journal aesthetic with hand-drawn visual elements. Not a traditional portfolio or resume.
 
-**Live site:** [travisgilbert.com](https://travisgilbert.com)
+**Live site:** [travisgilbert.me](https://travisgilbert.com)
 
 ## Tech Stack
 
-| Layer | Technology |
-|-------|-----------|
-| Framework | Next.js 15 (App Router, static site generation) |
-| UI | React 19 |
-| Styling | Tailwind CSS v4, CSS custom properties |
-| Hand-drawn visuals | rough.js, rough-notation |
+| Layer | Technology                                                                                           |
+|-------|------------------------------------------------------------------------------------------------------|
+| Framework | Next.js 16 (App Router, static site generation)                                                      |
+| UI | React 19                                                                                             |
+| Styling | Tailwind CSS v4, CSS custom properties                                                               |
+| Hand-drawn visuals | rough.js, rough-notation                                                                             |
 | Typography | 7 fonts via `next/font` (Vollkorn, Cabin, IBM Plex Sans, Ysabeau, Courier Prime, Space Mono, Amarna) |
-| UI primitives | Radix UI (Accordion, Collapsible, Toggle Group, Tooltip) |
-| Icons | Phosphor (functional UI) + custom SketchIcon system (brand identity) |
-| Content | Markdown + gray-matter + remark, Zod schema validation |
-| Hosting | Vercel (auto-deploy from `main`) |
-| Publishing | Django Studio in `publishing_api/` (HTMX, GitHub Contents API pipeline) |
+| UI primitives | Radix UI (Accordion, Collapsible, Toggle Group, Tooltip)                                             |
+| Icons | Phosphor (functional UI) + custom SketchIcon system (brand identity)                                 |
+| Content | Markdown + gray-matter + remark, Zod schema validation                                               |
+| Hosting | Vercel (auto-deploy from `main`)                                                                     |
+| Publishing | Django Studio in `publishing_api/` (HTMX, GitHub Contents API pipeline)                              |
 
 ## Getting Started
 

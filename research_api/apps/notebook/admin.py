@@ -1,21 +1,27 @@
 """
-Admin configuration for the Notebooks knowledge graph.
+Django admin for CommonPlace knowledge graph.
 
-Optimized for fast knowledge capture and browsing the connection graph.
-Rich list views, inline edges, and custom actions for bulk operations.
+Rich list views with color swatches, inline Components/Edges,
+edge count annotations, and status filters for all 11 models.
 """
 
 from django.contrib import admin
-from django.db.models import Count, Q
+from django.db.models import Count
 from django.utils.html import format_html
 
 from .models import (
+    Component,
+    ComponentType,
     DailyLog,
     Edge,
-    KnowledgeNode,
-    NodeType,
+    Layout,
+    Node,
     Notebook,
+    Object,
+    ObjectType,
+    Project,
     ResolvedEntity,
+    Timeline,
 )
 
 
@@ -23,330 +29,378 @@ from .models import (
 # Inlines
 # ---------------------------------------------------------------------------
 
+class ComponentInline(admin.TabularInline):
+    model = Component
+    extra = 1
+    fields = ('component_type', 'key', 'value', 'sort_order')
+    autocomplete_fields = ('component_type',)
+
 
 class EdgeFromInline(admin.TabularInline):
-    """Edges going OUT from this node."""
-
     model = Edge
-    fk_name = 'from_node'
+    fk_name = 'from_object'
     extra = 0
-    fields = ['to_node', 'edge_type', 'reason', 'strength', 'is_auto']
-    readonly_fields = ['is_auto']
-    raw_id_fields = ['to_node']
-    verbose_name = 'outgoing connection'
-    verbose_name_plural = 'outgoing connections'
+    fields = ('to_object', 'edge_type', 'strength', 'reason', 'is_auto', 'engine')
+    autocomplete_fields = ('to_object',)
+    verbose_name = 'Outgoing edge'
+    verbose_name_plural = 'Outgoing edges'
 
 
 class EdgeToInline(admin.TabularInline):
-    """Edges coming IN to this node."""
-
     model = Edge
-    fk_name = 'to_node'
+    fk_name = 'to_object'
     extra = 0
-    fields = ['from_node', 'edge_type', 'reason', 'strength', 'is_auto']
-    readonly_fields = ['is_auto']
-    raw_id_fields = ['from_node']
-    verbose_name = 'incoming connection'
-    verbose_name_plural = 'incoming connections'
-
-
-class ResolvedEntityInline(admin.TabularInline):
-    """Entities extracted from this node by spaCy."""
-
-    model = ResolvedEntity
-    fk_name = 'source_node'
-    extra = 0
-    fields = ['text', 'entity_type', 'normalized_text', 'resolved_node']
-    readonly_fields = ['text', 'entity_type', 'normalized_text']
-    raw_id_fields = ['resolved_node']
+    fields = ('from_object', 'edge_type', 'strength', 'reason', 'is_auto', 'engine')
+    autocomplete_fields = ('from_object',)
+    verbose_name = 'Incoming edge'
+    verbose_name_plural = 'Incoming edges'
 
 
 # ---------------------------------------------------------------------------
-# NodeType
+# ObjectType
 # ---------------------------------------------------------------------------
 
-
-@admin.register(NodeType)
-class NodeTypeAdmin(admin.ModelAdmin):
-    list_display = ['name', 'slug', 'color_swatch', 'icon', 'is_built_in', 'node_count', 'sort_order']
-    list_editable = ['sort_order']
-    list_filter = ['is_built_in']
-    search_fields = ['name']
+@admin.register(ObjectType)
+class ObjectTypeAdmin(admin.ModelAdmin):
+    list_display = ('name', 'color_swatch', 'icon', 'object_count', 'default_components_display', 'is_built_in', 'sort_order')
+    list_filter = ('is_built_in',)
+    search_fields = ('name', 'slug')
     prepopulated_fields = {'slug': ('name',)}
-    readonly_fields = ['created_at', 'updated_at']
+    readonly_fields = ('object_count',)
 
-    fieldsets = [
-        (None, {
-            'fields': ['name', 'slug', 'icon', 'color', 'sort_order'],
-        }),
-        ('Schema', {
-            'fields': ['schema'],
-            'classes': ['collapse'],
-            'description': 'JSON schema for type-specific properties.',
-        }),
-        ('System', {
-            'fields': ['is_built_in', 'created_at', 'updated_at'],
-            'classes': ['collapse'],
-        }),
-    ]
-
-    def get_queryset(self, request):
-        return super().get_queryset(request).annotate(
-            _node_count=Count('nodes'),
-        )
-
-    @admin.display(description='Nodes', ordering='_node_count')
-    def node_count(self, obj):
-        return obj._node_count
-
-    @admin.display(description='Color')
     def color_swatch(self, obj):
         return format_html(
-            '<span style="display:inline-block;width:14px;height:14px;'
-            'border-radius:3px;background:{};vertical-align:middle;'
-            'margin-right:6px;border:1px solid #ccc;"></span>{}',
+            '<span style="display:inline-block;width:18px;height:18px;'
+            'border-radius:3px;background:{};border:1px solid #ccc;"></span> {}',
             obj.color, obj.color,
         )
+    color_swatch.short_description = 'Color'
+
+    def default_components_display(self, obj):
+        if obj.default_components:
+            return ', '.join(obj.default_components)
+        return ''
+    default_components_display.short_description = 'Default components'
+
+    def object_count(self, obj):
+        return obj.typed_objects.count()
+    object_count.short_description = 'Objects'
+
+    def get_queryset(self, request):
+        return super().get_queryset(request).prefetch_related('typed_objects')
 
 
 # ---------------------------------------------------------------------------
-# KnowledgeNode
+# Object
 # ---------------------------------------------------------------------------
 
-
-@admin.register(KnowledgeNode)
-class KnowledgeNodeAdmin(admin.ModelAdmin):
-    list_display = [
-        'display_title_short', 'node_type', 'status',
-        'is_pinned', 'is_starred', 'edge_count',
-        'capture_method', 'captured_at',
-    ]
-    list_filter = ['status', 'node_type', 'is_pinned', 'is_starred', 'capture_method']
-    search_fields = ['title', 'body', 'search_text', 'url']
-    list_editable = ['status', 'is_pinned', 'is_starred']
+@admin.register(Object)
+class ObjectAdmin(admin.ModelAdmin):
+    list_display = (
+        'display_title', 'type_badge', 'status', 'is_pinned', 'is_starred',
+        'notebook', 'edge_count', 'component_count', 'captured_at',
+    )
+    list_filter = ('status', 'object_type', 'is_pinned', 'is_starred', 'notebook', 'capture_method')
+    search_fields = ('title', 'body', 'search_text', 'slug')
+    readonly_fields = ('sha_hash', 'search_text', 'display_title', 'captured_at', 'created_at', 'updated_at')
+    autocomplete_fields = ('object_type', 'notebook', 'project', 'promoted_source')
+    prepopulated_fields = {'slug': ('title',)}
+    inlines = [ComponentInline, EdgeFromInline, EdgeToInline]
     date_hierarchy = 'captured_at'
-    raw_id_fields = ['promoted_source']
-    readonly_fields = ['search_text', 'captured_at', 'created_at', 'updated_at']
-    inlines = [ResolvedEntityInline, EdgeFromInline, EdgeToInline]
 
-    fieldsets = [
+    fieldsets = (
         (None, {
-            'fields': ['title', 'slug', 'node_type', 'status'],
+            'fields': ('title', 'slug', 'object_type', 'status'),
         }),
         ('Content', {
-            'fields': ['body', 'url', 'properties'],
-        }),
-        ('OG Metadata', {
-            'fields': ['og_title', 'og_description', 'og_image', 'og_site_name'],
-            'classes': ['collapse'],
+            'fields': ('body', 'url', 'properties'),
         }),
         ('Organization', {
-            'fields': ['is_pinned', 'is_starred', 'notebooks'],
+            'fields': ('notebook', 'project', 'is_pinned', 'is_starred'),
         }),
-        ('Published Content Links', {
-            'fields': ['related_essays', 'related_field_notes', 'promoted_source'],
-            'classes': ['collapse'],
+        ('OG Metadata', {
+            'classes': ('collapse',),
+            'fields': ('og_title', 'og_description', 'og_image', 'og_site_name'),
         }),
-        ('Capture', {
-            'fields': ['capture_method', 'captured_at'],
-            'classes': ['collapse'],
+        ('Related Content', {
+            'classes': ('collapse',),
+            'fields': ('related_essays', 'related_field_notes', 'promoted_source'),
         }),
-        ('System', {
-            'fields': ['search_text', 'created_at', 'updated_at'],
-            'classes': ['collapse'],
+        ('Read-only', {
+            'classes': ('collapse',),
+            'fields': ('sha_hash', 'search_text', 'display_title', 'capture_method', 'captured_at', 'created_at', 'updated_at'),
         }),
-    ]
+    )
+
+    def type_badge(self, obj):
+        if obj.object_type:
+            return format_html(
+                '<span style="display:inline-block;padding:2px 8px;border-radius:3px;'
+                'background:{};color:#fff;font-size:11px;">{}</span>',
+                obj.object_type.color, obj.object_type.name,
+            )
+        return ''
+    type_badge.short_description = 'Type'
+    type_badge.admin_order_field = 'object_type__name'
+
+    def edge_count(self, obj):
+        return obj._edge_count
+    edge_count.short_description = 'Edges'
+    edge_count.admin_order_field = '_edge_count'
+
+    def component_count(self, obj):
+        return obj._component_count
+    component_count.short_description = 'Cmps'
+    component_count.admin_order_field = '_component_count'
 
     def get_queryset(self, request):
         return (
             super().get_queryset(request)
-            .select_related('node_type')
+            .select_related('object_type', 'notebook', 'project')
             .annotate(
                 _edge_count=Count('edges_out', distinct=True) + Count('edges_in', distinct=True),
+                _component_count=Count('components', distinct=True),
             )
         )
 
-    @admin.display(description='Title')
-    def display_title_short(self, obj):
-        title = obj.display_title
-        if len(title) > 60:
-            return title[:57] + '...'
-        return title
 
-    @admin.display(description='Edges', ordering='_edge_count')
-    def edge_count(self, obj):
-        return obj._edge_count
+# ---------------------------------------------------------------------------
+# ComponentType
+# ---------------------------------------------------------------------------
+
+@admin.register(ComponentType)
+class ComponentTypeAdmin(admin.ModelAdmin):
+    list_display = ('name', 'slug', 'data_type', 'triggers_node', 'is_built_in', 'sort_order')
+    list_filter = ('data_type', 'triggers_node', 'is_built_in')
+    search_fields = ('name', 'slug')
+    prepopulated_fields = {'slug': ('name',)}
+
+
+# ---------------------------------------------------------------------------
+# Component
+# ---------------------------------------------------------------------------
+
+@admin.register(Component)
+class ComponentAdmin(admin.ModelAdmin):
+    list_display = ('key', 'component_type', 'object_link', 'value_preview', 'sort_order')
+    list_filter = ('component_type',)
+    search_fields = ('key', 'object__title')
+    autocomplete_fields = ('object', 'component_type')
+
+    def object_link(self, obj):
+        return format_html(
+            '<a href="/admin/notebook/object/{}/change/">{}</a>',
+            obj.object_id, obj.object.display_title[:40],
+        )
+    object_link.short_description = 'Object'
+
+    def value_preview(self, obj):
+        v = str(obj.value)
+        return v[:80] + '...' if len(v) > 80 else v
+    value_preview.short_description = 'Value'
+
+    def get_queryset(self, request):
+        return super().get_queryset(request).select_related('object', 'component_type')
+
+
+# ---------------------------------------------------------------------------
+# Node (immutable timeline events)
+# ---------------------------------------------------------------------------
+
+@admin.register(Node)
+class NodeAdmin(admin.ModelAdmin):
+    list_display = ('title_display', 'node_type', 'object_ref_link', 'timeline', 'occurred_at')
+    list_filter = ('node_type', 'timeline')
+    search_fields = ('title', 'body', 'sha_hash')
+    readonly_fields = (
+        'sha_hash', 'node_type', 'occurred_at', 'title', 'body',
+        'object_ref', 'project_ref', 'component_ref', 'timeline',
+        'severity', 'tags', 'documents', 'retrospective_notes',
+        'created_at', 'updated_at',
+    )
+    date_hierarchy = 'occurred_at'
+
+    def title_display(self, obj):
+        return obj.title[:60] if obj.title else f'[{obj.node_type}]'
+    title_display.short_description = 'Title'
+
+    def object_ref_link(self, obj):
+        if obj.object_ref:
+            return format_html(
+                '<a href="/admin/notebook/object/{}/change/">{}</a>',
+                obj.object_ref_id, obj.object_ref.display_title[:40],
+            )
+        return ''
+    object_ref_link.short_description = 'Object'
+
+    def has_add_permission(self, request):
+        return False  # Nodes are created by signals only
+
+    def has_delete_permission(self, request, obj=None):
+        return False  # Nodes are immutable
+
+    def get_queryset(self, request):
+        return super().get_queryset(request).select_related('object_ref', 'timeline')
 
 
 # ---------------------------------------------------------------------------
 # Edge
 # ---------------------------------------------------------------------------
 
-
 @admin.register(Edge)
 class EdgeAdmin(admin.ModelAdmin):
-    list_display = [
-        'from_node_short', 'arrow', 'to_node_short',
-        'edge_type', 'strength_bar', 'is_auto', 'created_at',
-    ]
-    list_filter = ['edge_type', 'is_auto']
-    search_fields = ['reason', 'from_node__title', 'to_node__title']
-    raw_id_fields = ['from_node', 'to_node']
-    readonly_fields = ['created_at', 'updated_at']
-    list_select_related = ['from_node', 'to_node']
+    list_display = ('from_object', 'edge_type', 'to_object', 'strength_bar', 'engine', 'is_auto')
+    list_filter = ('edge_type', 'engine', 'is_auto')
+    search_fields = ('from_object__title', 'to_object__title', 'reason')
+    autocomplete_fields = ('from_object', 'to_object')
 
-    fieldsets = [
-        (None, {
-            'fields': ['from_node', 'to_node', 'edge_type'],
-        }),
-        ('Explanation', {
-            'fields': ['reason', 'strength', 'is_auto'],
-        }),
-        ('Timestamps', {
-            'fields': ['created_at', 'updated_at'],
-            'classes': ['collapse'],
-        }),
-    ]
-
-    @admin.display(description='From')
-    def from_node_short(self, obj):
-        return obj.from_node.display_title[:40]
-
-    @admin.display(description='')
-    def arrow(self, obj):
-        return '->'
-
-    @admin.display(description='To')
-    def to_node_short(self, obj):
-        return obj.to_node.display_title[:40]
-
-    @admin.display(description='Strength')
     def strength_bar(self, obj):
-        pct = int(obj.strength * 100)
+        pct = int((obj.strength or 0) * 100)
         return format_html(
-            '<div style="background:#eee;width:60px;height:10px;border-radius:3px;">'
-            '<div style="background:#2D5F6B;width:{}%;height:100%;border-radius:3px;"></div>'
-            '</div>',
-            pct,
+            '<div style="width:60px;background:#eee;border-radius:3px;">'
+            '<div style="width:{}%;background:#2D5F6B;height:8px;border-radius:3px;"></div>'
+            '</div> {}',
+            pct, f'{obj.strength:.2f}',
         )
+    strength_bar.short_description = 'Strength'
+
+    def get_queryset(self, request):
+        return super().get_queryset(request).select_related('from_object', 'to_object')
 
 
 # ---------------------------------------------------------------------------
 # ResolvedEntity
 # ---------------------------------------------------------------------------
 
-
 @admin.register(ResolvedEntity)
 class ResolvedEntityAdmin(admin.ModelAdmin):
-    list_display = [
-        'text', 'entity_type', 'source_node_short',
-        'resolved_node_short', 'created_at',
-    ]
-    list_filter = ['entity_type']
-    search_fields = ['text', 'normalized_text', 'source_node__title']
-    raw_id_fields = ['source_node', 'resolved_node']
-    readonly_fields = ['created_at', 'updated_at']
-    list_select_related = ['source_node', 'resolved_node']
+    list_display = ('text', 'entity_type', 'normalized_text', 'source_link', 'resolved_link')
+    list_filter = ('entity_type',)
+    search_fields = ('text', 'normalized_text')
+    autocomplete_fields = ('source_object', 'resolved_object')
 
-    @admin.display(description='From Node')
-    def source_node_short(self, obj):
-        return obj.source_node.display_title[:40]
+    def source_link(self, obj):
+        return format_html(
+            '<a href="/admin/notebook/object/{}/change/">{}</a>',
+            obj.source_object_id, obj.source_object.display_title[:30],
+        )
+    source_link.short_description = 'Source'
 
-    @admin.display(description='Resolved To')
-    def resolved_node_short(self, obj):
-        if obj.resolved_node:
-            return obj.resolved_node.display_title[:40]
+    def resolved_link(self, obj):
+        if obj.resolved_object:
+            return format_html(
+                '<a href="/admin/notebook/object/{}/change/">{}</a>',
+                obj.resolved_object_id, obj.resolved_object.display_title[:30],
+            )
         return ''
+    resolved_link.short_description = 'Resolved to'
 
-
-# ---------------------------------------------------------------------------
-# DailyLog
-# ---------------------------------------------------------------------------
-
-
-@admin.register(DailyLog)
-class DailyLogAdmin(admin.ModelAdmin):
-    list_display = [
-        'date', 'nodes_created_count', 'nodes_updated_count',
-        'edges_created_count', 'entities_count',
-    ]
-    readonly_fields = [
-        'date', 'nodes_created', 'nodes_updated',
-        'edges_created', 'entities_resolved', 'summary',
-        'created_at', 'updated_at',
-    ]
-    date_hierarchy = 'date'
-    ordering = ['-date']
-
-    @admin.display(description='Created')
-    def nodes_created_count(self, obj):
-        return len(obj.nodes_created) if obj.nodes_created else 0
-
-    @admin.display(description='Updated')
-    def nodes_updated_count(self, obj):
-        return len(obj.nodes_updated) if obj.nodes_updated else 0
-
-    @admin.display(description='Edges')
-    def edges_created_count(self, obj):
-        return len(obj.edges_created) if obj.edges_created else 0
-
-    @admin.display(description='Entities')
-    def entities_count(self, obj):
-        return len(obj.entities_resolved) if obj.entities_resolved else 0
+    def get_queryset(self, request):
+        return super().get_queryset(request).select_related('source_object', 'resolved_object')
 
 
 # ---------------------------------------------------------------------------
 # Notebook
 # ---------------------------------------------------------------------------
 
-
 @admin.register(Notebook)
 class NotebookAdmin(admin.ModelAdmin):
-    list_display = [
-        'name', 'slug', 'color_swatch', 'is_active',
-        'node_count', 'target_essay_slug', 'sort_order',
-    ]
-    list_filter = ['is_active']
-    search_fields = ['name', 'description']
+    list_display = ('name', 'color_swatch', 'object_count', 'is_active', 'default_project_mode', 'sort_order')
+    list_filter = ('is_active', 'default_project_mode')
+    search_fields = ('name', 'slug')
     prepopulated_fields = {'slug': ('name',)}
-    list_editable = ['sort_order', 'is_active']
-    readonly_fields = ['created_at', 'updated_at']
-    filter_horizontal = ['nodes']
 
-    fieldsets = [
+    fieldsets = (
         (None, {
-            'fields': ['name', 'slug', 'description', 'color', 'icon'],
+            'fields': ('name', 'slug', 'description', 'color', 'icon', 'is_active', 'sort_order'),
         }),
-        ('Organization', {
-            'fields': ['is_active', 'sort_order'],
+        ('Publishing Links', {
+            'classes': ('collapse',),
+            'fields': ('target_essay_slug', 'target_video_slug'),
         }),
-        ('Content Targets', {
-            'fields': ['target_essay_slug', 'target_video_slug'],
-            'classes': ['collapse'],
+        ('Configuration', {
+            'classes': ('collapse',),
+            'fields': ('engine_config', 'available_types', 'default_layout', 'theme', 'context_behavior', 'default_project_mode'),
         }),
-        ('Nodes', {
-            'fields': ['nodes'],
-        }),
-        ('Timestamps', {
-            'fields': ['created_at', 'updated_at'],
-            'classes': ['collapse'],
-        }),
-    ]
+    )
 
-    def get_queryset(self, request):
-        return super().get_queryset(request).annotate(
-            _node_count=Count('nodes'),
-        )
-
-    @admin.display(description='Nodes', ordering='_node_count')
-    def node_count(self, obj):
-        return obj._node_count
-
-    @admin.display(description='Color')
     def color_swatch(self, obj):
         return format_html(
-            '<span style="display:inline-block;width:14px;height:14px;'
-            'border-radius:3px;background:{};vertical-align:middle;'
-            'margin-right:6px;border:1px solid #ccc;"></span>{}',
+            '<span style="display:inline-block;width:18px;height:18px;'
+            'border-radius:3px;background:{};border:1px solid #ccc;"></span> {}',
             obj.color, obj.color,
         )
+    color_swatch.short_description = 'Color'
+
+    def object_count(self, obj):
+        return obj.notebook_objects.count()
+    object_count.short_description = 'Objects'
+
+
+# ---------------------------------------------------------------------------
+# Project
+# ---------------------------------------------------------------------------
+
+@admin.register(Project)
+class ProjectAdmin(admin.ModelAdmin):
+    list_display = ('name', 'mode', 'status', 'notebook', 'is_template', 'reminder_at')
+    list_filter = ('mode', 'status', 'is_template')
+    search_fields = ('name', 'slug')
+    prepopulated_fields = {'slug': ('name',)}
+    autocomplete_fields = ('notebook', 'template_from')
+    readonly_fields = ('sha_hash',)
+
+
+# ---------------------------------------------------------------------------
+# Timeline
+# ---------------------------------------------------------------------------
+
+@admin.register(Timeline)
+class TimelineAdmin(admin.ModelAdmin):
+    list_display = ('name', 'is_master', 'node_count', 'project', 'notebook')
+    list_filter = ('is_master',)
+    search_fields = ('name', 'slug')
+    prepopulated_fields = {'slug': ('name',)}
+    autocomplete_fields = ('project', 'notebook')
+
+    def node_count(self, obj):
+        return obj.nodes.count()
+    node_count.short_description = 'Nodes'
+
+
+# ---------------------------------------------------------------------------
+# Layout
+# ---------------------------------------------------------------------------
+
+@admin.register(Layout)
+class LayoutAdmin(admin.ModelAdmin):
+    list_display = ('name', 'slug', 'is_preset')
+    list_filter = ('is_preset',)
+    search_fields = ('name', 'slug')
+    prepopulated_fields = {'slug': ('name',)}
+
+
+# ---------------------------------------------------------------------------
+# DailyLog
+# ---------------------------------------------------------------------------
+
+@admin.register(DailyLog)
+class DailyLogAdmin(admin.ModelAdmin):
+    list_display = ('date', 'objects_created_count', 'objects_updated_count', 'edges_created_count')
+    date_hierarchy = 'date'
+    readonly_fields = ('date', 'objects_created', 'objects_updated', 'edges_created', 'entities_resolved')
+
+    def objects_created_count(self, obj):
+        return len(obj.objects_created) if obj.objects_created else 0
+    objects_created_count.short_description = 'Created'
+
+    def objects_updated_count(self, obj):
+        return len(obj.objects_updated) if obj.objects_updated else 0
+    objects_updated_count.short_description = 'Updated'
+
+    def edges_created_count(self, obj):
+        return len(obj.edges_created) if obj.edges_created else 0
+    edges_created_count.short_description = 'Edges'
+
+    def has_add_permission(self, request):
+        return False  # DailyLogs are auto-created by signals

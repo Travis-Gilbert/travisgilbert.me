@@ -255,6 +255,117 @@ export const CAPTURE_PLACEHOLDERS = [
 ];
 
 /* ─────────────────────────────────────────────────
+   API response types (match Django DRF serializers)
+   Used by commonplace-api.ts mapping layer.
+   ───────────────────────────────────────────────── */
+
+/** GET /feed/ item (NodeListSerializer) */
+export interface ApiFeedNode {
+  id: number;
+  sha_hash: string;
+  node_type: string;
+  occurred_at: string;
+  title: string;
+  object_ref: number;
+  object_title: string;
+  object_type: string;
+}
+
+/** GET /graph/ object (GraphObjectSerializer) */
+export interface ApiGraphObject {
+  id: number;
+  title: string;
+  slug: string;
+  object_type: string;
+  object_type_color: string;
+  object_type_icon: string;
+  edge_count: number;
+  status: string;
+}
+
+/** GET /graph/ edge (GraphEdgeSerializer) */
+export interface ApiGraphEdge {
+  id: number;
+  source: number;
+  target: number;
+  edge_type: string;
+  strength: number;
+  reason: string;
+}
+
+/** GET /graph/ full response */
+export interface ApiGraphResponse {
+  objects: ApiGraphObject[];
+  edges: ApiGraphEdge[];
+  meta: {
+    object_count: number;
+    edge_count: number;
+    type_distribution: Record<string, number>;
+  };
+}
+
+/** Object detail edge (EdgeCompactSerializer) */
+export interface ApiEdgeCompact {
+  id: number;
+  other_id: number;
+  other_title: string;
+  direction: 'incoming' | 'outgoing';
+  edge_type: string;
+  reason: string;
+  strength: number;
+}
+
+/** Object component (ComponentSerializer) */
+export interface ApiComponent {
+  id: number;
+  component_type: number;
+  component_type_name: string;
+  data_type: string;
+  key: string;
+  value: string;
+  sort_order: number;
+}
+
+/** GET /objects/{slug}/ (ObjectDetailSerializer) */
+export interface ApiObjectDetail {
+  id: number;
+  title: string;
+  display_title: string;
+  slug: string;
+  object_type: number;
+  object_type_data: { slug: string; name: string; icon: string; color: string };
+  body: string;
+  url: string;
+  og_title: string | null;
+  og_description: string | null;
+  status: string;
+  captured_at: string;
+  capture_method: string;
+  edges: ApiEdgeCompact[];
+  components: ApiComponent[];
+  recent_nodes: ApiFeedNode[];
+}
+
+/** POST /capture/ response */
+export interface ApiCaptureResponse {
+  object: ApiObjectDetail;
+  creation_node: ApiFeedNode | null;
+}
+
+/** GET /resurface/ item */
+export interface ApiResurfaceItem extends ApiGraphObject {
+  captured_at: string;
+  score: number;
+  why_this: string;
+}
+
+/** GET /resurface/ response */
+export interface ApiResurfaceResponse {
+  objects: ApiResurfaceItem[];
+  meta: { count: number };
+}
+
+/* ─────────────────────────────────────────────────
    Fetch helpers (same pattern as networks.ts)
    ───────────────────────────────────────────────── */
 

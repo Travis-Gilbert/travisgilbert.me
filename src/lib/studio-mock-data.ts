@@ -15,6 +15,10 @@ import type {
   StudioContentItem,
   StudioTimelineEntry,
   StudioDashboardStats,
+  StudioItemMetrics,
+  StudioContentItemWithMetrics,
+  StudioDashboardIntel,
+  WorkbenchPanelData,
 } from '@/lib/studio';
 
 /* ─────────────────────────────────────────────────
@@ -373,6 +377,162 @@ export function getItemBySlug(
       (i) => i.contentType === contentType && i.slug === slug,
     ) ?? null
   );
+}
+
+/* ─────────────────────────────────────────────────
+   Item metrics: per-item intelligence computations
+   ───────────────────────────────────────────────── */
+
+const METRICS_SEED = 'studio-metrics-2026';
+const NOW_MS = new Date('2026-03-04T14:00:00Z').getTime();
+const DAY_MS = 86400000;
+
+/**
+ * Compute intelligence metrics for a single content item.
+ * Uses a seeded PRNG per-item (hash of item id) so metrics
+ * are deterministic but vary convincingly per item.
+ */
+export function computeItemMetrics(item: StudioContentItem): StudioItemMetrics {
+  const rng = createRng(hashString(METRICS_SEED + item.id));
+
+  const daysSinceLastTouched = Math.max(
+    0,
+    Math.round((NOW_MS - new Date(item.updatedAt).getTime()) / DAY_MS),
+  );
+
+  /* Stage age: how long in the current stage (simulated). Items
+     created more recently have a shorter stage age. */
+  const createdDaysAgo = Math.round(
+    (NOW_MS - new Date(item.createdAt).getTime()) / DAY_MS,
+  );
+  const stageAgeDays = Math.max(
+    1,
+    Math.round(rng() * Math.min(createdDaysAgo, 30)),
+  );
+
+  /* Script completion is only meaningful for videos */
+  const scriptCompletionPct =
+    item.contentType === 'video'
+      ? Math.round(rng() * 100)
+      : null;
+
+  /* Sources: research-stage items have more, others fewer */
+  const sourceBase = item.stage === 'research' ? 5 : 1;
+  const sourcesCollected = Math.floor(rng() * 8) + sourceBase;
+
+  /* Linked notes: correlated with stage advancement */
+  const stageObj = STAGES.find((s) => s.slug === item.stage);
+  const stageOrder = stageObj?.order ?? 0;
+  const linkedNotes = Math.floor(rng() * (stageOrder + 2));
+
+  /* Hook strength: 1 to 5. Ideas with good titles get higher scores. */
+  const hookStrength = Math.min(5, Math.max(1, Math.round(rng() * 5)));
+
+  return {
+    daysSinceLastTouched,
+    stageAgeDays,
+    scriptCompletionPct,
+    sourcesCollected,
+    linkedNotes,
+    hookStrength,
+  };
+}
+
+/**
+ * Attach metrics to all mock items.
+ */
+function getItemsWithMetrics(): StudioContentItemWithMetrics[] {
+  return getMockContentItems().map((item) => ({
+    ...item,
+    metrics: computeItemMetrics(item),
+  }));
+}
+
+/**
+ * Dashboard intelligence: categorizes items into 5 actionable sections.
+ *
+ * Each section has different inclusion criteria:
+ *   nextSession: active drafts/revisions sorted by recency (top 3)
+ *   stuckItems: stageAge > 14 days and not in idea stage
+ *   closestToPublish: revising or production stage
+ *   researchToConvert: research stage with decent source counts
+ *   dormantIdeas: idea/research not touched in 30+ days with hookStrength >= 3
+ */
+export function getMockDashboardIntel(): StudioDashboardIntel {
+  const all = getItemsWithMetrics();
+
+  const nextSession = all
+    .filter((i) => ['drafting', 'revising'].includes(i.stage))
+    .sort((a, b) => a.metrics.daysSinceLastTouched - b.metrics.daysSinceLastTouched)
+    .slice(0, 3);
+
+  const stuckItems = all
+    .filter(
+      (i) => i.metrics.stageAgeDays > 14 && i.stage !== 'idea' && i.stage !== 'published',
+    )
+    .sort((a, b) => b.metrics.stageAgeDays - a.metrics.stageAgeDays);
+
+  const closestToPublish = all
+    .filter((i) => ['revising', 'production'].includes(i.stage))
+    .sort((a, b) => {
+      /* Production before revising */
+      const stageOrder = (s: string) =>
+        s === 'production' ? 1 : 0;
+      return stageOrder(b.stage) - stageOrder(a.stage);
+    });
+
+  const researchToConvert = all
+    .filter((i) => i.stage === 'research' && i.metrics.sourcesCollected >= 3)
+    .sort((a, b) => b.metrics.sourcesCollected - a.metrics.sourcesCollected);
+
+  const dormantIdeas = all
+    .filter(
+      (i) =>
+        ['idea', 'research'].includes(i.stage) &&
+        i.metrics.daysSinceLastTouched >= 30 &&
+        i.metrics.hookStrength >= 3,
+    )
+    .sort((a, b) => b.metrics.hookStrength - a.metrics.hookStrength);
+
+  return {
+    nextSession,
+    stuckItems,
+    closestToPublish,
+    researchToConvert,
+    dormantIdeas,
+  };
+}
+
+/**
+ * Aggregated data for the collapsible workbench panel.
+ */
+export function getMockWorkbenchData(): WorkbenchPanelData {
+  const items = getMockContentItems();
+  const timeline = getMockTimeline();
+
+  const pipelineBreakdown: Record<string, number> = {};
+  let totalWords = 0;
+
+  for (const item of items) {
+    pipelineBreakdown[item.stage] = (pipelineBreakdown[item.stage] ?? 0) + 1;
+    totalWords += item.wordCount;
+  }
+
+  const publishReadyThisWeek = items.filter(
+    (i) => i.stage === 'production',
+  ).length;
+
+  const ideaBacklogCount = items.filter(
+    (i) => i.stage === 'idea',
+  ).length;
+
+  return {
+    pipelineBreakdown,
+    publishReadyThisWeek,
+    ideaBacklogCount,
+    totalWords,
+    recentActivity: timeline.slice(0, 5),
+  };
 }
 
 /* ─────────────────────────────────────────────────

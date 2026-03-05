@@ -5,7 +5,7 @@ import { usePathname } from 'next/navigation';
 import Link from 'next/link';
 import { SIDEBAR_SECTIONS, OBJECT_TYPES } from '@/lib/commonplace';
 import type { CapturedObject } from '@/lib/commonplace';
-import { createCapturedObject } from '@/lib/commonplace-capture';
+import { createCapturedObject, syncCapture } from '@/lib/commonplace-capture';
 import CaptureButton from './CaptureButton';
 import ObjectPalette from './ObjectPalette';
 import RecentCaptures from './RecentCaptures';
@@ -43,7 +43,27 @@ export default function CommonPlaceSidebar() {
   }
 
   const handleCapture = useCallback((object: CapturedObject) => {
+    /* Optimistic: show immediately in sidebar */
     setCaptures((prev) => [object, ...prev]);
+
+    /* Background sync to Django API */
+    syncCapture(object).then((result) => {
+      setCaptures((prev) =>
+        prev.map((c) => {
+          if (c.id !== object.id) return c;
+          if (result.ok) {
+            return {
+              ...c,
+              id: result.slug ?? c.id,
+              status: 'synced' as const,
+              enrichedTitle: result.enrichedTitle,
+              title: result.enrichedTitle ?? c.title,
+            };
+          }
+          return { ...c, status: 'error' as const };
+        }),
+      );
+    });
   }, []);
 
   return (

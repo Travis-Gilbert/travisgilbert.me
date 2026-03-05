@@ -1,8 +1,7 @@
 'use client';
 
 import { useState, useMemo, useCallback } from 'react';
-import type { MockNode } from '@/lib/commonplace';
-import { getMockData, groupNodesByDate } from '@/lib/commonplace-mock-data';
+import { fetchFeed, groupNodesByDate, useApiData, postRetrospective } from '@/lib/commonplace-api';
 import DateHeader from './DateHeader';
 import NodeCard from './NodeCard';
 import RetroNote from './RetroNote';
@@ -29,15 +28,19 @@ interface TimelineViewProps {
 }
 
 export default function TimelineView({ onOpenObject }: TimelineViewProps) {
-  const { nodes } = getMockData();
+  const { data: nodes, loading, error, refetch } = useApiData(
+    () => fetchFeed({ page_size: 100 }),
+    [],
+  );
 
   const [filters, setFilters] = useState<TimelineFilters>({
     query: '',
     activeTypes: new Set(),
   });
 
-  /* Filter nodes */
+  /* Filter nodes (client-side on fetched data) */
   const filteredNodes = useMemo(() => {
+    if (!nodes) return [];
     let result = nodes;
 
     /* Text search (title + summary) */
@@ -102,61 +105,73 @@ export default function TimelineView({ onOpenObject }: TimelineViewProps) {
           padding: '0 12px 20px',
         }}
       >
-        {dateGroups.length === 0 && (
-          <div
-            style={{
-              textAlign: 'center',
-              padding: '40px 20px',
-              fontFamily: 'var(--cp-font-mono)',
-              fontSize: 11,
-              color: 'var(--cp-text-faint)',
-              fontStyle: 'italic',
-            }}
-          >
-            {filters.query || filters.activeTypes.size > 0
-              ? 'No objects match your filters'
-              : 'No objects captured yet'}
+        {/* Loading state */}
+        {loading && (
+          <div className="cp-loading-skeleton">
+            {Array.from({ length: 5 }).map((_, i) => (
+              <div key={i} className="cp-skeleton-card" />
+            ))}
           </div>
         )}
 
-        {dateGroups.map((group) => (
-          <div key={group.dateKey}>
-            <DateHeader label={group.dateLabel} />
-
-            {group.nodes.map((node) => {
-              const cardIdx = globalCardIdx++;
-              const showRetro =
-                cardIdx > 0 &&
-                cardIdx % RETRO_INTERVAL === 0 &&
-                !filters.query; // hide retro notes when searching
-
-              return (
-                <div key={node.id}>
-                  {showRetro && (
-                    <RetroNote
-                      adjacentNodeId={node.id}
-                      onSubmit={(text) => {
-                        /* In a real app, this would create a retrospective
-                           note linked to the adjacent node */
-                        console.log(
-                          '[RetroNote] reflection:',
-                          text,
-                          'adjacent:',
-                          node.id
-                        );
-                      }}
-                    />
-                  )}
-                  <NodeCard
-                    node={node}
-                    onSelect={handleSelect}
-                    allNodes={nodes}
-                  />
-                </div>
-              );
-            })}
+        {/* Error state */}
+        {error && !loading && (
+          <div className="cp-error-banner">
+            <span>
+              {error.isNetworkError
+                ? 'Could not reach CommonPlace API.'
+                : `Error: ${error.message}`}
+            </span>
+            <button type="button" onClick={refetch}>
+              Retry
+            </button>
           </div>
-        ))}
+        )}
+
+        {/* Empty state (not loading, no error, no data) */}
+        {!loading && !error && dateGroups.length === 0 && (
+          <div className="cp-empty-state">
+            {filters.query || filters.activeTypes.size > 0
+              ? 'No objects match your filters'
+              : 'No objects captured yet. Use the capture bar to get started.'}
+          </div>
+        )}
+
+        {/* Data */}
+        {!loading &&
+          dateGroups.map((group) => (
+            <div key={group.dateKey}>
+              <DateHeader label={group.dateLabel} />
+
+              {group.nodes.map((node) => {
+                const cardIdx = globalCardIdx++;
+                const showRetro =
+                  cardIdx > 0 &&
+                  cardIdx % RETRO_INTERVAL === 0 &&
+                  !filters.query;
+
+                return (
+                  <div key={node.id}>
+                    {showRetro && (
+                      <RetroNote
+                        adjacentNodeId={node.id}
+                        onSubmit={(text) => {
+                          postRetrospective(node.id, text).catch((err) => {
+                            console.warn('[RetroNote] save failed:', err.message);
+                          });
+                        }}
+                      />
+                    )}
+                    <NodeCard
+                      node={node}
+                      onSelect={handleSelect}
+                      allNodes={nodes ?? []}
+                    />
+                  </div>
+                );
+              })}
+            </div>
+          ))}
       </div>
     </div>
   );

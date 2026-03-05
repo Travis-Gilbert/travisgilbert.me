@@ -6,7 +6,6 @@ import type { CapturedObject } from '@/lib/commonplace';
 import {
   createCapturedObject,
   isUrl,
-  mockEnrichUrl,
 } from '@/lib/commonplace-capture';
 
 /**
@@ -105,14 +104,6 @@ export default function CaptureButton({ onCapture }: CaptureButtonProps) {
     });
 
     onCapture(object);
-
-    /* Kick off mock URL enrichment in the background */
-    if (object.sourceUrl) {
-      mockEnrichUrl(object.sourceUrl).then((enrichedTitle) => {
-        /* Future: update the object in state with enrichedTitle */
-        void enrichedTitle;
-      });
-    }
 
     setText('');
     setSelectedType(null);

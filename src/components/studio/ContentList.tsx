@@ -1,18 +1,18 @@
 'use client';
 
 import { useState, useMemo } from 'react';
-import Link from 'next/link';
 import { getItemsByType } from '@/lib/studio-mock-data';
 import { getContentTypeIdentity, getStage, STAGES } from '@/lib/studio';
 import type { StudioContentItem } from '@/lib/studio';
+import StudioCard from './StudioCard';
 
 /**
  * Reusable content list for type-specific pages
  * (essays, field-notes, shelf, videos, projects, toolkit).
  *
  * Filterable by stage, sortable by date/title/words.
- * Evidence cards with type-colored left border.
- * Full evidence card component comes in Batch 2.
+ * Evidence cards use StudioCard glow pattern with type-colored
+ * left border and three-state hover tinting.
  */
 export default function ContentList({
   contentType,
@@ -145,7 +145,7 @@ export default function ContentList({
   );
 }
 
-/* ── Evidence card (inline, replaced by EvidenceCard in Batch 2) ── */
+/* ── Evidence card: StudioCard wrapper with content metadata ── */
 
 function ContentCard({
   item,
@@ -157,11 +157,9 @@ function ContentCard({
   const stage = getStage(item.stage);
 
   return (
-    <Link
+    <StudioCard
+      typeColor={color}
       href={`/studio/${item.contentType}/${item.slug}`}
-      className="studio-evidence-card"
-      data-type={item.contentType}
-      style={{ textDecoration: 'none' }}
     >
       <div
         style={{
@@ -223,6 +221,6 @@ function ContentCard({
           </span>
         </div>
       </div>
-    </Link>
+    </StudioCard>
   );
 }

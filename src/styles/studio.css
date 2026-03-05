@@ -8,7 +8,7 @@
 .studio-theme {
   /* Page backgrounds */
   --studio-bg: #0F1012;
-  --studio-bg-sidebar: #090B0A;
+  --studio-bg-sidebar: #111210;
   --studio-surface: #1A1C1E;
   --studio-surface-hover: #22252A;
   --studio-surface-raised: #1C211F;
@@ -56,7 +56,7 @@
   --studio-font-writing: var(--font-amarna), Georgia, serif;
 
   /* Layout constants */
-  --studio-sidebar-width: 218px;
+  --studio-sidebar-width: 232px;
   --studio-topbar-height: 42px;
   --studio-stage-bar-height: 48px;
 }
@@ -111,16 +111,16 @@
 
 .studio-sidebar-glow {
   position: absolute;
-  top: -40px;
-  left: -40px;
-  width: 160px;
-  height: 160px;
+  top: -80px;
+  left: -80px;
+  width: 480px;
+  height: 400px;
   border-radius: 50%;
   background: radial-gradient(
-    circle,
-    rgba(180, 90, 45, 0.6) 0%,
-    rgba(180, 90, 45, 0.18) 40%,
-    transparent 70%
+    ellipse 360px 280px at 30% 30%,
+    rgba(180, 90, 45, 0.14) 0%,
+    rgba(180, 90, 45, 0.06) 40%,
+    transparent 75%
   );
   pointer-events: none;
   z-index: 1;
@@ -145,48 +145,68 @@
   background-repeat: repeat;
   background-size: 300px 300px;
   mix-blend-mode: overlay;
-  opacity: 0.03;
+  opacity: 0.055;
 }
 
 /* ─────────────────────────────────────────────────
-   Evidence cards: dark card with type-colored left border
+   Sidebar grid lines: same pattern as main area
+   but at higher opacity for heavier texture
    ───────────────────────────────────────────────── */
 
-.studio-evidence-card {
-  background: var(--studio-surface);
-  border: 1px solid var(--studio-border);
-  border-radius: 5px;
-  padding: 12px 15px;
-  display: flex;
-  align-items: center;
-  gap: 13px;
-  cursor: pointer;
-  transition: all 0.1s ease;
-  position: relative;
-  overflow: hidden;
-}
-
-.studio-evidence-card::before {
+.studio-sidebar-grid::before {
   content: '';
   position: absolute;
-  left: 0;
-  top: 0;
-  bottom: 0;
-  width: 3px;
-  border-radius: 0 1px 1px 0;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+  background-image:
+    linear-gradient(rgba(180, 90, 45, 0.05) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(180, 90, 45, 0.05) 1px, transparent 1px);
+  background-size: 40px 40px;
 }
 
-.studio-evidence-card[data-type="essay"]::before { background: var(--studio-tc); }
-.studio-evidence-card[data-type="field-note"]::before { background: var(--studio-teal); }
-.studio-evidence-card[data-type="shelf"]::before { background: var(--studio-gold); }
-.studio-evidence-card[data-type="video"]::before { background: var(--studio-green); }
-.studio-evidence-card[data-type="project"]::before { background: var(--studio-gold); }
-.studio-evidence-card[data-type="toolkit"]::before { background: var(--studio-tc); }
+/* (evidence-card styles removed: replaced by StudioCard glow component in Batch 3) */
 
-.studio-evidence-card:hover {
-  background: var(--studio-surface-hover);
-  border-color: var(--studio-border-strong);
-  transform: translateX(1px);
+/* ─────────────────────────────────────────────────
+   StudioCard glow: fallback class for non-JS contexts.
+   JS component manages hover state inline; this class
+   provides baseline transitions if JS is unavailable.
+   ───────────────────────────────────────────────── */
+
+.studio-card-glow {
+  transition: all 0.15s ease;
+}
+
+.studio-card-glow:focus-visible {
+  outline: 2px solid var(--studio-tc);
+  outline-offset: 2px;
+}
+
+/* Min-height in dashboard grid for consistent card sizing */
+.studio-dashboard-grid .studio-card-glow {
+  min-height: 72px;
+}
+
+/* ─────────────────────────────────────────────────
+   Dashboard intelligence grid
+   ───────────────────────────────────────────────── */
+
+.studio-dashboard-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 10px;
+}
+
+@media (min-width: 640px) {
+  .studio-dashboard-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (min-width: 1280px) {
+  .studio-dashboard-grid {
+    grid-template-columns: repeat(3, 1fr);
+  }
 }
 
 /* ─────────────────────────────────────────────────
@@ -346,36 +366,7 @@
   border-radius: 3px;
 }
 
-/* ─────────────────────────────────────────────────
-   Continue card (dashboard hero)
-   ───────────────────────────────────────────────── */
-
-.studio-continue-card {
-  background: var(--studio-surface-raised);
-  border: 1px solid var(--studio-border-tc);
-  border-left: 3px solid var(--studio-tc);
-  border-radius: 7px;
-  padding: 20px 24px;
-  margin-bottom: 22px;
-  cursor: pointer;
-  transition: all 0.14s ease;
-  position: relative;
-  overflow: hidden;
-}
-
-.studio-continue-card::after {
-  content: '';
-  position: absolute;
-  inset: 0;
-  background: linear-gradient(135deg, rgba(180, 90, 45, 0.04) 0%, transparent 55%);
-  pointer-events: none;
-}
-
-.studio-continue-card:hover {
-  border-color: rgba(180, 90, 45, 0.5);
-  box-shadow: var(--studio-shadow-lg);
-  transform: translateY(-1px);
-}
+/* (continue-card styles removed: replaced by intelligence dashboard in Batch 5) */
 
 /* ─────────────────────────────────────────────────
    Pulse animation (active work indicator)
@@ -486,6 +477,48 @@
   .studio-mobile-header {
     display: none !important;
   }
+}
+
+/* WorkbenchPanel: hide on small viewports */
+.studio-workbench {
+  display: none;
+}
+
+@media (min-width: 1024px) {
+  .studio-workbench {
+    display: flex;
+  }
+}
+
+/* Workbench bottom-right glow: mirrors sidebar's top-left bloom */
+.studio-workbench-glow {
+  position: absolute;
+  bottom: -60px;
+  right: -60px;
+  width: 360px;
+  height: 300px;
+  border-radius: 50%;
+  background: radial-gradient(
+    ellipse 260px 200px at 70% 70%,
+    rgba(180, 90, 45, 0.08) 0%,
+    rgba(180, 90, 45, 0.03) 40%,
+    transparent 75%
+  );
+  pointer-events: none;
+  z-index: 1;
+}
+
+/* Workbench grid lines: same pattern as sidebar */
+.studio-workbench-grid::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+  background-image:
+    linear-gradient(rgba(180, 90, 45, 0.04) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(180, 90, 45, 0.04) 1px, transparent 1px);
+  background-size: 40px 40px;
 }
 
 /* ─────────────────────────────────────────────────

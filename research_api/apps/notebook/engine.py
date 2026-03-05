@@ -1,59 +1,49 @@
 """
-Connection Engine: finds relationships between KnowledgeNodes.
+Connection Engine: finds relationships between Objects.
 
-This is the brain of the notebook. It replaces manual tagging with
-automatic discovery. Every connection includes a reason explaining
-WHY the link exists, making the graph browsable and useful.
+Three-pass spaCy pipeline + per-Notebook configuration.
 
-The engine runs in three passes:
+Pass 1: Named entity extraction (spaCy NER)
+Pass 2: Shared entity edge discovery
+Pass 3: Topic similarity via Jaccard index on keyword overlap
 
-Pass 1: Entity Resolution (spaCy NER)
-  Extract named entities from node body/title, create ResolvedEntity
-  records, match entities to existing KnowledgeNodes, create 'mentions'
-  edges when a match is found.
-
-Pass 2: Shared Entity Connections
-  Find nodes that reference the same entity, create 'shared_entity'
-  edges with explanation. Example: "Both notes reference Jane Jacobs."
-
-Pass 3: Topic Similarity (keyword overlap)
-  Compare text content across nodes via Jaccard similarity, create
-  'shared_topic' edges for high similarity pairs.
-  Example: "Shared topics: zoning, suburban, land use."
-
-Future passes:
-  Temporal clustering, citation chains, semantic similarity via embeddings.
+Also: auto-objectification of PERSON/ORG entities,
+connection Node creation for every new Edge.
 """
 
 import logging
 import re
 from collections import Counter
 
-import spacy
 from django.db.models import Q
+from django.utils import timezone
 
-from .models import Edge, KnowledgeNode, NodeType, ResolvedEntity
+from .models import Component, Edge, Node, Object, ObjectType, ResolvedEntity, Timeline
 
 logger = logging.getLogger(__name__)
 
-# Load spaCy model (small English model, fast, good NER)
-# Install: python3 -m spacy download en_core_web_sm
+# ---------------------------------------------------------------------------
+# spaCy model
+# ---------------------------------------------------------------------------
+
 try:
+    import spacy
     nlp = spacy.load('en_core_web_sm')
-except OSError:
+except (OSError, ImportError):
     nlp = None
     logger.warning(
         'spaCy model not found. Run: python3 -m spacy download en_core_web_sm'
     )
 
+# ---------------------------------------------------------------------------
+# Constants
+# ---------------------------------------------------------------------------
 
-# Entity types we care about (spaCy labels)
 ENTITY_TYPES_OF_INTEREST = {
     'PERSON', 'ORG', 'GPE', 'LOC', 'EVENT', 'WORK_OF_ART', 'DATE',
 }
 
-# Map spaCy entity types to NodeType slugs for auto-objectification
-ENTITY_TO_NODE_TYPE = {
+ENTITY_TO_OBJECT_TYPE = {
     'PERSON': 'person',
     'ORG': 'organization',
     'GPE': 'place',
@@ -62,7 +52,6 @@ ENTITY_TO_NODE_TYPE = {
     'WORK_OF_ART': 'source',
 }
 
-# Common English stop words for topic similarity
 STOP_WORDS = {
     'the', 'a', 'an', 'and', 'or', 'but', 'in', 'on', 'at', 'to',
     'for', 'of', 'with', 'by', 'from', 'is', 'are', 'was', 'were',
@@ -76,6 +65,52 @@ STOP_WORDS = {
     'them', 'their', 'my', 'your', 'our',
 }
 
+DEFAULT_ENGINE_CONFIG = {
+    'engines': ['spacy'],
+    'topic_threshold': 0.3,
+    'max_candidates': 500,
+}
+
+
+# ---------------------------------------------------------------------------
+# Engine configuration (Task 10)
+# ---------------------------------------------------------------------------
+
+def get_engine_config(notebook=None) -> dict:
+    """
+    Return engine config, optionally merged with Notebook overrides.
+
+    Default config sets spaCy as the only active engine with a 0.3
+    Jaccard threshold and 500-candidate cap for topic matching.
+    Notebooks can override any key via their engine_config JSONField.
+    """
+    config = dict(DEFAULT_ENGINE_CONFIG)
+    if notebook and notebook.engine_config:
+        config.update(notebook.engine_config)
+    return config
+
+
+def _get_active_engines(config: dict, object_count: int) -> set[str]:
+    """
+    Determine active engines based on config and corpus size (Task 11).
+
+    Below 500 objects: whatever config specifies (default: spaCy only).
+    At 500+: auto-add tfidf engine for broader coverage.
+    """
+    engines = set(config.get('engines', ['spacy']))
+    if object_count >= 500:
+        engines.add('tfidf')
+    return engines
+
+
+def _get_master_timeline() -> Timeline | None:
+    """Get the master timeline for Node creation."""
+    return Timeline.objects.filter(is_master=True).first()
+
+
+# ---------------------------------------------------------------------------
+# Text extraction helpers
+# ---------------------------------------------------------------------------
 
 def _extract_keywords(text: str) -> set[str]:
     """Extract significant words (3+ chars, not stop words)."""
@@ -83,17 +118,46 @@ def _extract_keywords(text: str) -> set[str]:
     return {w for w in words if w not in STOP_WORDS}
 
 
-def extract_entities(node: KnowledgeNode) -> list[ResolvedEntity]:
-    """Pass 1: Extract named entities from a node using spaCy.
+def _build_full_text(obj: Object) -> str:
+    """
+    Build the full text for an Object by combining title, body,
+    and all text-bearing Component values (Task 9).
 
-    Creates ResolvedEntity records and attempts to resolve them
-    to existing KnowledgeNodes. If a matching node exists, creates
-    a 'mentions' Edge automatically.
+    This gives the engine richer input than title+body alone,
+    picking up author names, locations, and other Component data.
+    """
+    parts = [obj.title or '', obj.body or '']
+
+    # Include Component values (strings and the 'text' values from JSON)
+    for comp in obj.components.select_related('component_type').all():
+        val = comp.value
+        if isinstance(val, str):
+            parts.append(val)
+        elif isinstance(val, dict) and 'text' in val:
+            parts.append(str(val['text']))
+        elif isinstance(val, (int, float)):
+            pass  # Skip numeric values
+        else:
+            parts.append(str(val))
+
+    return ' '.join(p for p in parts if p)
+
+
+# ---------------------------------------------------------------------------
+# Pass 1: Entity extraction
+# ---------------------------------------------------------------------------
+
+def extract_entities(obj: Object, config: dict | None = None) -> list[ResolvedEntity]:
+    """
+    Extract named entities from an Object using spaCy NER.
+
+    Uses _build_full_text() to include Component values alongside
+    title and body for richer entity discovery.
     """
     if nlp is None:
         return []
 
-    text = f'{node.title} {node.body}'.strip()
+    text = _build_full_text(obj)
     if not text:
         return []
 
@@ -108,9 +172,8 @@ def extract_entities(node: KnowledgeNode) -> list[ResolvedEntity]:
 
         normalized = ent.text.lower().strip()
 
-        # Check if we already extracted this entity from this node
         existing = ResolvedEntity.objects.filter(
-            source_node=node,
+            source_object=obj,
             normalized_text=normalized,
             entity_type=ent.label_,
         ).first()
@@ -119,14 +182,13 @@ def extract_entities(node: KnowledgeNode) -> list[ResolvedEntity]:
             entities.append(existing)
             continue
 
-        # Try to resolve to an existing KnowledgeNode
-        resolved_node = None
-        target_type_slug = ENTITY_TO_NODE_TYPE.get(ent.label_)
+        resolved_object = None
+        target_type_slug = ENTITY_TO_OBJECT_TYPE.get(ent.label_)
 
         if target_type_slug:
-            resolved_node = (
-                KnowledgeNode.objects
-                .filter(node_type__slug=target_type_slug)
+            resolved_object = (
+                Object.objects
+                .filter(object_type__slug=target_type_slug)
                 .filter(
                     Q(title__icontains=ent.text)
                     | Q(search_text__icontains=normalized)
@@ -135,19 +197,18 @@ def extract_entities(node: KnowledgeNode) -> list[ResolvedEntity]:
             )
 
         entity = ResolvedEntity.objects.create(
-            source_node=node,
+            source_object=obj,
             text=ent.text,
             entity_type=ent.label_,
             normalized_text=normalized,
-            resolved_node=resolved_node,
+            resolved_object=resolved_object,
         )
         entities.append(entity)
 
-        # If resolved, create a 'mentions' edge
-        if resolved_node and resolved_node.id != node.id:
+        if resolved_object and resolved_object.id != obj.id:
             Edge.objects.get_or_create(
-                from_node=node,
-                to_node=resolved_node,
+                from_object=obj,
+                to_object=resolved_object,
                 edge_type='mentions',
                 defaults={
                     'reason': (
@@ -156,20 +217,20 @@ def extract_entities(node: KnowledgeNode) -> list[ResolvedEntity]:
                     ),
                     'strength': 0.7,
                     'is_auto': True,
+                    'engine': 'spacy',
                 },
             )
 
     return entities
 
 
-def find_shared_entity_connections(node: KnowledgeNode) -> list[Edge]:
-    """Pass 2: Find other nodes that share entities with this node.
+# ---------------------------------------------------------------------------
+# Pass 2: Shared entity connections
+# ---------------------------------------------------------------------------
 
-    If Node A mentions "Jane Jacobs" and Node B also mentions
-    "Jane Jacobs", create an edge between A and B with the reason:
-    "Both notes reference Jane Jacobs."
-    """
-    my_entities = ResolvedEntity.objects.filter(source_node=node)
+def find_shared_entity_connections(obj: Object, config: dict | None = None) -> list[Edge]:
+    """Find other Objects that share entities with this one."""
+    my_entities = ResolvedEntity.objects.filter(source_object=obj)
     new_edges = []
 
     for entity in my_entities:
@@ -179,15 +240,15 @@ def find_shared_entity_connections(node: KnowledgeNode) -> list[Edge]:
                 normalized_text=entity.normalized_text,
                 entity_type=entity.entity_type,
             )
-            .exclude(source_node=node)
-            .select_related('source_node')
+            .exclude(source_object=obj)
+            .select_related('source_object')
         )
 
         for sibling in siblings:
-            other_node = sibling.source_node
+            other_obj = sibling.source_object
             edge, created = Edge.objects.get_or_create(
-                from_node=node,
-                to_node=other_node,
+                from_object=obj,
+                to_object=other_obj,
                 edge_type='shared_entity',
                 defaults={
                     'reason': (
@@ -196,6 +257,7 @@ def find_shared_entity_connections(node: KnowledgeNode) -> list[Edge]:
                     ),
                     'strength': 0.6,
                     'is_auto': True,
+                    'engine': 'spacy',
                 },
             )
             if created:
@@ -204,33 +266,44 @@ def find_shared_entity_connections(node: KnowledgeNode) -> list[Edge]:
     return new_edges
 
 
-def find_topic_connections(
-    node: KnowledgeNode,
-    threshold: float = 0.3,
-) -> list[Edge]:
-    """Pass 3: Find nodes with overlapping content via keyword analysis.
+# ---------------------------------------------------------------------------
+# Pass 3: Topic similarity
+# ---------------------------------------------------------------------------
 
-    Uses Jaccard similarity on extracted keywords. The reason field
-    explains WHICH words overlap:
-    "Shared topics: zoning, suburban, land use."
+def find_topic_connections(
+    obj: Object,
+    config: dict | None = None,
+) -> list[Edge]:
     """
-    my_keywords = _extract_keywords(f'{node.title} {node.body}')
+    Find Objects with overlapping content via keyword analysis.
+
+    Uses per-Notebook config for threshold and max_candidates.
+    Includes Component text values for richer keyword extraction.
+    """
+    if config is None:
+        config = DEFAULT_ENGINE_CONFIG
+
+    threshold = config.get('topic_threshold', 0.3)
+    max_candidates = config.get('max_candidates', 500)
+
+    my_text = _build_full_text(obj)
+    my_keywords = _extract_keywords(my_text)
     if len(my_keywords) < 3:
         return []
 
-    # Compare against recent non-self nodes (cap at 500 for performance)
     candidates = (
-        KnowledgeNode.objects
-        .exclude(pk=node.pk)
+        Object.objects
+        .exclude(pk=obj.pk)
         .exclude(search_text='')
         .order_by('-captured_at')
-        [:500]
+        [:max_candidates]
     )
 
     new_edges = []
 
     for other in candidates:
-        other_keywords = _extract_keywords(f'{other.title} {other.body}')
+        other_text = _build_full_text(other)
+        other_keywords = _extract_keywords(other_text)
         if len(other_keywords) < 3:
             continue
 
@@ -247,13 +320,14 @@ def find_topic_connections(
             reason = f'Shared topics: {", ".join(top_shared)}.'
 
             edge, created = Edge.objects.get_or_create(
-                from_node=node,
-                to_node=other,
+                from_object=obj,
+                to_object=other,
                 edge_type='shared_topic',
                 defaults={
                     'reason': reason,
                     'strength': min(jaccard * 2, 1.0),
                     'is_auto': True,
+                    'engine': 'spacy',
                 },
             )
             if created:
@@ -262,112 +336,188 @@ def find_topic_connections(
     return new_edges
 
 
-def auto_objectify(node: KnowledgeNode) -> list[KnowledgeNode]:
-    """Auto-objectification: create KnowledgeNodes for significant entities.
+# ---------------------------------------------------------------------------
+# Auto-objectification
+# ---------------------------------------------------------------------------
 
-    If a note mentions "Richard Hamming" and no Person node exists for
-    him, create one automatically. The new node gets type=Person and a
-    body like "Auto-created from mention in: [original note title]".
-
-    Only creates nodes for PERSON and ORG entities (high confidence).
-    Places and dates are too ambiguous for auto-creation.
-    """
+def auto_objectify(obj: Object) -> list[Object]:
+    """Auto-create Objects for significant entities (PERSON, ORG)."""
     entities = ResolvedEntity.objects.filter(
-        source_node=node,
-        resolved_node__isnull=True,
+        source_object=obj,
+        resolved_object__isnull=True,
         entity_type__in=['PERSON', 'ORG'],
     )
 
-    created_nodes = []
+    created_objects = []
 
     for entity in entities:
-        target_type_slug = ENTITY_TO_NODE_TYPE.get(entity.entity_type)
+        target_type_slug = ENTITY_TO_OBJECT_TYPE.get(entity.entity_type)
         if not target_type_slug:
             continue
 
-        # Check if a matching node was created since our last run
-        existing = KnowledgeNode.objects.filter(
-            node_type__slug=target_type_slug,
+        existing = Object.objects.filter(
+            object_type__slug=target_type_slug,
             title__iexact=entity.text,
         ).first()
 
         if existing:
-            entity.resolved_node = existing
-            entity.save(update_fields=['resolved_node'])
+            entity.resolved_object = existing
+            entity.save(update_fields=['resolved_object'])
             continue
 
-        # Create the object node
-        node_type = NodeType.objects.filter(slug=target_type_slug).first()
-        if not node_type:
+        object_type = ObjectType.objects.filter(slug=target_type_slug).first()
+        if not object_type:
             continue
 
-        new_node = KnowledgeNode.objects.create(
+        new_obj = Object.objects.create(
             title=entity.text,
-            node_type=node_type,
-            body=f'Auto-created from mention in: {node.display_title}',
-            status='inbox',
+            object_type=object_type,
+            body=f'Auto-created from mention in: {obj.display_title}',
+            status='active',
             capture_method='auto',
         )
 
-        entity.resolved_node = new_node
-        entity.save(update_fields=['resolved_node'])
+        entity.resolved_object = new_obj
+        entity.save(update_fields=['resolved_object'])
 
-        # Create the mentions edge
         Edge.objects.get_or_create(
-            from_node=node,
-            to_node=new_node,
+            from_object=obj,
+            to_object=new_obj,
             edge_type='mentions',
             defaults={
                 'reason': f'This note mentions {entity.text}.',
                 'strength': 0.7,
                 'is_auto': True,
+                'engine': 'spacy',
             },
         )
 
-        created_nodes.append(new_node)
+        created_objects.append(new_obj)
 
-    return created_nodes
+    return created_objects
 
 
-def run_engine(node: KnowledgeNode) -> dict:
-    """Run the full connection engine on a single node.
+# ---------------------------------------------------------------------------
+# Stub engines (Task 11: future expansion)
+# ---------------------------------------------------------------------------
 
-    Returns a summary dict of what was found/created.
+def _run_tfidf_engine(obj: Object, config: dict) -> list[Edge]:
+    """TF-IDF similarity engine. Placeholder for future implementation."""
+    logger.info('TF-IDF engine: not yet implemented. Skipping.')
+    return []
+
+
+def _run_semantic_engine(obj: Object, config: dict) -> list[Edge]:
+    """Semantic embedding engine. Placeholder for future implementation."""
+    logger.info('Semantic engine: not yet implemented. Skipping.')
+    return []
+
+
+# ---------------------------------------------------------------------------
+# Connection Node creation (Task 12)
+# ---------------------------------------------------------------------------
+
+def _create_connection_nodes(edges: list[Edge], engine_name: str) -> int:
     """
+    Create timeline Nodes for newly discovered Edges.
+
+    Each new Edge gets a Node with type='connection' on the master Timeline.
+    Returns the count of Nodes created.
+    """
+    timeline = _get_master_timeline()
+    if not timeline:
+        logger.warning('No master timeline found. Skipping connection Nodes.')
+        return 0
+
+    count = 0
+    for edge in edges:
+        Node.objects.create(
+            node_type='connection',
+            title=f'{edge.from_object.display_title[:30]} <> {edge.to_object.display_title[:30]}',
+            body=edge.reason,
+            object_ref=edge.from_object,
+            timeline=timeline,
+            tags=[engine_name, edge.edge_type],
+        )
+        count += 1
+
+    return count
+
+
+# ---------------------------------------------------------------------------
+# Main engine runner
+# ---------------------------------------------------------------------------
+
+def run_engine(obj: Object, notebook=None) -> dict:
+    """
+    Run the full connection engine on a single Object.
+
+    Accepts optional notebook to use per-Notebook engine config.
+    Creates connection Nodes for every new Edge discovered.
+    """
+    config = get_engine_config(notebook or obj.notebook)
+    object_count = Object.objects.count()
+    active_engines = _get_active_engines(config, object_count)
+
     results = {
+        'engines_active': sorted(active_engines),
         'entities_extracted': 0,
         'edges_from_entities': 0,
         'edges_from_shared': 0,
         'edges_from_topics': 0,
-        'nodes_auto_created': 0,
+        'edges_from_tfidf': 0,
+        'edges_from_semantic': 0,
+        'objects_auto_created': 0,
+        'connection_nodes_created': 0,
     }
 
-    # Pass 1: Entity extraction
-    entities = extract_entities(node)
-    results['entities_extracted'] = len(entities)
+    all_new_edges = []
 
-    # Pass 1b: Auto-objectification
-    created = auto_objectify(node)
-    results['nodes_auto_created'] = len(created)
+    # Pass 1: Entity extraction (always runs with spaCy)
+    if 'spacy' in active_engines:
+        entities = extract_entities(obj, config)
+        results['entities_extracted'] = len(entities)
+
+        created = auto_objectify(obj)
+        results['objects_auto_created'] = len(created)
 
     # Pass 2: Shared entity connections
-    shared_edges = find_shared_entity_connections(node)
-    results['edges_from_shared'] = len(shared_edges)
+    if 'spacy' in active_engines:
+        shared_edges = find_shared_entity_connections(obj, config)
+        results['edges_from_shared'] = len(shared_edges)
+        all_new_edges.extend(shared_edges)
 
     # Pass 3: Topic similarity
-    topic_edges = find_topic_connections(node)
-    results['edges_from_topics'] = len(topic_edges)
+    if 'spacy' in active_engines:
+        topic_edges = find_topic_connections(obj, config)
+        results['edges_from_topics'] = len(topic_edges)
+        all_new_edges.extend(topic_edges)
 
-    # Count total mentions edges (some created during extract, some during objectify)
+    # Optional engines (Task 11: auto-escalation stubs)
+    if 'tfidf' in active_engines:
+        tfidf_edges = _run_tfidf_engine(obj, config)
+        results['edges_from_tfidf'] = len(tfidf_edges)
+        all_new_edges.extend(tfidf_edges)
+
+    if 'semantic' in active_engines:
+        semantic_edges = _run_semantic_engine(obj, config)
+        results['edges_from_semantic'] = len(semantic_edges)
+        all_new_edges.extend(semantic_edges)
+
+    # Count entity mention edges
     results['edges_from_entities'] = (
         Edge.objects
-        .filter(from_node=node, edge_type='mentions', is_auto=True)
+        .filter(from_object=obj, edge_type='mentions', is_auto=True)
         .count()
     )
 
+    # Create connection Nodes for new edges (Task 12)
+    nodes_created = _create_connection_nodes(all_new_edges, 'spacy')
+    results['connection_nodes_created'] = nodes_created
+
     logger.info(
         'Connection engine results for "%s": %s',
-        node.display_title[:40],
+        obj.display_title[:40],
         results,
     )
 

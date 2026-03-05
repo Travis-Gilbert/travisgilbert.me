@@ -175,6 +175,64 @@ export interface StudioDashboardStats {
 }
 
 /* ─────────────────────────────────────────────────
+   Item metrics: per-item intelligence data
+   ───────────────────────────────────────────────── */
+
+export interface StudioItemMetrics {
+  /** Days since the item's updatedAt timestamp */
+  daysSinceLastTouched: number;
+  /** Days the item has been in its current stage */
+  stageAgeDays: number;
+  /** For video type: estimated completion percentage (0 to 100) */
+  scriptCompletionPct: number | null;
+  /** Number of sources associated with this item */
+  sourcesCollected: number;
+  /** Number of notes linked to this item */
+  linkedNotes: number;
+  /** 1 to 5 rating of how compelling the idea hook is */
+  hookStrength: number;
+}
+
+/** A content item with its computed metrics attached. */
+export interface StudioContentItemWithMetrics extends StudioContentItem {
+  metrics: StudioItemMetrics;
+}
+
+/* ─────────────────────────────────────────────────
+   Dashboard intelligence: categorized item lists
+   ───────────────────────────────────────────────── */
+
+export interface StudioDashboardIntel {
+  /** Items to work on in the next session (active drafts/revisions) */
+  nextSession: StudioContentItemWithMetrics[];
+  /** Items stuck too long in the same stage (stageAge > 14 days) */
+  stuckItems: StudioContentItemWithMetrics[];
+  /** Items closest to being published (revising/production) */
+  closestToPublish: StudioContentItemWithMetrics[];
+  /** Research stage items with rich sources worth converting */
+  researchToConvert: StudioContentItemWithMetrics[];
+  /** Dormant idea/research items with strong hooks */
+  dormantIdeas: StudioContentItemWithMetrics[];
+}
+
+/* ─────────────────────────────────────────────────
+   Workbench panel data
+   ───────────────────────────────────────────────── */
+
+export interface WorkbenchPanelData {
+  /** Per-stage counts for the pipeline breakdown */
+  pipelineBreakdown: Record<string, number>;
+  /** Items publish-ready this week (in production stage) */
+  publishReadyThisWeek: number;
+  /** Total items in idea stage */
+  ideaBacklogCount: number;
+  /** Aggregate word count across all items */
+  totalWords: number;
+  /** Recent activity entries for the feed */
+  recentActivity: StudioTimelineEntry[];
+}
+
+/* ─────────────────────────────────────────────────
    Sidebar navigation structure
    ───────────────────────────────────────────────── */
 
@@ -194,7 +252,7 @@ export interface SidebarItem {
 
 export const SIDEBAR_SECTIONS: SidebarSection[] = [
   {
-    title: 'Write',
+    title: 'Make Stuff',
     items: [
       {
         label: 'Essays',
@@ -209,27 +267,21 @@ export const SIDEBAR_SECTIONS: SidebarSection[] = [
         dotColor: '#3A8A9A',
       },
       {
-        label: 'Shelf',
-        href: '/studio/shelf',
-        icon: 'book-open',
-        dotColor: '#D4AA4A',
-      },
-    ],
-  },
-  {
-    title: 'Manage',
-    items: [
-      {
-        label: 'Projects',
-        href: '/studio/projects',
-        icon: 'briefcase',
-        dotColor: '#D4AA4A',
-      },
-      {
         label: 'Videos',
         href: '/studio/videos',
         icon: 'video',
         dotColor: '#6A9A5A',
+      },
+    ],
+  },
+  {
+    title: 'Collect',
+    items: [
+      {
+        label: 'Shelf',
+        href: '/studio/shelf',
+        icon: 'book-open',
+        dotColor: '#D4AA4A',
       },
       {
         label: 'Toolkit',
@@ -240,7 +292,18 @@ export const SIDEBAR_SECTIONS: SidebarSection[] = [
     ],
   },
   {
-    title: 'Track',
+    title: 'Build',
+    items: [
+      {
+        label: 'Projects',
+        href: '/studio/projects',
+        icon: 'briefcase',
+        dotColor: '#D4AA4A',
+      },
+    ],
+  },
+  {
+    title: 'System',
     items: [
       { label: 'Timeline', href: '/studio/timeline', icon: 'timeline' },
       { label: 'Settings', href: '/studio/settings', icon: 'gear' },
@@ -269,3 +332,20 @@ export const CAPTURE_PLACEHOLDERS = [
   'New idea? Start writing...',
   'Draft a title to begin...',
 ];
+
+/* ─────────────────────────────────────────────────
+   CSS utility: color-mix for glow cards
+   ───────────────────────────────────────────────── */
+
+/**
+ * Generates a CSS `color-mix()` value for transparent tinting.
+ *
+ * Mirrors the three-state glow pattern from ProjectColumns.tsx
+ * where rest, hover, and expanded states use increasing percentages
+ * of the type color mixed with transparent.
+ *
+ * @example studioMix('#B45A2D', 5.5) => 'color-mix(in srgb, #B45A2D 5.5%, transparent)'
+ */
+export function studioMix(color: string, pct: number): string {
+  return `color-mix(in srgb, ${color} ${pct}%, transparent)`;
+}
