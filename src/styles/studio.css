@@ -777,3 +777,119 @@
   height: 0;
   font-style: italic;
 }
+
+/* ─────────────────────────────────────────────────
+   Dashboard: right rail (sticky, hidden on small screens)
+   ───────────────────────────────────────────────── */
+
+.studio-right-rail {
+  display: none;
+}
+
+@media (min-width: 1024px) {
+  .studio-right-rail {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+    position: sticky;
+    top: 20px;
+    align-self: flex-start;
+  }
+}
+
+/* ─────────────────────────────────────────────────
+   Quick Capture: 2x2 button grid
+   ───────────────────────────────────────────────── */
+
+.studio-capture-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+.studio-capture-btn {
+  padding: 10px 12px;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  font-family: var(--studio-font-mono);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  text-align: center;
+  border: 1px solid transparent;
+}
+
+.studio-capture-btn:hover {
+  transform: translateY(-1px);
+}
+
+/* ─────────────────────────────────────────────────
+   Timeline: expandable card entries with spine
+   ───────────────────────────────────────────────── */
+
+.studio-timeline-spine {
+  position: absolute;
+  left: 7px;
+  top: 0;
+  bottom: 0;
+  width: 1px;
+  background-color: var(--studio-border);
+}
+
+.studio-timeline-dot {
+  position: absolute;
+  left: 3px;
+  top: 14px;
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  border: 2px solid var(--studio-bg);
+  z-index: 2;
+}
+
+.studio-timeline-expand {
+  overflow: hidden;
+  transition: max-height 200ms ease, opacity 150ms ease;
+}
+
+.studio-timeline-expand[data-expanded='false'] {
+  max-height: 0;
+  opacity: 0;
+}
+
+.studio-timeline-expand[data-expanded='true'] {
+  max-height: 600px;
+  opacity: 1;
+}
+
+.studio-day-summary {
+  background: rgba(180, 90, 45, 0.06);
+  border: 1px solid rgba(180, 90, 45, 0.1);
+  border-radius: 8px;
+  padding: 12px 16px;
+  margin-bottom: 12px;
+}
+
+.studio-filter-pill {
+  padding: 3px 10px;
+  border-radius: 12px;
+  font-family: var(--studio-font-mono);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  cursor: pointer;
+  border: 1px solid transparent;
+  transition: all 0.12s ease;
+  background: transparent;
+}
+
+.studio-filter-pill[data-active='true'] {
+  border-color: currentColor;
+}
+
+.studio-filter-pill[data-active='false'] {
+  opacity: 0.45;
+}

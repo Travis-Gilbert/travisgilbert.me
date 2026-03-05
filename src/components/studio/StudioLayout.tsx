@@ -2,18 +2,15 @@
 
 import { useState } from 'react';
 import StudioSidebar from './StudioSidebar';
-import WorkbenchPanel from './WorkbenchPanel';
 
 /**
- * Studio shell: three-column layout.
+ * Studio shell: two-column layout.
  *
  * Left:   232px sidebar (navigation, wordmark, quick capture)
  * Center: fluid main area (dashboard, content lists, editor)
- * Right:  300px collapsible workbench (pipeline stats, activity)
  *
  * Handles mobile sidebar drawer toggle. Desktop: side-by-side flex.
  * Mobile (<768px): sidebar slides in as overlay with backdrop.
- * WorkbenchPanel is hidden below 1024px.
  *
  * Background layers (applied via CSS classes in studio.css):
  *   dot field, grid lines, paper grain, corner glow.
@@ -96,9 +93,6 @@ export default function StudioLayout({
         {/* Page content */}
         <div style={{ position: 'relative', zIndex: 1 }}>{children}</div>
       </main>
-
-      {/* Collapsible right panel (hidden below 1024px) */}
-      <WorkbenchPanel />
     </>
   );
 }

@@ -17,18 +17,34 @@ import { CONTENT_TYPES } from '@/lib/studio';
  */
 export default function NewContentModal({
   onClose,
+  defaultType,
 }: {
   onClose: () => void;
+  /** If provided, auto-navigates to this content type's editor */
+  defaultType?: string;
 }) {
   const router = useRouter();
 
-  const handleSelect = (typeSlug: string) => {
-    /* Generate a temp slug for new content. In production this
-       will POST to Django and get a real slug back. */
-    const tempSlug = `new-${Date.now().toString(36)}`;
-    onClose();
-    router.push(`/studio/${typeSlug}/${tempSlug}`);
-  };
+  const handleSelect = useCallback(
+    (typeSlug: string) => {
+      /* Generate a temp slug for new content. In production this
+         will POST to Django and get a real slug back. */
+      const tempSlug = `new-${Date.now().toString(36)}`;
+      onClose();
+      router.push(`/studio/${typeSlug}/${tempSlug}`);
+    },
+    [onClose, router],
+  );
+
+  /* Auto-select if defaultType is provided */
+  useEffect(() => {
+    if (defaultType) {
+      const match = CONTENT_TYPES.find((t) => t.slug === defaultType);
+      if (match) {
+        handleSelect(match.route);
+      }
+    }
+  }, [defaultType, handleSelect]);
 
   /* Close on Escape key (document-level listener) */
   const handleKeyDown = useCallback(

@@ -154,6 +154,21 @@ export interface StudioContentItem {
   createdAt: string;
   updatedAt: string;
   publishedAt: string | null;
+  /** What to do next on this piece (dashboard hero card) */
+  nextMove?: string;
+  /** Summary of the last working session */
+  lastSessionSummary?: string;
+}
+
+export interface StudioTimelineConnection {
+  targetId: string;
+  targetTitle: string;
+}
+
+export interface StudioTimelineNote {
+  id: string;
+  text: string;
+  createdAt: string;
 }
 
 export interface StudioTimelineEntry {
@@ -164,6 +179,10 @@ export interface StudioTimelineEntry {
   action: string;
   detail: string;
   occurredAt: string;
+  /** Linked content items referenced in this entry */
+  connections?: StudioTimelineConnection[];
+  /** User notes attached to this timeline entry */
+  notes?: StudioTimelineNote[];
 }
 
 export interface StudioDashboardStats {
@@ -233,6 +252,32 @@ export interface WorkbenchPanelData {
 }
 
 /* ─────────────────────────────────────────────────
+   Dashboard v2: today queue, pulse, day summary
+   ───────────────────────────────────────────────── */
+
+export interface StudioTodayQueueItem {
+  id: string;
+  task: string;
+  contentId: string;
+  contentTitle: string;
+  contentType: string;
+  stage: string;
+}
+
+export interface StudioPulseInsight {
+  type: 'momentum' | 'simmering' | 'quiet' | 'ready' | 'rich';
+  message: string;
+  detail: string;
+}
+
+export interface StudioDaySummary {
+  piecesTouched: number;
+  wordsDelta: number;
+  stageChanges: number;
+  summaryText: string;
+}
+
+/* ─────────────────────────────────────────────────
    Sidebar navigation structure
    ───────────────────────────────────────────────── */
 
@@ -288,6 +333,12 @@ export const SIDEBAR_SECTIONS: SidebarSection[] = [
         href: '/studio/toolkit',
         icon: 'wrench',
         dotColor: '#B45A2D',
+      },
+      {
+        label: 'CommonPlace',
+        href: '/commonplace',
+        icon: 'notebook',
+        dotColor: '#9A8E82',
       },
     ],
   },

@@ -65,6 +65,7 @@ export default async function EditorPage({ params }: EditorPageProps) {
         title={`Untitled ${typeInfo.label}`}
         initialContent=""
         initialStage="idea"
+        contentItem={null}
       />
     );
   }
@@ -76,6 +77,7 @@ export default async function EditorPage({ params }: EditorPageProps) {
       title={item.title}
       initialContent={item.body}
       initialStage={item.stage}
+      contentItem={item}
     />
   );
 }

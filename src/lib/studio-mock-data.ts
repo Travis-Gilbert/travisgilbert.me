@@ -14,10 +14,15 @@ import { CONTENT_TYPES, STAGES } from '@/lib/studio';
 import type {
   StudioContentItem,
   StudioTimelineEntry,
+  StudioTimelineConnection,
+  StudioTimelineNote,
   StudioDashboardStats,
   StudioItemMetrics,
   StudioContentItemWithMetrics,
   StudioDashboardIntel,
+  StudioTodayQueueItem,
+  StudioPulseInsight,
+  StudioDaySummary,
   WorkbenchPanelData,
 } from '@/lib/studio';
 
@@ -297,6 +302,36 @@ function generate(): void {
     (a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime(),
   );
 
+  /* Enrich the most recently edited item with session context */
+  if (items.length > 0) {
+    const enrichRng = createRng(hashString('enrich-hero-2026'));
+    items[0].nextMove = pick(enrichRng, NEXT_MOVE_TEMPLATES);
+    items[0].lastSessionSummary = pick(enrichRng, SESSION_SUMMARY_TEMPLATES);
+  }
+
+  /* Add connections and notes to timeline entries */
+  for (const entry of timeline) {
+    const connRng = createRng(hashString('conn-' + entry.id));
+    const connCount = Math.floor(connRng() * 3); // 0 to 2
+    if (connCount > 0) {
+      const connections: StudioTimelineConnection[] = [];
+      const otherItems = items.filter((i) => i.id !== entry.contentId);
+      for (let c = 0; c < connCount && c < otherItems.length; c++) {
+        const target = otherItems[Math.floor(connRng() * otherItems.length)];
+        if (!connections.find((cn) => cn.targetId === target.id)) {
+          connections.push({
+            targetId: target.id,
+            targetTitle: target.title,
+          });
+        }
+      }
+      if (connections.length > 0) entry.connections = connections;
+    }
+
+    const notes = getMockTimelineNotes(entry.contentId);
+    if (notes.length > 0) entry.notes = notes;
+  }
+
   /* Sort timeline by occurredAt descending (newest first) */
   timeline.sort(
     (a, b) =>
@@ -533,6 +568,208 @@ export function getMockWorkbenchData(): WorkbenchPanelData {
     totalWords,
     recentActivity: timeline.slice(0, 5),
   };
+}
+
+/* ─────────────────────────────────────────────────
+   Dashboard v2 generators
+   ───────────────────────────────────────────────── */
+
+const TASK_TEMPLATES: Record<string, string[]> = {
+  drafting: [
+    'Finish the opening section',
+    'Expand the central argument',
+    'Write the second half',
+    'Fill in the example section',
+  ],
+  revising: [
+    'Tighten the introduction',
+    'Cut the digression in section 3',
+    'Strengthen the closing paragraph',
+    'Review the tone in the middle section',
+  ],
+  production: [
+    'Add images and pull quotes',
+    'Check all links and sources',
+    'Write the meta description',
+    'Format code blocks and callouts',
+  ],
+};
+
+const NEXT_MOVE_TEMPLATES = [
+  'Flesh out the connection between sections 2 and 3',
+  'Add the Brand quote and tie it to the thesis',
+  'Rewrite the opening with a concrete image',
+  'Cut 200 words from the middle section',
+  'Find a stronger ending that circles back',
+];
+
+const SESSION_SUMMARY_TEMPLATES = [
+  'Restructured the argument flow and expanded the Brand section. Cut 150 words.',
+  'Drafted two new paragraphs connecting the theory to practical examples.',
+  'Rewrote the introduction with a walking tour anecdote. Added three sources.',
+  'Cleaned up citations and reorganized the closing section.',
+];
+
+/**
+ * Today's queue: top 3 active tasks across drafting/revising items.
+ */
+export function getMockTodayQueue(): StudioTodayQueueItem[] {
+  const items = getMockContentItems();
+  const rng = createRng(hashString('today-queue-2026'));
+
+  return items
+    .filter((i) => ['drafting', 'revising', 'production'].includes(i.stage))
+    .sort(
+      (a, b) =>
+        new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime(),
+    )
+    .slice(0, 3)
+    .map((item) => {
+      const templates = TASK_TEMPLATES[item.stage] ?? TASK_TEMPLATES.drafting;
+      const task = pick(rng, templates);
+      return {
+        id: `queue-${item.id}`,
+        task,
+        contentId: item.id,
+        contentTitle: item.title,
+        contentType: item.contentType,
+        stage: item.stage,
+      };
+    });
+}
+
+/**
+ * Studio pulse: 4 to 6 interpreted insights about the writing practice.
+ */
+export function getMockStudioPulse(): StudioPulseInsight[] {
+  const all = getItemsWithMetrics();
+  const insights: StudioPulseInsight[] = [];
+
+  /* Momentum: items touched in the last 2 days */
+  const recentCount = all.filter(
+    (i) => i.metrics.daysSinceLastTouched <= 2,
+  ).length;
+  if (recentCount >= 2) {
+    insights.push({
+      type: 'momentum',
+      message: `${recentCount} pieces touched in the last 2 days`,
+      detail: 'Consistent daily writing builds compound progress.',
+    });
+  }
+
+  /* Simmering: items in research with good source counts */
+  const simmering = all.filter(
+    (i) => i.stage === 'research' && i.metrics.sourcesCollected >= 4,
+  );
+  if (simmering.length > 0) {
+    insights.push({
+      type: 'simmering',
+      message: `${simmering.length} piece${simmering.length > 1 ? 's' : ''} gathering rich source material`,
+      detail: `"${simmering[0].title}" has ${simmering[0].metrics.sourcesCollected} sources.`,
+    });
+  }
+
+  /* Quiet: items not touched in 7+ days */
+  const quietItems = all.filter(
+    (i) =>
+      i.metrics.daysSinceLastTouched >= 7 &&
+      !['published', 'idea'].includes(i.stage),
+  );
+  if (quietItems.length > 0) {
+    insights.push({
+      type: 'quiet',
+      message: `${quietItems.length} active piece${quietItems.length > 1 ? 's' : ''} have gone quiet`,
+      detail: `"${quietItems[0].title}" last touched ${quietItems[0].metrics.daysSinceLastTouched} days ago.`,
+    });
+  }
+
+  /* Ready: items in production or late revising */
+  const readyItems = all.filter(
+    (i) => i.stage === 'production' || (i.stage === 'revising' && i.metrics.stageAgeDays >= 5),
+  );
+  if (readyItems.length > 0) {
+    insights.push({
+      type: 'ready',
+      message: `${readyItems.length} piece${readyItems.length > 1 ? 's' : ''} approaching publication`,
+      detail: `"${readyItems[0].title}" is in ${readyItems[0].stage}.`,
+    });
+  }
+
+  /* Rich: items with many linked notes */
+  const richItems = all.filter((i) => i.metrics.linkedNotes >= 3);
+  if (richItems.length > 0) {
+    insights.push({
+      type: 'rich',
+      message: `${richItems.length} piece${richItems.length > 1 ? 's' : ''} with deep note connections`,
+      detail: `"${richItems[0].title}" has ${richItems[0].metrics.linkedNotes} linked notes.`,
+    });
+  }
+
+  /* Ensure at least 4 insights */
+  if (insights.length < 4) {
+    const totalWords = all.reduce((sum, i) => sum + i.wordCount, 0);
+    insights.push({
+      type: 'momentum',
+      message: `${totalWords.toLocaleString()} words across ${all.length} pieces`,
+      detail: 'The practice is the product.',
+    });
+  }
+
+  return insights.slice(0, 6);
+}
+
+/**
+ * Generate a day summary for a group of timeline entries.
+ */
+export function generateDaySummary(
+  entries: StudioTimelineEntry[],
+): StudioDaySummary {
+  const rng = createRng(hashString('day-summary-' + (entries[0]?.occurredAt ?? '')));
+
+  const uniqueContentIds = new Set(entries.map((e) => e.contentId));
+  const piecesTouched = uniqueContentIds.size;
+  const wordsDelta = Math.floor(rng() * 800) + 50;
+  const stageChanges = entries.filter((e) =>
+    e.action.startsWith('advanced'),
+  ).length;
+
+  let summaryText: string;
+  if (stageChanges > 0) {
+    summaryText = `Touched ${piecesTouched} piece${piecesTouched > 1 ? 's' : ''}, added ~${wordsDelta} words, moved ${stageChanges} forward.`;
+  } else if (piecesTouched > 1) {
+    summaryText = `Worked across ${piecesTouched} pieces, adding ~${wordsDelta} words.`;
+  } else {
+    summaryText = `Focused session on one piece, ~${wordsDelta} words added.`;
+  }
+
+  return { piecesTouched, wordsDelta, stageChanges, summaryText };
+}
+
+/**
+ * Generate 0 to 2 notes for a content item (seeded from contentId).
+ */
+export function getMockTimelineNotes(contentId: string): StudioTimelineNote[] {
+  const rng = createRng(hashString('notes-' + contentId));
+  const count = Math.floor(rng() * 3); // 0 to 2
+
+  const noteTexts = [
+    'This connects to the pattern language thread.',
+    'Revisit the Brand quote in context.',
+    'Consider splitting into two shorter pieces.',
+    'The anecdote about the market might work better as the opening.',
+    'Source list is getting long; curate the top 5.',
+  ];
+
+  const notes: StudioTimelineNote[] = [];
+  for (let i = 0; i < count; i++) {
+    const daysAgo = Math.floor(rng() * 14) + 1;
+    notes.push({
+      id: `note-${contentId}-${i}`,
+      text: pick(rng, noteTexts),
+      createdAt: new Date(NOW_MS - daysAgo * DAY_MS).toISOString(),
+    });
+  }
+  return notes;
 }
 
 /* ─────────────────────────────────────────────────

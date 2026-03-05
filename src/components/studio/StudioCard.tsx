@@ -37,10 +37,10 @@ export default function StudioCard({
 }) {
   const [hovered, setHovered] = useState(false);
 
-  /* Three-state glow percentages mirroring ProjectColumns */
-  const bgPct = hovered ? 9 : 5.5;
-  const borderPct = hovered ? 25 : 0;
-  const shadowAlpha = hovered ? 0.05 : 0.02;
+  /* Three-state glow percentages (boosted from original ProjectColumns values) */
+  const bgPct = hovered ? 14 : 8;
+  const borderPct = hovered ? 30 : 0;
+  const shadowAlpha = hovered ? 0.08 : 0.03;
 
   const cardStyle: CSSProperties = {
     background: studioMix(typeColor, bgPct),
@@ -49,7 +49,9 @@ export default function StudioCard({
     borderRadius: '6px',
     padding: '14px 16px',
     transition: 'all 0.15s ease',
-    boxShadow: `0 1px 6px ${studioMix(typeColor, shadowAlpha * 100)}`,
+    boxShadow: hovered
+      ? `0 1px 6px ${studioMix(typeColor, 8)}, 0 0 20px ${studioMix(typeColor, 4)}`
+      : `0 1px 6px ${studioMix(typeColor, 3)}`,
     cursor: href || onClick ? 'pointer' : undefined,
     textDecoration: 'none',
     color: 'inherit',
