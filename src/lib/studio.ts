@@ -336,7 +336,7 @@ export interface SidebarItem {
 
 export const SIDEBAR_SECTIONS: SidebarSection[] = [
   {
-    title: 'Make Stuff',
+    title: 'MAKE STUFF',
     items: [
       {
         label: 'Essays',
@@ -359,7 +359,7 @@ export const SIDEBAR_SECTIONS: SidebarSection[] = [
     ],
   },
   {
-    title: 'Collect',
+    title: 'COLLECT',
     items: [
       {
         label: 'Shelf',
@@ -368,21 +368,21 @@ export const SIDEBAR_SECTIONS: SidebarSection[] = [
         dotColor: '#D4AA4A',
       },
       {
+        label: 'Commonplace',
+        href: '/commonplace',
+        icon: 'notebook',
+        dotColor: '#9A8E82',
+      },
+      {
         label: 'Toolkit',
         href: '/studio/toolkit',
         icon: 'wrench',
         dotColor: '#B45A2D',
       },
-      {
-        label: 'CommonPlace',
-        href: '/commonplace',
-        icon: 'notebook',
-        dotColor: '#9A8E82',
-      },
     ],
   },
   {
-    title: 'Build',
+    title: 'BUILD',
     items: [
       {
         label: 'Projects',
@@ -390,16 +390,17 @@ export const SIDEBAR_SECTIONS: SidebarSection[] = [
         icon: 'briefcase',
         dotColor: '#D4AA4A',
       },
-    ],
-  },
-  {
-    title: 'System',
-    items: [
-      { label: 'Timeline', href: '/studio/timeline', icon: 'timeline' },
       { label: 'Settings', href: '/studio/settings', icon: 'gear' },
     ],
   },
 ];
+
+export const SIDEBAR_TIMELINE_ITEM: SidebarItem = {
+  label: 'Timeline',
+  href: '/studio/timeline',
+  icon: 'timeline',
+  dotColor: '#8A6A9A',
+};
 
 /* ─────────────────────────────────────────────────
    View types (what can appear in the main area)

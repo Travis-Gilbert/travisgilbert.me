@@ -29,6 +29,8 @@
   --studio-teal: #3A8A9A;
   --studio-gold: #D4AA4A;
   --studio-green: #6A9A5A;
+  --studio-purple: #8A6A9A;
+  --studio-dusty-purple: #1E1620;
 
   /* Stage colors */
   --studio-stage-idea: #9A8E82;
@@ -346,6 +348,30 @@
   background: var(--studio-tc);
   box-shadow: 0 0 8px rgba(180, 90, 45, 0.6);
   border-radius: 0 1px 1px 0;
+}
+
+.studio-nav-item-timeline {
+  border-radius: 6px;
+  margin: 0;
+  padding: 9px 12px;
+  background: color-mix(in srgb, var(--studio-dusty-purple) 95%, transparent);
+  border: 1px solid rgba(138, 106, 154, 0.35);
+  color: #d6c4df;
+}
+
+.studio-nav-item-timeline:hover {
+  background: rgba(46, 33, 49, 0.95);
+  color: var(--studio-text-bright);
+}
+
+.studio-nav-item-timeline[data-active='true'] {
+  background: rgba(60, 42, 64, 0.95);
+  color: var(--studio-text-bright);
+  border-color: rgba(138, 106, 154, 0.6);
+}
+
+.studio-nav-item-timeline[data-active='true']::before {
+  display: none;
 }
 
 .studio-nav-dot {

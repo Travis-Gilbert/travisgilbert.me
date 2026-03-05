@@ -3,16 +3,26 @@
 import { useState } from 'react';
 import { usePathname } from 'next/navigation';
 import Link from 'next/link';
-import { SIDEBAR_SECTIONS } from '@/lib/studio';
+import {
+  Books,
+  Briefcase,
+  ClockCounterClockwise,
+  FileText,
+  Gear,
+  NotePencil,
+  Notebook,
+  Toolbox,
+  VideoCamera,
+} from '@phosphor-icons/react';
+import { SIDEBAR_SECTIONS, SIDEBAR_TIMELINE_ITEM } from '@/lib/studio';
 import { getMockContentItems } from '@/lib/studio-mock-data';
 import NewContentModal from './NewContentModal';
 
 /**
  * Studio sidebar: 232px fixed navigation panel.
  *
- * Sections: Make Stuff (essays, field notes, videos),
- * Collect (shelf, toolkit), Build (projects),
- * System (timeline, settings).
+ * Sections: MAKE STUFF, COLLECT, BUILD.
+ * Timeline is rendered as a distinct bottom action.
  *
  * "Studio." wordmark at top (54px Vollkorn), terracotta period.
  * Terracotta glow bloom from upper left, grid lines at 5% opacity,
@@ -23,7 +33,22 @@ export default function StudioSidebar() {
   const pathname = usePathname();
   const [showNewModal, setShowNewModal] = useState(false);
 
-  /* Compute content counts for badges */
+  const iconByName = {
+    'file-text': FileText,
+    'note-pencil': NotePencil,
+    video: VideoCamera,
+    'book-open': Books,
+    notebook: Notebook,
+    wrench: Toolbox,
+    briefcase: Briefcase,
+    gear: Gear,
+    timeline: ClockCounterClockwise,
+  } as const;
+
+  const timelineActive =
+    pathname === SIDEBAR_TIMELINE_ITEM.href ||
+    pathname?.startsWith(`${SIDEBAR_TIMELINE_ITEM.href}/`);
+
   const items = getMockContentItems();
   const counts: Record<string, number> = {};
   for (const item of items) {
@@ -31,7 +56,6 @@ export default function StudioSidebar() {
     counts[key] = (counts[key] ?? 0) + 1;
   }
 
-  /* Map sidebar item labels to content type slugs for badge lookup */
   const labelToType: Record<string, string> = {
     Essays: 'essay',
     'Field Notes': 'field-note',
@@ -98,13 +122,36 @@ export default function StudioSidebar() {
         </span>
       </Link>
 
-      {/* Navigation sections */}
+      <div style={{ padding: '8px 12px 14px', position: 'relative', zIndex: 2 }}>
+        <button
+          type="button"
+          onClick={() => setShowNewModal(true)}
+          style={{
+            width: '100%',
+            padding: '9px 14px',
+            backgroundColor: 'var(--studio-tc-dim)',
+            border: '1px solid var(--studio-border-tc)',
+            borderRadius: '6px',
+            color: 'var(--studio-tc-bright)',
+            fontFamily: 'var(--studio-font-body)',
+            fontSize: '13px',
+            fontWeight: 600,
+            cursor: 'pointer',
+            transition: 'all 0.12s ease',
+            textAlign: 'left',
+            boxShadow: '0 0 18px rgba(180, 90, 45, 0.34)',
+          }}
+        >
+          + New
+        </button>
+      </div>
+
       <nav
         style={{
           flex: 1,
           overflowY: 'auto',
-          paddingTop: '12px',
-          paddingBottom: '20px',
+          paddingTop: '4px',
+          paddingBottom: '12px',
         }}
       >
         {SIDEBAR_SECTIONS.map((section) => (
@@ -118,6 +165,7 @@ export default function StudioSidebar() {
               const count = labelToType[item.label]
                 ? counts[labelToType[item.label]]
                 : undefined;
+              const Icon = iconByName[item.icon as keyof typeof iconByName] ?? FileText;
 
               return (
                 <Link
@@ -126,12 +174,18 @@ export default function StudioSidebar() {
                   className="studio-nav-item"
                   data-active={isActive ? 'true' : undefined}
                 >
-                  {item.dotColor && (
-                    <span
-                      className="studio-nav-dot"
-                      style={{ backgroundColor: item.dotColor }}
-                    />
-                  )}
+                  <span
+                    style={{
+                      width: '16px',
+                      color: item.dotColor ?? 'var(--studio-text-3)',
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      flexShrink: 0,
+                    }}
+                  >
+                    <Icon size={16} weight="thin" aria-hidden="true" />
+                  </span>
                   <span>{item.label}</span>
                   {count !== undefined && count > 0 && (
                     <span className="studio-nav-badge">{count}</span>
@@ -143,33 +197,31 @@ export default function StudioSidebar() {
         ))}
       </nav>
 
-      {/* Bottom: Quick capture button */}
       <div
         style={{
-          padding: '12px 16px 18px',
+          padding: '10px 12px 18px',
           borderTop: '1px solid var(--studio-border)',
         }}
       >
-        <button
-          type="button"
-          onClick={() => setShowNewModal(true)}
-          style={{
-            width: '100%',
-            padding: '8px 14px',
-            backgroundColor: 'var(--studio-tc-dim)',
-            border: '1px solid var(--studio-border-tc)',
-            borderRadius: '5px',
-            color: 'var(--studio-tc-bright)',
-            fontFamily: 'var(--studio-font-body)',
-            fontSize: '13px',
-            fontWeight: 600,
-            cursor: 'pointer',
-            transition: 'all 0.1s ease',
-            textAlign: 'left' as const,
-          }}
+        <Link
+          href={SIDEBAR_TIMELINE_ITEM.href}
+          className="studio-nav-item studio-nav-item-timeline"
+          data-active={timelineActive ? 'true' : undefined}
         >
-          + New
-        </button>
+          <span
+            style={{
+              width: '16px',
+              color: 'var(--studio-purple)',
+              display: 'inline-flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              flexShrink: 0,
+            }}
+          >
+            <ClockCounterClockwise size={16} weight="thin" aria-hidden="true" />
+          </span>
+          <span>{SIDEBAR_TIMELINE_ITEM.label}</span>
+        </Link>
       </div>
 
       {showNewModal && (
