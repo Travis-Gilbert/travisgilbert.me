@@ -17,7 +17,7 @@ import Underline from '@tiptap/extension-underline';
 import Subscript from '@tiptap/extension-subscript';
 import Superscript from '@tiptap/extension-superscript';
 import Typography from '@tiptap/extension-typography';
-import { useEffect, useCallback } from 'react';
+import { useEffect, useCallback, useRef } from 'react';
 import type { Editor } from '@tiptap/react';
 
 /**
@@ -32,11 +32,16 @@ export default function TiptapEditor({
   initialContent,
   onUpdate,
   onEditorReady,
+  onFocusChange,
 }: {
   initialContent?: string;
   onUpdate?: (html: string) => void;
   onEditorReady?: (editor: Editor) => void;
+  onFocusChange?: (focused: boolean) => void;
 }) {
+  const wrapperRef = useRef<HTMLDivElement | null>(null);
+  const typewriterFrameRef = useRef<number | null>(null);
+
   const handleUpdate = useCallback(
     ({ editor: ed }: { editor: Editor }) => {
       onUpdate?.(ed.getHTML());
@@ -78,7 +83,7 @@ export default function TiptapEditor({
     onUpdate: handleUpdate,
     editorProps: {
       attributes: {
-        class: 'studio-tiptap-content',
+        class: 'studio-tiptap-content studio-prose',
       },
     },
   });
@@ -87,16 +92,85 @@ export default function TiptapEditor({
     if (editor) onEditorReady?.(editor);
   }, [editor, onEditorReady]);
 
+  const centerSelectionInView = useCallback(() => {
+    if (!editor?.isFocused) return;
+    const wrapper = wrapperRef.current;
+    if (!wrapper) return;
+
+    const selection = window.getSelection();
+    if (!selection || selection.rangeCount === 0) return;
+
+    const range = selection.getRangeAt(0).cloneRange();
+    range.collapse(true);
+    const caretRect =
+      range.getClientRects()[0] ?? range.getBoundingClientRect();
+    if (!caretRect || (caretRect.top === 0 && caretRect.bottom === 0)) {
+      return;
+    }
+
+    const wrapperRect = wrapper.getBoundingClientRect();
+    const targetY = wrapperRect.top + wrapperRect.height * 0.5;
+    const delta = caretRect.top - targetY;
+
+    if (Math.abs(delta) < 14) {
+      return;
+    }
+
+    wrapper.scrollTop += delta;
+  }, [editor]);
+
+  const scheduleTypewriterCenter = useCallback(() => {
+    if (typewriterFrameRef.current !== null) {
+      cancelAnimationFrame(typewriterFrameRef.current);
+    }
+
+    typewriterFrameRef.current = window.requestAnimationFrame(() => {
+      typewriterFrameRef.current = null;
+      centerSelectionInView();
+    });
+  }, [centerSelectionInView]);
+
+  useEffect(() => {
+    if (!editor) return;
+
+    const handleSelectionActivity = () => {
+      scheduleTypewriterCenter();
+    };
+
+    editor.on('focus', handleSelectionActivity);
+    editor.on('selectionUpdate', handleSelectionActivity);
+    editor.on('update', handleSelectionActivity);
+
+    return () => {
+      editor.off('focus', handleSelectionActivity);
+      editor.off('selectionUpdate', handleSelectionActivity);
+      editor.off('update', handleSelectionActivity);
+      if (typewriterFrameRef.current !== null) {
+        cancelAnimationFrame(typewriterFrameRef.current);
+        typewriterFrameRef.current = null;
+      }
+    };
+  }, [editor, scheduleTypewriterCenter]);
+
   return (
     <div
+      ref={wrapperRef}
       className="studio-tiptap-wrapper studio-scrollbar"
+      onFocusCapture={() => onFocusChange?.(true)}
+      onBlurCapture={(event) => {
+        const next = event.relatedTarget as Node | null;
+        if (!next || !event.currentTarget.contains(next)) {
+          onFocusChange?.(false);
+        }
+      }}
       style={{
         flex: 1,
         overflowY: 'auto',
-        padding: '32px 40px',
       }}
     >
-      <EditorContent editor={editor} />
+      <div className="studio-page">
+        <EditorContent editor={editor} />
+      </div>
     </div>
   );
 }

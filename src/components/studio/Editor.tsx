@@ -67,6 +67,7 @@ export default function Editor({
   );
   const [saveState, setSaveState] = useState<SaveState>('idle');
   const [autosaveState, setAutosaveState] = useState<AutosaveState>('idle');
+  const [isWritingFocused, setIsWritingFocused] = useState(false);
   const [, setForceRender] = useState(0);
 
   const autosaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -233,7 +234,8 @@ export default function Editor({
   return (
     <div style={{ display: 'flex', height: '100vh', maxHeight: '100vh' }}>
       <div
-        className="studio-writing-surface"
+        className="studio-writing-surface studio-editor-shell"
+        data-writing-focused={isWritingFocused ? 'true' : 'false'}
         style={{
           flex: 1,
           display: 'flex',
@@ -279,16 +281,21 @@ export default function Editor({
           />
         </div>
 
-        <EditorToolbar editor={editor} />
+        <div className="studio-editor-chrome">
+          <EditorToolbar editor={editor} />
+        </div>
 
         <TiptapEditor
           key={slug}
           initialContent={initialContent}
           onUpdate={handleUpdate}
           onEditorReady={handleEditorReady}
+          onFocusChange={setIsWritingFocused}
         />
 
-        <WordCountBand editor={editor} />
+        <div className="studio-editor-chrome">
+          <WordCountBand editor={editor} />
+        </div>
       </div>
     </div>
   );
