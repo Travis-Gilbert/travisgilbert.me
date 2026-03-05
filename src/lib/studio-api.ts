@@ -39,6 +39,62 @@ interface StudioApiTimelineItem {
   occurred_at: string;
 }
 
+interface StudioApiConnectionsNode {
+  id: string;
+  pk: string;
+  title: string;
+  slug: string;
+  content_type: string;
+  stage: string;
+  updated_at: string;
+}
+
+interface StudioApiConnectionsEdge {
+  id: string;
+  source: string;
+  target: string;
+  weight: number;
+  reason: string;
+}
+
+interface StudioApiConnectionsGraph {
+  nodes: StudioApiConnectionsNode[];
+  edges: StudioApiConnectionsEdge[];
+  meta: {
+    node_count: number;
+    edge_count: number;
+    generated_at: string;
+  };
+}
+
+export interface StudioConnectionsNode {
+  id: string;
+  pk: string;
+  title: string;
+  slug: string;
+  contentType: string;
+  stage: string;
+  updatedAt: string;
+}
+
+export interface StudioConnectionsEdge {
+  id: string;
+  source: string;
+  target: string;
+  weight: number;
+  reason: string;
+}
+
+export interface StudioConnectionsGraph {
+  nodes: StudioConnectionsNode[];
+  edges: StudioConnectionsEdge[];
+  meta: {
+    nodeCount: number;
+    edgeCount: number;
+    generatedAt: string;
+  };
+}
+
 export class StudioApiError extends Error {
   constructor(
     public status: number,
@@ -96,6 +152,20 @@ function mapApiTimelineItem(item: StudioApiTimelineItem): StudioTimelineEntry {
     action: item.action,
     detail: item.detail,
     occurredAt: item.occurred_at,
+  };
+}
+
+function mapApiConnectionsNode(
+  item: StudioApiConnectionsNode,
+): StudioConnectionsNode {
+  return {
+    id: item.id,
+    pk: item.pk,
+    title: item.title,
+    slug: item.slug,
+    contentType: normalizeStudioContentType(item.content_type),
+    stage: item.stage,
+    updatedAt: item.updated_at,
   };
 }
 
@@ -296,5 +366,39 @@ export async function fetchDashboardStats(): Promise<StudioDashboardStats> {
     byStage,
     byType,
     recentActivity,
+  };
+}
+
+export async function fetchConnectionsGraph(params?: {
+  limit?: number;
+  maxEdges?: number;
+}): Promise<StudioConnectionsGraph> {
+  const search = new URLSearchParams();
+  if (params?.limit) {
+    search.set('limit', String(params.limit));
+  }
+  if (params?.maxEdges) {
+    search.set('max_edges', String(params.maxEdges));
+  }
+
+  const query = search.toString();
+  const data = await studioFetch<StudioApiConnectionsGraph>(
+    `/connections/${query ? `?${query}` : ''}`,
+  );
+
+  return {
+    nodes: data.nodes.map(mapApiConnectionsNode),
+    edges: data.edges.map((edge) => ({
+      id: edge.id,
+      source: edge.source,
+      target: edge.target,
+      weight: edge.weight,
+      reason: edge.reason,
+    })),
+    meta: {
+      nodeCount: data.meta.node_count,
+      edgeCount: data.meta.edge_count,
+      generatedAt: data.meta.generated_at,
+    },
   };
 }

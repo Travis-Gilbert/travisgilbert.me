@@ -49,6 +49,7 @@ INSTALLED_APPS = [
     # Project apps
     "apps.core",
     "apps.content",
+    "apps.connections",
     "apps.publisher",
     "apps.editor",
     "apps.intake",

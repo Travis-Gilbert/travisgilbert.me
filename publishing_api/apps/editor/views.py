@@ -80,6 +80,7 @@ from apps.editor.forms import (
     VideoSceneForm,
     VideoDeliverableForm,
 )
+from apps.connections.services import build_connections_graph
 from apps.publisher.github import publish_binary_file
 from apps.publisher.publish import (
     delete_content,
@@ -2941,3 +2942,24 @@ class StudioApiSettingsView(StudioApiBaseView):
         }
 
         return self._json(request, payload)
+
+
+class StudioApiConnectionsView(StudioApiBaseView):
+    """GET /editor/api/connections/."""
+
+    def get(self, request):
+        limit_raw = request.GET.get("limit", "80")
+        max_edges_raw = request.GET.get("max_edges", "240")
+
+        try:
+            limit = max(10, min(int(limit_raw), 200))
+        except (TypeError, ValueError):
+            limit = 80
+
+        try:
+            max_edges = max(20, min(int(max_edges_raw), 600))
+        except (TypeError, ValueError):
+            max_edges = 240
+
+        graph = build_connections_graph(limit=limit, max_edges=max_edges)
+        return self._json(request, graph)

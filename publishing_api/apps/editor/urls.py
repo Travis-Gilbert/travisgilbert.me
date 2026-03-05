@@ -185,4 +185,5 @@ urlpatterns = [
     ),
     path("editor/api/timeline/", views.StudioApiTimelineView.as_view(), name="api-timeline"),
     path("editor/api/settings/", views.StudioApiSettingsView.as_view(), name="api-settings"),
+    path("editor/api/connections/", views.StudioApiConnectionsView.as_view(), name="api-connections"),
 ]
