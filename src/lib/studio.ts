@@ -15,6 +15,30 @@ const STUDIO_URL =
 
 export const STUDIO_API_BASE = `${STUDIO_URL}/editor/api`;
 
+const CONTENT_TYPE_ALIASES: Record<string, string> = {
+  essay: 'essay',
+  essays: 'essay',
+  'field-note': 'field-note',
+  'field-notes': 'field-note',
+  field_note: 'field-note',
+  field_notes: 'field-note',
+  shelf: 'shelf',
+  video: 'video',
+  videos: 'video',
+  project: 'project',
+  projects: 'project',
+  toolkit: 'toolkit',
+};
+
+const API_CONTENT_TYPE_BY_SLUG: Record<string, string> = {
+  essay: 'essay',
+  'field-note': 'field_note',
+  shelf: 'shelf',
+  video: 'video',
+  project: 'project',
+  toolkit: 'toolkit',
+};
+
 /* ─────────────────────────────────────────────────
    Content types: what Studio manages
    ───────────────────────────────────────────────── */
@@ -81,16 +105,31 @@ export const CONTENT_TYPES: ContentTypeIdentity[] = [
 ];
 
 export function getContentTypeIdentity(slug: string): ContentTypeIdentity {
+  const normalized = normalizeStudioContentType(slug);
   return (
-    CONTENT_TYPES.find((t) => t.slug === slug) ?? {
-      slug,
-      label: slug,
-      pluralLabel: slug,
+    CONTENT_TYPES.find((t) => t.slug === normalized) ?? {
+      slug: normalized,
+      label: normalized,
+      pluralLabel: normalized,
       color: '#9A8E82',
       icon: 'file-text',
-      route: slug,
+      route: normalized,
     }
   );
+}
+
+export function normalizeStudioContentType(value: string): string {
+  const normalized = value.trim().toLowerCase();
+  return CONTENT_TYPE_ALIASES[normalized] ?? normalized;
+}
+
+export function toStudioApiContentType(value: string): string {
+  const normalized = normalizeStudioContentType(value);
+  return API_CONTENT_TYPE_BY_SLUG[normalized] ?? normalized;
+}
+
+export function toStudioRouteContentType(value: string): string {
+  return normalizeStudioContentType(value);
 }
 
 /* ─────────────────────────────────────────────────

@@ -32,13 +32,18 @@ from collections import defaultdict
 from datetime import timedelta
 
 from django.contrib.auth.mixins import LoginRequiredMixin
+from django.core.exceptions import FieldDoesNotExist
 from django.http import Http404, JsonResponse
 from django.db.models import Count, Max, Sum
 from django.db.models.functions import TruncDate
 from django.shortcuts import get_object_or_404, redirect, render
+from django.utils.decorators import method_decorator
+from django.utils.html import strip_tags
 from django.utils import timezone
+from django.utils.text import slugify
 from django.urls import reverse
 from django.views import View
+from django.views.decorators.csrf import csrf_exempt
 from django.views.generic import CreateView, ListView, TemplateView, UpdateView
 
 logger = logging.getLogger(__name__)
@@ -2390,3 +2395,486 @@ class ResearchNoteDeleteView(LoginRequiredMixin, View):
         )
         note.delete()
         return JsonResponse({"deleted": True})
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# Studio JSON wrappers for Next.js Studio (/editor/api/*)
+# ═══════════════════════════════════════════════════════════════════════════
+
+STUDIO_API_ALLOWED_ORIGINS = {
+    "http://localhost:3000",
+    "http://127.0.0.1:3000",
+}
+
+
+STUDIO_API_CONTENT_REGISTRY = {
+    "essay": {
+        "model": Essay,
+        "stage_field": "stage",
+        "body_field": "body",
+        "excerpt_field": "summary",
+        "tags_field": "tags",
+        "default_title": "Untitled Essay",
+    },
+    "field-note": {
+        "model": FieldNote,
+        "stage_field": "status",
+        "body_field": "body",
+        "excerpt_field": "excerpt",
+        "tags_field": "tags",
+        "default_title": "Untitled Field Note",
+    },
+    "shelf": {
+        "model": ShelfEntry,
+        "stage_field": "stage",
+        "body_field": "annotation",
+        "excerpt_field": "annotation",
+        "tags_field": "tags",
+        "default_title": "Untitled Shelf Entry",
+    },
+    "project": {
+        "model": Project,
+        "stage_field": "stage",
+        "body_field": "body",
+        "excerpt_field": "description",
+        "tags_field": "tags",
+        "default_title": "Untitled Project",
+    },
+    "toolkit": {
+        "model": ToolkitEntry,
+        "stage_field": "stage",
+        "body_field": "body",
+        "excerpt_field": None,
+        "tags_field": None,
+        "default_title": "Untitled Toolkit Entry",
+    },
+    "video": {
+        "model": VideoProject,
+        "stage_field": "phase",
+        "body_field": "script_body",
+        "excerpt_field": "thesis",
+        "tags_field": "youtube_tags",
+        "default_title": "Untitled Video",
+    },
+}
+
+STUDIO_API_CONTENT_ALIASES = {
+    "essay": "essay",
+    "essays": "essay",
+    "field-note": "field-note",
+    "field-notes": "field-note",
+    "field_note": "field-note",
+    "field_notes": "field-note",
+    "shelf": "shelf",
+    "video": "video",
+    "videos": "video",
+    "project": "project",
+    "projects": "project",
+    "toolkit": "toolkit",
+}
+
+
+def _studio_api_add_cors_headers(request, response):
+    origin = request.headers.get("Origin")
+    if origin in STUDIO_API_ALLOWED_ORIGINS:
+        response["Access-Control-Allow-Origin"] = origin
+        vary = response.get("Vary")
+        response["Vary"] = f"{vary}, Origin" if vary else "Origin"
+
+    response["Access-Control-Allow-Methods"] = "GET, POST, OPTIONS"
+    response["Access-Control-Allow-Headers"] = "Content-Type"
+    response["Access-Control-Max-Age"] = "86400"
+    return response
+
+
+def _normalize_studio_api_content_type(raw_content_type):
+    if not raw_content_type:
+        return None
+    key = str(raw_content_type).strip().lower()
+    return STUDIO_API_CONTENT_ALIASES.get(key)
+
+
+def _get_studio_api_content_config(raw_content_type):
+    normalized = _normalize_studio_api_content_type(raw_content_type)
+    if not normalized:
+        return None, None
+    return normalized, STUDIO_API_CONTENT_REGISTRY.get(normalized)
+
+
+def _create_defaults_for_content_type(content_type):
+    today = timezone.localdate()
+    if content_type == "essay":
+        return {
+            "date": today,
+            "summary": "",
+            "body": "",
+        }
+    if content_type == "field-note":
+        return {
+            "date": today,
+            "body": "",
+            "excerpt": "",
+        }
+    if content_type == "shelf":
+        return {
+            "creator": "Unknown",
+            "type": ShelfEntry.EntryType.ARTICLE,
+            "annotation": "",
+            "date": today,
+        }
+    if content_type == "project":
+        return {
+            "role": "Creator",
+            "description": "",
+            "year": today.year,
+            "date": today,
+            "body": "",
+        }
+    if content_type == "toolkit":
+        return {
+            "category": "",
+            "body": "",
+        }
+    if content_type == "video":
+        return {
+            "script_body": "",
+            "thesis": "",
+        }
+    return {}
+
+
+def _generate_unique_slug(model_cls, title):
+    base_slug = slugify(title) or "untitled"
+    slug = base_slug
+    suffix = 2
+    while model_cls.objects.filter(slug=slug).exists():
+        slug = f"{base_slug}-{suffix}"
+        suffix += 1
+    return slug
+
+
+def _word_count_for_text(value):
+    if not value:
+        return 0
+    plain = strip_tags(str(value))
+    words = [word for word in plain.split() if word]
+    return len(words)
+
+
+def _serialize_studio_content_item(instance, content_type, config):
+    body_field = config.get("body_field")
+    excerpt_field = config.get("excerpt_field")
+    tags_field = config.get("tags_field")
+    stage_field = config.get("stage_field")
+
+    body_value = getattr(instance, body_field, "") if body_field else ""
+    excerpt_value = getattr(instance, excerpt_field, "") if excerpt_field else ""
+    tags_value = getattr(instance, tags_field, []) if tags_field else []
+    if not isinstance(tags_value, list):
+        tags_value = []
+
+    published_at = getattr(instance, "published_at", None)
+    created_at = getattr(instance, "created_at", timezone.now())
+    updated_at = getattr(instance, "updated_at", timezone.now())
+
+    return {
+        "id": str(instance.pk),
+        "title": getattr(instance, "title", "") or "",
+        "slug": getattr(instance, "slug", "") or "",
+        "content_type": content_type,
+        "stage": getattr(instance, stage_field, "") or "",
+        "body": body_value or "",
+        "excerpt": excerpt_value or "",
+        "word_count": _word_count_for_text(body_value),
+        "tags": tags_value,
+        "created_at": created_at.isoformat(),
+        "updated_at": updated_at.isoformat(),
+        "published_at": published_at.isoformat() if published_at else None,
+    }
+
+
+def _apply_studio_filters(queryset, config, stage=None, query=None):
+    stage_field = config.get("stage_field")
+    filtered = queryset
+
+    if stage and stage_field:
+        try:
+            model_field = config["model"]._meta.get_field(stage_field)
+            valid_values = [choice[0] for choice in model_field.choices]
+            if stage in valid_values:
+                filtered = filtered.filter(**{stage_field: stage})
+            else:
+                return filtered.none()
+        except FieldDoesNotExist:
+            pass
+
+    if query:
+        filtered = filtered.filter(title__icontains=query)
+
+    return filtered.order_by("-updated_at")
+
+
+def _list_serialized_content(content_type=None, stage=None, query=None):
+    items = []
+
+    if content_type:
+        config = STUDIO_API_CONTENT_REGISTRY[content_type]
+        queryset = _apply_studio_filters(
+            config["model"].objects.all(),
+            config,
+            stage=stage,
+            query=query,
+        )
+        for instance in queryset:
+            items.append(_serialize_studio_content_item(instance, content_type, config))
+        return items
+
+    for item_type, config in STUDIO_API_CONTENT_REGISTRY.items():
+        queryset = _apply_studio_filters(
+            config["model"].objects.all(),
+            config,
+            stage=stage,
+            query=query,
+        )
+        for instance in queryset:
+            items.append(_serialize_studio_content_item(instance, item_type, config))
+
+    items.sort(key=lambda item: item["updated_at"], reverse=True)
+    return items
+
+
+def _update_instance_from_payload(instance, config, payload):
+    title = payload.get("title")
+    if isinstance(title, str):
+        instance.title = title.strip() or config["default_title"]
+
+    if "body" in payload and config.get("body_field"):
+        setattr(instance, config["body_field"], payload.get("body") or "")
+
+    excerpt_field = config.get("excerpt_field")
+    if "excerpt" in payload and excerpt_field:
+        setattr(instance, excerpt_field, payload.get("excerpt") or "")
+
+    tags_field = config.get("tags_field")
+    if "tags" in payload and tags_field:
+        tags = payload.get("tags")
+        if isinstance(tags, list):
+            setattr(instance, tags_field, tags)
+
+    instance.save()
+
+
+@method_decorator(csrf_exempt, name="dispatch")
+class StudioApiBaseView(View):
+    """Base view for JSON wrappers with CORS and OPTIONS support."""
+
+    def options(self, request, *args, **kwargs):
+        return self._json(request, {"ok": True})
+
+    def _json(self, request, payload, status=200):
+        response = JsonResponse(payload, status=status, safe=not isinstance(payload, list))
+        return _studio_api_add_cors_headers(request, response)
+
+    def _error(self, request, message, status=400):
+        return self._json(request, {"error": message}, status=status)
+
+    def _parse_json_body(self, request):
+        if not request.body:
+            return {}
+        try:
+            return json.loads(request.body)
+        except json.JSONDecodeError:
+            return None
+
+
+class StudioApiContentListView(StudioApiBaseView):
+    """GET /editor/api/content/ (optional query: content_type, stage, q)."""
+
+    def get(self, request):
+        requested_type = request.GET.get("content_type")
+        stage = request.GET.get("stage")
+        query = request.GET.get("q")
+
+        if requested_type:
+            normalized, config = _get_studio_api_content_config(requested_type)
+            if not normalized or not config:
+                return self._error(request, "Unknown content type", status=404)
+            items = _list_serialized_content(
+                content_type=normalized,
+                stage=stage,
+                query=query,
+            )
+            return self._json(request, items)
+
+        items = _list_serialized_content(stage=stage, query=query)
+        return self._json(request, items)
+
+
+class StudioApiContentTypeListView(StudioApiBaseView):
+    """GET /editor/api/content/<content_type>/."""
+
+    def get(self, request, content_type):
+        normalized, config = _get_studio_api_content_config(content_type)
+        if not normalized or not config:
+            return self._error(request, "Unknown content type", status=404)
+
+        stage = request.GET.get("stage")
+        query = request.GET.get("q")
+        items = _list_serialized_content(
+            content_type=normalized,
+            stage=stage,
+            query=query,
+        )
+        return self._json(request, items)
+
+
+class StudioApiContentDetailView(StudioApiBaseView):
+    """GET /editor/api/content/<content_type>/<slug>/."""
+
+    def get(self, request, content_type, slug):
+        normalized, config = _get_studio_api_content_config(content_type)
+        if not normalized or not config:
+            return self._error(request, "Unknown content type", status=404)
+
+        instance = config["model"].objects.filter(slug=slug).first()
+        if not instance:
+            return self._error(request, "Content item not found", status=404)
+        return self._json(
+            request,
+            _serialize_studio_content_item(instance, normalized, config),
+        )
+
+
+class StudioApiContentCreateView(StudioApiBaseView):
+    """POST /editor/api/content/<content_type>/create/."""
+
+    def post(self, request, content_type):
+        normalized, config = _get_studio_api_content_config(content_type)
+        if not normalized or not config:
+            return self._error(request, "Unknown content type", status=404)
+
+        payload = self._parse_json_body(request)
+        if payload is None:
+            return self._error(request, "Invalid JSON", status=400)
+
+        title = str(payload.get("title") or config["default_title"]).strip()
+        if not title:
+            title = config["default_title"]
+
+        model_cls = config["model"]
+        create_data = _create_defaults_for_content_type(normalized)
+        create_data["title"] = title
+        create_data["slug"] = _generate_unique_slug(model_cls, title)
+
+        instance = model_cls.objects.create(**create_data)
+        return self._json(
+            request,
+            _serialize_studio_content_item(instance, normalized, config),
+            status=201,
+        )
+
+
+class StudioApiContentUpdateView(StudioApiBaseView):
+    """POST /editor/api/content/<content_type>/<slug>/update/."""
+
+    def post(self, request, content_type, slug):
+        normalized, config = _get_studio_api_content_config(content_type)
+        if not normalized or not config:
+            return self._error(request, "Unknown content type", status=404)
+
+        payload = self._parse_json_body(request)
+        if payload is None:
+            return self._error(request, "Invalid JSON", status=400)
+
+        instance = config["model"].objects.filter(slug=slug).first()
+        if not instance:
+            return self._error(request, "Content item not found", status=404)
+        _update_instance_from_payload(instance, config, payload)
+        return self._json(
+            request,
+            _serialize_studio_content_item(instance, normalized, config),
+        )
+
+
+class StudioApiContentDeleteView(StudioApiBaseView):
+    """POST /editor/api/content/<content_type>/<slug>/delete/."""
+
+    def post(self, request, content_type, slug):
+        normalized, config = _get_studio_api_content_config(content_type)
+        if not normalized or not config:
+            return self._error(request, "Unknown content type", status=404)
+
+        instance = config["model"].objects.filter(slug=slug).first()
+        if not instance:
+            return self._error(request, "Content item not found", status=404)
+        instance.delete()
+        return self._json(
+            request,
+            {"deleted": True, "content_type": normalized, "slug": slug},
+        )
+
+
+class StudioApiContentSetStageView(StudioApiBaseView):
+    """POST /editor/api/content/<content_type>/<slug>/set-stage/."""
+
+    def post(self, request, content_type, slug):
+        normalized, config = _get_studio_api_content_config(content_type)
+        if not normalized or not config:
+            return self._error(request, "Unknown content type", status=404)
+
+        payload = self._parse_json_body(request)
+        if payload is None:
+            return self._error(request, "Invalid JSON", status=400)
+
+        new_stage = str(payload.get("stage") or "").strip()
+        if not new_stage:
+            return self._error(request, "stage is required", status=400)
+
+        stage_field = config.get("stage_field")
+        model_cls = config["model"]
+
+        try:
+            model_field = model_cls._meta.get_field(stage_field)
+        except FieldDoesNotExist:
+            return self._error(request, "Stage field is not configured", status=500)
+
+        valid_values = [choice[0] for choice in model_field.choices]
+        if new_stage not in valid_values:
+            return self._error(request, f"Invalid stage: {new_stage}", status=400)
+
+        instance = model_cls.objects.filter(slug=slug).first()
+        if not instance:
+            return self._error(request, "Content item not found", status=404)
+        setattr(instance, stage_field, new_stage)
+        instance.save()
+
+        return self._json(
+            request,
+            _serialize_studio_content_item(instance, normalized, config),
+        )
+
+
+class StudioApiTimelineView(StudioApiBaseView):
+    """GET /editor/api/timeline/."""
+
+    def get(self, request):
+        limit_raw = request.GET.get("limit", "40")
+        try:
+            limit = max(1, min(int(limit_raw), 200))
+        except (TypeError, ValueError):
+            limit = 40
+
+        items = _list_serialized_content()
+        entries = []
+        for index, item in enumerate(items[:limit]):
+            entries.append({
+                "id": f"timeline-{item['content_type']}-{item['id']}-{index}",
+                "content_id": item["id"],
+                "content_title": item["title"],
+                "content_type": item["content_type"],
+                "action": "updated",
+                "detail": f"Updated \"{item['title']}\"",
+                "occurred_at": item["updated_at"],
+            })
+
+        return self._json(request, entries)

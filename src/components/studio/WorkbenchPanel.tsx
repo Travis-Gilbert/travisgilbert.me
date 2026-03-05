@@ -29,6 +29,9 @@ interface TodoItem {
   done: boolean;
 }
 
+type SaveState = 'idle' | 'saving' | 'success' | 'error';
+type AutosaveState = 'idle' | 'saved';
+
 /**
  * Editor toolbox: right panel (280px) with Outline and Notes modes.
  *
@@ -50,11 +53,15 @@ export default function WorkbenchPanel({
   contentItem,
   onSave,
   lastSaved,
+  saveState = 'idle',
+  autosaveState = 'idle',
 }: {
   editor: TiptapEditorType | null;
   contentItem: StudioContentItem | null;
   onSave?: () => void;
   lastSaved: string | null;
+  saveState?: SaveState;
+  autosaveState?: AutosaveState;
 }) {
   const [open, setOpen] = useState(true);
   const [mounted, setMounted] = useState(false);
@@ -215,6 +222,8 @@ export default function WorkbenchPanel({
               contentItem={contentItem}
               onSave={onSave}
               lastSaved={lastSaved}
+              saveState={saveState}
+              autosaveState={autosaveState}
             />
           ) : (
             <NotesMode contentItem={contentItem} />
@@ -232,11 +241,15 @@ function OutlineMode({
   contentItem,
   onSave,
   lastSaved,
+  saveState,
+  autosaveState,
 }: {
   editor: TiptapEditorType | null;
   contentItem: StudioContentItem | null;
   onSave?: () => void;
   lastSaved: string | null;
+  saveState: SaveState;
+  autosaveState: AutosaveState;
 }) {
   /* Extract headings from ProseMirror document tree */
   const headings = useMemo<HeadingItem[]>(() => {
@@ -314,6 +327,22 @@ function OutlineMode({
     URL.revokeObjectURL(url);
     setExportOpen(false);
   }, [editor, contentItem]);
+
+  const saveLabel =
+    saveState === 'saving'
+      ? 'Saving...'
+      : saveState === 'error'
+        ? 'Save failed'
+        : saveState === 'success'
+          ? 'Saved'
+          : 'Save';
+
+  const saveColor =
+    saveState === 'success'
+      ? '#5A7A4A'
+      : saveState === 'error'
+        ? '#A44A3A'
+        : typeInfo.color;
 
   return (
     <>
@@ -437,6 +466,7 @@ function OutlineMode({
         <button
           type="button"
           onClick={onSave}
+          className={saveState === 'saving' ? 'studio-save-pulse' : undefined}
           style={{
             width: '100%',
             padding: '8px 12px',
@@ -446,15 +476,32 @@ function OutlineMode({
             letterSpacing: '0.08em',
             textTransform: 'uppercase' as const,
             color: 'var(--studio-text-bright)',
-            backgroundColor: studioMix(typeInfo.color, 10),
-            border: `1px solid ${studioMix(typeInfo.color, 20)}`,
+            backgroundColor: studioMix(saveColor, 16),
+            border: `1px solid ${studioMix(saveColor, 35)}`,
             borderRadius: '4px',
             cursor: 'pointer',
             transition: 'all 0.12s ease',
+            boxShadow:
+              saveState === 'success' || saveState === 'error'
+                ? `0 0 14px ${studioMix(saveColor, 35)}`
+                : undefined,
           }}
         >
-          Save
+          {saveLabel}
         </button>
+        {autosaveState === 'saved' && (
+          <p
+            style={{
+              fontFamily: 'var(--studio-font-mono)',
+              fontSize: '9px',
+              color: 'var(--studio-text-3)',
+              marginTop: '4px',
+              textAlign: 'center' as const,
+            }}
+          >
+            Saved
+          </p>
+        )}
         {lastSaved && (
           <p
             style={{

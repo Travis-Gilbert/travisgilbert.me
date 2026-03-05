@@ -1,21 +1,40 @@
 'use client';
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import type { Editor as TiptapEditorType } from '@tiptap/react';
 import type { StudioContentItem } from '@/lib/studio';
+import { normalizeStudioContentType } from '@/lib/studio';
+import { saveContentItem, updateStage } from '@/lib/studio-api';
 import StageBar from './StageBar';
 import EditorToolbar from './EditorToolbar';
 import TiptapEditor from './TiptapEditor';
 import WordCountBand from './WordCountBand';
 import WorkbenchPanel from './WorkbenchPanel';
 
+type SaveState = 'idle' | 'saving' | 'success' | 'error';
+type SaveMode = 'manual' | 'autosave';
+type AutosaveState = 'idle' | 'saved';
+
+function formatSavedTime(input: string): string {
+  const dt = new Date(input);
+  if (Number.isNaN(dt.getTime())) {
+    return '';
+  }
+  return dt.toLocaleTimeString('en-US', {
+    hour: 'numeric',
+    minute: '2-digit',
+    hour12: true,
+  });
+}
+
+function excerptFromHtml(html: string): string {
+  const plain = html.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
+  return plain.slice(0, 220);
+}
+
 /**
- * Main editor view: composes StageBar, Toolbar, TiptapEditor, WordCountBand,
- * and WorkbenchPanel (toolbox).
- *
- * Horizontal flex: writing column (flex: 1) + toolbox (280px, right).
- * Owns the editor instance ref (passed up from TiptapEditor via onEditorReady).
- * Manages stage state and auto-save timestamp locally.
+ * Main editor view: stage bar, toolbar, writing area, word count band,
+ * and workbench panel.
  */
 export default function Editor({
   slug,
@@ -32,51 +51,157 @@ export default function Editor({
   initialStage: string;
   contentItem?: StudioContentItem | null;
 }) {
+  const normalizedContentType = normalizeStudioContentType(contentType);
+
   const [editor, setEditor] = useState<TiptapEditorType | null>(null);
   const [currentTitle, setCurrentTitle] = useState(title);
+  const [currentBody, setCurrentBody] = useState(initialContent ?? '');
   const [stage, setStage] = useState(initialStage);
-  const [lastSaved, setLastSaved] = useState<string | null>(null);
+  const [lastSaved, setLastSaved] = useState<string | null>(
+    contentItem?.updatedAt ? formatSavedTime(contentItem.updatedAt) : null,
+  );
+  const [saveState, setSaveState] = useState<SaveState>('idle');
+  const [autosaveState, setAutosaveState] = useState<AutosaveState>('idle');
   const [, setForceRender] = useState(0);
+
+  const autosaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const saveStateTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const snapshotRef = useRef(
+    JSON.stringify({
+      title,
+      body: initialContent ?? '',
+    }),
+  );
+
+  useEffect(() => {
+    setCurrentTitle(title);
+    setCurrentBody(initialContent ?? '');
+    setStage(initialStage);
+    setLastSaved(contentItem?.updatedAt ? formatSavedTime(contentItem.updatedAt) : null);
+    setSaveState('idle');
+    setAutosaveState('idle');
+    snapshotRef.current = JSON.stringify({
+      title,
+      body: initialContent ?? '',
+    });
+  }, [title, initialContent, initialStage, contentItem?.updatedAt, slug]);
+
+  useEffect(() => {
+    return () => {
+      if (autosaveTimerRef.current) clearTimeout(autosaveTimerRef.current);
+      if (saveStateTimerRef.current) clearTimeout(saveStateTimerRef.current);
+    };
+  }, []);
 
   const handleEditorReady = useCallback((ed: TiptapEditorType) => {
     setEditor(ed);
-    /* Re-render on every transaction so toolbar active states update */
     ed.on('transaction', () => {
       setForceRender((n) => n + 1);
     });
   }, []);
 
+  const persistChanges = useCallback(
+    async (mode: SaveMode) => {
+      if (saveStateTimerRef.current) {
+        clearTimeout(saveStateTimerRef.current);
+      }
+
+      setSaveState('saving');
+      setAutosaveState('idle');
+
+      const payload = {
+        title: currentTitle.trim() || 'Untitled',
+        body: currentBody,
+        excerpt: excerptFromHtml(currentBody),
+        tags: contentItem?.tags ?? [],
+      };
+
+      try {
+        const saved = await saveContentItem(normalizedContentType, slug, payload);
+
+        const snapshot = JSON.stringify({
+          title: payload.title,
+          body: payload.body,
+        });
+        snapshotRef.current = snapshot;
+
+        setCurrentTitle(saved.title);
+        setLastSaved(formatSavedTime(saved.updatedAt));
+        setSaveState('success');
+
+        if (mode === 'autosave') {
+          setAutosaveState('saved');
+        }
+
+        saveStateTimerRef.current = setTimeout(() => {
+          setSaveState('idle');
+        }, 1500);
+      } catch {
+        setSaveState('error');
+        setAutosaveState('idle');
+
+        saveStateTimerRef.current = setTimeout(() => {
+          setSaveState('idle');
+        }, 3000);
+      }
+    },
+    [contentItem?.tags, currentBody, currentTitle, normalizedContentType, slug],
+  );
+
   const handleUpdate = useCallback((html: string) => {
-    /* Mock save: just update timestamp. Real API call comes later. */
-    void html;
-    const now = new Date();
-    setLastSaved(
-      now.toLocaleTimeString('en-US', {
-        hour: 'numeric',
-        minute: '2-digit',
-        hour12: true,
-      }),
-    );
+    setCurrentBody(html);
   }, []);
 
   const handleSave = useCallback(() => {
-    const now = new Date();
-    setLastSaved(
-      now.toLocaleTimeString('en-US', {
-        hour: 'numeric',
-        minute: '2-digit',
-        hour12: true,
-      }),
-    );
-  }, []);
+    if (autosaveTimerRef.current) {
+      clearTimeout(autosaveTimerRef.current);
+    }
+    void persistChanges('manual');
+  }, [persistChanges]);
 
-  const handleStageChange = useCallback((newStage: string) => {
-    setStage(newStage);
-  }, []);
+  useEffect(() => {
+    const nextSnapshot = JSON.stringify({
+      title: currentTitle,
+      body: currentBody,
+    });
+
+    if (nextSnapshot === snapshotRef.current) {
+      return;
+    }
+
+    if (autosaveTimerRef.current) {
+      clearTimeout(autosaveTimerRef.current);
+    }
+
+    autosaveTimerRef.current = setTimeout(() => {
+      void persistChanges('autosave');
+    }, 3000);
+
+    return () => {
+      if (autosaveTimerRef.current) {
+        clearTimeout(autosaveTimerRef.current);
+      }
+    };
+  }, [currentBody, currentTitle, persistChanges]);
+
+  const handleStageChange = useCallback(
+    (newStage: string) => {
+      const previousStage = stage;
+      setStage(newStage);
+
+      void updateStage(normalizedContentType, slug, newStage)
+        .then((updated) => {
+          setStage(updated.stage);
+        })
+        .catch(() => {
+          setStage(previousStage);
+        });
+    },
+    [normalizedContentType, slug, stage],
+  );
 
   return (
     <div style={{ display: 'flex', height: '100vh', maxHeight: '100vh' }}>
-      {/* Writing column */}
       <div
         style={{
           flex: 1,
@@ -85,15 +210,13 @@ export default function Editor({
           minWidth: 0,
         }}
       >
-        {/* Stage pipeline bar */}
         <StageBar
           stage={stage}
-          contentType={contentType}
+          contentType={normalizedContentType}
           lastSaved={lastSaved}
           onStageChange={handleStageChange}
         />
 
-        {/* Editable title */}
         <div
           style={{
             padding: '20px 20px 0',
@@ -124,26 +247,25 @@ export default function Editor({
           />
         </div>
 
-        {/* Formatting toolbar */}
         <EditorToolbar editor={editor} />
 
-        {/* Writing surface */}
         <TiptapEditor
+          key={slug}
           initialContent={initialContent}
           onUpdate={handleUpdate}
           onEditorReady={handleEditorReady}
         />
 
-        {/* Word count band */}
         <WordCountBand editor={editor} />
       </div>
 
-      {/* Toolbox (hidden below 1024px via CSS) */}
       <WorkbenchPanel
         editor={editor}
         contentItem={contentItem ?? null}
         onSave={handleSave}
         lastSaved={lastSaved}
+        saveState={saveState}
+        autosaveState={autosaveState}
       />
     </div>
   );

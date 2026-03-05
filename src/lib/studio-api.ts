@@ -1,27 +1,43 @@
 /**
- * Studio API client: typed fetch wrapper, error handling,
- * and the useStudioData hook.
- *
- * Communicates with the Django publishing_api endpoints.
- * Session cookie auth with credentials: 'include' for
- * cross-origin requests to the Studio subdomain.
- *
- * When Django DRF endpoints are built, the fetch functions
- * here will map API response shapes to the StudioContentItem
- * and StudioTimelineEntry types from studio.ts.
+ * Studio API client: typed fetch wrapper, response mappers,
+ * and error handling.
  */
 
-import { useState, useEffect, useCallback, useRef } from 'react';
-import { STUDIO_API_BASE } from '@/lib/studio';
+import {
+  STUDIO_API_BASE,
+  normalizeStudioContentType,
+  toStudioApiContentType,
+} from '@/lib/studio';
 import type {
   StudioContentItem,
   StudioTimelineEntry,
   StudioDashboardStats,
 } from '@/lib/studio';
 
-/* ─────────────────────────────────────────────────
-   Error class
-   ───────────────────────────────────────────────── */
+interface StudioApiContentItem {
+  id: string | number;
+  title: string;
+  slug: string;
+  content_type: string;
+  stage: string;
+  body: string;
+  excerpt: string;
+  word_count: number;
+  tags: string[];
+  created_at: string;
+  updated_at: string;
+  published_at: string | null;
+}
+
+interface StudioApiTimelineItem {
+  id: string;
+  content_id: string;
+  content_title: string;
+  content_type: string;
+  action: string;
+  detail: string;
+  occurred_at: string;
+}
 
 export class StudioApiError extends Error {
   constructor(
@@ -34,33 +50,101 @@ export class StudioApiError extends Error {
   }
 }
 
-/* ─────────────────────────────────────────────────
-   Base fetch wrapper
-   ───────────────────────────────────────────────── */
+function mergeHeaders(
+  target: Record<string, string>,
+  source?: HeadersInit,
+): void {
+  if (!source) return;
+  if (source instanceof Headers) {
+    source.forEach((value, key) => {
+      target[key] = value;
+    });
+    return;
+  }
+  if (Array.isArray(source)) {
+    source.forEach(([key, value]) => {
+      target[key] = value;
+    });
+    return;
+  }
+  Object.assign(target, source);
+}
+
+function mapApiContentItem(item: StudioApiContentItem): StudioContentItem {
+  return {
+    id: String(item.id),
+    title: item.title,
+    slug: item.slug,
+    contentType: normalizeStudioContentType(item.content_type),
+    stage: item.stage,
+    body: item.body ?? '',
+    excerpt: item.excerpt ?? '',
+    wordCount: item.word_count ?? 0,
+    tags: Array.isArray(item.tags) ? item.tags : [],
+    createdAt: item.created_at,
+    updatedAt: item.updated_at,
+    publishedAt: item.published_at,
+  };
+}
+
+function mapApiTimelineItem(item: StudioApiTimelineItem): StudioTimelineEntry {
+  return {
+    id: item.id,
+    contentId: item.content_id,
+    contentTitle: item.content_title,
+    contentType: normalizeStudioContentType(item.content_type),
+    action: item.action,
+    detail: item.detail,
+    occurredAt: item.occurred_at,
+  };
+}
 
 export async function studioFetch<T>(
   path: string,
   options?: RequestInit,
 ): Promise<T> {
   const url = `${STUDIO_API_BASE}${path}`;
+  const hasBody = options?.body !== undefined && options?.body !== null;
+
+  const headers: Record<string, string> = {
+    Accept: 'application/json',
+  };
+
+  mergeHeaders(headers, options?.headers);
+
+  if (hasBody) {
+    headers['Content-Type'] = 'application/json';
+  }
+
   try {
     const res = await fetch(url, {
       ...options,
-      headers: {
-        'Content-Type': 'application/json',
-        ...options?.headers,
-      },
-      credentials: 'include',
+      headers,
+      credentials: 'omit',
       cache: 'no-store',
     });
-    if (!res.ok) {
-      const body = await res.json().catch(() => ({}));
-      throw new StudioApiError(
-        res.status,
-        body.detail ?? body.error ?? `Studio API error ${res.status}`,
-      );
+
+    const text = await res.text();
+    let payload: unknown = {};
+
+    if (text) {
+      try {
+        payload = JSON.parse(text);
+      } catch {
+        payload = {};
+      }
     }
-    return res.json();
+
+    if (!res.ok) {
+      const body = payload as Record<string, unknown>;
+      const message =
+        (typeof body.detail === 'string' && body.detail) ||
+        (typeof body.error === 'string' && body.error) ||
+        `Studio API error ${res.status}`;
+      throw new StudioApiError(res.status, message);
+    }
+
+    return payload as T;
   } catch (err) {
     if (err instanceof StudioApiError) throw err;
     throw new StudioApiError(
@@ -71,144 +155,146 @@ export async function studioFetch<T>(
   }
 }
 
-/* ─────────────────────────────────────────────────
-   API endpoint functions
-   (Currently stubs; will map to Django DRF endpoints)
-   ───────────────────────────────────────────────── */
-
-/** Fetch all content items, optionally filtered */
 export async function fetchContentList(params?: {
   content_type?: string;
   stage?: string;
   q?: string;
 }): Promise<StudioContentItem[]> {
+  const contentType = params?.content_type
+    ? normalizeStudioContentType(params.content_type)
+    : null;
+
   const search = new URLSearchParams();
-  if (params?.content_type) search.set('content_type', params.content_type);
   if (params?.stage) search.set('stage', params.stage);
   if (params?.q) search.set('q', params.q);
 
   const qs = search.toString();
-  const path = `/content/${qs ? `?${qs}` : ''}`;
+  const pathBase = contentType
+    ? `/content/${toStudioApiContentType(contentType)}/`
+    : '/content/';
 
   const data = await studioFetch<
-    { results: StudioContentItem[] } | StudioContentItem[]
-  >(path);
-  return Array.isArray(data) ? data : data.results;
+    { results: StudioApiContentItem[] } | StudioApiContentItem[]
+  >(`${pathBase}${qs ? `?${qs}` : ''}`);
+
+  const items = Array.isArray(data) ? data : data.results ?? [];
+  return items.map(mapApiContentItem);
 }
 
-/** Fetch a single content item by slug */
 export async function fetchContentItem(
   contentType: string,
   slug: string,
 ): Promise<StudioContentItem> {
-  return studioFetch<StudioContentItem>(`/content/${contentType}/${slug}/`);
+  const apiType = toStudioApiContentType(contentType);
+  const data = await studioFetch<StudioApiContentItem>(
+    `/content/${apiType}/${slug}/`,
+  );
+  return mapApiContentItem(data);
 }
 
-/** Save (create or update) a content item */
-export async function saveContentItem(
-  item: Partial<StudioContentItem> & { id?: string },
+export async function createContentItem(
+  contentType: string,
+  payload: { title?: string } = {},
 ): Promise<StudioContentItem> {
-  const method = item.id ? 'PUT' : 'POST';
-  const path = item.id ? `/content/${item.id}/` : '/content/';
-  return studioFetch<StudioContentItem>(path, {
-    method,
-    body: JSON.stringify(item),
+  const apiType = toStudioApiContentType(contentType);
+  const data = await studioFetch<StudioApiContentItem>(
+    `/content/${apiType}/create/`,
+    {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    },
+  );
+  return mapApiContentItem(data);
+}
+
+export async function saveContentItem(
+  contentType: string,
+  slug: string,
+  payload: {
+    title?: string;
+    body?: string;
+    excerpt?: string;
+    tags?: string[];
+  },
+): Promise<StudioContentItem> {
+  const apiType = toStudioApiContentType(contentType);
+  const data = await studioFetch<StudioApiContentItem>(
+    `/content/${apiType}/${slug}/update/`,
+    {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    },
+  );
+  return mapApiContentItem(data);
+}
+
+export async function deleteContentItem(
+  contentType: string,
+  slug: string,
+): Promise<{ deleted: boolean }> {
+  const apiType = toStudioApiContentType(contentType);
+  return studioFetch<{ deleted: boolean }>(`/content/${apiType}/${slug}/delete/`, {
+    method: 'POST',
+    body: JSON.stringify({}),
   });
 }
 
-/** Update the stage of a content item */
 export async function updateStage(
-  itemId: string,
+  contentType: string,
+  slug: string,
   newStage: string,
 ): Promise<StudioContentItem> {
-  return studioFetch<StudioContentItem>(`/content/${itemId}/stage/`, {
-    method: 'PATCH',
-    body: JSON.stringify({ stage: newStage }),
-  });
+  const apiType = toStudioApiContentType(contentType);
+  const data = await studioFetch<StudioApiContentItem>(
+    `/content/${apiType}/${slug}/set-stage/`,
+    {
+      method: 'POST',
+      body: JSON.stringify({ stage: newStage }),
+    },
+  );
+  return mapApiContentItem(data);
 }
 
-/** Fetch timeline entries */
 export async function fetchTimeline(params?: {
   content_type?: string;
   limit?: number;
 }): Promise<StudioTimelineEntry[]> {
   const search = new URLSearchParams();
-  if (params?.content_type) search.set('content_type', params.content_type);
+  if (params?.content_type) {
+    search.set('content_type', toStudioApiContentType(params.content_type));
+  }
   if (params?.limit) search.set('limit', String(params.limit));
 
   const qs = search.toString();
-  const path = `/timeline/${qs ? `?${qs}` : ''}`;
-
   const data = await studioFetch<
-    { results: StudioTimelineEntry[] } | StudioTimelineEntry[]
-  >(path);
-  return Array.isArray(data) ? data : data.results;
+    { results: StudioApiTimelineItem[] } | StudioApiTimelineItem[]
+  >(`/timeline/${qs ? `?${qs}` : ''}`);
+
+  const entries = Array.isArray(data) ? data : data.results ?? [];
+  return entries.map(mapApiTimelineItem);
 }
 
-/** Fetch dashboard stats */
 export async function fetchDashboardStats(): Promise<StudioDashboardStats> {
-  return studioFetch<StudioDashboardStats>('/stats/');
-}
+  const [items, recentActivity] = await Promise.all([
+    fetchContentList(),
+    fetchTimeline({ limit: 8 }),
+  ]);
 
-/* ─────────────────────────────────────────────────
-   useStudioData: lightweight data fetching hook
-   ───────────────────────────────────────────────── */
+  const byStage: Record<string, number> = {};
+  const byType: Record<string, number> = {};
+  let totalWords = 0;
 
-export interface UseStudioDataResult<T> {
-  data: T | null;
-  loading: boolean;
-  error: StudioApiError | null;
-  refetch: () => void;
-}
+  for (const item of items) {
+    byStage[item.stage] = (byStage[item.stage] ?? 0) + 1;
+    byType[item.contentType] = (byType[item.contentType] ?? 0) + 1;
+    totalWords += item.wordCount;
+  }
 
-/**
- * Lightweight data fetching hook for client components.
- * Calls the fetcher on mount and whenever deps change.
- * Handles loading, error, and refetch without external deps.
- */
-export function useStudioData<T>(
-  fetcher: () => Promise<T>,
-  deps: unknown[] = [],
-): UseStudioDataResult<T> {
-  const [data, setData] = useState<T | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<StudioApiError | null>(null);
-  const [tick, setTick] = useState(0);
-
-  const fetcherRef = useRef(fetcher);
-  fetcherRef.current = fetcher;
-
-  const refetch = useCallback(() => setTick((t) => t + 1), []);
-
-  useEffect(() => {
-    let cancelled = false;
-    setLoading(true);
-    setError(null);
-
-    fetcherRef
-      .current()
-      .then((result) => {
-        if (!cancelled) {
-          setData(result);
-          setLoading(false);
-        }
-      })
-      .catch((err) => {
-        if (!cancelled) {
-          const apiErr =
-            err instanceof StudioApiError
-              ? err
-              : new StudioApiError(0, err?.message ?? 'Unknown error', true);
-          setError(apiErr);
-          setLoading(false);
-        }
-      });
-
-    return () => {
-      cancelled = true;
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [tick, ...deps]);
-
-  return { data, loading, error, refetch };
+  return {
+    totalPieces: items.length,
+    totalWords,
+    byStage,
+    byType,
+    recentActivity,
+  };
 }

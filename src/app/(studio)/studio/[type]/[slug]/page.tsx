@@ -1,40 +1,53 @@
 import type { Metadata } from 'next';
-import { getItemBySlug } from '@/lib/studio-mock-data';
-import { getContentTypeIdentity } from '@/lib/studio';
+import type { StudioContentItem } from '@/lib/studio';
+import { fetchContentItem } from '@/lib/studio-api';
+import {
+  getContentTypeIdentity,
+  normalizeStudioContentType,
+} from '@/lib/studio';
 import Editor from '@/components/studio/Editor';
 
 interface EditorPageProps {
   params: Promise<{ type: string; slug: string }>;
 }
 
+async function loadContentItem(
+  contentType: string,
+  slug: string,
+): Promise<StudioContentItem | null> {
+  try {
+    return await fetchContentItem(contentType, slug);
+  } catch {
+    return null;
+  }
+}
+
 export async function generateMetadata({
   params,
 }: EditorPageProps): Promise<Metadata> {
   const { type, slug } = await params;
-  const item = getItemBySlug(type, slug);
+  const normalizedType = normalizeStudioContentType(type);
+  const item = await loadContentItem(normalizedType, slug);
+
   const title = item
     ? item.title
     : slug.startsWith('new-')
-      ? `New ${getContentTypeIdentity(type).label}`
+      ? `New ${getContentTypeIdentity(normalizedType).label}`
       : slug.replace(/-/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
+
   return { title: `${title} | Studio` };
 }
 
 /**
  * Dynamic editor route.
- *
- * Loads mock content item by type + slug and renders the
- * full Tiptap editor with stage bar, toolbar, and word count.
- * Supports both existing items and new content creation
- * (slug starting with "new-" opens a blank editor).
  */
 export default async function EditorPage({ params }: EditorPageProps) {
   const { type, slug } = await params;
-  const item = getItemBySlug(type, slug);
+  const normalizedType = normalizeStudioContentType(type);
+  const item = await loadContentItem(normalizedType, slug);
 
-  /* New content: blank editor with Idea stage */
   if (!item) {
-    const typeInfo = getContentTypeIdentity(type);
+    const typeInfo = getContentTypeIdentity(normalizedType);
     const isNew = slug.startsWith('new-');
 
     if (!isNew) {
@@ -52,7 +65,7 @@ export default async function EditorPage({ params }: EditorPageProps) {
               marginTop: '16px',
             }}
           >
-            No {type} found with slug &ldquo;{slug}&rdquo;.
+            No {typeInfo.label.toLowerCase()} found with slug &ldquo;{slug}&rdquo;.
           </p>
         </div>
       );
@@ -61,7 +74,7 @@ export default async function EditorPage({ params }: EditorPageProps) {
     return (
       <Editor
         slug={slug}
-        contentType={type}
+        contentType={normalizedType}
         title={`Untitled ${typeInfo.label}`}
         initialContent=""
         initialStage="idea"

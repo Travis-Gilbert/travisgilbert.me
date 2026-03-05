@@ -148,4 +148,40 @@ urlpatterns = [
     path("settings/site/", views.SiteSettingsEditView.as_view(), name="site-settings"),
     path("settings/publish-log/", views.PublishLogListView.as_view(), name="publish-log"),
     path("settings/publish-config/", views.PublishSiteConfigView.as_view(), name="publish-config"),
+
+    # -----------------------------------------------------------------------
+    # Studio JSON wrappers (open API for Next.js Studio frontend)
+    # -----------------------------------------------------------------------
+    path("editor/api/content/", views.StudioApiContentListView.as_view(), name="api-content-list"),
+    path(
+        "editor/api/content/<slug:content_type>/",
+        views.StudioApiContentTypeListView.as_view(),
+        name="api-content-type-list",
+    ),
+    path(
+        "editor/api/content/<slug:content_type>/create/",
+        views.StudioApiContentCreateView.as_view(),
+        name="api-content-create",
+    ),
+    path(
+        "editor/api/content/<slug:content_type>/<slug:slug>/",
+        views.StudioApiContentDetailView.as_view(),
+        name="api-content-detail",
+    ),
+    path(
+        "editor/api/content/<slug:content_type>/<slug:slug>/update/",
+        views.StudioApiContentUpdateView.as_view(),
+        name="api-content-update",
+    ),
+    path(
+        "editor/api/content/<slug:content_type>/<slug:slug>/delete/",
+        views.StudioApiContentDeleteView.as_view(),
+        name="api-content-delete",
+    ),
+    path(
+        "editor/api/content/<slug:content_type>/<slug:slug>/set-stage/",
+        views.StudioApiContentSetStageView.as_view(),
+        name="api-content-set-stage",
+    ),
+    path("editor/api/timeline/", views.StudioApiTimelineView.as_view(), name="api-timeline"),
 ]

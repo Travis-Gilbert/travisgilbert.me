@@ -17,7 +17,7 @@ import Underline from '@tiptap/extension-underline';
 import Subscript from '@tiptap/extension-subscript';
 import Superscript from '@tiptap/extension-superscript';
 import Typography from '@tiptap/extension-typography';
-import { useEffect, useCallback, useRef } from 'react';
+import { useEffect, useCallback } from 'react';
 import type { Editor } from '@tiptap/react';
 
 /**
@@ -26,7 +26,7 @@ import type { Editor } from '@tiptap/react';
  * Extensions: StarterKit (bold, italic, strike, code, headings, lists,
  * blockquote, code block, horizontal rule, history) plus Link, Image,
  * Table, Task Lists, Highlight, Underline, Sub/Superscript, Typography
- * (smart quotes and dashes). Debounced auto-save (2s).
+ * (smart quotes and dashes).
  */
 export default function TiptapEditor({
   initialContent,
@@ -37,14 +37,9 @@ export default function TiptapEditor({
   onUpdate?: (html: string) => void;
   onEditorReady?: (editor: Editor) => void;
 }) {
-  const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-
   const handleUpdate = useCallback(
     ({ editor: ed }: { editor: Editor }) => {
-      if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
-      saveTimerRef.current = setTimeout(() => {
-        onUpdate?.(ed.getHTML());
-      }, 2000);
+      onUpdate?.(ed.getHTML());
     },
     [onUpdate],
   );
@@ -91,12 +86,6 @@ export default function TiptapEditor({
   useEffect(() => {
     if (editor) onEditorReady?.(editor);
   }, [editor, onEditorReady]);
-
-  useEffect(() => {
-    return () => {
-      if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
-    };
-  }, []);
 
   return (
     <div

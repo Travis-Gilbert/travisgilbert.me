@@ -1,29 +1,55 @@
 'use client';
 
-import { useState, useMemo } from 'react';
-import { getItemsByType } from '@/lib/studio-mock-data';
-import { getContentTypeIdentity, getStage, STAGES } from '@/lib/studio';
+import { useState, useMemo, useEffect } from 'react';
+import { fetchContentList } from '@/lib/studio-api';
+import {
+  getContentTypeIdentity,
+  getStage,
+  STAGES,
+  normalizeStudioContentType,
+} from '@/lib/studio';
 import type { StudioContentItem } from '@/lib/studio';
 import StudioCard from './StudioCard';
 
 /**
- * Reusable content list for type-specific pages
- * (essays, field-notes, shelf, videos, projects, toolkit).
- *
- * Filterable by stage, sortable by date/title/words.
- * Evidence cards use StudioCard glow pattern with type-colored
- * left border and three-state hover tinting.
+ * Reusable content list for type-specific pages.
  */
 export default function ContentList({
   contentType,
 }: {
   contentType: string;
 }) {
-  const typeInfo = getContentTypeIdentity(contentType);
-  const items = useMemo(() => getItemsByType(contentType), [contentType]);
+  const normalizedType = normalizeStudioContentType(contentType);
+  const typeInfo = getContentTypeIdentity(normalizedType);
 
+  const [items, setItems] = useState<StudioContentItem[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [stageFilter, setStageFilter] = useState<string | null>(null);
   const [sortBy, setSortBy] = useState<'date' | 'title' | 'words'>('date');
+
+  useEffect(() => {
+    let cancelled = false;
+    setLoading(true);
+    setLoadError(null);
+
+    fetchContentList({ content_type: normalizedType })
+      .then((data) => {
+        if (cancelled) return;
+        setItems(data);
+        setLoading(false);
+      })
+      .catch(() => {
+        if (cancelled) return;
+        setItems([]);
+        setLoadError('Could not load content from Studio API.');
+        setLoading(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [normalizedType]);
 
   const filtered = useMemo(() => {
     let result = stageFilter
@@ -34,23 +60,25 @@ export default function ContentList({
       result = [...result].sort((a, b) => a.title.localeCompare(b.title));
     } else if (sortBy === 'words') {
       result = [...result].sort((a, b) => b.wordCount - a.wordCount);
+    } else {
+      result = [...result].sort(
+        (a, b) =>
+          new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime(),
+      );
     }
-    /* 'date' is already sorted (mock data returns newest first) */
 
     return result;
   }, [items, stageFilter, sortBy]);
 
   return (
     <div style={{ padding: '32px 40px' }}>
-      {/* Section header */}
       <div className="studio-section-head">
         <span className="studio-section-label">
-          {typeInfo?.label ?? contentType}
+          {typeInfo?.label ?? normalizedType}
         </span>
         <span className="studio-section-line" />
       </div>
 
-      {/* Filters */}
       <div
         style={{
           display: 'flex',
@@ -61,7 +89,6 @@ export default function ContentList({
           marginBottom: '20px',
         }}
       >
-        {/* Stage pills */}
         <button
           type="button"
           onClick={() => setStageFilter(null)}
@@ -95,7 +122,6 @@ export default function ContentList({
           );
         })}
 
-        {/* Sort */}
         <div style={{ marginLeft: 'auto' }}>
           <select
             value={sortBy}
@@ -119,7 +145,33 @@ export default function ContentList({
         </div>
       </div>
 
-      {/* Content cards */}
+      {loading && (
+        <p
+          style={{
+            fontFamily: 'var(--studio-font-body)',
+            fontSize: '14px',
+            color: 'var(--studio-text-3)',
+            padding: '6px 0 16px',
+          }}
+        >
+          Loading...
+        </p>
+      )}
+
+      {loadError && (
+        <p
+          style={{
+            fontFamily: 'var(--studio-font-body)',
+            fontSize: '13px',
+            color: '#A44A3A',
+            marginTop: 0,
+            marginBottom: '16px',
+          }}
+        >
+          {loadError}
+        </p>
+      )}
+
       <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
         {filtered.map((item) => (
           <ContentCard
@@ -128,7 +180,7 @@ export default function ContentList({
             color={typeInfo?.color ?? 'var(--studio-text-3)'}
           />
         ))}
-        {filtered.length === 0 && (
+        {!loading && filtered.length === 0 && (
           <p
             style={{
               fontFamily: 'var(--studio-font-body)',
@@ -145,8 +197,6 @@ export default function ContentList({
   );
 }
 
-/* ── Evidence card: StudioCard wrapper with content metadata ── */
-
 function ContentCard({
   item,
   color,
@@ -159,7 +209,7 @@ function ContentCard({
   return (
     <StudioCard
       typeColor={color}
-      href={`/studio/${item.contentType}/${item.slug}`}
+      href={`/studio/${normalizeStudioContentType(item.contentType)}/${item.slug}`}
     >
       <div
         style={{

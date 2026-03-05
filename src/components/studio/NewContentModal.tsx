@@ -1,52 +1,59 @@
 'use client';
 
-import { useEffect, useCallback } from 'react';
+import { useEffect, useCallback, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useRouter } from 'next/navigation';
-import { CONTENT_TYPES } from '@/lib/studio';
+import { CONTENT_TYPES, normalizeStudioContentType } from '@/lib/studio';
+import { createContentItem } from '@/lib/studio-api';
 
 /**
  * Type selector modal for creating new content.
- *
- * Renders via createPortal to document.body so the modal escapes
- * the sidebar's stacking context (overflow: hidden, isolation: isolate).
- *
- * Shows all content types with their colored dots and labels.
- * Selecting a type navigates to the editor with a placeholder slug.
- * Backdrop click or Escape closes the modal.
  */
 export default function NewContentModal({
   onClose,
   defaultType,
 }: {
   onClose: () => void;
-  /** If provided, auto-navigates to this content type's editor */
   defaultType?: string;
 }) {
   const router = useRouter();
+  const [creatingType, setCreatingType] = useState<string | null>(null);
+  const [errorText, setErrorText] = useState<string | null>(null);
 
   const handleSelect = useCallback(
-    (typeSlug: string) => {
-      /* Generate a temp slug for new content. In production this
-         will POST to Django and get a real slug back. */
-      const tempSlug = `new-${Date.now().toString(36)}`;
-      onClose();
-      router.push(`/studio/${typeSlug}/${tempSlug}`);
+    async (typeSlug: string) => {
+      const normalizedType = normalizeStudioContentType(typeSlug);
+      setErrorText(null);
+      setCreatingType(normalizedType);
+
+      try {
+        const created = await createContentItem(normalizedType, {});
+        onClose();
+        router.push(`/studio/${created.contentType}/${created.slug}`);
+      } catch {
+        setErrorText('Could not create content. Check the Studio API connection.');
+      } finally {
+        setCreatingType(null);
+      }
     },
     [onClose, router],
   );
 
-  /* Auto-select if defaultType is provided */
   useEffect(() => {
-    if (defaultType) {
-      const match = CONTENT_TYPES.find((t) => t.slug === defaultType);
-      if (match) {
-        handleSelect(match.route);
-      }
+    if (!defaultType) return;
+
+    const normalizedDefault = normalizeStudioContentType(defaultType);
+    const match = CONTENT_TYPES.find(
+      (t) =>
+        t.slug === normalizedDefault ||
+        normalizeStudioContentType(t.route) === normalizedDefault,
+    );
+
+    if (match) {
+      void handleSelect(match.slug);
     }
   }, [defaultType, handleSelect]);
 
-  /* Close on Escape key (document-level listener) */
   const handleKeyDown = useCallback(
     (e: KeyboardEvent) => {
       if (e.key === 'Escape') onClose();
@@ -61,7 +68,6 @@ export default function NewContentModal({
 
   const modalContent = (
     <div className="studio-theme">
-      {/* Backdrop */}
       <div
         style={{
           position: 'fixed',
@@ -75,7 +81,6 @@ export default function NewContentModal({
         aria-label="Close modal"
       />
 
-      {/* Modal */}
       <div
         role="dialog"
         aria-modal="true"
@@ -116,68 +121,88 @@ export default function NewContentModal({
             gap: '4px',
           }}
         >
-          {CONTENT_TYPES.map((ct) => (
-            <button
-              key={ct.slug}
-              type="button"
-              onClick={() => handleSelect(ct.slug)}
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: '10px',
-                padding: '10px 12px',
-                backgroundColor: 'transparent',
-                border: '1px solid transparent',
-                borderRadius: '6px',
-                cursor: 'pointer',
-                textAlign: 'left' as const,
-                transition: 'all 0.1s ease',
-              }}
-              onMouseEnter={(e) => {
-                e.currentTarget.style.backgroundColor =
-                  'var(--studio-surface-hover)';
-                e.currentTarget.style.borderColor = 'var(--studio-border)';
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.backgroundColor = 'transparent';
-                e.currentTarget.style.borderColor = 'transparent';
-              }}
-            >
-              <span
+          {CONTENT_TYPES.map((ct) => {
+            const isBusy = creatingType === ct.slug;
+            return (
+              <button
+                key={ct.slug}
+                type="button"
+                onClick={() => void handleSelect(ct.slug)}
+                disabled={creatingType !== null}
                 style={{
-                  width: '10px',
-                  height: '10px',
-                  borderRadius: '50%',
-                  backgroundColor: ct.color,
-                  flexShrink: 0,
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '10px',
+                  padding: '10px 12px',
+                  backgroundColor: 'transparent',
+                  border: '1px solid transparent',
+                  borderRadius: '6px',
+                  cursor: creatingType ? 'default' : 'pointer',
+                  textAlign: 'left' as const,
+                  transition: 'all 0.1s ease',
+                  opacity: creatingType && !isBusy ? 0.5 : 1,
                 }}
-              />
-              <div>
-                <div
+                onMouseEnter={(e) => {
+                  if (creatingType) return;
+                  e.currentTarget.style.backgroundColor =
+                    'var(--studio-surface-hover)';
+                  e.currentTarget.style.borderColor = 'var(--studio-border)';
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.backgroundColor = 'transparent';
+                  e.currentTarget.style.borderColor = 'transparent';
+                }}
+              >
+                <span
                   style={{
-                    fontFamily: 'var(--studio-font-body)',
-                    fontSize: '14px',
-                    fontWeight: 600,
-                    color: 'var(--studio-text-bright)',
-                    lineHeight: 1.3,
+                    width: '10px',
+                    height: '10px',
+                    borderRadius: '50%',
+                    backgroundColor: ct.color,
+                    flexShrink: 0,
                   }}
-                >
-                  {ct.label}
+                />
+                <div>
+                  <div
+                    style={{
+                      fontFamily: 'var(--studio-font-body)',
+                      fontSize: '14px',
+                      fontWeight: 600,
+                      color: 'var(--studio-text-bright)',
+                      lineHeight: 1.3,
+                    }}
+                  >
+                    {ct.label}
+                  </div>
+                  <div
+                    style={{
+                      fontFamily: 'var(--studio-font-mono)',
+                      fontSize: '10px',
+                      color: 'var(--studio-text-3)',
+                      marginTop: '1px',
+                    }}
+                  >
+                    {isBusy ? 'Creating...' : ct.pluralLabel}
+                  </div>
                 </div>
-                <div
-                  style={{
-                    fontFamily: 'var(--studio-font-mono)',
-                    fontSize: '10px',
-                    color: 'var(--studio-text-3)',
-                    marginTop: '1px',
-                  }}
-                >
-                  {ct.pluralLabel}
-                </div>
-              </div>
-            </button>
-          ))}
+              </button>
+            );
+          })}
         </div>
+
+        {errorText && (
+          <p
+            style={{
+              marginTop: '12px',
+              marginBottom: 0,
+              fontFamily: 'var(--studio-font-body)',
+              fontSize: '12px',
+              color: '#A44A3A',
+            }}
+          >
+            {errorText}
+          </p>
+        )}
 
         <button
           type="button"
