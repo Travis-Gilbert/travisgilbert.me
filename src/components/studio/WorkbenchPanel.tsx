@@ -1,12 +1,36 @@
 'use client';
 
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import Link from 'next/link';
+import {
+  useState,
+  useEffect,
+  useCallback,
+  useMemo,
+  useRef,
+  type MouseEvent as ReactMouseEvent,
+} from 'react';
 import type { Editor as TiptapEditorType } from '@tiptap/react';
-import type { StudioContentItem } from '@/lib/studio';
+import type {
+  StudioContentItem,
+  StudioPulseInsight,
+  StudioContentItemWithMetrics,
+} from '@/lib/studio';
 import { getContentTypeIdentity, studioMix } from '@/lib/studio';
+import {
+  getMockContentItems,
+  getMockStudioPulse,
+  getMockWorkbenchData,
+  computeItemMetrics,
+} from '@/lib/studio-mock-data';
+import NewContentModal from './NewContentModal';
 
 const STORAGE_KEY = 'studio-workbench-open';
-const STORAGE_MODE_KEY = 'studio-workbench-mode';
+const STORAGE_EDITOR_MODE_KEY = 'studio-workbench-editor-mode';
+const STORAGE_WIDTH_KEY = 'studio-workbench-width';
+
+const MIN_WORKBENCH_WIDTH = 240;
+const MAX_WORKBENCH_WIDTH = 480;
+const DEFAULT_WORKBENCH_WIDTH = 320;
 
 /* Word count targets by content type */
 const WORD_TARGETS: Record<string, number> = {
@@ -21,7 +45,6 @@ const WORD_TARGETS: Record<string, number> = {
 interface HeadingItem {
   level: number;
   text: string;
-  pos: number;
 }
 
 interface TodoItem {
@@ -32,23 +55,22 @@ interface TodoItem {
 type SaveState = 'idle' | 'saving' | 'success' | 'error';
 type AutosaveState = 'idle' | 'saved';
 
+type WorkbenchMode = 'editor' | 'dashboard';
+type EditorPanelMode = 'outline' | 'notes';
+
+function clampWidth(width: number): number {
+  return Math.min(Math.max(width, MIN_WORKBENCH_WIDTH), MAX_WORKBENCH_WIDTH);
+}
+
 /**
- * Editor toolbox: right panel (280px) with Outline and Notes modes.
+ * Shared right-side workbench shown across all Studio pages.
  *
- * Outline mode:
- *   Document outline (headings from Tiptap JSON),
- *   word count with target progress bar,
- *   save button with last saved timestamp,
- *   export dropdown.
- *
- * Notes mode:
- *   Sources placeholder, links placeholder, notes placeholder,
- *   todo list persisted to localStorage by content slug.
- *
- * Toggle: Cmd+. / Ctrl+. keyboard shortcut.
- * Hidden below 1024px via CSS.
+ * Modes:
+ * - editor: Outline and Notes for active editor content
+ * - dashboard: Studio Pulse, Quiet/Stuck, and Quick Capture
  */
 export default function WorkbenchPanel({
+  mode,
   editor,
   contentItem,
   onSave,
@@ -56,23 +78,41 @@ export default function WorkbenchPanel({
   saveState = 'idle',
   autosaveState = 'idle',
 }: {
-  editor: TiptapEditorType | null;
-  contentItem: StudioContentItem | null;
+  mode: WorkbenchMode;
+  editor?: TiptapEditorType | null;
+  contentItem?: StudioContentItem | null;
   onSave?: () => void;
-  lastSaved: string | null;
+  lastSaved?: string | null;
   saveState?: SaveState;
   autosaveState?: AutosaveState;
 }) {
   const [open, setOpen] = useState(true);
   const [mounted, setMounted] = useState(false);
-  const [mode, setMode] = useState<'outline' | 'notes'>('outline');
+  const [editorPanelMode, setEditorPanelMode] = useState<EditorPanelMode>('outline');
+  const [width, setWidth] = useState(DEFAULT_WORKBENCH_WIDTH);
+  const [isResizing, setIsResizing] = useState(false);
+  const resizeStateRef = useRef<{ startX: number; startWidth: number } | null>(null);
 
   /* Read persisted state after hydration */
   useEffect(() => {
     const storedOpen = localStorage.getItem(STORAGE_KEY);
-    if (storedOpen !== null) setOpen(storedOpen === 'true');
-    const storedMode = localStorage.getItem(STORAGE_MODE_KEY);
-    if (storedMode === 'outline' || storedMode === 'notes') setMode(storedMode);
+    if (storedOpen !== null) {
+      setOpen(storedOpen === 'true');
+    }
+
+    const storedMode = localStorage.getItem(STORAGE_EDITOR_MODE_KEY);
+    if (storedMode === 'outline' || storedMode === 'notes') {
+      setEditorPanelMode(storedMode);
+    }
+
+    const storedWidth = localStorage.getItem(STORAGE_WIDTH_KEY);
+    if (storedWidth) {
+      const parsed = Number.parseInt(storedWidth, 10);
+      if (!Number.isNaN(parsed)) {
+        setWidth(clampWidth(parsed));
+      }
+    }
+
     setMounted(true);
   }, []);
 
@@ -85,49 +125,117 @@ export default function WorkbenchPanel({
     });
   }, []);
 
-  /* Persist mode */
-  const switchMode = useCallback((m: 'outline' | 'notes') => {
-    setMode(m);
-    localStorage.setItem(STORAGE_MODE_KEY, m);
+  /* Persist editor tab mode */
+  const switchEditorMode = useCallback((nextMode: EditorPanelMode) => {
+    setEditorPanelMode(nextMode);
+    localStorage.setItem(STORAGE_EDITOR_MODE_KEY, nextMode);
   }, []);
+
+  const stopResize = useCallback(() => {
+    setIsResizing(false);
+    resizeStateRef.current = null;
+  }, []);
+
+  const onMouseMove = useCallback((event: MouseEvent) => {
+    const state = resizeStateRef.current;
+    if (!state) {
+      return;
+    }
+
+    const delta = state.startX - event.clientX;
+    const nextWidth = clampWidth(state.startWidth + delta);
+    setWidth(nextWidth);
+    localStorage.setItem(STORAGE_WIDTH_KEY, String(nextWidth));
+  }, []);
+
+  useEffect(() => {
+    if (!isResizing) {
+      return;
+    }
+
+    const handleMouseUp = () => {
+      stopResize();
+    };
+
+    document.addEventListener('mousemove', onMouseMove);
+    document.addEventListener('mouseup', handleMouseUp);
+
+    return () => {
+      document.removeEventListener('mousemove', onMouseMove);
+      document.removeEventListener('mouseup', handleMouseUp);
+    };
+  }, [isResizing, onMouseMove, stopResize]);
+
+  const startResize = useCallback(
+    (event: ReactMouseEvent<HTMLDivElement>) => {
+      if (!open) {
+        return;
+      }
+      event.preventDefault();
+      resizeStateRef.current = { startX: event.clientX, startWidth: width };
+      setIsResizing(true);
+    },
+    [open, width],
+  );
 
   /* Keyboard shortcut: Cmd+. or Ctrl+. */
   useEffect(() => {
-    function handleKey(e: KeyboardEvent) {
-      if (e.key === '.' && (e.metaKey || e.ctrlKey)) {
-        e.preventDefault();
+    function handleKey(event: KeyboardEvent) {
+      if (event.key === '.' && (event.metaKey || event.ctrlKey)) {
+        event.preventDefault();
         toggle();
       }
     }
+
     document.addEventListener('keydown', handleKey);
     return () => document.removeEventListener('keydown', handleKey);
   }, [toggle]);
 
-  if (!mounted) return null;
+  if (!mounted) {
+    return null;
+  }
 
   return (
     <aside
       className="studio-workbench studio-scrollbar"
       data-open={open ? 'true' : undefined}
       style={{
-        width: open ? '280px' : '0px',
-        minWidth: open ? '280px' : '0px',
-        overflow: 'hidden',
+        width: open ? `${width}px` : '0px',
+        minWidth: open ? `${width}px` : '0px',
         flexShrink: 0,
         backgroundColor: 'var(--studio-bg-sidebar)',
         borderLeft: open ? '1px solid var(--studio-border)' : 'none',
         display: 'flex',
         flexDirection: 'column',
         position: 'relative',
-        transition: 'width 0.2s ease, min-width 0.2s ease',
+        overflow: 'visible',
+        transition: isResizing ? 'none' : 'width 0.2s ease, min-width 0.2s ease',
       }}
     >
-      {/* Toggle button */}
+      {open && (
+        <div
+          role="separator"
+          aria-orientation="vertical"
+          aria-label="Resize workbench"
+          onMouseDown={startResize}
+          style={{
+            position: 'absolute',
+            left: 0,
+            top: 0,
+            bottom: 0,
+            width: '10px',
+            transform: 'translateX(-50%)',
+            cursor: 'col-resize',
+            zIndex: 12,
+          }}
+        />
+      )}
+
       <button
         type="button"
         onClick={toggle}
-        aria-label={open ? 'Close toolbox' : 'Open toolbox'}
-        title="Toggle toolbox (Cmd+.)"
+        aria-label={open ? 'Close workbench' : 'Open workbench'}
+        title="Toggle workbench (Cmd+.)"
         style={{
           position: 'absolute',
           left: '-28px',
@@ -142,7 +250,7 @@ export default function WorkbenchPanel({
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
-          zIndex: 10,
+          zIndex: 13,
           transition: 'all 0.1s ease',
         }}
       >
@@ -174,59 +282,64 @@ export default function WorkbenchPanel({
             transition: 'opacity 0.15s ease 0.05s',
           }}
         >
-          {/* Mode tabs */}
-          <div
-            style={{
-              display: 'flex',
-              gap: '2px',
-              marginBottom: '16px',
-              borderBottom: '1px solid var(--studio-border)',
-              paddingBottom: '8px',
-            }}
-          >
-            {(['outline', 'notes'] as const).map((m) => (
-              <button
-                key={m}
-                type="button"
-                onClick={() => switchMode(m)}
+          {mode === 'editor' ? (
+            <>
+              <div
                 style={{
-                  flex: 1,
-                  padding: '5px 0',
-                  fontFamily: 'var(--studio-font-mono)',
-                  fontSize: '9.5px',
-                  fontWeight: 700,
-                  letterSpacing: '0.1em',
-                  textTransform: 'uppercase' as const,
-                  color:
-                    mode === m
-                      ? 'var(--studio-text-bright)'
-                      : 'var(--studio-text-3)',
-                  backgroundColor: 'transparent',
-                  border: 'none',
-                  borderBottom:
-                    mode === m
-                      ? '2px solid var(--studio-tc)'
-                      : '2px solid transparent',
-                  cursor: 'pointer',
-                  transition: 'all 0.12s ease',
+                  display: 'flex',
+                  gap: '2px',
+                  marginBottom: '16px',
+                  borderBottom: '1px solid var(--studio-border)',
+                  paddingBottom: '8px',
                 }}
               >
-                {m === 'outline' ? 'Outline' : 'Notes'}
-              </button>
-            ))}
-          </div>
+                {(['outline', 'notes'] as const).map((tab) => (
+                  <button
+                    key={tab}
+                    type="button"
+                    onClick={() => switchEditorMode(tab)}
+                    style={{
+                      flex: 1,
+                      padding: '5px 0',
+                      fontFamily: 'var(--studio-font-mono)',
+                      fontSize: '9.5px',
+                      fontWeight: 700,
+                      letterSpacing: '0.1em',
+                      textTransform: 'uppercase' as const,
+                      color:
+                        editorPanelMode === tab
+                          ? 'var(--studio-text-bright)'
+                          : 'var(--studio-text-3)',
+                      backgroundColor: 'transparent',
+                      border: 'none',
+                      borderBottom:
+                        editorPanelMode === tab
+                          ? '2px solid var(--studio-tc)'
+                          : '2px solid transparent',
+                      cursor: 'pointer',
+                      transition: 'all 0.12s ease',
+                    }}
+                  >
+                    {tab === 'outline' ? 'Outline' : 'Notes'}
+                  </button>
+                ))}
+              </div>
 
-          {mode === 'outline' ? (
-            <OutlineMode
-              editor={editor}
-              contentItem={contentItem}
-              onSave={onSave}
-              lastSaved={lastSaved}
-              saveState={saveState}
-              autosaveState={autosaveState}
-            />
+              {editorPanelMode === 'outline' ? (
+                <OutlineMode
+                  editor={editor ?? null}
+                  contentItem={contentItem ?? null}
+                  onSave={onSave}
+                  lastSaved={lastSaved ?? null}
+                  saveState={saveState}
+                  autosaveState={autosaveState}
+                />
+              ) : (
+                <NotesMode contentItem={contentItem ?? null} />
+              )}
+            </>
           ) : (
-            <NotesMode contentItem={contentItem} />
+            <DashboardWorkbench />
           )}
         </div>
       )}
@@ -234,7 +347,367 @@ export default function WorkbenchPanel({
   );
 }
 
-/* ── Outline Mode ────────────────────────────── */
+/* ── Dashboard mode ──────────────────────────── */
+
+const PULSE_ICONS: Record<StudioPulseInsight['type'], string> = {
+  momentum: '\u2191',
+  simmering: '\u25CB',
+  quiet: '\u2026',
+  ready: '\u2192',
+  rich: '\u25C7',
+};
+
+const PULSE_COLORS: Record<StudioPulseInsight['type'], string> = {
+  momentum: '#6A9A5A',
+  simmering: '#D4AA4A',
+  quiet: '#9A8E82',
+  ready: '#3A8A9A',
+  rich: '#B45A2D',
+};
+
+const PULSE_LABELS: Record<StudioPulseInsight['type'], string> = {
+  momentum: 'MOMENTUM',
+  simmering: 'SIMMERING',
+  quiet: 'QUIET',
+  ready: 'READY',
+  rich: 'RESEARCH RICH',
+};
+
+const CAPTURE_TYPES = [
+  { label: 'Note', type: 'field-note', color: '#3A8A9A' },
+  { label: 'Source', type: 'shelf', color: '#D4AA4A' },
+  { label: 'Idea', type: 'essay', color: '#B45A2D' },
+  { label: 'Script Beat', type: 'video', color: '#6A9A5A' },
+] as const;
+
+function DashboardWorkbench() {
+  const [modalType, setModalType] = useState<string | null>(null);
+
+  const pulse = useMemo(() => getMockStudioPulse(), []);
+  const workbench = useMemo(() => getMockWorkbenchData(), []);
+
+  const items = useMemo<StudioContentItemWithMetrics[]>(
+    () =>
+      getMockContentItems().map((item) => ({
+        ...item,
+        metrics: computeItemMetrics(item),
+      })),
+    [],
+  );
+
+  const itemByTitle = useMemo(
+    () => new Map(items.map((item) => [item.title, item])),
+    [items],
+  );
+
+  const quietOrStuck = useMemo(() => {
+    const stuck = items.filter(
+      (item) =>
+        item.metrics.stageAgeDays >= 14 &&
+        !['idea', 'published'].includes(item.stage),
+    );
+    const quiet = items.filter(
+      (item) =>
+        item.metrics.daysSinceLastTouched >= 7 &&
+        !['idea', 'published'].includes(item.stage),
+    );
+
+    const merged = new Map<string, StudioContentItemWithMetrics>();
+    [...stuck, ...quiet].forEach((item) => {
+      merged.set(item.id, item);
+    });
+
+    return Array.from(merged.values())
+      .sort((a, b) => {
+        const scoreA = Math.max(a.metrics.daysSinceLastTouched, a.metrics.stageAgeDays);
+        const scoreB = Math.max(b.metrics.daysSinceLastTouched, b.metrics.stageAgeDays);
+        return scoreB - scoreA;
+      })
+      .slice(0, 8);
+  }, [items]);
+
+  const resolveInsightHref = useCallback(
+    (detail: string): string | null => {
+      const titleMatch = detail.match(/"([^"]+)"/);
+      if (!titleMatch) {
+        return null;
+      }
+
+      const item = itemByTitle.get(titleMatch[1]);
+      if (!item) {
+        return null;
+      }
+
+      const type = getContentTypeIdentity(item.contentType);
+      return `/studio/${type.route}/${item.slug}`;
+    },
+    [itemByTitle],
+  );
+
+  const drafting = workbench.pipelineBreakdown['drafting'] ?? 0;
+  const revising = workbench.pipelineBreakdown['revising'] ?? 0;
+  const published = workbench.pipelineBreakdown['published'] ?? 0;
+
+  return (
+    <>
+      <div style={{ marginBottom: '22px' }}>
+        <ToolboxLabel>Studio Pulse</ToolboxLabel>
+
+        <div
+          style={{
+            marginTop: '8px',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '12px',
+          }}
+        >
+          {pulse.map((insight, index) => {
+            const href = resolveInsightHref(insight.detail);
+
+            return (
+              <div key={`${insight.type}-${index}`} style={{ display: 'flex', gap: '10px' }}>
+                <span
+                  style={{
+                    fontFamily: 'var(--studio-font-mono)',
+                    fontSize: '14px',
+                    color: PULSE_COLORS[insight.type],
+                    flexShrink: 0,
+                    width: '16px',
+                    textAlign: 'center',
+                  }}
+                >
+                  {PULSE_ICONS[insight.type]}
+                </span>
+                <div style={{ minWidth: 0 }}>
+                  <span
+                    style={{
+                      fontFamily: 'var(--studio-font-mono)',
+                      fontSize: '9px',
+                      fontWeight: 700,
+                      letterSpacing: '0.1em',
+                      color: PULSE_COLORS[insight.type],
+                      display: 'block',
+                      marginBottom: '2px',
+                    }}
+                  >
+                    {PULSE_LABELS[insight.type]}
+                  </span>
+                  <span
+                    style={{
+                      fontFamily: 'var(--studio-font-body)',
+                      fontSize: '13px',
+                      color: 'var(--studio-text-1)',
+                      lineHeight: 1.4,
+                      display: 'block',
+                    }}
+                  >
+                    {insight.message}
+                  </span>
+
+                  {href ? (
+                    <Link
+                      href={href}
+                      style={{
+                        fontFamily: 'var(--studio-font-metadata)',
+                        fontSize: '10px',
+                        color: 'var(--studio-teal)',
+                        display: 'inline-block',
+                        marginTop: '2px',
+                        textDecoration: 'none',
+                      }}
+                    >
+                      {insight.detail}
+                    </Link>
+                  ) : (
+                    <span
+                      style={{
+                        fontFamily: 'var(--studio-font-metadata)',
+                        fontSize: '10px',
+                        color: 'var(--studio-text-3)',
+                        display: 'block',
+                        marginTop: '2px',
+                      }}
+                    >
+                      {insight.detail}
+                    </span>
+                  )}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+
+        <div
+          style={{
+            display: 'flex',
+            gap: '8px',
+            marginTop: '14px',
+            paddingTop: '12px',
+            borderTop: '1px solid var(--studio-border)',
+          }}
+        >
+          <StatTile label="Drafting" count={drafting} color="#D4AA4A" />
+          <StatTile label="Revising" count={revising} color="#8A6A9A" />
+          <StatTile label="Published" count={published} color="#6A9A5A" />
+        </div>
+      </div>
+
+      <div style={{ marginBottom: '22px' }}>
+        <ToolboxLabel>Quiet / Stuck</ToolboxLabel>
+
+        {quietOrStuck.length > 0 ? (
+          <div style={{ marginTop: '8px', display: 'flex', flexDirection: 'column', gap: '6px' }}>
+            {quietOrStuck.map((item) => {
+              const type = getContentTypeIdentity(item.contentType);
+              const daysQuiet = item.metrics.daysSinceLastTouched;
+              const daysStuck = item.metrics.stageAgeDays;
+              const status =
+                daysStuck >= 14 && daysStuck >= daysQuiet
+                  ? `${daysStuck}d in stage`
+                  : `${daysQuiet}d quiet`;
+
+              return (
+                <Link
+                  key={item.id}
+                  href={`/studio/${type.route}/${item.slug}`}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '8px',
+                    textDecoration: 'none',
+                    color: 'inherit',
+                    padding: '4px 0',
+                  }}
+                >
+                  <span
+                    style={{
+                      width: '6px',
+                      height: '6px',
+                      borderRadius: '50%',
+                      backgroundColor: type.color,
+                      flexShrink: 0,
+                    }}
+                  />
+                  <span
+                    style={{
+                      fontFamily: 'var(--studio-font-title)',
+                      fontSize: '13px',
+                      color: 'var(--studio-text-2)',
+                      flex: 1,
+                      minWidth: 0,
+                      overflow: 'hidden',
+                      textOverflow: 'ellipsis',
+                      whiteSpace: 'nowrap',
+                    }}
+                  >
+                    {item.title}
+                  </span>
+                  <span
+                    style={{
+                      fontFamily: 'var(--studio-font-mono)',
+                      fontSize: '9px',
+                      color: 'var(--studio-gold)',
+                      flexShrink: 0,
+                    }}
+                  >
+                    {status}
+                  </span>
+                </Link>
+              );
+            })}
+          </div>
+        ) : (
+          <p
+            style={{
+              margin: '8px 0 0',
+              fontFamily: 'var(--studio-font-body)',
+              fontSize: '12px',
+              color: 'var(--studio-text-3)',
+              fontStyle: 'italic',
+            }}
+          >
+            Nothing is stalled right now.
+          </p>
+        )}
+      </div>
+
+      <div>
+        <ToolboxLabel>Quick Capture</ToolboxLabel>
+        <div className="studio-capture-grid" style={{ marginTop: '8px' }}>
+          {CAPTURE_TYPES.map((cap) => (
+            <button
+              key={cap.type}
+              type="button"
+              className="studio-capture-btn"
+              style={{
+                backgroundColor: studioMix(cap.color, 8),
+                color: cap.color,
+              }}
+              onClick={() => setModalType(cap.type)}
+            >
+              {cap.label}
+            </button>
+          ))}
+        </div>
+
+        {modalType && (
+          <NewContentModal
+            defaultType={modalType}
+            onClose={() => setModalType(null)}
+          />
+        )}
+      </div>
+    </>
+  );
+}
+
+function StatTile({
+  label,
+  count,
+  color,
+}: {
+  label: string;
+  count: number;
+  color: string;
+}) {
+  return (
+    <div
+      style={{
+        flex: 1,
+        textAlign: 'center',
+        padding: '8px 4px',
+        borderRadius: '4px',
+        backgroundColor: studioMix(color, 6),
+      }}
+    >
+      <div
+        style={{
+          fontFamily: 'var(--studio-font-mono)',
+          fontSize: '18px',
+          fontWeight: 700,
+          color,
+        }}
+      >
+        {count}
+      </div>
+      <div
+        style={{
+          fontFamily: 'var(--studio-font-mono)',
+          fontSize: '8px',
+          fontWeight: 600,
+          letterSpacing: '0.1em',
+          textTransform: 'uppercase' as const,
+          color: 'var(--studio-text-3)',
+          marginTop: '2px',
+        }}
+      >
+        {label}
+      </div>
+    </div>
+  );
+}
+
+/* ── Outline mode ────────────────────────────── */
 
 function OutlineMode({
   editor,
@@ -255,15 +728,17 @@ function OutlineMode({
   const headings = useMemo<HeadingItem[]>(() => {
     if (!editor) return [];
     const result: HeadingItem[] = [];
-    editor.state.doc.descendants((node, pos) => {
+
+    editor.state.doc.descendants((node) => {
       if (node.type.name === 'heading' && node.textContent.trim()) {
         result.push({
           level: (node.attrs.level as number) ?? 1,
           text: node.textContent,
-          pos,
         });
       }
+      return true;
     });
+
     return result;
   }, [editor]);
 
@@ -281,7 +756,7 @@ function OutlineMode({
   const scrollToHeading = useCallback(
     (text: string) => {
       if (!editor) return;
-      /* Find heading node and focus it */
+
       const doc = editor.state.doc;
       let targetPos = 0;
       doc.descendants((node, pos) => {
@@ -293,11 +768,13 @@ function OutlineMode({
           targetPos = pos;
           return false;
         }
+        return true;
       });
+
       if (targetPos > 0) {
         editor.commands.focus();
         editor.commands.setTextSelection(targetPos + 1);
-        /* Scroll the editor view to the selection */
+
         const domAtPos = editor.view.domAtPos(targetPos + 1);
         if (domAtPos.node instanceof HTMLElement) {
           domAtPos.node.scrollIntoView({ behavior: 'smooth', block: 'center' });
@@ -312,20 +789,17 @@ function OutlineMode({
     [editor],
   );
 
-  const [exportOpen, setExportOpen] = useState(false);
-
-  const handleExportMarkdown = useCallback(() => {
+  const handleExportHtml = useCallback(() => {
     if (!editor) return;
-    /* Convert editor HTML to a simple markdown-ish export */
+
     const html = editor.getHTML();
     const blob = new Blob([html], { type: 'text/html' });
     const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `${contentItem?.slug ?? 'export'}.html`;
-    a.click();
+    const anchor = document.createElement('a');
+    anchor.href = url;
+    anchor.download = `${contentItem?.slug ?? 'export'}.html`;
+    anchor.click();
     URL.revokeObjectURL(url);
-    setExportOpen(false);
   }, [editor, contentItem]);
 
   const saveLabel =
@@ -346,7 +820,6 @@ function OutlineMode({
 
   return (
     <>
-      {/* Document outline */}
       <div style={{ marginBottom: '20px' }}>
         <ToolboxLabel>Document outline</ToolboxLabel>
         {headings.length === 0 ? (
@@ -363,22 +836,22 @@ function OutlineMode({
           </p>
         ) : (
           <div style={{ marginTop: '6px' }}>
-            {headings.map((h, i) => (
+            {headings.map((heading, index) => (
               <button
-                key={`${h.text}-${i}`}
+                key={`${heading.text}-${index}`}
                 type="button"
-                onClick={() => scrollToHeading(h.text)}
+                onClick={() => scrollToHeading(heading.text)}
                 style={{
                   display: 'block',
                   width: '100%',
                   textAlign: 'left' as const,
                   padding: '3px 0',
-                  paddingLeft: `${(h.level - 1) * 12}px`,
+                  paddingLeft: `${(heading.level - 1) * 12}px`,
                   fontFamily: 'var(--studio-font-body)',
-                  fontSize: h.level === 1 ? '13px' : '12px',
-                  fontWeight: h.level <= 2 ? 600 : 400,
+                  fontSize: heading.level === 1 ? '13px' : '12px',
+                  fontWeight: heading.level <= 2 ? 600 : 400,
                   color:
-                    h.level === 1
+                    heading.level === 1
                       ? 'var(--studio-text-bright)'
                       : 'var(--studio-text-2)',
                   backgroundColor: 'transparent',
@@ -387,24 +860,23 @@ function OutlineMode({
                   lineHeight: 1.4,
                   transition: 'color 0.1s',
                 }}
-                onMouseEnter={(e) => {
-                  e.currentTarget.style.color = typeInfo.color;
+                onMouseEnter={(event) => {
+                  event.currentTarget.style.color = typeInfo.color;
                 }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.color =
-                    h.level === 1
+                onMouseLeave={(event) => {
+                  event.currentTarget.style.color =
+                    heading.level === 1
                       ? 'var(--studio-text-bright)'
                       : 'var(--studio-text-2)';
                 }}
               >
-                {h.text}
+                {heading.text}
               </button>
             ))}
           </div>
         )}
       </div>
 
-      {/* Word count + target */}
       <div style={{ marginBottom: '20px' }}>
         <ToolboxLabel>Word count</ToolboxLabel>
         <div
@@ -435,7 +907,7 @@ function OutlineMode({
             / {target.toLocaleString()} target
           </span>
         </div>
-        {/* Progress bar */}
+
         <div
           style={{
             width: '100%',
@@ -450,10 +922,7 @@ function OutlineMode({
             style={{
               width: `${progress}%`,
               height: '100%',
-              backgroundColor:
-                progress >= 100
-                  ? '#5A7A4A'
-                  : typeInfo.color,
+              backgroundColor: progress >= 100 ? '#5A7A4A' : typeInfo.color,
               borderRadius: '2px',
               transition: 'width 0.3s ease',
             }}
@@ -461,7 +930,6 @@ function OutlineMode({
         </div>
       </div>
 
-      {/* Save button */}
       <div style={{ marginBottom: '20px' }}>
         <button
           type="button"
@@ -489,6 +957,7 @@ function OutlineMode({
         >
           {saveLabel}
         </button>
+
         {autosaveState === 'saved' && (
           <p
             style={{
@@ -502,6 +971,7 @@ function OutlineMode({
             Saved
           </p>
         )}
+
         {lastSaved && (
           <p
             style={{
@@ -517,8 +987,7 @@ function OutlineMode({
         )}
       </div>
 
-      {/* Export dropdown */}
-      <div style={{ position: 'relative' }}>
+      <div>
         <ToolboxLabel>Export</ToolboxLabel>
         <div
           style={{
@@ -527,16 +996,16 @@ function OutlineMode({
             marginTop: '6px',
           }}
         >
-          <ExportButton label="HTML" onClick={handleExportMarkdown} />
+          <ExportButton label="HTML" onClick={handleExportHtml} />
           <ExportButton
             label="PDF"
-            onClick={() => setExportOpen(false)}
+            onClick={() => undefined}
             disabled
             tooltip="Coming soon"
           />
           <ExportButton
             label="TXT"
-            onClick={() => setExportOpen(false)}
+            onClick={() => undefined}
             disabled
             tooltip="Coming soon"
           />
@@ -546,7 +1015,7 @@ function OutlineMode({
   );
 }
 
-/* ── Notes Mode ──────────────────────────────── */
+/* ── Notes mode ──────────────────────────────── */
 
 function NotesMode({
   contentItem,
@@ -559,7 +1028,6 @@ function NotesMode({
     ? { sources: Math.floor((contentItem.wordCount ?? 0) / 300), links: 2 }
     : { sources: 0, links: 0 };
 
-  /* Todo list state */
   const [todos, setTodos] = useState<TodoItem[]>(() => {
     if (typeof window === 'undefined') return [];
     try {
@@ -572,7 +1040,6 @@ function NotesMode({
 
   const [newTodo, setNewTodo] = useState('');
 
-  /* Persist todos */
   useEffect(() => {
     localStorage.setItem(storageKey, JSON.stringify(todos));
   }, [todos, storageKey]);
@@ -586,17 +1053,18 @@ function NotesMode({
 
   const toggleTodo = useCallback((index: number) => {
     setTodos((prev) =>
-      prev.map((t, i) => (i === index ? { ...t, done: !t.done } : t)),
+      prev.map((todo, currentIndex) =>
+        currentIndex === index ? { ...todo, done: !todo.done } : todo,
+      ),
     );
   }, []);
 
   const removeTodo = useCallback((index: number) => {
-    setTodos((prev) => prev.filter((_, i) => i !== index));
+    setTodos((prev) => prev.filter((_, currentIndex) => currentIndex !== index));
   }, []);
 
   return (
     <>
-      {/* Sources placeholder */}
       <div style={{ marginBottom: '20px' }}>
         <ToolboxLabel>Sources</ToolboxLabel>
         <p
@@ -611,7 +1079,6 @@ function NotesMode({
         </p>
       </div>
 
-      {/* Links placeholder */}
       <div style={{ marginBottom: '20px' }}>
         <ToolboxLabel>Links</ToolboxLabel>
         <p
@@ -626,7 +1093,6 @@ function NotesMode({
         </p>
       </div>
 
-      {/* Notes placeholder */}
       <div style={{ marginBottom: '20px' }}>
         <ToolboxLabel>Notes</ToolboxLabel>
         <p
@@ -642,18 +1108,18 @@ function NotesMode({
         </p>
       </div>
 
-      {/* Todo list */}
       <div>
         <ToolboxLabel>Todos</ToolboxLabel>
         <div style={{ marginTop: '6px' }}>
-          {/* Add input */}
           <div style={{ display: 'flex', gap: '4px', marginBottom: '8px' }}>
             <input
               type="text"
               value={newTodo}
-              onChange={(e) => setNewTodo(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter') addTodo();
+              onChange={(event) => setNewTodo(event.target.value)}
+              onKeyDown={(event) => {
+                if (event.key === 'Enter') {
+                  addTodo();
+                }
               }}
               placeholder="Add a todo..."
               style={{
@@ -687,10 +1153,9 @@ function NotesMode({
             </button>
           </div>
 
-          {/* Todo items */}
-          {todos.map((todo, i) => (
+          {todos.map((todo, index) => (
             <div
-              key={`${todo.text}-${i}`}
+              key={`${todo.text}-${index}`}
               style={{
                 display: 'flex',
                 alignItems: 'center',
@@ -701,7 +1166,7 @@ function NotesMode({
               <input
                 type="checkbox"
                 checked={todo.done}
-                onChange={() => toggleTodo(i)}
+                onChange={() => toggleTodo(index)}
                 style={{
                   accentColor: 'var(--studio-tc)',
                   cursor: 'pointer',
@@ -713,9 +1178,7 @@ function NotesMode({
                   flex: 1,
                   fontFamily: 'var(--studio-font-body)',
                   fontSize: '12px',
-                  color: todo.done
-                    ? 'var(--studio-text-3)'
-                    : 'var(--studio-text-2)',
+                  color: todo.done ? 'var(--studio-text-3)' : 'var(--studio-text-2)',
                   textDecoration: todo.done ? 'line-through' : 'none',
                   lineHeight: 1.3,
                 }}
@@ -724,7 +1187,7 @@ function NotesMode({
               </span>
               <button
                 type="button"
-                onClick={() => removeTodo(i)}
+                onClick={() => removeTodo(index)}
                 aria-label="Remove todo"
                 style={{
                   fontFamily: 'var(--studio-font-mono)',

@@ -1,34 +1,51 @@
 'use client';
 
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
+import { usePathname } from 'next/navigation';
+import { normalizeStudioContentType } from '@/lib/studio';
 import StudioSidebar from './StudioSidebar';
+import WorkbenchPanel from './WorkbenchPanel';
+import {
+  StudioWorkbenchProvider,
+  useStudioWorkbench,
+} from './WorkbenchContext';
 
-/**
- * Studio shell: two-column layout.
- *
- * Left:   232px sidebar (navigation, wordmark, quick capture)
- * Center: fluid main area (dashboard, content lists, editor)
- *
- * Handles mobile sidebar drawer toggle. Desktop: side-by-side flex.
- * Mobile (<768px): sidebar slides in as overlay with backdrop.
- *
- * Background layers (applied via CSS classes in studio.css):
- *   dot field, grid lines, paper grain, corner glow.
- * The layout.tsx wrapper provides the outermost .studio-theme scope.
- */
-export default function StudioLayout({
+const EDITOR_ROUTE_TYPES = new Set([
+  'essay',
+  'field-note',
+  'shelf',
+  'video',
+  'project',
+  'toolkit',
+]);
+
+function isEditorRoute(pathname: string): boolean {
+  const segments = pathname.split('/').filter(Boolean);
+  if (segments.length < 3 || segments[0] !== 'studio') {
+    return false;
+  }
+
+  const maybeType = normalizeStudioContentType(segments[1]);
+  return EDITOR_ROUTE_TYPES.has(maybeType);
+}
+
+function StudioLayoutInner({
   children,
 }: {
   children: React.ReactNode;
 }) {
+  const pathname = usePathname();
+  const { editorState } = useStudioWorkbench();
   const [mobileOpen, setMobileOpen] = useState(false);
+
+  const editorMode = useMemo(() => isEditorRoute(pathname), [pathname]);
 
   return (
     <>
-      {/* Desktop sidebar (visible lg+) */}
-      <StudioSidebar />
+      <div style={{ position: 'sticky', top: 0, height: '100vh' }}>
+        <StudioSidebar />
+      </div>
 
-      {/* Mobile backdrop */}
       {mobileOpen && (
         <div
           className="studio-mobile-backdrop"
@@ -37,7 +54,6 @@ export default function StudioLayout({
         />
       )}
 
-      {/* Mobile sidebar drawer */}
       <div
         className="studio-sidebar-mobile"
         data-open={mobileOpen ? 'true' : undefined}
@@ -45,7 +61,6 @@ export default function StudioLayout({
         <StudioSidebar />
       </div>
 
-      {/* Main content area */}
       <main
         className="studio-main studio-scrollbar"
         style={{
@@ -53,9 +68,9 @@ export default function StudioLayout({
           minWidth: 0,
           overflowY: 'auto',
           position: 'relative',
+          height: '100vh',
         }}
       >
-        {/* Mobile header bar */}
         <div className="studio-mobile-header">
           <button
             type="button"
@@ -90,9 +105,33 @@ export default function StudioLayout({
           </span>
         </div>
 
-        {/* Page content */}
         <div style={{ position: 'relative', zIndex: 1 }}>{children}</div>
       </main>
+
+      <WorkbenchPanel
+        mode={editorMode ? 'editor' : 'dashboard'}
+        editor={editorMode ? editorState.editor : null}
+        contentItem={editorMode ? editorState.contentItem : null}
+        onSave={editorMode ? editorState.onSave : undefined}
+        lastSaved={editorMode ? editorState.lastSaved : null}
+        saveState={editorMode ? editorState.saveState : 'idle'}
+        autosaveState={editorMode ? editorState.autosaveState : 'idle'}
+      />
     </>
+  );
+}
+
+/**
+ * Studio shell: sidebar + main + shared workbench panel.
+ */
+export default function StudioLayout({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
+  return (
+    <StudioWorkbenchProvider>
+      <StudioLayoutInner>{children}</StudioLayoutInner>
+    </StudioWorkbenchProvider>
   );
 }

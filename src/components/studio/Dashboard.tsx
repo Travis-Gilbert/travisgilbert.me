@@ -1,83 +1,53 @@
 'use client';
 
-import { useState } from 'react';
 import {
   getMockContentItems,
   getMostRecentItem,
   getMockTodayQueue,
-  getMockStudioPulse,
-  getMockWorkbenchData,
   computeItemMetrics,
 } from '@/lib/studio-mock-data';
 import {
   getContentTypeIdentity,
   getStage,
   STAGES,
-  studioMix,
 } from '@/lib/studio';
 import type {
   StudioContentItem,
   StudioTodayQueueItem,
-  StudioPulseInsight,
   StudioContentItemWithMetrics,
 } from '@/lib/studio';
 import StudioCard from './StudioCard';
 import SectionLabel from '../SectionLabel';
-import NewContentModal from './NewContentModal';
 
 /**
- * Studio dashboard: writer's desk metaphor.
+ * Studio dashboard center column.
  *
- * Three-rail layout (two-column flex on desktop):
- *   Center: ON THE TABLE (hero), TODAY'S QUEUE, IN MOTION
- *   Right:  STUDIO PULSE, QUIET, QUICK CAPTURE
- *
- * Mobile (<1024px): single column, right rail stacks below center.
+ * Workbench content for pulse, quiet/stuck, and quick capture now lives
+ * in WorkbenchPanel dashboard mode so this view remains a single column.
  */
 export default function Dashboard() {
   const hero = getMostRecentItem();
   const todayQueue = getMockTodayQueue();
   const allItems = getMockContentItems();
-  const pulse = getMockStudioPulse();
-  const workbench = getMockWorkbenchData();
 
-  /* Active items: drafting, revising, or production (exclude hero to avoid duplication) */
   const inMotion = allItems
     .filter(
-      (i) =>
-        ['drafting', 'revising', 'production'].includes(i.stage) &&
-        i.id !== hero?.id,
+      (item) =>
+        ['drafting', 'revising', 'production'].includes(item.stage) &&
+        item.id !== hero?.id,
     )
-    .map((i) => ({ ...i, metrics: computeItemMetrics(i) }));
-
-  /* Quiet items: untouched 7+ days */
-  const quiet = allItems
-    .map((i) => ({ ...i, metrics: computeItemMetrics(i) }))
-    .filter((i) => i.metrics.daysSinceLastTouched >= 7)
-    .sort((a, b) => b.metrics.daysSinceLastTouched - a.metrics.daysSinceLastTouched);
+    .map((item) => ({ ...item, metrics: computeItemMetrics(item) }));
 
   return (
     <div style={{ padding: '32px 40px' }}>
-      <div style={{ display: 'flex', gap: '40px', alignItems: 'flex-start' }}>
-        {/* ── Center column ──────────────────────────── */}
-        <div style={{ flex: 1, minWidth: 0 }}>
-          {hero && <HeroCard item={hero} />}
-          <TodayQueue items={todayQueue} />
-          <InMotionSection items={inMotion} />
-        </div>
-
-        {/* ── Right rail ─────────────────────────────── */}
-        <div className="studio-right-rail" style={{ width: 340, flexShrink: 0 }}>
-          <PulseSection insights={pulse} workbench={workbench} />
-          <QuietSection items={quiet} />
-          <QuickCapture />
-        </div>
+      <div style={{ maxWidth: '880px' }}>
+        {hero && <HeroCard item={hero} />}
+        <TodayQueue items={todayQueue} />
+        <InMotionSection items={inMotion} />
       </div>
     </div>
   );
 }
-
-/* ── 1. ON THE TABLE: Active Project Hero ─────── */
 
 function HeroCard({ item }: { item: StudioContentItem }) {
   const typeInfo = getContentTypeIdentity(item.contentType);
@@ -93,7 +63,6 @@ function HeroCard({ item }: { item: StudioContentItem }) {
         href={`/studio/${typeInfo.route}/${item.slug}`}
         style={{ padding: '20px 22px' }}
       >
-        {/* Top row: title + word count */}
         <div
           style={{
             display: 'flex',
@@ -128,7 +97,6 @@ function HeroCard({ item }: { item: StudioContentItem }) {
           </span>
         </div>
 
-        {/* Excerpt */}
         {item.excerpt && (
           <p
             style={{
@@ -147,10 +115,8 @@ function HeroCard({ item }: { item: StudioContentItem }) {
           </p>
         )}
 
-        {/* Pipeline dots */}
         <PipelineDots currentStage={item.stage} typeColor={typeInfo.color} />
 
-        {/* Next Move callout */}
         {item.nextMove && (
           <div
             style={{
@@ -188,7 +154,6 @@ function HeroCard({ item }: { item: StudioContentItem }) {
           </div>
         )}
 
-        {/* Last session */}
         {item.lastSessionSummary && (
           <p
             style={{
@@ -204,7 +169,6 @@ function HeroCard({ item }: { item: StudioContentItem }) {
           </p>
         )}
 
-        {/* Metadata: type + stage + days */}
         <div
           style={{
             display: 'flex',
@@ -246,8 +210,6 @@ function HeroCard({ item }: { item: StudioContentItem }) {
   );
 }
 
-/* ── Pipeline dots (connected stages) ─────────── */
-
 function PipelineDots({
   currentStage,
   typeColor,
@@ -255,7 +217,7 @@ function PipelineDots({
   currentStage: string;
   typeColor: string;
 }) {
-  const currentIdx = STAGES.findIndex((s) => s.slug === currentStage);
+  const currentIdx = STAGES.findIndex((stage) => stage.slug === currentStage);
 
   return (
     <div
@@ -266,9 +228,9 @@ function PipelineDots({
         margin: '10px 0 2px',
       }}
     >
-      {STAGES.map((stage, i) => {
-        const isComplete = i < currentIdx;
-        const isCurrent = i === currentIdx;
+      {STAGES.map((stage, index) => {
+        const isComplete = index < currentIdx;
+        const isCurrent = index === currentIdx;
         const dotColor = isCurrent
           ? typeColor
           : isComplete
@@ -294,13 +256,13 @@ function PipelineDots({
                 flexShrink: 0,
               }}
             />
-            {i < STAGES.length - 1 && (
+            {index < STAGES.length - 1 && (
               <div
                 style={{
                   width: '16px',
                   height: '1px',
                   backgroundColor:
-                    i < currentIdx
+                    index < currentIdx
                       ? 'var(--studio-text-3)'
                       : 'var(--studio-surface-hover)',
                 }}
@@ -313,10 +275,10 @@ function PipelineDots({
   );
 }
 
-/* ── 2. TODAY'S QUEUE ─────────────────────────── */
-
 function TodayQueue({ items }: { items: StudioTodayQueueItem[] }) {
-  if (items.length === 0) return null;
+  if (items.length === 0) {
+    return null;
+  }
 
   return (
     <section style={{ marginBottom: '28px' }}>
@@ -327,6 +289,7 @@ function TodayQueue({ items }: { items: StudioTodayQueueItem[] }) {
         {items.map((task) => {
           const typeInfo = getContentTypeIdentity(task.contentType);
           const stage = getStage(task.stage);
+
           return (
             <StudioCard
               key={task.id}
@@ -367,10 +330,7 @@ function TodayQueue({ items }: { items: StudioTodayQueueItem[] }) {
                 >
                   {task.contentTitle}
                 </span>
-                <span
-                  className="studio-stage-badge"
-                  data-stage={task.stage}
-                >
+                <span className="studio-stage-badge" data-stage={task.stage}>
                   {stage.label}
                 </span>
               </div>
@@ -382,14 +342,14 @@ function TodayQueue({ items }: { items: StudioTodayQueueItem[] }) {
   );
 }
 
-/* ── 3. IN MOTION ─────────────────────────────── */
-
 function InMotionSection({
   items,
 }: {
   items: StudioContentItemWithMetrics[];
 }) {
-  if (items.length === 0) return null;
+  if (items.length === 0) {
+    return null;
+  }
 
   return (
     <section style={{ marginBottom: '28px' }}>
@@ -400,13 +360,13 @@ function InMotionSection({
         {items.map((item) => {
           const typeInfo = getContentTypeIdentity(item.contentType);
           const stage = getStage(item.stage);
+
           return (
             <StudioCard
               key={item.id}
               typeColor={typeInfo.color}
               href={`/studio/${typeInfo.route}/${item.slug}`}
             >
-              {/* Type label + stage badge */}
               <div
                 style={{
                   display: 'flex',
@@ -427,15 +387,11 @@ function InMotionSection({
                 >
                   {typeInfo.label}
                 </span>
-                <span
-                  className="studio-stage-badge"
-                  data-stage={item.stage}
-                >
+                <span className="studio-stage-badge" data-stage={item.stage}>
                   {stage.label}
                 </span>
               </div>
 
-              {/* Title */}
               <div
                 style={{
                   fontFamily: 'var(--studio-font-title)',
@@ -449,7 +405,6 @@ function InMotionSection({
                 {item.title}
               </div>
 
-              {/* Excerpt (2-line clamp) */}
               {item.excerpt && (
                 <p
                   style={{
@@ -469,7 +424,6 @@ function InMotionSection({
                 </p>
               )}
 
-              {/* Bottom row: word count + last touched */}
               <div
                 style={{
                   display: 'flex',
@@ -502,298 +456,6 @@ function InMotionSection({
           );
         })}
       </div>
-    </section>
-  );
-}
-
-/* ── 4. STUDIO PULSE (right rail) ─────────────── */
-
-const PULSE_ICONS: Record<StudioPulseInsight['type'], string> = {
-  momentum: '\u2191',
-  simmering: '\u25CB',
-  quiet: '\u2026',
-  ready: '\u2192',
-  rich: '\u25C7',
-};
-
-const PULSE_COLORS: Record<StudioPulseInsight['type'], string> = {
-  momentum: '#6A9A5A',
-  simmering: '#D4AA4A',
-  quiet: '#9A8E82',
-  ready: '#3A8A9A',
-  rich: '#B45A2D',
-};
-
-const PULSE_LABELS: Record<StudioPulseInsight['type'], string> = {
-  momentum: 'MOMENTUM',
-  simmering: 'SIMMERING',
-  quiet: 'QUIET',
-  ready: 'READY',
-  rich: 'RESEARCH RICH',
-};
-
-function PulseSection({
-  insights,
-  workbench,
-}: {
-  insights: StudioPulseInsight[];
-  workbench: { pipelineBreakdown: Record<string, number> };
-}) {
-  const drafting = workbench.pipelineBreakdown['drafting'] ?? 0;
-  const revising = workbench.pipelineBreakdown['revising'] ?? 0;
-  const published = workbench.pipelineBreakdown['published'] ?? 0;
-
-  return (
-    <section>
-      <SectionLabel variant="studio" hexColor="#5A7A4A">
-        STUDIO PULSE
-      </SectionLabel>
-      <StudioCard typeColor="#5A7A4A">
-        <div
-          style={{
-            display: 'flex',
-            flexDirection: 'column',
-            gap: '12px',
-          }}
-        >
-          {insights.map((insight, i) => (
-            <div key={i} style={{ display: 'flex', gap: '10px' }}>
-              <span
-                style={{
-                  fontFamily: 'var(--studio-font-mono)',
-                  fontSize: '14px',
-                  color: PULSE_COLORS[insight.type],
-                  flexShrink: 0,
-                  width: '16px',
-                  textAlign: 'center',
-                }}
-              >
-                {PULSE_ICONS[insight.type]}
-              </span>
-              <div style={{ minWidth: 0 }}>
-                <span
-                  style={{
-                    fontFamily: 'var(--studio-font-mono)',
-                    fontSize: '9px',
-                    fontWeight: 700,
-                    letterSpacing: '0.1em',
-                    color: PULSE_COLORS[insight.type],
-                    display: 'block',
-                    marginBottom: '2px',
-                  }}
-                >
-                  {PULSE_LABELS[insight.type]}
-                </span>
-                <span
-                  style={{
-                    fontFamily: 'var(--studio-font-body)',
-                    fontSize: '13px',
-                    color: 'var(--studio-text-1)',
-                    lineHeight: 1.4,
-                    display: 'block',
-                  }}
-                >
-                  {insight.message}
-                </span>
-                <span
-                  style={{
-                    fontFamily: 'var(--studio-font-metadata)',
-                    fontSize: '10px',
-                    color: 'var(--studio-text-3)',
-                    display: 'block',
-                    marginTop: '2px',
-                  }}
-                >
-                  {insight.detail}
-                </span>
-              </div>
-            </div>
-          ))}
-        </div>
-
-        {/* Stat tiles */}
-        <div
-          style={{
-            display: 'flex',
-            gap: '8px',
-            marginTop: '16px',
-            paddingTop: '12px',
-            borderTop: '1px solid var(--studio-border)',
-          }}
-        >
-          <StatTile label="Drafting" count={drafting} color="#D4AA4A" />
-          <StatTile label="Revising" count={revising} color="#8A6A9A" />
-          <StatTile label="Published" count={published} color="#6A9A5A" />
-        </div>
-      </StudioCard>
-    </section>
-  );
-}
-
-function StatTile({
-  label,
-  count,
-  color,
-}: {
-  label: string;
-  count: number;
-  color: string;
-}) {
-  return (
-    <div
-      style={{
-        flex: 1,
-        textAlign: 'center',
-        padding: '8px 4px',
-        borderRadius: '4px',
-        backgroundColor: studioMix(color, 6),
-      }}
-    >
-      <div
-        style={{
-          fontFamily: 'var(--studio-font-mono)',
-          fontSize: '18px',
-          fontWeight: 700,
-          color,
-        }}
-      >
-        {count}
-      </div>
-      <div
-        style={{
-          fontFamily: 'var(--studio-font-mono)',
-          fontSize: '8px',
-          fontWeight: 600,
-          letterSpacing: '0.1em',
-          textTransform: 'uppercase' as const,
-          color: 'var(--studio-text-3)',
-          marginTop: '2px',
-        }}
-      >
-        {label}
-      </div>
-    </div>
-  );
-}
-
-/* ── 5. QUIET (right rail) ────────────────────── */
-
-function QuietSection({
-  items,
-}: {
-  items: StudioContentItemWithMetrics[];
-}) {
-  if (items.length === 0) return null;
-
-  return (
-    <section>
-      <SectionLabel variant="studio" hexColor="#9A8E82">
-        QUIET
-      </SectionLabel>
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-        {items.slice(0, 8).map((item) => {
-          const typeInfo = getContentTypeIdentity(item.contentType);
-          return (
-            <div
-              key={item.id}
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: '8px',
-                padding: '6px 0',
-              }}
-            >
-              {/* Type dot */}
-              <span
-                style={{
-                  width: '6px',
-                  height: '6px',
-                  borderRadius: '50%',
-                  backgroundColor: typeInfo.color,
-                  flexShrink: 0,
-                }}
-              />
-              {/* Title */}
-              <span
-                style={{
-                  fontFamily: 'var(--studio-font-title)',
-                  fontSize: '13px',
-                  color: 'var(--studio-text-2)',
-                  flex: 1,
-                  minWidth: 0,
-                  overflow: 'hidden',
-                  textOverflow: 'ellipsis',
-                  whiteSpace: 'nowrap',
-                }}
-              >
-                {item.title}
-              </span>
-              {/* Days silent */}
-              <span
-                style={{
-                  fontFamily: 'var(--studio-font-metadata)',
-                  fontSize: '10px',
-                  color: 'var(--studio-gold)',
-                  flexShrink: 0,
-                }}
-              >
-                {item.metrics.daysSinceLastTouched}d
-              </span>
-              {/* Stage badge */}
-              <span
-                className="studio-stage-badge"
-                data-stage={item.stage}
-              >
-                {getStage(item.stage).label}
-              </span>
-            </div>
-          );
-        })}
-      </div>
-    </section>
-  );
-}
-
-/* ── 6. QUICK CAPTURE (right rail) ────────────── */
-
-const CAPTURE_TYPES = [
-  { label: 'Note', type: 'field-note', color: '#3A8A9A' },
-  { label: 'Source', type: 'shelf', color: '#D4AA4A' },
-  { label: 'Idea', type: 'essay', color: '#B45A2D' },
-  { label: 'Script Beat', type: 'video', color: '#6A9A5A' },
-] as const;
-
-function QuickCapture() {
-  const [modalType, setModalType] = useState<string | null>(null);
-
-  return (
-    <section>
-      <SectionLabel variant="studio" hexColor="#B45A2D">
-        QUICK CAPTURE
-      </SectionLabel>
-      <div className="studio-capture-grid">
-        {CAPTURE_TYPES.map((cap) => (
-          <button
-            key={cap.type}
-            type="button"
-            className="studio-capture-btn"
-            style={{
-              backgroundColor: studioMix(cap.color, 8),
-              color: cap.color,
-            }}
-            onClick={() => setModalType(cap.type)}
-          >
-            {cap.label}
-          </button>
-        ))}
-      </div>
-
-      {modalType && (
-        <NewContentModal
-          defaultType={modalType}
-          onClose={() => setModalType(null)}
-        />
-      )}
     </section>
   );
 }

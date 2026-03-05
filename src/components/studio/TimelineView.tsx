@@ -20,6 +20,8 @@ import type { TimelineDateGroup } from '@/lib/studio-mock-data';
 import StudioCard from './StudioCard';
 import SectionLabel from '../SectionLabel';
 
+const TIMELINE_CARD_MAX_WIDTH = 640;
+
 /**
  * Studio timeline: expandable card-based activity log.
  *
@@ -108,7 +110,13 @@ export default function TimelineView() {
       />
 
       {/* ── Timeline body ────────────────────── */}
-      <div style={{ marginTop: '20px', position: 'relative' }}>
+      <div
+        style={{
+          marginTop: '20px',
+          position: 'relative',
+          maxWidth: `${TIMELINE_CARD_MAX_WIDTH + 24}px`,
+        }}
+      >
         {/* Spine */}
         <div className="studio-timeline-spine" aria-hidden="true" />
 
@@ -128,6 +136,7 @@ export default function TimelineView() {
               fontSize: '14px',
               color: 'var(--studio-text-3)',
               paddingLeft: '24px',
+              maxWidth: `${TIMELINE_CARD_MAX_WIDTH}px`,
               fontStyle: 'italic',
             }}
           >
@@ -313,7 +322,13 @@ function DateGroup({
 
 function DaySummaryCard({ summary }: { summary: StudioDaySummary }) {
   return (
-    <div className="studio-day-summary" style={{ marginLeft: '24px' }}>
+    <div
+      className="studio-day-summary"
+      style={{
+        marginLeft: '24px',
+        maxWidth: `${TIMELINE_CARD_MAX_WIDTH}px`,
+      }}
+    >
       <span
         style={{
           fontFamily: 'var(--studio-font-mono)',
@@ -411,7 +426,10 @@ function TimelineCard({
       <StudioCard
         typeColor={typeInfo.color}
         onClick={onToggle}
-        style={{ marginBottom: '6px' }}
+        style={{
+          marginBottom: '6px',
+          maxWidth: `${TIMELINE_CARD_MAX_WIDTH}px`,
+        }}
       >
         {/* Collapsed row: title + chevron + time */}
         <div

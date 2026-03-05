@@ -5,15 +5,19 @@ import type { Editor as TiptapEditorType } from '@tiptap/react';
 import type { StudioContentItem } from '@/lib/studio';
 import { normalizeStudioContentType } from '@/lib/studio';
 import { saveContentItem, updateStage } from '@/lib/studio-api';
+import {
+  useStudioWorkbench,
+  type WorkbenchAutosaveState,
+  type WorkbenchSaveState,
+} from './WorkbenchContext';
 import StageBar from './StageBar';
 import EditorToolbar from './EditorToolbar';
 import TiptapEditor from './TiptapEditor';
 import WordCountBand from './WordCountBand';
-import WorkbenchPanel from './WorkbenchPanel';
 
-type SaveState = 'idle' | 'saving' | 'success' | 'error';
+type SaveState = WorkbenchSaveState;
 type SaveMode = 'manual' | 'autosave';
-type AutosaveState = 'idle' | 'saved';
+type AutosaveState = WorkbenchAutosaveState;
 
 function formatSavedTime(input: string): string {
   const dt = new Date(input);
@@ -51,6 +55,7 @@ export default function Editor({
   initialStage: string;
   contentItem?: StudioContentItem | null;
 }) {
+  const { setEditorState, resetEditorState } = useStudioWorkbench();
   const normalizedContentType = normalizeStudioContentType(contentType);
 
   const [editor, setEditor] = useState<TiptapEditorType | null>(null);
@@ -200,6 +205,31 @@ export default function Editor({
     [normalizedContentType, slug, stage],
   );
 
+  useEffect(() => {
+    setEditorState({
+      editor,
+      contentItem: contentItem ?? null,
+      onSave: handleSave,
+      lastSaved,
+      saveState,
+      autosaveState,
+    });
+  }, [
+    autosaveState,
+    contentItem,
+    editor,
+    handleSave,
+    lastSaved,
+    saveState,
+    setEditorState,
+  ]);
+
+  useEffect(() => {
+    return () => {
+      resetEditorState();
+    };
+  }, [resetEditorState]);
+
   return (
     <div style={{ display: 'flex', height: '100vh', maxHeight: '100vh' }}>
       <div
@@ -260,15 +290,6 @@ export default function Editor({
 
         <WordCountBand editor={editor} />
       </div>
-
-      <WorkbenchPanel
-        editor={editor}
-        contentItem={contentItem ?? null}
-        onSave={handleSave}
-        lastSaved={lastSaved}
-        saveState={saveState}
-        autosaveState={autosaveState}
-      />
     </div>
   );
 }
