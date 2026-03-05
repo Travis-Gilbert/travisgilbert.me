@@ -203,6 +203,7 @@ export default function Editor({
   return (
     <div style={{ display: 'flex', height: '100vh', maxHeight: '100vh' }}>
       <div
+        className="studio-writing-surface"
         style={{
           flex: 1,
           display: 'flex',
@@ -219,7 +220,7 @@ export default function Editor({
 
         <div
           style={{
-            padding: '20px 20px 0',
+            padding: '20px 40px 0',
             backgroundColor: 'var(--studio-surface)',
           }}
         >
@@ -240,7 +241,8 @@ export default function Editor({
               border: 'none',
               outline: 'none',
               margin: 0,
-              padding: '0 20px 16px',
+              padding: '0 0 16px',
+              lineHeight: 1.2,
               borderBottom: '1px solid var(--studio-border)',
               boxSizing: 'border-box',
             }}

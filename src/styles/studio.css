@@ -561,6 +561,28 @@
 
 /* ── Tiptap Editor ────────────────────────────── */
 
+.studio-writing-surface {
+  --studio-writing-bg: #F5EEE4;
+  --studio-writing-text: #2A2420;
+  --studio-writing-muted: #6A5E52;
+  --studio-writing-border: #D4CCC4;
+  --studio-writing-surface: #FAF6F1;
+  --studio-writing-surface-hover: #F1E9DE;
+  --studio-writing-border-strong: #C9BFB6;
+
+  --studio-bg: var(--studio-writing-bg);
+  --studio-surface: var(--studio-writing-surface);
+  --studio-surface-hover: var(--studio-writing-surface-hover);
+  --studio-text-1: var(--studio-writing-text);
+  --studio-text-2: var(--studio-writing-muted);
+  --studio-text-3: var(--studio-writing-muted);
+  --studio-text-bright: var(--studio-writing-text);
+  --studio-border: var(--studio-writing-border);
+  --studio-border-strong: var(--studio-writing-border-strong);
+
+  background-color: var(--studio-writing-bg);
+}
+
 .studio-tiptap-wrapper {
   background-color: var(--studio-bg);
 }

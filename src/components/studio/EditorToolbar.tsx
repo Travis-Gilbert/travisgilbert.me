@@ -91,9 +91,10 @@ export default function EditorToolbar({
     {
       type: 'button',
       label: 'Highlight',
-      icon: '\u{1F58D}',
+      icon: 'Hi',
       action: () => editor.chain().focus().toggleHighlight().run(),
       isActive: editor.isActive('highlight'),
+      fontStyle: 'mono',
     },
     {
       type: 'button',
@@ -161,9 +162,10 @@ export default function EditorToolbar({
     {
       type: 'button',
       label: 'Task list',
-      icon: '\u2611',
+      icon: 'TL',
       action: () => editor.chain().focus().toggleTaskList().run(),
       isActive: editor.isActive('taskList'),
+      fontStyle: 'mono',
     },
 
     { type: 'divider' },
@@ -172,14 +174,15 @@ export default function EditorToolbar({
     {
       type: 'button',
       label: 'Blockquote',
-      icon: '\u201C',
+      icon: 'Bq',
       action: () => editor.chain().focus().toggleBlockquote().run(),
       isActive: editor.isActive('blockquote'),
+      fontStyle: 'mono',
     },
     {
       type: 'button',
       label: 'Code block',
-      icon: '</>',
+      icon: '[]',
       action: () => editor.chain().focus().toggleCodeBlock().run(),
       isActive: editor.isActive('codeBlock'),
       fontStyle: 'mono',
@@ -187,9 +190,10 @@ export default function EditorToolbar({
     {
       type: 'button',
       label: 'Horizontal rule',
-      icon: '\u2015',
+      icon: 'HR',
       action: () => editor.chain().focus().setHorizontalRule().run(),
       isActive: false,
+      fontStyle: 'mono',
     },
 
     { type: 'divider' },
@@ -198,23 +202,26 @@ export default function EditorToolbar({
     {
       type: 'button',
       label: 'Link',
-      icon: '\uD83D\uDD17',
+      icon: 'Ln',
       action: setLink,
       isActive: editor.isActive('link'),
+      fontStyle: 'mono',
     },
     {
       type: 'button',
       label: 'Image',
-      icon: '\uD83D\uDDBC',
+      icon: 'Im',
       action: addImage,
       isActive: false,
+      fontStyle: 'mono',
     },
     {
       type: 'button',
       label: 'Table',
-      icon: '\u2637',
+      icon: 'Tb',
       action: insertTable,
       isActive: editor.isActive('table'),
+      fontStyle: 'mono',
     },
 
     { type: 'divider' },
