@@ -1,10 +1,15 @@
 'use client';
 
+import { useEffect, useCallback } from 'react';
+import { createPortal } from 'react-dom';
 import { useRouter } from 'next/navigation';
 import { CONTENT_TYPES } from '@/lib/studio';
 
 /**
  * Type selector modal for creating new content.
+ *
+ * Renders via createPortal to document.body so the modal escapes
+ * the sidebar's stacking context (overflow: hidden, isolation: isolate).
  *
  * Shows all content types with their colored dots and labels.
  * Selecting a type navigates to the editor with a placeholder slug.
@@ -25,41 +30,53 @@ export default function NewContentModal({
     router.push(`/studio/${typeSlug}/${tempSlug}`);
   };
 
-  return (
-    <>
+  /* Close on Escape key (document-level listener) */
+  const handleKeyDown = useCallback(
+    (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose();
+    },
+    [onClose],
+  );
+
+  useEffect(() => {
+    document.addEventListener('keydown', handleKeyDown);
+    return () => document.removeEventListener('keydown', handleKeyDown);
+  }, [handleKeyDown]);
+
+  const modalContent = (
+    <div className="studio-theme">
       {/* Backdrop */}
       <div
         style={{
           position: 'fixed',
           inset: 0,
-          background: 'rgba(0, 0, 0, 0.5)',
-          zIndex: 200,
+          background: 'rgba(0, 0, 0, 0.6)',
+          zIndex: 9998,
         }}
         onClick={onClose}
-        onKeyDown={(e) => {
-          if (e.key === 'Escape') onClose();
-        }}
         role="button"
         tabIndex={-1}
-        aria-label="Close"
+        aria-label="Close modal"
       />
 
       {/* Modal */}
       <div
         role="dialog"
+        aria-modal="true"
         aria-label="Create new content"
         style={{
           position: 'fixed',
           top: '50%',
           left: '50%',
           transform: 'translate(-50%, -50%)',
-          zIndex: 201,
+          zIndex: 9999,
           backgroundColor: 'var(--studio-surface)',
           border: '1px solid var(--studio-border)',
           borderRadius: '8px',
           padding: '24px',
           width: '320px',
           maxWidth: '90vw',
+          boxShadow: '0 16px 48px rgba(0, 0, 0, 0.4)',
         }}
       >
         <div
@@ -166,6 +183,8 @@ export default function NewContentModal({
           Cancel
         </button>
       </div>
-    </>
+    </div>
   );
+
+  return createPortal(modalContent, document.body);
 }
