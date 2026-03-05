@@ -28,6 +28,7 @@ export default function Editor({
   initialStage: string;
 }) {
   const [editor, setEditor] = useState<TiptapEditorType | null>(null);
+  const [currentTitle, setCurrentTitle] = useState(title);
   const [stage, setStage] = useState(initialStage);
   const [lastSaved, setLastSaved] = useState<string | null>(null);
   const [, setForceRender] = useState(0);
@@ -74,26 +75,35 @@ export default function Editor({
         onStageChange={handleStageChange}
       />
 
-      {/* Title */}
+      {/* Editable title */}
       <div
         style={{
           padding: '20px 20px 0',
           backgroundColor: 'var(--studio-surface)',
         }}
       >
-        <h1
+        <input
+          type="text"
+          value={currentTitle}
+          onChange={(e) => setCurrentTitle(e.target.value)}
+          placeholder="Untitled"
+          spellCheck={false}
           style={{
+            display: 'block',
+            width: '100%',
             fontFamily: 'var(--studio-font-title)',
             fontSize: '28px',
             fontWeight: 700,
             color: 'var(--studio-text-bright)',
+            background: 'none',
+            border: 'none',
+            outline: 'none',
             margin: 0,
             padding: '0 20px 16px',
             borderBottom: '1px solid var(--studio-border)',
+            boxSizing: 'border-box',
           }}
-        >
-          {title}
-        </h1>
+        />
       </div>
 
       {/* Formatting toolbar */}
