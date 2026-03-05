@@ -27,6 +27,7 @@ All views require login (enforced via LoginRequiredMixin). The URL structure:
 
 import json
 import logging
+import os
 import traceback
 from collections import defaultdict
 from datetime import timedelta
@@ -2405,7 +2406,38 @@ class ResearchNoteDeleteView(LoginRequiredMixin, View):
 STUDIO_API_ALLOWED_ORIGINS = {
     "http://localhost:3000",
     "http://127.0.0.1:3000",
+    "https://travisgilbert.me",
+    "https://www.travisgilbert.me",
 }
+
+_studio_api_extra_origins = {
+    origin.strip()
+    for origin in os.getenv("STUDIO_API_ALLOWED_ORIGINS", "").split(",")
+    if origin.strip()
+}
+STUDIO_API_ALLOWED_ORIGINS.update(_studio_api_extra_origins)
+
+STUDIO_API_ALLOWED_ORIGIN_SUFFIXES = tuple(
+    suffix.strip().lower()
+    for suffix in os.getenv(
+        "STUDIO_API_ALLOWED_ORIGIN_SUFFIXES",
+        ".vercel.app",
+    ).split(",")
+    if suffix.strip()
+)
+
+
+def _studio_api_is_origin_allowed(origin):
+    if not origin:
+        return False
+    if origin in STUDIO_API_ALLOWED_ORIGINS:
+        return True
+
+    origin_lower = origin.lower()
+    return any(
+        origin_lower.endswith(suffix)
+        for suffix in STUDIO_API_ALLOWED_ORIGIN_SUFFIXES
+    )
 
 
 STUDIO_API_CONTENT_REGISTRY = {
@@ -2477,13 +2509,14 @@ STUDIO_API_CONTENT_ALIASES = {
 
 def _studio_api_add_cors_headers(request, response):
     origin = request.headers.get("Origin")
-    if origin in STUDIO_API_ALLOWED_ORIGINS:
+    if _studio_api_is_origin_allowed(origin):
         response["Access-Control-Allow-Origin"] = origin
         vary = response.get("Vary")
         response["Vary"] = f"{vary}, Origin" if vary else "Origin"
 
+    requested_headers = request.headers.get("Access-Control-Request-Headers")
     response["Access-Control-Allow-Methods"] = "GET, POST, OPTIONS"
-    response["Access-Control-Allow-Headers"] = "Content-Type"
+    response["Access-Control-Allow-Headers"] = requested_headers or "Content-Type"
     response["Access-Control-Max-Age"] = "86400"
     return response
 
