@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import StudioLayout from '@/components/studio/StudioLayout';
+import StudioDotGrid from '@/components/studio/StudioDotGrid';
 import '@/styles/studio.css';
 
 export const metadata: Metadata = {
@@ -46,8 +47,12 @@ export default function StudioGroupLayout({
         backgroundColor: 'var(--studio-bg)',
         color: 'var(--studio-text-1)',
         margin: 0,
+        isolation: 'isolate',
       }}
     >
+      {/* Interactive multi-color dot grid (terracotta, teal, gold) */}
+      <StudioDotGrid />
+
       {/* Terracotta upper-left corner glow */}
       <div className="studio-corner-glow" aria-hidden="true" />
 

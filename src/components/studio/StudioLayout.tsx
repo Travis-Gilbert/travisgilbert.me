@@ -58,12 +58,6 @@ export default function StudioLayout({
           position: 'relative',
         }}
       >
-        {/* Dot field background */}
-        <div className="studio-dot-field" aria-hidden="true" />
-
-        {/* Grid lines */}
-        <div className="studio-grid-lines" aria-hidden="true" />
-
         {/* Mobile header bar */}
         <div className="studio-mobile-header">
           <button

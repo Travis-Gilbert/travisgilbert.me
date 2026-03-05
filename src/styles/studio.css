@@ -304,11 +304,11 @@
 .studio-nav-section-label {
   font-family: var(--studio-font-mono);
   font-weight: 600;
-  font-size: 9px;
-  letter-spacing: 0.22em;
-  color: rgba(237, 231, 220, 0.3);
+  font-size: 11px;
+  letter-spacing: 0.18em;
+  color: rgba(237, 231, 220, 0.35);
   text-transform: uppercase;
-  padding: 10px 18px 4px;
+  padding: 12px 18px 5px;
 }
 
 .studio-nav-item {

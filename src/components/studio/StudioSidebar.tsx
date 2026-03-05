@@ -63,7 +63,7 @@ export default function StudioSidebar() {
         href="/studio"
         style={{
           display: 'block',
-          padding: '26px 20px 10px',
+          padding: '26px 20px 10px 12px',
           textDecoration: 'none',
           position: 'relative',
           zIndex: 2,
