@@ -103,6 +103,10 @@ export interface SidebarItem {
   /** If true, this is an expandable group with children */
   expandable?: boolean;
   children?: SidebarItem[];
+  /** If set, clicking this item opens a pane tab instead of navigating */
+  viewType?: ViewType;
+  /** Context to pass to the pane tab */
+  viewContext?: Record<string, unknown>;
 }
 
 export const SIDEBAR_SECTIONS: SidebarSection[] = [
@@ -365,6 +369,50 @@ export interface ApiResurfaceItem extends ApiGraphObject {
 export interface ApiResurfaceResponse {
   objects: ApiResurfaceItem[];
   meta: { count: number };
+}
+
+/* ── Notebook types (NotebookListSerializer / NotebookDetailSerializer) ── */
+
+export interface ApiNotebookListItem {
+  id: number;
+  name: string;
+  slug: string;
+  description: string;
+  color: string;
+  icon: string;
+  is_active: boolean;
+  sort_order: number;
+  object_count: number;
+}
+
+export interface ApiNotebookDetail extends ApiNotebookListItem {
+  engine_config: Record<string, unknown>;
+  available_types: string[];
+  default_layout: Record<string, unknown> | null;
+  theme: Record<string, unknown>;
+  objects: { id: number; title: string; object_type: string }[];
+}
+
+/* ── Project types (ProjectListSerializer / ProjectDetailSerializer) ── */
+
+export interface ApiProjectListItem {
+  id: number;
+  name: string;
+  slug: string;
+  mode: string;
+  status: string;
+  notebook: string | null;
+  notebook_name: string | null;
+  is_template: boolean;
+  reminder_at: string | null;
+}
+
+export interface ApiProjectDetail extends ApiProjectListItem {
+  sha_hash: string;
+  description: string;
+  template_from: string | null;
+  settings_override: Record<string, unknown>;
+  objects: { id: number; title: string; object_type: string }[];
 }
 
 /* ─────────────────────────────────────────────────

@@ -1,12 +1,14 @@
 'use client';
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { usePathname } from 'next/navigation';
 import Link from 'next/link';
 import { SIDEBAR_SECTIONS, OBJECT_TYPES } from '@/lib/commonplace';
 import type { CapturedObject } from '@/lib/commonplace';
 import { createCapturedObject, syncCapture } from '@/lib/commonplace-capture';
 import { useCommonPlace } from '@/lib/commonplace-context';
+import { fetchNotebooks, fetchProjects, useApiData } from '@/lib/commonplace-api';
+import { useIsMobileViewport } from '@/hooks/useIsMobileViewport';
 import CaptureButton from './CaptureButton';
 import ObjectPalette from './ObjectPalette';
 import RecentCaptures from './RecentCaptures';
@@ -28,12 +30,36 @@ import DropZone from './DropZone';
  */
 export default function CommonPlaceSidebar() {
   const pathname = usePathname();
-  const { notifyCaptured } = useCommonPlace();
+  const {
+    notifyCaptured,
+    mobileSidebarOpen,
+    closeMobileSidebar,
+    requestView,
+  } = useCommonPlace();
   const [expandedGroups, setExpandedGroups] = useState<Set<string>>(
     new Set(['Notebooks', 'Projects'])
   );
   const [isPaletteOpen, setIsPaletteOpen] = useState(false);
   const [captures, setCaptures] = useState<CapturedObject[]>([]);
+  const isMobile = useIsMobileViewport();
+
+  /* Fetch notebooks and projects for dynamic sidebar children */
+  const { data: notebooks } = useApiData(() => fetchNotebooks(), []);
+  const { data: projects } = useApiData(() => fetchProjects(), []);
+
+  useEffect(() => {
+    if (!isMobile) return;
+    closeMobileSidebar();
+  }, [pathname, isMobile, closeMobileSidebar]);
+
+  useEffect(() => {
+    if (!isMobile) return;
+    const prevOverflow = document.body.style.overflow;
+    document.body.style.overflow = mobileSidebarOpen ? 'hidden' : '';
+    return () => {
+      document.body.style.overflow = prevOverflow;
+    };
+  }, [isMobile, mobileSidebarOpen]);
 
   function toggleGroup(label: string) {
     setExpandedGroups((prev) => {
@@ -44,9 +70,15 @@ export default function CommonPlaceSidebar() {
     });
   }
 
+  const closeDrawerIfMobile = useCallback(() => {
+    if (isMobile) closeMobileSidebar();
+  }, [isMobile, closeMobileSidebar]);
+
   const handleCapture = useCallback((object: CapturedObject) => {
     /* Optimistic: show immediately in sidebar */
     setCaptures((prev) => [object, ...prev]);
+
+    closeDrawerIfMobile();
 
     /* Background sync to Django API */
     syncCapture(object).then((result) => {
@@ -68,23 +100,39 @@ export default function CommonPlaceSidebar() {
         }),
       );
     });
-  }, [notifyCaptured]);
+  }, [notifyCaptured, closeDrawerIfMobile]);
 
   return (
-    <aside
-      className="cp-scrollbar cp-grain cp-grain-sidebar cp-sidebar-desktop"
-      style={{
-        width: 'var(--cp-sidebar-width)',
-        flexShrink: 0,
-        backgroundColor: 'var(--cp-sidebar)',
-        display: 'flex',
-        flexDirection: 'column',
-        overflowY: 'auto',
-        height: '100vh',
-        position: 'sticky',
-        top: 0,
-      }}
-    >
+    <>
+      {isMobile && (
+        <button
+          type="button"
+          className="cp-mobile-backdrop"
+          data-open={mobileSidebarOpen ? 'true' : 'false'}
+          aria-label="Close navigation drawer"
+          onClick={closeMobileSidebar}
+        />
+      )}
+      <aside
+        className={`cp-scrollbar cp-grain cp-grain-sidebar ${
+          isMobile ? 'cp-mobile-drawer' : 'cp-sidebar-desktop'
+        }`}
+        data-open={isMobile ? (mobileSidebarOpen ? 'true' : 'false') : undefined}
+        aria-hidden={isMobile ? (!mobileSidebarOpen) : undefined}
+        style={{
+          width: isMobile ? 'min(84vw, 320px)' : 'var(--cp-sidebar-width)',
+          flexShrink: 0,
+          backgroundColor: 'var(--cp-sidebar)',
+          display: 'flex',
+          flexDirection: 'column',
+          overflowY: 'auto',
+          height: isMobile ? '100dvh' : '100vh',
+          position: isMobile ? 'fixed' : 'sticky',
+          top: 0,
+          left: isMobile ? 0 : undefined,
+          pointerEvents: isMobile && !mobileSidebarOpen ? 'none' : 'auto',
+        }}
+      >
       {/* Terracotta corner glow */}
       <div className="cp-sidebar-glow" aria-hidden="true" />
 
@@ -92,6 +140,7 @@ export default function CommonPlaceSidebar() {
       <div style={{ padding: '20px 16px 12px', position: 'relative', zIndex: 2 }}>
         <Link
           href="/commonplace"
+          onClick={closeDrawerIfMobile}
           style={{
             fontFamily: 'var(--cp-font-title)',
             fontStyle: 'italic',
@@ -148,13 +197,48 @@ export default function CommonPlaceSidebar() {
 
                 if (item.expandable) {
                   const isExpanded = expandedGroups.has(item.label);
+
+                  /* Dynamic children from API for Notebooks and Projects */
+                  const dynamicItems =
+                    item.label === 'Notebooks'
+                      ? (notebooks ?? []).map((nb) => ({
+                          key: nb.slug,
+                          label: nb.name,
+                          color: nb.color,
+                          onClick: () => {
+                            requestView('notebook', nb.name, { slug: nb.slug });
+                            closeDrawerIfMobile();
+                          },
+                        }))
+                      : item.label === 'Projects'
+                        ? (projects ?? []).map((pj) => ({
+                            key: pj.slug,
+                            label: pj.name,
+                            color: undefined,
+                            onClick: () => {
+                              requestView('project', pj.name, { slug: pj.slug });
+                              closeDrawerIfMobile();
+                            },
+                          }))
+                        : [];
+
                   return (
                     <div key={item.href}>
                       <button
                         type="button"
                         className="cp-sidebar-item"
                         data-active={isActive}
-                        onClick={() => toggleGroup(item.label)}
+                        onClick={() => {
+                          toggleGroup(item.label);
+                          /* Parent click also opens list view */
+                          if (item.label === 'Notebooks') {
+                            requestView('notebook', 'Notebooks', { listMode: true });
+                            closeDrawerIfMobile();
+                          } else if (item.label === 'Projects') {
+                            requestView('project', 'Projects', { listMode: true });
+                            closeDrawerIfMobile();
+                          }
+                        }}
                         style={{
                           width: '100%',
                           border: 'none',
@@ -166,23 +250,35 @@ export default function CommonPlaceSidebar() {
                         <span style={{ flex: 1 }}>{item.label}</span>
                         <ChevronIcon open={isExpanded} />
                       </button>
-                      {isExpanded && item.children && item.children.length > 0 && (
+                      {isExpanded && dynamicItems.length > 0 && (
                         <div style={{ paddingLeft: 20 }}>
-                          {item.children.map((child) => (
-                            <Link
-                              key={child.href}
-                              href={child.href}
+                          {dynamicItems.map((child) => (
+                            <button
+                              key={child.key}
+                              type="button"
                               className="cp-sidebar-item"
-                              data-active={pathname === child.href}
-                              style={{ textDecoration: 'none', fontSize: 12 }}
+                              onClick={child.onClick}
+                              style={{
+                                width: '100%',
+                                border: 'none',
+                                background: 'transparent',
+                                textAlign: 'left',
+                                fontSize: 12,
+                              }}
                             >
-                              <SidebarIcon name={child.icon} />
+                              {child.color && (
+                                <span
+                                  className="cp-type-dot"
+                                  style={{ backgroundColor: child.color }}
+                                />
+                              )}
+                              {!child.color && <SidebarIcon name="briefcase" />}
                               <span>{child.label}</span>
-                            </Link>
+                            </button>
                           ))}
                         </div>
                       )}
-                      {isExpanded && (!item.children || item.children.length === 0) && (
+                      {isExpanded && dynamicItems.length === 0 && (
                         <div
                           style={{
                             padding: '4px 12px 4px 32px',
@@ -223,6 +319,7 @@ export default function CommonPlaceSidebar() {
                   <Link
                     key={item.href}
                     href={item.href}
+                    onClick={closeDrawerIfMobile}
                     className="cp-sidebar-item"
                     data-active={isActive}
                     style={{ textDecoration: 'none' }}
@@ -326,6 +423,7 @@ export default function CommonPlaceSidebar() {
       >
         <Link
           href="/"
+          onClick={closeDrawerIfMobile}
           className="cp-sidebar-item"
           style={{
             fontFamily: 'var(--cp-font-mono)',
@@ -340,7 +438,8 @@ export default function CommonPlaceSidebar() {
           travisgilbert.me
         </Link>
       </div>
-    </aside>
+      </aside>
+    </>
   );
 }
 

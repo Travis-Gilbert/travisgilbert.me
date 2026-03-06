@@ -23,6 +23,10 @@ import type {
   ApiObjectDetail,
   ApiCaptureResponse,
   ApiResurfaceResponse,
+  ApiNotebookListItem,
+  ApiNotebookDetail,
+  ApiProjectListItem,
+  ApiProjectDetail,
   CapturedObject,
 } from '@/lib/commonplace';
 import { API_BASE } from '@/lib/commonplace';
@@ -146,11 +150,15 @@ export async function fetchFeed(params?: {
   page?: number;
   page_size?: number;
   object_type?: string;
+  notebook?: string;
+  project?: string;
 }): Promise<MockNode[]> {
   const search = new URLSearchParams();
   if (params?.page) search.set('page', String(params.page));
   if (params?.page_size) search.set('page_size', String(params.page_size));
   if (params?.object_type) search.set('object_type', params.object_type);
+  if (params?.notebook) search.set('notebook', params.notebook);
+  if (params?.project) search.set('project', params.project);
 
   const qs = search.toString();
   const path = `/feed/${qs ? `?${qs}` : ''}`;
@@ -165,9 +173,11 @@ export async function fetchFeed(params?: {
 /** Fetch graph data (objects + edges), mapped to D3 format */
 export async function fetchGraph(params?: {
   object_type?: string;
+  notebook?: string;
 }): Promise<{ nodes: GraphNode[]; links: GraphLink[] }> {
   const search = new URLSearchParams();
   if (params?.object_type) search.set('object_type', params.object_type);
+  if (params?.notebook) search.set('notebook', params.notebook);
 
   const qs = search.toString();
   const path = `/graph/${qs ? `?${qs}` : ''}`;
@@ -225,6 +235,41 @@ export async function fetchResurface(params?: {
   const qs = search.toString();
   const path = `/resurface/${qs ? `?${qs}` : ''}`;
   return apiFetch<ApiResurfaceResponse>(path);
+}
+
+/* ─────────────────────────────────────────────────
+   Notebook + Project endpoint functions
+   ───────────────────────────────────────────────── */
+
+/** Fetch all notebooks */
+export async function fetchNotebooks(): Promise<ApiNotebookListItem[]> {
+  return apiFetch<ApiNotebookListItem[]>('/notebooks/');
+}
+
+/** Fetch a single notebook by slug */
+export async function fetchNotebookBySlug(
+  slug: string,
+): Promise<ApiNotebookDetail> {
+  return apiFetch<ApiNotebookDetail>(`/notebooks/${slug}/`);
+}
+
+/** Fetch all projects, optionally filtered by notebook or status */
+export async function fetchProjects(params?: {
+  notebook?: string;
+  status?: string;
+}): Promise<ApiProjectListItem[]> {
+  const search = new URLSearchParams();
+  if (params?.notebook) search.set('notebook', params.notebook);
+  if (params?.status) search.set('status', params.status);
+  const qs = search.toString();
+  return apiFetch<ApiProjectListItem[]>(`/projects/${qs ? `?${qs}` : ''}`);
+}
+
+/** Fetch a single project by slug */
+export async function fetchProjectBySlug(
+  slug: string,
+): Promise<ApiProjectDetail> {
+  return apiFetch<ApiProjectDetail>(`/projects/${slug}/`);
 }
 
 /* ─────────────────────────────────────────────────

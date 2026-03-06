@@ -25,12 +25,18 @@ import {
 } from '@/lib/commonplace-layout';
 import type { ViewType } from '@/lib/commonplace';
 import { VIEW_REGISTRY } from '@/lib/commonplace';
+import { useCommonPlace } from '@/lib/commonplace-context';
+import { useIsMobileViewport } from '@/hooks/useIsMobileViewport';
 import DragHandle from './DragHandle';
 import LayoutPresetSelector from './LayoutPresetSelector';
 import TimelineView from './TimelineView';
 import NetworkView from './NetworkView';
 import ObjectDetailView from './ObjectDetailView';
 import ResurfaceView from './ResurfaceView';
+import NotebookView from './NotebookView';
+import ProjectView from './ProjectView';
+import NotebookListView from './NotebookListView';
+import ProjectListView from './ProjectListView';
 
 const STORAGE_KEY = 'commonplace-layout';
 
@@ -39,6 +45,8 @@ const STORAGE_KEY = 'commonplace-layout';
    ───────────────────────────────────────────────── */
 
 export default function SplitPaneContainer() {
+  const { toggleMobileSidebar, openMobileSidebar, pendingView, clearPendingView } = useCommonPlace();
+  const isMobile = useIsMobileViewport();
   const [layout, setLayout] = useState<PaneNode>(() => {
     if (typeof window !== 'undefined') {
       const saved = localStorage.getItem(STORAGE_KEY);
@@ -51,7 +59,6 @@ export default function SplitPaneContainer() {
   });
 
   const [focusedPaneId, setFocusedPaneId] = useState<string | null>(null);
-  const [isMobile, setIsMobile] = useState(false);
   const [mobileLeafIndex, setMobileLeafIndex] = useState(0);
   const [activePresetName, setActivePresetName] = useState<string | null>(
     LAYOUT_PRESETS[0].name
@@ -61,15 +68,6 @@ export default function SplitPaneContainer() {
   useEffect(() => {
     localStorage.setItem(STORAGE_KEY, serializeLayout(layout));
   }, [layout]);
-
-  /* Detect mobile viewport */
-  useEffect(() => {
-    const mq = window.matchMedia('(max-width: 768px)');
-    setIsMobile(mq.matches);
-    const handler = (e: MediaQueryListEvent) => setIsMobile(e.matches);
-    mq.addEventListener('change', handler);
-    return () => mq.removeEventListener('change', handler);
-  }, []);
 
   /* ── Layout mutations (all immutable) ── */
 
@@ -223,6 +221,25 @@ export default function SplitPaneContainer() {
     handlePreset,
   ]);
 
+  /* ── Consume pendingView from context (sidebar / list view requests) ── */
+
+  useEffect(() => {
+    if (!pendingView) return;
+    setLayout((prev) => {
+      const leaves = collectLeafIds(prev);
+      const targetPaneId = leaves[0];
+      if (!targetPaneId) return prev;
+      return addTab(
+        prev,
+        targetPaneId,
+        pendingView.viewType,
+        pendingView.label,
+        pendingView.context,
+      );
+    });
+    clearPendingView();
+  }, [pendingView, clearPendingView]);
+
   /* ── Mobile: single pane view ── */
 
   const leafIds = collectLeafIds(layout);
@@ -233,20 +250,37 @@ export default function SplitPaneContainer() {
     const activeLeaf = activeLeafId
       ? (findPane(layout, activeLeafId) as LeafPane | null)
       : null;
+    const activeTab = activeLeaf?.tabs[activeLeaf.activeTabIndex];
+    const activeViewType = activeTab?.viewType ?? 'empty';
+    const activeTitle =
+      activeTab?.label ?? VIEW_REGISTRY[activeViewType].label;
 
     return (
-      <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
-        {/* Preset selector at top */}
-        <div
-          style={{
-            background: 'var(--cp-surface)',
-            borderBottom: '1px solid var(--cp-border-faint)',
-            display: 'flex',
-            alignItems: 'center',
-            gap: 8,
-            padding: '4px 8px',
-          }}
-        >
+      <div className="cp-mobile-shell" style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
+        <div className="cp-mobile-top-bar">
+          <button
+            type="button"
+            className="cp-mobile-top-bar-btn"
+            onClick={toggleMobileSidebar}
+            aria-label="Open navigation drawer"
+          >
+            <HamburgerIcon />
+          </button>
+          <div className="cp-mobile-view-title" title={activeTitle}>
+            {activeTitle}
+          </div>
+          <button
+            type="button"
+            className="cp-mobile-top-bar-btn cp-mobile-capture-btn"
+            onClick={openMobileSidebar}
+            aria-label="Open capture drawer"
+          >
+            <CaptureIcon />
+            <span>Capture</span>
+          </button>
+        </div>
+
+        <div className="cp-mobile-preset-row">
           <LayoutPresetSelector
             activePresetName={activePresetName}
             onSelect={handlePreset}
@@ -254,7 +288,7 @@ export default function SplitPaneContainer() {
         </div>
 
         {/* Active pane content */}
-        <div style={{ flex: 1, overflow: 'auto' }}>
+        <div className="cp-mobile-pane-scroll cp-scrollbar" style={{ flex: 1, overflow: 'auto' }}>
           {activeLeaf ? (
             <PaneViewContent
               viewType={
@@ -284,7 +318,10 @@ export default function SplitPaneContainer() {
                   onClick={() => setMobileLeafIndex(i)}
                 >
                   <MobileTabIcon viewType={activeTab?.viewType ?? 'empty'} />
-                  <span>{activeTab?.label ?? 'Empty'}</span>
+                  <span>
+                    {activeTab?.label ??
+                      VIEW_REGISTRY[activeTab?.viewType ?? 'empty'].label}
+                  </span>
                 </button>
               );
             })}
@@ -820,6 +857,40 @@ function PaneViewContent({ viewType, context, paneId, onOpenObject }: PaneViewCo
     );
   }
 
+  /* Live view: Notebook (list or detail) */
+  if (viewType === 'notebook') {
+    if (context?.slug) {
+      return (
+        <NotebookView
+          slug={context.slug as string}
+          onOpenObject={
+            paneId && onOpenObject
+              ? (ref, title) => onOpenObject(paneId, ref, title)
+              : undefined
+          }
+        />
+      );
+    }
+    return <NotebookListView />;
+  }
+
+  /* Live view: Project (list or detail) */
+  if (viewType === 'project') {
+    if (context?.slug) {
+      return (
+        <ProjectView
+          slug={context.slug as string}
+          onOpenObject={
+            paneId && onOpenObject
+              ? (ref, title) => onOpenObject(paneId, ref, title)
+              : undefined
+          }
+        />
+      );
+    }
+    return <ProjectListView />;
+  }
+
   /* Placeholder for views not yet implemented */
   return (
     <div
@@ -972,4 +1043,22 @@ function ViewTypeIcon({ viewType, size = 16 }: { viewType: ViewType; size?: numb
 
 function MobileTabIcon({ viewType }: { viewType: ViewType }) {
   return <ViewTypeIcon viewType={viewType} size={18} />;
+}
+
+function HamburgerIcon() {
+  return (
+    <svg width={18} height={18} viewBox="0 0 18 18" fill="none" stroke="currentColor" strokeWidth={1.6}>
+      <line x1={3} y1={5} x2={15} y2={5} />
+      <line x1={3} y1={9} x2={15} y2={9} />
+      <line x1={3} y1={13} x2={15} y2={13} />
+    </svg>
+  );
+}
+
+function CaptureIcon() {
+  return (
+    <svg width={14} height={14} viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth={1.6}>
+      <path d="M7 2v10M2 7h10" />
+    </svg>
+  );
 }
