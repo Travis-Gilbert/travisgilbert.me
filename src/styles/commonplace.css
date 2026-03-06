@@ -89,6 +89,13 @@
   --cp-safe-area-bottom: env(safe-area-inset-bottom, 0px);
   --cp-mobile-topbar-height: 52px;
   --cp-mobile-tab-height: 56px;
+
+  /* Shared mobile shell overrides */
+  --mobile-shell-surface: rgba(250, 246, 241, 0.96);
+  --mobile-shell-surface-solid: var(--cp-surface);
+  --mobile-shell-border: var(--cp-border);
+  --mobile-shell-text: var(--cp-text);
+  --mobile-shell-text-muted: var(--cp-text-muted);
 }
 
 /* ─────────────────────────────────────────────────
@@ -481,7 +488,7 @@
    Mobile: single pane mode
    ───────────────────────────────────────────────── */
 
-@media (max-width: 768px) {
+@media (max-width: 1023px) {
   .cp-sidebar-desktop {
     display: none;
   }
@@ -658,7 +665,7 @@
   }
 }
 
-@media (min-width: 769px) {
+@media (min-width: 1024px) {
   .cp-mobile-only,
   .cp-mobile-top-bar,
   .cp-mobile-preset-row {
@@ -869,7 +876,7 @@
   scroll-padding-top: 52px;
 }
 
-@media (max-width: 768px) {
+@media (max-width: 1023px) {
   .cp-timeline-feed {
     padding: 2px 14px 28px !important;
   }

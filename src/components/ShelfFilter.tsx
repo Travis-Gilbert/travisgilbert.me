@@ -56,7 +56,7 @@ export default function ShelfFilter({ items }: ShelfFilterProps) {
           <ToggleGroup.Item
             key={type}
             value={type}
-            className={`font-mono text-xs uppercase tracking-wider px-3 py-1.5 rounded-lg border cursor-pointer transition-colors ${
+            className={`font-mono text-xs uppercase tracking-wider px-3 py-1.5 rounded-lg border cursor-pointer transition-colors min-h-[44px] ${
               activeFilter === type
                 ? 'bg-terracotta text-paper border-terracotta'
                 : 'bg-transparent text-ink-secondary border-border hover:border-terracotta hover:text-terracotta'

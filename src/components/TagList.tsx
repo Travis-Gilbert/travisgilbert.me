@@ -40,7 +40,7 @@ export default function TagList({ tags, tint = 'neutral', inverted = false }: Ta
         <li key={tag}>
           <Link
             href={`/tags/${slugifyTag(tag)}`}
-            className={`inline-flex items-center font-mono text-[10px] uppercase tracking-widest px-2 py-0.5 border rounded transition-colors no-underline ${inverted ? invertedTintStyles[tint] : tintStyles[tint]}`}
+            className={`inline-flex items-center font-mono text-[11px] sm:text-[10px] uppercase tracking-widest px-2.5 py-1 sm:py-0.5 min-h-[44px] border rounded transition-colors no-underline ${inverted ? invertedTintStyles[tint] : tintStyles[tint]}`}
           >
             {tag}
           </Link>

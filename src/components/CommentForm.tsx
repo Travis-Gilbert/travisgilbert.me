@@ -123,6 +123,7 @@ export default function CommentForm({
             type="submit"
             className="comment-form-submit"
             disabled={status === 'submitting' || !name.trim() || !body.trim()}
+            style={{ minHeight: 44 }}
           >
             {status === 'submitting' ? 'Posting...' : 'Post'}
           </button>

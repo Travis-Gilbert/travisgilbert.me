@@ -3,6 +3,10 @@
 import { useMemo, useState, useCallback, useEffect } from 'react';
 import { usePathname } from 'next/navigation';
 import { normalizeStudioContentType } from '@/lib/studio';
+import { useIsAppShellMobile } from '@/hooks/useIsAppShellMobile';
+import MobileTopBar from '@/components/mobile-shell/MobileTopBar';
+import MobileDrawer from '@/components/mobile-shell/MobileDrawer';
+import MobileSheet from '@/components/mobile-shell/MobileSheet';
 import StudioSidebar from './StudioSidebar';
 import WorkbenchPanel from './WorkbenchPanel';
 import {
@@ -11,6 +15,7 @@ import {
 } from './WorkbenchContext';
 import { StudioViewProvider } from './StudioViewContext';
 import StudioMobileDock from './StudioMobileDock';
+import NewContentModal from './NewContentModal';
 
 const EDITOR_ROUTE_TYPES = new Set([
   'essay',
@@ -38,8 +43,11 @@ function StudioLayoutInner({
 }) {
   const ZEN_MODE_STORAGE_KEY = 'studio-zen-mode-v1';
   const pathname = usePathname();
+  const isAppShellMobile = useIsAppShellMobile();
   const { editorState } = useStudioWorkbench();
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [mobileWorkbenchOpen, setMobileWorkbenchOpen] = useState(false);
+  const [showNewModal, setShowNewModal] = useState(false);
   const [zenMode, setZenModeState] = useState(false);
 
   const editorMode = useMemo(() => isEditorRoute(pathname), [pathname]);
@@ -47,11 +55,13 @@ function StudioLayoutInner({
     setZenModeState(enabled);
     if (!enabled) return;
     setMobileOpen(false);
+    setMobileWorkbenchOpen(false);
   }, []);
 
   const toggleZenMode = useCallback(() => {
     setZenModeState((prev) => !prev);
     setMobileOpen(false);
+    setMobileWorkbenchOpen(false);
   }, []);
 
   useEffect(() => {
@@ -71,6 +81,11 @@ function StudioLayoutInner({
   }, [zenMode]);
 
   useEffect(() => {
+    setMobileOpen(false);
+    setMobileWorkbenchOpen(false);
+  }, [pathname]);
+
+  useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
       if (!(event.metaKey || event.ctrlKey) || !event.shiftKey) return;
       if (event.key.toLowerCase() !== 'z') return;
@@ -87,26 +102,32 @@ function StudioLayoutInner({
   return (
     <StudioViewProvider value={{ zenMode, setZenMode, toggleZenMode }}>
       {!zenMode && (
-        <div style={{ position: 'sticky', top: 0, height: '100vh' }}>
-          <StudioSidebar />
-        </div>
-      )}
-
-      {!zenMode && mobileOpen && (
         <div
-          className="studio-mobile-backdrop"
-          onClick={() => setMobileOpen(false)}
-          aria-hidden="true"
-        />
-      )}
-
-      {!zenMode && (
-        <div
-          className="studio-sidebar-mobile"
-          data-open={mobileOpen ? 'true' : undefined}
+          style={{
+            position: 'sticky',
+            top: 0,
+            height: '100vh',
+            display: isAppShellMobile ? 'none' : 'block',
+          }}
         >
           <StudioSidebar />
         </div>
+      )}
+
+      {!zenMode && isAppShellMobile && (
+        <MobileDrawer
+          open={mobileOpen}
+          onClose={() => setMobileOpen(false)}
+          ariaLabel="Studio navigation drawer"
+          backdropClassName="studio-mobile-backdrop"
+          panelClassName="studio-sidebar-mobile"
+          panelStyle={{
+            width: 280,
+            background: 'var(--studio-bg-sidebar)',
+          }}
+        >
+          <StudioSidebar />
+        </MobileDrawer>
       )}
 
       <main
@@ -120,48 +141,36 @@ function StudioLayoutInner({
           height: '100vh',
         }}
       >
-        {!zenMode && (
-          <div className="studio-mobile-header">
-            <button
-              type="button"
-              className="studio-mobile-menu-btn"
-              onClick={() => setMobileOpen(true)}
-              aria-label="Open sidebar"
-            >
-              <svg
-                width="20"
-                height="20"
-                viewBox="0 0 20 20"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="1.5"
-                strokeLinecap="round"
+        {!zenMode && isAppShellMobile && (
+          <MobileTopBar
+            title="Studio."
+            onMenu={() => setMobileOpen(true)}
+            menuButtonClassName="studio-mobile-menu-btn"
+            className="studio-mobile-header"
+            titleClassName="studio-mobile-title"
+            primaryAction={(
+              <button
+                type="button"
+                className="studio-mobile-top-action"
+                onClick={() => setShowNewModal(true)}
+                aria-label="Create new content"
               >
-                <line x1="3" y1="5" x2="17" y2="5" />
-                <line x1="3" y1="10" x2="17" y2="10" />
-                <line x1="3" y1="15" x2="17" y2="15" />
-              </svg>
-            </button>
-            <span
-              style={{
-                fontFamily: 'var(--studio-font-title)',
-                fontWeight: 700,
-                fontSize: '18px',
-                color: 'var(--studio-text-bright)',
-              }}
-            >
-              Studio
-              <span style={{ color: 'var(--studio-tc)' }}>.</span>
-            </span>
-          </div>
+                New
+              </button>
+            )}
+          />
         )}
 
         <div style={{ position: 'relative', zIndex: 1 }}>{children}</div>
       </main>
 
-      {!zenMode && <StudioMobileDock />}
+      {!zenMode && isAppShellMobile && (
+        <StudioMobileDock
+          onOpenWorkbench={() => setMobileWorkbenchOpen(true)}
+        />
+      )}
 
-      {!zenMode && (
+      {!zenMode && !isAppShellMobile && (
         <WorkbenchPanel
           mode={editorMode ? 'editor' : 'dashboard'}
           editor={editorMode ? editorState.editor : null}
@@ -171,6 +180,30 @@ function StudioLayoutInner({
           saveState={editorMode ? editorState.saveState : 'idle'}
           autosaveState={editorMode ? editorState.autosaveState : 'idle'}
         />
+      )}
+
+      {!zenMode && isAppShellMobile && (
+        <MobileSheet
+          open={mobileWorkbenchOpen}
+          onClose={() => setMobileWorkbenchOpen(false)}
+          title="Workbench"
+          className="studio-mobile-workbench-sheet"
+        >
+          <WorkbenchPanel
+            mode={editorMode ? 'editor' : 'dashboard'}
+            editor={editorMode ? editorState.editor : null}
+            contentItem={editorMode ? editorState.contentItem : null}
+            onSave={editorMode ? editorState.onSave : undefined}
+            lastSaved={editorMode ? editorState.lastSaved : null}
+            saveState={editorMode ? editorState.saveState : 'idle'}
+            autosaveState={editorMode ? editorState.autosaveState : 'idle'}
+            mobileSheetMode
+          />
+        </MobileSheet>
+      )}
+
+      {showNewModal && (
+        <NewContentModal onClose={() => setShowNewModal(false)} />
       )}
     </StudioViewProvider>
   );

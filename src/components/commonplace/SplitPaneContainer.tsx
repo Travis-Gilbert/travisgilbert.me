@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useCallback, useEffect, useRef } from 'react';
+import type { ReactNode } from 'react';
 import type {
   PaneNode,
   PaneTab,
@@ -26,7 +27,10 @@ import {
 import type { ViewType } from '@/lib/commonplace';
 import { VIEW_REGISTRY } from '@/lib/commonplace';
 import { useCommonPlace } from '@/lib/commonplace-context';
-import { useIsMobileViewport } from '@/hooks/useIsMobileViewport';
+import { useIsAppShellMobile } from '@/hooks/useIsAppShellMobile';
+import MobileTopBar from '@/components/mobile-shell/MobileTopBar';
+import MobileTabs from '@/components/mobile-shell/MobileTabs';
+import MobileSheet from '@/components/mobile-shell/MobileSheet';
 import DragHandle from './DragHandle';
 import LayoutPresetSelector from './LayoutPresetSelector';
 import TimelineView from './TimelineView';
@@ -48,7 +52,7 @@ const STORAGE_KEY = 'commonplace-layout';
 
 export default function SplitPaneContainer() {
   const { toggleMobileSidebar, openMobileSidebar, pendingView, clearPendingView } = useCommonPlace();
-  const isMobile = useIsMobileViewport();
+  const isMobile = useIsAppShellMobile();
   const [layout, setLayout] = useState<PaneNode>(() => {
     if (typeof window !== 'undefined') {
       const saved = localStorage.getItem(STORAGE_KEY);
@@ -62,6 +66,10 @@ export default function SplitPaneContainer() {
 
   const [focusedPaneId, setFocusedPaneId] = useState<string | null>(null);
   const [mobileLeafIndex, setMobileLeafIndex] = useState(0);
+  const [mobileObjectSheet, setMobileObjectSheet] = useState<{
+    objectRef: number;
+    title?: string;
+  } | null>(null);
   const [activePresetName, setActivePresetName] = useState<string | null>(
     LAYOUT_PRESETS[0].name
   );
@@ -101,6 +109,11 @@ export default function SplitPaneContainer() {
   /** Open an object detail in an adjacent pane (auto-splits if single pane) */
   const handleOpenObject = useCallback(
     (fromPaneId: string, objectRef: number, title?: string) => {
+      if (isMobile) {
+        setMobileObjectSheet({ objectRef, title });
+        return;
+      }
+
       setLayout((prev) => {
         let tree = prev;
         let targetPaneId = findAdjacentLeaf(tree, fromPaneId);
@@ -119,7 +132,7 @@ export default function SplitPaneContainer() {
       });
       setActivePresetName(null);
     },
-    []
+    [isMobile]
   );
 
   const handleCloseTab = useCallback(
@@ -259,28 +272,25 @@ export default function SplitPaneContainer() {
 
     return (
       <div className="cp-mobile-shell" style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
-        <div className="cp-mobile-top-bar">
-          <button
-            type="button"
-            className="cp-mobile-top-bar-btn"
-            onClick={toggleMobileSidebar}
-            aria-label="Open navigation drawer"
-          >
-            <HamburgerIcon />
-          </button>
-          <div className="cp-mobile-view-title" title={activeTitle}>
-            {activeTitle}
-          </div>
-          <button
-            type="button"
-            className="cp-mobile-top-bar-btn cp-mobile-capture-btn"
-            onClick={openMobileSidebar}
-            aria-label="Open capture drawer"
-          >
-            <CaptureIcon />
-            <span>Capture</span>
-          </button>
-        </div>
+        <MobileTopBar
+          title={activeTitle}
+          onMenu={toggleMobileSidebar}
+          menuAriaLabel="Open CommonPlace navigation drawer"
+          className="cp-mobile-top-bar"
+          titleClassName="cp-mobile-view-title"
+          menuButtonClassName="cp-mobile-top-bar-btn"
+          primaryAction={(
+            <button
+              type="button"
+              className="cp-mobile-top-bar-btn cp-mobile-capture-btn"
+              onClick={openMobileSidebar}
+              aria-label="Open capture drawer"
+            >
+              <CaptureIcon />
+              <span>Capture</span>
+            </button>
+          )}
+        />
 
         <div className="cp-mobile-preset-row">
           <LayoutPresetSelector
@@ -307,28 +317,46 @@ export default function SplitPaneContainer() {
 
         {/* Bottom tab bar */}
         <div className="cp-mobile-only">
-          <div className="cp-mobile-tab-bar">
-            {leafIds.map((id, i) => {
-              const leaf = findPane(layout, id) as LeafPane | null;
-              if (!leaf) return null;
-              const activeTab = leaf.tabs[leaf.activeTabIndex];
-              return (
-                <button
-                  key={id}
-                  className="cp-mobile-tab"
-                  data-active={i === safeIndex ? 'true' : 'false'}
-                  onClick={() => setMobileLeafIndex(i)}
-                >
-                  <MobileTabIcon viewType={activeTab?.viewType ?? 'empty'} />
-                  <span>
-                    {activeTab?.label ??
-                      VIEW_REGISTRY[activeTab?.viewType ?? 'empty'].label}
-                  </span>
-                </button>
-              );
-            })}
-          </div>
+          <MobileTabs
+            items={leafIds
+              .map((id) => {
+                const leaf = findPane(layout, id) as LeafPane | null;
+                if (!leaf) return null;
+                const activeTab = leaf.tabs[leaf.activeTabIndex];
+                return {
+                  key: id,
+                  icon: <MobileTabIcon viewType={activeTab?.viewType ?? 'empty'} />,
+                  label:
+                    activeTab?.label ??
+                    VIEW_REGISTRY[activeTab?.viewType ?? 'empty'].label,
+                };
+              })
+              .filter(Boolean) as Array<{ key: string; icon: ReactNode; label: string }>}
+            activeKey={activeLeafId ?? ''}
+            onChange={(nextLeafId) => {
+              const nextIndex = leafIds.findIndex((id) => id === nextLeafId);
+              if (nextIndex >= 0) setMobileLeafIndex(nextIndex);
+            }}
+            ariaLabel="CommonPlace pane tabs"
+            containerClassName="cp-mobile-tab-bar"
+            itemClassName="cp-mobile-tab"
+          />
         </div>
+
+        <MobileSheet
+          open={Boolean(mobileObjectSheet)}
+          onClose={() => setMobileObjectSheet(null)}
+          title={mobileObjectSheet?.title ?? 'Object detail'}
+        >
+          {mobileObjectSheet && (
+            <PaneViewContent
+              viewType="object-detail"
+              context={{ objectRef: mobileObjectSheet.objectRef }}
+              paneId={activeLeafId ?? 'mobile-sheet'}
+              onOpenObject={handleOpenObject}
+            />
+          )}
+        </MobileSheet>
       </div>
     );
   }
@@ -1071,16 +1099,6 @@ function ViewTypeIcon({ viewType, size = 16 }: { viewType: ViewType; size?: numb
 
 function MobileTabIcon({ viewType }: { viewType: ViewType }) {
   return <ViewTypeIcon viewType={viewType} size={18} />;
-}
-
-function HamburgerIcon() {
-  return (
-    <svg width={18} height={18} viewBox="0 0 18 18" fill="none" stroke="currentColor" strokeWidth={1.6}>
-      <line x1={3} y1={5} x2={15} y2={5} />
-      <line x1={3} y1={9} x2={15} y2={9} />
-      <line x1={3} y1={13} x2={15} y2={13} />
-    </svg>
-  );
 }
 
 function CaptureIcon() {

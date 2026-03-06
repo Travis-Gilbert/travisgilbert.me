@@ -66,6 +66,7 @@ export default function CaptureBar({
       <div className="nw-capture-bar" style={{ position: 'relative' }}>
         <input
           ref={inputRef}
+          id="networks-capture-input"
           type="text"
           value={value}
           onChange={(e) => setValue(e.target.value)}

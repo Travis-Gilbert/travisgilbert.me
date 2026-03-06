@@ -281,6 +281,7 @@ export function injectAnnotations(html: string, annotations: Annotation[]): stri
       footnotes.push({ letter, text: ann.text });
       injected += `<sup class="annotation-fn-marker" aria-hidden="true">[${letter}]</sup>`;
       injected += `<span class="margin-annotation-anchor" data-annotation-text="${escapeAttr(ann.text)}" data-annotation-side="${side}"></span>`;
+      injected += `<details class="annotation-mobile-footnote"><summary><span class="annotation-mobile-marker">[${letter}]</span> Margin note</summary><div class="annotation-mobile-footnote-body">${escapeAttr(ann.text)}</div></details>`;
     }
     return injected;
   });

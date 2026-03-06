@@ -34,7 +34,7 @@ export default function EssayCard({
   return (
     <RoughBox padding={0} hover tint="terracotta">
       <div className="overflow-hidden group">
-        <Link href={href} className="block no-underline text-ink hover:text-ink">
+        <Link href={href} className="block no-underline text-ink hover:text-ink min-h-[44px]">
           {hasThumbnail ? (
             <div className="md:flex">
               <div className="md:w-64 md:flex-shrink-0">

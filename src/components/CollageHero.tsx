@@ -77,11 +77,12 @@ export default function CollageHero({
               {/* Zone A: Identity */}
               <div>
                 <h1
-                  className="text-[2.5rem] sm:text-[3.5rem] md:text-[4rem] lg:text-[4.5rem] m-0"
+                  className="m-0"
                   style={{
                     fontFamily: 'var(--font-title)',
                     fontWeight: 700,
                     lineHeight: 1.0,
+                    fontSize: 'clamp(2.35rem, 11vw, 4.5rem)',
                     color: 'var(--color-ink)',
                   }}
                 >
@@ -93,7 +94,7 @@ export default function CollageHero({
                   style={{
                     fontFamily: 'var(--font-title)',
                     fontWeight: 700,
-                    fontSize: 26,
+                    fontSize: 'clamp(1.15rem, 5.6vw, 1.65rem)',
                     background: 'linear-gradient(in srgb, to right, var(--color-ink), var(--color-terracotta))',
                     WebkitBackgroundClip: 'text',
                     WebkitTextFillColor: 'transparent',
@@ -133,9 +134,10 @@ export default function CollageHero({
                     className="no-underline block group"
                   >
                     <h2
-                      className="text-2xl sm:text-3xl lg:text-4xl m-0 transition-colors"
+                      className="m-0 transition-colors"
                       style={{
                         fontFamily: 'var(--font-title)',
+                        fontSize: 'clamp(1.65rem, 7vw, 2.3rem)',
                         fontWeight: 700,
                         lineHeight: 1.15,
                         color: 'var(--color-ink)',
@@ -148,10 +150,11 @@ export default function CollageHero({
                   </Link>
 
                   <p
-                    className="mt-3 mb-0 text-base lg:text-lg"
+                    className="mt-3 mb-0"
                     style={{
+                      fontSize: 'clamp(1rem, 4.3vw, 1.08rem)',
                       color: 'var(--color-ink-secondary)',
-                      lineHeight: 1.6,
+                      lineHeight: 1.68,
                       maxWidth: '42ch',
                     }}
                   >

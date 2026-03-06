@@ -1,5 +1,5 @@
 import type { Metadata } from 'next';
-import InboxFeed from '@/components/networks/InboxFeed';
+import NetworksMobileWorkspace from '@/components/networks/NetworksMobileWorkspace';
 
 export const metadata: Metadata = {
   title: 'Networks',
@@ -14,5 +14,5 @@ export const metadata: Metadata = {
  * bar at the top and the filtered inbox feed below.
  */
 export default function NetworksPage() {
-  return <InboxFeed />;
+  return <NetworksMobileWorkspace />;
 }

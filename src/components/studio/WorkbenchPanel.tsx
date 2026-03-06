@@ -90,6 +90,7 @@ export default function WorkbenchPanel({
   lastSaved,
   saveState = 'idle',
   autosaveState = 'idle',
+  mobileSheetMode = false,
 }: {
   mode: WorkbenchMode;
   editor?: TiptapEditorType | null;
@@ -98,6 +99,7 @@ export default function WorkbenchPanel({
   lastSaved?: string | null;
   saveState?: SaveState;
   autosaveState?: AutosaveState;
+  mobileSheetMode?: boolean;
 }) {
   const [open, setOpen] = useState(true);
   const [mounted, setMounted] = useState(false);
@@ -108,6 +110,12 @@ export default function WorkbenchPanel({
 
   /* Read persisted state after hydration */
   useEffect(() => {
+    if (mobileSheetMode) {
+      setOpen(true);
+      setMounted(true);
+      return;
+    }
+
     const storedOpen = localStorage.getItem(STORAGE_KEY);
     if (storedOpen !== null) {
       setOpen(storedOpen === 'true');
@@ -127,16 +135,17 @@ export default function WorkbenchPanel({
     }
 
     setMounted(true);
-  }, []);
+  }, [mobileSheetMode]);
 
   /* Persist toggle */
   const toggle = useCallback(() => {
+    if (mobileSheetMode) return;
     setOpen((prev) => {
       const next = !prev;
       localStorage.setItem(STORAGE_KEY, String(next));
       return next;
     });
-  }, []);
+  }, [mobileSheetMode]);
 
   /* Persist editor tab mode */
   const switchEditorMode = useCallback((nextMode: EditorPanelMode) => {
@@ -193,6 +202,8 @@ export default function WorkbenchPanel({
 
   /* Keyboard shortcut: Cmd+. or Ctrl+. */
   useEffect(() => {
+    if (mobileSheetMode) return;
+
     function handleKey(event: KeyboardEvent) {
       if (event.key === '.' && (event.metaKey || event.ctrlKey)) {
         event.preventDefault();
@@ -202,7 +213,7 @@ export default function WorkbenchPanel({
 
     document.addEventListener('keydown', handleKey);
     return () => document.removeEventListener('keydown', handleKey);
-  }, [toggle]);
+  }, [toggle, mobileSheetMode]);
 
   if (!mounted) {
     return null;
@@ -210,22 +221,22 @@ export default function WorkbenchPanel({
 
   return (
     <aside
-      className="studio-workbench studio-workbench-grid studio-scrollbar"
+      className={`studio-workbench studio-workbench-grid studio-scrollbar ${mobileSheetMode ? 'studio-workbench-mobile-surface' : ''}`}
       data-open={open ? 'true' : undefined}
       style={{
-        width: open ? `${width}px` : '0px',
-        minWidth: open ? `${width}px` : '0px',
+        width: mobileSheetMode ? '100%' : (open ? `${width}px` : '0px'),
+        minWidth: mobileSheetMode ? '0px' : (open ? `${width}px` : '0px'),
         flexShrink: 0,
         backgroundColor: 'var(--studio-bg-sidebar)',
-        borderLeft: open ? '1px solid var(--studio-border)' : 'none',
+        borderLeft: mobileSheetMode ? 'none' : (open ? '1px solid var(--studio-border)' : 'none'),
         display: 'flex',
         flexDirection: 'column',
         position: 'relative',
         overflow: 'visible',
-        transition: isResizing ? 'none' : 'width 0.2s ease, min-width 0.2s ease',
+        transition: mobileSheetMode ? 'none' : (isResizing ? 'none' : 'width 0.2s ease, min-width 0.2s ease'),
       }}
     >
-      {open && (
+      {open && !mobileSheetMode && (
         <div
           role="separator"
           aria-orientation="vertical"
@@ -244,45 +255,47 @@ export default function WorkbenchPanel({
         />
       )}
 
-      <button
-        type="button"
-        onClick={toggle}
-        aria-label={open ? 'Close workbench' : 'Open workbench'}
-        title="Toggle workbench (Cmd+.)"
-        style={{
-          position: 'absolute',
-          left: '-28px',
-          top: '12px',
-          width: '24px',
-          height: '24px',
-          backgroundColor: 'var(--studio-surface)',
-          border: '1px solid var(--studio-border)',
-          borderRadius: '4px',
-          color: 'var(--studio-text-3)',
-          cursor: 'pointer',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          zIndex: 13,
-          transition: 'all 0.1s ease',
-        }}
-      >
-        <svg
-          width="12"
-          height="12"
-          viewBox="0 0 12 12"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="1.5"
-          strokeLinecap="round"
+      {!mobileSheetMode && (
+        <button
+          type="button"
+          onClick={toggle}
+          aria-label={open ? 'Close workbench' : 'Open workbench'}
+          title="Toggle workbench (Cmd+.)"
+          style={{
+            position: 'absolute',
+            left: '-28px',
+            top: '12px',
+            width: '24px',
+            height: '24px',
+            backgroundColor: 'var(--studio-surface)',
+            border: '1px solid var(--studio-border)',
+            borderRadius: '4px',
+            color: 'var(--studio-text-3)',
+            cursor: 'pointer',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 13,
+            transition: 'all 0.1s ease',
+          }}
         >
-          {open ? (
-            <polyline points="8,2 4,6 8,10" />
-          ) : (
-            <polyline points="4,2 8,6 4,10" />
-          )}
-        </svg>
-      </button>
+          <svg
+            width="12"
+            height="12"
+            viewBox="0 0 12 12"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="1.5"
+            strokeLinecap="round"
+          >
+            {open ? (
+              <polyline points="8,2 4,6 8,10" />
+            ) : (
+              <polyline points="4,2 8,6 4,10" />
+            )}
+          </svg>
+        </button>
+      )}
 
       {open && (
         <div

@@ -62,6 +62,13 @@
   --studio-topbar-height: 42px;
   --studio-stage-bar-height: 48px;
 
+  /* Shared mobile shell overrides */
+  --mobile-shell-surface: rgba(17, 18, 16, 0.94);
+  --mobile-shell-surface-solid: #111210;
+  --mobile-shell-border: var(--studio-border);
+  --mobile-shell-text: var(--studio-text-bright);
+  --mobile-shell-text-muted: var(--studio-text-2);
+
   /* Contain block semantic colors */
   --studio-contain-observation: #3A8A9A;
   --studio-contain-argument: #B45A2D;
@@ -484,7 +491,7 @@
    Mobile: sidebar becomes a drawer
    ───────────────────────────────────────────────── */
 
-@media (max-width: 768px) {
+@media (max-width: 1023px) {
   .studio-sidebar-desktop {
     display: none;
   }
@@ -511,27 +518,63 @@
     inset: 0;
     background: rgba(0, 0, 0, 0.6);
     z-index: 99;
+    opacity: 0;
+    pointer-events: none;
+    border: none;
+    transition: opacity 220ms ease;
+  }
+
+  .studio-mobile-backdrop[data-open="true"] {
+    opacity: 1;
+    pointer-events: auto;
   }
 
   .studio-mobile-header {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    padding: 14px 16px;
+    padding: calc(8px + env(safe-area-inset-top)) 12px 8px;
     border-bottom: 1px solid var(--studio-border);
+    background: rgba(17, 18, 16, 0.94);
+    backdrop-filter: blur(10px);
+    color: var(--studio-text-bright);
   }
 
   .studio-mobile-menu-btn {
-    background: none;
-    border: none;
+    background: rgba(17, 18, 16, 0.95);
+    border: 1px solid var(--studio-border);
+    border-radius: 10px;
     color: var(--studio-text-2);
     cursor: pointer;
-    padding: 4px;
+    min-width: 44px;
+    min-height: 44px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .studio-mobile-title {
+    font-family: var(--studio-font-title);
+    font-size: 1.1rem;
+    font-weight: 700;
+    color: var(--studio-text-bright);
+  }
+
+  .studio-mobile-top-action {
+    border: 1px solid rgba(180, 90, 45, 0.35);
+    border-radius: 10px;
+    background: rgba(180, 90, 45, 0.15);
+    color: var(--studio-tc-bright);
+    min-width: 44px;
+    min-height: 44px;
+    padding: 0 11px;
+    font-family: var(--studio-font-mono);
+    font-size: 10px;
+    letter-spacing: 0.07em;
+    text-transform: uppercase;
+    cursor: pointer;
   }
 }
 
 /* Desktop: hide mobile elements */
-@media (min-width: 769px) {
+@media (min-width: 1024px) {
   .studio-sidebar-mobile {
     display: none !important;
   }
@@ -549,6 +592,13 @@
   .studio-workbench {
     display: flex;
   }
+}
+
+.studio-workbench-mobile-surface {
+  display: flex !important;
+  width: 100% !important;
+  min-width: 0 !important;
+  border-left: none !important;
 }
 
 /* Workbench bottom-right glow: mirrors sidebar's top-left bloom */
@@ -1361,7 +1411,7 @@
   font-style: italic;
 }
 
-@media (max-width: 768px) {
+@media (max-width: 1023px) {
   .studio-main {
     padding-bottom: calc(82px + env(safe-area-inset-bottom));
   }
@@ -1468,34 +1518,26 @@
   display: none;
 }
 
-@media (max-width: 768px) {
+@media (max-width: 1023px) {
   .studio-mobile-dock {
     position: fixed;
-    left: 0;
-    right: 0;
+    left: 8px;
+    right: 8px;
     bottom: 0;
-    padding: 8px 10px calc(8px + env(safe-area-inset-bottom));
+    padding: 3px 4px calc(3px + env(safe-area-inset-bottom));
     z-index: 70;
-    pointer-events: none;
-  }
-
-  .studio-mobile-dock-inner {
-    width: min(100%, 620px);
-    margin: 0 auto;
-    pointer-events: auto;
     background: rgba(17, 18, 16, 0.94);
     border: 1px solid var(--studio-border);
-    border-radius: 14px;
+    border-radius: 12px;
     box-shadow: 0 8px 24px rgba(0, 0, 0, 0.38);
-    display: grid;
-    grid-template-columns: repeat(6, 1fr);
-    gap: 2px;
-    padding: 3px;
+    display: flex;
+    gap: 1px;
     backdrop-filter: blur(10px);
+    align-items: stretch;
   }
 
-  .studio-mobile-dock-item,
-  .studio-mobile-dock-new {
+  .studio-mobile-dock-item {
+    flex: 1;
     border-radius: 10px;
     min-height: 46px;
     display: inline-flex;
@@ -1511,19 +1553,13 @@
     font-size: 9px;
     letter-spacing: 0.04em;
     text-transform: uppercase;
+    padding: 3px 5px;
   }
 
   .studio-mobile-dock-item[data-active='true'] {
     color: var(--studio-text-bright);
     background: rgba(180, 90, 45, 0.12);
     border-color: rgba(180, 90, 45, 0.3);
-  }
-
-  .studio-mobile-dock-new {
-    cursor: pointer;
-    color: var(--studio-tc-bright);
-    border-color: rgba(180, 90, 45, 0.4);
-    background: rgba(180, 90, 45, 0.14);
   }
 }
 

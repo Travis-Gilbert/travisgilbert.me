@@ -10,22 +10,28 @@ import { NODE_TYPES, SIDEBAR_SECTIONS } from '@/lib/networks';
  * Sections: branding, navigation groups, and node type quick-create buttons.
  * 240px fixed width on desktop, collapsible on mobile (future session).
  */
-export default function NetworksSidebar() {
+export default function NetworksSidebar({
+  mobile = false,
+  onNavigate,
+}: {
+  mobile?: boolean;
+  onNavigate?: () => void;
+}) {
   const pathname = usePathname();
 
   return (
     <aside
       className="nw-scrollbar"
       style={{
-        width: 240,
+        width: mobile ? '100%' : 240,
         flexShrink: 0,
         backgroundColor: 'var(--nw-sidebar)',
         display: 'flex',
         flexDirection: 'column',
         overflowY: 'auto',
-        height: '100vh',
-        position: 'sticky',
-        top: 0,
+        height: mobile ? '100%' : '100vh',
+        position: mobile ? 'relative' : 'sticky',
+        top: mobile ? undefined : 0,
       }}
     >
       {/* Terracotta corner glow: bloom from top-left */}
@@ -35,6 +41,7 @@ export default function NetworksSidebar() {
       <div style={{ padding: '20px 16px 16px' }}>
         <Link
           href="/networks"
+          onClick={onNavigate}
           style={{
             fontFamily: 'var(--nw-font-title)',
             fontSize: 22,
@@ -59,6 +66,7 @@ export default function NetworksSidebar() {
                 <Link
                   key={item.href}
                   href={item.href}
+                  onClick={onNavigate}
                   className="nw-sidebar-item"
                   data-active={isActive}
                   style={{ textDecoration: 'none' }}
@@ -147,6 +155,7 @@ export default function NetworksSidebar() {
       >
         <Link
           href="/"
+          onClick={onNavigate}
           style={{
             fontFamily: 'var(--nw-font-mono)',
             fontSize: 11,

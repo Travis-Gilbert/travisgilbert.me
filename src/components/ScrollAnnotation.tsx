@@ -16,6 +16,7 @@
 import { useRef, useEffect, useState, type RefObject } from 'react';
 import rough from 'roughjs';
 import { measureParagraphOffsets } from '@/lib/paragraphPositions';
+import { usePrefersReducedMotion } from '@/hooks/usePrefersReducedMotion';
 
 type AnnotationStyle = 'handwritten' | 'typed';
 type AnnotationSide = 'left' | 'right';
@@ -44,13 +45,13 @@ export default function ScrollAnnotation({
   const svgRef = useRef<SVGSVGElement>(null);
   const [visible, setVisible] = useState(false);
   const [topOffset, setTopOffset] = useState<number | null>(null);
+  const prefersReducedMotion = usePrefersReducedMotion();
 
   useEffect(() => {
     const el = ref.current;
     if (!el) return;
 
-    const prefersReduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-    if (prefersReduced) {
+    if (prefersReducedMotion) {
       setVisible(true);
       return;
     }
@@ -67,7 +68,7 @@ export default function ScrollAnnotation({
 
     observer.observe(el);
     return () => observer.disconnect();
-  }, []);
+  }, [prefersReducedMotion]);
 
   useEffect(() => {
     const prose = proseRef.current;

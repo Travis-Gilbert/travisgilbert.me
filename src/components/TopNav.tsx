@@ -108,7 +108,11 @@ export default function TopNav({ navItems }: TopNavProps) {
   }, [pathname, closeMobile]);
 
   return (
-    <nav aria-label="Main navigation" className="sticky top-0 z-50 nav-fade" style={{ backgroundColor: 'var(--color-nav-bg)', boxShadow: '0 1px 12px rgba(34, 26, 28, 0.5)' }}>
+    <nav
+      aria-label="Main navigation"
+      className="sticky top-0 z-50 nav-fade safe-area-pad-top"
+      style={{ backgroundColor: 'var(--color-nav-bg)', boxShadow: '0 1px 12px rgba(34, 26, 28, 0.5)' }}
+    >
       <div className="w-full px-4 sm:px-6 py-3 flex items-center">
         {/* Site title (left) */}
         <Link
@@ -149,7 +153,7 @@ export default function TopNav({ navItems }: TopNavProps) {
           {/* Mobile hamburger */}
           <button
             ref={hamburgerRef}
-            className="lg:hidden flex flex-col gap-1.5 p-3 -m-1 bg-transparent border-none cursor-pointer"
+            className="lg:hidden flex flex-col items-center justify-center gap-1.5 p-3 -m-1 bg-transparent border-none cursor-pointer min-h-[44px] min-w-[44px]"
             aria-label="Toggle navigation menu"
             aria-expanded={mobileOpen}
             onClick={() => setMobileOpen(!mobileOpen)}
@@ -185,11 +189,11 @@ export default function TopNav({ navItems }: TopNavProps) {
               return (
                 <li key={link.href}>
                   <Link
-                    href={link.href}
-                    aria-current={active ? 'page' : undefined}
-                    className={`font-mono text-sm uppercase tracking-widest no-underline py-2 inline-flex items-center gap-2 ${
-                      active ? 'font-bold' : ''
-                    }`}
+                  href={link.href}
+                  aria-current={active ? 'page' : undefined}
+                  className={`font-mono text-sm uppercase tracking-widest no-underline py-2 inline-flex items-center gap-2 min-h-[44px] ${
+                    active ? 'font-bold' : ''
+                  }`}
                     style={{ color: NAV_COLORS[link.href] || 'var(--color-ink-muted)' }}
                     onClick={closeMobile}
                   >

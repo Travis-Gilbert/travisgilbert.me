@@ -1,68 +1,71 @@
 'use client';
 
-import { useState } from 'react';
-import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+import { useMemo } from 'react';
+import { usePathname, useRouter } from 'next/navigation';
 import {
   ClockCounterClockwise,
   FileText,
   House,
   NotePencil,
-  Plus,
   Briefcase,
+  Toolbox,
 } from '@phosphor-icons/react';
-import NewContentModal from './NewContentModal';
+import MobileTabs from '@/components/mobile-shell/MobileTabs';
+
+interface StudioMobileDockProps {
+  onOpenWorkbench: () => void;
+}
 
 const MOBILE_DOCK_ITEMS = [
-  { href: '/studio', label: 'Home', icon: House },
-  { href: '/studio/essays', label: 'Essays', icon: FileText },
-  { href: '/studio/field-notes', label: 'Notes', icon: NotePencil },
-  { href: '/studio/projects', label: 'Projects', icon: Briefcase },
-  { href: '/studio/timeline', label: 'Timeline', icon: ClockCounterClockwise },
-];
+  { key: 'home', href: '/studio', label: 'Home', icon: House },
+  { key: 'essays', href: '/studio/essays', label: 'Essays', icon: FileText },
+  { key: 'notes', href: '/studio/field-notes', label: 'Notes', icon: NotePencil },
+  { key: 'projects', href: '/studio/projects', label: 'Projects', icon: Briefcase },
+  { key: 'timeline', href: '/studio/timeline', label: 'Timeline', icon: ClockCounterClockwise },
+  { key: 'workbench', href: '', label: 'Workbench', icon: Toolbox },
+] as const;
 
-export default function StudioMobileDock() {
+export default function StudioMobileDock({ onOpenWorkbench }: StudioMobileDockProps) {
   const pathname = usePathname();
-  const [showNewModal, setShowNewModal] = useState(false);
+  const router = useRouter();
+
+  const activeKey = useMemo(() => {
+    const matched = MOBILE_DOCK_ITEMS.find((item) => {
+      if (!item.href) return false;
+      return pathname === item.href || (item.href !== '/studio' && pathname?.startsWith(item.href));
+    });
+
+    return matched?.key ?? 'home';
+  }, [pathname]);
 
   return (
-    <>
-      <nav className="studio-mobile-dock" aria-label="Studio mobile navigation">
-        <div className="studio-mobile-dock-inner">
-          {MOBILE_DOCK_ITEMS.map((item) => {
-            const isActive =
-              pathname === item.href ||
-              (item.href !== '/studio' && pathname?.startsWith(item.href));
-            const Icon = item.icon;
+    <MobileTabs
+      items={MOBILE_DOCK_ITEMS.map((item) => {
+        const Icon = item.icon;
+        return {
+          key: item.key,
+          label: item.label,
+          icon: <Icon size={16} weight="regular" aria-hidden="true" />,
+          ariaLabel: item.label,
+        };
+      })}
+      activeKey={activeKey}
+      onChange={(key) => {
+        const tab = MOBILE_DOCK_ITEMS.find((item) => item.key === key);
+        if (!tab) return;
 
-            return (
-              <Link
-                key={item.href}
-                href={item.href}
-                className="studio-mobile-dock-item"
-                data-active={isActive ? 'true' : undefined}
-              >
-                <Icon size={16} weight="regular" aria-hidden="true" />
-                <span>{item.label}</span>
-              </Link>
-            );
-          })}
+        if (tab.key === 'workbench') {
+          onOpenWorkbench();
+          return;
+        }
 
-          <button
-            type="button"
-            className="studio-mobile-dock-new"
-            onClick={() => setShowNewModal(true)}
-            aria-label="Create new content"
-          >
-            <Plus size={16} weight="bold" aria-hidden="true" />
-            <span>New</span>
-          </button>
-        </div>
-      </nav>
-
-      {showNewModal && (
-        <NewContentModal onClose={() => setShowNewModal(false)} />
-      )}
-    </>
+        if (tab.href) {
+          router.push(tab.href);
+        }
+      }}
+      ariaLabel="Studio mobile navigation"
+      containerClassName="studio-mobile-dock"
+      itemClassName="studio-mobile-dock-item"
+    />
   );
 }

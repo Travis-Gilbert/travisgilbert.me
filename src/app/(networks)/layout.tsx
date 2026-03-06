@@ -1,6 +1,5 @@
 import type { Metadata } from 'next';
-import NetworksSidebar from '@/components/networks/NetworksSidebar';
-import DotGrid from '@/components/DotGrid';
+import NetworksShell from '@/components/networks/NetworksShell';
 import '@/styles/networks.css';
 
 export const metadata: Metadata = {
@@ -27,34 +26,5 @@ export default function NetworksLayout({
 }: {
   children: React.ReactNode;
 }) {
-  return (
-    <div
-      className="networks-theme"
-      style={{
-        display: 'flex',
-        minHeight: '100vh',
-        backgroundColor: 'var(--nw-bg)',
-        color: 'var(--nw-text)',
-        /* Override root body styles that don't apply here */
-        margin: 0,
-      }}
-    >
-      {/* Shared materiality: binary scatter dots on dark ground */}
-      <DotGrid
-        dotColor={[245, 240, 232]}
-        dotOpacity={0.12}
-        noGradient
-      />
-      <NetworksSidebar />
-      <main
-        style={{
-          flex: 1,
-          minWidth: 0,
-          overflowY: 'auto',
-        }}
-      >
-        {children}
-      </main>
-    </div>
-  );
+  return <NetworksShell>{children}</NetworksShell>;
 }

@@ -42,7 +42,7 @@ export default function ProjectCard({
                 href={link.url}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="inline-flex items-center gap-1 font-mono text-xs text-terracotta hover:text-terracotta-hover no-underline"
+                className="inline-flex items-center gap-1 font-mono text-xs text-terracotta hover:text-terracotta-hover no-underline min-h-[44px]"
               >
                 {link.label}
                 <ArrowSquareOut size={12} weight="thin" />

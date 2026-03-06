@@ -14,7 +14,7 @@ import type { NodeListItem } from '@/lib/networks';
  * Composes: CaptureBar (top), QuickFilterPills (below), and a grid of
  * NodeCards. Fetches nodes client-side with the active filter applied.
  */
-export default function InboxFeed() {
+export default function InboxFeed({ compactMobile = false }: { compactMobile?: boolean }) {
   const [nodes, setNodes] = useState<NodeListItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [activeFilter, setActiveFilter] = useState<FilterValue>('inbox');
@@ -52,7 +52,13 @@ export default function InboxFeed() {
   }, [loadNodes]);
 
   return (
-    <div style={{ maxWidth: 720, margin: '0 auto', padding: '32px 24px' }}>
+    <div
+      style={{
+        maxWidth: 720,
+        margin: '0 auto',
+        padding: compactMobile ? '16px 14px 24px' : '32px 24px',
+      }}
+    >
       {/* CaptureBar */}
       <div style={{ marginBottom: 24 }}>
         <CaptureBar onCapture={handleCapture} />

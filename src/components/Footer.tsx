@@ -7,7 +7,7 @@ export default function Footer() {
   const { footer } = getSiteConfig();
 
   return (
-    <footer className="mt-auto border-t border-border-light py-8 px-4">
+    <footer className="mt-auto border-t border-border-light py-8 px-4 safe-area-pad-bottom">
       <div className="max-w-4xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-4 text-sm font-mono text-ink-light">
         <div className="flex flex-col items-center sm:items-start gap-1">
           {footer.tagline && (
@@ -32,7 +32,7 @@ export default function Footer() {
           <a
             href="/rss.xml"
             aria-label="RSS Feed"
-            className="text-ink-light hover:text-terracotta no-underline"
+            className="text-ink-light hover:text-terracotta no-underline min-h-[44px] inline-flex items-center"
             style={{ fontSize: 11 }}
           >
             RSS
@@ -41,7 +41,7 @@ export default function Footer() {
             <a
               key={link.url}
               href={link.url}
-              className="text-ink-light hover:text-terracotta no-underline"
+              className="text-ink-light hover:text-terracotta no-underline min-h-[44px] inline-flex items-center"
               style={{ fontSize: 11 }}
             >
               {link.label}
@@ -49,7 +49,7 @@ export default function Footer() {
           ))}
           <Link
             href="/research"
-            className="inline-flex items-center gap-1 text-ink-light hover:text-terracotta no-underline"
+            className="inline-flex items-center gap-1 text-ink-light hover:text-terracotta no-underline min-h-[44px]"
             style={{ fontSize: 11 }}
           >
             <GitBranch size={12} weight="regular" />
@@ -58,7 +58,7 @@ export default function Footer() {
           <span className="text-border-light" aria-hidden="true">|</span>
           <Link
             href="/colophon"
-            className="text-terracotta hover:text-terracotta-hover no-underline"
+            className="text-terracotta hover:text-terracotta-hover no-underline min-h-[44px] inline-flex items-center"
             style={{ fontSize: 11 }}
           >
             How this site was built &rarr;

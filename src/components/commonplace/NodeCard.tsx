@@ -36,6 +36,7 @@ export default function NodeCard({ node, onSelect, allNodes }: NodeCardProps) {
       onClick={() => onSelect?.(node.id)}
       style={{
         borderLeftColor: typeInfo.color,
+        minHeight: 104,
       }}
     >
       {/* Header: icon + title + time */}
@@ -44,7 +45,7 @@ export default function NodeCard({ node, onSelect, allNodes }: NodeCardProps) {
         style={{
           display: 'flex',
           alignItems: 'flex-start',
-          gap: 8,
+          gap: 10,
         }}
       >
         {/* Type dot */}
@@ -76,7 +77,7 @@ export default function NodeCard({ node, onSelect, allNodes }: NodeCardProps) {
               className="cp-node-type-label"
               style={{
                 fontFamily: 'var(--cp-font-mono)',
-                fontSize: 9,
+                fontSize: 10,
                 letterSpacing: '0.1em',
                 textTransform: 'uppercase',
                 color: typeInfo.color,
@@ -89,7 +90,7 @@ export default function NodeCard({ node, onSelect, allNodes }: NodeCardProps) {
               className="cp-node-time"
               style={{
                 fontFamily: 'var(--cp-font-mono)',
-                fontSize: 9,
+                fontSize: 10,
                 color: 'var(--cp-text-faint)',
                 letterSpacing: '0.02em',
                 marginLeft: 'auto',
@@ -105,7 +106,7 @@ export default function NodeCard({ node, onSelect, allNodes }: NodeCardProps) {
             className="cp-node-title"
             style={{
               fontFamily: 'var(--cp-font-title)',
-              fontSize: 15,
+              fontSize: 16,
               fontWeight: 500,
               color: 'var(--cp-text)',
               lineHeight: 1.35,
@@ -121,7 +122,7 @@ export default function NodeCard({ node, onSelect, allNodes }: NodeCardProps) {
               className="cp-node-summary"
               style={{
                 fontFamily: 'var(--cp-font-body)',
-                fontSize: 12.5,
+                fontSize: 13,
                 color: 'var(--cp-text-muted)',
                 lineHeight: 1.5,
                 display: '-webkit-box',

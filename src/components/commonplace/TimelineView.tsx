@@ -9,6 +9,7 @@ import NodeCard from './NodeCard';
 import RetroNote from './RetroNote';
 import TimelineSearch from './TimelineSearch';
 import type { TimelineFilters } from './TimelineSearch';
+import { useIsMobile } from '@/hooks/useIsMobile';
 
 /**
  * TimelineView: scrollable feed of objects grouped by date.
@@ -35,11 +36,14 @@ type TimelineRow =
   | { key: string; type: 'node'; node: MockNode; estimatedHeight: number };
 
 const RETRO_INTERVAL = 6;
-const VIRTUALIZE_AFTER_ROWS = 120;
-const OVERSCAN_PX = 920;
+const DESKTOP_VIRTUALIZE_AFTER_ROWS = 120;
+const MOBILE_VIRTUALIZE_AFTER_ROWS = 64;
+const DESKTOP_OVERSCAN_PX = 920;
+const MOBILE_OVERSCAN_PX = 560;
 
 export default function TimelineView({ onOpenObject }: TimelineViewProps) {
   const { captureVersion } = useCommonPlace();
+  const isMobile = useIsMobile();
   const { data: nodes, loading, error, refetch } = useApiData(
     () => fetchFeed({ page_size: 100 }),
     [captureVersion],
@@ -122,7 +126,9 @@ export default function TimelineView({ onOpenObject }: TimelineViewProps) {
     return rows;
   }, [dateGroups, filters.query]);
 
-  const shouldVirtualize = timelineRows.length >= VIRTUALIZE_AFTER_ROWS;
+  const shouldVirtualize =
+    timelineRows.length >= (isMobile ? MOBILE_VIRTUALIZE_AFTER_ROWS : DESKTOP_VIRTUALIZE_AFTER_ROWS);
+  const overscanPx = isMobile ? MOBILE_OVERSCAN_PX : DESKTOP_OVERSCAN_PX;
   const feedRef = useRef<HTMLDivElement>(null);
   const [scrollTop, setScrollTop] = useState(0);
   const [viewportHeight, setViewportHeight] = useState(0);
@@ -187,8 +193,8 @@ export default function TimelineView({ onOpenObject }: TimelineViewProps) {
       };
     }
 
-    const visibleStart = Math.max(0, scrollTop - OVERSCAN_PX);
-    const visibleEnd = scrollTop + Math.max(viewportHeight, 400) + OVERSCAN_PX;
+    const visibleStart = Math.max(0, scrollTop - overscanPx);
+    const visibleEnd = scrollTop + Math.max(viewportHeight, 400) + overscanPx;
     const start = findStartIndex(offsets, heights, visibleStart);
     const end = findEndIndex(offsets, visibleEnd);
     const topSpacer = offsets[start] ?? 0;
@@ -201,7 +207,7 @@ export default function TimelineView({ onOpenObject }: TimelineViewProps) {
       beforeHeight: topSpacer,
       afterHeight: bottomSpacer,
     };
-  }, [shouldVirtualize, timelineRows.length, scrollTop, viewportHeight, offsets, heights, totalHeight]);
+  }, [shouldVirtualize, timelineRows.length, scrollTop, viewportHeight, offsets, heights, totalHeight, overscanPx]);
 
   const visibleRows = useMemo(() => {
     if (!shouldVirtualize) return timelineRows;

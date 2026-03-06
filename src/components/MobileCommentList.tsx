@@ -75,6 +75,7 @@ export default function MobileCommentList({
         <button
           className="mobile-comment-toggle"
           onClick={() => setExpanded(!expanded)}
+          style={{ minHeight: 44 }}
         >
           {expanded
             ? 'Show fewer'

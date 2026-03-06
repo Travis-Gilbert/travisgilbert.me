@@ -12,6 +12,7 @@
  */
 
 import { useRef, useEffect, useState, type ReactNode, Children, cloneElement, isValidElement } from 'react';
+import { usePrefersReducedMotion } from '@/hooks/usePrefersReducedMotion';
 
 interface ParallaxStackProps {
   children: ReactNode;
@@ -27,15 +28,18 @@ export default function ParallaxStack({
   const layerRefs = useRef<(HTMLDivElement | null)[]>([]);
   const [enabled, setEnabled] = useState(false);
   const effectiveIntensity = useRef(intensity);
+  const prefersReducedMotion = usePrefersReducedMotion();
 
   useEffect(() => {
-    const prefersReduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-    if (prefersReduced) return;
+    if (prefersReducedMotion) {
+      setEnabled(false);
+      return;
+    }
 
     const isTouch = window.matchMedia('(hover: none)').matches;
     effectiveIntensity.current = isTouch ? intensity * 0.5 : intensity;
     setEnabled(true);
-  }, [intensity]);
+  }, [intensity, prefersReducedMotion]);
 
   useEffect(() => {
     if (!enabled || !containerRef.current) return;

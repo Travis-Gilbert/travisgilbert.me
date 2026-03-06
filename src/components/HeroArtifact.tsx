@@ -10,7 +10,9 @@
 
 import { useState } from 'react';
 import Image from 'next/image';
-import HeroAccents from './HeroAccents';
+import dynamic from 'next/dynamic';
+import { useIsMobile } from '@/hooks/useIsMobile';
+import { usePrefersReducedMotion } from '@/hooks/usePrefersReducedMotion';
 
 interface HeroArtifactProps {
   /** Path to the composed base image, e.g. "/hero/curb-extensions.webp" */
@@ -23,6 +25,10 @@ interface HeroArtifactProps {
   category?: string;
 }
 
+const LazyHeroAccents = dynamic(() => import('./HeroAccents'), {
+  ssr: false,
+});
+
 export default function HeroArtifact({
   imageSrc,
   imageAlt = 'Hero artifact',
@@ -31,6 +37,10 @@ export default function HeroArtifact({
 }: HeroArtifactProps) {
   const [imgError, setImgError] = useState(false);
   const showImage = imageSrc && !imgError;
+  const isMobile = useIsMobile();
+  const prefersReducedMotion = usePrefersReducedMotion();
+  const reducedMotion = isMobile || prefersReducedMotion;
+  const accentTags = isMobile ? tags.slice(0, 2) : tags;
 
   return (
     <div
@@ -38,8 +48,8 @@ export default function HeroArtifact({
       style={{
         aspectRatio: '3 / 4',
         maxWidth: '100%',
-        transform: 'rotate(-1.5deg)',
-        transition: 'transform 0.4s cubic-bezier(0.22, 1, 0.36, 1)',
+        transform: reducedMotion ? 'rotate(0deg)' : 'rotate(-1.5deg)',
+        transition: reducedMotion ? 'none' : 'transform 0.4s cubic-bezier(0.22, 1, 0.36, 1)',
       }}
     >
       {/* Base image or fallback panel */}
@@ -69,7 +79,7 @@ export default function HeroArtifact({
       )}
 
       {/* SVG accent overlay */}
-      <HeroAccents tags={tags} category={category} />
+      <LazyHeroAccents tags={accentTags} category={category} />
     </div>
   );
 }

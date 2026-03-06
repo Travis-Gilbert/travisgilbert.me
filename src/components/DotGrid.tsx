@@ -9,6 +9,7 @@
 
 import { useEffect, useRef, useCallback } from 'react';
 import { useThemeVersion, readCssVar, hexToRgb } from '@/hooks/useThemeColor';
+import { usePrefersReducedMotion } from '@/hooks/usePrefersReducedMotion';
 
 // Viewport inversion gradient: charcoal fades in at top, dots invert to cream
 const INVERSION_DEPTH = 0.35; // fraction of viewport height (light mode)
@@ -60,6 +61,7 @@ export default function DotGrid({
   noGradient = false,
 }: DotGridProps) {
   const themeVersion = useThemeVersion();
+  const prefersReducedMotion = usePrefersReducedMotion();
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const animRef = useRef<number>(0);
   const visibleRef = useRef(true);
@@ -443,10 +445,6 @@ export default function DotGrid({
     }
 
     // Reduced motion: draw a single static frame, skip all animation
-    const prefersReducedMotion =
-      typeof window !== 'undefined' &&
-      window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-
     // Pause rAF when canvas scrolls off-screen or tab is hidden
     // (defensive: position:fixed canvas is typically always in viewport)
     const observer = new IntersectionObserver(
@@ -486,7 +484,7 @@ export default function DotGrid({
       window.removeEventListener('resize', debouncedResize);
       document.removeEventListener('mouseleave', onMouseLeave);
     };
-  }, [dotRadius, spacing, dotColor, dotOpacity, stiffness, damping, influenceRadius, repulsionStrength, initDots, themeVersion, noGradient]);
+  }, [dotRadius, spacing, dotColor, dotOpacity, stiffness, damping, influenceRadius, repulsionStrength, initDots, themeVersion, noGradient, prefersReducedMotion]);
 
   return (
     <canvas

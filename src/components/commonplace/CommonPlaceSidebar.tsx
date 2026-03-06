@@ -8,7 +8,8 @@ import type { CapturedObject } from '@/lib/commonplace';
 import { createCapturedObject, syncCapture } from '@/lib/commonplace-capture';
 import { useCommonPlace } from '@/lib/commonplace-context';
 import { fetchNotebooks, fetchProjects, useApiData } from '@/lib/commonplace-api';
-import { useIsMobileViewport } from '@/hooks/useIsMobileViewport';
+import { useIsAppShellMobile } from '@/hooks/useIsAppShellMobile';
+import MobileDrawer from '@/components/mobile-shell/MobileDrawer';
 import CaptureButton from './CaptureButton';
 import ObjectPalette from './ObjectPalette';
 import RecentCaptures from './RecentCaptures';
@@ -41,7 +42,7 @@ export default function CommonPlaceSidebar() {
   );
   const [isPaletteOpen, setIsPaletteOpen] = useState(false);
   const [captures, setCaptures] = useState<CapturedObject[]>([]);
-  const isMobile = useIsMobileViewport();
+  const isMobile = useIsAppShellMobile();
 
   /* Fetch notebooks and projects for dynamic sidebar children */
   const { data: notebooks } = useApiData(() => fetchNotebooks(), []);
@@ -102,37 +103,8 @@ export default function CommonPlaceSidebar() {
     });
   }, [notifyCaptured, closeDrawerIfMobile]);
 
-  return (
+  const sidebarInner = (
     <>
-      {isMobile && (
-        <button
-          type="button"
-          className="cp-mobile-backdrop"
-          data-open={mobileSidebarOpen ? 'true' : 'false'}
-          aria-label="Close navigation drawer"
-          onClick={closeMobileSidebar}
-        />
-      )}
-      <aside
-        className={`cp-scrollbar cp-grain cp-grain-sidebar ${
-          isMobile ? 'cp-mobile-drawer' : 'cp-sidebar-desktop'
-        }`}
-        data-open={isMobile ? (mobileSidebarOpen ? 'true' : 'false') : undefined}
-        aria-hidden={isMobile ? (!mobileSidebarOpen) : undefined}
-        style={{
-          width: isMobile ? 'min(84vw, 320px)' : 'var(--cp-sidebar-width)',
-          flexShrink: 0,
-          backgroundColor: 'var(--cp-sidebar)',
-          display: 'flex',
-          flexDirection: 'column',
-          overflowY: 'auto',
-          height: isMobile ? '100dvh' : '100vh',
-          position: isMobile ? 'fixed' : 'sticky',
-          top: 0,
-          left: isMobile ? 0 : undefined,
-          pointerEvents: isMobile && !mobileSidebarOpen ? 'none' : 'auto',
-        }}
-      >
       {/* Terracotta corner glow */}
       <div className="cp-sidebar-glow" aria-hidden="true" />
 
@@ -463,8 +435,48 @@ export default function CommonPlaceSidebar() {
           travisgilbert.me
         </Link>
       </div>
-      </aside>
     </>
+  );
+
+  if (isMobile) {
+    return (
+      <MobileDrawer
+        open={mobileSidebarOpen}
+        onClose={closeMobileSidebar}
+        ariaLabel="CommonPlace navigation drawer"
+        backdropClassName="cp-mobile-backdrop"
+        panelClassName="cp-mobile-drawer cp-scrollbar cp-grain cp-grain-sidebar"
+        panelStyle={{
+          width: 'min(84vw, 320px)',
+          backgroundColor: 'var(--cp-sidebar)',
+          display: 'flex',
+          flexDirection: 'column',
+          overflowY: 'auto',
+          height: '100dvh',
+        }}
+      >
+        {sidebarInner}
+      </MobileDrawer>
+    );
+  }
+
+  return (
+    <aside
+      className="cp-scrollbar cp-grain cp-grain-sidebar cp-sidebar-desktop"
+      style={{
+        width: 'var(--cp-sidebar-width)',
+        flexShrink: 0,
+        backgroundColor: 'var(--cp-sidebar)',
+        display: 'flex',
+        flexDirection: 'column',
+        overflowY: 'auto',
+        height: '100vh',
+        position: 'sticky',
+        top: 0,
+      }}
+    >
+      {sidebarInner}
+    </aside>
   );
 }
 
