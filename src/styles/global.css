@@ -169,6 +169,69 @@ html[data-theme="dark"] {
 }
 
 /* ─────────────────────────────────────────────────
+   Brand Color sRGB Overrides
+   Tailwind v4 auto-converts hex colors to CIE Lab
+   for opacity modifiers, which shifts warm hues:
+   terracotta skews orange, teal skews baby-blue.
+   These overrides force sRGB interpolation for the
+   brand palette opacity variants used in tags,
+   cards, and hero elements.
+   ───────────────────────────────────────────────── */
+
+@layer utilities {
+  /* Terracotta backgrounds */
+  .bg-terracotta\/\[0\.03\] { background-color: color-mix(in srgb, var(--color-terracotta) 3%, transparent) !important; }
+  .bg-terracotta\/\[0\.04\] { background-color: color-mix(in srgb, var(--color-terracotta) 4%, transparent) !important; }
+  .bg-terracotta\/\[0\.06\] { background-color: color-mix(in srgb, var(--color-terracotta) 6%, transparent) !important; }
+  .bg-terracotta\/10 { background-color: color-mix(in srgb, var(--color-terracotta) 10%, transparent) !important; }
+  .bg-terracotta\/\[0\.20\] { background-color: color-mix(in srgb, var(--color-terracotta) 20%, transparent) !important; }
+
+  /* Terracotta borders */
+  .border-terracotta\/15 { border-color: color-mix(in srgb, var(--color-terracotta) 15%, transparent) !important; }
+  .border-terracotta\/20 { border-color: color-mix(in srgb, var(--color-terracotta) 20%, transparent) !important; }
+  .border-terracotta\/25 { border-color: color-mix(in srgb, var(--color-terracotta) 25%, transparent) !important; }
+  .border-terracotta\/30 { border-color: color-mix(in srgb, var(--color-terracotta) 30%, transparent) !important; }
+  .border-terracotta\/40 { border-color: color-mix(in srgb, var(--color-terracotta) 40%, transparent) !important; }
+
+  /* Terracotta-light borders (inverted hero tags) */
+  .border-terracotta-light\/40 { border-color: color-mix(in srgb, var(--color-terracotta-light) 40%, transparent) !important; }
+  .border-terracotta-light\/60 { border-color: color-mix(in srgb, var(--color-terracotta-light) 60%, transparent) !important; }
+
+  /* Teal backgrounds */
+  .bg-teal\/\[0\.03\] { background-color: color-mix(in srgb, var(--color-teal) 3%, transparent) !important; }
+  .bg-teal\/\[0\.04\] { background-color: color-mix(in srgb, var(--color-teal) 4%, transparent) !important; }
+  .bg-teal\/\[0\.06\] { background-color: color-mix(in srgb, var(--color-teal) 6%, transparent) !important; }
+  .bg-teal\/10 { background-color: color-mix(in srgb, var(--color-teal) 10%, transparent) !important; }
+  .bg-teal\/\[0\.20\] { background-color: color-mix(in srgb, var(--color-teal) 20%, transparent) !important; }
+
+  /* Teal borders */
+  .border-teal\/10 { border-color: color-mix(in srgb, var(--color-teal) 10%, transparent) !important; }
+  .border-teal\/15 { border-color: color-mix(in srgb, var(--color-teal) 15%, transparent) !important; }
+  .border-teal\/25 { border-color: color-mix(in srgb, var(--color-teal) 25%, transparent) !important; }
+  .border-teal\/30 { border-color: color-mix(in srgb, var(--color-teal) 30%, transparent) !important; }
+  .border-teal\/\[0\.12\] { border-color: color-mix(in srgb, var(--color-teal) 12%, transparent) !important; }
+
+  /* Teal-light borders (inverted hero tags) */
+  .border-teal-light\/40 { border-color: color-mix(in srgb, var(--color-teal-light) 40%, transparent) !important; }
+  .border-teal-light\/60 { border-color: color-mix(in srgb, var(--color-teal-light) 60%, transparent) !important; }
+
+  /* Gold backgrounds */
+  .bg-gold\/\[0\.04\] { background-color: color-mix(in srgb, var(--color-gold) 4%, transparent) !important; }
+  .bg-gold\/10 { background-color: color-mix(in srgb, var(--color-gold) 10%, transparent) !important; }
+  .bg-gold\/20 { background-color: color-mix(in srgb, var(--color-gold) 20%, transparent) !important; }
+  .bg-gold\/\[0\.20\] { background-color: color-mix(in srgb, var(--color-gold) 20%, transparent) !important; }
+
+  /* Gold borders */
+  .border-gold\/15 { border-color: color-mix(in srgb, var(--color-gold) 15%, transparent) !important; }
+  .border-gold\/20 { border-color: color-mix(in srgb, var(--color-gold) 20%, transparent) !important; }
+  .border-gold\/30 { border-color: color-mix(in srgb, var(--color-gold) 30%, transparent) !important; }
+
+  /* Gold-light borders (inverted hero tags) */
+  .border-gold-light\/40 { border-color: color-mix(in srgb, var(--color-gold-light) 40%, transparent) !important; }
+  .border-gold-light\/60 { border-color: color-mix(in srgb, var(--color-gold-light) 60%, transparent) !important; }
+}
+
+/* ─────────────────────────────────────────────────
    Dark Mode: Surface Utilities
    Higher-opacity tints on dark backgrounds so the
    brand color wash remains perceptible.
