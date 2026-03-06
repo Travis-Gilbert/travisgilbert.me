@@ -5,4 +5,4 @@ builder = "nixpacks"
 providers = ["python"]
 
 [deploy]
-startCommand = "python manage.py reset_notebook_tables && python manage.py migrate notebook --fake zero && python manage.py migrate --noinput && python manage.py collectstatic --noinput && python manage.py ensure_superuser && python manage.py seed_commonplace && gunicorn config.wsgi --bind 0.0.0.0:$PORT --access-logfile - --error-logfile -"
+startCommand = "python manage.py migrate --noinput && python manage.py collectstatic --noinput && python manage.py ensure_superuser && gunicorn config.wsgi --bind 0.0.0.0:$PORT --access-logfile - --error-logfile -"
