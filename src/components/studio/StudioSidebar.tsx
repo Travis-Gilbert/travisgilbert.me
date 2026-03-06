@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { usePathname } from 'next/navigation';
 import Link from 'next/link';
 import {
@@ -15,7 +15,7 @@ import {
   VideoCamera,
 } from '@phosphor-icons/react';
 import { SIDEBAR_SECTIONS, SIDEBAR_TIMELINE_ITEM } from '@/lib/studio';
-import { getMockContentItems } from '@/lib/studio-mock-data';
+import { fetchContentList } from '@/lib/studio-api';
 import NewContentModal from './NewContentModal';
 
 /**
@@ -26,12 +26,13 @@ import NewContentModal from './NewContentModal';
  *
  * "Studio." wordmark at top (54px Vollkorn), terracotta period.
  * Terracotta glow bloom from upper left, grid lines at 5% opacity,
- * heavier grain texture. Content type counts from mock data.
+ * heavier grain texture. Content type counts from Studio API.
  * Active route highlighting with 2px terracotta left bar.
  */
 export default function StudioSidebar() {
   const pathname = usePathname();
   const [showNewModal, setShowNewModal] = useState(false);
+  const [counts, setCounts] = useState<Record<string, number>>({});
 
   const iconByName = {
     'file-text': FileText,
@@ -49,20 +50,40 @@ export default function StudioSidebar() {
     pathname === SIDEBAR_TIMELINE_ITEM.href ||
     pathname?.startsWith(`${SIDEBAR_TIMELINE_ITEM.href}/`);
 
-  const items = getMockContentItems();
-  const counts: Record<string, number> = {};
-  for (const item of items) {
-    const key = item.contentType;
-    counts[key] = (counts[key] ?? 0) + 1;
-  }
+  useEffect(() => {
+    let cancelled = false;
 
-  const labelToType: Record<string, string> = {
-    Essays: 'essay',
-    'Field Notes': 'field-note',
-    Shelf: 'shelf',
-    Projects: 'project',
-    Videos: 'video',
-    Toolkit: 'toolkit',
+    const loadCounts = async () => {
+      try {
+        const items = await fetchContentList();
+        if (cancelled) return;
+
+        const nextCounts: Record<string, number> = {};
+        for (const item of items) {
+          const key = item.contentType;
+          nextCounts[key] = (nextCounts[key] ?? 0) + 1;
+        }
+        setCounts(nextCounts);
+      } catch {
+        if (!cancelled) {
+          setCounts({});
+        }
+      }
+    };
+
+    void loadCounts();
+    return () => {
+      cancelled = true;
+    };
+  }, [pathname]);
+
+  const hrefToType: Record<string, string> = {
+    '/studio/essays': 'essay',
+    '/studio/field-notes': 'field-note',
+    '/studio/shelf': 'shelf',
+    '/studio/videos': 'video',
+    '/studio/projects': 'project',
+    '/studio/toolkit': 'toolkit',
   };
 
   return (
@@ -162,9 +183,8 @@ export default function StudioSidebar() {
               const isActive =
                 pathname === item.href ||
                 (item.href !== '/studio' && pathname?.startsWith(item.href));
-              const count = labelToType[item.label]
-                ? counts[labelToType[item.label]]
-                : undefined;
+              const countType = hrefToType[item.href];
+              const count = countType ? (counts[countType] ?? 0) : undefined;
               const Icon = iconByName[item.icon as keyof typeof iconByName] ?? FileText;
 
               return (
@@ -187,7 +207,7 @@ export default function StudioSidebar() {
                     <Icon size={16} weight="thin" aria-hidden="true" />
                   </span>
                   <span>{item.label}</span>
-                  {count !== undefined && count > 0 && (
+                  {count !== undefined && (
                     <span className="studio-nav-badge">{count}</span>
                   )}
                 </Link>
