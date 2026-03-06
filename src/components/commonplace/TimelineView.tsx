@@ -2,6 +2,7 @@
 
 import { useState, useMemo, useCallback } from 'react';
 import { fetchFeed, groupNodesByDate, useApiData, postRetrospective } from '@/lib/commonplace-api';
+import { useCommonPlace } from '@/lib/commonplace-context';
 import DateHeader from './DateHeader';
 import NodeCard from './NodeCard';
 import RetroNote from './RetroNote';
@@ -24,13 +25,14 @@ import type { TimelineFilters } from './TimelineSearch';
 
 interface TimelineViewProps {
   /** Callback when a node is clicked (opens detail in adjacent pane) */
-  onOpenObject?: (objectId: string) => void;
+  onOpenObject?: (objectRef: number) => void;
 }
 
 export default function TimelineView({ onOpenObject }: TimelineViewProps) {
+  const { captureVersion } = useCommonPlace();
   const { data: nodes, loading, error, refetch } = useApiData(
     () => fetchFeed({ page_size: 100 }),
-    [],
+    [captureVersion],
   );
 
   const [filters, setFilters] = useState<TimelineFilters>({
@@ -69,9 +71,10 @@ export default function TimelineView({ onOpenObject }: TimelineViewProps) {
 
   const handleSelect = useCallback(
     (nodeId: string) => {
-      onOpenObject?.(nodeId);
+      const node = (nodes ?? []).find((n) => n.id === nodeId);
+      if (node) onOpenObject?.(node.objectRef);
     },
-    [onOpenObject]
+    [onOpenObject, nodes]
   );
 
   /* Track global card index for RetroNote insertion */

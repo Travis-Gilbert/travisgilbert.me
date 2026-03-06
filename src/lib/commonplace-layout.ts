@@ -256,13 +256,15 @@ export function addTab(
   tree: PaneNode,
   paneId: string,
   viewType: ViewType,
-  label?: string
+  label?: string,
+  context?: Record<string, unknown>,
 ): PaneNode {
   if (tree.id === paneId && tree.type === 'leaf') {
     const newTab: PaneTab = {
       id: generateTabId(),
       viewType,
       label: label ?? viewTypeLabel(viewType),
+      context,
     };
     return {
       ...tree,
@@ -273,8 +275,8 @@ export function addTab(
   if (tree.type === 'split') {
     return {
       ...tree,
-      first: addTab(tree.first, paneId, viewType, label),
-      second: addTab(tree.second, paneId, viewType, label),
+      first: addTab(tree.first, paneId, viewType, label, context),
+      second: addTab(tree.second, paneId, viewType, label, context),
     };
   }
   return tree;
@@ -332,6 +334,14 @@ export function setActiveTab(
 export function collectLeafIds(node: PaneNode): string[] {
   if (node.type === 'leaf') return [node.id];
   return [...collectLeafIds(node.first), ...collectLeafIds(node.second)];
+}
+
+/** Find an adjacent leaf pane (sibling) for "open in other pane" behavior */
+export function findAdjacentLeaf(tree: PaneNode, fromPaneId: string): string | null {
+  const leafIds = collectLeafIds(tree);
+  const idx = leafIds.indexOf(fromPaneId);
+  if (leafIds.length < 2) return null;
+  return leafIds[idx + 1] ?? leafIds[idx - 1] ?? null;
 }
 
 /* ─────────────────────────────────────────────────

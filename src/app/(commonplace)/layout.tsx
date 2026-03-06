@@ -1,4 +1,5 @@
 import type { Metadata } from 'next';
+import { CommonPlaceProvider } from '@/lib/commonplace-context';
 import CommonPlaceSidebar from '@/components/commonplace/CommonPlaceSidebar';
 import SplitPaneContainer from '@/components/commonplace/SplitPaneContainer';
 import '@/styles/commonplace.css';
@@ -46,22 +47,25 @@ export default function CommonPlaceLayout({
       {/* Terracotta upper-right ambient glow */}
       <div className="cp-ambient-glow" aria-hidden="true" />
 
-      {/* Sidebar: 240px fixed, warm dark with paper grain */}
-      <CommonPlaceSidebar />
+      {/* Provider: lets Sidebar notify Timeline of new captures */}
+      <CommonPlaceProvider>
+        {/* Sidebar: 240px fixed, warm dark with paper grain */}
+        <CommonPlaceSidebar />
 
-      {/* Main content area: blueprint grid + paper grain + split panes */}
-      <main
-        className="cp-blueprint-grid cp-grain"
-        style={{
-          flex: 1,
-          minWidth: 0,
-          display: 'flex',
-          flexDirection: 'column',
-          position: 'relative',
-        }}
-      >
-        <SplitPaneContainer />
-      </main>
+        {/* Main content area: blueprint grid + paper grain + split panes */}
+        <main
+          className="cp-blueprint-grid cp-grain"
+          style={{
+            flex: 1,
+            minWidth: 0,
+            display: 'flex',
+            flexDirection: 'column',
+            position: 'relative',
+          }}
+        >
+          <SplitPaneContainer />
+        </main>
+      </CommonPlaceProvider>
     </div>
   );
 }

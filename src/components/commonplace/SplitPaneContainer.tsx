@@ -19,6 +19,7 @@ import {
   setActiveTab,
   collectLeafIds,
   findPane,
+  findAdjacentLeaf,
   serializeLayout,
   deserializeLayout,
 } from '@/lib/commonplace-layout';
@@ -28,6 +29,8 @@ import DragHandle from './DragHandle';
 import LayoutPresetSelector from './LayoutPresetSelector';
 import TimelineView from './TimelineView';
 import NetworkView from './NetworkView';
+import ObjectDetailView from './ObjectDetailView';
+import ResurfaceView from './ResurfaceView';
 
 const STORAGE_KEY = 'commonplace-layout';
 
@@ -91,6 +94,30 @@ export default function SplitPaneContainer() {
   const handleAddTab = useCallback(
     (paneId: string, viewType: ViewType) => {
       setLayout((prev) => addTab(prev, paneId, viewType));
+    },
+    []
+  );
+
+  /** Open an object detail in an adjacent pane (auto-splits if single pane) */
+  const handleOpenObject = useCallback(
+    (fromPaneId: string, objectRef: number, title?: string) => {
+      setLayout((prev) => {
+        let tree = prev;
+        let targetPaneId = findAdjacentLeaf(tree, fromPaneId);
+
+        /* If there's only one pane, auto-split to create a second */
+        if (!targetPaneId) {
+          tree = splitLeaf(tree, fromPaneId, 'horizontal');
+          targetPaneId = findAdjacentLeaf(tree, fromPaneId);
+          if (!targetPaneId) return prev;
+        }
+
+        const label = title
+          ? title.length > 25 ? title.slice(0, 24) + '\u2026' : title
+          : 'Object';
+        return addTab(tree, targetPaneId, 'object-detail', label, { objectRef });
+      });
+      setActivePresetName(null);
     },
     []
   );
@@ -233,6 +260,9 @@ export default function SplitPaneContainer() {
               viewType={
                 activeLeaf.tabs[activeLeaf.activeTabIndex]?.viewType ?? 'empty'
               }
+              context={activeLeaf.tabs[activeLeaf.activeTabIndex]?.context}
+              paneId={activeLeaf.id}
+              onOpenObject={handleOpenObject}
             />
           ) : (
             <PaneViewContent viewType="empty" />
@@ -317,6 +347,7 @@ export default function SplitPaneContainer() {
           onAddTab={handleAddTab}
           onCloseTab={handleCloseTab}
           onSetActiveTab={handleSetActiveTab}
+          onOpenObject={handleOpenObject}
         />
       </div>
     </div>
@@ -337,6 +368,7 @@ interface NodeProps {
   onAddTab: (paneId: string, viewType: ViewType) => void;
   onCloseTab: (paneId: string, tabIndex: number) => void;
   onSetActiveTab: (paneId: string, tabIndex: number) => void;
+  onOpenObject: (fromPaneId: string, objectRef: number, title?: string) => void;
 }
 
 function RenderNode(props: NodeProps) {
@@ -383,7 +415,7 @@ function RenderSplit(props: NodeProps & { node: SplitPane }) {
    ───────────────────────────────────────────────── */
 
 function RenderLeaf(props: NodeProps & { node: LeafPane }) {
-  const { node, focusedPaneId, onFocus, onSplit, onClosePane, onAddTab, onCloseTab, onSetActiveTab } = props;
+  const { node, focusedPaneId, onFocus, onSplit, onClosePane, onAddTab, onCloseTab, onSetActiveTab, onOpenObject } = props;
   const [showViewPicker, setShowViewPicker] = useState(false);
   const isFocused = focusedPaneId === node.id;
   const activeTab = node.tabs[node.activeTabIndex];
@@ -417,7 +449,12 @@ function RenderLeaf(props: NodeProps & { node: LeafPane }) {
       />
 
       {/* Content */}
-      <PaneViewContent viewType={activeTab?.viewType ?? 'empty'} />
+      <PaneViewContent
+        viewType={activeTab?.viewType ?? 'empty'}
+        context={activeTab?.context}
+        paneId={node.id}
+        onOpenObject={onOpenObject}
+      />
     </div>
   );
 }
@@ -685,7 +722,14 @@ function ViewPickerDropdown({
    Real view components are built in later sessions.
    ───────────────────────────────────────────────── */
 
-function PaneViewContent({ viewType }: { viewType: ViewType }) {
+interface PaneViewContentProps {
+  viewType: ViewType;
+  context?: Record<string, unknown>;
+  paneId?: string;
+  onOpenObject?: (fromPaneId: string, objectRef: number, title?: string) => void;
+}
+
+function PaneViewContent({ viewType, context, paneId, onOpenObject }: PaneViewContentProps) {
   const view = VIEW_REGISTRY[viewType];
 
   if (viewType === 'empty') {
@@ -725,12 +769,55 @@ function PaneViewContent({ viewType }: { viewType: ViewType }) {
 
   /* Live view: Timeline */
   if (viewType === 'timeline') {
-    return <TimelineView />;
+    return (
+      <TimelineView
+        onOpenObject={
+          paneId && onOpenObject
+            ? (objectRef) => onOpenObject(paneId, objectRef)
+            : undefined
+        }
+      />
+    );
   }
 
   /* Live view: Network (Map / Entities / Timeline viz) */
   if (viewType === 'network') {
-    return <NetworkView />;
+    return (
+      <NetworkView
+        onOpenObject={
+          paneId && onOpenObject
+            ? (objectId) => onOpenObject(paneId, Number(objectId))
+            : undefined
+        }
+      />
+    );
+  }
+
+  /* Live view: Object Detail */
+  if (viewType === 'object-detail' && context?.objectRef) {
+    return (
+      <ObjectDetailView
+        objectRef={context.objectRef as number}
+        onOpenObject={
+          paneId && onOpenObject
+            ? (ref, title) => onOpenObject(paneId, ref, title)
+            : undefined
+        }
+      />
+    );
+  }
+
+  /* Live view: Resurface */
+  if (viewType === 'resurface') {
+    return (
+      <ResurfaceView
+        onOpenObject={
+          paneId && onOpenObject
+            ? (ref, title) => onOpenObject(paneId, ref, title)
+            : undefined
+        }
+      />
+    );
   }
 
   /* Placeholder for views not yet implemented */

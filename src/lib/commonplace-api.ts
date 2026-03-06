@@ -98,6 +98,7 @@ export async function apiFetch<T>(
 function mapFeedNodeToMockNode(node: ApiFeedNode): MockNode {
   return {
     id: `node-${node.id}`,
+    objectRef: node.object_ref,
     objectType: node.object_type,
     title: node.object_title,
     summary: node.title,
@@ -175,11 +176,18 @@ export async function fetchGraph(params?: {
   return mapGraphResponseToD3(resp);
 }
 
-/** Fetch single object detail */
+/** Fetch single object detail by slug */
 export async function fetchObjectDetail(
   slug: string,
 ): Promise<ApiObjectDetail> {
   return apiFetch<ApiObjectDetail>(`/objects/${slug}/`);
+}
+
+/** Fetch single object detail by numeric ID */
+export async function fetchObjectById(
+  id: number,
+): Promise<ApiObjectDetail> {
+  return apiFetch<ApiObjectDetail>(`/objects/${id}/`);
 }
 
 /** Capture a new object via POST /capture/ */

@@ -200,6 +200,8 @@ export interface MockEdge {
 
 export interface MockNode {
   id: string;
+  /** Object database ID for detail navigation */
+  objectRef: number;
   objectType: string;
   title: string;
   summary: string;

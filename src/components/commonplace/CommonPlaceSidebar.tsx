@@ -6,6 +6,7 @@ import Link from 'next/link';
 import { SIDEBAR_SECTIONS, OBJECT_TYPES } from '@/lib/commonplace';
 import type { CapturedObject } from '@/lib/commonplace';
 import { createCapturedObject, syncCapture } from '@/lib/commonplace-capture';
+import { useCommonPlace } from '@/lib/commonplace-context';
 import CaptureButton from './CaptureButton';
 import ObjectPalette from './ObjectPalette';
 import RecentCaptures from './RecentCaptures';
@@ -27,6 +28,7 @@ import DropZone from './DropZone';
  */
 export default function CommonPlaceSidebar() {
   const pathname = usePathname();
+  const { notifyCaptured } = useCommonPlace();
   const [expandedGroups, setExpandedGroups] = useState<Set<string>>(
     new Set(['Notebooks', 'Projects'])
   );
@@ -52,6 +54,8 @@ export default function CommonPlaceSidebar() {
         prev.map((c) => {
           if (c.id !== object.id) return c;
           if (result.ok) {
+            /* Signal timeline to refetch now that API has the new object */
+            notifyCaptured();
             return {
               ...c,
               id: result.slug ?? c.id,
@@ -64,7 +68,7 @@ export default function CommonPlaceSidebar() {
         }),
       );
     });
-  }, []);
+  }, [notifyCaptured]);
 
   return (
     <aside
