@@ -56,6 +56,8 @@
   --studio-font-mono: var(--font-jetbrains-mono), monospace;
   --studio-font-metadata: var(--font-courier-prime), 'Courier New', monospace;
   --studio-font-writing: var(--font-amarna), Georgia, serif;
+  --studio-font-archivist: var(--font-caudex), 'Palatino Linotype', 'Book Antiqua', serif;
+  --studio-font-plex: var(--font-ibm-plex), 'Segoe UI', sans-serif;
 
   /* Layout constants */
   --studio-sidebar-width: 232px;
@@ -888,6 +890,63 @@
   border-color: rgba(180, 90, 45, 0.56);
   background: rgba(180, 90, 45, 0.12);
   color: var(--studio-text-bright);
+}
+
+/* Font preview grid: 3 columns for 6 presets */
+.studio-font-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 6px;
+}
+
+.studio-font-preview {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 8px 4px 6px;
+  border: 1px solid var(--studio-border);
+  background: rgba(15, 16, 18, 0.28);
+  border-radius: 7px;
+  cursor: pointer;
+  transition: border-color 0.15s ease, background 0.15s ease;
+}
+
+.studio-font-preview-sample {
+  font-size: 22px;
+  line-height: 1;
+  color: var(--studio-text-2);
+  transition: color 0.15s ease;
+}
+
+.studio-font-preview-label {
+  font-family: var(--studio-font-metadata);
+  font-size: 9px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--studio-text-3);
+  transition: color 0.15s ease;
+}
+
+.studio-font-preview:hover {
+  border-color: var(--studio-border-strong);
+}
+
+.studio-font-preview:hover .studio-font-preview-sample {
+  color: var(--studio-text-bright);
+}
+
+.studio-font-preview.is-active {
+  border-color: rgba(180, 90, 45, 0.56);
+  background: rgba(180, 90, 45, 0.12);
+}
+
+.studio-font-preview.is-active .studio-font-preview-sample {
+  color: var(--studio-text-bright);
+}
+
+.studio-font-preview.is-active .studio-font-preview-label {
+  color: var(--studio-text-2);
 }
 
 .studio-reading-panel input[type='range'] {

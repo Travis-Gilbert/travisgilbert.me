@@ -37,7 +37,7 @@ type SaveState = WorkbenchSaveState;
 type SaveMode = 'manual' | 'autosave';
 type AutosaveState = WorkbenchAutosaveState;
 type EditorContentFormat = 'html' | 'markdown';
-type ReadingFontPreset = 'writing-serif' | 'clean-sans' | 'mono';
+type ReadingFontPreset = 'writing-serif' | 'archivist' | 'cabin' | 'plex' | 'clean-sans' | 'mono';
 type ReadingParagraphSpacing = 'normal' | 'relaxed';
 
 type ReadingSettings = {
@@ -64,9 +64,10 @@ function clamp(value: number, min: number, max: number): number {
 function normalizeReadingSettings(
   input: Partial<ReadingSettings> | null | undefined,
 ): ReadingSettings {
+  const validPresets: ReadingFontPreset[] = ['writing-serif', 'archivist', 'cabin', 'plex', 'clean-sans', 'mono'];
   const fontPreset: ReadingFontPreset =
-    input?.fontPreset === 'clean-sans' || input?.fontPreset === 'mono'
-      ? input.fontPreset
+    validPresets.includes(input?.fontPreset as ReadingFontPreset)
+      ? (input!.fontPreset as ReadingFontPreset)
       : 'writing-serif';
 
   const paragraphSpacing: ReadingParagraphSpacing =
@@ -93,14 +94,17 @@ function normalizeReadingSettings(
   };
 }
 
+const FONT_PRESET_FAMILIES: Record<ReadingFontPreset, string> = {
+  'writing-serif': "var(--studio-font-writing), 'Iowan Old Style', Georgia, 'Times New Roman', serif",
+  'archivist': "var(--studio-font-archivist), 'Palatino Linotype', 'Book Antiqua', serif",
+  'cabin': "var(--studio-font-body), 'Avenir Next', system-ui, sans-serif",
+  'plex': "var(--studio-font-plex), 'Segoe UI', sans-serif",
+  'clean-sans': "system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif",
+  'mono': "var(--studio-font-mono), 'JetBrains Mono', monospace",
+};
+
 function readingFontFamily(fontPreset: ReadingFontPreset): string {
-  if (fontPreset === 'clean-sans') {
-    return "var(--studio-font-body), 'Avenir Next', 'Segoe UI', sans-serif";
-  }
-  if (fontPreset === 'mono') {
-    return "var(--studio-font-mono), 'JetBrains Mono', monospace";
-  }
-  return "var(--studio-font-writing), 'Iowan Old Style', Georgia, 'Times New Roman', serif";
+  return FONT_PRESET_FAMILIES[fontPreset] ?? FONT_PRESET_FAMILIES['writing-serif'];
 }
 
 function detectEditorContentFormat(content: string): EditorContentFormat {
@@ -722,34 +726,30 @@ export default function Editor({
               <div id="studio-reading-panel" className="studio-reading-panel">
                 <div className="studio-reading-control">
                   <span className="studio-reading-label">Font</span>
-                  <div className="studio-reading-options" role="radiogroup" aria-label="Reading font">
-                    <button
-                      type="button"
-                      className={`studio-reading-option ${readingSettings.fontPreset === 'writing-serif' ? 'is-active' : ''}`}
-                      onClick={() => updateReadingSettings({ fontPreset: 'writing-serif' })}
-                      role="radio"
-                      aria-checked={readingSettings.fontPreset === 'writing-serif'}
-                    >
-                      Writing Serif
-                    </button>
-                    <button
-                      type="button"
-                      className={`studio-reading-option ${readingSettings.fontPreset === 'clean-sans' ? 'is-active' : ''}`}
-                      onClick={() => updateReadingSettings({ fontPreset: 'clean-sans' })}
-                      role="radio"
-                      aria-checked={readingSettings.fontPreset === 'clean-sans'}
-                    >
-                      Clean Sans
-                    </button>
-                    <button
-                      type="button"
-                      className={`studio-reading-option ${readingSettings.fontPreset === 'mono' ? 'is-active' : ''}`}
-                      onClick={() => updateReadingSettings({ fontPreset: 'mono' })}
-                      role="radio"
-                      aria-checked={readingSettings.fontPreset === 'mono'}
-                    >
-                      Mono
-                    </button>
+                  <div className="studio-font-grid" role="radiogroup" aria-label="Reading font">
+                    {([
+                      { preset: 'writing-serif' as const, label: 'Amarna', family: FONT_PRESET_FAMILIES['writing-serif'] },
+                      { preset: 'archivist' as const, label: 'Archivist', family: FONT_PRESET_FAMILIES['archivist'] },
+                      { preset: 'cabin' as const, label: 'Cabin', family: FONT_PRESET_FAMILIES['cabin'] },
+                      { preset: 'plex' as const, label: 'Plex', family: FONT_PRESET_FAMILIES['plex'] },
+                      { preset: 'clean-sans' as const, label: 'System', family: FONT_PRESET_FAMILIES['clean-sans'] },
+                      { preset: 'mono' as const, label: 'Mono', family: FONT_PRESET_FAMILIES['mono'] },
+                    ]).map(({ preset, label, family }) => (
+                      <button
+                        key={preset}
+                        type="button"
+                        className={`studio-font-preview ${readingSettings.fontPreset === preset ? 'is-active' : ''}`}
+                        onClick={() => updateReadingSettings({ fontPreset: preset })}
+                        role="radio"
+                        aria-checked={readingSettings.fontPreset === preset}
+                        aria-label={label}
+                      >
+                        <span className="studio-font-preview-sample" style={{ fontFamily: family }}>
+                          Aa
+                        </span>
+                        <span className="studio-font-preview-label">{label}</span>
+                      </button>
+                    ))}
                   </div>
                 </div>
 
