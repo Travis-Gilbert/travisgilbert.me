@@ -72,10 +72,22 @@ Next.js 16 (App Router, Turbopack, React Compiler), React 19, Tailwind CSS v4 (`
 | `src/lib/commonplace.ts` | Shared constants, types, sidebar structure, object type visual identity, view registry |
 | `src/lib/commonplace-layout.ts` | Split pane layout: recursive binary tree types, presets, serialization, key bindings |
 | `src/lib/commonplace-capture.ts` | Capture logic: local-first object creation, URL detection, optimistic IDs, mock OG enrichment |
-| `src/lib/commonplace-mock-data.ts` | Deterministic PRNG mock data generator (legacy, superseded by live API via `commonplace-api.ts`; `groupNodesByDate()` moved to API module) |
 | `src/lib/commonplace-api.ts` | API client: typed fetch wrapper, response mappers (feed/graph/capture), `useApiData` hook, error handling, optional Bearer token auth |
 | `src/lib/commonplace-graph.ts` | D3 graph data prep: force simulation config, frame serialization, type-based clustering helpers |
 | `research_api/apps/notebook/services.py` | Service layer: `enrich_url()` OG metadata fetch, `quick_capture()` object creation from raw input |
+| `src/app/(main)/` | Main site route group (essays, field-notes, shelf, toolkit, projects, now, connections) |
+| `src/app/(networks)/` | Networks route group: Paper Trail explorer, threads, community wall |
+| `src/app/(studio)/` | Studio route group: live editing preview for Django Studio content |
+| `src/components/networks/` | Network/research page components (explorer, trail, threads, community wall) |
+| `src/components/studio/` | Studio preview components (live content rendering from Django Studio API) |
+| `src/components/research/` | Research display components (backlinks, source cards) |
+| `src/components/charts/` | D3 chart components (PublicationGraph, connection visualizations) |
+| `src/lib/commonplace-context.tsx` | React context provider: object detail, resurface, sidebar state, click chain navigation |
+| `src/lib/networks.ts` | Networks data fetching: research JSON loader, trail builder, thread mapper |
+| `src/lib/research.ts` | Research data types and utilities for backlinks, sources, threads |
+| `src/lib/studio.ts` | Studio types, route mapping, content preview utilities |
+| `src/lib/studio-api.ts` | Django Studio API client: fetch content, config, and preview data |
+| `Orchestra MCP/` | YouTube production orchestration system (TickTick, YouTube, Ulysses, Resolve, File Bridge MCPs) |
 
 ## Development Commands
 
@@ -134,69 +146,7 @@ python3 manage.py run_connection_engine --dry-run  # Preview without writing edg
 
 ### Server vs Client Components
 
-Most components are **Server Components** by default. Components needing browser APIs use `'use client'`:
-
-| Client Component | Why |
-|-----------------|-----|
-| `DotGrid.tsx` | Canvas animation, rAF, mouse/touch events |
-| `TopNav.tsx` | `usePathname()`, mobile menu `useState` |
-| `ShelfFilter.tsx` | Filter state via `useState` |
-| `YouTubeEmbed.tsx` | Click-to-load facade via `useState` |
-| `ConsoleEasterEgg.tsx` | `console.log` in `useEffect`; props from layout (stats, latest essay, fun facts) |
-| `rough/RoughBox.tsx` | Canvas drawing via `useRef` + `useEffect` |
-| `rough/RoughLine.tsx` | Canvas drawing |
-| `rough/RoughUnderline.tsx` | Canvas drawing |
-| `rough/RoughCallout.tsx` | Canvas straight-line callouts |
-| `rough/RoughPivotCallout.tsx` | Canvas 45° leader-line callouts |
-| `ScrollReveal.tsx` | IntersectionObserver scroll animations |
-| `ProjectColumns.tsx` | Role-based column layout with expand/collapse cards |
-| `CyclingTagline.tsx` | Typewriter animation via useState/useEffect |
-| `ToolkitAccordion.tsx` | Radix Accordion with expand/collapse state |
-| `ProjectTimeline.tsx` | Timeline layout with interactive state |
-| `MarginNote.tsx` | Positioned margin annotations |
-| `SourcesCollapsible.tsx` | Radix Collapsible for essay sources |
-| `PatternImage.tsx` | Seeded generative canvas (3 layers: dots, curves, contours) |
-| `rough/DrawOnIcon.tsx` | IntersectionObserver SVG stroke draw animation for page headers |
-| `CollageHero.tsx` | Full-bleed dark-ground homepage hero, two-column grid with featured essay + artifact, ResizeObserver reports height to `--hero-height` |
-| `HeroArtifact.tsx` | Composed image container with next/image fill, -1.5deg rotation, fallback panel, HeroAccents overlay |
-| `HeroAccents.tsx` | Deterministic SVG overlay (djb2+LCG PRNG): circles, connector lines, rotated tag labels |
-| `EssayHero.tsx` | Full-bleed editorial header for essay detail pages, YouTube/PatternImage background |
-| `ArticleBody.tsx` | Prose wrapper with paragraph click-to-comment, position tracking, and hover-gated reading guide line |
-| `ArticleComments.tsx` | Orchestrates sticky note layer and mobile comment list for essays |
-| `CommentForm.tsx` | reCAPTCHA-protected comment submission form (sticky note style) |
-| `StickyNote.tsx` | Individual reader comment card with flag/date |
-| `StickyNoteLayer.tsx` | Absolute-positioned margin layer that positions sticky notes at paragraph offsets |
-| `MobileCommentList.tsx` | Below-article comment list for viewports narrower than xl |
-| `ReadingProgress.tsx` | Thin progress bar at top of viewport during article scroll |
-| `NowPreviewCompact.tsx` | 2x2 grid /now snapshot (Server Component reading `now.md`, but has `inverted` prop for hero) |
-| `StudioShortcut.tsx` | Invisible Ctrl+Shift+E handler; maps current path to Django Studio URL via `NEXT_PUBLIC_STUDIO_URL` |
-| `ConnectionDots.tsx` | Interactive paragraph dots in essay margins; click to reveal connection threads; uses `connectionEngine` |
-| `ThreadLines.tsx` | rough.js canvas lines connecting related content paragraphs; reads `ThreadPair` data from connectionEngine |
-| `DesignLanguageEasterEgg.tsx` | Hidden design language easter egg (replaces ArchitectureEasterEgg); 5-phase state machine, rough.js border, wobble SVG connectors, rAF animation loop |
-| `ConnectionMap.tsx` | D3 force-directed graph with rough.js canvas edges for `/connections` page; synchronous 300-iteration layout |
-| `StampDot.tsx` | Animated current-stage dot with scatter micro-dots; plays stamp animation on mount, respects prefers-reduced-motion |
-| `ParallaxStack.tsx` | Subtle scroll-driven vertical parallax between child layers; capped at +/- 15px, touch devices get 50% intensity |
-| `PipelineCounter.tsx` | Live build counter on homepage showing content stats (essays, notes, projects, shelf items, connections) |
-| `DotGridEasterEgg.tsx` | Interactive dotgrid easter egg: seeded PRNG generative pattern with rough.js, click-to-trigger overlay |
-| `commonplace/CommonPlaceSidebar.tsx` | Warm dark sidebar (#1A1614) with capture button, object palette, recent captures, drop zone, navigation links |
-| `commonplace/SplitPaneContainer.tsx` | Recursive binary tree split pane system with drag handles, tab bar, keyboard shortcuts, layout presets |
-| `commonplace/DragHandle.tsx` | Drag handle for resizing split panes; pointer events + container-relative ratio calculation |
-| `commonplace/LayoutPresetSelector.tsx` | Layout preset selector: SVG icons representing split configurations (Focus, Split, Research, Studio) |
-| `commonplace/CaptureButton.tsx` | Spring-animated capture input with URL detection, type auto-selection, keyboard shortcuts |
-| `commonplace/ObjectPalette.tsx` | 2-column type grid overlay: 10 object types with color and icon, click-to-select for capture |
-| `commonplace/DropZone.tsx` | Full-screen drag-and-drop overlay for file/URL capture with visual feedback |
-| `commonplace/RecentCaptures.tsx` | Sidebar capture list: last 5 captured objects with type icon, title, relative timestamp |
-| `commonplace/DateHeader.tsx` | Sticky date separator for timeline: relative labels ("Today", "Yesterday") or formatted dates, Courier Prime monospace |
-| `commonplace/NodeCard.tsx` | Timeline entry card: type icon badge, title, excerpt, timestamp, connection count, retrospective note |
-| `commonplace/ConnectionLabel.tsx` | Edge badge pill: displays edge reason text with source/target type color gradient |
-| `commonplace/RetroNote.tsx` | Reflection prompt card: surfaces old objects for retrospective annotation |
-| `commonplace/TimelineSearch.tsx` | Search + type filter bar: text query, multi-select object type toggles, date range |
-| `commonplace/TimelineView.tsx` | Main timeline feed: paginated NodeCards grouped by date, search/filter, mock data integration |
-| `commonplace/KnowledgeMap.tsx` | D3 force-directed graph with rough.js canvas edges for knowledge network; mirrors ConnectionMap pattern |
-| `commonplace/EntityNetwork.tsx` | Filtered Person/Org network view: entity-type clustering, hover detail panel |
-| `commonplace/TimelineViz.tsx` | D3 chronological dot plot with arcs: time on x-axis, type on y-axis, arc connections between related objects |
-| `commonplace/FrameManager.tsx` | Save/restore named view configurations: zoom level, filter state, layout preset |
-| `commonplace/NetworkView.tsx` | Network sub-view wrapper: toggle toolbar switching between KnowledgeMap, EntityNetwork, and TimelineViz |
+Most components are **Server Components** by default. A component uses `'use client'` when it needs: canvas/animation (rough.js, rAF, IntersectionObserver), interactive state (useState, usePathname), or browser APIs (ResizeObserver, pointer events). The `'use client'` directive is the source of truth; no separate list is maintained.
 
 Server Components can import and render Client Components; children pass through as a slot without hydrating.
 
@@ -351,52 +301,13 @@ All variants show CompactTracker in the top-right corner alongside DateStamp.
 
 ### ProjectColumns Pattern
 
-`ProjectColumns` is a Client Component that renders projects grouped by role in a responsive column grid. Intentionally does NOT use RoughBox (three-state dynamic rgba tinting is incompatible with RoughBox's fixed CSS classes).
+`ProjectColumns` renders projects grouped by role in a responsive column grid. Does NOT use RoughBox (three-state dynamic rgba tinting is incompatible with RoughBox's fixed CSS classes). Roles: Built & Designed (teal), Project Managed (terracotta), Organized (gold), Created (green). `slugifyRole()` preserves `&` in slugs. Date is serialized to ISO string across RSC boundary.
 
-**Role configuration:** Each role has a hex color, rgb string, label, and description. Roles are matched via `slugifyRole()` which does `.toLowerCase().replace(/\s+/g, '-')`. The `&` character is preserved (e.g., "Built & Designed" becomes `"built-&-designed"`).
+### Surface and Configuration Systems
 
-| Role | Color | Hex |
-|------|-------|-----|
-| Built & Designed | Teal | `#2D5F6B` |
-| Project Managed | Terracotta | `#B45A2D` |
-| Organized | Gold | `#C49A4A` |
-| Created | Green | `#5A7A4A` |
+**Surface materiality:** Three layers: page (DotGrid + paper grain), card (tint fill + warm shadow + rough.js stroke), content (SectionLabel + TagList). CSS classes: `.surface-elevated`, `.surface-tint-{color}`, `.surface-hover`.
 
-**Card three-state tinting** (rest/hover/expanded) uses inline `rgba(ROLE_RGB, opacity)`:
-
-| State | Background | Border | Shadow |
-|-------|-----------|--------|--------|
-| Rest | 5.5% | 0% (invisible) | 2% |
-| Hover | 9% | 25% | 5% |
-| Expanded | 10% | 35% | 8% |
-
-**Column dividers:** 2px solid dark charcoal (`#3A3632`) at 25% opacity. Uniform color across all columns (not per-role) for visual alignment.
-
-**Content schema:** Projects have an optional `organization` field added to the Zod schema in `content.ts`. Projects also have an optional `callout` field (string) for handwritten annotations on homepage cards. The `date` field is serialized to ISO string across the RSC boundary (Server Component passes `.toISOString()`, Client Component receives string).
-
-### Surface Materiality System
-
-The site uses a layered texture system to create skeuomorphic depth:
-
-1. **Page level**: DotGrid canvas (spring physics) + paper grain (`body::after` SVG feTurbulence at 2.5%)
-2. **Card level**: Transparent tint fill + warm shadow + rough.js colored stroke
-3. **Content level**: SectionLabel (monospace colored headers), TagList with tint-matched colors
-
-**Key CSS classes** (in `global.css`):
-- `.surface-elevated`: warm shadow only (no bg-color; tint handles fill)
-- `.surface-tint-{color}`: transparent brand-color wash
-- `.surface-hover`: lift animation with shadow transition
-
-### Site Configuration Cascade
-
-Four-layer system where each layer is optional and overrides the one above:
-
-1. **`global.css` defaults**: Hardcoded CSS custom properties (current source of truth)
-2. **`src/config/site.json`**: Design tokens, nav, footer, SEO (Django Studio commits updates here via GitHub API)
-3. **Page composition**: Per-page visual overrides (e.g., essays page uses terracotta accent, toolkit uses custom layout)
-4. **Content instance composition**: Per-item overrides via `composition` JSONField in frontmatter
-
-`src/lib/siteConfig.ts` loads `site.json` with Zod validation and in-memory caching. Falls back to `DEFAULT_CONFIG` (matching current hardcoded values) if file is missing or malformed. Components can progressively adopt `getSiteConfig()` and `getVisibleNav()` instead of hardcoded values.
+**Site config cascade:** `global.css` defaults -> `site.json` -> page composition -> per-instance composition. `siteConfig.ts` loads with Zod validation, falls back to `DEFAULT_CONFIG` if missing.
 
 ### Section Color Language
 
@@ -435,18 +346,16 @@ Phases 1 through 4 (Foundation, Micro-interactions, Animations, Polish) are **al
 
 **CommonPlace Frontend:** Sessions 5 through 9 complete. Full Next.js frontend at `/commonplace` route group with warm studio theme (cream parchment + dark sidebar), wired to live Django API. Session 5: split pane system (SplitPaneContainer, DragHandle, LayoutPresetSelector, CommonPlaceSidebar) with recursive binary tree layout, keyboard shortcuts, 4 layout presets. Session 6 (Capture): CaptureButton with spring animation, ObjectPalette type grid, DropZone drag-and-drop, RecentCaptures sidebar list, local-first capture with optimistic IDs. Session 7 (Timeline): TimelineView with NodeCard, DateHeader, RetroNote reflection prompts, ConnectionLabel edge badges, TimelineSearch with type filters. Session 8 (Network): KnowledgeMap (D3 force graph + rough.js canvas edges), EntityNetwork (Person/Org filtered view), TimelineViz (chronological dot plot with arcs), FrameManager (save/restore view configs), NetworkView (toggle toolbar wrapper). Session 9 (API Integration): created `commonplace-api.ts` anti-corruption layer mapping Django serializer responses to frontend types; replaced all mock data with live API calls to `/api/v1/notebook/` endpoints (feed, graph, capture, retrospective, resurface); `useApiData<T>()` hook for loading/error/refetch; NetworkView lifted to single fetch parent; loading skeleton, error banner, empty state styles added. All components use CommonPlace scoped CSS tokens from `commonplace.css`.
 
-**Next step:** Set `NEXT_PUBLIC_RESEARCH_API_URL=https://research.travisgilbert.me` in Vercel env vars and deploy to verify production API connectivity. Also pending: set `NEXT_PUBLIC_STUDIO_URL=https://draftroom.travisgilbert.me` in Vercel, set cross-service env vars (`INTERNAL_API_KEY` on both, `RESEARCH_API_URL`/`RESEARCH_API_KEY` on publishing_api) and test source promotion pipeline end-to-end.
+**Next step:** Verify production API connectivity end-to-end (env vars are set: `NEXT_PUBLIC_RESEARCH_API_URL`, `NEXT_PUBLIC_STUDIO_URL`, `INTERNAL_API_KEY`, `RESEARCH_API_URL`/`RESEARCH_API_KEY`). Test source promotion pipeline across both Railway services.
 
 **Remaining backlog:**
-- CommonPlace: deploy with production API URL and verify end-to-end
-- CommonPlace: optimistic capture sync (CaptureButton currently local-first; POST to `/capture/` wired but no optimistic UI update yet)
+- CommonPlace: verify production deploy with live API
+- CommonPlace: optimistic capture sync (CaptureButton local-first; POST wired but no optimistic UI update yet)
 - Notebook Sessions 4+: daily log views, publisher, Next.js data publishing
 - Sourcebox UX redesign (brainstorm in progress)
-- Additional content pages and essays (not started)
 - Dark mode (deferred; tokens ready in `global.css`)
 - Hero artifact photography (composed still-life images for `public/hero/`)
 - Component integration: TopNav, layout.tsx, CollageHero, DotGrid could consume siteConfig instead of hardcoded values
-- Orchestra MCP conductor integration with video API endpoints
 
 ## Recent Decisions
 
@@ -454,97 +363,59 @@ Phases 1 through 4 (Foundation, Micro-interactions, Animations, Polish) are **al
 |----------|--------|-----|
 | UI library | Radix Primitives (not shadcn/ui) | Full custom styling over brand; shadcn opinionated defaults fight the aesthetic |
 | Section color system | terracotta=essays, teal=field-notes, gold=projects | Creates wayfinding language; color tells you where you are on the site |
-| No dashes | Colons, periods, parentheses, semicolons | User style preference; applies to all code, comments, and content |
-| Dark mode | Deferred to separate future effort | Tokens ready in global.css but scope was too large |
-| Publishing delivery | GitHub Contents API + Git Trees API (not runtime API or direct git) | SSG preserved; Trees API enables atomic multi-file commits (content + config together) |
-| Studio editor tech | Django templates + HTMX (not React SPA) | Avoids second SPA; HTMX gives interactivity; simpler than building API + React client |
-| Site config cascade | global.css -> site.json -> page composition -> per-instance composition | Four optional layers; site works with zero config (hardcoded defaults are the fallback) |
-| Studio UI library | django-cotton + django-crispy-forms + django-tailwind | Declarative components, consistent form rendering, utility-first CSS with brand tokens |
-| Source promotion pipeline | HTTP API call from publishing_api to research_api (not shared DB) | Two separate Railway services with own databases; Bearer token auth, idempotent |
-| research_api: admin as authoring UI | Django admin with rich fieldsets and inlines (no custom Studio editor) | Simpler than publishing_api's HTMX Studio; source tracking is data entry, not content editing |
-| Unified hero over split sections | Merged CollageHero + EruptingCollage into single above-the-fold zone | One editorial spread: identity, featured essay, artifact together |
-| Deterministic PRNG in HeroAccents | djb2 hash + LCG seeded from tag string (not Math.random()) | SSG builds must produce identical output across runs |
-| Notebook: object-oriented graph | Typed nodes + explained edges (not flat tags or source-only links) | Everything is an object with a type; edges carry plain English `reason` field; enables serendipitous discovery |
-| Notebook: admin as authoring UI | Django admin with rich fieldsets and inlines (not custom HTMX editor) | Consistent with research_api pattern; notebook is data entry, not content authoring |
-| Notebook v4: Object/Node/Component architecture | Objects exist (typed entities with Components), Nodes happen (immutable timeline events) | Everything is an Object; changes are tracked as Nodes; Components are typed properties; edges connect Objects with explanations |
-| CommonPlace: scoped route group | `(commonplace)` route group with own layout.tsx, does NOT share root DotGrid/TopNav/Footer | Completely different visual language (warm studio vs parchment site); avoids fighting root layout styles |
-| CommonPlace: local-first capture | Optimistic creation with `local-` prefixed UUIDs, sync to API later | Objects appear instantly in UI; API integration deferred to avoid blocking frontend development |
-| CommonPlace: deterministic mock data | djb2 + LCG PRNG seeded from fixed string (same pattern as HeroAccents) | SSG-safe; builds produce identical mock objects; replaced when real API is wired |
-| CommonPlace: split pane system | Recursive binary tree layout (not fixed panels) | Arbitrary nesting; JSON-serializable for saved layouts; 4 presets (Focus, Split, Research, Studio) |
-| CommonPlace: two-layer graph rendering | Canvas (rough.js edges) + SVG (interactive nodes), same as ConnectionMap | Consistent with existing site pattern; rough.js requires canvas; hover/click requires SVG |
-| CommonPlace: API anti-corruption layer | Mapping functions in `commonplace-api.ts` convert API shapes to existing frontend types | Components keep consuming `MockNode`, `GraphNode`, `GraphLink` unchanged; only data source changes |
-| CommonPlace: feed Node ID for React keys | `node-${node.id}` (timeline Node ID) not `String(node.object_ref)` (Object ID) | Multiple Nodes can reference the same Object; Object ID as key causes React duplicate key warnings |
-| CommonPlace: no edge data on timeline cards | Timeline feed returns Nodes (events), not Objects with edges; `edgeCount: 0` and `edges: []` | Cleaner separation: timeline shows "what happened", network shows "how things connect"; avoids extra API round trips |
-| CommonPlace: NetworkView lifts graph fetch | Single `useApiData(() => fetchGraph())` in NetworkView, passes data to KnowledgeMap/EntityNetwork/TimelineViz as props | Avoids three independent fetches for the same data; loading/error handled once at parent level |
+| Publishing delivery | GitHub Contents API + Git Trees API | SSG preserved; Trees API enables atomic multi-file commits |
+| Studio editor tech | Django templates + HTMX (not React SPA) | Avoids second SPA; HTMX gives interactivity without API + React client |
+| Studio UI library | django-cotton + django-crispy-forms + django-tailwind | Declarative components, consistent form rendering, brand tokens |
+| Source promotion | HTTP API between Railway services (not shared DB) | Separate databases; Bearer token auth, idempotent |
+| Deterministic PRNG | djb2 hash + LCG (not Math.random()) | SSG builds must produce identical output across runs |
+| Notebook v4 architecture | Objects (typed + Components), Nodes (immutable events), explained Edges | Everything is an Object; changes are Nodes; edges carry `reason` field |
+| CommonPlace: scoped route group | Own layout.tsx, not sharing root DotGrid/TopNav/Footer | Different visual language (warm studio vs parchment site) |
+| CommonPlace: split pane system | Recursive binary tree (not fixed panels) | Arbitrary nesting; JSON-serializable; 4 presets |
+| CommonPlace: API anti-corruption layer | Mapping functions in `commonplace-api.ts` | Components unchanged; only data source changes from mock to live |
+| CommonPlace: NetworkView lifts graph fetch | Single fetch in parent, passes to children as props | Avoids three independent fetches for same data |
 
 ## Gotchas
 
-- **Canvas stacking context**: Body needs `isolation: isolate`, canvas needs `z-index: -1`, `background-color` on `html` (not body); otherwise body bg paints over canvas
+### Next.js / React
+- **Canvas stacking context**: Body needs `isolation: isolate`, canvas needs `z-index: -1`, `background-color` on `html` (not body)
 - **Canvas DPR scaling**: Multiply canvas dimensions by `devicePixelRatio`, use `ctx.scale(dpr, dpr)`, set CSS size to logical pixels
 - **Phosphor icons in Server Components**: Import from `@phosphor-icons/react/dist/ssr` (not default export)
 - **Route handlers need force-static**: `sitemap.ts` and `rss.xml/route.ts` require `export const dynamic = 'force-static'`
 - **Async params (Next.js 16)**: Dynamic route `params` is `Promise<{ slug: string }>`; must `await` it
-- **Vercel Output Directory**: Dashboard must have Output Directory blank/default. `dist` setting from old Astro config breaks Next.js builds
+- **Date serialization across RSC boundary**: Date objects can't cross Server/Client Component boundary; use `.toISOString()`
+- **OG image via `opengraph-image.tsx`**: Do NOT also set `metadata.openGraph.images` in `layout.tsx` or it will conflict
+- **Satori CSS limitations**: Only flexbox layout, no grid. Every element needs `display: 'flex'`
+- **Webpack `.next/` cache corruption**: After major file deletions or renames, fix with `rm -rf .next` and rebuild
+- **`NEXT_PUBLIC_*` env vars**: Inlined at build time, not runtime. Changing values requires Vercel redeploy. `NEXT_PUBLIC_STUDIO_URL` defaults to `http://localhost:8000`, `NEXT_PUBLIC_RESEARCH_API_URL` defaults to `http://localhost:8001`
+
+### Styling / Design System
 - **Font variable bridging**: `next/font` vars (e.g., `--font-vollkorn`) are distinct from Tailwind theme aliases (e.g., `--font-title`). Bridge in `global.css` `@theme inline`
-- **RoughBox needs `position: relative`** for absolute-positioned children like RoughPivotCallout to anchor correctly
-- **ScrollReveal + headless testing**: Elements start at `opacity: 0`; IntersectionObserver won't fire in headless browsers. Force visibility for visual testing
-- **Callout overlap**: Two callouts on the same side of a card will overlap if their total heights (canvas + text) exceed the vertical gap between them. Always stagger on opposite sides
-- **Zod schema backward compat**: When adding `callouts` array field, keep the existing singular `callout` field. Page component prefers array, falls back to singular
-- **ProjectColumns role slug with `&`**: `slugifyRole()` only strips whitespace, so `&` stays in slugs. If you ever add a URL-safe slugifier, the ROLE_CONFIG keys will break
-- **Date serialization across RSC boundary**: `projects/page.tsx` passes `.toISOString()` because Date objects can't cross the Server/Client Component boundary
-- **OG image via `opengraph-image.tsx`**: Next.js auto-injects `og:image` meta tag from this file. Do NOT also set `metadata.openGraph.images` in `layout.tsx` or it will conflict
-- **Satori (OG image) CSS limitations**: Only flexbox layout, no grid. Every element needs `display: 'flex'`. No `position: relative` on children without it
-- **PatternImage CSS color parsing**: Uses a temporary DOM element to resolve CSS custom properties (e.g., `var(--color-terracotta)`) to hex. Runs in useEffect so SSR returns empty canvas; hydration fills it
-- **ProgressTracker stage defaults**: EssayCard defaults missing `stage` to `'published'`; FieldNoteEntry only shows CompactTracker when `status` prop is present (graceful degradation for content without status field)
-- **MarginAnnotation paragraph counting**: `injectAnnotations()` counts `</p>` tags in rendered HTML. Paragraph indices in frontmatter are 1-based (paragraph 1 = first `</p>`). Headings (`<h2>`, `<h3>`) don't count as paragraphs
-- **DrawOnIcon imports ICON_PATHS from SketchIcon**: The `export` on `ICON_PATHS` is the only change to SketchIcon. If new icons are added to SketchIcon, DrawOnIcon picks them up automatically
-- **Focus trap in mobile menu**: Tab wraps between first and last focusable items inside `mobileMenuRef`. On Escape, focus returns to the hamburger button via `hamburgerRef`
-- **Reading time word count**: `estimateReadingTime()` splits on `/\s+/` which handles tabs, newlines, and multiple spaces in markdown. Always returns at least 1
-- **ConsoleEasterEgg dependency array**: All 5 props are in the `useEffect` dependency array. Since they're computed at build time (static), the effect runs exactly once per page load
-- **`pre code` word-break reset**: Inline `code` gets `word-break: break-word` but `pre code` resets to `normal` because code blocks should scroll horizontally, not wrap
-- **Absolute-positioned callout text needs explicit `width`**: `max-width` alone on absolute elements causes shrink-to-fit (one word per line). Both `RoughPivotCallout` and `RoughCallout` set `width: 450` on the outer wrapper div
-- **`overflow-hidden` clips absolute callouts**: Secondary essay cards had `overflow-hidden` on the `group` div which clipped `RoughCallout`. Only put `overflow-hidden` on image wrappers, not card-level containers that host absolute-positioned decorations
-- **Phase-aware overflow for hover labels**: DesignLanguageEasterEgg uses `overflow: isExpanded ? 'hidden' : 'visible'` so the SITE.MAP hover label can extend below the 72px seed wrapper in seed phase, while expanded panel content stays clipped
-- **rAF never fires in headless Playwright**: Preview tool's headless browser doesn't trigger `requestAnimationFrame`. To test rAF-driven animations, use React fiber manipulation (`hook.queue.dispatch()`) to force state, or test in a real browser
-- **CSS `ch` unit is font-relative in `::after`**: Margin annotation `::after` inherits `font-annotation` (Caveat), making `calc(65ch + ...)` resolve differently than `65ch` in the prose body font. Use `calc(100% + ...)` for font-agnostic positioning
-- **Webpack `.next/` cache corruption**: After major file deletions or renames, Next.js build may fail with `TypeError: Cannot read properties of null (reading 'hash')`. Fix: `rm -rf .next` and rebuild
-- **Preview tools can't test `(hover: hover)` features**: Headless Chrome returns `false` for `(hover: hover)` media query. Features gated behind `canHover` (e.g., reading guide line) must be verified via code review, not visual testing
-- **StudioShortcut `NEXT_PUBLIC_STUDIO_URL`**: Defaults to `http://localhost:8000`. Must be set in Vercel environment when Django Studio is deployed to Railway. The `NEXT_PUBLIC_` prefix means the value is inlined at build time, not runtime
-- **Django JSONField silent data loss**: If a JSONField is in `Meta.fields` but not rendered in the template, Django treats absent POST data as empty and resets the field on save. Every JSONField must have both an explicit widget in the form AND a rendering slot in the template
-- **ShelfEntry uses `annotation` not `body`**: The main content field for ShelfEntry is `annotation` (textarea in writing area), not `body` like other content types. The edit.html template falls back: `{% if form.body %}...{% elif form.annotation %}...{% endif %}`
-- **Django `.defer()` validates field existence at query time**: Unlike `.only()`, `.defer("field_that_doesnt_exist")` raises `FieldDoesNotExist` when the queryset is evaluated. When deferring fields across heterogeneous models (e.g., ShelfEntry has `annotation` not `body`), use per-model defer tuples instead of a shared skip list
-- **siteConfig.ts cache is process-scoped**: `_cached` lives in module scope. Works for SSG (single Node process builds all pages) but would need invalidation if ISR or runtime rendering is added
-- **site.json must be valid JSON or getSiteConfig() falls back silently**: Zod `.safeParse()` returns `DEFAULT_CONFIG` on any parse failure. Check server logs if config changes aren't appearing
-- **Composition field is `z.record(z.unknown()).optional()`**: Intentionally loose typing so Django can evolve composition schemas without requiring Next.js Zod changes. Consumers must validate the shape they expect
-- **ToolkitEntry has no date field**: Unlike other content types, toolkit entries use `category` + `order` for organization. The `_parse_toolkit` function defaults `stage` to `"published"` because existing content is already live
-- **`python3 -m pip` required on this machine**: `pip` alone is not found. Use `python3 -m pip install` for all package installs
-- **Two Django services share patterns**: `research_api` mirrors `publishing_api` structure (single `config/settings.py`, `railway.toml`, requirements split, GitHub publisher). When updating one, check if the other needs the same change
-- **research_api publishes to `src/data/research/`**: Five JSON files (sources.json, links.json, threads.json, backlinks.json) plus per-slug trail files, committed atomically via Git Trees API. Next.js site reads these at build time
-- **reCAPTCHA v3 tokens are single-use**: Google's `siteverify` consumes the token on first call; a second call returns `success: false, score: 0.0`. Never split verification and scoring into separate HTTP calls
-- **Content-type detection lives in `services.py`**: `detect_content_type(slug)` centralizes the essay-first/field_note-fallback heuristic. Used by trail API, backlinks API, and publisher
-- **Source promotion requires 3 env vars**: `INTERNAL_API_KEY` (same value on both services), `RESEARCH_API_URL` and `RESEARCH_API_KEY` on publishing_api. Without these, promotion silently returns `{"error": "Research API not configured"}` and triage still works (just without cross-service sync)
-- **httpx required in publishing_api**: The promotion service uses `httpx.post()` (not requests). Ensure `httpx` is in `requirements/base.txt`
-- **StampDot CSS custom properties**: `@keyframes scatter-out` uses `--scatter-x`, `--scatter-y`, `--scatter-opacity` set inline per element. Generic keyframe with unique per-dot endpoints
-- **ConnectionMap two-layer rendering**: Canvas (behind) for rough.js hand-drawn edges, SVG (front) for colored nodes and hover interactions. Canvas redraws on hover state change
-- **DesignLanguageEasterEgg replaces ArchitectureEasterEgg**: Same 5-phase state machine but renamed. Update layout.tsx import if reverting
-- **JetBrains Mono `--font-code` vs Courier Prime `--font-metadata`**: Code comments use `--font-code` (JetBrains Mono); section labels and metadata use `--font-metadata` (Courier Prime). Don't swap them
-- **VideoScene `unique_together` constraint**: `("project", "order")` means adding a scene must compute `max(order) + 1`. The `VideoSceneAddView` handles this, but manual shell creation must respect it
-- **HTMX CSRF outside `<form>`**: Video partials use standalone buttons (not inside a `<form>`). Wrap the partial in `<div hx-headers='{"X-CSRFToken": "{{ csrf_token }}"}'>`; without this, all HTMX POST requests get 403
-- **VideoProject inherits TimeStampedModel**: Required by DashboardView `.defer()` and AutoSaveView `hasattr` checks. Using bare `models.Model` breaks both
-- **spaCy model must be installed separately**: `python3 -m spacy download en_core_web_sm` after `pip install spacy`. The model is not a pip dependency; engine.py gracefully falls back to regex-only extraction if missing
-- **ResolvedEntity has two FKs to KnowledgeNode**: `source_node` and `resolved_node`. Admin inlines require `fk_name = 'source_node'` or Django raises admin.E202
-- **Connection engine pass order matters**: Pass 1 (entity extraction) must run before Pass 2 (shared entity edges) because Pass 2 queries ResolvedEntity records created by Pass 1
-- **Auto-objectification only creates PERSON and ORG nodes**: Other entity types (DATE, GPE, etc.) are stored as ResolvedEntity records but don't get auto-created KnowledgeNode records
-- **CommonPlace route group scoping**: The `(commonplace)` group has its own layout.tsx that does NOT render html/body (root layout handles that). It applies `commonplace-theme` class to scope all CSS custom properties. Do not add DotGrid, TopNav, or Footer here
-- **CommonPlace CSS tokens are scoped**: All `--cp-*` variables only exist inside `.commonplace-theme`. Using them outside the CommonPlace route group returns `undefined`. Use site `--color-*` tokens for the main site
-- **CommonPlace mock data is superseded**: `commonplace-mock-data.ts` is no longer imported by any component (all views now fetch from live API). The file still exists but should be deleted once confirmed no references remain. `groupNodesByDate()` moved to `commonplace-api.ts`
-- **SplitPaneContainer recursive rendering**: The pane tree can nest arbitrarily deep. Each split creates two children with their own DragHandle. Deep nesting (4+ levels) may cause layout overflow on small viewports. The layout presets cap at 2 levels
-- **CommonPlace layout presets are index-based**: `LAYOUT_PRESETS` in `commonplace-layout.ts` are accessed by array index. Reordering or removing presets will break saved layout references. Always append new presets at the end
-- **Notebook v4 model naming vs v2**: The models were renamed from v2 (NodeType, KnowledgeNode) to v4 (ObjectType, Object, Node). Some management commands still reference v2 names (e.g., `seed_node_types`). New commands use v4 names (e.g., `seed_object_types`)
-- **DragHandle pointer capture**: Split pane resize uses `setPointerCapture` on pointerdown so dragging works even when the cursor leaves the handle element. Missing pointer capture causes resize to "stick" when the cursor moves fast
-- **CommonPlace `NEXT_PUBLIC_RESEARCH_API_URL`**: Defaults to `http://localhost:8001`. Must be set in Vercel when research_api is deployed. The `NEXT_PUBLIC_` prefix means the value is inlined at build time, like `NEXT_PUBLIC_STUDIO_URL`
-- **KnowledgeMap mirrors ConnectionMap pattern**: Both use canvas (behind) for rough.js edges + SVG (front) for interactive nodes. Both run D3 force simulation synchronously with 300 iterations. Changes to one should be considered for the other
-- **Feed Node vs Object identity**: The `/feed/` API returns timeline Nodes (events), not Objects. Multiple Nodes can reference the same Object via `object_ref`. Use `node-${node.id}` (unique Node ID) as React key, not `String(node.object_ref)` (potentially duplicated Object ID). The `mapFeedNodeToMockNode()` function in `commonplace-api.ts` handles this
-- **`commonplace-api.ts` is the single source for all API calls**: All fetch calls to `/api/v1/notebook/` go through `apiFetch()` in this module. It handles auth headers, error wrapping (`ApiError` class), and `cache: 'no-store'`. Do not add raw fetch calls to components
-- **`useApiData` hook deps array**: The hook spreads `deps` into the useEffect dependency array alongside an internal `tick` counter (for refetch). ESLint exhaustive-deps rule is suppressed on this line. Passing unstable references (objects, arrays) as deps will cause infinite re-fetch loops
-- **HMR can mask duplicate key fixes**: After fixing React key sources, Turbopack HMR may still show stale duplicate key warnings from cached component trees. A full page reload (not just HMR) is needed to verify the fix actually works
+- **JetBrains Mono `--font-code` vs Courier Prime `--font-metadata`**: Code comments use `--font-code`; section labels and metadata use `--font-metadata`. Don't swap them
+- **RoughBox needs `position: relative`** for absolute-positioned children like RoughPivotCallout
+- **Absolute-positioned callout text needs explicit `width`**: `max-width` alone causes shrink-to-fit
+- **`overflow-hidden` clips absolute callouts**: Only put on image wrappers, not card containers hosting absolute decorations
+- **Two-layer graph rendering**: Canvas (behind) for rough.js edges + SVG (front) for interactive nodes. Both ConnectionMap and KnowledgeMap use this pattern; changes to one should be considered for the other
+- **MarginAnnotation paragraph counting**: `injectAnnotations()` counts `</p>` tags. Indices in frontmatter are 1-based. Headings don't count
+
+### Django / Backend
+- **Django JSONField silent data loss**: If a JSONField isn't rendered in template, Django resets it on save. Every JSONField needs both widget AND template rendering
+- **ShelfEntry uses `annotation` not `body`**: Template falls back: `{% if form.body %}...{% elif form.annotation %}...{% endif %}`
+- **Django `.defer()` validates field existence at query time**: Use per-model defer tuples for heterogeneous models
+- **HTMX CSRF outside `<form>`**: Wrap partial in `<div hx-headers='{"X-CSRFToken": "{{ csrf_token }}"}'>`
+- **Two Django services share patterns**: When updating `publishing_api` or `research_api`, check if the other needs the same change
+- **Source promotion requires 3 env vars**: `INTERNAL_API_KEY` (same on both), `RESEARCH_API_URL` and `RESEARCH_API_KEY` on publishing_api
+- **`python3 -m pip` required on this machine**: `pip` alone is not found
+- **spaCy model installed separately**: `python3 -m spacy download en_core_web_sm` after pip install
+
+### CommonPlace
+- **Route group scoping**: `(commonplace)` has its own layout.tsx, does NOT render html/body. Applies `commonplace-theme` class. Do not add DotGrid, TopNav, or Footer here
+- **CSS tokens are scoped**: `--cp-*` variables only exist inside `.commonplace-theme`. Use site `--color-*` tokens elsewhere
+- **Layout presets are index-based**: Reordering or removing presets in `commonplace-layout.ts` breaks saved references. Always append
+- **Feed Node vs Object identity**: Use `node-${node.id}` (Node ID) as React key, not `String(node.object_ref)` (Object ID, may duplicate)
+- **`commonplace-api.ts` is the single source for all API calls**: All fetches to `/api/v1/notebook/` go through `apiFetch()`. No raw fetch in components
+- **`useApiData` hook deps**: Passing unstable references (objects, arrays) as deps causes infinite re-fetch loops
+
+### Deployment
+- **Vercel Output Directory**: Must be blank/default. `dist` setting from old Astro config breaks Next.js builds
+- **research_api publishes to `src/data/research/`**: JSON files committed via Git Trees API. Next.js reads at build time
+- **reCAPTCHA v3 tokens are single-use**: Never split verification and scoring into separate HTTP calls
