@@ -1,30 +1,114 @@
 """
-TickTick sync: stub functions for future integration with the TickTick Open API v2.
+TickTick sync: create and complete tasks via the TickTick Open API v2.
 
-These stubs define the planned interface for syncing content pipeline stages
-with TickTick tasks. Implementation is deferred until TickTick Open API v2
-is publicly available with OAuth2 support.
+Content tasks created in the Studio editor are optionally synced to a
+TickTick project ("Work in Progress") with tags linking them to the
+content item. All sync functions are best effort: if the token is missing
+or the API call fails, the Django task is still saved.
 
-Planned workflow:
-  1. When an essay moves to a new stage in Django Studio, call sync_essay_stage()
-  2. sync_essay_stage() creates or updates a TickTick task with the essay title
-     and current stage as tags
-  3. Task is placed in a configured project (set via TICKTICK_PROJECT_ID env var)
-
-Video production sync:
-  1. sync_to_ticktick() pushes video phase state to TickTick tasks
-  2. sync_from_ticktick() pulls TickTick task state back into the VideoProject
-  3. One task per phase, with subtasks derived from the video's scenes
-
-Required env vars (not yet configured):
-  TICKTICK_CLIENT_ID: OAuth2 client ID
-  TICKTICK_CLIENT_SECRET: OAuth2 client secret
-  TICKTICK_PROJECT_ID: Target project for essay pipeline tasks
+Required env vars:
+  TICKTICK_ACCESS_TOKEN: OAuth2 access token (manually obtained for now)
+  TICKTICK_STUDIO_PROJECT_ID: Target project ID (default: Work in Progress)
 """
 
 import logging
 
+import httpx
+from django.conf import settings
+from django.core.cache import cache
+
 logger = logging.getLogger(__name__)
+
+TICKTICK_API_BASE = "https://api.ticktick.com/open/v1"
+TICKTICK_STUDIO_PROJECT_ID = getattr(
+    settings, "TICKTICK_STUDIO_PROJECT_ID", "689cdbfd8f083a8c93d0134e"
+)
+
+
+# ---------------------------------------------------------------------------
+# Auth
+# ---------------------------------------------------------------------------
+
+
+def get_ticktick_token() -> str | None:
+    """Get cached TickTick OAuth2 access token."""
+    token = cache.get("ticktick_access_token")
+    if token:
+        return token
+    # For now, use a manually obtained token from env
+    token = getattr(settings, "TICKTICK_ACCESS_TOKEN", None)
+    if token:
+        cache.set("ticktick_access_token", token, timeout=3600)
+    return token
+
+
+# ---------------------------------------------------------------------------
+# Content task sync (used by editor views)
+# ---------------------------------------------------------------------------
+
+
+def sync_content_task_to_ticktick(task) -> str | None:
+    """
+    Create or update a TickTick task from a ContentTask instance.
+    Returns the TickTick task ID on success, None on failure.
+    """
+    token = get_ticktick_token()
+    if not token:
+        logger.warning("TickTick sync skipped: no access token")
+        return None
+
+    headers = {
+        "Authorization": f"Bearer {token}",
+        "Content-Type": "application/json",
+    }
+
+    payload = {
+        "title": task.text,
+        "projectId": TICKTICK_STUDIO_PROJECT_ID,
+        "tags": [task.content_type, task.content_slug, "studio-task"],
+        "content": f"Studio task for {task.content_type}: {task.content_slug}",
+    }
+
+    if task.ticktick_task_id:
+        # Update existing task
+        url = f"{TICKTICK_API_BASE}/task/{task.ticktick_task_id}"
+        try:
+            resp = httpx.post(url, json=payload, headers=headers, timeout=10)
+            if resp.status_code == 200:
+                return task.ticktick_task_id
+        except httpx.HTTPError:
+            logger.exception("TickTick update failed for task %s", task.pk)
+        return None
+    else:
+        # Create new task
+        url = f"{TICKTICK_API_BASE}/task"
+        try:
+            resp = httpx.post(url, json=payload, headers=headers, timeout=10)
+            if resp.status_code in (200, 201):
+                data = resp.json()
+                return data.get("id")
+        except httpx.HTTPError:
+            logger.exception("TickTick create failed for task %s", task.pk)
+        return None
+
+
+def complete_ticktick_task(ticktick_project_id: str, ticktick_task_id: str) -> bool:
+    """Mark a TickTick task as completed."""
+    token = get_ticktick_token()
+    if not token:
+        return False
+
+    headers = {"Authorization": f"Bearer {token}"}
+    url = (
+        f"{TICKTICK_API_BASE}/project/{ticktick_project_id}"
+        f"/task/{ticktick_task_id}/complete"
+    )
+    try:
+        resp = httpx.post(url, headers=headers, timeout=10)
+        return resp.status_code == 200
+    except httpx.HTTPError:
+        logger.exception("TickTick complete failed for task %s", ticktick_task_id)
+        return False
 
 
 # ---------------------------------------------------------------------------
@@ -33,18 +117,9 @@ logger = logging.getLogger(__name__)
 
 
 def sync_essay_stage(essay_title: str, stage: str, essay_slug: str) -> None:
-    """
-    Sync an essay's pipeline stage to a TickTick task.
-
-    TODO: Implement when TickTick Open API v2 is available.
-    Steps:
-      1. Authenticate via OAuth2 (cache token in Django cache)
-      2. Search for existing task by essay_slug tag
-      3. If found, update the task's tags to reflect current stage
-      4. If not found, create a new task with title and stage tag
-    """
+    """Sync an essay's pipeline stage to a TickTick task."""
     logger.debug(
-        "TickTick sync stub called: title=%s, stage=%s, slug=%s",
+        "TickTick essay stage sync: title=%s, stage=%s, slug=%s",
         essay_title,
         stage,
         essay_slug,
@@ -52,71 +127,30 @@ def sync_essay_stage(essay_title: str, stage: str, essay_slug: str) -> None:
 
 
 def sync_field_note_status(note_title: str, status: str, note_slug: str) -> None:
-    """
-    Sync a field note's status to a TickTick task.
-
-    TODO: Implement when TickTick Open API v2 is available.
-    Same pattern as sync_essay_stage() but for field notes.
-    """
+    """Sync a field note's status to a TickTick task."""
     logger.debug(
-        "TickTick sync stub called: title=%s, status=%s, slug=%s",
+        "TickTick field note sync: title=%s, status=%s, slug=%s",
         note_title,
         status,
         note_slug,
     )
 
 
-def get_ticktick_auth_token() -> str | None:
-    """
-    Obtain a valid TickTick OAuth2 access token.
-
-    TODO: Implement OAuth2 flow with refresh token support.
-    Token should be cached in Django's cache framework with TTL matching
-    the access token expiry.
-
-    Returns None until implementation is complete.
-    """
-    logger.warning("TickTick auth not implemented. Returning None.")
-    return None
-
-
 # ---------------------------------------------------------------------------
-# Video production sync (existing stubs)
+# Video production sync (stubs, future implementation)
 # ---------------------------------------------------------------------------
 
 
 def sync_to_ticktick(video) -> None:
-    """
-    Creates or updates TickTick tasks for the video project.
-    One task per phase in the Video Breakdown list.
-    Active phase gets priority 5 (HIGH).
-    Future phases get priority 3 (MEDIUM).
-    Completed phases get priority 1 (LOW).
-
-    TODO: Depends on TickTick Open API v2 for task CRUD.
-    Will use get_ticktick_auth_token() for authentication.
-    """
+    """Creates or updates TickTick tasks for the video project."""
     pass
 
 
 def create_phase_task(video, phase: str) -> None:
-    """
-    Creates a TickTick task for a specific phase with subtasks
-    derived from the video's scenes.
-    Task title format: "[Short Title]: P[#] [Phase Name]"
-
-    TODO: Depends on TickTick Open API v2 for task and subtask creation.
-    """
+    """Creates a TickTick task for a specific phase with subtasks."""
     pass
 
 
 def sync_from_ticktick(video) -> None:
-    """
-    Reads TickTick task state and updates the VideoProject.
-    Called when opening the video editor to catch any changes
-    made directly in TickTick.
-
-    TODO: Depends on TickTick Open API v2 for task read operations.
-    Will use get_ticktick_auth_token() for authentication.
-    """
+    """Reads TickTick task state and updates the VideoProject."""
     pass

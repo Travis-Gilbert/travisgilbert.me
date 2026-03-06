@@ -11,7 +11,7 @@
  */
 
 import { CONTENT_TYPES, STAGES } from '@/lib/studio';
-import type { WikiSuggestionItem } from '@/components/studio/extensions/WikiLinkSuggestion';
+
 import type {
   StudioContentItem,
   StudioTimelineEntry,
@@ -791,98 +791,8 @@ function formatDateLabel(dateKey: string): string {
 }
 
 /* ─────────────────────────────────────────────────
-   Wiki-link mock entries (Commonplace suggestions)
+   Thread entry color map (used by WorkbenchPanel)
    ───────────────────────────────────────────────── */
-
-export function getMockCommonplaceEntries(): WikiSuggestionItem[] {
-  return [
-    {
-      id: 'c1',
-      title: 'Cities as ecosystems',
-      source: 'Jane Jacobs',
-      text: 'The district and its internal order is not equivalent to a factory...',
-    },
-    {
-      id: 'c2',
-      title: 'Walking as design test',
-      source: 'Jeff Speck',
-      text: 'If the walk is interesting enough, people will walk further than you think.',
-    },
-    {
-      id: 'c3',
-      title: 'Markets as democracy',
-      source: 'Field Notes',
-      text: 'Every Saturday morning, Eastern Market becomes the most democratic space in Detroit.',
-    },
-    {
-      id: 'c4',
-      title: 'Zoning as social control',
-      source: 'Richard Rothstein',
-      text: 'Exclusionary zoning was the most powerful instrument of racial segregation.',
-    },
-    {
-      id: 'c5',
-      title: 'Third places',
-      source: 'Ray Oldenburg',
-      text: 'Third places exist on neutral ground and serve to level their guests.',
-    },
-    {
-      id: 'c6',
-      title: 'Induced demand paradox',
-      source: 'Anthony Downs',
-      text: 'On urban commuter expressways, peak hour traffic congestion rises to meet maximum capacity.',
-    },
-  ];
-}
-
-/* ─────────────────────────────────────────────────
-   Research panel mock data (Batch 3)
-   ───────────────────────────────────────────────── */
-
-export interface MockSource {
-  id: string;
-  typeAbbr: string;
-  title: string;
-  creator: string;
-  role: 'primary' | 'background' | 'data' | 'inspiration';
-  color: string;
-}
-
-export interface MockBacklink {
-  id: string;
-  contentType: string;
-  title: string;
-  sharedSourceCount: number;
-  color: string;
-}
-
-export interface MockThreadEntry {
-  id: string;
-  type: 'source' | 'note' | 'milestone' | 'question';
-  text: string;
-  date: string;
-}
-
-export interface MockThread {
-  title: string;
-  status: 'active' | 'paused' | 'completed';
-  entries: MockThreadEntry[];
-}
-
-const ROLE_COLORS: Record<string, string> = {
-  primary: '#B45A2D',
-  background: 'var(--studio-text-3)',
-  data: '#3A8A9A',
-  inspiration: '#D4AA4A',
-};
-
-const TYPE_COLORS: Record<string, string> = {
-  essay: '#B45A2D',
-  'field-note': '#3A8A9A',
-  shelf: '#D4AA4A',
-  video: '#5A7A4A',
-  project: '#C49A4A',
-};
 
 const THREAD_ENTRY_COLORS: Record<string, string> = {
   source: '#3A8A9A',
@@ -891,108 +801,4 @@ const THREAD_ENTRY_COLORS: Record<string, string> = {
   question: '#B45A2D',
 };
 
-export function getMockSourcesForContent(_slug: string): MockSource[] {
-  return [
-    {
-      id: 's1',
-      typeAbbr: 'BK',
-      title: 'The Death and Life of Great American Cities',
-      creator: 'Jane Jacobs',
-      role: 'primary',
-      color: ROLE_COLORS.primary,
-    },
-    {
-      id: 's2',
-      typeAbbr: 'AR',
-      title: 'Sidewalk Ballet and the Supervision of Space',
-      creator: 'Jacobs (1961)',
-      role: 'primary',
-      color: ROLE_COLORS.primary,
-    },
-    {
-      id: 's3',
-      typeAbbr: 'DS',
-      title: 'Walk Score Index Data (2024)',
-      creator: 'Walk Score',
-      role: 'data',
-      color: ROLE_COLORS.data,
-    },
-    {
-      id: 's4',
-      typeAbbr: 'BK',
-      title: 'Walkable City Rules',
-      creator: 'Jeff Speck',
-      role: 'background',
-      color: ROLE_COLORS.background,
-    },
-    {
-      id: 's5',
-      typeAbbr: 'RP',
-      title: 'The Economic Case for Walkability',
-      creator: 'Leinberger & Lynch',
-      role: 'inspiration',
-      color: ROLE_COLORS.inspiration,
-    },
-  ];
-}
-
-export function getMockBacklinksForContent(_slug: string): MockBacklink[] {
-  return [
-    {
-      id: 'bl1',
-      contentType: 'essay',
-      title: 'Why Streets Should Be for People',
-      sharedSourceCount: 3,
-      color: TYPE_COLORS.essay,
-    },
-    {
-      id: 'bl2',
-      contentType: 'field-note',
-      title: 'Walking Observation: Market Square',
-      sharedSourceCount: 2,
-      color: TYPE_COLORS['field-note'],
-    },
-    {
-      id: 'bl3',
-      contentType: 'essay',
-      title: 'The Induced Demand Paradox',
-      sharedSourceCount: 1,
-      color: TYPE_COLORS.essay,
-    },
-  ];
-}
-
-export function getMockThreadForContent(_slug: string): MockThread {
-  return {
-    title: 'Walkability and Urban Design',
-    status: 'active',
-    entries: [
-      {
-        id: 'te1',
-        type: 'source',
-        text: 'Added "Death and Life of Great American Cities" as primary source',
-        date: '2 days ago',
-      },
-      {
-        id: 'te2',
-        type: 'note',
-        text: 'Jacobs\' "eyes on the street" concept connects to surveillance literature',
-        date: '2 days ago',
-      },
-      {
-        id: 'te3',
-        type: 'milestone',
-        text: 'Draft outline complete with 4 sections',
-        date: 'Yesterday',
-      },
-      {
-        id: 'te4',
-        type: 'question',
-        text: 'How does walkability intersect with gentrification displacement?',
-        date: 'Today',
-      },
-    ],
-  };
-}
-
-export { ROLE_COLORS, TYPE_COLORS, THREAD_ENTRY_COLORS };
+export { THREAD_ENTRY_COLORS };

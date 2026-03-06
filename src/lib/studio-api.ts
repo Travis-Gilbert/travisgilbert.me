@@ -369,6 +369,455 @@ export async function fetchDashboardStats(): Promise<StudioDashboardStats> {
   };
 }
 
+/* ─────────────────────────────────────────────────
+   Research API (separate service)
+   ───────────────────────────────────────────────── */
+
+const RESEARCH_API_BASE =
+  process.env.NEXT_PUBLIC_RESEARCH_API_URL ?? 'http://localhost:8001';
+
+export interface ResearchTrailSource {
+  id: number;
+  title: string;
+  slug: string;
+  creator: string;
+  sourceType: string;
+  url: string;
+  publication: string;
+  publicAnnotation: string;
+  role: string;
+  keyQuote: string;
+}
+
+export interface ResearchTrailBacklink {
+  contentType: string;
+  contentSlug: string;
+  contentTitle: string;
+  sharedSources: Array<{ sourceId: number; sourceTitle: string }>;
+}
+
+export interface ResearchTrailThreadEntry {
+  entryType: string;
+  date: string;
+  title: string;
+  description: string;
+  sourceTitle: string;
+}
+
+export interface ResearchTrailThread {
+  title: string;
+  slug: string;
+  description: string;
+  status: string;
+  startedDate: string | null;
+  entries: ResearchTrailThreadEntry[];
+}
+
+export interface ResearchTrail {
+  slug: string;
+  contentType: string;
+  sources: ResearchTrailSource[];
+  backlinks: ResearchTrailBacklink[];
+  thread: ResearchTrailThread | null;
+  mentions: Array<{
+    sourceUrl: string;
+    sourceTitle: string;
+    sourceExcerpt: string;
+    mentionType: string;
+    createdAt: string;
+  }>;
+}
+
+export async function fetchResearchTrail(slug: string): Promise<ResearchTrail | null> {
+  try {
+    const res = await fetch(`${RESEARCH_API_BASE}/api/v1/trail/${slug}/`, {
+      credentials: 'omit',
+      cache: 'no-store',
+    });
+    if (!res.ok) return null;
+    return await res.json();
+  } catch {
+    return null;
+  }
+}
+
+/* ─────────────────────────────────────────────────
+   Connections graph
+   ───────────────────────────────────────────────── */
+
+/* ─────────────────────────────────────────────────
+   Video production types and API functions
+   ───────────────────────────────────────────────── */
+
+export interface VideoProjectScene {
+  id: number;
+  order: number;
+  title: string;
+  sceneType: string;
+  scriptText: string;
+  wordCount: number;
+  estimatedSeconds: number;
+  scriptLocked: boolean;
+  voRecorded: boolean;
+  filmed: boolean;
+  assembled: boolean;
+  polished: boolean;
+  notes: string;
+}
+
+export interface VideoProjectDeliverable {
+  id: number;
+  phase: string;
+  deliverableType: string;
+  filePath: string;
+  fileUrl: string;
+  notes: string;
+  approved: boolean;
+  createdAt: string;
+}
+
+export interface VideoProjectSession {
+  id: number;
+  phase: string;
+  startedAt: string;
+  endedAt: string | null;
+  durationMinutes: number;
+  summary: string;
+  subtasksCompleted: string[];
+  nextAction: string;
+  nextTool: string;
+}
+
+export interface VideoProject {
+  slug: string;
+  title: string;
+  shortTitle: string;
+  phase: string;
+  phaseDisplay: string;
+  phaseLockedThrough: string;
+  thesis: string;
+  sources: Array<{ title: string; url: string; type: string; role: string }>;
+  researchNotes: string;
+  scriptBody: string;
+  scenes: VideoProjectScene[];
+  deliverables: VideoProjectDeliverable[];
+  sessions: VideoProjectSession[];
+  linkedEssays: Array<{ slug: string; title: string }>;
+  linkedFieldNotes: Array<{ slug: string; title: string }>;
+  youtubeTitle: string;
+  youtubeDescription: string;
+  youtubeChapters: Array<{ timecode: string; label: string }>;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface VideoNextAction {
+  video: string;
+  phase: string;
+  phaseName: string;
+  progress: string;
+  nextAction: string;
+  nextTool: string;
+  estimatedMinutes: number;
+  doneWhen: string;
+  context: string[];
+}
+
+export async function fetchVideoProjects(): Promise<VideoProject[]> {
+  const data = await studioFetch<{ results: any[] }>('/api/videos/');
+  return (data.results ?? []).map(mapVideoProject);
+}
+
+export async function fetchVideoProject(slug: string): Promise<VideoProject | null> {
+  try {
+    const data = await studioFetch<any>(`/api/videos/${slug}/`);
+    return mapVideoProject(data);
+  } catch {
+    return null;
+  }
+}
+
+export async function fetchVideoNextAction(slug: string): Promise<VideoNextAction | null> {
+  try {
+    return await studioFetch<VideoNextAction>(`/api/videos/${slug}/next-action/`);
+  } catch {
+    return null;
+  }
+}
+
+export async function advanceVideoPhase(slug: string, force?: boolean): Promise<{ success: boolean; newPhase: string }> {
+  return studioFetch(`/api/videos/${slug}/advance/`, {
+    method: 'POST',
+    body: JSON.stringify({ force: force ?? false }),
+  });
+}
+
+export async function logVideoSession(
+  slug: string,
+  payload: {
+    phase: string;
+    started_at: string;
+    ended_at?: string;
+    summary: string;
+    subtasks_completed?: string[];
+    next_action?: string;
+    next_tool?: string;
+  },
+): Promise<{ success: boolean; session: VideoProjectSession }> {
+  return studioFetch(`/api/videos/${slug}/log-session/`, {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  });
+}
+
+function mapVideoProject(data: any): VideoProject {
+  return {
+    slug: data.slug,
+    title: data.title,
+    shortTitle: data.short_title ?? data.shortTitle ?? '',
+    phase: data.phase ?? data.current_phase ?? '',
+    phaseDisplay: data.phase_display ?? data.phaseDisplay ?? '',
+    phaseLockedThrough: data.phase_locked_through ?? '',
+    thesis: data.thesis ?? '',
+    sources: data.sources ?? [],
+    researchNotes: data.research_notes ?? '',
+    scriptBody: data.script_body ?? '',
+    scenes: (data.scenes ?? []).map((s: any) => ({
+      id: s.id,
+      order: s.order,
+      title: s.title,
+      sceneType: s.scene_type ?? s.sceneType ?? 'vo',
+      scriptText: s.script_text ?? s.scriptText ?? '',
+      wordCount: s.word_count ?? s.wordCount ?? 0,
+      estimatedSeconds: s.estimated_seconds ?? s.estimatedSeconds ?? 0,
+      scriptLocked: s.script_locked ?? s.scriptLocked ?? false,
+      voRecorded: s.vo_recorded ?? s.voRecorded ?? false,
+      filmed: s.filmed ?? false,
+      assembled: s.assembled ?? false,
+      polished: s.polished ?? false,
+      notes: s.notes ?? '',
+    })),
+    deliverables: (data.deliverables ?? []).map((d: any) => ({
+      id: d.id,
+      phase: d.phase,
+      deliverableType: d.deliverable_type ?? d.deliverableType ?? '',
+      filePath: d.file_path ?? d.filePath ?? '',
+      fileUrl: d.file_url ?? d.fileUrl ?? '',
+      notes: d.notes ?? '',
+      approved: d.approved ?? false,
+      createdAt: d.created_at ?? d.createdAt ?? '',
+    })),
+    sessions: (data.sessions ?? []).map((s: any) => ({
+      id: s.id,
+      phase: s.phase,
+      startedAt: s.started_at ?? s.startedAt ?? '',
+      endedAt: s.ended_at ?? s.endedAt ?? null,
+      durationMinutes: s.duration_minutes ?? s.durationMinutes ?? 0,
+      summary: s.summary ?? '',
+      subtasksCompleted: s.subtasks_completed ?? s.subtasksCompleted ?? [],
+      nextAction: s.next_action ?? s.nextAction ?? '',
+      nextTool: s.next_tool ?? s.nextTool ?? '',
+    })),
+    linkedEssays: data.linked_essays ?? data.linkedEssays ?? [],
+    linkedFieldNotes: data.linked_field_notes ?? data.linkedFieldNotes ?? [],
+    youtubeTitle: data.youtube_title ?? data.youtubeTitle ?? '',
+    youtubeDescription: data.youtube_description ?? data.youtubeDescription ?? '',
+    youtubeChapters: data.youtube_chapters ?? data.youtubeChapters ?? [],
+    createdAt: data.created_at ?? data.createdAt ?? '',
+    updatedAt: data.updated_at ?? data.updatedAt ?? '',
+  };
+}
+
+/* ─────────────────────────────────────────────────
+   Commonplace search
+   ───────────────────────────────────────────────── */
+
+export interface CommonplaceSearchResult {
+  id: string;
+  title: string;
+  source: string;
+  text: string;
+  contentType: string;
+}
+
+export async function searchCommonplace(
+  query: string,
+): Promise<CommonplaceSearchResult[]> {
+  if (!query.trim()) return [];
+  try {
+    const data = await studioFetch<{ results: CommonplaceSearchResult[] }>(
+      `/commonplace/search/?q=${encodeURIComponent(query)}`,
+    );
+    return data.results ?? [];
+  } catch {
+    return [];
+  }
+}
+
+/* ─────────────────────────────────────────────────
+   Stash
+   ───────────────────────────────────────────────── */
+
+export interface ApiStashItem {
+  id: number;
+  text: string;
+  created_at: string;
+  sort_order: number;
+}
+
+export async function fetchStash(
+  contentType: string,
+  slug: string,
+): Promise<ApiStashItem[]> {
+  try {
+    const data = await studioFetch<{ items: ApiStashItem[] }>(
+      `/content/${contentType}/${slug}/stash/`,
+    );
+    return data.items ?? [];
+  } catch {
+    return [];
+  }
+}
+
+export async function createStashItem(
+  contentType: string,
+  slug: string,
+  text: string,
+): Promise<ApiStashItem | null> {
+  try {
+    return await studioFetch<ApiStashItem>(
+      `/content/${contentType}/${slug}/stash/`,
+      { method: 'POST', body: JSON.stringify({ text }) },
+    );
+  } catch {
+    return null;
+  }
+}
+
+export async function deleteStashItem(
+  contentType: string,
+  slug: string,
+  id: number,
+): Promise<boolean> {
+  try {
+    await studioFetch(`/content/${contentType}/${slug}/stash/${id}/delete/`, {
+      method: 'POST',
+    });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/* ─────────────────────────────────────────────────
+   Tasks
+   ───────────────────────────────────────────────── */
+
+export interface ApiContentTask {
+  id: number;
+  text: string;
+  done: boolean;
+  done_at: string | null;
+  created_at: string;
+  ticktick_task_id: string;
+  ticktick_project_id: string;
+}
+
+export async function fetchTasks(
+  contentType: string,
+  slug: string,
+): Promise<ApiContentTask[]> {
+  try {
+    const data = await studioFetch<{ tasks: ApiContentTask[] }>(
+      `/content/${contentType}/${slug}/tasks/`,
+    );
+    return data.tasks ?? [];
+  } catch {
+    return [];
+  }
+}
+
+export async function createTask(
+  contentType: string,
+  slug: string,
+  text: string,
+): Promise<ApiContentTask | null> {
+  try {
+    return await studioFetch<ApiContentTask>(
+      `/content/${contentType}/${slug}/tasks/`,
+      { method: 'POST', body: JSON.stringify({ text }) },
+    );
+  } catch {
+    return null;
+  }
+}
+
+export async function updateTask(
+  contentType: string,
+  slug: string,
+  id: number,
+  payload: { done?: boolean; text?: string },
+): Promise<ApiContentTask | null> {
+  try {
+    return await studioFetch<ApiContentTask>(
+      `/content/${contentType}/${slug}/tasks/${id}/update/`,
+      { method: 'POST', body: JSON.stringify(payload) },
+    );
+  } catch {
+    return null;
+  }
+}
+
+export async function deleteTask(
+  contentType: string,
+  slug: string,
+  id: number,
+): Promise<boolean> {
+  try {
+    await studioFetch(`/content/${contentType}/${slug}/tasks/${id}/delete/`, {
+      method: 'POST',
+    });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/* ─────────────────────────────────────────────────
+   All tasks (aggregate view)
+   ───────────────────────────────────────────────── */
+
+export interface TaskGroupItem {
+  id: number;
+  text: string;
+  done: boolean;
+  created_at: string;
+}
+
+export interface TaskGroup {
+  content_type: string;
+  content_slug: string;
+  tasks: TaskGroupItem[];
+}
+
+export async function fetchAllTasks(
+  includeDone = false,
+): Promise<TaskGroup[]> {
+  try {
+    const qs = includeDone ? '?include_done=true' : '';
+    const data = await studioFetch<{ groups: TaskGroup[] }>(
+      `/tasks/all/${qs}`,
+    );
+    return data.groups;
+  } catch {
+    return [];
+  }
+}
+
+/* ─────────────────────────────────────────────────
+   Connections graph
+   ───────────────────────────────────────────────── */
+
 export async function fetchConnectionsGraph(params?: {
   limit?: number;
   maxEdges?: number;

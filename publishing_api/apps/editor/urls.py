@@ -186,4 +186,42 @@ urlpatterns = [
     path("editor/api/timeline/", views.StudioApiTimelineView.as_view(), name="api-timeline"),
     path("editor/api/settings/", views.StudioApiSettingsView.as_view(), name="api-settings"),
     path("editor/api/connections/", views.StudioApiConnectionsView.as_view(), name="api-connections"),
+    path(
+        "editor/api/commonplace/search/",
+        views.StudioApiCommonplaceSearchView.as_view(),
+        name="api-commonplace-search",
+    ),
+    # Stash
+    path(
+        "editor/api/content/<str:content_type>/<slug:slug>/stash/",
+        views.StudioApiStashListView.as_view(),
+        name="api-stash-list",
+    ),
+    path(
+        "editor/api/content/<str:content_type>/<slug:slug>/stash/<int:pk>/delete/",
+        views.StudioApiStashDeleteView.as_view(),
+        name="api-stash-delete",
+    ),
+    # Tasks
+    path(
+        "editor/api/content/<str:content_type>/<slug:slug>/tasks/",
+        views.StudioApiTaskListView.as_view(),
+        name="api-task-list",
+    ),
+    path(
+        "editor/api/content/<str:content_type>/<slug:slug>/tasks/<int:pk>/update/",
+        views.StudioApiTaskUpdateView.as_view(),
+        name="api-task-update",
+    ),
+    path(
+        "editor/api/content/<str:content_type>/<slug:slug>/tasks/<int:pk>/delete/",
+        views.StudioApiTaskDeleteView.as_view(),
+        name="api-task-delete",
+    ),
+    # All tasks (aggregate view)
+    path(
+        "editor/api/tasks/all/",
+        views.StudioApiAllTasksView.as_view(),
+        name="api-all-tasks",
+    ),
 ]

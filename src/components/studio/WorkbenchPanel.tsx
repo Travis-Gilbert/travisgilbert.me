@@ -21,12 +21,17 @@ import {
   getMockStudioPulse,
   getMockWorkbenchData,
   computeItemMetrics,
-  getMockCommonplaceEntries,
-  getMockSourcesForContent,
-  getMockBacklinksForContent,
-  getMockThreadForContent,
   THREAD_ENTRY_COLORS,
 } from '@/lib/studio-mock-data';
+import {
+  fetchResearchTrail,
+  searchCommonplace,
+  fetchAllTasks,
+  updateTask,
+  type ResearchTrail,
+  type CommonplaceSearchResult,
+  type TaskGroup,
+} from '@/lib/studio-api';
 import { useStudioWorkbench } from './WorkbenchContext';
 import NewContentModal from './NewContentModal';
 
@@ -402,6 +407,35 @@ const CAPTURE_TYPES = [
 
 function DashboardWorkbench() {
   const [modalType, setModalType] = useState<string | null>(null);
+  const [taskGroups, setTaskGroups] = useState<TaskGroup[]>([]);
+
+  useEffect(() => {
+    let cancelled = false;
+    fetchAllTasks().then((groups) => {
+      if (!cancelled) setTaskGroups(groups);
+    });
+    return () => { cancelled = true; };
+  }, []);
+
+  const handleDashboardToggleTask = useCallback(
+    (contentType: string, contentSlug: string, taskId: number, done: boolean) => {
+      setTaskGroups((prev) =>
+        prev
+          .map((g) => {
+            if (g.content_type !== contentType || g.content_slug !== contentSlug) return g;
+            return {
+              ...g,
+              tasks: g.tasks.map((t) =>
+                t.id === taskId ? { ...t, done } : t,
+              ),
+            };
+          })
+          .filter((g) => g.tasks.some((t) => !t.done)),
+      );
+      updateTask(contentType, contentSlug, taskId, { done });
+    },
+    [],
+  );
 
   const pulse = useMemo(() => getMockStudioPulse(), []);
   const workbench = useMemo(() => getMockWorkbenchData(), []);
@@ -572,6 +606,83 @@ function DashboardWorkbench() {
         </div>
       </div>
 
+      {taskGroups.length > 0 && (
+        <div style={{ marginBottom: '22px' }}>
+          <ToolboxLabel>
+            Open Tasks{' '}
+            <span style={{ fontWeight: 400, color: 'var(--studio-text-3)' }}>
+              ({taskGroups.reduce((n, g) => n + g.tasks.filter((t) => !t.done).length, 0)})
+            </span>
+          </ToolboxLabel>
+
+          <div style={{ marginTop: '8px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+            {taskGroups.map((group) => {
+              const type = getContentTypeIdentity(group.content_type);
+              return (
+                <div key={`${group.content_type}:${group.content_slug}`}>
+                  <Link
+                    href={`/studio/${type.route}/${group.content_slug}`}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '6px',
+                      textDecoration: 'none',
+                      color: 'var(--studio-text-2)',
+                      fontFamily: 'var(--studio-font-title)',
+                      fontSize: '12px',
+                      marginBottom: '4px',
+                    }}
+                  >
+                    <span
+                      style={{
+                        width: '6px',
+                        height: '6px',
+                        borderRadius: '50%',
+                        backgroundColor: type.color,
+                        flexShrink: 0,
+                      }}
+                    />
+                    {group.content_slug}
+                  </Link>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', paddingLeft: '12px' }}>
+                    {group.tasks.filter((t) => !t.done).map((task) => (
+                      <label
+                        key={task.id}
+                        style={{
+                          display: 'flex',
+                          alignItems: 'flex-start',
+                          gap: '6px',
+                          cursor: 'pointer',
+                          fontSize: '12px',
+                          fontFamily: 'var(--studio-font-body)',
+                          color: 'var(--studio-tc)',
+                          lineHeight: '1.4',
+                        }}
+                      >
+                        <input
+                          type="checkbox"
+                          checked={task.done}
+                          onChange={() =>
+                            handleDashboardToggleTask(
+                              group.content_type,
+                              group.content_slug,
+                              task.id,
+                              !task.done,
+                            )
+                          }
+                          style={{ marginTop: '2px', flexShrink: 0 }}
+                        />
+                        {task.text}
+                      </label>
+                    ))}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
       <div style={{ marginBottom: '22px' }}>
         <ToolboxLabel>Quiet / Stuck</ToolboxLabel>
 
@@ -729,6 +840,25 @@ function StatTile({
 
 /* ── Research mode ───────────────────────────── */
 
+/* Source type abbreviation mapping */
+const SOURCE_TYPE_ABBR: Record<string, string> = {
+  book: 'BK',
+  article: 'AR',
+  dataset: 'DS',
+  report: 'RP',
+  website: 'WB',
+  video: 'VD',
+  podcast: 'PD',
+  paper: 'PP',
+};
+
+const ROLE_COLORS: Record<string, string> = {
+  primary: '#B45A2D',
+  background: 'var(--studio-text-3)',
+  data: '#3A8A9A',
+  inspiration: '#D4AA4A',
+};
+
 function ResearchMode({
   editor,
   contentItem,
@@ -737,10 +867,21 @@ function ResearchMode({
   contentItem: StudioContentItem | null;
 }) {
   const slug = contentItem?.slug ?? 'untitled';
-  const sources = useMemo(() => getMockSourcesForContent(slug), [slug]);
-  const backlinks = useMemo(() => getMockBacklinksForContent(slug), [slug]);
-  const thread = useMemo(() => getMockThreadForContent(slug), [slug]);
-  const commonplaceEntries = useMemo(() => getMockCommonplaceEntries(), []);
+
+  /* Fetch live research trail */
+  const [trail, setTrail] = useState<ResearchTrail | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    let cancelled = false;
+    setLoading(true);
+    fetchResearchTrail(slug).then((data) => {
+      if (cancelled) return;
+      setTrail(data);
+      setLoading(false);
+    });
+    return () => { cancelled = true; };
+  }, [slug]);
 
   /* Track editor text so wiki-link extraction re-runs on content changes */
   const [editorText, setEditorText] = useState('');
@@ -759,16 +900,85 @@ function ResearchMode({
     return [...new Set(titles)];
   }, [editorText]);
 
-  const resolvedLinks = useMemo(() => {
-    return wikiTitles.map((title) => {
-      const entry = commonplaceEntries.find(
-        (e) => e.title.toLowerCase() === title.toLowerCase(),
-      );
-      return { title, entry: entry ?? null };
-    });
-  }, [wikiTitles, commonplaceEntries]);
+  /* Resolve wiki-link titles against live Commonplace search API */
+  const [resolvedLinks, setResolvedLinks] = useState<
+    { title: string; entry: CommonplaceSearchResult | null }[]
+  >([]);
+  const linkDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    if (linkDebounceRef.current) clearTimeout(linkDebounceRef.current);
+    if (wikiTitles.length === 0) {
+      setResolvedLinks([]);
+      return;
+    }
+    linkDebounceRef.current = setTimeout(() => {
+      Promise.all(
+        wikiTitles.map((title) =>
+          searchCommonplace(title).then((results) => {
+            const match = results.find(
+              (r) => r.title.toLowerCase() === title.toLowerCase(),
+            );
+            return { title, entry: match ?? null };
+          }),
+        ),
+      ).then(setResolvedLinks);
+    }, 300);
+    return () => {
+      if (linkDebounceRef.current) clearTimeout(linkDebounceRef.current);
+    };
+  }, [wikiTitles]);
 
   const nextMove = (contentItem as StudioContentItem & { nextMove?: string })?.nextMove;
+
+  /* Loading skeleton */
+  if (loading) {
+    return (
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+        {[1, 2, 3].map((i) => (
+          <div key={i} style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+            <div
+              style={{
+                height: '10px',
+                width: '60%',
+                backgroundColor: 'var(--studio-surface)',
+                borderRadius: '2px',
+                animation: 'pulse 1.5s ease-in-out infinite',
+              }}
+            />
+            <div
+              style={{
+                height: '28px',
+                backgroundColor: 'var(--studio-surface)',
+                borderRadius: '2px',
+                animation: 'pulse 1.5s ease-in-out infinite',
+                animationDelay: `${i * 0.15}s`,
+              }}
+            />
+          </div>
+        ))}
+      </div>
+    );
+  }
+
+  /* Empty state */
+  if (!trail) {
+    return (
+      <div
+        style={{
+          fontFamily: 'var(--studio-font-serif)',
+          fontSize: '12px',
+          color: 'var(--studio-text-3)',
+          fontStyle: 'italic',
+          textAlign: 'center',
+          padding: '24px 12px',
+          lineHeight: 1.5,
+        }}
+      >
+        No research data yet. Add sources in the Research API to see them here.
+      </div>
+    );
+  }
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
@@ -776,60 +986,77 @@ function ResearchMode({
       <div>
         <ToolboxLabel>Sources</ToolboxLabel>
         <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', marginTop: '8px' }}>
-          {sources.map((src) => (
-            <div
-              key={src.id}
-              style={{
-                display: 'flex',
-                gap: '8px',
-                alignItems: 'flex-start',
-                padding: '6px 8px',
-                borderLeft: `2px solid ${src.color}`,
-                backgroundColor: 'var(--studio-surface)',
-                borderRadius: '2px',
-              }}
-            >
+          {trail.sources.map((src) => {
+            const roleColor = ROLE_COLORS[src.role] ?? 'var(--studio-text-3)';
+            const abbr = SOURCE_TYPE_ABBR[src.sourceType] ?? src.sourceType.slice(0, 2).toUpperCase();
+            return (
               <div
+                key={src.id}
                 style={{
-                  fontFamily: 'var(--studio-font-mono)',
-                  fontSize: '8px',
-                  fontWeight: 700,
-                  letterSpacing: '0.08em',
-                  color: src.color,
-                  backgroundColor: `color-mix(in srgb, ${src.color} 12%, transparent)`,
-                  padding: '1px 4px',
+                  display: 'flex',
+                  gap: '8px',
+                  alignItems: 'flex-start',
+                  padding: '6px 8px',
+                  borderLeft: `2px solid ${roleColor}`,
+                  backgroundColor: 'var(--studio-surface)',
                   borderRadius: '2px',
-                  flexShrink: 0,
-                  marginTop: '1px',
                 }}
               >
-                {src.typeAbbr}
-              </div>
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <div
-                  style={{
-                    fontFamily: 'var(--studio-font-serif)',
-                    fontSize: '12.5px',
-                    fontWeight: 600,
-                    color: 'var(--studio-text-bright)',
-                    lineHeight: 1.3,
-                  }}
-                >
-                  {src.title}
-                </div>
                 <div
                   style={{
                     fontFamily: 'var(--studio-font-mono)',
-                    fontSize: '9px',
-                    color: 'var(--studio-text-3)',
-                    marginTop: '2px',
+                    fontSize: '8px',
+                    fontWeight: 700,
+                    letterSpacing: '0.08em',
+                    color: roleColor,
+                    backgroundColor: `color-mix(in srgb, ${roleColor} 12%, transparent)`,
+                    padding: '1px 4px',
+                    borderRadius: '2px',
+                    flexShrink: 0,
+                    marginTop: '1px',
                   }}
                 >
-                  {src.creator} · {src.role}
+                  {abbr}
+                </div>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div
+                    style={{
+                      fontFamily: 'var(--studio-font-serif)',
+                      fontSize: '12.5px',
+                      fontWeight: 600,
+                      color: 'var(--studio-text-bright)',
+                      lineHeight: 1.3,
+                    }}
+                  >
+                    {src.title}
+                  </div>
+                  <div
+                    style={{
+                      fontFamily: 'var(--studio-font-mono)',
+                      fontSize: '9px',
+                      color: 'var(--studio-text-3)',
+                      marginTop: '2px',
+                    }}
+                  >
+                    {src.creator} · {src.role}
+                  </div>
                 </div>
               </div>
+            );
+          })}
+          {trail.sources.length === 0 && (
+            <div
+              style={{
+                fontFamily: 'var(--studio-font-serif)',
+                fontSize: '11px',
+                color: 'var(--studio-text-3)',
+                fontStyle: 'italic',
+                padding: '6px 0',
+              }}
+            >
+              No sources linked yet.
             </div>
-          ))}
+          )}
           <button
             type="button"
             style={{
@@ -854,52 +1081,69 @@ function ResearchMode({
       <div>
         <ToolboxLabel>Connected Content</ToolboxLabel>
         <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', marginTop: '8px' }}>
-          {backlinks.map((bl) => (
-            <div
-              key={bl.id}
-              style={{
-                display: 'flex',
-                gap: '8px',
-                alignItems: 'center',
-                padding: '6px 8px',
-                backgroundColor: 'var(--studio-surface)',
-                borderRadius: '2px',
-              }}
-            >
+          {trail.backlinks.map((bl) => {
+            const blColor = getContentTypeIdentity(bl.contentType).color;
+            const sharedCount = bl.sharedSources.length;
+            return (
               <div
+                key={`${bl.contentType}-${bl.contentSlug}`}
                 style={{
-                  width: '6px',
-                  height: '6px',
-                  borderRadius: '50%',
-                  backgroundColor: bl.color,
-                  flexShrink: 0,
+                  display: 'flex',
+                  gap: '8px',
+                  alignItems: 'center',
+                  padding: '6px 8px',
+                  backgroundColor: 'var(--studio-surface)',
+                  borderRadius: '2px',
                 }}
-              />
-              <div style={{ flex: 1, minWidth: 0 }}>
+              >
                 <div
                   style={{
-                    fontFamily: 'var(--studio-font-serif)',
-                    fontSize: '12px',
-                    fontWeight: 600,
-                    color: 'var(--studio-text-bright)',
-                    lineHeight: 1.3,
+                    width: '6px',
+                    height: '6px',
+                    borderRadius: '50%',
+                    backgroundColor: blColor,
+                    flexShrink: 0,
                   }}
-                >
-                  {bl.title}
-                </div>
-                <div
-                  style={{
-                    fontFamily: 'var(--studio-font-mono)',
-                    fontSize: '9px',
-                    color: 'var(--studio-text-3)',
-                    marginTop: '1px',
-                  }}
-                >
-                  {bl.contentType} · {bl.sharedSourceCount} shared source{bl.sharedSourceCount !== 1 ? 's' : ''}
+                />
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div
+                    style={{
+                      fontFamily: 'var(--studio-font-serif)',
+                      fontSize: '12px',
+                      fontWeight: 600,
+                      color: 'var(--studio-text-bright)',
+                      lineHeight: 1.3,
+                    }}
+                  >
+                    {bl.contentTitle}
+                  </div>
+                  <div
+                    style={{
+                      fontFamily: 'var(--studio-font-mono)',
+                      fontSize: '9px',
+                      color: 'var(--studio-text-3)',
+                      marginTop: '1px',
+                    }}
+                  >
+                    {bl.contentType} · {sharedCount} shared source{sharedCount !== 1 ? 's' : ''}
+                  </div>
                 </div>
               </div>
+            );
+          })}
+          {trail.backlinks.length === 0 && (
+            <div
+              style={{
+                fontFamily: 'var(--studio-font-serif)',
+                fontSize: '11px',
+                color: 'var(--studio-text-3)',
+                fontStyle: 'italic',
+                padding: '6px 0',
+              }}
+            >
+              No connected content found.
             </div>
-          ))}
+          )}
         </div>
       </div>
 
@@ -962,92 +1206,150 @@ function ResearchMode({
       )}
 
       {/* 4. Active Thread */}
-      <div>
-        <ToolboxLabel>Active Thread</ToolboxLabel>
-        <div style={{ marginTop: '8px' }}>
-          <div
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '8px',
-              marginBottom: '8px',
-            }}
-          >
+      {trail.thread && (
+        <div>
+          <ToolboxLabel>Active Thread</ToolboxLabel>
+          <div style={{ marginTop: '8px' }}>
             <div
               style={{
-                fontFamily: 'var(--studio-font-serif)',
-                fontSize: '13px',
-                fontWeight: 600,
-                color: 'var(--studio-text-bright)',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px',
+                marginBottom: '8px',
               }}
             >
-              {thread.title}
+              <div
+                style={{
+                  fontFamily: 'var(--studio-font-serif)',
+                  fontSize: '13px',
+                  fontWeight: 600,
+                  color: 'var(--studio-text-bright)',
+                }}
+              >
+                {trail.thread.title}
+              </div>
+              <div
+                style={{
+                  fontFamily: 'var(--studio-font-mono)',
+                  fontSize: '8px',
+                  fontWeight: 700,
+                  letterSpacing: '0.08em',
+                  textTransform: 'uppercase' as const,
+                  color: '#D4AA4A',
+                  backgroundColor: 'color-mix(in srgb, #D4AA4A 12%, transparent)',
+                  padding: '1px 5px',
+                  borderRadius: '2px',
+                }}
+              >
+                {trail.thread.status}
+              </div>
             </div>
-            <div
-              style={{
-                fontFamily: 'var(--studio-font-mono)',
-                fontSize: '8px',
-                fontWeight: 700,
-                letterSpacing: '0.08em',
-                textTransform: 'uppercase' as const,
-                color: '#D4AA4A',
-                backgroundColor: 'color-mix(in srgb, #D4AA4A 12%, transparent)',
-                padding: '1px 5px',
-                borderRadius: '2px',
-              }}
-            >
-              {thread.status}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+              {trail.thread.entries.map((entry, idx) => (
+                <div
+                  key={`${entry.entryType}-${idx}`}
+                  style={{
+                    display: 'flex',
+                    gap: '8px',
+                    alignItems: 'flex-start',
+                  }}
+                >
+                  <div
+                    style={{
+                      width: '6px',
+                      height: '6px',
+                      borderRadius: '50%',
+                      backgroundColor: THREAD_ENTRY_COLORS[entry.entryType] ?? 'var(--studio-text-3)',
+                      flexShrink: 0,
+                      marginTop: '5px',
+                    }}
+                  />
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div
+                      style={{
+                        fontFamily: 'var(--studio-font-serif)',
+                        fontSize: '11.5px',
+                        color: 'var(--studio-text-2)',
+                        lineHeight: 1.35,
+                      }}
+                    >
+                      {entry.title || entry.description}
+                    </div>
+                    <div
+                      style={{
+                        fontFamily: 'var(--studio-font-mono)',
+                        fontSize: '8.5px',
+                        color: 'var(--studio-text-3)',
+                        marginTop: '1px',
+                      }}
+                    >
+                      {entry.date}
+                    </div>
+                  </div>
+                </div>
+              ))}
             </div>
           </div>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-            {thread.entries.map((entry) => (
+        </div>
+      )}
+
+      {/* 5. Mentions */}
+      {trail.mentions.length > 0 && (
+        <div>
+          <ToolboxLabel>Mentions</ToolboxLabel>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', marginTop: '8px' }}>
+            {trail.mentions.map((mention, idx) => (
               <div
-                key={entry.id}
+                key={`mention-${idx}`}
                 style={{
-                  display: 'flex',
-                  gap: '8px',
-                  alignItems: 'flex-start',
+                  padding: '6px 8px',
+                  backgroundColor: 'var(--studio-surface)',
+                  borderRadius: '2px',
+                  borderLeft: '2px solid #5A7A4A',
                 }}
               >
                 <div
                   style={{
-                    width: '6px',
-                    height: '6px',
-                    borderRadius: '50%',
-                    backgroundColor: THREAD_ENTRY_COLORS[entry.type] ?? 'var(--studio-text-3)',
-                    flexShrink: 0,
-                    marginTop: '5px',
+                    fontFamily: 'var(--studio-font-serif)',
+                    fontSize: '12px',
+                    fontWeight: 600,
+                    color: 'var(--studio-text-bright)',
+                    lineHeight: 1.3,
                   }}
-                />
-                <div style={{ flex: 1, minWidth: 0 }}>
+                >
+                  {mention.sourceTitle}
+                </div>
+                {mention.sourceExcerpt && (
                   <div
                     style={{
                       fontFamily: 'var(--studio-font-serif)',
-                      fontSize: '11.5px',
+                      fontSize: '11px',
                       color: 'var(--studio-text-2)',
-                      lineHeight: 1.35,
+                      marginTop: '2px',
+                      lineHeight: 1.4,
+                      fontStyle: 'italic',
                     }}
                   >
-                    {entry.text}
+                    {mention.sourceExcerpt}
                   </div>
-                  <div
-                    style={{
-                      fontFamily: 'var(--studio-font-mono)',
-                      fontSize: '8.5px',
-                      color: 'var(--studio-text-3)',
-                      marginTop: '1px',
-                    }}
-                  >
-                    {entry.date}
-                  </div>
+                )}
+                <div
+                  style={{
+                    fontFamily: 'var(--studio-font-mono)',
+                    fontSize: '8.5px',
+                    color: 'var(--studio-text-3)',
+                    marginTop: '2px',
+                  }}
+                >
+                  {mention.mentionType} · {mention.createdAt}
                 </div>
               </div>
             ))}
           </div>
         </div>
-      </div>
+      )}
 
-      {/* 5. Next Steps */}
+      {/* 6. Next Steps */}
       {nextMove && (
         <div>
           <ToolboxLabel>Next Steps</ToolboxLabel>
@@ -1894,7 +2196,7 @@ function NotesMode({
 
 /* ── Shared small components ─────────────────── */
 
-function ToolboxLabel({ children }: { children: string }) {
+function ToolboxLabel({ children }: { children: React.ReactNode }) {
   return (
     <div
       style={{

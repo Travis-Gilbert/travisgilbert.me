@@ -17,7 +17,7 @@ import WikiLink from './extensions/WikiLink';
 import WikiLinkSuggestion from './extensions/WikiLinkSuggestion';
 import type { WikiSuggestionItem } from './extensions/WikiLinkSuggestion';
 import WikiLinkPopup from './WikiLinkPopup';
-import { getMockCommonplaceEntries } from '@/lib/studio-mock-data';
+import { searchCommonplace } from '@/lib/studio-api';
 import IframeEmbed from './extensions/IframeEmbed';
 import SlashCommand from './extensions/SlashCommand';
 import type { SlashCommandItem } from './extensions/SlashCommand';
@@ -30,6 +30,7 @@ import Subscript from '@tiptap/extension-subscript';
 import Superscript from '@tiptap/extension-superscript';
 import Typography from '@tiptap/extension-typography';
 import { Markdown } from '@tiptap/markdown';
+import DragHandle from './extensions/DragHandle';
 import { useState, useEffect, useCallback, useRef } from 'react';
 import type { Editor } from '@tiptap/react';
 
@@ -70,6 +71,11 @@ export default function TiptapEditor({
     from: number;
     position: { x: number; y: number };
   }>({ visible: false, query: '', from: 0, position: { x: 0, y: 0 } });
+
+  const [wikiSearchResults, setWikiSearchResults] = useState<
+    WikiSuggestionItem[]
+  >([]);
+  const wikiDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const editorRef = useRef<Editor | null>(null);
   const slashPopupRef = useRef<SlashCommandPopupRef | null>(null);
@@ -135,12 +141,32 @@ export default function TiptapEditor({
               ? { x: coords.left, y: coords.bottom }
               : { x: 200, y: 200 },
           });
+          setWikiSearchResults([]);
         },
         onClose: () => {
           setWikiPopup((prev) => ({ ...prev, visible: false }));
+          if (wikiDebounceRef.current) clearTimeout(wikiDebounceRef.current);
+          setWikiSearchResults([]);
         },
         onUpdate: (query: string) => {
           setWikiPopup((prev) => ({ ...prev, query }));
+          if (wikiDebounceRef.current) clearTimeout(wikiDebounceRef.current);
+          if (!query.trim()) {
+            setWikiSearchResults([]);
+            return;
+          }
+          wikiDebounceRef.current = setTimeout(() => {
+            searchCommonplace(query).then((results) => {
+              setWikiSearchResults(
+                results.map((r) => ({
+                  id: r.id,
+                  title: r.title,
+                  source: r.source,
+                  text: r.text,
+                })),
+              );
+            });
+          }, 200);
         },
       }),
       SlashCommand.configure({
@@ -185,6 +211,7 @@ export default function TiptapEditor({
       Superscript,
       Typography,
       Markdown,
+      DragHandle,
     ],
     content: initialContent ?? '',
     contentType: initialContentFormat,
@@ -321,7 +348,7 @@ export default function TiptapEditor({
       </div>
       {wikiPopup.visible && (
         <WikiLinkPopup
-          items={getMockCommonplaceEntries()}
+          items={wikiSearchResults}
           query={wikiPopup.query}
           position={wikiPopup.position}
           onSelect={handleWikiSelect}

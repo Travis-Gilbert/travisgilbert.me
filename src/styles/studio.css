@@ -2243,3 +2243,169 @@
   color: var(--studio-text-3);
   margin-top: 2px;
 }
+
+/* ── Video Phase Pipeline ─────────────────────── */
+
+.studio-phase-locked {
+  opacity: 0.5;
+  cursor: not-allowed;
+  position: relative;
+}
+
+.studio-phase-locked::after {
+  content: '\1F512';
+  font-size: 8px;
+  position: absolute;
+  top: -4px;
+  right: -2px;
+}
+
+/* ── Next Action Card ─────────────────────────── */
+
+.studio-next-action {
+  padding: 16px;
+  border-radius: 8px;
+  border: 1px solid rgba(180, 90, 45, 0.2);
+  background-color: rgba(180, 90, 45, 0.04);
+  margin: 12px 0;
+}
+
+.studio-next-action-label {
+  font-family: var(--studio-font-mono);
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--studio-tc);
+  margin-bottom: 8px;
+}
+
+.studio-next-action-text {
+  font-family: var(--studio-font-title);
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--studio-text-bright);
+  line-height: 1.35;
+  margin-bottom: 8px;
+}
+
+.studio-next-action-tool {
+  display: inline-block;
+  font-family: var(--studio-font-mono);
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  padding: 2px 8px;
+  border-radius: 3px;
+  background-color: rgba(58, 138, 154, 0.1);
+  color: var(--studio-teal);
+  border: 1px solid rgba(58, 138, 154, 0.2);
+}
+
+.studio-next-action-done-when {
+  font-family: var(--studio-font-mono);
+  font-size: 11px;
+  color: var(--studio-text-3);
+  margin-top: 8px;
+}
+
+/* ── Scene Card ───────────────────────────────── */
+
+.studio-scene-card {
+  padding: 10px 14px;
+  border-radius: 6px;
+  border: 1px solid var(--studio-border);
+  background-color: var(--studio-surface-raised);
+  margin-bottom: 6px;
+  cursor: pointer;
+  transition: all 0.12s ease;
+}
+
+.studio-scene-card:hover {
+  border-color: var(--studio-border-strong);
+  background-color: var(--studio-surface-hover);
+}
+
+.studio-scene-card[data-expanded="true"] {
+  border-color: rgba(180, 90, 45, 0.2);
+}
+
+.studio-scene-type-badge {
+  font-family: var(--studio-font-mono);
+  font-size: 8px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  padding: 1px 6px;
+  border-radius: 3px;
+}
+
+.studio-scene-type-badge[data-type="vo"] { color: #8A6A9A; background: rgba(138,106,154,0.1); border: 1px solid rgba(138,106,154,0.2); }
+.studio-scene-type-badge[data-type="on_camera"] { color: #B45A2D; background: rgba(180,90,45,0.1); border: 1px solid rgba(180,90,45,0.2); }
+.studio-scene-type-badge[data-type="broll"] { color: #3A8A9A; background: rgba(58,138,154,0.1); border: 1px solid rgba(58,138,154,0.2); }
+.studio-scene-type-badge[data-type="graphic"] { color: #D4AA4A; background: rgba(212,170,74,0.1); border: 1px solid rgba(212,170,74,0.2); }
+.studio-scene-type-badge[data-type="mixed"] { color: #9A8E82; background: rgba(154,142,130,0.1); border: 1px solid rgba(154,142,130,0.2); }
+
+.studio-scene-phase-dots {
+  display: flex;
+  gap: 4px;
+  align-items: center;
+}
+
+.studio-scene-phase-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 2px;
+  border: 1.5px solid var(--studio-border-strong);
+  transition: all 0.12s ease;
+}
+
+.studio-scene-phase-dot[data-complete="true"] {
+  background-color: var(--studio-green);
+  border-color: var(--studio-green);
+}
+
+.studio-scene-phase-dot[data-active="true"] {
+  border-color: var(--studio-tc);
+  box-shadow: 0 0 4px rgba(180, 90, 45, 0.3);
+}
+
+.studio-scene-phase-dot[data-future="true"] {
+  opacity: 0.3;
+}
+
+/* ── Drag Handles ─────────────────────────────── */
+
+.studio-drag-handle {
+  position: absolute;
+  left: -28px;
+  top: 4px;
+  width: 18px;
+  height: 18px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 10px;
+  color: var(--studio-writing-paper-border);
+  cursor: grab;
+  opacity: 0;
+  transition: opacity 0.15s ease;
+  border-radius: 3px;
+  user-select: none;
+}
+
+.studio-prose > *:hover > .studio-drag-handle,
+.studio-prose > .studio-drag-handle-visible {
+  opacity: 1;
+}
+
+.studio-drag-handle:hover {
+  color: var(--studio-writing-paper-muted);
+  background-color: rgba(180, 90, 45, 0.06);
+}
+
+.studio-drag-handle:active {
+  cursor: grabbing;
+  color: var(--studio-tc);
+}

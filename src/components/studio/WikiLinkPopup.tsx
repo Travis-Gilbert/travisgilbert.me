@@ -63,7 +63,9 @@ export default function WikiLinkPopup({
           <span className="studio-wiki-popup-query">: &quot;{query}&quot;</span>
         )}
       </div>
-      {filtered.length === 0 ? (
+      {!query ? (
+        <div className="studio-wiki-popup-empty">Type to search...</div>
+      ) : filtered.length === 0 ? (
         <div className="studio-wiki-popup-empty">
           No matching entries. Keep typing...
         </div>

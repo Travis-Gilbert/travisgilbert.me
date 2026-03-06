@@ -952,3 +952,55 @@ class PublishLog(TimeStampedModel):
     def __str__(self):
         status = "OK" if self.success else "FAILED"
         return f"[{status}] {self.content_type}: {self.content_title}"
+
+
+class StashItem(TimeStampedModel):
+    """
+    Text fragments saved for later while writing.
+    Attached to a content item (essay, field note, etc.).
+    """
+
+    content_type = models.CharField(max_length=30)
+    content_slug = models.SlugField(max_length=300)
+    text = models.TextField()
+    sort_order = models.IntegerField(default=0)
+
+    class Meta:
+        ordering = ["-created_at"]
+
+    def __str__(self):
+        return f"Stash: {self.text[:50]}"
+
+
+class ContentTask(TimeStampedModel):
+    """
+    To-do items attached to a content item.
+    Created from the editor's Stash panel or context menu.
+    Optionally syncs to TickTick.
+    """
+
+    content_type = models.CharField(max_length=30)
+    content_slug = models.SlugField(max_length=300)
+    text = models.TextField()
+    done = models.BooleanField(default=False)
+    done_at = models.DateTimeField(null=True, blank=True)
+    ticktick_task_id = models.CharField(
+        max_length=100,
+        blank=True,
+        default="",
+        help_text="TickTick task ID if synced",
+    )
+    ticktick_project_id = models.CharField(
+        max_length=100,
+        blank=True,
+        default="",
+        help_text="TickTick project ID if synced",
+    )
+    sort_order = models.IntegerField(default=0)
+
+    class Meta:
+        ordering = ["done", "-created_at"]
+
+    def __str__(self):
+        status = "[x]" if self.done else "[ ]"
+        return f"{status} {self.text[:50]}"

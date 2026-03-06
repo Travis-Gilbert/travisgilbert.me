@@ -5,7 +5,18 @@ import type { CSSProperties } from 'react';
 import type { Editor as TiptapEditorType } from '@tiptap/react';
 import type { StudioContentItem } from '@/lib/studio';
 import { normalizeStudioContentType } from '@/lib/studio';
-import { saveContentItem, updateStage } from '@/lib/studio-api';
+import {
+  saveContentItem,
+  updateStage,
+  fetchStash,
+  createStashItem,
+  deleteStashItem,
+  fetchTasks,
+  createTask,
+  updateTask,
+  deleteTask,
+} from '@/lib/studio-api';
+import type { ApiStashItem, ApiContentTask } from '@/lib/studio-api';
 import {
   useStudioWorkbench,
   type WorkbenchAutosaveState,
@@ -101,7 +112,94 @@ function getEditorMarkdown(editor: TiptapEditorType | null): string | null {
     getMarkdown?: () => string;
   };
   if (typeof candidate.getMarkdown !== 'function') return null;
-  return candidate.getMarkdown();
+  let md = candidate.getMarkdown();
+
+  /*
+   * Post-process containBlock nodes into :::type fences.
+   * If the Markdown extension's addStorage serializer handled them, this is a
+   * no-op (the nodes are already serialized). Otherwise, containBlock nodes
+   * may appear as bare text. We walk the ProseMirror doc to produce the
+   * canonical fenced representation.
+   */
+  const doc = editor.state.doc;
+  const fenced: string[] = [];
+  let hasContainBlocks = false;
+
+  doc.forEach((node) => {
+    if (node.type.name === 'containBlock') {
+      hasContainBlocks = true;
+      const containType = (node.attrs as { containType?: string }).containType ?? 'observation';
+      fenced.push(`:::${containType}`);
+      node.forEach((child) => {
+        fenced.push(child.textContent);
+      });
+      fenced.push(':::');
+      fenced.push('');
+    } else {
+      /* Keep original markdown for non-contain blocks */
+    }
+  });
+
+  /*
+   * Only replace the markdown if the doc actually has containBlock nodes AND
+   * the serialized markdown does NOT already include ::: fences (meaning the
+   * addStorage serializer did its job).
+   */
+  if (hasContainBlocks && !md.includes(':::')) {
+    /* Rebuild: non-contain blocks keep their existing serialized lines,
+     * contain blocks get fenced. This is a simplified pass that works for
+     * top-level contain blocks. */
+    const rebuilt: string[] = [];
+    let mdLines = md.split('\n');
+    let mdIdx = 0;
+
+    doc.forEach((node) => {
+      if (node.type.name === 'containBlock') {
+        const containType = (node.attrs as { containType?: string }).containType ?? 'observation';
+        rebuilt.push(`:::${containType}`);
+        node.forEach((child) => {
+          rebuilt.push(child.textContent);
+        });
+        rebuilt.push(':::');
+        rebuilt.push('');
+        /* Skip corresponding lines in original markdown (best effort) */
+        const textContent = node.textContent.trim();
+        while (mdIdx < mdLines.length) {
+          const line = mdLines[mdIdx];
+          mdIdx++;
+          if (line.trim() === textContent || textContent.startsWith(line.trim())) {
+            break;
+          }
+        }
+      } else {
+        /* Emit lines until next block boundary */
+        const textContent = node.textContent.trim();
+        let found = false;
+        while (mdIdx < mdLines.length) {
+          rebuilt.push(mdLines[mdIdx]);
+          if (mdLines[mdIdx].trim().includes(textContent.slice(0, 20))) {
+            found = true;
+          }
+          mdIdx++;
+          if (found && mdIdx < mdLines.length && mdLines[mdIdx]?.trim() === '') {
+            rebuilt.push(mdLines[mdIdx]);
+            mdIdx++;
+            break;
+          }
+        }
+      }
+    });
+
+    /* Append any remaining lines */
+    while (mdIdx < mdLines.length) {
+      rebuilt.push(mdLines[mdIdx]);
+      mdIdx++;
+    }
+
+    md = rebuilt.join('\n');
+  }
+
+  return md;
 }
 
 function formatSavedTime(input: string): string {
@@ -170,6 +268,39 @@ export default function Editor({
   const [, setForceRender] = useState(0);
   const [stash, setStash] = useState<Array<{ id: string; text: string; savedAt: string }>>([]);
   const [tasks, setTasks] = useState<StashTask[]>([]);
+
+  /* Fetch persisted stash and tasks from Django on mount / slug change */
+  useEffect(() => {
+    let cancelled = false;
+    fetchStash(normalizedContentType, slug).then((items) => {
+      if (cancelled) return;
+      setStash(
+        items.map((i) => ({
+          id: String(i.id),
+          text: i.text,
+          savedAt: new Date(i.created_at).toLocaleTimeString('en-US', {
+            hour: 'numeric',
+            minute: '2-digit',
+            hour12: true,
+          }),
+        })),
+      );
+    });
+    fetchTasks(normalizedContentType, slug).then((apiTasks) => {
+      if (cancelled) return;
+      setTasks(
+        apiTasks.map((t) => ({
+          id: String(t.id),
+          text: t.text,
+          done: t.done,
+          createdAt: t.created_at,
+          contentSlug: slug,
+          contentType: normalizedContentType,
+        })),
+      );
+    });
+    return () => { cancelled = true; };
+  }, [normalizedContentType, slug]);
 
   const autosaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const saveStateTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -364,26 +495,33 @@ export default function Editor({
     [normalizedContentType, slug, stage],
   );
 
-  const handleStash = useCallback((text: string) => {
-    setStash((prev) => [
-      {
-        id: `stash-${Date.now()}`,
-        text,
-        savedAt: new Date().toLocaleTimeString('en-US', {
-          hour: 'numeric',
-          minute: '2-digit',
-          hour12: true,
-        }),
-      },
-      ...prev,
-    ]);
-  }, []);
+  const handleStash = useCallback(
+    (text: string) => {
+      const tempId = `stash-${Date.now()}`;
+      const savedAt = new Date().toLocaleTimeString('en-US', {
+        hour: 'numeric',
+        minute: '2-digit',
+        hour12: true,
+      });
+      /* Optimistic: add immediately */
+      setStash((prev) => [{ id: tempId, text, savedAt }, ...prev]);
+      /* Persist to API */
+      createStashItem(normalizedContentType, slug, text).then((item) => {
+        if (!item) return;
+        setStash((prev) =>
+          prev.map((s) => (s.id === tempId ? { ...s, id: String(item.id) } : s)),
+        );
+      });
+    },
+    [normalizedContentType, slug],
+  );
 
   const handleAddTask = useCallback(
     (text: string) => {
+      const tempId = `task-${Date.now()}`;
       setTasks((prev) => [
         {
-          id: `task-${Date.now()}`,
+          id: tempId,
           text,
           done: false,
           createdAt: new Date().toISOString(),
@@ -392,19 +530,42 @@ export default function Editor({
         },
         ...prev,
       ]);
+      createTask(normalizedContentType, slug, text).then((task) => {
+        if (!task) return;
+        setTasks((prev) =>
+          prev.map((t) => (t.id === tempId ? { ...t, id: String(task.id) } : t)),
+        );
+      });
     },
     [slug, normalizedContentType],
   );
 
-  const handleToggleTask = useCallback((id: string) => {
-    setTasks((prev) =>
-      prev.map((t) => (t.id === id ? { ...t, done: !t.done } : t)),
-    );
-  }, []);
+  const handleToggleTask = useCallback(
+    (id: string) => {
+      setTasks((prev) =>
+        prev.map((t) => (t.id === id ? { ...t, done: !t.done } : t)),
+      );
+      const numId = Number(id);
+      if (!Number.isNaN(numId)) {
+        const task = tasks.find((t) => t.id === id);
+        if (task) {
+          updateTask(normalizedContentType, slug, numId, { done: !task.done });
+        }
+      }
+    },
+    [normalizedContentType, slug, tasks],
+  );
 
-  const handleDeleteTask = useCallback((id: string) => {
-    setTasks((prev) => prev.filter((t) => t.id !== id));
-  }, []);
+  const handleDeleteTask = useCallback(
+    (id: string) => {
+      setTasks((prev) => prev.filter((t) => t.id !== id));
+      const numId = Number(id);
+      if (!Number.isNaN(numId)) {
+        deleteTask(normalizedContentType, slug, numId);
+      }
+    },
+    [normalizedContentType, slug],
+  );
 
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
@@ -436,9 +597,15 @@ export default function Editor({
         if (!item || !editor) return;
         editor.chain().focus().insertContent(item.text).run();
         setStash((prev) => prev.filter((s) => s.id !== id));
+        deleteStashItem(normalizedContentType, slug, Number(id)).catch(() => {
+          /* restore already happened in editor; server cleanup is best effort */
+        });
       },
       onDeleteStash: (id: string) => {
         setStash((prev) => prev.filter((s) => s.id !== id));
+        deleteStashItem(normalizedContentType, slug, Number(id)).catch(() => {
+          /* best effort server cleanup */
+        });
       },
       tasks,
       onAddTask: handleAddTask,

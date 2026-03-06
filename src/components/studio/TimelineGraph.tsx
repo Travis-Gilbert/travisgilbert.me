@@ -139,7 +139,7 @@ export default function TimelineGraph() {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [zoomTransform, setZoomTransform] = useState<d3.ZoomTransform>(d3.zoomIdentity);
 
-  const height = Math.max(580, Math.round(width * 0.66));
+  const height = Math.max(900, Math.round(width * 1.05));
 
   /* Resize observer */
   useEffect(() => {
@@ -259,15 +259,15 @@ export default function TimelineGraph() {
       let alpha: number;
       if (focusId) {
         const isConnected = connectedIds.has(source.id) && connectedIds.has(target.id);
-        alpha = isConnected ? 0.48 : 0.04;
+        alpha = isConnected ? 0.76 : 0.055;
       } else {
-        alpha = 0.2;
+        alpha = 0.42;
       }
 
       rc.line(source.x, source.y, target.x, target.y, {
         roughness: 0.65,
         stroke: `rgba(196, 188, 176, ${alpha})`,
-        strokeWidth: 0.7 + Math.min(2.2, edge.weight * 0.28),
+        strokeWidth: 0.85 + Math.min(2.8, edge.weight * 0.35),
         bowing: 1.4,
       });
     });
@@ -318,11 +318,8 @@ export default function TimelineGraph() {
         ref={containerRef}
         style={{
           position: 'relative',
-          borderRadius: '10px',
           overflow: 'hidden',
-          background: 'rgba(10, 11, 13, 0.96)',
-          border: '1px solid var(--studio-border)',
-          minHeight: '580px',
+          minHeight: `${height}px`,
         }}
       >
         {loading && (
@@ -399,10 +396,10 @@ export default function TimelineGraph() {
                     >
                       <circle
                         r={node.radius}
-                        fill={studioMix(node.color, 30)}
+                        fill={studioMix(node.color, 44)}
                         stroke={node.color}
                         strokeWidth={isSelected ? 2.4 : isHovered ? 1.8 : 1.2}
-                        opacity={dimmed ? 0.12 : 0.92}
+                        opacity={dimmed ? 0.2 : 0.95}
                         style={{ transition: 'opacity 180ms ease, stroke-width 120ms ease' }}
                       />
                       {showLabel && (

@@ -60,6 +60,21 @@ const ContainBlock = Node.create<ContainBlockOptions>({
     return ReactNodeViewRenderer(ContainBlockView);
   },
 
+  addStorage() {
+    return {
+      markdown: {
+        serialize(state: { write: (s: string) => void; renderContent: (n: { content: unknown }) => void }, node: { attrs: { containType: string }; content: unknown }) {
+          state.write(`:::${node.attrs.containType}\n`);
+          state.renderContent(node as { content: unknown });
+          state.write(':::\n');
+        },
+        parse: {
+          /* Custom tokenizer for :::type fences is registered below via inputRules */
+        },
+      },
+    };
+  },
+
   addCommands() {
     return {
       setContainBlock:

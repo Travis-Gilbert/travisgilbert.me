@@ -177,6 +177,31 @@ export function getPreviousStage(currentSlug: string): StageDefinition | null {
 }
 
 /* ─────────────────────────────────────────────────
+   Video production phases (P0 through P7 + Published)
+   ───────────────────────────────────────────────── */
+
+export const VIDEO_PHASES: StageDefinition[] = [
+  { slug: 'research', label: 'P0: Research', color: '#2D8A9A', order: 0 },
+  { slug: 'scripting', label: 'P1: Script Lock', color: '#D4AA4A', order: 1 },
+  { slug: 'voiceover', label: 'P2: Voiceover', color: '#8A6A9A', order: 2 },
+  { slug: 'filming', label: 'P3: Filming', color: '#B45A2D', order: 3 },
+  { slug: 'assembly', label: 'P4: Assembly', color: '#6A9A5A', order: 4 },
+  { slug: 'polish', label: 'P5: Polish', color: '#3A8A9A', order: 5 },
+  { slug: 'metadata', label: 'P6: Metadata', color: '#D4AA4A', order: 6 },
+  { slug: 'publish', label: 'P7: Publish', color: '#9A8E82', order: 7 },
+  { slug: 'published', label: 'Published', color: '#6A9A5A', order: 8 },
+];
+
+export function getVideoPhase(slug: string): StageDefinition {
+  return VIDEO_PHASES.find((p) => p.slug === slug) ?? {
+    slug,
+    label: slug,
+    color: '#9A8E82',
+    order: -1,
+  };
+}
+
+/* ─────────────────────────────────────────────────
    Data shapes: content items
    ───────────────────────────────────────────────── */
 

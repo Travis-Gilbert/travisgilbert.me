@@ -199,6 +199,12 @@ LOGGING = {
 RESEARCH_API_URL = os.environ.get("RESEARCH_API_URL", "http://localhost:8001").strip()
 RESEARCH_API_KEY = os.environ.get("RESEARCH_API_KEY", "").strip()
 
+# TickTick sync (optional; tasks still save locally if token is missing)
+TICKTICK_ACCESS_TOKEN = os.environ.get("TICKTICK_ACCESS_TOKEN", "").strip()
+TICKTICK_STUDIO_PROJECT_ID = os.environ.get(
+    "TICKTICK_STUDIO_PROJECT_ID", "689cdbfd8f083a8c93d0134e"
+).strip()
+
 # GitHub publishing settings (strip whitespace; dashboard paste can add newlines)
 GITHUB_TOKEN = os.environ.get("GITHUB_TOKEN", "").strip()
 GITHUB_REPO = os.environ.get("GITHUB_REPO", "").strip()

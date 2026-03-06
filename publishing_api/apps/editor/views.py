@@ -50,6 +50,7 @@ from django.views.generic import CreateView, ListView, TemplateView, UpdateView
 logger = logging.getLogger(__name__)
 
 from apps.content.models import (
+    ContentTask,
     DesignTokenSet,
     Essay,
     FieldNote,
@@ -60,6 +61,7 @@ from apps.content.models import (
     PublishLog,
     ShelfEntry,
     SiteSettings,
+    StashItem,
     ToolkitEntry,
     VideoProject,
     VideoScene,
@@ -2996,3 +2998,278 @@ class StudioApiConnectionsView(StudioApiBaseView):
 
         graph = build_connections_graph(limit=limit, max_edges=max_edges)
         return self._json(request, graph)
+
+
+class StudioApiCommonplaceSearchView(StudioApiBaseView):
+    """
+    GET /editor/api/commonplace/search/?q=<query>
+
+    Searches Shelf entries and Field Notes by title and body text.
+    Returns combined results sorted by relevance (title match first).
+    Limited to 20 results.
+    """
+
+    def get(self, request):
+        q = request.GET.get("q", "").strip()
+        if not q:
+            return self._json(request, {"results": []})
+
+        from django.db.models import Q, Value, IntegerField, Case, When
+
+        shelf_qs = (
+            ShelfEntry.objects.filter(
+                Q(title__icontains=q) | Q(annotation__icontains=q)
+            )
+            .annotate(
+                relevance=Case(
+                    When(title__icontains=q, then=Value(2)),
+                    default=Value(1),
+                    output_field=IntegerField(),
+                )
+            )
+            .values("title", "slug", "annotation", "creator", "type")[:10]
+        )
+
+        note_qs = (
+            FieldNote.objects.filter(
+                Q(title__icontains=q) | Q(body__icontains=q)
+            )
+            .annotate(
+                relevance=Case(
+                    When(title__icontains=q, then=Value(2)),
+                    default=Value(1),
+                    output_field=IntegerField(),
+                )
+            )
+            .values("title", "slug", "body", "status")[:10]
+        )
+
+        results = []
+        for item in shelf_qs:
+            results.append(
+                {
+                    "id": f'shelf:{item["slug"]}',
+                    "title": item["title"],
+                    "source": item.get("creator", ""),
+                    "text": (item.get("annotation", "") or "")[:200],
+                    "contentType": "shelf",
+                }
+            )
+
+        for item in note_qs:
+            results.append(
+                {
+                    "id": f'field-note:{item["slug"]}',
+                    "title": item["title"],
+                    "source": "Field Note",
+                    "text": (item.get("body", "") or "")[:200],
+                    "contentType": "field-note",
+                }
+            )
+
+        # Sort: title matches first
+        results.sort(
+            key=lambda r: (0 if q.lower() in r["title"].lower() else 1)
+        )
+
+        return self._json(request, {"results": results[:20]})
+
+
+# ---------------------------------------------------------------------------
+# Stash CRUD
+# ---------------------------------------------------------------------------
+
+
+class StudioApiStashListView(StudioApiBaseView):
+    """
+    GET  /editor/api/content/{type}/{slug}/stash/   list stash items
+    POST /editor/api/content/{type}/{slug}/stash/   create a stash item
+    """
+
+    def get(self, request, content_type, slug):
+        items = StashItem.objects.filter(
+            content_type=content_type, content_slug=slug,
+        ).values("id", "text", "created_at", "sort_order")
+        return self._json(request, {"items": list(items)})
+
+    def post(self, request, content_type, slug):
+        body = self._parse_json_body(request)
+        if body is None:
+            return self._error(request, "Invalid JSON body", 400)
+        text = (body.get("text") or "").strip()
+        if not text:
+            return self._error(request, "text is required", 400)
+        item = StashItem.objects.create(
+            content_type=content_type,
+            content_slug=slug,
+            text=text,
+            sort_order=body.get("sort_order", 0),
+        )
+        return self._json(request, {
+            "id": item.pk,
+            "text": item.text,
+            "created_at": item.created_at.isoformat(),
+            "sort_order": item.sort_order,
+        })
+
+
+class StudioApiStashDeleteView(StudioApiBaseView):
+    """POST /editor/api/content/{type}/{slug}/stash/{id}/delete/"""
+
+    def post(self, request, content_type, slug, pk):
+        deleted, _ = StashItem.objects.filter(
+            pk=pk, content_type=content_type, content_slug=slug,
+        ).delete()
+        if not deleted:
+            return self._error(request, "Not found", 404)
+        return self._json(request, {"ok": True})
+
+
+# ---------------------------------------------------------------------------
+# Task CRUD
+# ---------------------------------------------------------------------------
+
+
+class StudioApiTaskListView(StudioApiBaseView):
+    """
+    GET  /editor/api/content/{type}/{slug}/tasks/   list tasks
+    POST /editor/api/content/{type}/{slug}/tasks/   create a task
+    """
+
+    def get(self, request, content_type, slug):
+        tasks = ContentTask.objects.filter(
+            content_type=content_type, content_slug=slug,
+        ).values(
+            "id", "text", "done", "done_at", "created_at",
+            "ticktick_task_id", "ticktick_project_id",
+        )
+        return self._json(request, {"tasks": list(tasks)})
+
+    def post(self, request, content_type, slug):
+        body = self._parse_json_body(request)
+        if body is None:
+            return self._error(request, "Invalid JSON body", 400)
+        text = (body.get("text") or "").strip()
+        if not text:
+            return self._error(request, "text is required", 400)
+        task = ContentTask.objects.create(
+            content_type=content_type,
+            content_slug=slug,
+            text=text,
+        )
+        # Best effort TickTick sync (does not block task creation)
+        try:
+            from apps.content.ticktick_sync import (
+                TICKTICK_STUDIO_PROJECT_ID,
+                sync_content_task_to_ticktick,
+            )
+            ticktick_id = sync_content_task_to_ticktick(task)
+            if ticktick_id:
+                task.ticktick_task_id = ticktick_id
+                task.ticktick_project_id = TICKTICK_STUDIO_PROJECT_ID
+                task.save(update_fields=["ticktick_task_id", "ticktick_project_id"])
+        except Exception:
+            import logging
+            logging.getLogger(__name__).exception("TickTick sync failed")
+        return self._json(request, {
+            "id": task.pk,
+            "text": task.text,
+            "done": task.done,
+            "done_at": None,
+            "created_at": task.created_at.isoformat(),
+            "ticktick_task_id": task.ticktick_task_id,
+            "ticktick_project_id": task.ticktick_project_id,
+        })
+
+
+class StudioApiTaskUpdateView(StudioApiBaseView):
+    """POST /editor/api/content/{type}/{slug}/tasks/{id}/update/"""
+
+    def post(self, request, content_type, slug, pk):
+        body = self._parse_json_body(request)
+        if body is None:
+            return self._error(request, "Invalid JSON body", 400)
+        try:
+            task = ContentTask.objects.get(
+                pk=pk, content_type=content_type, content_slug=slug,
+            )
+        except ContentTask.DoesNotExist:
+            return self._error(request, "Not found", 404)
+
+        if "done" in body:
+            task.done = bool(body["done"])
+            if task.done and not task.done_at:
+                from django.utils import timezone
+                task.done_at = timezone.now()
+            elif not task.done:
+                task.done_at = None
+        if "text" in body:
+            task.text = body["text"]
+        task.save()
+
+        # Best effort TickTick completion sync
+        if task.done and task.ticktick_task_id:
+            try:
+                from apps.content.ticktick_sync import complete_ticktick_task
+                complete_ticktick_task(task.ticktick_project_id, task.ticktick_task_id)
+            except Exception:
+                import logging
+                logging.getLogger(__name__).exception("TickTick complete sync failed")
+
+        return self._json(request, {
+            "id": task.pk,
+            "text": task.text,
+            "done": task.done,
+            "done_at": task.done_at.isoformat() if task.done_at else None,
+            "created_at": task.created_at.isoformat(),
+            "ticktick_task_id": task.ticktick_task_id,
+            "ticktick_project_id": task.ticktick_project_id,
+        })
+
+
+class StudioApiTaskDeleteView(StudioApiBaseView):
+    """POST /editor/api/content/{type}/{slug}/tasks/{id}/delete/"""
+
+    def post(self, request, content_type, slug, pk):
+        deleted, _ = ContentTask.objects.filter(
+            pk=pk, content_type=content_type, content_slug=slug,
+        ).delete()
+        if not deleted:
+            return self._error(request, "Not found", 404)
+        return self._json(request, {"ok": True})
+
+
+class StudioApiAllTasksView(StudioApiBaseView):
+    """
+    GET /editor/api/tasks/all/
+
+    Returns all tasks across all content items, grouped by content piece.
+    Supports ?include_done=true to also include completed tasks.
+    """
+
+    def get(self, request):
+        include_done = request.GET.get("include_done", "false") == "true"
+
+        qs = ContentTask.objects.all()
+        if not include_done:
+            qs = qs.filter(done=False)
+
+        qs = qs.order_by("content_type", "content_slug", "done", "-created_at")
+
+        grouped: dict[str, dict] = {}
+        for task in qs:
+            key = f"{task.content_type}:{task.content_slug}"
+            if key not in grouped:
+                grouped[key] = {
+                    "content_type": task.content_type,
+                    "content_slug": task.content_slug,
+                    "tasks": [],
+                }
+            grouped[key]["tasks"].append({
+                "id": task.pk,
+                "text": task.text,
+                "done": task.done,
+                "created_at": task.created_at.isoformat(),
+            })
+
+        return self._json(request, {"groups": list(grouped.values())})
