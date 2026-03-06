@@ -12,13 +12,19 @@ import { TableCell } from '@tiptap/extension-table-cell';
 import { TableHeader } from '@tiptap/extension-table-header';
 import TaskList from '@tiptap/extension-task-list';
 import TaskItem from '@tiptap/extension-task-item';
+import ContainBlock from './extensions/ContainBlock';
+import WikiLink from './extensions/WikiLink';
+import WikiLinkSuggestion from './extensions/WikiLinkSuggestion';
+import type { WikiSuggestionItem } from './extensions/WikiLinkSuggestion';
+import WikiLinkPopup from './WikiLinkPopup';
+import { getMockCommonplaceEntries } from '@/lib/studio-mock-data';
 import Highlight from '@tiptap/extension-highlight';
 import Underline from '@tiptap/extension-underline';
 import Subscript from '@tiptap/extension-subscript';
 import Superscript from '@tiptap/extension-superscript';
 import Typography from '@tiptap/extension-typography';
 import { Markdown } from '@tiptap/markdown';
-import { useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import type { Editor } from '@tiptap/react';
 
 export type TiptapUpdatePayload = {
@@ -51,6 +57,15 @@ export default function TiptapEditor({
 }) {
   const wrapperRef = useRef<HTMLDivElement | null>(null);
   const typewriterFrameRef = useRef<number | null>(null);
+
+  const [wikiPopup, setWikiPopup] = useState<{
+    visible: boolean;
+    query: string;
+    from: number;
+    position: { x: number; y: number };
+  }>({ visible: false, query: '', from: 0, position: { x: 0, y: 0 } });
+
+  const editorRef = useRef<Editor | null>(null);
 
   const handleUpdate = useCallback(
     ({ editor: ed }: { editor: Editor }) => {
@@ -90,6 +105,28 @@ export default function TiptapEditor({
       TableHeader,
       TaskList,
       TaskItem.configure({ nested: true }),
+      ContainBlock,
+      WikiLink,
+      WikiLinkSuggestion.configure({
+        onOpen: (query: string, from: number) => {
+          const ed = editorRef.current;
+          const coords = ed?.view?.coordsAtPos(ed.state.selection.from);
+          setWikiPopup({
+            visible: true,
+            query,
+            from,
+            position: coords
+              ? { x: coords.left, y: coords.bottom }
+              : { x: 200, y: 200 },
+          });
+        },
+        onClose: () => {
+          setWikiPopup((prev) => ({ ...prev, visible: false }));
+        },
+        onUpdate: (query: string) => {
+          setWikiPopup((prev) => ({ ...prev, query }));
+        },
+      }),
       Highlight.configure({ multicolor: false }),
       Underline,
       Subscript,
@@ -108,8 +145,39 @@ export default function TiptapEditor({
   });
 
   useEffect(() => {
-    if (editor) onEditorReady?.(editor);
+    if (editor) {
+      editorRef.current = editor;
+      onEditorReady?.(editor);
+    }
   }, [editor, onEditorReady]);
+
+  const handleWikiSelect = useCallback(
+    (item: WikiSuggestionItem) => {
+      if (!editor) return;
+      const { from: cursorPos } = editor.state.selection;
+      const $pos = editor.state.selection.$from;
+      const textBefore = $pos.parent.textBetween(0, $pos.parentOffset);
+      const bracketIdx = textBefore.lastIndexOf('[[');
+      if (bracketIdx < 0) return;
+
+      const absoluteFrom = $pos.start() + bracketIdx;
+      const insertText = `[[${item.title}]]`;
+
+      editor
+        .chain()
+        .focus()
+        .deleteRange({ from: absoluteFrom, to: cursorPos })
+        .insertContent({
+          type: 'text',
+          text: insertText,
+          marks: [{ type: 'wikiLink', attrs: { title: item.title } }],
+        })
+        .run();
+
+      setWikiPopup((prev) => ({ ...prev, visible: false }));
+    },
+    [editor],
+  );
 
   const centerSelectionInView = useCallback(() => {
     if (!editor?.isFocused) return;
@@ -118,9 +186,9 @@ export default function TiptapEditor({
 
     const selection = window.getSelection();
     if (!selection || selection.rangeCount === 0) return;
+    if (!selection.isCollapsed) return;
 
     const range = selection.getRangeAt(0).cloneRange();
-    range.collapse(true);
     const caretRect =
       range.getClientRects()[0] ?? range.getBoundingClientRect();
     if (!caretRect || (caretRect.top === 0 && caretRect.bottom === 0)) {
@@ -199,6 +267,17 @@ export default function TiptapEditor({
       <div className="studio-page">
         <EditorContent editor={editor} />
       </div>
+      {wikiPopup.visible && (
+        <WikiLinkPopup
+          items={getMockCommonplaceEntries()}
+          query={wikiPopup.query}
+          position={wikiPopup.position}
+          onSelect={handleWikiSelect}
+          onClose={() =>
+            setWikiPopup((prev) => ({ ...prev, visible: false }))
+          }
+        />
+      )}
     </div>
   );
 }

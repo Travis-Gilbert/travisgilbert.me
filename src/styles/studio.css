@@ -186,8 +186,8 @@
   pointer-events: none;
   z-index: 0;
   background-image:
-    linear-gradient(rgba(180, 90, 45, 0.05) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(180, 90, 45, 0.05) 1px, transparent 1px);
+    linear-gradient(rgba(180, 90, 45, 0.04) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(180, 90, 45, 0.04) 1px, transparent 1px);
   background-size: 40px 40px;
 }
 
@@ -576,8 +576,8 @@
   pointer-events: none;
   z-index: 0;
   background-image:
-    linear-gradient(rgba(180, 90, 45, 0.022) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(180, 90, 45, 0.022) 1px, transparent 1px);
+    linear-gradient(rgba(180, 90, 45, 0.03) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(180, 90, 45, 0.03) 1px, transparent 1px);
   background-size: 40px 40px;
 }
 
@@ -627,7 +627,7 @@
   --studio-reading-font-size: 19px;
   --studio-reading-line-height: 1.75;
   --studio-reading-paragraph-gap: 1.18em;
-  --studio-toolbar-bg: #EEE3D7;
+  --studio-toolbar-bg: #E8DDD0;
   --studio-toolbar-border: rgba(196, 182, 168, 0.92);
   --studio-toolbar-shadow:
     0 7px 18px rgba(34, 26, 19, 0.11),
@@ -663,7 +663,7 @@
   position: relative;
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 6px;
   padding: 10px 0;
   flex-wrap: wrap;
 }
@@ -961,6 +961,28 @@
   background-size: 220px 220px;
   mix-blend-mode: multiply;
   opacity: 0.04;
+}
+
+/* Field notebook margin line */
+.studio-page::before {
+  content: '';
+  position: absolute;
+  left: 51px;
+  top: 0;
+  bottom: 0;
+  width: 1px;
+  background-color: rgba(180, 90, 45, 0.08);
+  pointer-events: none;
+  z-index: 0;
+}
+
+/* Subtle terracotta glow when editor is focused */
+.studio-editor-shell[data-writing-focused="true"] .studio-page {
+  box-shadow:
+    0 24px 44px rgba(0, 0, 0, 0.22),
+    0 6px 16px rgba(0, 0, 0, 0.16),
+    0 0 0 1px rgba(180, 90, 45, 0.08);
+  transition: box-shadow 0.3s ease;
 }
 
 .studio-prose {

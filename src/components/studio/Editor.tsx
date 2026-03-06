@@ -16,6 +16,7 @@ import EditorToolbar from './EditorToolbar';
 import TiptapEditor from './TiptapEditor';
 import type { TiptapUpdatePayload } from './TiptapEditor';
 import WordCountBand from './WordCountBand';
+import EditorContextMenu from './EditorContextMenu';
 import { useStudioView } from './StudioViewContext';
 
 type SaveState = WorkbenchSaveState;
@@ -166,6 +167,7 @@ export default function Editor({
     DEFAULT_READING_SETTINGS,
   );
   const [, setForceRender] = useState(0);
+  const [stash, setStash] = useState<Array<{ id: string; text: string; savedAt: string }>>([]);
 
   const autosaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const saveStateTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -360,6 +362,37 @@ export default function Editor({
     [normalizedContentType, slug, stage],
   );
 
+  const handleStash = useCallback((text: string) => {
+    setStash((prev) => [
+      {
+        id: `stash-${Date.now()}`,
+        text,
+        savedAt: new Date().toLocaleTimeString('en-US', {
+          hour: 'numeric',
+          minute: '2-digit',
+          hour12: true,
+        }),
+      },
+      ...prev,
+    ]);
+  }, []);
+
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'S' && event.shiftKey && (event.metaKey || event.ctrlKey)) {
+        event.preventDefault();
+        if (!editor) return;
+        const { from, to } = editor.state.selection;
+        if (from === to) return;
+        const text = editor.state.doc.textBetween(from, to, '\n');
+        editor.chain().focus().deleteSelection().run();
+        handleStash(text);
+      }
+    };
+    document.addEventListener('keydown', handleKeyDown);
+    return () => document.removeEventListener('keydown', handleKeyDown);
+  }, [editor, handleStash]);
+
   useEffect(() => {
     setEditorState({
       editor,
@@ -368,6 +401,16 @@ export default function Editor({
       lastSaved,
       saveState,
       autosaveState,
+      stash,
+      onRestoreStash: (id: string) => {
+        const item = stash.find((s) => s.id === id);
+        if (!item || !editor) return;
+        editor.chain().focus().insertContent(item.text).run();
+        setStash((prev) => prev.filter((s) => s.id !== id));
+      },
+      onDeleteStash: (id: string) => {
+        setStash((prev) => prev.filter((s) => s.id !== id));
+      },
     });
   }, [
     autosaveState,
@@ -377,6 +420,7 @@ export default function Editor({
     lastSaved,
     saveState,
     setEditorState,
+    stash,
   ]);
 
   useEffect(() => {
@@ -603,6 +647,10 @@ export default function Editor({
           onFocusChange={setIsWritingFocused}
           typewriterMode={typewriterMode}
         />
+
+        {editor && (
+          <EditorContextMenu editor={editor} onStash={handleStash} />
+        )}
 
         <div className="studio-editor-chrome">
           <WordCountBand editor={editor} />

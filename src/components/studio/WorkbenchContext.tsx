@@ -7,6 +7,12 @@ import type { StudioContentItem } from '@/lib/studio';
 export type WorkbenchSaveState = 'idle' | 'saving' | 'success' | 'error';
 export type WorkbenchAutosaveState = 'idle' | 'saved';
 
+export interface StashItem {
+  id: string;
+  text: string;
+  savedAt: string;
+}
+
 export interface WorkbenchEditorState {
   editor: TiptapEditorType | null;
   contentItem: StudioContentItem | null;
@@ -14,6 +20,9 @@ export interface WorkbenchEditorState {
   lastSaved: string | null;
   saveState: WorkbenchSaveState;
   autosaveState: WorkbenchAutosaveState;
+  stash: StashItem[];
+  onRestoreStash?: (id: string) => void;
+  onDeleteStash?: (id: string) => void;
 }
 
 interface WorkbenchContextValue {
@@ -29,6 +38,9 @@ const EMPTY_EDITOR_STATE: WorkbenchEditorState = {
   lastSaved: null,
   saveState: 'idle',
   autosaveState: 'idle',
+  stash: [],
+  onRestoreStash: undefined,
+  onDeleteStash: undefined,
 };
 
 const WorkbenchContext = createContext<WorkbenchContextValue | null>(null);

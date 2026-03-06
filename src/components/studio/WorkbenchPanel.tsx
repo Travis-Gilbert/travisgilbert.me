@@ -21,7 +21,13 @@ import {
   getMockStudioPulse,
   getMockWorkbenchData,
   computeItemMetrics,
+  getMockCommonplaceEntries,
+  getMockSourcesForContent,
+  getMockBacklinksForContent,
+  getMockThreadForContent,
+  THREAD_ENTRY_COLORS,
 } from '@/lib/studio-mock-data';
+import { useStudioWorkbench } from './WorkbenchContext';
 import NewContentModal from './NewContentModal';
 
 const STORAGE_KEY = 'studio-workbench-open';
@@ -56,7 +62,7 @@ type SaveState = 'idle' | 'saving' | 'success' | 'error';
 type AutosaveState = 'idle' | 'saved';
 
 type WorkbenchMode = 'editor' | 'dashboard';
-type EditorPanelMode = 'outline' | 'notes';
+type EditorPanelMode = 'research' | 'outline' | 'stash';
 
 function clampWidth(width: number): number {
   return Math.min(Math.max(width, MIN_WORKBENCH_WIDTH), MAX_WORKBENCH_WIDTH);
@@ -101,7 +107,7 @@ export default function WorkbenchPanel({
     }
 
     const storedMode = localStorage.getItem(STORAGE_EDITOR_MODE_KEY);
-    if (storedMode === 'outline' || storedMode === 'notes') {
+    if (storedMode === 'research' || storedMode === 'outline' || storedMode === 'stash') {
       setEditorPanelMode(storedMode);
     }
 
@@ -293,39 +299,52 @@ export default function WorkbenchPanel({
                   paddingBottom: '8px',
                 }}
               >
-                {(['outline', 'notes'] as const).map((tab) => (
-                  <button
-                    key={tab}
-                    type="button"
-                    onClick={() => switchEditorMode(tab)}
-                    style={{
-                      flex: 1,
-                      padding: '5px 0',
-                      fontFamily: 'var(--studio-font-mono)',
-                      fontSize: '9.5px',
-                      fontWeight: 700,
-                      letterSpacing: '0.1em',
-                      textTransform: 'uppercase' as const,
-                      color:
-                        editorPanelMode === tab
-                          ? 'var(--studio-text-bright)'
-                          : 'var(--studio-text-3)',
-                      backgroundColor: 'transparent',
-                      border: 'none',
-                      borderBottom:
-                        editorPanelMode === tab
-                          ? '2px solid var(--studio-tc)'
-                          : '2px solid transparent',
-                      cursor: 'pointer',
-                      transition: 'all 0.12s ease',
-                    }}
-                  >
-                    {tab === 'outline' ? 'Outline' : 'Notes'}
-                  </button>
-                ))}
+                {(['research', 'outline', 'stash'] as const).map((tab) => {
+                  const TAB_LABELS: Record<EditorPanelMode, string> = {
+                    research: 'Research',
+                    outline: 'Outline',
+                    stash: 'Stash',
+                  };
+                  return (
+                    <button
+                      key={tab}
+                      type="button"
+                      onClick={() => switchEditorMode(tab)}
+                      style={{
+                        flex: 1,
+                        padding: '5px 0',
+                        fontFamily: 'var(--studio-font-mono)',
+                        fontSize: '9.5px',
+                        fontWeight: 700,
+                        letterSpacing: '0.1em',
+                        textTransform: 'uppercase' as const,
+                        color:
+                          editorPanelMode === tab
+                            ? 'var(--studio-text-bright)'
+                            : 'var(--studio-text-3)',
+                        backgroundColor: 'transparent',
+                        border: 'none',
+                        borderBottom:
+                          editorPanelMode === tab
+                            ? '2px solid var(--studio-tc)'
+                            : '2px solid transparent',
+                        cursor: 'pointer',
+                        transition: 'all 0.12s ease',
+                      }}
+                    >
+                      {TAB_LABELS[tab]}
+                    </button>
+                  );
+                })}
               </div>
 
-              {editorPanelMode === 'outline' ? (
+              {editorPanelMode === 'research' && (
+                <ResearchMode
+                  editor={editor ?? null}
+                  contentItem={contentItem ?? null}
+                />
+              )}
+              {editorPanelMode === 'outline' && (
                 <OutlineMode
                   editor={editor ?? null}
                   contentItem={contentItem ?? null}
@@ -334,8 +353,9 @@ export default function WorkbenchPanel({
                   saveState={saveState}
                   autosaveState={autosaveState}
                 />
-              ) : (
-                <NotesMode contentItem={contentItem ?? null} />
+              )}
+              {editorPanelMode === 'stash' && (
+                <StashMode editor={editor ?? null} />
               )}
             </>
           ) : (
@@ -703,6 +723,496 @@ function StatTile({
       >
         {label}
       </div>
+    </div>
+  );
+}
+
+/* ── Research mode ───────────────────────────── */
+
+function ResearchMode({
+  editor,
+  contentItem,
+}: {
+  editor: TiptapEditorType | null;
+  contentItem: StudioContentItem | null;
+}) {
+  const slug = contentItem?.slug ?? 'untitled';
+  const sources = useMemo(() => getMockSourcesForContent(slug), [slug]);
+  const backlinks = useMemo(() => getMockBacklinksForContent(slug), [slug]);
+  const thread = useMemo(() => getMockThreadForContent(slug), [slug]);
+  const commonplaceEntries = useMemo(() => getMockCommonplaceEntries(), []);
+
+  /* Track editor text so wiki-link extraction re-runs on content changes */
+  const [editorText, setEditorText] = useState('');
+  useEffect(() => {
+    if (!editor) return;
+    setEditorText(editor.getText());
+    const handler = () => setEditorText(editor.getText());
+    editor.on('update', handler);
+    return () => { editor.off('update', handler); };
+  }, [editor]);
+
+  const wikiTitles = useMemo(() => {
+    const matches = editorText.match(/\[\[([^\]]+)\]\]/g);
+    if (!matches) return [] as string[];
+    const titles = matches.map((m) => m.slice(2, -2));
+    return [...new Set(titles)];
+  }, [editorText]);
+
+  const resolvedLinks = useMemo(() => {
+    return wikiTitles.map((title) => {
+      const entry = commonplaceEntries.find(
+        (e) => e.title.toLowerCase() === title.toLowerCase(),
+      );
+      return { title, entry: entry ?? null };
+    });
+  }, [wikiTitles, commonplaceEntries]);
+
+  const nextMove = (contentItem as StudioContentItem & { nextMove?: string })?.nextMove;
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+      {/* 1. Sources */}
+      <div>
+        <ToolboxLabel>Sources</ToolboxLabel>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', marginTop: '8px' }}>
+          {sources.map((src) => (
+            <div
+              key={src.id}
+              style={{
+                display: 'flex',
+                gap: '8px',
+                alignItems: 'flex-start',
+                padding: '6px 8px',
+                borderLeft: `2px solid ${src.color}`,
+                backgroundColor: 'var(--studio-surface)',
+                borderRadius: '2px',
+              }}
+            >
+              <div
+                style={{
+                  fontFamily: 'var(--studio-font-mono)',
+                  fontSize: '8px',
+                  fontWeight: 700,
+                  letterSpacing: '0.08em',
+                  color: src.color,
+                  backgroundColor: `color-mix(in srgb, ${src.color} 12%, transparent)`,
+                  padding: '1px 4px',
+                  borderRadius: '2px',
+                  flexShrink: 0,
+                  marginTop: '1px',
+                }}
+              >
+                {src.typeAbbr}
+              </div>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div
+                  style={{
+                    fontFamily: 'var(--studio-font-serif)',
+                    fontSize: '12.5px',
+                    fontWeight: 600,
+                    color: 'var(--studio-text-bright)',
+                    lineHeight: 1.3,
+                  }}
+                >
+                  {src.title}
+                </div>
+                <div
+                  style={{
+                    fontFamily: 'var(--studio-font-mono)',
+                    fontSize: '9px',
+                    color: 'var(--studio-text-3)',
+                    marginTop: '2px',
+                  }}
+                >
+                  {src.creator} · {src.role}
+                </div>
+              </div>
+            </div>
+          ))}
+          <button
+            type="button"
+            style={{
+              padding: '6px 0',
+              fontFamily: 'var(--studio-font-mono)',
+              fontSize: '9px',
+              fontWeight: 600,
+              color: 'var(--studio-text-3)',
+              backgroundColor: 'transparent',
+              border: '1px dashed var(--studio-border)',
+              borderRadius: '3px',
+              cursor: 'pointer',
+              letterSpacing: '0.06em',
+            }}
+          >
+            + Add source
+          </button>
+        </div>
+      </div>
+
+      {/* 2. Connected Content */}
+      <div>
+        <ToolboxLabel>Connected Content</ToolboxLabel>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', marginTop: '8px' }}>
+          {backlinks.map((bl) => (
+            <div
+              key={bl.id}
+              style={{
+                display: 'flex',
+                gap: '8px',
+                alignItems: 'center',
+                padding: '6px 8px',
+                backgroundColor: 'var(--studio-surface)',
+                borderRadius: '2px',
+              }}
+            >
+              <div
+                style={{
+                  width: '6px',
+                  height: '6px',
+                  borderRadius: '50%',
+                  backgroundColor: bl.color,
+                  flexShrink: 0,
+                }}
+              />
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div
+                  style={{
+                    fontFamily: 'var(--studio-font-serif)',
+                    fontSize: '12px',
+                    fontWeight: 600,
+                    color: 'var(--studio-text-bright)',
+                    lineHeight: 1.3,
+                  }}
+                >
+                  {bl.title}
+                </div>
+                <div
+                  style={{
+                    fontFamily: 'var(--studio-font-mono)',
+                    fontSize: '9px',
+                    color: 'var(--studio-text-3)',
+                    marginTop: '1px',
+                  }}
+                >
+                  {bl.contentType} · {bl.sharedSourceCount} shared source{bl.sharedSourceCount !== 1 ? 's' : ''}
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* 3. Commonplace Links */}
+      {resolvedLinks.length > 0 && (
+        <div>
+          <ToolboxLabel>Commonplace Links</ToolboxLabel>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', marginTop: '8px' }}>
+            {resolvedLinks.map((link) => (
+              <div
+                key={link.title}
+                style={{
+                  padding: '6px 8px',
+                  backgroundColor: 'color-mix(in srgb, #3A8A9A 8%, transparent)',
+                  borderRadius: '3px',
+                  borderLeft: '2px solid #3A8A9A',
+                }}
+              >
+                <div
+                  style={{
+                    fontFamily: 'var(--studio-font-serif)',
+                    fontSize: '12px',
+                    fontWeight: 600,
+                    color: '#3A8A9A',
+                    lineHeight: 1.3,
+                  }}
+                >
+                  {link.title}
+                </div>
+                {link.entry && (
+                  <div
+                    style={{
+                      fontFamily: 'var(--studio-font-serif)',
+                      fontSize: '11px',
+                      color: 'var(--studio-text-2)',
+                      marginTop: '3px',
+                      lineHeight: 1.4,
+                      fontStyle: 'italic',
+                    }}
+                  >
+                    {link.entry.text}
+                  </div>
+                )}
+                {!link.entry && (
+                  <div
+                    style={{
+                      fontFamily: 'var(--studio-font-mono)',
+                      fontSize: '9px',
+                      color: 'var(--studio-text-3)',
+                      marginTop: '2px',
+                    }}
+                  >
+                    No matching entry found
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* 4. Active Thread */}
+      <div>
+        <ToolboxLabel>Active Thread</ToolboxLabel>
+        <div style={{ marginTop: '8px' }}>
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '8px',
+              marginBottom: '8px',
+            }}
+          >
+            <div
+              style={{
+                fontFamily: 'var(--studio-font-serif)',
+                fontSize: '13px',
+                fontWeight: 600,
+                color: 'var(--studio-text-bright)',
+              }}
+            >
+              {thread.title}
+            </div>
+            <div
+              style={{
+                fontFamily: 'var(--studio-font-mono)',
+                fontSize: '8px',
+                fontWeight: 700,
+                letterSpacing: '0.08em',
+                textTransform: 'uppercase' as const,
+                color: '#D4AA4A',
+                backgroundColor: 'color-mix(in srgb, #D4AA4A 12%, transparent)',
+                padding: '1px 5px',
+                borderRadius: '2px',
+              }}
+            >
+              {thread.status}
+            </div>
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+            {thread.entries.map((entry) => (
+              <div
+                key={entry.id}
+                style={{
+                  display: 'flex',
+                  gap: '8px',
+                  alignItems: 'flex-start',
+                }}
+              >
+                <div
+                  style={{
+                    width: '6px',
+                    height: '6px',
+                    borderRadius: '50%',
+                    backgroundColor: THREAD_ENTRY_COLORS[entry.type] ?? 'var(--studio-text-3)',
+                    flexShrink: 0,
+                    marginTop: '5px',
+                  }}
+                />
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div
+                    style={{
+                      fontFamily: 'var(--studio-font-serif)',
+                      fontSize: '11.5px',
+                      color: 'var(--studio-text-2)',
+                      lineHeight: 1.35,
+                    }}
+                  >
+                    {entry.text}
+                  </div>
+                  <div
+                    style={{
+                      fontFamily: 'var(--studio-font-mono)',
+                      fontSize: '8.5px',
+                      color: 'var(--studio-text-3)',
+                      marginTop: '1px',
+                    }}
+                  >
+                    {entry.date}
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      {/* 5. Next Steps */}
+      {nextMove && (
+        <div>
+          <ToolboxLabel>Next Steps</ToolboxLabel>
+          <div
+            style={{
+              marginTop: '8px',
+              padding: '8px 10px',
+              backgroundColor: 'color-mix(in srgb, #B45A2D 8%, transparent)',
+              borderRadius: '3px',
+              borderLeft: '2px solid #B45A2D',
+            }}
+          >
+            <div
+              style={{
+                fontFamily: 'var(--studio-font-serif)',
+                fontSize: '12px',
+                color: 'var(--studio-text-bright)',
+                lineHeight: 1.4,
+              }}
+            >
+              {nextMove}
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ── Stash mode ─────────────────────────────── */
+
+function StashMode({
+  editor,
+}: {
+  editor: TiptapEditorType | null;
+}) {
+  const { editorState } = useStudioWorkbench();
+  const stash = editorState.stash;
+  const onRestore = editorState.onRestoreStash;
+  const onDelete = editorState.onDeleteStash;
+
+  if (stash.length === 0) {
+    return (
+      <div
+        style={{
+          fontFamily: 'var(--studio-font-serif)',
+          fontSize: '12px',
+          color: 'var(--studio-text-3)',
+          fontStyle: 'italic',
+          textAlign: 'center',
+          padding: '24px 12px',
+          lineHeight: 1.5,
+        }}
+      >
+        No stashed text yet. Select text in the editor and press{' '}
+        <span
+          style={{
+            fontFamily: 'var(--studio-font-mono)',
+            fontSize: '9px',
+            padding: '1px 4px',
+            backgroundColor: 'var(--studio-surface)',
+            borderRadius: '2px',
+            border: '1px solid var(--studio-border)',
+          }}
+        >
+          Cmd+Shift+S
+        </span>{' '}
+        or right-click to stash it.
+      </div>
+    );
+  }
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+      <ToolboxLabel>Stashed Fragments</ToolboxLabel>
+      {stash.map((item) => (
+        <div
+          key={item.id}
+          style={{
+            padding: '8px 10px',
+            backgroundColor: 'var(--studio-surface)',
+            borderRadius: '3px',
+            border: '1px solid var(--studio-border)',
+          }}
+        >
+          <div
+            style={{
+              fontFamily: 'var(--studio-font-serif)',
+              fontSize: '12px',
+              fontStyle: 'italic',
+              color: 'var(--studio-text-2)',
+              lineHeight: 1.4,
+              marginBottom: '6px',
+              overflow: 'hidden',
+              display: '-webkit-box',
+              WebkitLineClamp: 4,
+              WebkitBoxOrient: 'vertical' as const,
+            }}
+          >
+            &ldquo;{item.text}&rdquo;
+          </div>
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+            }}
+          >
+            <div
+              style={{
+                fontFamily: 'var(--studio-font-mono)',
+                fontSize: '9px',
+                color: 'var(--studio-text-3)',
+              }}
+            >
+              Saved {new Date(item.savedAt).toLocaleString('en-US', {
+                month: 'short',
+                day: 'numeric',
+                hour: 'numeric',
+                minute: '2-digit',
+              })}
+            </div>
+            <div style={{ display: 'flex', gap: '4px' }}>
+              <button
+                type="button"
+                onClick={() => onRestore?.(item.id)}
+                disabled={!editor}
+                style={{
+                  fontFamily: 'var(--studio-font-mono)',
+                  fontSize: '9px',
+                  fontWeight: 600,
+                  color: '#3A8A9A',
+                  backgroundColor: 'color-mix(in srgb, #3A8A9A 10%, transparent)',
+                  border: 'none',
+                  borderRadius: '2px',
+                  padding: '2px 6px',
+                  cursor: editor ? 'pointer' : 'default',
+                  opacity: editor ? 1 : 0.5,
+                  letterSpacing: '0.04em',
+                }}
+              >
+                Restore
+              </button>
+              <button
+                type="button"
+                onClick={() => onDelete?.(item.id)}
+                style={{
+                  fontFamily: 'var(--studio-font-mono)',
+                  fontSize: '9px',
+                  fontWeight: 600,
+                  color: 'var(--studio-text-3)',
+                  backgroundColor: 'transparent',
+                  border: 'none',
+                  borderRadius: '2px',
+                  padding: '2px 6px',
+                  cursor: 'pointer',
+                  letterSpacing: '0.04em',
+                }}
+              >
+                Delete
+              </button>
+            </div>
+          </div>
+        </div>
+      ))}
     </div>
   );
 }

@@ -19,13 +19,25 @@ export default function WordCountBand({
   const words = editor.storage.characterCount?.words() ?? 0;
   const readingTime = Math.max(1, Math.ceil(words / 200));
 
-  /* Count paragraphs by traversing the doc */
+  /* Count paragraphs, contain blocks, and wiki-links by traversing the doc */
   let paragraphs = 0;
+  let containBlocks = 0;
+  const wikiLinkSet = new Set<string>();
   editor.state.doc.descendants((node) => {
     if (node.type.name === 'paragraph' && node.textContent.length > 0) {
       paragraphs++;
     }
+    if (node.type.name === 'containBlock') {
+      containBlocks++;
+    }
+    if (node.isTextblock) {
+      const matches = node.textContent.match(/\[\[([^\]]+)\]\]/g);
+      if (matches) {
+        for (const m of matches) wikiLinkSet.add(m.slice(2, -2));
+      }
+    }
   });
+  const wikiLinks = wikiLinkSet.size;
 
   return (
     <div
@@ -77,11 +89,18 @@ export default function WordCountBand({
       <Stat label="chars" value={chars.toLocaleString()} />
       <Stat label="min read" value={String(readingTime)} />
       <Stat label="paragraphs" value={String(paragraphs)} />
+
+      {wikiLinks > 0 && (
+        <Stat label="links" value={String(wikiLinks)} color="#3A8A9A" />
+      )}
+      {containBlocks > 0 && (
+        <Stat label="contained" value={String(containBlocks)} color="#C49A4A" />
+      )}
     </div>
   );
 }
 
-function Stat({ label, value }: { label: string; value: string }) {
+function Stat({ label, value, color }: { label: string; value: string; color?: string }) {
   return (
     <span
       style={{
@@ -95,7 +114,7 @@ function Stat({ label, value }: { label: string; value: string }) {
           fontFamily: 'var(--studio-font-mono)',
           fontSize: '13px',
           fontWeight: 600,
-          color: 'var(--studio-text-2)',
+          color: color ?? 'var(--studio-text-2)',
         }}
       >
         {value}
