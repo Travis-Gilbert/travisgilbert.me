@@ -4,15 +4,21 @@ import { useState, useMemo, useEffect } from 'react';
 import { fetchContentList } from '@/lib/studio-api';
 import {
   getContentTypeIdentity,
-  getStage,
   STAGES,
   normalizeStudioContentType,
 } from '@/lib/studio';
 import type { StudioContentItem } from '@/lib/studio';
-import StudioCard from './StudioCard';
+import HeroZone from './HeroZone';
+import ContentCardStandard from './ContentCardStandard';
+import BoardView from './BoardView';
+
+type ViewMode = 'desk' | 'board';
 
 /**
- * Reusable content list for type-specific pages.
+ * Content list with two view modes: Writing Desk (hero + card grid)
+ * and Workbench Board (kanban columns by pipeline stage).
+ *
+ * View mode persists per content type in localStorage.
  */
 export default function ContentList({
   contentType,
@@ -21,12 +27,38 @@ export default function ContentList({
 }) {
   const normalizedType = normalizeStudioContentType(contentType);
   const typeInfo = getContentTypeIdentity(normalizedType);
+  const color = typeInfo?.color ?? 'var(--studio-text-3)';
 
   const [items, setItems] = useState<StudioContentItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [stageFilter, setStageFilter] = useState<string | null>(null);
   const [sortBy, setSortBy] = useState<'date' | 'title' | 'words'>('date');
+  const [viewMode, setViewMode] = useState<ViewMode>('desk');
+
+  /* Restore persisted view mode */
+  useEffect(() => {
+    try {
+      const stored = localStorage.getItem(
+        `studio-content-view-${normalizedType}`,
+      );
+      if (stored === 'desk' || stored === 'board') {
+        setViewMode(stored);
+      }
+    } catch {
+      /* localStorage unavailable */
+    }
+  }, [normalizedType]);
+
+  /* Persist view mode changes */
+  const handleViewChange = (mode: ViewMode) => {
+    setViewMode(mode);
+    try {
+      localStorage.setItem(`studio-content-view-${normalizedType}`, mode);
+    } catch {
+      /* localStorage unavailable */
+    }
+  };
 
   useEffect(() => {
     let cancelled = false;
@@ -70,15 +102,40 @@ export default function ContentList({
     return result;
   }, [items, stageFilter, sortBy]);
 
+  /* Hero candidate: most recently updated non-published item */
+  const heroItem = useMemo(() => {
+    const candidates = items
+      .filter((i) => i.stage !== 'published')
+      .sort(
+        (a, b) =>
+          new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime(),
+      );
+    return candidates[0] ?? null;
+  }, [items]);
+
   return (
     <div style={{ padding: '32px 40px' }}>
+      {/* Section header with view toggle */}
       <div className="studio-section-head">
         <span className="studio-section-label">
           {typeInfo?.label ?? normalizedType}
         </span>
         <span className="studio-section-line" />
+        <div style={{ display: 'flex', gap: '4px', flexShrink: 0 }}>
+          <ViewToggleButton
+            label="Desk"
+            active={viewMode === 'desk'}
+            onClick={() => handleViewChange('desk')}
+          />
+          <ViewToggleButton
+            label="Board"
+            active={viewMode === 'board'}
+            onClick={() => handleViewChange('board')}
+          />
+        </div>
       </div>
 
+      {/* Filter pills + sort */}
       <div
         style={{
           display: 'flex',
@@ -145,6 +202,7 @@ export default function ContentList({
         </div>
       </div>
 
+      {/* Loading / error states */}
       {loading && (
         <p
           style={{
@@ -172,105 +230,92 @@ export default function ContentList({
         </p>
       )}
 
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-        {filtered.map((item) => (
-          <ContentCard
-            key={item.id}
-            item={item}
-            color={typeInfo?.color ?? 'var(--studio-text-3)'}
-          />
-        ))}
-        {!loading && filtered.length === 0 && (
-          <p
-            style={{
-              fontFamily: 'var(--studio-font-body)',
-              fontSize: '14px',
-              color: 'var(--studio-text-3)',
-              padding: '24px 0',
-            }}
-          >
-            No items match the current filter.
-          </p>
-        )}
-      </div>
+      {/* View content */}
+      {!loading && viewMode === 'desk' && (
+        <>
+          {heroItem && <HeroZone item={heroItem} />}
+          {filtered.length > 0 ? (
+            <div
+              style={{
+                display: 'grid',
+                gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))',
+                gap: '12px',
+              }}
+            >
+              {filtered.map((item) => (
+                <ContentCardStandard
+                  key={item.id}
+                  item={item}
+                  color={color}
+                />
+              ))}
+            </div>
+          ) : (
+            <EmptyState />
+          )}
+        </>
+      )}
+
+      {!loading && viewMode === 'board' && (
+        <>
+          {filtered.length > 0 ? (
+            <BoardView items={filtered} color={color} />
+          ) : (
+            <EmptyState />
+          )}
+        </>
+      )}
     </div>
   );
 }
 
-function ContentCard({
-  item,
-  color,
-}: {
-  item: StudioContentItem;
-  color: string;
-}) {
-  const stage = getStage(item.stage);
+/* ── Internal helpers ─────────────────────────── */
 
+function ViewToggleButton({
+  label,
+  active,
+  onClick,
+}: {
+  label: string;
+  active: boolean;
+  onClick: () => void;
+}) {
   return (
-    <StudioCard
-      typeColor={color}
-      href={`/studio/${normalizeStudioContentType(item.contentType)}/${item.slug}`}
+    <button
+      type="button"
+      onClick={onClick}
+      style={{
+        fontFamily: 'var(--studio-font-mono)',
+        fontSize: '10px',
+        fontWeight: 600,
+        letterSpacing: '0.08em',
+        textTransform: 'uppercase',
+        padding: '3px 10px',
+        borderRadius: '3px',
+        border: '1px solid var(--studio-border)',
+        backgroundColor: active ? 'var(--studio-surface)' : 'transparent',
+        color: active ? 'var(--studio-text-bright)' : 'var(--studio-text-3)',
+        opacity: active ? 1 : 0.6,
+        cursor: 'pointer',
+        transition: 'opacity 0.15s ease, background-color 0.15s ease',
+      }}
     >
-      <div
-        style={{
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'flex-start',
-          gap: '12px',
-        }}
-      >
-        <div style={{ flex: 1, minWidth: 0 }}>
-          <div
-            style={{
-              fontFamily: 'var(--studio-font-title)',
-              fontSize: '16px',
-              fontWeight: 600,
-              color: 'var(--studio-text-bright)',
-              marginBottom: '4px',
-            }}
-          >
-            {item.title}
-          </div>
-          {item.excerpt && (
-            <div
-              style={{
-                fontFamily: 'var(--studio-font-body)',
-                fontSize: '13px',
-                color: 'var(--studio-text-2)',
-                lineHeight: 1.5,
-                overflow: 'hidden',
-                textOverflow: 'ellipsis',
-                whiteSpace: 'nowrap',
-              }}
-            >
-              {item.excerpt}
-            </div>
-          )}
-        </div>
-        <div
-          style={{
-            display: 'flex',
-            gap: '10px',
-            alignItems: 'center',
-            flexShrink: 0,
-          }}
-        >
-          {stage && (
-            <span className="studio-stage-badge" data-stage={item.stage}>
-              {stage.label}
-            </span>
-          )}
-          <span
-            style={{
-              fontFamily: 'var(--studio-font-mono)',
-              fontSize: '12px',
-              color: 'var(--studio-text-3)',
-            }}
-          >
-            {item.wordCount.toLocaleString()}w
-          </span>
-        </div>
-      </div>
-    </StudioCard>
+      {label}
+    </button>
+  );
+}
+
+function EmptyState() {
+  return (
+    <p
+      style={{
+        fontFamily: 'var(--studio-font-body)',
+        fontSize: '14px',
+        color: 'var(--studio-text-3)',
+        padding: '24px 0',
+      }}
+    >
+      No items match the current filter.
+    </p>
   );
 }

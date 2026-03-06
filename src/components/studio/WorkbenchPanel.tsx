@@ -34,6 +34,7 @@ import {
   type CommonplaceSearchResult,
   type TaskGroup,
 } from '@/lib/studio-api';
+import { relativeTime } from '@/lib/studio-time';
 import { useStudioWorkbench } from './WorkbenchContext';
 import NewContentModal from './NewContentModal';
 
@@ -469,31 +470,23 @@ function DashboardWorkbench() {
     [items],
   );
 
-  const quietOrStuck = useMemo(() => {
-    const stuck = items.filter(
-      (item) =>
-        item.metrics.stageAgeDays >= 14 &&
-        !['idea', 'published'].includes(item.stage),
-    );
-    const quiet = items.filter(
-      (item) =>
-        item.metrics.daysSinceLastTouched >= 7 &&
-        !['idea', 'published'].includes(item.stage),
-    );
+  /* Recently Touched: 5 most recently updated items */
+  const recentlyTouched = useMemo(
+    () =>
+      [...items]
+        .sort(
+          (a, b) =>
+            new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime(),
+        )
+        .slice(0, 5),
+    [items],
+  );
 
-    const merged = new Map<string, StudioContentItemWithMetrics>();
-    [...stuck, ...quiet].forEach((item) => {
-      merged.set(item.id, item);
-    });
-
-    return Array.from(merged.values())
-      .sort((a, b) => {
-        const scoreA = Math.max(a.metrics.daysSinceLastTouched, a.metrics.stageAgeDays);
-        const scoreB = Math.max(b.metrics.daysSinceLastTouched, b.metrics.stageAgeDays);
-        return scoreB - scoreA;
-      })
-      .slice(0, 8);
-  }, [items]);
+  /* Saved for Later: items still in the idea stage */
+  const savedForLater = useMemo(
+    () => items.filter((i) => i.stage === 'idea').slice(0, 5),
+    [items],
+  );
 
   const resolveInsightHref = useCallback(
     (detail: string): string | null => {
@@ -698,20 +691,12 @@ function DashboardWorkbench() {
         </div>
       )}
 
-      <div style={{ marginBottom: '22px' }}>
-        <ToolboxLabel>Quiet / Stuck</ToolboxLabel>
-
-        {quietOrStuck.length > 0 ? (
+      {recentlyTouched.length > 0 && (
+        <div style={{ marginBottom: '22px' }}>
+          <ToolboxLabel>Recently Touched</ToolboxLabel>
           <div style={{ marginTop: '8px', display: 'flex', flexDirection: 'column', gap: '6px' }}>
-            {quietOrStuck.map((item) => {
+            {recentlyTouched.map((item) => {
               const type = getContentTypeIdentity(item.contentType);
-              const daysQuiet = item.metrics.daysSinceLastTouched;
-              const daysStuck = item.metrics.stageAgeDays;
-              const status =
-                daysStuck >= 14 && daysStuck >= daysQuiet
-                  ? `${daysStuck}d in stage`
-                  : `${daysQuiet}d quiet`;
-
               return (
                 <Link
                   key={item.id}
@@ -752,30 +737,67 @@ function DashboardWorkbench() {
                     style={{
                       fontFamily: 'var(--studio-font-mono)',
                       fontSize: '9px',
-                      color: 'var(--studio-gold)',
+                      color: 'var(--studio-text-3)',
                       flexShrink: 0,
                     }}
                   >
-                    {status}
+                    {relativeTime(item.updatedAt)}
                   </span>
                 </Link>
               );
             })}
           </div>
-        ) : (
-          <p
-            style={{
-              margin: '8px 0 0',
-              fontFamily: 'var(--studio-font-body)',
-              fontSize: '12px',
-              color: 'var(--studio-text-3)',
-              fontStyle: 'italic',
-            }}
-          >
-            Nothing is stalled right now.
-          </p>
-        )}
-      </div>
+        </div>
+      )}
+
+      {savedForLater.length > 0 && (
+        <div style={{ marginBottom: '22px' }}>
+          <ToolboxLabel>Saved for Later</ToolboxLabel>
+          <div style={{ marginTop: '8px', display: 'flex', flexDirection: 'column', gap: '6px' }}>
+            {savedForLater.map((item) => {
+              const type = getContentTypeIdentity(item.contentType);
+              return (
+                <Link
+                  key={item.id}
+                  href={`/studio/${type.route}/${item.slug}`}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '8px',
+                    textDecoration: 'none',
+                    color: 'inherit',
+                    padding: '4px 0',
+                  }}
+                >
+                  <span
+                    style={{
+                      width: '6px',
+                      height: '6px',
+                      borderRadius: '50%',
+                      backgroundColor: type.color,
+                      flexShrink: 0,
+                    }}
+                  />
+                  <span
+                    style={{
+                      fontFamily: 'var(--studio-font-title)',
+                      fontSize: '13px',
+                      color: 'var(--studio-text-2)',
+                      flex: 1,
+                      minWidth: 0,
+                      overflow: 'hidden',
+                      textOverflow: 'ellipsis',
+                      whiteSpace: 'nowrap',
+                    }}
+                  >
+                    {item.title}
+                  </span>
+                </Link>
+              );
+            })}
+          </div>
+        </div>
+      )}
 
       <div>
         <ToolboxLabel>Quick Capture</ToolboxLabel>
