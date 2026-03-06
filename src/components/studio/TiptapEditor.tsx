@@ -17,8 +17,14 @@ import Underline from '@tiptap/extension-underline';
 import Subscript from '@tiptap/extension-subscript';
 import Superscript from '@tiptap/extension-superscript';
 import Typography from '@tiptap/extension-typography';
+import { Markdown } from '@tiptap/markdown';
 import { useEffect, useCallback, useRef } from 'react';
 import type { Editor } from '@tiptap/react';
+
+export type TiptapUpdatePayload = {
+  html: string;
+  markdown: string;
+};
 
 /**
  * Tiptap writing surface with full markdown feature support.
@@ -30,21 +36,32 @@ import type { Editor } from '@tiptap/react';
  */
 export default function TiptapEditor({
   initialContent,
+  initialContentFormat = 'html',
   onUpdate,
   onEditorReady,
   onFocusChange,
+  typewriterMode = true,
 }: {
   initialContent?: string;
-  onUpdate?: (html: string) => void;
+  initialContentFormat?: 'html' | 'markdown';
+  onUpdate?: (payload: TiptapUpdatePayload) => void;
   onEditorReady?: (editor: Editor) => void;
   onFocusChange?: (focused: boolean) => void;
+  typewriterMode?: boolean;
 }) {
   const wrapperRef = useRef<HTMLDivElement | null>(null);
   const typewriterFrameRef = useRef<number | null>(null);
 
   const handleUpdate = useCallback(
     ({ editor: ed }: { editor: Editor }) => {
-      onUpdate?.(ed.getHTML());
+      onUpdate?.({
+        html: ed.getHTML(),
+        markdown:
+          typeof (ed as Editor & { getMarkdown?: () => string }).getMarkdown ===
+          'function'
+            ? (ed as Editor & { getMarkdown: () => string }).getMarkdown()
+            : ed.getText(),
+      });
     },
     [onUpdate],
   );
@@ -78,8 +95,10 @@ export default function TiptapEditor({
       Subscript,
       Superscript,
       Typography,
+      Markdown,
     ],
     content: initialContent ?? '',
+    contentType: initialContentFormat,
     onUpdate: handleUpdate,
     editorProps: {
       attributes: {
@@ -109,7 +128,7 @@ export default function TiptapEditor({
     }
 
     const wrapperRect = wrapper.getBoundingClientRect();
-    const targetY = wrapperRect.top + wrapperRect.height * 0.5;
+    const targetY = wrapperRect.top + wrapperRect.height * 0.46;
     const delta = caretRect.top - targetY;
 
     if (Math.abs(delta) < 14) {
@@ -131,6 +150,14 @@ export default function TiptapEditor({
   }, [centerSelectionInView]);
 
   useEffect(() => {
+    if (!typewriterMode) {
+      if (typewriterFrameRef.current !== null) {
+        cancelAnimationFrame(typewriterFrameRef.current);
+        typewriterFrameRef.current = null;
+      }
+      return;
+    }
+
     if (!editor) return;
 
     const handleSelectionActivity = () => {
@@ -150,12 +177,13 @@ export default function TiptapEditor({
         typewriterFrameRef.current = null;
       }
     };
-  }, [editor, scheduleTypewriterCenter]);
+  }, [editor, scheduleTypewriterCenter, typewriterMode]);
 
   return (
     <div
       ref={wrapperRef}
       className="studio-tiptap-wrapper studio-scrollbar"
+      data-typewriter-mode={typewriterMode ? 'true' : 'false'}
       onFocusCapture={() => onFocusChange?.(true)}
       onBlurCapture={(event) => {
         const next = event.relatedTarget as Node | null;

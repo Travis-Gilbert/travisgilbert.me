@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { getContentTypeIdentity } from '@/lib/studio';
+import type { WorkbenchAutosaveState, WorkbenchSaveState } from './WorkbenchContext';
 
 type StageOption = {
   slug: string;
@@ -29,11 +30,15 @@ export default function StageStepper({
   stage,
   contentType,
   lastSaved,
+  saveState,
+  autosaveState,
   onStageChange,
 }: {
   stage: string;
   contentType: string;
   lastSaved: string | null;
+  saveState: WorkbenchSaveState;
+  autosaveState: WorkbenchAutosaveState;
   onStageChange: (newStage: string) => void;
 }) {
   const [pendingStage, setPendingStage] = useState<string | null>(null);
@@ -64,6 +69,17 @@ export default function StageStepper({
     if (!pendingStage) return '';
     return STAGE_FLOW.find((item) => item.slug === pendingStage)?.label ?? pendingStage;
   }, [pendingStage]);
+
+  const saveMessage =
+    saveState === 'saving'
+      ? 'Saving...'
+      : saveState === 'error'
+        ? 'Save failed'
+        : autosaveState === 'saved'
+          ? 'Saved'
+          : lastSaved
+            ? `Saved ${lastSaved}`
+            : null;
 
   const typeInfo = getContentTypeIdentity(contentType);
 
@@ -118,18 +134,8 @@ export default function StageStepper({
   };
 
   return (
-    <div
-      style={{
-        position: 'relative',
-        display: 'flex',
-        alignItems: 'center',
-        gap: '10px',
-        padding: '10px 20px',
-        backgroundColor: 'var(--studio-surface)',
-        borderBottom: '1px solid var(--studio-border)',
-        flexWrap: 'wrap',
-      }}
-    >
+    <div className="studio-stage-stepper-shell">
+      <div className="studio-editor-column studio-stage-stepper">
       <span
         style={{
           fontFamily: 'var(--studio-font-mono)',
@@ -238,96 +244,98 @@ export default function StageStepper({
         </button>
       </div>
 
-      <div style={{ flex: 1 }} />
+        <div style={{ flex: 1 }} />
 
-      {lastSaved && (
-        <span
-          style={{
-            fontFamily: 'var(--studio-font-mono)',
-            fontSize: '10px',
-            color: 'var(--studio-text-3)',
-          }}
-        >
-          Saved {lastSaved}
-        </span>
-      )}
-
-      {pendingStage && (
-        <div
-          role="dialog"
-          aria-modal="false"
-          aria-label="Confirm stage change"
-          style={{
-            position: 'absolute',
-            top: 'calc(100% + 8px)',
-            [anchorDirection === 'back' ? 'left' : 'right']: anchorDirection === 'back' ? '20px' : '20px',
-            zIndex: 20,
-            minWidth: '220px',
-            backgroundColor: 'var(--studio-surface)',
-            border: '1px solid var(--studio-border-strong)',
-            borderRadius: '10px',
-            boxShadow: 'var(--studio-shadow)',
-            padding: '10px',
-          }}
-        >
-          <p
+        {saveMessage && (
+          <span
             style={{
-              margin: 0,
-              fontFamily: 'var(--studio-font-body)',
-              fontSize: '12px',
-              color: 'var(--studio-text-2)',
+              fontFamily: 'var(--studio-font-mono)',
+              fontSize: '10px',
+              color: saveState === 'error' ? '#A44A3A' : 'var(--studio-text-3)',
             }}
+            aria-live="polite"
           >
-            Move to {pendingLabel}?
-          </p>
+            {saveMessage}
+          </span>
+        )}
 
+        {pendingStage && (
           <div
+            role="dialog"
+            aria-modal="false"
+            aria-label="Confirm stage change"
             style={{
-              display: 'flex',
-              justifyContent: 'flex-end',
-              gap: '6px',
-              marginTop: '10px',
+              position: 'absolute',
+              top: 'calc(100% + 8px)',
+              [anchorDirection === 'back' ? 'left' : 'right']: anchorDirection === 'back' ? '20px' : '20px',
+              zIndex: 20,
+              minWidth: '220px',
+              backgroundColor: 'var(--studio-surface)',
+              border: '1px solid var(--studio-border-strong)',
+              borderRadius: '10px',
+              boxShadow: 'var(--studio-shadow)',
+              padding: '10px',
             }}
           >
-            <button
-              type="button"
-              onClick={cancelConfirm}
-              aria-label="Cancel stage change"
+            <p
               style={{
-                border: '1px solid var(--studio-border)',
-                background: 'none',
+                margin: 0,
+                fontFamily: 'var(--studio-font-body)',
+                fontSize: '12px',
                 color: 'var(--studio-text-2)',
-                borderRadius: '6px',
-                padding: '4px 8px',
-                fontSize: '11px',
-                fontFamily: 'var(--studio-font-body)',
-                cursor: 'pointer',
               }}
             >
-              Cancel
-            </button>
-            <button
-              ref={confirmButtonRef}
-              type="button"
-              onClick={confirmMove}
-              aria-label={`Confirm move to ${pendingLabel}`}
+              Move to {pendingLabel}?
+            </p>
+
+            <div
               style={{
-                border: '1px solid var(--studio-border-strong)',
-                background: 'var(--studio-surface-hover)',
-                color: 'var(--studio-text-bright)',
-                borderRadius: '6px',
-                padding: '4px 10px',
-                fontSize: '11px',
-                fontWeight: 600,
-                fontFamily: 'var(--studio-font-body)',
-                cursor: 'pointer',
+                display: 'flex',
+                justifyContent: 'flex-end',
+                gap: '6px',
+                marginTop: '10px',
               }}
             >
-              Confirm
-            </button>
+              <button
+                type="button"
+                onClick={cancelConfirm}
+                aria-label="Cancel stage change"
+                style={{
+                  border: '1px solid var(--studio-border)',
+                  background: 'none',
+                  color: 'var(--studio-text-2)',
+                  borderRadius: '6px',
+                  padding: '4px 8px',
+                  fontSize: '11px',
+                  fontFamily: 'var(--studio-font-body)',
+                  cursor: 'pointer',
+                }}
+              >
+                Cancel
+              </button>
+              <button
+                ref={confirmButtonRef}
+                type="button"
+                onClick={confirmMove}
+                aria-label={`Confirm move to ${pendingLabel}`}
+                style={{
+                  border: '1px solid var(--studio-border-strong)',
+                  background: 'var(--studio-surface-hover)',
+                  color: 'var(--studio-text-bright)',
+                  borderRadius: '6px',
+                  padding: '4px 10px',
+                  fontSize: '11px',
+                  fontWeight: 600,
+                  fontFamily: 'var(--studio-font-body)',
+                  cursor: 'pointer',
+                }}
+              >
+                Confirm
+              </button>
+            </div>
           </div>
-        </div>
-      )}
+        )}
+      </div>
     </div>
   );
 }
