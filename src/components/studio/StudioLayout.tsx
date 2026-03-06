@@ -10,6 +10,7 @@ import {
   useStudioWorkbench,
 } from './WorkbenchContext';
 import { StudioViewProvider } from './StudioViewContext';
+import StudioMobileDock from './StudioMobileDock';
 
 const EDITOR_ROUTE_TYPES = new Set([
   'essay',
@@ -157,6 +158,8 @@ function StudioLayoutInner({
 
         <div style={{ position: 'relative', zIndex: 1 }}>{children}</div>
       </main>
+
+      {!zenMode && <StudioMobileDock />}
 
       {!zenMode && (
         <WorkbenchPanel

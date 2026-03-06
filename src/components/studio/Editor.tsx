@@ -30,7 +30,7 @@ import TiptapEditor from './TiptapEditor';
 import type { TiptapUpdatePayload } from './TiptapEditor';
 import WordCountBand from './WordCountBand';
 import EditorContextMenu from './EditorContextMenu';
-import PublishButton from './PublishButton';
+import ExportMenu from './ExportMenu';
 import { useStudioView } from './StudioViewContext';
 
 type SaveState = WorkbenchSaveState;
@@ -670,6 +670,7 @@ export default function Editor({
     setReadingSettings((prev) => normalizeReadingSettings({ ...prev, ...patch }));
   };
   const markdownPreview = getEditorMarkdown(editor) ?? currentBody;
+  const saveButtonLabel = saveState === 'saving' ? 'Saving...' : 'Save';
 
   return (
     <div style={{ display: 'flex', height: '100vh', maxHeight: '100vh' }}>
@@ -699,15 +700,22 @@ export default function Editor({
                 spellCheck={false}
                 className="studio-editor-title"
               />
-              <button
-                type="button"
-                className="studio-reading-toggle"
-                onClick={() => setIsReadingPanelOpen((open) => !open)}
-                aria-expanded={isReadingPanelOpen}
-                aria-controls="studio-reading-panel"
-              >
-                Reading
-              </button>
+              <div className="studio-editor-title-actions">
+                <button
+                  type="button"
+                  className="studio-reading-toggle"
+                  onClick={() => setIsReadingPanelOpen((open) => !open)}
+                  aria-expanded={isReadingPanelOpen}
+                  aria-controls="studio-reading-panel"
+                >
+                  Reading
+                </button>
+                <ExportMenu
+                  title={currentTitle}
+                  slug={slug}
+                  markdown={markdownPreview}
+                />
+              </div>
             </div>
 
             {isReadingPanelOpen && (
@@ -852,6 +860,23 @@ export default function Editor({
 
         <div className="studio-editor-chrome">
           <EditorToolbar editor={editor} />
+        </div>
+
+        <div className="studio-mobile-editor-actions studio-editor-column">
+          <button
+            type="button"
+            className={`studio-mobile-action-btn ${saveState === 'error' ? 'is-error' : ''}`}
+            onClick={handleSave}
+            disabled={saveState === 'saving'}
+          >
+            {saveButtonLabel}
+          </button>
+          <ExportMenu
+            title={currentTitle}
+            slug={slug}
+            markdown={markdownPreview}
+            className="studio-mobile-export"
+          />
         </div>
 
         {showMarkdownView && (
