@@ -1,8 +1,90 @@
 import type { SlashCommandItem } from './SlashCommand';
 import type { Editor } from '@tiptap/core';
 import type { Range } from '@tiptap/core';
+import { CHART_REGISTRY } from '@/lib/studio-charts';
 
 type CommandArgs = { editor: Editor; range: Range };
+
+async function executeAiCommand(
+  editor: Editor,
+  range: Range,
+  mode: 'expand' | 'simplify' | 'summarize',
+) {
+  const { from, to } = editor.state.selection;
+  let text: string;
+
+  if (from !== to) {
+    text = editor.state.doc.textBetween(from, to, '\n');
+  } else {
+    const $from = editor.state.selection.$from;
+    const paragraph = $from.parent;
+    text = paragraph.textContent;
+  }
+
+  if (!text.trim()) {
+    editor.chain().focus().deleteRange(range).run();
+    return;
+  }
+
+  editor.chain().focus().deleteRange(range).run();
+
+  const loadingText = `[AI ${mode}ing...]`;
+  editor.chain().focus().insertContent(loadingText).run();
+
+  try {
+    const res = await fetch('/api/ai/transform', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ mode, text }),
+    });
+
+    if (!res.ok) throw new Error('AI request failed');
+    const data = await res.json();
+
+    const { state } = editor;
+    let loadingPos: number | null = null;
+    state.doc.descendants((node, pos) => {
+      if (node.isText && node.text?.includes(loadingText)) {
+        loadingPos = pos;
+        return false;
+      }
+      return true;
+    });
+
+    if (loadingPos !== null) {
+      editor
+        .chain()
+        .focus()
+        .deleteRange({
+          from: loadingPos,
+          to: loadingPos + loadingText.length,
+        })
+        .insertContentAt(loadingPos, data.result)
+        .run();
+    }
+  } catch {
+    // Remove loading placeholder on error
+    const { state } = editor;
+    let loadingPos: number | null = null;
+    state.doc.descendants((node, pos) => {
+      if (node.isText && node.text?.includes(loadingText)) {
+        loadingPos = pos;
+        return false;
+      }
+      return true;
+    });
+    if (loadingPos !== null) {
+      editor
+        .chain()
+        .focus()
+        .deleteRange({
+          from: loadingPos,
+          to: loadingPos + loadingText.length,
+        })
+        .run();
+    }
+  }
+}
 
 export const SLASH_COMMAND_ITEMS: SlashCommandItem[] = [
   // ── Text ───────────────────────────────────────
@@ -181,36 +263,20 @@ export const SLASH_COMMAND_ITEMS: SlashCommandItem[] = [
     keywords: ['chart', 'd3', 'graph', 'visualization', 'bubble', 'scatter'],
     section: 'Embeds',
     command: ({ editor, range }: CommandArgs) => {
-      const charts = [
-        { name: 'Wealth & Health of Nations', url: '/embed/wealth-health/' },
-      ];
-
-      if (charts.length === 1) {
+      if (CHART_REGISTRY.length === 1) {
+        const chart = CHART_REGISTRY[0];
         editor
           .chain()
           .focus()
           .deleteRange(range)
-          .setIframe({ src: charts[0].url, height: 580 })
+          .setIframe({ src: chart.url, height: chart.defaultHeight })
           .run();
         return;
       }
 
-      /* Future: show a proper picker popup with all available chart routes */
-      const url = window.prompt(
-        'Chart embed URL:\n\nAvailable:\n' +
-          charts.map((c) => `  ${c.name}: ${c.url}`).join('\n'),
-        charts[0].url,
-      );
-      if (!url) {
-        editor.chain().focus().deleteRange(range).run();
-        return;
-      }
-      editor
-        .chain()
-        .focus()
-        .deleteRange(range)
-        .setIframe({ src: url, height: 580 })
-        .run();
+      // Multiple charts: dispatch a custom event to open the picker popup
+      editor.chain().focus().deleteRange(range).run();
+      window.dispatchEvent(new CustomEvent('studio:open-chart-picker'));
     },
   },
   {
@@ -279,35 +345,32 @@ export const SLASH_COMMAND_ITEMS: SlashCommandItem[] = [
   // ── AI ──────────────────────────────────────────
   {
     title: 'AI: Expand',
-    description: 'Expand the current paragraph',
+    description: 'Add depth and reasoning',
     icon: 'AI',
     keywords: ['ai', 'expand', 'longer', 'elaborate'],
     section: 'AI',
     command: ({ editor, range }: CommandArgs) => {
-      editor.chain().focus().deleteRange(range).run();
-      window.alert('AI commands are coming soon.');
+      executeAiCommand(editor, range, 'expand');
     },
   },
   {
     title: 'AI: Simplify',
-    description: 'Simplify selected text',
+    description: 'Shorter sentences, less hedging',
     icon: 'AI',
     keywords: ['ai', 'simplify', 'simpler', 'clarify'],
     section: 'AI',
     command: ({ editor, range }: CommandArgs) => {
-      editor.chain().focus().deleteRange(range).run();
-      window.alert('AI commands are coming soon.');
+      executeAiCommand(editor, range, 'simplify');
     },
   },
   {
     title: 'AI: Summarize',
-    description: 'Summarize selected text',
+    description: '1 to 3 sentence summary',
     icon: 'AI',
     keywords: ['ai', 'summarize', 'summary', 'tldr'],
     section: 'AI',
     command: ({ editor, range }: CommandArgs) => {
-      editor.chain().focus().deleteRange(range).run();
-      window.alert('AI commands are coming soon.');
+      executeAiCommand(editor, range, 'summarize');
     },
   },
 ];

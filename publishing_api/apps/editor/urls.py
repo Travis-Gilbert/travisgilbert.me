@@ -224,4 +224,34 @@ urlpatterns = [
         views.StudioApiAllTasksView.as_view(),
         name="api-all-tasks",
     ),
+
+    # -----------------------------------------------------------------------
+    # Studio v4.1: Image Upload, Collage, Content Search
+    # -----------------------------------------------------------------------
+    path(
+        "editor/api/upload/image/",
+        views.EditorImageUploadView.as_view(),
+        name="api-upload-image",
+    ),
+    path(
+        "editor/api/collage/generate/",
+        views.CollageGenerateView.as_view(),
+        name="api-collage-generate",
+    ),
+    path(
+        "editor/api/collage/cutouts/",
+        views.CollageCutoutsListView.as_view(),
+        name="api-collage-cutouts",
+    ),
+    path(
+        "editor/api/search/",
+        views.ContentSearchView.as_view(),
+        name="api-content-search",
+    ),
+    # Mention backlinks
+    path(
+        "editor/api/mentions/<slug:content_type>/<slug:slug>/backlinks/",
+        views.EditorMentionBacklinksView.as_view(),
+        name="api-mention-backlinks",
+    ),
 ]

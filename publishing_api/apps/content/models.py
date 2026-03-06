@@ -1011,3 +1011,21 @@ class ContentTask(TimeStampedModel):
     def __str__(self):
         status = "[x]" if self.done else "[ ]"
         return f"{status} {self.text[:50]}"
+
+
+class EditorMention(TimeStampedModel):
+    """
+    Tracks @mention references between content items.
+    Created automatically when an editor document is saved.
+    """
+    source_type = models.CharField(max_length=30, help_text="Content type of the document containing the mention")
+    source_slug = models.SlugField(max_length=300, help_text="Slug of the document containing the mention")
+    target_type = models.CharField(max_length=30, help_text="Content type of the mentioned item")
+    target_slug = models.SlugField(max_length=300, help_text="Slug of the mentioned item")
+
+    class Meta:
+        unique_together = [('source_type', 'source_slug', 'target_type', 'target_slug')]
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return f'{self.source_type}:{self.source_slug} -> @{self.target_type}:{self.target_slug}'

@@ -1,5 +1,6 @@
 import { Extension } from '@tiptap/core';
 import { Plugin, PluginKey } from '@tiptap/pm/state';
+import { NodeSelection } from '@tiptap/pm/state';
 import { Decoration, DecorationSet } from '@tiptap/pm/view';
 
 const dragHandlePluginKey = new PluginKey('dragHandle');
@@ -22,14 +23,7 @@ const DragHandle = Extension.create({
                 handle.className = 'studio-drag-handle';
                 handle.contentEditable = 'false';
                 handle.draggable = true;
-                handle.textContent = '\u2630'; // trigram icon
-
-                handle.addEventListener('mousedown', () => {
-                  const wrapper = handle.closest('[data-node-view-wrapper]');
-                  if (wrapper) {
-                    wrapper.setAttribute('draggable', 'true');
-                  }
-                });
+                handle.textContent = '\u2630';
 
                 decorations.push(
                   Decoration.widget(pos, handle, {
@@ -41,6 +35,28 @@ const DragHandle = Extension.create({
             });
 
             return DecorationSet.create(doc, decorations);
+          },
+          handleDOMEvents: {
+            mousedown(view, event) {
+              const target = event.target as HTMLElement;
+              if (!target.classList.contains('studio-drag-handle')) return false;
+
+              const parent = target.parentElement;
+              if (!parent) return false;
+
+              const pos = view.posAtDOM(parent, 0);
+              if (pos == null) return false;
+
+              const $pos = view.state.doc.resolve(pos);
+              const nodePos = $pos.before($pos.depth);
+              const node = view.state.doc.nodeAt(nodePos);
+              if (!node) return false;
+
+              const selection = NodeSelection.create(view.state.doc, nodePos);
+              view.dispatch(view.state.tr.setSelection(selection));
+
+              return false;
+            },
           },
         },
       }),

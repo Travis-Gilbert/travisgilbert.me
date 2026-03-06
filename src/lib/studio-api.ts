@@ -675,6 +675,29 @@ function mapVideoProject(data: any): VideoProject {
 }
 
 /* ─────────────────────────────────────────────────
+   Content search (for @mentions)
+   ───────────────────────────────────────────────── */
+
+export interface ContentSearchResult {
+  id: string;
+  label: string;
+  contentType: string;
+  slug: string;
+}
+
+export async function searchContent(query: string): Promise<ContentSearchResult[]> {
+  if (query.length < 2) return [];
+  try {
+    const data = await studioFetch<{ results: ContentSearchResult[] }>(
+      `/search/?q=${encodeURIComponent(query)}`,
+    );
+    return data.results ?? [];
+  } catch {
+    return [];
+  }
+}
+
+/* ─────────────────────────────────────────────────
    Commonplace search
    ───────────────────────────────────────────────── */
 
@@ -896,4 +919,26 @@ export async function fetchConnectionsGraph(params?: {
       generatedAt: data.meta.generated_at,
     },
   };
+}
+
+/* ── Mention Backlinks ────────────────────────── */
+
+export interface MentionBacklink {
+  sourceType: string;
+  sourceSlug: string;
+  sourceTitle: string;
+}
+
+export async function fetchMentionBacklinks(
+  contentType: string,
+  slug: string,
+): Promise<MentionBacklink[]> {
+  try {
+    const data = await studioFetch<{ mentionedBy: MentionBacklink[] }>(
+      `/mentions/${contentType}/${slug}/backlinks/`,
+    );
+    return data.mentionedBy ?? [];
+  } catch {
+    return [];
+  }
 }

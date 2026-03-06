@@ -25,10 +25,12 @@ import {
 } from '@/lib/studio-mock-data';
 import {
   fetchResearchTrail,
+  fetchMentionBacklinks,
   searchCommonplace,
   fetchAllTasks,
   updateTask,
   type ResearchTrail,
+  type MentionBacklink,
   type CommonplaceSearchResult,
   type TaskGroup,
 } from '@/lib/studio-api';
@@ -883,6 +885,17 @@ function ResearchMode({
     return () => { cancelled = true; };
   }, [slug]);
 
+  /* Fetch mention backlinks */
+  const contentType = contentItem?.contentType ?? 'essay';
+  const [mentionBacklinks, setMentionBacklinks] = useState<MentionBacklink[]>([]);
+  useEffect(() => {
+    let cancelled = false;
+    fetchMentionBacklinks(contentType, slug).then((data) => {
+      if (!cancelled) setMentionBacklinks(data);
+    });
+    return () => { cancelled = true; };
+  }, [contentType, slug]);
+
   /* Track editor text so wiki-link extraction re-runs on content changes */
   const [editorText, setEditorText] = useState('');
   useEffect(() => {
@@ -1201,6 +1214,54 @@ function ResearchMode({
                 )}
               </div>
             ))}
+          </div>
+        </div>
+      )}
+
+      {/* 3b. Mentioned In (backlinks from @mentions) */}
+      {mentionBacklinks.length > 0 && (
+        <div>
+          <ToolboxLabel>Mentioned In</ToolboxLabel>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', marginTop: '8px' }}>
+            {mentionBacklinks.map((bl) => {
+              const typeInfo = getContentTypeIdentity(bl.sourceType);
+              return (
+                <div
+                  key={`${bl.sourceType}:${bl.sourceSlug}`}
+                  style={{
+                    padding: '6px 8px',
+                    backgroundColor: `color-mix(in srgb, ${typeInfo.color} 8%, transparent)`,
+                    borderRadius: '3px',
+                    borderLeft: `2px solid ${typeInfo.color}`,
+                  }}
+                >
+                  <div
+                    style={{
+                      fontFamily: 'var(--studio-font-mono)',
+                      fontSize: '8px',
+                      fontWeight: 700,
+                      letterSpacing: '0.08em',
+                      textTransform: 'uppercase' as const,
+                      color: typeInfo.color,
+                      marginBottom: '2px',
+                    }}
+                  >
+                    {typeInfo.label}
+                  </div>
+                  <div
+                    style={{
+                      fontFamily: 'var(--studio-font-serif)',
+                      fontSize: '12px',
+                      fontWeight: 600,
+                      color: 'var(--studio-text-bright)',
+                      lineHeight: 1.3,
+                    }}
+                  >
+                    {bl.sourceTitle}
+                  </div>
+                </div>
+              );
+            })}
           </div>
         </div>
       )}

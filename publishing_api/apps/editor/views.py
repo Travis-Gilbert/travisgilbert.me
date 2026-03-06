@@ -52,6 +52,7 @@ logger = logging.getLogger(__name__)
 from apps.content.models import (
     ContentTask,
     DesignTokenSet,
+    EditorMention,
     Essay,
     FieldNote,
     NavItem,
@@ -2874,6 +2875,30 @@ class StudioApiContentCreateView(StudioApiBaseView):
         )
 
 
+def _sync_editor_mentions(content_type: str, slug: str, body: str):
+    """Extract @mention references from editor content and sync to EditorMention model."""
+    import re
+
+    pattern = r'data-mention-id="([^"]+)"'
+    matches = re.findall(pattern, body)
+
+    current_mentions = set()
+    for match in matches:
+        if ':' in match:
+            target_type, target_slug = match.split(':', 1)
+            current_mentions.add((target_type, target_slug))
+
+    # Delete all and recreate (simple, idempotent)
+    EditorMention.objects.filter(source_type=content_type, source_slug=slug).delete()
+    for target_type, target_slug in current_mentions:
+        EditorMention.objects.create(
+            source_type=content_type,
+            source_slug=slug,
+            target_type=target_type,
+            target_slug=target_slug,
+        )
+
+
 class StudioApiContentUpdateView(StudioApiBaseView):
     """POST /editor/api/content/<content_type>/<slug>/update/."""
 
@@ -2890,6 +2915,12 @@ class StudioApiContentUpdateView(StudioApiBaseView):
         if not instance:
             return self._error(request, "Content item not found", status=404)
         _update_instance_from_payload(instance, config, payload)
+
+        # Sync @mention references after saving
+        body_field = config.get("body_field", "body")
+        body_content = getattr(instance, body_field, "") or ""
+        _sync_editor_mentions(normalized, slug, body_content)
+
         return self._json(
             request,
             _serialize_studio_content_item(instance, normalized, config),
@@ -3337,3 +3368,186 @@ class StudioApiAllTasksView(StudioApiBaseView):
             })
 
         return self._json(request, {"groups": list(grouped.values())})
+
+
+# ---------------------------------------------------------------------------
+# Studio v4.1: Image Upload, Collage, Content Search
+# ---------------------------------------------------------------------------
+
+
+@method_decorator(csrf_exempt, name="dispatch")
+class EditorImageUploadView(StudioApiBaseView):
+    """
+    POST /editor/api/upload/image/
+    Accepts multipart/form-data with a single 'image' file.
+    Returns JSON: { "url": "/media/editor/filename.ext" }
+    """
+
+    def post(self, request):
+        import uuid
+        from django.core.files.storage import default_storage
+
+        image = request.FILES.get("image")
+        if not image:
+            return self._error(request, "No image file provided")
+
+        allowed = {"image/jpeg", "image/png", "image/gif", "image/webp"}
+        if image.content_type not in allowed:
+            return self._error(request, "File type not allowed")
+
+        if image.size > 10 * 1024 * 1024:
+            return self._error(request, "File too large (10MB max)")
+
+        ext = image.name.rsplit(".", 1)[-1] if "." in image.name else "jpg"
+        filename = f"editor/{uuid.uuid4().hex[:12]}.{ext}"
+        saved_path = default_storage.save(filename, image)
+        url = default_storage.url(saved_path)
+
+        return self._json(request, {"url": url})
+
+
+@method_decorator(csrf_exempt, name="dispatch")
+class CollageGenerateView(StudioApiBaseView):
+    """
+    POST /editor/api/collage/generate/
+    Runs the collage engine and returns the generated image URL.
+    """
+
+    def post(self, request):
+        data = self._parse_json_body(request)
+        if data is None:
+            return self._error(request, "Invalid JSON")
+
+        slug = data.get("slug", "")
+        if not slug:
+            return self._error(request, "slug is required")
+
+        try:
+            from collage.collage_engine import compose
+        except ImportError:
+            return self._error(
+                request,
+                "Collage engine not available on this server",
+                status=501,
+            )
+
+        output_path = f"public/collage/{slug}.jpg"
+        canvas_size = tuple(data.get("canvas_size", [1400, 875]))
+
+        try:
+            compose(
+                slug=slug,
+                hero=data.get("hero"),
+                supports=data.get("supports", []),
+                strips=data.get("strips", []),
+                output=output_path,
+                canvas_size=canvas_size,
+                ground=data.get("ground", "olive"),
+            )
+            return self._json(request, {
+                "success": True,
+                "url": f"/collage/{slug}.jpg",
+            })
+        except Exception as exc:
+            logger.exception("Collage generation failed for %s", slug)
+            return self._json(
+                request,
+                {"error": str(exc), "success": False},
+                status=500,
+            )
+
+
+class CollageCutoutsListView(StudioApiBaseView):
+    """
+    GET /editor/api/collage/cutouts/
+    Lists available cutout PNGs in photos/cutouts/.
+    """
+
+    def get(self, request):
+        from pathlib import Path
+
+        cutout_dir = Path("photos/cutouts")
+        if not cutout_dir.exists():
+            return self._json(request, {"cutouts": []})
+
+        cutouts = [
+            {"path": str(p), "name": p.stem}
+            for p in sorted(cutout_dir.glob("*.png"))
+        ]
+        return self._json(request, {"cutouts": cutouts})
+
+
+class ContentSearchView(StudioApiBaseView):
+    """
+    GET /editor/api/search/?q=<query>
+    Searches all content types by title. Returns combined results
+    with content_type and slug for each match.
+    """
+
+    def get(self, request):
+        from django.db.models import Q
+
+        q = request.GET.get("q", "").strip()
+        if len(q) < 2:
+            return self._json(request, {"results": []})
+
+        results = []
+
+        for Model, ct in [
+            (Essay, "essay"),
+            (FieldNote, "field-note"),
+            (ShelfEntry, "shelf"),
+            (Project, "project"),
+            (VideoProject, "video"),
+        ]:
+            matches = Model.objects.filter(
+                Q(title__icontains=q)
+            ).values("title", "slug")[:5]
+
+            for item in matches:
+                results.append({
+                    "id": f"{ct}:{item['slug']}",
+                    "label": item["title"],
+                    "contentType": ct,
+                    "slug": item["slug"],
+                })
+
+        return self._json(request, {"results": results[:15]})
+
+
+class EditorMentionBacklinksView(StudioApiBaseView):
+    """
+    GET /editor/api/mentions/<content_type>/<slug>/backlinks/
+
+    Returns documents that @mention this content item.
+    """
+
+    def get(self, request, content_type, slug):
+        normalized = _normalize_studio_api_content_type(content_type)
+        if not normalized:
+            return self._error(request, "Unknown content type", status=404)
+
+        mentions = EditorMention.objects.filter(
+            target_type=normalized,
+            target_slug=slug,
+        ).values('source_type', 'source_slug')
+
+        results = []
+        for m in mentions:
+            title = m['source_slug'].replace('-', ' ').title()
+            config = STUDIO_API_CONTENT_REGISTRY.get(m['source_type'])
+            if config:
+                model_cls = config['model']
+                try:
+                    obj = model_cls.objects.get(slug=m['source_slug'])
+                    title = obj.title
+                except model_cls.DoesNotExist:
+                    pass
+
+            results.append({
+                'sourceType': m['source_type'],
+                'sourceSlug': m['source_slug'],
+                'sourceTitle': title,
+            })
+
+        return self._json(request, {'mentionedBy': results})

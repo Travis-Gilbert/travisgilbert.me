@@ -1,11 +1,23 @@
 'use client';
 
-import { useEditor, EditorContent } from '@tiptap/react';
+import { useEditor, EditorContent, ReactNodeViewRenderer } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
+import CodeBlockLowlight from '@tiptap/extension-code-block-lowlight';
+import { all, createLowlight } from 'lowlight';
+import CodeBlockNode from './extensions/CodeBlockNode';
+import ImageUpload from './extensions/ImageUpload';
+import ColorHighlighter from './extensions/ColorHighlighter';
+import Mention from '@tiptap/extension-mention';
+import { PluginKey } from '@tiptap/pm/state';
+import MentionPopup from './MentionPopup';
+import MentionTooltip from './MentionTooltip';
+import type { MentionPopupRef } from './MentionPopup';
+import { searchContent } from '@/lib/studio-api';
+import type { ContentSearchResult } from '@/lib/studio-api';
 import Placeholder from '@tiptap/extension-placeholder';
 import CharacterCount from '@tiptap/extension-character-count';
 import Link from '@tiptap/extension-link';
-import Image from '@tiptap/extension-image';
+import ResizableImage from './extensions/ResizableImage';
 import { Table } from '@tiptap/extension-table';
 import { TableRow } from '@tiptap/extension-table-row';
 import { TableCell } from '@tiptap/extension-table-cell';
@@ -31,8 +43,13 @@ import Superscript from '@tiptap/extension-superscript';
 import Typography from '@tiptap/extension-typography';
 import { Markdown } from '@tiptap/markdown';
 import DragHandle from './extensions/DragHandle';
+import CustomInputRules from './extensions/CustomInputRules';
+import ChartPickerPopup from './ChartPickerPopup';
+import type { ChartEmbed } from '@/lib/studio-charts';
 import { useState, useEffect, useCallback, useRef } from 'react';
 import type { Editor } from '@tiptap/react';
+
+const lowlight = createLowlight(all);
 
 export type TiptapUpdatePayload = {
   html: string;
@@ -79,6 +96,14 @@ export default function TiptapEditor({
 
   const editorRef = useRef<Editor | null>(null);
   const slashPopupRef = useRef<SlashCommandPopupRef | null>(null);
+  const mentionPopupRef = useRef<MentionPopupRef | null>(null);
+
+  const [mentionPopup, setMentionPopup] = useState<{
+    visible: boolean;
+    items: ContentSearchResult[];
+    position: { x: number; y: number };
+    command: ((item: ContentSearchResult) => void) | null;
+  }>({ visible: false, items: [], position: { x: 0, y: 0 }, command: null });
 
   const [slashPopup, setSlashPopup] = useState<{
     visible: boolean;
@@ -87,6 +112,28 @@ export default function TiptapEditor({
     position: { x: number; y: number };
     command: ((item: SlashCommandItem) => void) | null;
   }>({ visible: false, query: '', items: [], position: { x: 0, y: 0 }, command: null });
+
+  const [chartPickerOpen, setChartPickerOpen] = useState(false);
+
+  useEffect(() => {
+    function onOpenChartPicker() {
+      setChartPickerOpen(true);
+    }
+    window.addEventListener('studio:open-chart-picker', onOpenChartPicker);
+    return () => window.removeEventListener('studio:open-chart-picker', onOpenChartPicker);
+  }, []);
+
+  const handleChartSelect = useCallback(
+    (chart: ChartEmbed) => {
+      editorRef.current
+        ?.chain()
+        .focus()
+        .setIframe({ src: chart.url, height: chart.defaultHeight })
+        .run();
+      setChartPickerOpen(false);
+    },
+    [],
+  );
 
   const handleUpdate = useCallback(
     ({ editor: ed }: { editor: Editor }) => {
@@ -107,7 +154,13 @@ export default function TiptapEditor({
     extensions: [
       StarterKit.configure({
         heading: { levels: [1, 2, 3, 4] },
+        codeBlock: false,
       }),
+      CodeBlockLowlight.extend({
+        addNodeView() {
+          return ReactNodeViewRenderer(CodeBlockNode);
+        },
+      }).configure({ lowlight }),
       Placeholder.configure({
         placeholder: 'Start writing...',
       }),
@@ -116,7 +169,7 @@ export default function TiptapEditor({
         openOnClick: false,
         HTMLAttributes: { rel: 'noopener noreferrer nofollow' },
       }),
-      Image.configure({
+      ResizableImage.configure({
         allowBase64: true,
         HTMLAttributes: { class: 'studio-tiptap-image' },
       }),
@@ -205,13 +258,88 @@ export default function TiptapEditor({
           }),
         },
       }),
+      ImageUpload,
+      ColorHighlighter,
+      Mention.configure({
+        HTMLAttributes: {
+          class: 'studio-mention',
+        },
+        suggestion: {
+          char: '@',
+          pluginKey: new PluginKey('studioMention'),
+          items: async ({ query }: { query: string }) => {
+            if (query.length < 2) return [];
+            return searchContent(query);
+          },
+          render: () => ({
+            onStart: (props: any) => {
+              const coords = props.clientRect?.();
+              setMentionPopup({
+                visible: true,
+                items: props.items,
+                position: coords
+                  ? { x: coords.x, y: coords.y + coords.height }
+                  : { x: 200, y: 200 },
+                command: (item: ContentSearchResult) => {
+                  props.command({
+                    id: item.id,
+                    label: item.label,
+                    contentType: item.contentType,
+                  });
+                },
+              });
+            },
+            onUpdate: (props: any) => {
+              const coords = props.clientRect?.();
+              setMentionPopup((prev) => ({
+                ...prev,
+                items: props.items,
+                position: coords
+                  ? { x: coords.x, y: coords.y + coords.height }
+                  : prev.position,
+                command: (item: ContentSearchResult) => {
+                  props.command({
+                    id: item.id,
+                    label: item.label,
+                    contentType: item.contentType,
+                  });
+                },
+              }));
+            },
+            onKeyDown: ({ event }: { event: KeyboardEvent }) => {
+              if (event.key === 'Escape') {
+                setMentionPopup((prev) => ({ ...prev, visible: false }));
+                return true;
+              }
+              return mentionPopupRef.current?.onKeyDown(event) ?? false;
+            },
+            onExit: () => {
+              setMentionPopup((prev) => ({ ...prev, visible: false }));
+            },
+          }),
+        },
+        renderHTML({ node }) {
+          return [
+            'span',
+            {
+              'class': 'studio-mention',
+              'data-mention-type': node.attrs.contentType ?? '',
+              'data-mention-id': node.attrs.id ?? '',
+            },
+            `@${node.attrs.label ?? node.attrs.id}`,
+          ];
+        },
+      }),
       Highlight.configure({ multicolor: false }),
       Underline,
       Subscript,
       Superscript,
-      Typography,
+      Typography.configure({
+        emDash: false,
+      }),
       Markdown,
       DragHandle,
+      CustomInputRules,
     ],
     content: initialContent ?? '',
     contentType: initialContentFormat,
@@ -365,6 +493,24 @@ export default function TiptapEditor({
           command={slashPopup.command}
           onClose={() =>
             setSlashPopup((prev) => ({ ...prev, visible: false }))
+          }
+        />
+      )}
+      <MentionTooltip containerRef={wrapperRef} />
+      {chartPickerOpen && (
+        <ChartPickerPopup
+          onSelect={handleChartSelect}
+          onClose={() => setChartPickerOpen(false)}
+        />
+      )}
+      {mentionPopup.visible && mentionPopup.command && (
+        <MentionPopup
+          ref={mentionPopupRef}
+          items={mentionPopup.items}
+          position={mentionPopup.position}
+          command={mentionPopup.command}
+          onClose={() =>
+            setMentionPopup((prev) => ({ ...prev, visible: false }))
           }
         />
       )}
