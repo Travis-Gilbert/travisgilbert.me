@@ -69,6 +69,7 @@
   --studio-contain-question: #8A6A9A;
   --studio-contain-aside: #6A9A5A;
   --studio-contain-raw: #7A7268;
+  --studio-contain-scene: #B45A2D;
 }
 
 .studio-canvas {
@@ -1767,6 +1768,20 @@
 .studio-contain-block[data-contain-type="question"]    { --contain-color: var(--studio-contain-question); }
 .studio-contain-block[data-contain-type="aside"]       { --contain-color: var(--studio-contain-aside); }
 .studio-contain-block[data-contain-type="raw"]         { --contain-color: var(--studio-contain-raw); }
+.studio-contain-block[data-contain-type="scene"]       { --contain-color: var(--studio-contain-scene); border-left-width: 4px; }
+
+.studio-contain-scene-meta {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  margin-left: auto;
+}
+
+.studio-contain-scene-stat {
+  font-family: var(--studio-font-mono);
+  font-size: 9px;
+  color: var(--studio-writing-paper-muted);
+}
 
 .studio-contain-header {
   display: flex;
@@ -2242,6 +2257,40 @@
   font-size: 9px;
   color: var(--studio-text-3);
   margin-top: 2px;
+}
+
+/* ── Video Tab Bar ────────────────────────────── */
+
+.studio-video-tabs {
+  display: flex;
+  gap: 0;
+  border-bottom: 1px solid var(--studio-border);
+  margin-bottom: 0;
+}
+
+.studio-video-tab {
+  font-family: var(--studio-font-mono);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--studio-text-3);
+  background: none;
+  border: none;
+  padding: 8px 16px;
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
+  transition: all 0.12s ease;
+  margin-bottom: -1px;
+}
+
+.studio-video-tab:hover {
+  color: var(--studio-text-2);
+}
+
+.studio-video-tab[data-active="true"] {
+  color: var(--studio-tc);
+  border-bottom-color: var(--studio-tc);
 }
 
 /* ── Video Phase Pipeline ─────────────────────── */

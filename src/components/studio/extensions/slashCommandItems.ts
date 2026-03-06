@@ -244,6 +244,38 @@ export const SLASH_COMMAND_ITEMS: SlashCommandItem[] = [
     },
   },
 
+  // ── Video ────────────────────────────────────────
+  {
+    title: 'Scene',
+    description: 'Insert a scene container',
+    icon: '\uD83C\uDFA5',
+    keywords: ['scene', 'section', 'act', 'video'],
+    section: 'Video',
+    command: ({ editor, range }: CommandArgs) => {
+      editor.chain().focus().deleteRange(range).setContainBlock({ containType: 'scene' }).run();
+    },
+  },
+  {
+    title: 'Visual Direction',
+    description: 'Insert a {VISUAL: ...} direction',
+    icon: '\uD83D\uDCF7',
+    keywords: ['visual', 'direction', 'graphic', 'broll', 'shot'],
+    section: 'Video',
+    command: ({ editor, range }: CommandArgs) => {
+      editor.chain().focus().deleteRange(range).insertContent('{VISUAL: }').run();
+    },
+  },
+  {
+    title: 'Needs Source',
+    description: 'Flag as needing a source',
+    icon: '?',
+    keywords: ['source', 'needs', 'citation', 'verify'],
+    section: 'Video',
+    command: ({ editor, range }: CommandArgs) => {
+      editor.chain().focus().deleteRange(range).insertContent('[NEEDS SOURCE]').run();
+    },
+  },
+
   // ── AI ──────────────────────────────────────────
   {
     title: 'AI: Expand',

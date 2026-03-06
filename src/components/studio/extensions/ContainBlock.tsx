@@ -9,6 +9,7 @@ export const CONTAIN_TYPES = [
   'question',
   'aside',
   'raw',
+  'scene',
 ] as const;
 
 export type ContainType = (typeof CONTAIN_TYPES)[number];

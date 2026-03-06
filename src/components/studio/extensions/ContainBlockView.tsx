@@ -16,12 +16,33 @@ const CONTAIN_META: Record<
   question: { label: 'Question', colorVar: '--studio-contain-question' },
   aside: { label: 'Aside', colorVar: '--studio-contain-aside' },
   raw: { label: 'Raw Material', colorVar: '--studio-contain-raw' },
+  scene: { label: 'Scene', colorVar: '--studio-contain-scene' },
 };
+
+function formatSceneDuration(totalSeconds: number): string {
+  const minutes = Math.floor(totalSeconds / 60);
+  const seconds = totalSeconds % 60;
+  return `${minutes}:${String(seconds).padStart(2, '0')}`;
+}
+
+function getSceneWordCount(node: NodeViewProps['node']): number {
+  let text = '';
+  node.content.forEach((child) => {
+    text += child.textContent ?? '';
+  });
+  const words = text.trim().split(/\s+/).filter(Boolean);
+  return words.length;
+}
 
 export default function ContainBlockView(props: NodeViewProps) {
   const { node, updateAttributes, editor, getPos } = props;
   const containType = (node.attrs.containType as ContainType) || 'observation';
   const meta = CONTAIN_META[containType] ?? CONTAIN_META.observation;
+
+  /* Scene metadata: word count and estimated duration */
+  const isScene = containType === 'scene';
+  const wordCount = isScene ? getSceneWordCount(node) : 0;
+  const estSeconds = isScene ? Math.round((wordCount / 150) * 60) : 0;
 
   const [showTypePicker, setShowTypePicker] = useState(false);
   const [pickerPos, setPickerPos] = useState({ x: 0, y: 0 });
@@ -75,6 +96,16 @@ export default function ContainBlockView(props: NodeViewProps) {
         onContextMenu={handleHeaderContextMenu}
       >
         <span className="studio-contain-badge">{meta.label}</span>
+        {isScene && (
+          <div className="studio-contain-scene-meta" contentEditable={false}>
+            <span className="studio-contain-scene-stat">
+              {wordCount} words
+            </span>
+            <span className="studio-contain-scene-stat">
+              ~{formatSceneDuration(estSeconds)}
+            </span>
+          </div>
+        )}
         <button
           type="button"
           className="studio-contain-dissolve"

@@ -1,10 +1,20 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, lazy, Suspense } from 'react';
 import { VIDEO_PHASES, getVideoPhase } from '@/lib/studio';
 import type { StageDefinition } from '@/lib/studio';
 import type { VideoProject, VideoProjectScene, VideoNextAction } from '@/lib/studio-api';
 import { fetchVideoNextAction } from '@/lib/studio-api';
+
+const VideoScriptEditor = lazy(() => import('./VideoScriptEditor'));
+
+type VideoTab = 'overview' | 'script' | 'details';
+
+const VIDEO_TABS: Array<{ key: VideoTab; label: string }> = [
+  { key: 'overview', label: 'Overview' },
+  { key: 'script', label: 'Script' },
+  { key: 'details', label: 'Details' },
+];
 
 /* ─────────────────────────────────────────────────
    Scene type display config
@@ -318,6 +328,158 @@ function SceneCard({
    VideoEditor: main component
    ───────────────────────────────────────────────── */
 
+/* ─────────────────────────────────────────────────
+   Details Tab (YouTube metadata, linked essays, deliverables)
+   ───────────────────────────────────────────────── */
+
+function VideoDetailsTab({ video }: { video: VideoProject }) {
+  return (
+    <div className="studio-editor-column" style={{ padding: '16px 0' }}>
+      <div
+        style={{
+          fontFamily: 'var(--studio-font-mono)',
+          fontSize: '9px',
+          fontWeight: 700,
+          letterSpacing: '0.1em',
+          textTransform: 'uppercase',
+          color: 'var(--studio-text-3)',
+          marginBottom: '12px',
+        }}
+      >
+        YouTube Metadata
+      </div>
+
+      {/* YouTube title */}
+      <label
+        style={{
+          display: 'block',
+          fontFamily: 'var(--studio-font-mono)',
+          fontSize: '9px',
+          color: 'var(--studio-text-3)',
+          marginBottom: '4px',
+          letterSpacing: '0.04em',
+          textTransform: 'uppercase',
+        }}
+      >
+        Title
+      </label>
+      <div
+        style={{
+          fontFamily: 'var(--studio-font-body)',
+          fontSize: '14px',
+          color: video.youtubeTitle ? 'var(--studio-text-bright)' : 'var(--studio-text-3)',
+          padding: '8px 0',
+          borderBottom: '1px solid var(--studio-border)',
+          marginBottom: '12px',
+        }}
+      >
+        {video.youtubeTitle || 'Not set'}
+      </div>
+
+      {/* YouTube description */}
+      <label
+        style={{
+          display: 'block',
+          fontFamily: 'var(--studio-font-mono)',
+          fontSize: '9px',
+          color: 'var(--studio-text-3)',
+          marginBottom: '4px',
+          letterSpacing: '0.04em',
+          textTransform: 'uppercase',
+        }}
+      >
+        Description
+      </label>
+      <div
+        style={{
+          fontFamily: 'var(--studio-font-body)',
+          fontSize: '13px',
+          color: video.youtubeDescription ? 'var(--studio-text-2)' : 'var(--studio-text-3)',
+          padding: '8px 0',
+          borderBottom: '1px solid var(--studio-border)',
+          marginBottom: '12px',
+          whiteSpace: 'pre-wrap',
+          lineHeight: 1.5,
+        }}
+      >
+        {video.youtubeDescription || 'Not set'}
+      </div>
+
+      {/* Deliverables */}
+      {video.deliverables.length > 0 && (
+        <>
+          <div
+            style={{
+              fontFamily: 'var(--studio-font-mono)',
+              fontSize: '9px',
+              fontWeight: 700,
+              letterSpacing: '0.1em',
+              textTransform: 'uppercase',
+              color: 'var(--studio-text-3)',
+              marginTop: '16px',
+              marginBottom: '8px',
+            }}
+          >
+            Deliverables
+          </div>
+          {video.deliverables.map((d) => (
+            <div
+              key={d.id}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px',
+                padding: '6px 0',
+                borderBottom: '1px solid var(--studio-border)',
+              }}
+            >
+              <span
+                style={{
+                  fontFamily: 'var(--studio-font-mono)',
+                  fontSize: '9px',
+                  fontWeight: 700,
+                  letterSpacing: '0.06em',
+                  textTransform: 'uppercase',
+                  padding: '2px 6px',
+                  borderRadius: '3px',
+                  backgroundColor: 'rgba(58,138,154,0.1)',
+                  color: 'var(--studio-teal)',
+                  border: '1px solid rgba(58,138,154,0.2)',
+                }}
+              >
+                {d.deliverableType}
+              </span>
+              <span
+                style={{
+                  fontFamily: 'var(--studio-font-body)',
+                  fontSize: '13px',
+                  color: 'var(--studio-text-bright)',
+                  flex: 1,
+                }}
+              >
+                {d.filePath || d.notes || d.deliverableType}
+              </span>
+              <span
+                style={{
+                  fontFamily: 'var(--studio-font-mono)',
+                  fontSize: '9px',
+                  color: d.approved ? 'var(--studio-green)' : 'var(--studio-text-3)',
+                }}
+              >
+                {d.approved ? 'approved' : 'pending'}
+              </span>
+            </div>
+          ))}
+        </>
+      )}
+    </div>
+  );
+}
+
+/* ─────────────────────────────────────────────────
+   VideoEditor: main component
+   ───────────────────────────────────────────────── */
+
 export default function VideoEditor({
   slug,
   video,
@@ -328,6 +490,7 @@ export default function VideoEditor({
   const [nextAction, setNextAction] = useState<VideoNextAction | null>(null);
   const [title, setTitle] = useState(video.title);
   const [thesis, setThesis] = useState(video.thesis);
+  const [activeTab, setActiveTab] = useState<VideoTab>('overview');
 
   const currentPhase = getVideoPhase(video.phase);
 
@@ -356,7 +519,7 @@ export default function VideoEditor({
     : 0;
 
   return (
-    <div className="studio-writing-surface" style={{ paddingTop: '8px' }}>
+    <div className="studio-writing-surface" style={{ paddingTop: '8px', display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0 }}>
       {/* Phase Pipeline */}
       <VideoPhasePipeline
         currentPhase={video.phase}
@@ -404,106 +567,156 @@ export default function VideoEditor({
         />
       </div>
 
-      {/* Next Action Card */}
-      {nextAction && (
-        <div className="studio-editor-column">
-          <NextActionCard action={nextAction} />
+      {/* Tab Bar */}
+      <div className="studio-editor-column">
+        <div className="studio-video-tabs">
+          {VIDEO_TABS.map((tab) => (
+            <button
+              key={tab.key}
+              type="button"
+              className="studio-video-tab"
+              data-active={activeTab === tab.key ? 'true' : 'false'}
+              onClick={() => setActiveTab(tab.key)}
+            >
+              {tab.label}
+            </button>
+          ))}
         </div>
+      </div>
+
+      {/* Tab Content */}
+      {activeTab === 'overview' && (
+        <>
+          {/* Next Action Card */}
+          {nextAction && (
+            <div className="studio-editor-column">
+              <NextActionCard action={nextAction} />
+            </div>
+          )}
+
+          {/* Scene List */}
+          <div className="studio-editor-column" style={{ padding: '8px 0' }}>
+            <div
+              style={{
+                fontFamily: 'var(--studio-font-mono)',
+                fontSize: '9px',
+                fontWeight: 700,
+                letterSpacing: '0.1em',
+                textTransform: 'uppercase',
+                color: 'var(--studio-text-3)',
+                marginBottom: '8px',
+              }}
+            >
+              Scenes
+            </div>
+            {video.scenes.length === 0 ? (
+              <div
+                style={{
+                  fontFamily: 'var(--studio-font-body)',
+                  fontSize: '13px',
+                  color: 'var(--studio-text-3)',
+                  padding: '24px 0',
+                  textAlign: 'center',
+                }}
+              >
+                No scenes yet. Add scenes in the Django Studio editor.
+              </div>
+            ) : (
+              video.scenes
+                .slice()
+                .sort((a, b) => a.order - b.order)
+                .map((scene) => (
+                  <SceneCard
+                    key={scene.id}
+                    scene={scene}
+                    currentPhaseOrder={currentPhase.order}
+                  />
+                ))
+            )}
+          </div>
+
+          {/* Bottom Bar */}
+          <div
+            className="studio-editor-column"
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '16px',
+              padding: '12px 0',
+              borderTop: '1px solid var(--studio-border)',
+              marginTop: '8px',
+            }}
+          >
+            <span
+              style={{
+                fontFamily: 'var(--studio-font-mono)',
+                fontSize: '10px',
+                color: 'var(--studio-text-3)',
+              }}
+            >
+              {totalScenes} scenes
+            </span>
+            <span
+              style={{
+                fontFamily: 'var(--studio-font-mono)',
+                fontSize: '10px',
+                color: 'var(--studio-text-3)',
+              }}
+            >
+              {totalWords.toLocaleString()} words
+            </span>
+            <span
+              style={{
+                fontFamily: 'var(--studio-font-mono)',
+                fontSize: '10px',
+                color: 'var(--studio-text-3)',
+              }}
+            >
+              ~{formatDuration(totalSeconds)} runtime
+            </span>
+            {currentPhaseKey && totalScenes > 0 && (
+              <span
+                style={{
+                  fontFamily: 'var(--studio-font-mono)',
+                  fontSize: '10px',
+                  color: currentPhase.color,
+                  marginLeft: 'auto',
+                }}
+              >
+                {phaseCompleteCount}/{totalScenes} {currentPhaseKey.label.toLowerCase()}
+              </span>
+            )}
+          </div>
+        </>
       )}
 
-      {/* Scene List */}
-      <div className="studio-editor-column" style={{ padding: '8px 0' }}>
-        <div
-          style={{
-            fontFamily: 'var(--studio-font-mono)',
-            fontSize: '9px',
-            fontWeight: 700,
-            letterSpacing: '0.1em',
-            textTransform: 'uppercase',
-            color: 'var(--studio-text-3)',
-            marginBottom: '8px',
-          }}
+      {activeTab === 'script' && (
+        <Suspense
+          fallback={
+            <div
+              className="studio-editor-column"
+              style={{
+                padding: '32px 0',
+                textAlign: 'center',
+                fontFamily: 'var(--studio-font-mono)',
+                fontSize: '11px',
+                color: 'var(--studio-text-3)',
+              }}
+            >
+              Loading editor...
+            </div>
+          }
         >
-          Scenes
-        </div>
-        {video.scenes.length === 0 ? (
-          <div
-            style={{
-              fontFamily: 'var(--studio-font-body)',
-              fontSize: '13px',
-              color: 'var(--studio-text-3)',
-              padding: '24px 0',
-              textAlign: 'center',
-            }}
-          >
-            No scenes yet. Add scenes in the Django Studio editor.
-          </div>
-        ) : (
-          video.scenes
-            .slice()
-            .sort((a, b) => a.order - b.order)
-            .map((scene) => (
-              <SceneCard
-                key={scene.id}
-                scene={scene}
-                currentPhaseOrder={currentPhase.order}
-              />
-            ))
-        )}
-      </div>
+          <VideoScriptEditor
+            slug={slug}
+            initialScript={video.scriptBody}
+          />
+        </Suspense>
+      )}
 
-      {/* Bottom Bar */}
-      <div
-        className="studio-editor-column"
-        style={{
-          display: 'flex',
-          alignItems: 'center',
-          gap: '16px',
-          padding: '12px 0',
-          borderTop: '1px solid var(--studio-border)',
-          marginTop: '8px',
-        }}
-      >
-        <span
-          style={{
-            fontFamily: 'var(--studio-font-mono)',
-            fontSize: '10px',
-            color: 'var(--studio-text-3)',
-          }}
-        >
-          {totalScenes} scenes
-        </span>
-        <span
-          style={{
-            fontFamily: 'var(--studio-font-mono)',
-            fontSize: '10px',
-            color: 'var(--studio-text-3)',
-          }}
-        >
-          {totalWords.toLocaleString()} words
-        </span>
-        <span
-          style={{
-            fontFamily: 'var(--studio-font-mono)',
-            fontSize: '10px',
-            color: 'var(--studio-text-3)',
-          }}
-        >
-          ~{formatDuration(totalSeconds)} runtime
-        </span>
-        {currentPhaseKey && totalScenes > 0 && (
-          <span
-            style={{
-              fontFamily: 'var(--studio-font-mono)',
-              fontSize: '10px',
-              color: currentPhase.color,
-              marginLeft: 'auto',
-            }}
-          >
-            {phaseCompleteCount}/{totalScenes} {currentPhaseKey.label.toLowerCase()}
-          </span>
-        )}
-      </div>
+      {activeTab === 'details' && (
+        <VideoDetailsTab video={video} />
+      )}
     </div>
   );
 }

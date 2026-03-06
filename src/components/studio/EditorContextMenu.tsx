@@ -17,6 +17,7 @@ const CONTAIN_META: Record<ContainType, { label: string; color: string }> = {
   question: { label: 'Question', color: '#8A6A9A' },
   aside: { label: 'Aside', color: '#6A9A5A' },
   raw: { label: 'Raw Material', color: '#7A7268' },
+  scene: { label: 'Scene', color: '#B45A2D' },
 };
 
 export default function EditorContextMenu({ editor, onStash, onAddTask }: ContextMenuProps) {
