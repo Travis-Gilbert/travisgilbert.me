@@ -40,7 +40,7 @@ export default function StudioGroupLayout({
 }) {
   return (
     <div
-      className="studio-theme"
+      className="studio-theme studio-canvas"
       style={{
         display: 'flex',
         minHeight: '100vh',

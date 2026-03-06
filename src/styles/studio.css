@@ -63,6 +63,22 @@
   --studio-stage-bar-height: 48px;
 }
 
+.studio-canvas {
+  position: relative;
+}
+
+.studio-canvas::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+  background-image:
+    linear-gradient(rgba(180, 90, 45, 0.022) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(180, 90, 45, 0.022) 1px, transparent 1px);
+  background-size: 40px 40px;
+}
+
 /* ─────────────────────────────────────────────────
    Background layers: dot field + grid
    ───────────────────────────────────────────────── */
@@ -552,9 +568,14 @@
   pointer-events: none;
   z-index: 0;
   background-image:
-    linear-gradient(rgba(180, 90, 45, 0.04) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(180, 90, 45, 0.04) 1px, transparent 1px);
+    linear-gradient(rgba(180, 90, 45, 0.022) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(180, 90, 45, 0.022) 1px, transparent 1px);
   background-size: 40px 40px;
+}
+
+.studio-workbench-grid > * {
+  position: relative;
+  z-index: 1;
 }
 
 /* ─────────────────────────────────────────────────
@@ -1117,6 +1138,116 @@
 
 .studio-capture-btn:hover {
   transform: translateY(-1px);
+}
+
+/* ─────────────────────────────────────────────────
+   Dashboard material polish
+   ───────────────────────────────────────────────── */
+
+.studio-next-move-textarea {
+  width: 100%;
+  resize: vertical;
+  min-height: 74px;
+  font-family: var(--studio-font-body);
+  font-size: 14px;
+  line-height: 1.45;
+  color: var(--studio-text-1);
+  background: linear-gradient(
+    165deg,
+    rgba(255, 255, 255, 0.055) 0%,
+    rgba(255, 255, 255, 0.012) 100%
+  );
+  border: 1px solid rgba(237, 231, 220, 0.14);
+  border-radius: 9px;
+  padding: 10px 12px;
+  outline: none;
+  box-sizing: border-box;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.05),
+    inset 0 0 0 1px rgba(0, 0, 0, 0.08),
+    0 3px 10px rgba(0, 0, 0, 0.18);
+  transition: border-color 0.16s ease, box-shadow 0.16s ease, background-color 0.16s ease;
+}
+
+.studio-next-move-textarea:focus {
+  border-color: rgba(180, 90, 45, 0.52);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.05),
+    0 0 0 2px rgba(180, 90, 45, 0.17),
+    0 8px 20px rgba(16, 12, 10, 0.28);
+}
+
+.studio-dashboard-action {
+  font-family: var(--studio-font-mono);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  border-radius: 8px;
+  border: 1px solid rgba(237, 231, 220, 0.15);
+  padding: 7px 10px;
+  background: linear-gradient(
+    160deg,
+    rgba(255, 255, 255, 0.06) 0%,
+    rgba(255, 255, 255, 0.012) 100%
+  );
+  color: var(--studio-text-2);
+  text-decoration: none;
+  cursor: pointer;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.04),
+    0 4px 12px rgba(0, 0, 0, 0.18);
+  transition: all 0.14s ease;
+}
+
+.studio-dashboard-action:hover {
+  border-color: rgba(237, 231, 220, 0.22);
+  color: var(--studio-text-bright);
+  background: linear-gradient(
+    160deg,
+    rgba(255, 255, 255, 0.08) 0%,
+    rgba(255, 255, 255, 0.02) 100%
+  );
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.06),
+    0 6px 14px rgba(0, 0, 0, 0.22);
+}
+
+.studio-dashboard-action:focus-visible {
+  outline: 2px solid rgba(58, 138, 154, 0.58);
+  outline-offset: 2px;
+}
+
+.studio-dashboard-action:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.studio-dashboard-action--primary {
+  color: var(--studio-text-bright);
+  border-color: rgba(180, 90, 45, 0.45);
+  background: linear-gradient(
+    160deg,
+    rgba(180, 90, 45, 0.3) 0%,
+    rgba(180, 90, 45, 0.14) 100%
+  );
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.1),
+    0 0 0 1px rgba(180, 90, 45, 0.1),
+    0 8px 18px rgba(18, 11, 8, 0.32);
+}
+
+.studio-dashboard-action--primary:hover {
+  border-color: rgba(180, 90, 45, 0.64);
+  background: linear-gradient(
+    160deg,
+    rgba(180, 90, 45, 0.39) 0%,
+    rgba(180, 90, 45, 0.2) 100%
+  );
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.12),
+    0 0 0 1px rgba(180, 90, 45, 0.16),
+    0 11px 20px rgba(20, 12, 9, 0.36);
 }
 
 /* ─────────────────────────────────────────────────

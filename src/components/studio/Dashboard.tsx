@@ -20,22 +20,6 @@ import NewContentModal from './NewContentModal';
 
 type ResearchTab = 'field-notes' | 'shelf';
 
-const ACTION_BUTTON_STYLE = {
-  fontFamily: 'var(--studio-font-mono)',
-  fontSize: '10px',
-  fontWeight: 600,
-  letterSpacing: '0.08em',
-  textTransform: 'uppercase' as const,
-  borderRadius: '5px',
-  border: '1px solid var(--studio-border)',
-  padding: '7px 10px',
-  backgroundColor: 'var(--studio-surface)',
-  color: 'var(--studio-text-2)',
-  textDecoration: 'none',
-  cursor: 'pointer',
-  transition: 'all 0.12s ease',
-};
-
 export default function Dashboard() {
   const allItems = useMemo(() => getMockContentItems(), []);
   const timeline = useMemo(() => getMockTimeline(), []);
@@ -332,25 +316,11 @@ function ActiveProjectCard({
           Next move
         </div>
         <textarea
+          className="studio-next-move-textarea"
           value={nextMove}
           onChange={(event) => onNextMoveChange(event.target.value)}
           placeholder="Define the next concrete step"
           rows={3}
-          style={{
-            width: '100%',
-            resize: 'vertical',
-            minHeight: '74px',
-            fontFamily: 'var(--studio-font-body)',
-            fontSize: '14px',
-            lineHeight: 1.45,
-            color: 'var(--studio-text-1)',
-            backgroundColor: 'var(--studio-surface)',
-            border: '1px solid var(--studio-border)',
-            borderRadius: '6px',
-            padding: '10px 12px',
-            outline: 'none',
-            boxSizing: 'border-box',
-          }}
         />
       </div>
 
@@ -364,25 +334,20 @@ function ActiveProjectCard({
       >
         <Link
           href={`/studio/${typeInfo.route}/${item.slug}`}
-          style={{
-            ...ACTION_BUTTON_STYLE,
-            color: 'var(--studio-text-bright)',
-            borderColor: 'var(--studio-border-tc)',
-            backgroundColor: 'var(--studio-tc-dim)',
-          }}
+          className="studio-dashboard-action studio-dashboard-action--primary"
         >
           Continue writing
         </Link>
-        <button type="button" style={ACTION_BUTTON_STYLE} onClick={onAddFieldNote}>
+        <button type="button" className="studio-dashboard-action" onClick={onAddFieldNote}>
           Add field note
         </button>
-        <button type="button" style={ACTION_BUTTON_STYLE} onClick={onAddSource}>
+        <button type="button" className="studio-dashboard-action" onClick={onAddSource}>
           Add source
         </button>
-        <button type="button" style={ACTION_BUTTON_STYLE} onClick={onConvertToScript}>
+        <button type="button" className="studio-dashboard-action" onClick={onConvertToScript}>
           Convert to script
         </button>
-        <button type="button" style={ACTION_BUTTON_STYLE} onClick={onStartSession}>
+        <button type="button" className="studio-dashboard-action" onClick={onStartSession}>
           Start session
         </button>
       </div>
@@ -545,13 +510,13 @@ function EmptyNowState({
       <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', marginBottom: '12px' }}>
         <button
           type="button"
-          style={ACTION_BUTTON_STYLE}
+          className="studio-dashboard-action"
           onClick={onChoose}
           disabled={!hasCandidates}
         >
           Choose active project
         </button>
-        <button type="button" style={ACTION_BUTTON_STYLE} onClick={onNewProject}>
+        <button type="button" className="studio-dashboard-action" onClick={onNewProject}>
           New Project
         </button>
       </div>
@@ -718,7 +683,7 @@ function ResearchReadySection({
 
                   <button
                     type="button"
-                    style={ACTION_BUTTON_STYLE}
+                    className="studio-dashboard-action"
                     onClick={() => onConvert(row.id)}
                   >
                     Convert

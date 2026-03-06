@@ -197,7 +197,7 @@ export default function WorkbenchPanel({
 
   return (
     <aside
-      className="studio-workbench studio-scrollbar"
+      className="studio-workbench studio-workbench-grid studio-scrollbar"
       data-open={open ? 'true' : undefined}
       style={{
         width: open ? `${width}px` : '0px',
