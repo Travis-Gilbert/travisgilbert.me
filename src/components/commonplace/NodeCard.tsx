@@ -40,6 +40,7 @@ export default function NodeCard({ node, onSelect, allNodes }: NodeCardProps) {
     >
       {/* Header: icon + title + time */}
       <div
+        className="cp-node-card-header"
         style={{
           display: 'flex',
           alignItems: 'flex-start',
@@ -48,6 +49,7 @@ export default function NodeCard({ node, onSelect, allNodes }: NodeCardProps) {
       >
         {/* Type dot */}
         <span
+          className="cp-node-type-dot"
           style={{
             width: 8,
             height: 8,
@@ -59,9 +61,10 @@ export default function NodeCard({ node, onSelect, allNodes }: NodeCardProps) {
           }}
         />
 
-        <div style={{ flex: 1, minWidth: 0 }}>
+        <div className="cp-node-main" style={{ flex: 1, minWidth: 0 }}>
           {/* Type label + time */}
           <div
+            className="cp-node-meta"
             style={{
               display: 'flex',
               alignItems: 'center',
@@ -70,6 +73,7 @@ export default function NodeCard({ node, onSelect, allNodes }: NodeCardProps) {
             }}
           >
             <span
+              className="cp-node-type-label"
               style={{
                 fontFamily: 'var(--cp-font-mono)',
                 fontSize: 9,
@@ -82,6 +86,7 @@ export default function NodeCard({ node, onSelect, allNodes }: NodeCardProps) {
               {typeInfo.label}
             </span>
             <span
+              className="cp-node-time"
               style={{
                 fontFamily: 'var(--cp-font-mono)',
                 fontSize: 9,
@@ -97,6 +102,7 @@ export default function NodeCard({ node, onSelect, allNodes }: NodeCardProps) {
 
           {/* Title */}
           <div
+            className="cp-node-title"
             style={{
               fontFamily: 'var(--cp-font-title)',
               fontSize: 15,
@@ -112,6 +118,7 @@ export default function NodeCard({ node, onSelect, allNodes }: NodeCardProps) {
           {/* Summary */}
           {node.summary && (
             <div
+              className="cp-node-summary"
               style={{
                 fontFamily: 'var(--cp-font-body)',
                 fontSize: 12.5,
@@ -132,6 +139,7 @@ export default function NodeCard({ node, onSelect, allNodes }: NodeCardProps) {
       {/* Footer: connections */}
       {node.edgeCount > 0 && (
         <div
+          className="cp-node-footer"
           style={{
             display: 'flex',
             flexWrap: 'wrap',
@@ -155,6 +163,7 @@ export default function NodeCard({ node, onSelect, allNodes }: NodeCardProps) {
           })}
           {node.edgeCount > 2 && (
             <span
+              className="cp-node-more"
               style={{
                 fontFamily: 'var(--cp-font-mono)',
                 fontSize: 9,

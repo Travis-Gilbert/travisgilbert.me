@@ -10,32 +10,65 @@
  * Registers as the 'network' view type in SplitPaneContainer.
  */
 
-import { useState, useCallback } from 'react';
-import KnowledgeMap from './KnowledgeMap';
-import EntityNetwork from './EntityNetwork';
-import TimelineViz from './TimelineViz';
+import dynamic from 'next/dynamic';
+import { useState, useCallback, useMemo } from 'react';
 import FrameManager from './FrameManager';
 import type { ViewFrame, GraphNode, GraphLink } from '@/lib/commonplace';
 import { fetchGraph, useApiData } from '@/lib/commonplace-api';
+import { useIsMobileViewport } from '@/hooks/useIsMobileViewport';
 
-type NetworkSubView = 'map' | 'entities' | 'timeline';
+type NetworkSubView = 'list' | 'map' | 'entities' | 'timeline';
 
 interface NetworkViewProps {
   onOpenObject?: (objectId: string) => void;
 }
 
-const SUB_VIEWS: { key: NetworkSubView; label: string }[] = [
+const DESKTOP_SUB_VIEWS: { key: NetworkSubView; label: string }[] = [
   { key: 'map', label: 'Map' },
   { key: 'entities', label: 'Entities' },
   { key: 'timeline', label: 'Time' },
 ];
 
+const MOBILE_SUB_VIEWS: { key: NetworkSubView; label: string }[] = [
+  { key: 'list', label: 'List' },
+  { key: 'map', label: 'Map' },
+  { key: 'entities', label: 'Entities' },
+  { key: 'timeline', label: 'Time' },
+];
+
+const LazyKnowledgeMap = dynamic(() => import('./KnowledgeMap'), {
+  ssr: false,
+  loading: () => <GraphViewSkeleton />,
+});
+
+const LazyEntityNetwork = dynamic(() => import('./EntityNetwork'), {
+  ssr: false,
+  loading: () => <GraphViewSkeleton />,
+});
+
+const LazyTimelineViz = dynamic(() => import('./TimelineViz'), {
+  ssr: false,
+  loading: () => <GraphViewSkeleton />,
+});
+
 export default function NetworkView({ onOpenObject }: NetworkViewProps) {
+  const isMobile = useIsMobileViewport();
   const [activeSubView, setActiveSubView] = useState<NetworkSubView>('map');
+  const [hasChosenView, setHasChosenView] = useState(false);
 
   /* Track zoom state for FrameManager (only used with map sub-view) */
   const [currentZoom, setCurrentZoom] = useState(1);
   const [currentCenter, setCurrentCenter] = useState({ x: 0, y: 0 });
+
+  const subViews = useMemo(
+    () => (isMobile ? MOBILE_SUB_VIEWS : DESKTOP_SUB_VIEWS),
+    [isMobile],
+  );
+
+  const effectiveSubView =
+    isMobile && !hasChosenView && activeSubView === 'map'
+      ? 'list'
+      : (!isMobile && activeSubView === 'list' ? 'map' : activeSubView);
 
   /* ── Fetch graph data once, shared by all sub-views ── */
   const { data: graphData, loading, error, refetch } = useApiData(() => fetchGraph(), []);
@@ -57,7 +90,7 @@ export default function NetworkView({ onOpenObject }: NetworkViewProps) {
       <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
         <div className="cp-network-toolbar">
           <div style={{ display: 'flex', gap: 4, flex: 1 }}>
-            {SUB_VIEWS.map((sv) => (
+            {subViews.map((sv) => (
               <button key={sv.key} className="cp-network-toggle" data-active={false} disabled>
                 {sv.label}
               </button>
@@ -77,7 +110,7 @@ export default function NetworkView({ onOpenObject }: NetworkViewProps) {
       <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
         <div className="cp-network-toolbar">
           <div style={{ display: 'flex', gap: 4, flex: 1 }}>
-            {SUB_VIEWS.map((sv) => (
+            {subViews.map((sv) => (
               <button key={sv.key} className="cp-network-toggle" data-active={false} disabled>
                 {sv.label}
               </button>
@@ -98,7 +131,7 @@ export default function NetworkView({ onOpenObject }: NetworkViewProps) {
       <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
         <div className="cp-network-toolbar">
           <div style={{ display: 'flex', gap: 4, flex: 1 }}>
-            {SUB_VIEWS.map((sv) => (
+            {subViews.map((sv) => (
               <button key={sv.key} className="cp-network-toggle" data-active={false} disabled>
                 {sv.label}
               </button>
@@ -117,18 +150,21 @@ export default function NetworkView({ onOpenObject }: NetworkViewProps) {
       {/* Toolbar: sub-view toggles + frame manager */}
       <div className="cp-network-toolbar">
         <div style={{ display: 'flex', gap: 4, flex: 1 }}>
-          {SUB_VIEWS.map((sv) => (
+          {subViews.map((sv) => (
             <button
               key={sv.key}
               className="cp-network-toggle"
-              data-active={activeSubView === sv.key}
-              onClick={() => setActiveSubView(sv.key)}
+              data-active={effectiveSubView === sv.key}
+              onClick={() => {
+                setHasChosenView(true);
+                setActiveSubView(sv.key);
+              }}
             >
               {sv.label}
             </button>
           ))}
         </div>
-        {activeSubView === 'map' && (
+        {effectiveSubView === 'map' && (
           <FrameManager
             currentZoom={currentZoom}
             currentCenterX={currentCenter.x}
@@ -140,16 +176,70 @@ export default function NetworkView({ onOpenObject }: NetworkViewProps) {
 
       {/* Active sub-view */}
       <div style={{ flex: 1, position: 'relative', minHeight: 0 }}>
-        {activeSubView === 'map' && (
-          <KnowledgeMap graphNodes={graphNodes} graphLinks={graphLinks} onOpenObject={onOpenObject} />
+        {effectiveSubView === 'list' && (
+          <NetworkListView graphNodes={graphNodes} onOpenObject={onOpenObject} />
         )}
-        {activeSubView === 'entities' && (
-          <EntityNetwork graphNodes={graphNodes} graphLinks={graphLinks} onOpenObject={onOpenObject} />
+        {effectiveSubView === 'map' && (
+          <LazyKnowledgeMap graphNodes={graphNodes} graphLinks={graphLinks} onOpenObject={onOpenObject} />
         )}
-        {activeSubView === 'timeline' && (
-          <TimelineViz graphNodes={graphNodes} graphLinks={graphLinks} onOpenObject={onOpenObject} />
+        {effectiveSubView === 'entities' && (
+          <LazyEntityNetwork graphNodes={graphNodes} graphLinks={graphLinks} onOpenObject={onOpenObject} />
+        )}
+        {effectiveSubView === 'timeline' && (
+          <LazyTimelineViz graphNodes={graphNodes} graphLinks={graphLinks} onOpenObject={onOpenObject} />
         )}
       </div>
+    </div>
+  );
+}
+
+function GraphViewSkeleton() {
+  return (
+    <div
+      style={{
+        flex: 1,
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        padding: 16,
+      }}
+    >
+      <div className="cp-loading-skeleton" style={{ width: '100%', height: '72%', borderRadius: 10 }} />
+    </div>
+  );
+}
+
+function NetworkListView({
+  graphNodes,
+  onOpenObject,
+}: {
+  graphNodes: GraphNode[];
+  onOpenObject?: (objectId: string) => void;
+}) {
+  const sorted = useMemo(
+    () =>
+      [...graphNodes].sort((a, b) => {
+        if (b.edgeCount !== a.edgeCount) return b.edgeCount - a.edgeCount;
+        return a.title.localeCompare(b.title);
+      }),
+    [graphNodes],
+  );
+
+  return (
+    <div className="cp-network-list cp-scrollbar">
+      {sorted.map((node) => (
+        <button
+          key={node.id}
+          type="button"
+          className="cp-network-list-item"
+          onClick={() => onOpenObject?.(node.id)}
+        >
+          <span className="cp-network-list-title">{node.title}</span>
+          <span className="cp-network-list-meta">
+            {node.objectType} · {node.edgeCount} connections
+          </span>
+        </button>
+      ))}
     </div>
   );
 }

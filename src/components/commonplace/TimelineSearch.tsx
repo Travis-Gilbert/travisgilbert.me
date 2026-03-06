@@ -43,6 +43,7 @@ export default function TimelineSearch({
     <div className="cp-timeline-search">
       {/* Search input */}
       <div
+        className="cp-timeline-search-input"
         style={{
           display: 'flex',
           alignItems: 'center',
@@ -92,6 +93,7 @@ export default function TimelineSearch({
 
         {/* Result count */}
         <span
+          className="cp-timeline-result-count"
           style={{
             fontFamily: 'var(--cp-font-mono)',
             fontSize: 9,
@@ -105,6 +107,7 @@ export default function TimelineSearch({
 
       {/* Type filter pills */}
       <div
+        className="cp-timeline-filter-list"
         style={{
           display: 'flex',
           flexWrap: 'wrap',
@@ -119,6 +122,7 @@ export default function TimelineSearch({
               key={objType.slug}
               type="button"
               onClick={() => toggleType(objType.slug)}
+              className="cp-timeline-filter-pill"
               style={{
                 display: 'flex',
                 alignItems: 'center',
@@ -157,6 +161,7 @@ export default function TimelineSearch({
             onClick={() =>
               onChange({ query: '', activeTypes: new Set() })
             }
+            className="cp-timeline-filter-clear"
             style={{
               padding: '2px 8px',
               borderRadius: 10,
