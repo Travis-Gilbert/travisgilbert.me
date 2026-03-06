@@ -1,21 +1,20 @@
 <svg width="512" height="512" viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg">
   <rect width="512" height="512" rx="61" fill="#0F1012"/>
-  <!-- Page outline -->
-  <rect x="92" y="67" width="328" height="378" rx="10" fill="none" stroke="#FAF6F1" stroke-width="2.5" opacity="0.2"/>
+  <!-- Page outline (boosted opacity) -->
+  <rect x="92" y="67" width="328" height="378" rx="12" fill="none" stroke="#FAF6F1" stroke-width="4" opacity="0.5"/>
   <!-- Fold corner -->
-  <path d="M 359 67 L 420 128" stroke="#FAF6F1" stroke-width="2" fill="none" opacity="0.15"/>
-  <path d="M 359 67 L 359 128 L 420 128" stroke="#FAF6F1" stroke-width="1.8" fill="#0F1012" opacity="0.25"/>
-  <!-- Progress strip at top of page -->
-  <rect x="92" y="67" width="197" height="4" fill="#2D5F6B" opacity="0.6" rx="1"/>
-  <!-- Text lines -->
-  <line x1="123" y1="189" x2="389" y2="190" stroke="#FAF6F1" stroke-width="2.5" stroke-linecap="round" opacity="0.3"/>
-  <line x1="123" y1="225" x2="355" y2="226" stroke="#FAF6F1" stroke-width="2.5" stroke-linecap="round" opacity="0.3"/>
-  <!-- Active line (teal, brighter) -->
-  <line x1="123" y1="261" x2="400" y2="262" stroke="#2D5F6B" stroke-width="3.5" stroke-linecap="round" opacity="0.8"/>
+  <path d="M 359 67 L 359 128 L 420 128" stroke="#FAF6F1" stroke-width="3" fill="#0F1012" opacity="0.4"/>
+  <!-- Progress strip at top of page (full opacity) -->
+  <rect x="92" y="67" width="197" height="6" fill="#2D5F6B" rx="2"/>
+  <!-- Text lines (boosted opacity + thicker) -->
+  <line x1="123" y1="175" x2="389" y2="175" stroke="#FAF6F1" stroke-width="4" stroke-linecap="round" opacity="0.5"/>
+  <line x1="123" y1="215" x2="355" y2="215" stroke="#FAF6F1" stroke-width="4" stroke-linecap="round" opacity="0.5"/>
+  <!-- Active line (teal, full brightness) -->
+  <line x1="123" y1="255" x2="400" y2="255" stroke="#2D5F6B" stroke-width="6" stroke-linecap="round"/>
   <!-- Cursor on active line -->
-  <line x1="404" y1="249" x2="404" y2="275" stroke="#2D5F6B" stroke-width="2.5" stroke-linecap="round" opacity="0.9"/>
-  <line x1="123" y1="297" x2="302" y2="298" stroke="#FAF6F1" stroke-width="2.5" stroke-linecap="round" opacity="0.3"/>
-  <line x1="123" y1="333" x2="345" y2="334" stroke="#FAF6F1" stroke-width="2.5" stroke-linecap="round" opacity="0.3"/>
-  <!-- Word count (bottom-right of page) -->
-  <text x="400" y="430" text-anchor="end" fill="#2D5F6B" font-family="'Courier New', monospace" font-size="30" font-weight="600" opacity="0.5">2,847</text>
+  <line x1="406" y1="241" x2="406" y2="269" stroke="#2D5F6B" stroke-width="4" stroke-linecap="round"/>
+  <!-- More text lines -->
+  <line x1="123" y1="295" x2="302" y2="295" stroke="#FAF6F1" stroke-width="4" stroke-linecap="round" opacity="0.5"/>
+  <line x1="123" y1="335" x2="345" y2="335" stroke="#FAF6F1" stroke-width="4" stroke-linecap="round" opacity="0.5"/>
+  <line x1="123" y1="375" x2="280" y2="375" stroke="#FAF6F1" stroke-width="4" stroke-linecap="round" opacity="0.35"/>
 </svg>
