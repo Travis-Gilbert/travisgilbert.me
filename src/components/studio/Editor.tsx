@@ -10,7 +10,7 @@ import {
   type WorkbenchAutosaveState,
   type WorkbenchSaveState,
 } from './WorkbenchContext';
-import StageBar from './StageBar';
+import StageStepper from './StageStepper';
 import EditorToolbar from './EditorToolbar';
 import TiptapEditor from './TiptapEditor';
 import WordCountBand from './WordCountBand';
@@ -243,7 +243,7 @@ export default function Editor({
           minWidth: 0,
         }}
       >
-        <StageBar
+        <StageStepper
           stage={stage}
           contentType={normalizedContentType}
           lastSaved={lastSaved}
