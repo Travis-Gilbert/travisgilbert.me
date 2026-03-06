@@ -37,6 +37,7 @@ import {
 import { relativeTime } from '@/lib/studio-time';
 import { useStudioWorkbench } from './WorkbenchContext';
 import NewContentModal from './NewContentModal';
+import CollagePanel from './CollagePanel';
 
 const STORAGE_KEY = 'studio-workbench-open';
 const STORAGE_EDITOR_MODE_KEY = 'studio-workbench-editor-mode';
@@ -70,7 +71,7 @@ type SaveState = 'idle' | 'saving' | 'success' | 'error';
 type AutosaveState = 'idle' | 'saved';
 
 type WorkbenchMode = 'editor' | 'dashboard';
-type EditorPanelMode = 'research' | 'outline' | 'stash';
+type EditorPanelMode = 'research' | 'outline' | 'stash' | 'collage';
 
 function clampWidth(width: number): number {
   return Math.min(Math.max(width, MIN_WORKBENCH_WIDTH), MAX_WORKBENCH_WIDTH);
@@ -123,7 +124,7 @@ export default function WorkbenchPanel({
     }
 
     const storedMode = localStorage.getItem(STORAGE_EDITOR_MODE_KEY);
-    if (storedMode === 'research' || storedMode === 'outline' || storedMode === 'stash') {
+    if (storedMode === 'research' || storedMode === 'outline' || storedMode === 'stash' || storedMode === 'collage') {
       setEditorPanelMode(storedMode);
     }
 
@@ -320,11 +321,12 @@ export default function WorkbenchPanel({
                   paddingBottom: '8px',
                 }}
               >
-                {(['research', 'outline', 'stash'] as const).map((tab) => {
+                {(['research', 'outline', 'stash', 'collage'] as const).map((tab) => {
                   const TAB_LABELS: Record<EditorPanelMode, string> = {
                     research: 'Research',
                     outline: 'Outline',
                     stash: 'Stash',
+                    collage: 'Collage',
                   };
                   return (
                     <button
@@ -377,6 +379,12 @@ export default function WorkbenchPanel({
               )}
               {editorPanelMode === 'stash' && (
                 <StashMode editor={editor ?? null} />
+              )}
+              {editorPanelMode === 'collage' && (
+                <CollagePanel
+                  slug={contentItem?.slug ?? ''}
+                  editor={editor}
+                />
               )}
             </>
           ) : (
