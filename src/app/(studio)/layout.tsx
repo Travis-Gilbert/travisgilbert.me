@@ -10,6 +10,16 @@ export const metadata: Metadata = {
   },
   description:
     'Publishing workbench. Write, manage, and track content through the creative pipeline.',
+  icons: {
+    icon: [
+      { url: '/studio/icon.svg', type: 'image/svg+xml' },
+      { url: '/studio/favicon-32x32.png', sizes: '32x32', type: 'image/png' },
+      { url: '/studio/favicon-16x16.png', sizes: '16x16', type: 'image/png' },
+    ],
+    apple: [
+      { url: '/studio/apple-touch-icon.png', sizes: '180x180', type: 'image/png' },
+    ],
+  },
 };
 
 /**

@@ -11,6 +11,16 @@ export const metadata: Metadata = {
   },
   description:
     'Personal knowledge workbench. Objects exist. Nodes happen. Capture without obligation.',
+  icons: {
+    icon: [
+      { url: '/commonplace/icon.svg', type: 'image/svg+xml' },
+      { url: '/commonplace/favicon-32x32.png', sizes: '32x32', type: 'image/png' },
+      { url: '/commonplace/favicon-16x16.png', sizes: '16x16', type: 'image/png' },
+    ],
+    apple: [
+      { url: '/commonplace/apple-touch-icon.png', sizes: '180x180', type: 'image/png' },
+    ],
+  },
 };
 
 /**
