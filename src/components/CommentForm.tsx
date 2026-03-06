@@ -1,16 +1,19 @@
 'use client';
 
 /**
- * CommentForm: paragraph-anchored comment input.
+ * CommentForm: streamlined paragraph-anchored comment input.
  *
- * Appears when a reader clicks a paragraph. Collects author name and comment
+ * Appears when a reader clicks a paragraph. Borderless JetBrains Mono inputs
+ * blend into a glowing rough.js gold card. Collects author name and comment
  * body, gets a reCAPTCHA v3 token, then posts to /api/comments.
  *
  * On success the form closes and calls onSuccess with the new comment so the
  * parent can add it to the list without a page reload.
  */
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
+import rough from 'roughjs';
+import { useThemeVersion, readCssVar } from '@/hooks/useThemeColor';
 import { loadRecaptchaScript, getRecaptchaToken } from '@/lib/recaptcha';
 import type { Comment, ContentType } from '@/lib/comments';
 
@@ -34,9 +37,58 @@ export default function CommentForm({
   const [status, setStatus] = useState<'idle' | 'submitting' | 'error'>('idle');
   const [errorMsg, setErrorMsg] = useState('');
 
+  const formRef = useRef<HTMLFormElement>(null);
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const themeVersion = useThemeVersion();
+
   useEffect(() => {
     loadRecaptchaScript();
   }, []);
+
+  // rough.js canvas border
+  useEffect(() => {
+    const form = formRef.current;
+    const canvas = canvasRef.current;
+    if (!form || !canvas) return;
+
+    const strokeColor = readCssVar('--color-gold') || '#C49A4A';
+    // Deterministic seed from paragraph index
+    const seed = paragraphIndex * 7919;
+
+    function draw() {
+      const rect = form!.getBoundingClientRect();
+      const dpr = window.devicePixelRatio || 1;
+      const w = rect.width;
+      const h = rect.height;
+
+      canvas!.width = w * dpr;
+      canvas!.height = h * dpr;
+      canvas!.style.width = `${w}px`;
+      canvas!.style.height = `${h}px`;
+
+      const ctx = canvas!.getContext('2d');
+      if (!ctx) return;
+
+      ctx.scale(dpr, dpr);
+      ctx.clearRect(0, 0, w, h);
+
+      const rc = rough.canvas(canvas!);
+      rc.rectangle(2, 2, w - 4, h - 4, {
+        roughness: 0.8,
+        strokeWidth: 0.8,
+        stroke: strokeColor,
+        bowing: 1,
+        seed,
+      });
+    }
+
+    draw();
+
+    const observer = new ResizeObserver(() => draw());
+    observer.observe(form);
+
+    return () => observer.disconnect();
+  }, [paragraphIndex, themeVersion]);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -76,8 +128,20 @@ export default function CommentForm({
 
   return (
     <div className="comment-form-wrapper">
-      <form onSubmit={handleSubmit} className="comment-form" noValidate>
-        <div className="comment-form-header">
+      <form
+        ref={formRef}
+        onSubmit={handleSubmit}
+        className="comment-form relative"
+        noValidate
+      >
+        {/* rough.js hand-drawn border */}
+        <canvas
+          ref={canvasRef}
+          aria-hidden="true"
+          className="absolute inset-0 pointer-events-none"
+        />
+
+        <div className="comment-form-header relative z-10">
           <span className="comment-form-label">Add a note</span>
           <button
             type="button"
@@ -94,7 +158,7 @@ export default function CommentForm({
           placeholder="Your name"
           value={name}
           onChange={(e) => setName(e.target.value)}
-          className="comment-form-input"
+          className="comment-form-input relative z-10"
           maxLength={80}
           required
           disabled={status === 'submitting'}
@@ -104,7 +168,7 @@ export default function CommentForm({
           placeholder="Your comment..."
           value={body}
           onChange={(e) => setBody(e.target.value)}
-          className="comment-form-textarea"
+          className="comment-form-textarea relative z-10"
           rows={3}
           maxLength={600}
           required
@@ -112,10 +176,10 @@ export default function CommentForm({
         />
 
         {status === 'error' && (
-          <p className="comment-form-error">{errorMsg}</p>
+          <p className="comment-form-error relative z-10">{errorMsg}</p>
         )}
 
-        <div className="comment-form-footer">
+        <div className="comment-form-footer relative z-10">
           <span className="comment-form-recaptcha-note">
             Protected by reCAPTCHA
           </span>
@@ -123,9 +187,8 @@ export default function CommentForm({
             type="submit"
             className="comment-form-submit"
             disabled={status === 'submitting' || !name.trim() || !body.trim()}
-            style={{ minHeight: 44 }}
           >
-            {status === 'submitting' ? 'Posting...' : 'Post'}
+            {status === 'submitting' ? '...' : 'Post'}
           </button>
         </div>
       </form>

@@ -101,15 +101,19 @@ export default function StickyNoteLayer({
         if (top === undefined) return null;
 
         // Stack multiple notes on same paragraph with small vertical offset
-        return paraComments.map((comment, stackIdx) => (
-          <div
-            key={comment.id}
-            className="sticky-note-positioner"
-            style={{ top: top + stackIdx * 8 }}
-          >
-            <StickyNote comment={comment} onFlag={onFlag} />
-          </div>
-        ));
+        return paraComments.map((comment, stackIdx) => {
+          // 1-based global index for the #N display header
+          const globalIdx = comments.indexOf(comment) + 1;
+          return (
+            <div
+              key={comment.id}
+              className="sticky-note-positioner"
+              style={{ top: top + stackIdx * 8 }}
+            >
+              <StickyNote comment={comment} index={globalIdx} onFlag={onFlag} />
+            </div>
+          );
+        });
       })}
 
       {/* Render comment form anchored to clicked paragraph */}
@@ -129,7 +133,7 @@ export default function StickyNoteLayer({
       )}
 
       {/* Paragraph click hint (first load only, fades out) */}
-      {offsets.size > 0 && comments.length === 0 && (
+      {offsets.size > 0 && comments.length === 0 && activeForm === null && (
         <div className="sticky-note-hint">
           Click any paragraph to leave a note
         </div>

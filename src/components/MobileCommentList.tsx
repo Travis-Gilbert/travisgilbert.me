@@ -3,9 +3,12 @@
 /**
  * MobileCommentList: stacked comment list for viewports below xl (1280px).
  *
- * At narrow widths there is no margin space for sticky notes, so comments
+ * At narrow widths there is no margin space for reader notes, so comments
  * are shown below the article in a vertical list. Each item shows the
- * paragraph reference, author, body, and flag button.
+ * #N index, paragraph reference, author, body, and flag button.
+ *
+ * Uses the same JetBrains Mono Semi #N header + body font pattern as
+ * the desktop StickyNote for visual consistency.
  *
  * Shown only on mobile/tablet via CSS (hidden xl:hidden at xl+).
  */
@@ -36,7 +39,8 @@ export default function MobileCommentList({
       </h2>
 
       <div className="mobile-comment-items">
-        {displayComments.map((comment) => {
+        {displayComments.map((comment, i) => {
+          const globalIndex = comments.indexOf(comment) + 1;
           const date = new Date(comment.created_at).toLocaleDateString('en-US', {
             month: 'short',
             day: 'numeric',
@@ -47,6 +51,7 @@ export default function MobileCommentList({
               className={`mobile-comment-item${comment.is_flagged ? ' mobile-comment-item--flagged' : ''}`}
             >
               <div className="mobile-comment-meta">
+                <span className="mobile-comment-number">#{globalIndex}</span>
                 <span className="mobile-comment-author">{comment.author_name}</span>
                 <span className="mobile-comment-paragraph">
                   Para. {comment.paragraph_index}
@@ -57,13 +62,13 @@ export default function MobileCommentList({
               <div className="mobile-comment-actions">
                 {!comment.is_flagged ? (
                   <button
-                    className="sticky-note-flag"
+                    className="reader-note-flag"
                     onClick={() => onFlag(comment.id)}
                   >
                     Flag
                   </button>
                 ) : (
-                  <span className="sticky-note-flagged-label">Flagged</span>
+                  <span className="reader-note-flagged-label">Flagged</span>
                 )}
               </div>
             </div>
