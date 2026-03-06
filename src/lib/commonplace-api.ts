@@ -242,9 +242,12 @@ export async function fetchResurface(params?: {
    Notebook + Project endpoint functions
    ───────────────────────────────────────────────── */
 
-/** Fetch all notebooks */
+/** Fetch all notebooks. Handles both flat array and paginated envelope. */
 export async function fetchNotebooks(): Promise<ApiNotebookListItem[]> {
-  return apiFetch<ApiNotebookListItem[]>('/notebooks/');
+  const data = await apiFetch<
+    { results: ApiNotebookListItem[] } | ApiNotebookListItem[]
+  >('/notebooks/');
+  return Array.isArray(data) ? data : data.results;
 }
 
 /** Fetch a single notebook by slug */
@@ -254,7 +257,7 @@ export async function fetchNotebookBySlug(
   return apiFetch<ApiNotebookDetail>(`/notebooks/${slug}/`);
 }
 
-/** Fetch all projects, optionally filtered by notebook or status */
+/** Fetch all projects, optionally filtered by notebook or status. Handles both flat array and paginated envelope. */
 export async function fetchProjects(params?: {
   notebook?: string;
   status?: string;
@@ -263,7 +266,10 @@ export async function fetchProjects(params?: {
   if (params?.notebook) search.set('notebook', params.notebook);
   if (params?.status) search.set('status', params.status);
   const qs = search.toString();
-  return apiFetch<ApiProjectListItem[]>(`/projects/${qs ? `?${qs}` : ''}`);
+  const data = await apiFetch<
+    { results: ApiProjectListItem[] } | ApiProjectListItem[]
+  >(`/projects/${qs ? `?${qs}` : ''}`);
+  return Array.isArray(data) ? data : data.results;
 }
 
 /** Fetch a single project by slug */
