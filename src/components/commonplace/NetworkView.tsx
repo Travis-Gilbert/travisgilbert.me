@@ -37,6 +37,11 @@ export default function NetworkView({ onOpenObject }: NetworkViewProps) {
   const [currentZoom, setCurrentZoom] = useState(1);
   const [currentCenter, setCurrentCenter] = useState({ x: 0, y: 0 });
 
+  /* ── Fetch graph data once, shared by all sub-views ── */
+  const { data: graphData, loading, error, refetch } = useApiData(() => fetchGraph(), []);
+  const graphNodes: GraphNode[] = graphData?.nodes ?? [];
+  const graphLinks: GraphLink[] = graphData?.links ?? [];
+
   /* Frame restoration handler: resets zoom to identity for now */
   const handleRestoreFrame = useCallback((frame: ViewFrame) => {
     /* In a full implementation this would animate the KnowledgeMap's
@@ -45,6 +50,67 @@ export default function NetworkView({ onOpenObject }: NetworkViewProps) {
     setCurrentZoom(frame.zoom);
     setCurrentCenter({ x: frame.centerX, y: frame.centerY });
   }, []);
+
+  /* ── Loading state ── */
+  if (loading) {
+    return (
+      <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
+        <div className="cp-network-toolbar">
+          <div style={{ display: 'flex', gap: 4, flex: 1 }}>
+            {SUB_VIEWS.map((sv) => (
+              <button key={sv.key} className="cp-network-toggle" data-active={false} disabled>
+                {sv.label}
+              </button>
+            ))}
+          </div>
+        </div>
+        <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <div className="cp-loading-skeleton" style={{ width: '80%', height: '60%', borderRadius: 8 }} />
+        </div>
+      </div>
+    );
+  }
+
+  /* ── Error state ── */
+  if (error) {
+    return (
+      <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
+        <div className="cp-network-toolbar">
+          <div style={{ display: 'flex', gap: 4, flex: 1 }}>
+            {SUB_VIEWS.map((sv) => (
+              <button key={sv.key} className="cp-network-toggle" data-active={false} disabled>
+                {sv.label}
+              </button>
+            ))}
+          </div>
+        </div>
+        <div className="cp-error-banner" style={{ margin: 16 }}>
+          <p>Could not load knowledge graph.</p>
+          <button onClick={refetch}>Retry</button>
+        </div>
+      </div>
+    );
+  }
+
+  /* ── Empty state ── */
+  if (graphNodes.length === 0) {
+    return (
+      <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
+        <div className="cp-network-toolbar">
+          <div style={{ display: 'flex', gap: 4, flex: 1 }}>
+            {SUB_VIEWS.map((sv) => (
+              <button key={sv.key} className="cp-network-toggle" data-active={false} disabled>
+                {sv.label}
+              </button>
+            ))}
+          </div>
+        </div>
+        <div className="cp-empty-state">
+          <p>No objects yet. Capture something to see the knowledge graph.</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
@@ -74,9 +140,15 @@ export default function NetworkView({ onOpenObject }: NetworkViewProps) {
 
       {/* Active sub-view */}
       <div style={{ flex: 1, position: 'relative', minHeight: 0 }}>
-        {activeSubView === 'map' && <KnowledgeMap onOpenObject={onOpenObject} />}
-        {activeSubView === 'entities' && <EntityNetwork onOpenObject={onOpenObject} />}
-        {activeSubView === 'timeline' && <TimelineViz onOpenObject={onOpenObject} />}
+        {activeSubView === 'map' && (
+          <KnowledgeMap graphNodes={graphNodes} graphLinks={graphLinks} onOpenObject={onOpenObject} />
+        )}
+        {activeSubView === 'entities' && (
+          <EntityNetwork graphNodes={graphNodes} graphLinks={graphLinks} onOpenObject={onOpenObject} />
+        )}
+        {activeSubView === 'timeline' && (
+          <TimelineViz graphNodes={graphNodes} graphLinks={graphLinks} onOpenObject={onOpenObject} />
+        )}
       </div>
     </div>
   );

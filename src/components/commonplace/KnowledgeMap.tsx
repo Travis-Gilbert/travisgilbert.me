@@ -19,19 +19,21 @@
 import { useRef, useEffect, useState, useMemo, useCallback } from 'react';
 import * as d3 from 'd3';
 import rough from 'roughjs';
-import { getMockData } from '@/lib/commonplace-mock-data';
 import { OBJECT_TYPES, getObjectTypeIdentity } from '@/lib/commonplace';
+import type { GraphNode, GraphLink } from '@/lib/commonplace';
 import {
-  buildGraphData,
   computeGraphLayout,
   getNodeColor,
   truncateLabel,
   EDGE_RGB,
 } from '@/lib/commonplace-graph';
-import type { LayoutNode } from '@/lib/commonplace-graph';
 
 interface KnowledgeMapProps {
   onOpenObject?: (objectId: string) => void;
+  /** Pre-fetched graph nodes from parent NetworkView */
+  graphNodes: GraphNode[];
+  /** Pre-fetched graph links from parent NetworkView */
+  graphLinks: GraphLink[];
   filter?: Set<string>;
   cluster?: boolean;
   /** Show labels on all nodes (not just hover) */
@@ -40,6 +42,8 @@ interface KnowledgeMapProps {
 
 export default function KnowledgeMap({
   onOpenObject,
+  graphNodes: rawNodes,
+  graphLinks: rawLinks,
   filter,
   cluster = false,
   alwaysShowLabels = false,
@@ -52,38 +56,30 @@ export default function KnowledgeMap({
   const [clickedId, setClickedId] = useState<string | null>(null);
   const [transform, setTransform] = useState(d3.zoomIdentity);
 
-  /* ── Mock data ───────────────────────────── */
+  /* ── Filter by object type ───────────────────────────── */
 
-  const { nodes: mockNodes, edges: mockEdges } = useMemo(() => getMockData(), []);
-
-  /* Filter nodes if a type filter is provided */
   const filteredNodes = useMemo(() => {
-    if (!filter) return mockNodes;
-    return mockNodes.filter((n) => filter.has(n.objectType));
-  }, [mockNodes, filter]);
+    if (!filter) return rawNodes;
+    return rawNodes.filter((n) => filter.has(n.objectType));
+  }, [rawNodes, filter]);
 
-  /* Filter edges to only include edges between filtered nodes */
-  const filteredEdges = useMemo(() => {
+  const filteredLinks = useMemo(() => {
     const nodeIds = new Set(filteredNodes.map((n) => n.id));
-    return mockEdges.filter((e) => nodeIds.has(e.sourceId) && nodeIds.has(e.targetId));
-  }, [mockEdges, filteredNodes]);
-
-  /* Build D3 graph data */
-  const { nodes: graphNodes, links: graphLinks } = useMemo(
-    () => buildGraphData(filteredNodes, filteredEdges),
-    [filteredNodes, filteredEdges],
-  );
+    return rawLinks.filter(
+      (l) => nodeIds.has(String(l.source)) && nodeIds.has(String(l.target)),
+    );
+  }, [rawLinks, filteredNodes]);
 
   /* ── Layout ───────────────────────────── */
 
   const layout = useMemo(
     () =>
-      computeGraphLayout(graphNodes, graphLinks, containerSize.width, containerSize.height, {
+      computeGraphLayout(filteredNodes, filteredLinks, containerSize.width, containerSize.height, {
         charge: -120,
         linkDistance: 80,
         cluster,
       }),
-    [graphNodes, graphLinks, containerSize.width, containerSize.height, cluster],
+    [filteredNodes, filteredLinks, containerSize.width, containerSize.height, cluster],
   );
 
   /* Position lookup for edges */
@@ -137,12 +133,14 @@ export default function KnowledgeMap({
     const ids = new Set<string>();
     if (!hoveredId) return ids;
     ids.add(hoveredId);
-    filteredEdges.forEach((e) => {
-      if (e.sourceId === hoveredId) ids.add(e.targetId);
-      if (e.targetId === hoveredId) ids.add(e.sourceId);
+    filteredLinks.forEach((l) => {
+      const src = String(l.source);
+      const tgt = String(l.target);
+      if (src === hoveredId) ids.add(tgt);
+      if (tgt === hoveredId) ids.add(src);
     });
     return ids;
-  }, [hoveredId, filteredEdges]);
+  }, [hoveredId, filteredLinks]);
 
   /* ── Draw rough.js edges on canvas ───────────────── */
 
@@ -174,14 +172,16 @@ export default function KnowledgeMap({
 
     const rc = rough.canvas(canvas);
 
-    filteredEdges.forEach((e) => {
-      const from = posMap.get(e.sourceId);
-      const to = posMap.get(e.targetId);
+    filteredLinks.forEach((l) => {
+      const src = String(l.source);
+      const tgt = String(l.target);
+      const from = posMap.get(src);
+      const to = posMap.get(tgt);
       if (!from || !to) return;
 
       let alpha = 0.25;
       if (hoveredId) {
-        const isConnected = connectedIds.has(e.sourceId) && connectedIds.has(e.targetId);
+        const isConnected = connectedIds.has(src) && connectedIds.has(tgt);
         alpha = isConnected ? 0.55 : 0.05;
       }
 
@@ -192,7 +192,7 @@ export default function KnowledgeMap({
         bowing: 1.5,
       });
     });
-  }, [layout, filteredEdges, hoveredId, connectedIds, containerSize, posMap, transform]);
+  }, [layout, filteredLinks, hoveredId, connectedIds, containerSize, posMap, transform]);
 
   /* ── Click handler ───────────────────────────── */
 

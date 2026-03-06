@@ -97,7 +97,7 @@ export async function apiFetch<T>(
 
 function mapFeedNodeToMockNode(node: ApiFeedNode): MockNode {
   return {
-    id: String(node.object_ref),
+    id: `node-${node.id}`,
     objectType: node.object_type,
     title: node.object_title,
     summary: node.title,

@@ -13,12 +13,16 @@
 
 import { useRef, useEffect, useState, useMemo, useCallback } from 'react';
 import * as d3 from 'd3';
-import { getMockData } from '@/lib/commonplace-mock-data';
 import { getObjectTypeIdentity, OBJECT_TYPES } from '@/lib/commonplace';
+import type { GraphNode, GraphLink } from '@/lib/commonplace';
 import { getNodeColor, truncateLabel } from '@/lib/commonplace-graph';
 
 interface TimelineVizProps {
   onOpenObject?: (objectId: string) => void;
+  /** Pre-fetched graph nodes from parent NetworkView */
+  graphNodes: GraphNode[];
+  /** Pre-fetched graph links from parent NetworkView */
+  graphLinks: GraphLink[];
 }
 
 /** Vertical offset: axis sits at 60% height, dots above and below */
@@ -28,7 +32,11 @@ const MIN_ARC_HEIGHT = 30;
 /** Max arc height */
 const MAX_ARC_HEIGHT = 120;
 
-export default function TimelineViz({ onOpenObject }: TimelineVizProps) {
+export default function TimelineViz({
+  onOpenObject,
+  graphNodes,
+  graphLinks,
+}: TimelineVizProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const svgRef = useRef<SVGSVGElement>(null);
@@ -36,19 +44,20 @@ export default function TimelineViz({ onOpenObject }: TimelineVizProps) {
   const [hoveredId, setHoveredId] = useState<string | null>(null);
   const [transform, setTransform] = useState(d3.zoomIdentity);
 
-  /* ── Data ───────────────────────────── */
+  /* ── Data: distribute nodes evenly on a synthetic time axis ── */
+  /* The /graph/ endpoint provides topology, not chronology. We spread
+     nodes uniformly so the arc visualization still communicates which
+     objects are connected. The real chronological view lives in TimelineView. */
 
-  const { nodes, edges } = useMemo(() => getMockData(), []);
+  const nodes = graphNodes;
+  const links = graphLinks;
 
-  /* Time extent */
+  /* Synthetic time extent: one point per node, spread over 30 "days" */
   const timeExtent = useMemo(() => {
-    const times = nodes.map((n) => new Date(n.capturedAt).getTime());
-    const min = Math.min(...times);
-    const max = Math.max(...times);
-    /* Add 5% padding on each side */
-    const pad = (max - min) * 0.05 || 86400000;
-    return [new Date(min - pad), new Date(max + pad)] as [Date, Date];
-  }, [nodes]);
+    const now = Date.now();
+    const span = 30 * 86400000; // 30 days in ms
+    return [new Date(now - span), new Date(now)] as [Date, Date];
+  }, []);
 
   /* Base X scale (before zoom transform) */
   const xScale = useMemo(
@@ -69,16 +78,22 @@ export default function TimelineViz({ onOpenObject }: TimelineVizProps) {
     /* Stagger dots vertically to reduce overlap */
     const typeSlots = new Map(OBJECT_TYPES.map((t, i) => [t.slug, i]));
     const totalTypes = OBJECT_TYPES.length;
+    const count = nodes.length;
 
-    return nodes.map((n) => {
-      const x = zoomedX(new Date(n.capturedAt));
+    return nodes.map((n, i) => {
+      /* Distribute nodes evenly across the time axis */
+      const frac = count > 1 ? i / (count - 1) : 0.5;
+      const syntheticTime = new Date(
+        timeExtent[0].getTime() + frac * (timeExtent[1].getTime() - timeExtent[0].getTime()),
+      );
+      const x = zoomedX(syntheticTime);
       const slot = typeSlots.get(n.objectType) ?? 0;
       /* Distribute types in vertical band above axis */
       const bandHeight = axisY - 40;
       const y = 20 + (slot / totalTypes) * bandHeight;
       return { node: n, x, y };
     });
-  }, [nodes, zoomedX, axisY]);
+  }, [nodes, zoomedX, axisY, timeExtent]);
 
   /* Position lookup */
   const posLookup = useMemo(
@@ -91,12 +106,14 @@ export default function TimelineViz({ onOpenObject }: TimelineVizProps) {
     const ids = new Set<string>();
     if (!hoveredId) return ids;
     ids.add(hoveredId);
-    edges.forEach((e) => {
-      if (e.sourceId === hoveredId) ids.add(e.targetId);
-      if (e.targetId === hoveredId) ids.add(e.sourceId);
+    links.forEach((l) => {
+      const src = String(l.source);
+      const tgt = String(l.target);
+      if (src === hoveredId) ids.add(tgt);
+      if (tgt === hoveredId) ids.add(src);
     });
     return ids;
-  }, [hoveredId, edges]);
+  }, [hoveredId, links]);
 
   /* ── Resize observer ───────────────────────────── */
 
@@ -151,9 +168,11 @@ export default function TimelineViz({ onOpenObject }: TimelineVizProps) {
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     ctx.clearRect(0, 0, size.width, size.height);
 
-    edges.forEach((e) => {
-      const from = posLookup.get(e.sourceId);
-      const to = posLookup.get(e.targetId);
+    links.forEach((l) => {
+      const src = String(l.source);
+      const tgt = String(l.target);
+      const from = posLookup.get(src);
+      const to = posLookup.get(tgt);
       if (!from || !to) return;
 
       /* Skip if both off-screen */
@@ -163,11 +182,11 @@ export default function TimelineViz({ onOpenObject }: TimelineVizProps) {
 
       let alpha = 0.15;
       if (hoveredId) {
-        const isConn = connectedIds.has(e.sourceId) && connectedIds.has(e.targetId);
+        const isConn = connectedIds.has(src) && connectedIds.has(tgt);
         alpha = isConn ? 0.45 : 0.03;
       }
 
-      /* Arc height proportional to time distance */
+      /* Arc height proportional to distance */
       const dx = Math.abs(to.x - from.x);
       const arcHeight = Math.min(MAX_ARC_HEIGHT, Math.max(MIN_ARC_HEIGHT, dx * 0.3));
 
@@ -183,7 +202,7 @@ export default function TimelineViz({ onOpenObject }: TimelineVizProps) {
       ctx.quadraticCurveTo(midX, midY, to.x, to.y);
       ctx.stroke();
     });
-  }, [edges, posLookup, hoveredId, connectedIds, size]);
+  }, [links, posLookup, hoveredId, connectedIds, size]);
 
   /* ── Click handler ───────────────────────────── */
 
@@ -305,10 +324,7 @@ export default function TimelineViz({ onOpenObject }: TimelineVizProps) {
           <div style={{ fontWeight: 600, marginBottom: 2 }}>{hoveredPos.node.title}</div>
           <div style={{ opacity: 0.6, fontSize: 9 }}>
             {getObjectTypeIdentity(hoveredPos.node.objectType).label} ·{' '}
-            {new Date(hoveredPos.node.capturedAt).toLocaleDateString('en-US', {
-              month: 'short',
-              day: 'numeric',
-            })}
+            {hoveredPos.node.edgeCount} connections
           </div>
         </div>
       )}
