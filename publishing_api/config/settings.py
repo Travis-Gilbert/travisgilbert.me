@@ -204,6 +204,9 @@ TICKTICK_ACCESS_TOKEN = os.environ.get("TICKTICK_ACCESS_TOKEN", "").strip()
 TICKTICK_STUDIO_PROJECT_ID = os.environ.get(
     "TICKTICK_STUDIO_PROJECT_ID", "689cdbfd8f083a8c93d0134e"
 ).strip()
+TICKTICK_VIDEO_PROJECT_ID = os.environ.get(
+    "TICKTICK_VIDEO_PROJECT_ID", "696d539b8f08e340f3116156"
+).strip()
 
 # GitHub publishing settings (strip whitespace; dashboard paste can add newlines)
 GITHUB_TOKEN = os.environ.get("GITHUB_TOKEN", "").strip()

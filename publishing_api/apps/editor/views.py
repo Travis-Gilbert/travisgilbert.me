@@ -819,6 +819,17 @@ class VideoCreateView(LoginRequiredMixin, CreateView):
         ctx["is_new"] = True
         return ctx
 
+    def form_valid(self, form):
+        response = super().form_valid(form)
+        # Best-effort TickTick sync for the new video project
+        try:
+            from apps.content.ticktick_sync import create_video_breakdown
+
+            create_video_breakdown(self.object)
+        except Exception:
+            logger.exception("TickTick video breakdown sync failed")
+        return response
+
     def get_success_url(self):
         return reverse("editor:video-edit", kwargs={"slug": self.object.slug})
 
@@ -938,6 +949,14 @@ class VideoSetPhaseView(LoginRequiredMixin, View):
                         status=400,
                     )
         # else: same phase, no-op
+
+        # Best-effort TickTick priority sync
+        try:
+            from apps.content.ticktick_sync import update_phase_priorities
+
+            update_phase_priorities(video)
+        except Exception:
+            logger.exception("TickTick phase priority sync failed")
 
         return JsonResponse({
             "phase": video.phase,
@@ -1844,6 +1863,15 @@ class VideoAPIAdvanceView(View):
             }, status=409)
 
         new_phase = video.advance_phase()
+
+        # Best-effort TickTick priority sync
+        try:
+            from apps.content.ticktick_sync import update_phase_priorities
+
+            update_phase_priorities(video)
+        except Exception:
+            logger.exception("TickTick phase priority sync failed")
+
         return JsonResponse({
             "success": True,
             "previous_phase": current,
