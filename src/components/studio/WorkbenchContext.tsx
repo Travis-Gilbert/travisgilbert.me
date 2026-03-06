@@ -13,6 +13,16 @@ export interface StashItem {
   savedAt: string;
 }
 
+export interface StashTask {
+  id: string;
+  text: string;
+  done: boolean;
+  createdAt: string;
+  /** The content item this task is attached to */
+  contentSlug: string;
+  contentType: string;
+}
+
 export interface WorkbenchEditorState {
   editor: TiptapEditorType | null;
   contentItem: StudioContentItem | null;
@@ -23,6 +33,10 @@ export interface WorkbenchEditorState {
   stash: StashItem[];
   onRestoreStash?: (id: string) => void;
   onDeleteStash?: (id: string) => void;
+  tasks: StashTask[];
+  onAddTask?: (text: string) => void;
+  onToggleTask?: (id: string) => void;
+  onDeleteTask?: (id: string) => void;
 }
 
 interface WorkbenchContextValue {
@@ -41,6 +55,10 @@ const EMPTY_EDITOR_STATE: WorkbenchEditorState = {
   stash: [],
   onRestoreStash: undefined,
   onDeleteStash: undefined,
+  tasks: [],
+  onAddTask: undefined,
+  onToggleTask: undefined,
+  onDeleteTask: undefined,
 };
 
 const WorkbenchContext = createContext<WorkbenchContextValue | null>(null);

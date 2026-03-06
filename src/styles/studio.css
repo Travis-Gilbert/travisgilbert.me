@@ -2015,3 +2015,231 @@
   color: var(--studio-teal);
   margin-top: 2px;
 }
+
+/* ── Slash Command Popup ──────────────────────── */
+
+.studio-slash-popup {
+  position: fixed;
+  z-index: 200;
+  width: 320px;
+  max-height: 400px;
+  overflow-y: auto;
+  background-color: var(--studio-surface);
+  border: 1px solid var(--studio-border-strong);
+  border-radius: 10px;
+  box-shadow: 0 14px 40px rgba(0, 0, 0, 0.5), 0 2px 8px rgba(0, 0, 0, 0.3);
+  padding: 5px;
+  animation: studio-menu-in 0.1s ease-out;
+}
+
+.studio-slash-section {
+  padding: 6px 10px 3px;
+  font-family: var(--studio-font-mono);
+  font-size: 8px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--studio-text-3);
+}
+
+.studio-slash-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 7px 10px;
+  border-radius: 6px;
+  border: none;
+  background-color: transparent;
+  cursor: pointer;
+  text-align: left;
+  transition: background-color 0.08s ease;
+}
+
+.studio-slash-item:hover,
+.studio-slash-item.is-active {
+  background-color: var(--studio-surface-hover);
+}
+
+.studio-slash-item.is-active {
+  box-shadow: inset 2px 0 0 var(--studio-tc);
+}
+
+.studio-slash-icon {
+  width: 28px;
+  height: 28px;
+  border-radius: 5px;
+  border: 1px solid var(--studio-border-strong);
+  background-color: var(--studio-surface);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--studio-font-mono);
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--studio-text-2);
+  flex-shrink: 0;
+}
+
+.studio-slash-title {
+  font-family: var(--studio-font-body);
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--studio-text-1);
+}
+
+.studio-slash-desc {
+  font-family: var(--studio-font-mono);
+  font-size: 10px;
+  color: var(--studio-text-3);
+  margin-top: 1px;
+}
+
+/* ── Iframe Embed ─────────────────────────────── */
+
+.studio-iframe-wrapper {
+  margin: 24px 0;
+  border-radius: 10px;
+  border: 1px solid var(--studio-writing-paper-border);
+  overflow: hidden;
+  background-color: var(--studio-writing-paper-surface);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.06);
+  position: relative;
+}
+
+.studio-iframe-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 12px;
+  border-bottom: 1px solid var(--studio-writing-paper-border);
+  background-color: color-mix(in srgb, var(--studio-writing-paper-bg) 90%, var(--studio-writing-paper-border));
+  user-select: none;
+}
+
+.studio-iframe-badge {
+  font-family: var(--studio-font-mono);
+  font-size: 8px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--studio-teal);
+  padding: 2px 6px;
+  border-radius: 3px;
+  background-color: rgba(58, 138, 154, 0.08);
+  border: 1px solid rgba(58, 138, 154, 0.2);
+}
+
+.studio-iframe-domain {
+  font-family: var(--studio-font-mono);
+  font-size: 10px;
+  color: var(--studio-writing-paper-muted);
+}
+
+.studio-iframe-container {
+  width: 100%;
+  overflow: hidden;
+  position: relative;
+}
+
+.studio-iframe-resize {
+  height: 8px;
+  cursor: ns-resize;
+  background: linear-gradient(
+    to bottom,
+    transparent 0%,
+    rgba(180, 90, 45, 0.06) 100%
+  );
+  position: relative;
+}
+
+.studio-iframe-resize::after {
+  content: '';
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  width: 32px;
+  height: 3px;
+  border-radius: 1.5px;
+  background-color: var(--studio-writing-paper-border);
+}
+
+.studio-iframe-resize:hover::after {
+  background-color: var(--studio-writing-paper-muted);
+}
+
+/* ── Stash Tasks ──────────────────────────────── */
+
+.studio-task-input {
+  width: 100%;
+  padding: 7px 10px;
+  border-radius: 5px;
+  border: 1px solid var(--studio-border);
+  background-color: var(--studio-surface);
+  color: var(--studio-text-1);
+  font-family: var(--studio-font-body);
+  font-size: 12.5px;
+  outline: none;
+  transition: border-color 0.1s ease;
+}
+
+.studio-task-input::placeholder {
+  color: var(--studio-text-3);
+}
+
+.studio-task-input:focus {
+  border-color: var(--studio-tc);
+}
+
+.studio-task-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 5px 0;
+}
+
+.studio-task-checkbox {
+  width: 14px;
+  height: 14px;
+  border-radius: 3px;
+  border: 1.5px solid var(--studio-border-strong);
+  background-color: var(--studio-surface);
+  cursor: pointer;
+  flex-shrink: 0;
+  margin-top: 2px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.12s ease;
+}
+
+.studio-task-checkbox:hover {
+  border-color: var(--studio-tc);
+}
+
+.studio-task-checkbox[data-checked="true"] {
+  background-color: var(--studio-tc);
+  border-color: var(--studio-tc);
+}
+
+.studio-task-text {
+  font-family: var(--studio-font-body);
+  font-size: 12.5px;
+  color: var(--studio-text-1);
+  line-height: 1.4;
+  flex: 1;
+  min-width: 0;
+}
+
+.studio-task-text[data-done="true"] {
+  text-decoration: line-through;
+  color: var(--studio-text-3);
+}
+
+.studio-task-meta {
+  font-family: var(--studio-font-mono);
+  font-size: 9px;
+  color: var(--studio-text-3);
+  margin-top: 2px;
+}

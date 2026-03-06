@@ -10,6 +10,7 @@ import {
   useStudioWorkbench,
   type WorkbenchAutosaveState,
   type WorkbenchSaveState,
+  type StashTask,
 } from './WorkbenchContext';
 import StageStepper from './StageStepper';
 import EditorToolbar from './EditorToolbar';
@@ -168,6 +169,7 @@ export default function Editor({
   );
   const [, setForceRender] = useState(0);
   const [stash, setStash] = useState<Array<{ id: string; text: string; savedAt: string }>>([]);
+  const [tasks, setTasks] = useState<StashTask[]>([]);
 
   const autosaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const saveStateTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -377,6 +379,33 @@ export default function Editor({
     ]);
   }, []);
 
+  const handleAddTask = useCallback(
+    (text: string) => {
+      setTasks((prev) => [
+        {
+          id: `task-${Date.now()}`,
+          text,
+          done: false,
+          createdAt: new Date().toISOString(),
+          contentSlug: slug,
+          contentType: normalizedContentType,
+        },
+        ...prev,
+      ]);
+    },
+    [slug, normalizedContentType],
+  );
+
+  const handleToggleTask = useCallback((id: string) => {
+    setTasks((prev) =>
+      prev.map((t) => (t.id === id ? { ...t, done: !t.done } : t)),
+    );
+  }, []);
+
+  const handleDeleteTask = useCallback((id: string) => {
+    setTasks((prev) => prev.filter((t) => t.id !== id));
+  }, []);
+
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.key === 'S' && event.shiftKey && (event.metaKey || event.ctrlKey)) {
@@ -411,6 +440,10 @@ export default function Editor({
       onDeleteStash: (id: string) => {
         setStash((prev) => prev.filter((s) => s.id !== id));
       },
+      tasks,
+      onAddTask: handleAddTask,
+      onToggleTask: handleToggleTask,
+      onDeleteTask: handleDeleteTask,
     });
   }, [
     autosaveState,
@@ -421,6 +454,10 @@ export default function Editor({
     saveState,
     setEditorState,
     stash,
+    tasks,
+    handleAddTask,
+    handleToggleTask,
+    handleDeleteTask,
   ]);
 
   useEffect(() => {
@@ -649,7 +686,7 @@ export default function Editor({
         />
 
         {editor && (
-          <EditorContextMenu editor={editor} onStash={handleStash} />
+          <EditorContextMenu editor={editor} onStash={handleStash} onAddTask={handleAddTask} />
         )}
 
         <div className="studio-editor-chrome">

@@ -7,6 +7,7 @@ import { CONTAIN_TYPES, type ContainType } from './extensions/ContainBlock';
 interface ContextMenuProps {
   editor: Editor;
   onStash: (text: string) => void;
+  onAddTask: (text: string) => void;
 }
 
 const CONTAIN_META: Record<ContainType, { label: string; color: string }> = {
@@ -18,7 +19,7 @@ const CONTAIN_META: Record<ContainType, { label: string; color: string }> = {
   raw: { label: 'Raw Material', color: '#7A7268' },
 };
 
-export default function EditorContextMenu({ editor, onStash }: ContextMenuProps) {
+export default function EditorContextMenu({ editor, onStash, onAddTask }: ContextMenuProps) {
   const [visible, setVisible] = useState(false);
   const [position, setPosition] = useState({ x: 0, y: 0 });
   const menuRef = useRef<HTMLDivElement>(null);
@@ -79,6 +80,14 @@ export default function EditorContextMenu({ editor, onStash }: ContextMenuProps)
     handleClose();
   };
 
+  const handleAddTask = () => {
+    if (!editor) return;
+    const { from, to } = editor.state.selection;
+    const selectedText = editor.state.doc.textBetween(from, to, '\n');
+    onAddTask(selectedText);
+    handleClose();
+  };
+
   const handleContain = (containType: ContainType) => {
     if (!editor) return;
     editor.chain().focus().setContainBlock({ containType }).run();
@@ -106,6 +115,20 @@ export default function EditorContextMenu({ editor, onStash }: ContextMenuProps)
           <span className="studio-context-hint">Remove + save to sidebar</span>
         </div>
         <span className="studio-context-shortcut">&#x21E7;&#x2318;S</span>
+      </button>
+
+      <button
+        type="button"
+        className="studio-context-item"
+        onClick={handleAddTask}
+      >
+        <span className="studio-context-icon" style={{ color: 'var(--studio-tc)' }}>
+          &#x2610;
+        </span>
+        <div className="studio-context-label-group">
+          <span className="studio-context-label">Add Task</span>
+          <span className="studio-context-hint">Create task from selection</span>
+        </div>
       </button>
 
       <div className="studio-context-divider" />

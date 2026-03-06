@@ -1088,8 +1088,27 @@ function StashMode({
   const stash = editorState.stash;
   const onRestore = editorState.onRestoreStash;
   const onDelete = editorState.onDeleteStash;
+  const tasks = editorState.tasks;
+  const onAddTask = editorState.onAddTask;
+  const onToggleTask = editorState.onToggleTask;
+  const onDeleteTask = editorState.onDeleteTask;
 
-  if (stash.length === 0) {
+  const [taskInput, setTaskInput] = useState('');
+  const [showCompleted, setShowCompleted] = useState(false);
+
+  const incompleteTasks = tasks.filter((t) => !t.done);
+  const completedTasks = tasks.filter((t) => t.done);
+
+  const handleTaskKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter' && taskInput.trim()) {
+      onAddTask?.(taskInput.trim());
+      setTaskInput('');
+    }
+  };
+
+  const isEmpty = stash.length === 0 && tasks.length === 0;
+
+  if (isEmpty) {
     return (
       <div
         style={{
@@ -1121,98 +1140,238 @@ function StashMode({
   }
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-      <ToolboxLabel>Stashed Fragments</ToolboxLabel>
-      {stash.map((item) => (
-        <div
-          key={item.id}
-          style={{
-            padding: '8px 10px',
-            backgroundColor: 'var(--studio-surface)',
-            borderRadius: '3px',
-            border: '1px solid var(--studio-border)',
-          }}
-        >
-          <div
-            style={{
-              fontFamily: 'var(--studio-font-serif)',
-              fontSize: '12px',
-              fontStyle: 'italic',
-              color: 'var(--studio-text-2)',
-              lineHeight: 1.4,
-              marginBottom: '6px',
-              overflow: 'hidden',
-              display: '-webkit-box',
-              WebkitLineClamp: 4,
-              WebkitBoxOrient: 'vertical' as const,
-            }}
-          >
-            &ldquo;{item.text}&rdquo;
-          </div>
-          <div
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-            }}
-          >
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+      {/* ── Tasks section ── */}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+        <ToolboxLabel>{`Tasks${tasks.length > 0 ? ` (${incompleteTasks.length})` : ''}`}</ToolboxLabel>
+        <input
+          type="text"
+          className="studio-task-input"
+          placeholder="Add a task..."
+          value={taskInput}
+          onChange={(e) => setTaskInput(e.target.value)}
+          onKeyDown={handleTaskKeyDown}
+        />
+        {incompleteTasks.map((task) => (
+          <div key={task.id} className="studio-task-item">
             <div
+              className="studio-task-checkbox"
+              data-checked="false"
+              onClick={() => onToggleTask?.(task.id)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' || e.key === ' ') onToggleTask?.(task.id);
+              }}
+              role="checkbox"
+              aria-checked={false}
+              tabIndex={0}
+            />
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div className="studio-task-text" data-done="false">
+                {task.text}
+              </div>
+              <div className="studio-task-meta">
+                {new Date(task.createdAt).toLocaleString('en-US', {
+                  month: 'short',
+                  day: 'numeric',
+                  hour: 'numeric',
+                  minute: '2-digit',
+                })}
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={() => onDeleteTask?.(task.id)}
+              style={{
+                fontFamily: 'var(--studio-font-mono)',
+                fontSize: '10px',
+                color: 'var(--studio-text-3)',
+                backgroundColor: 'transparent',
+                border: 'none',
+                cursor: 'pointer',
+                padding: '0 2px',
+                lineHeight: 1,
+                opacity: 0.6,
+              }}
+              aria-label="Delete task"
+            >
+              &times;
+            </button>
+          </div>
+        ))}
+        {completedTasks.length > 0 && (
+          <>
+            <button
+              type="button"
+              onClick={() => setShowCompleted((v) => !v)}
               style={{
                 fontFamily: 'var(--studio-font-mono)',
                 fontSize: '9px',
                 color: 'var(--studio-text-3)',
+                backgroundColor: 'transparent',
+                border: 'none',
+                cursor: 'pointer',
+                padding: '4px 0',
+                textAlign: 'left',
+                letterSpacing: '0.04em',
               }}
             >
-              Saved {new Date(item.savedAt).toLocaleString('en-US', {
-                month: 'short',
-                day: 'numeric',
-                hour: 'numeric',
-                minute: '2-digit',
-              })}
-            </div>
-            <div style={{ display: 'flex', gap: '4px' }}>
-              <button
-                type="button"
-                onClick={() => onRestore?.(item.id)}
-                disabled={!editor}
+              {showCompleted ? 'Hide' : 'Show'} completed ({completedTasks.length})
+            </button>
+            {showCompleted &&
+              completedTasks.map((task) => (
+                <div key={task.id} className="studio-task-item" style={{ opacity: 0.65 }}>
+                  <div
+                    className="studio-task-checkbox"
+                    data-checked="true"
+                    onClick={() => onToggleTask?.(task.id)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' || e.key === ' ') onToggleTask?.(task.id);
+                    }}
+                    role="checkbox"
+                    aria-checked={true}
+                    tabIndex={0}
+                  >
+                    <svg
+                      width="8"
+                      height="8"
+                      viewBox="0 0 8 8"
+                      fill="none"
+                      xmlns="http://www.w3.org/2000/svg"
+                    >
+                      <path
+                        d="M1.5 4L3.2 5.8L6.5 2.2"
+                        stroke="white"
+                        strokeWidth="1.5"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      />
+                    </svg>
+                  </div>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div className="studio-task-text" data-done="true">
+                      {task.text}
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => onDeleteTask?.(task.id)}
+                    style={{
+                      fontFamily: 'var(--studio-font-mono)',
+                      fontSize: '10px',
+                      color: 'var(--studio-text-3)',
+                      backgroundColor: 'transparent',
+                      border: 'none',
+                      cursor: 'pointer',
+                      padding: '0 2px',
+                      lineHeight: 1,
+                      opacity: 0.6,
+                    }}
+                    aria-label="Delete task"
+                  >
+                    &times;
+                  </button>
+                </div>
+              ))}
+          </>
+        )}
+      </div>
+
+      {/* ── Stashed Fragments section ── */}
+      {stash.length > 0 && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+          <ToolboxLabel>Stashed Fragments</ToolboxLabel>
+          {stash.map((item) => (
+            <div
+              key={item.id}
+              style={{
+                padding: '8px 10px',
+                backgroundColor: 'var(--studio-surface)',
+                borderRadius: '3px',
+                border: '1px solid var(--studio-border)',
+              }}
+            >
+              <div
                 style={{
-                  fontFamily: 'var(--studio-font-mono)',
-                  fontSize: '9px',
-                  fontWeight: 600,
-                  color: '#3A8A9A',
-                  backgroundColor: 'color-mix(in srgb, #3A8A9A 10%, transparent)',
-                  border: 'none',
-                  borderRadius: '2px',
-                  padding: '2px 6px',
-                  cursor: editor ? 'pointer' : 'default',
-                  opacity: editor ? 1 : 0.5,
-                  letterSpacing: '0.04em',
+                  fontFamily: 'var(--studio-font-serif)',
+                  fontSize: '12px',
+                  fontStyle: 'italic',
+                  color: 'var(--studio-text-2)',
+                  lineHeight: 1.4,
+                  marginBottom: '6px',
+                  overflow: 'hidden',
+                  display: '-webkit-box',
+                  WebkitLineClamp: 4,
+                  WebkitBoxOrient: 'vertical' as const,
                 }}
               >
-                Restore
-              </button>
-              <button
-                type="button"
-                onClick={() => onDelete?.(item.id)}
+                &ldquo;{item.text}&rdquo;
+              </div>
+              <div
                 style={{
-                  fontFamily: 'var(--studio-font-mono)',
-                  fontSize: '9px',
-                  fontWeight: 600,
-                  color: 'var(--studio-text-3)',
-                  backgroundColor: 'transparent',
-                  border: 'none',
-                  borderRadius: '2px',
-                  padding: '2px 6px',
-                  cursor: 'pointer',
-                  letterSpacing: '0.04em',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
                 }}
               >
-                Delete
-              </button>
+                <div
+                  style={{
+                    fontFamily: 'var(--studio-font-mono)',
+                    fontSize: '9px',
+                    color: 'var(--studio-text-3)',
+                  }}
+                >
+                  Saved {new Date(item.savedAt).toLocaleString('en-US', {
+                    month: 'short',
+                    day: 'numeric',
+                    hour: 'numeric',
+                    minute: '2-digit',
+                  })}
+                </div>
+                <div style={{ display: 'flex', gap: '4px' }}>
+                  <button
+                    type="button"
+                    onClick={() => onRestore?.(item.id)}
+                    disabled={!editor}
+                    style={{
+                      fontFamily: 'var(--studio-font-mono)',
+                      fontSize: '9px',
+                      fontWeight: 600,
+                      color: '#3A8A9A',
+                      backgroundColor: 'color-mix(in srgb, #3A8A9A 10%, transparent)',
+                      border: 'none',
+                      borderRadius: '2px',
+                      padding: '2px 6px',
+                      cursor: editor ? 'pointer' : 'default',
+                      opacity: editor ? 1 : 0.5,
+                      letterSpacing: '0.04em',
+                    }}
+                  >
+                    Restore
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => onDelete?.(item.id)}
+                    style={{
+                      fontFamily: 'var(--studio-font-mono)',
+                      fontSize: '9px',
+                      fontWeight: 600,
+                      color: 'var(--studio-text-3)',
+                      backgroundColor: 'transparent',
+                      border: 'none',
+                      borderRadius: '2px',
+                      padding: '2px 6px',
+                      cursor: 'pointer',
+                      letterSpacing: '0.04em',
+                    }}
+                  >
+                    Delete
+                  </button>
+                </div>
+              </div>
             </div>
-          </div>
+          ))}
         </div>
-      ))}
+      )}
     </div>
   );
 }

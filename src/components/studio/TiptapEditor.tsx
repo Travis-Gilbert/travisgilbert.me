@@ -18,6 +18,12 @@ import WikiLinkSuggestion from './extensions/WikiLinkSuggestion';
 import type { WikiSuggestionItem } from './extensions/WikiLinkSuggestion';
 import WikiLinkPopup from './WikiLinkPopup';
 import { getMockCommonplaceEntries } from '@/lib/studio-mock-data';
+import IframeEmbed from './extensions/IframeEmbed';
+import SlashCommand from './extensions/SlashCommand';
+import type { SlashCommandItem } from './extensions/SlashCommand';
+import { filterSlashCommands } from './extensions/slashCommandItems';
+import SlashCommandPopup from './SlashCommandPopup';
+import type { SlashCommandPopupRef } from './SlashCommandPopup';
 import Highlight from '@tiptap/extension-highlight';
 import Underline from '@tiptap/extension-underline';
 import Subscript from '@tiptap/extension-subscript';
@@ -66,6 +72,15 @@ export default function TiptapEditor({
   }>({ visible: false, query: '', from: 0, position: { x: 0, y: 0 } });
 
   const editorRef = useRef<Editor | null>(null);
+  const slashPopupRef = useRef<SlashCommandPopupRef | null>(null);
+
+  const [slashPopup, setSlashPopup] = useState<{
+    visible: boolean;
+    query: string;
+    items: SlashCommandItem[];
+    position: { x: number; y: number };
+    command: ((item: SlashCommandItem) => void) | null;
+  }>({ visible: false, query: '', items: [], position: { x: 0, y: 0 }, command: null });
 
   const handleUpdate = useCallback(
     ({ editor: ed }: { editor: Editor }) => {
@@ -106,6 +121,7 @@ export default function TiptapEditor({
       TaskList,
       TaskItem.configure({ nested: true }),
       ContainBlock,
+      IframeEmbed,
       WikiLink,
       WikiLinkSuggestion.configure({
         onOpen: (query: string, from: number) => {
@@ -125,6 +141,42 @@ export default function TiptapEditor({
         },
         onUpdate: (query: string) => {
           setWikiPopup((prev) => ({ ...prev, query }));
+        },
+      }),
+      SlashCommand.configure({
+        suggestion: {
+          items: ({ query }: { query: string }) => filterSlashCommands(query),
+          render: () => ({
+            onStart: (props: any) => {
+              const coords = props.clientRect?.();
+              setSlashPopup({
+                visible: true,
+                query: '',
+                items: props.items,
+                position: coords
+                  ? { x: coords.x, y: coords.y + coords.height }
+                  : { x: 200, y: 200 },
+                command: props.command,
+              });
+            },
+            onUpdate: (props: any) => {
+              setSlashPopup((prev) => ({
+                ...prev,
+                query: props.query,
+                items: props.items,
+              }));
+            },
+            onKeyDown: ({ event }: { event: KeyboardEvent }) => {
+              if (event.key === 'Escape') {
+                setSlashPopup((prev) => ({ ...prev, visible: false }));
+                return true;
+              }
+              return slashPopupRef.current?.onKeyDown(event) ?? false;
+            },
+            onExit: () => {
+              setSlashPopup((prev) => ({ ...prev, visible: false }));
+            },
+          }),
         },
       }),
       Highlight.configure({ multicolor: false }),
@@ -275,6 +327,17 @@ export default function TiptapEditor({
           onSelect={handleWikiSelect}
           onClose={() =>
             setWikiPopup((prev) => ({ ...prev, visible: false }))
+          }
+        />
+      )}
+      {slashPopup.visible && slashPopup.command && (
+        <SlashCommandPopup
+          ref={slashPopupRef}
+          items={slashPopup.items}
+          position={slashPopup.position}
+          command={slashPopup.command}
+          onClose={() =>
+            setSlashPopup((prev) => ({ ...prev, visible: false }))
           }
         />
       )}
