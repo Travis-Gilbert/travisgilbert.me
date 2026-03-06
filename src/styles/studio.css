@@ -61,6 +61,14 @@
   --studio-sidebar-width: 232px;
   --studio-topbar-height: 42px;
   --studio-stage-bar-height: 48px;
+
+  /* Contain block semantic colors */
+  --studio-contain-observation: #3A8A9A;
+  --studio-contain-argument: #B45A2D;
+  --studio-contain-evidence: #D4AA4A;
+  --studio-contain-question: #8A6A9A;
+  --studio-contain-aside: #6A9A5A;
+  --studio-contain-raw: #7A7268;
 }
 
 .studio-canvas {
@@ -1533,4 +1541,455 @@
 
 .studio-filter-pill[data-active='false'] {
   opacity: 0.45;
+}
+
+/* ─────────────────────────────────────────────────
+   Timeline list view: editorial sparse design
+   ─────────────────────────────────────────────────
+   Two-column layout per entry:
+     Left: 20px rail holding dot + spine line
+     Right: date · type · stage header, title, summary, connection pills
+   Month groups provide visual breathing room.
+   ───────────────────────────────────────────────── */
+
+.studio-timeline-view {
+  padding: 24px 32px 80px;
+  max-width: 860px;
+}
+
+.studio-timeline-filters {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 44px;
+  flex-wrap: wrap;
+}
+
+.studio-timeline-filter-group {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.studio-timeline-empty {
+  padding: 60px 0;
+  text-align: center;
+  font-family: var(--studio-font-mono);
+  font-size: 11px;
+  color: var(--studio-text-muted);
+  opacity: 0.45;
+}
+
+/* ── Month group ───────────────────────────────── */
+
+.studio-timeline-month-group {
+  margin-bottom: 48px;
+}
+
+.studio-timeline-month-label {
+  font-family: var(--studio-font-mono);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--studio-text-muted);
+  opacity: 0.45;
+  margin: 0 0 18px 20px; /* 20px = width of meta-col, aligns with content */
+}
+
+.studio-timeline-entries {
+  display: flex;
+  flex-direction: column;
+}
+
+/* ── Single entry row ──────────────────────────── */
+
+.studio-timeline-row {
+  display: flex;
+  gap: 0;
+  padding-bottom: 36px;
+}
+
+/* Rail: dot + spine line */
+.studio-timeline-meta-col {
+  position: relative;
+  width: 20px;
+  flex-shrink: 0;
+}
+
+/* Override inherited dot top so it aligns with first text line */
+.studio-timeline-meta-col .studio-timeline-dot {
+  top: 5px;
+}
+
+/* ── Content column ────────────────────────────── */
+
+.studio-timeline-content-col {
+  flex: 1;
+  min-width: 0;
+  padding-left: 14px;
+}
+
+.studio-timeline-row-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 5px;
+  flex-wrap: wrap;
+}
+
+.studio-timeline-type-label {
+  font-family: var(--studio-font-mono);
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  flex-shrink: 0;
+}
+
+.studio-timeline-entry-date {
+  font-family: var(--studio-font-mono);
+  font-size: 9px;
+  letter-spacing: 0.04em;
+  color: var(--studio-text-muted);
+  opacity: 0.55;
+  flex-shrink: 0;
+}
+
+.studio-timeline-stage-label {
+  font-family: var(--studio-font-mono);
+  font-size: 9px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--studio-text-muted);
+  opacity: 0.5;
+}
+
+.studio-timeline-title {
+  display: block;
+  font-size: 17px;
+  font-weight: 600;
+  line-height: 1.3;
+  color: var(--studio-text);
+  text-decoration: none;
+  margin-bottom: 7px;
+  transition: color 0.12s ease;
+}
+
+.studio-timeline-title:hover {
+  color: var(--studio-accent);
+}
+
+.studio-timeline-summary {
+  font-size: 12px;
+  line-height: 1.6;
+  color: var(--studio-text-muted);
+  margin: 0 0 10px;
+  opacity: 0.75;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+/* ── Connection pills ──────────────────────────── */
+
+.studio-timeline-connections {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+}
+
+.studio-timeline-conn-pill {
+  font-family: var(--studio-font-mono);
+  font-size: 9px;
+  font-weight: 500;
+  letter-spacing: 0.04em;
+  padding: 2px 7px;
+  border: 1px solid currentColor;
+  border-radius: 10px;
+  opacity: 0.65;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 220px;
+}
+
+.studio-timeline-conn-more {
+  font-family: var(--studio-font-mono);
+  font-size: 9px;
+  color: var(--studio-text-muted);
+  opacity: 0.4;
+  padding: 2px 4px;
+  align-self: center;
+}
+
+/* ── Contain Block ────────────────────────────── */
+
+.studio-contain-block {
+  --contain-color: var(--studio-contain-observation);
+  margin: 20px 0;
+  padding: 14px 16px 12px;
+  border-radius: 8px;
+  border-left: 3px solid var(--contain-color);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--contain-color) 25%, transparent);
+  background-color: color-mix(in srgb, var(--contain-color) 5%, transparent);
+  position: relative;
+}
+
+.studio-contain-block[data-contain-type="observation"] { --contain-color: var(--studio-contain-observation); }
+.studio-contain-block[data-contain-type="argument"]    { --contain-color: var(--studio-contain-argument); }
+.studio-contain-block[data-contain-type="evidence"]    { --contain-color: var(--studio-contain-evidence); }
+.studio-contain-block[data-contain-type="question"]    { --contain-color: var(--studio-contain-question); }
+.studio-contain-block[data-contain-type="aside"]       { --contain-color: var(--studio-contain-aside); }
+.studio-contain-block[data-contain-type="raw"]         { --contain-color: var(--studio-contain-raw); }
+
+.studio-contain-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 10px;
+  user-select: none;
+}
+
+.studio-contain-badge {
+  font-family: var(--studio-font-mono);
+  font-size: 8.5px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--contain-color);
+  padding: 2px 7px;
+  border-radius: 3px;
+  background-color: color-mix(in srgb, var(--contain-color) 10%, transparent);
+  border: 1px solid color-mix(in srgb, var(--contain-color) 30%, transparent);
+}
+
+.studio-contain-dissolve {
+  margin-left: auto;
+  background: none;
+  border: none;
+  color: var(--studio-writing-paper-muted);
+  cursor: pointer;
+  font-family: var(--studio-font-mono);
+  font-size: 10px;
+  padding: 2px 6px;
+  border-radius: 3px;
+  transition: color 0.1s ease;
+}
+
+.studio-contain-dissolve:hover {
+  color: var(--studio-writing-paper-text);
+}
+
+.studio-contain-content {
+  /* Content inside the block inherits normal prose styles */
+}
+
+/* ── Context Menu ─────────────────────────────── */
+
+.studio-context-menu {
+  position: fixed;
+  z-index: 300;
+  min-width: 200px;
+  padding: 5px;
+  border-radius: 10px;
+  background-color: var(--studio-writing-paper-bg);
+  border: 1px solid var(--studio-writing-paper-border);
+  box-shadow:
+    0 12px 36px rgba(30, 22, 14, 0.28),
+    0 2px 8px rgba(30, 22, 14, 0.16);
+  animation: studio-menu-in 0.12s ease-out;
+}
+
+@keyframes studio-menu-in {
+  from { opacity: 0; transform: scale(0.97) translateY(-2px); }
+  to { opacity: 1; transform: scale(1) translateY(0); }
+}
+
+.studio-context-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 8px 12px;
+  border-radius: 7px;
+  border: none;
+  background-color: transparent;
+  cursor: pointer;
+  text-align: left;
+  transition: background-color 0.1s ease;
+}
+
+.studio-context-item:hover {
+  background-color: rgba(180, 90, 45, 0.06);
+}
+
+.studio-context-icon {
+  font-family: var(--studio-font-mono);
+  font-size: 11px;
+  font-weight: 700;
+  width: 22px;
+  text-align: center;
+  flex-shrink: 0;
+}
+
+.studio-context-icon-stash {
+  color: var(--studio-teal);
+}
+
+.studio-context-label-group {
+  flex: 1;
+  min-width: 0;
+}
+
+.studio-context-label {
+  font-family: var(--studio-font-body);
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--studio-writing-paper-text);
+  display: block;
+}
+
+.studio-context-hint {
+  font-family: var(--studio-font-mono);
+  font-size: 9px;
+  color: var(--studio-writing-paper-muted);
+  display: block;
+  margin-top: 1px;
+}
+
+.studio-context-shortcut {
+  margin-left: auto;
+  font-family: var(--studio-font-mono);
+  font-size: 9px;
+  color: var(--studio-writing-paper-muted);
+  letter-spacing: 0.04em;
+  flex-shrink: 0;
+}
+
+.studio-context-divider {
+  height: 1px;
+  background-color: var(--studio-writing-paper-border);
+  margin: 3px 8px;
+  opacity: 0.6;
+}
+
+.studio-context-section-label {
+  padding: 6px 12px 3px;
+  font-family: var(--studio-font-mono);
+  font-size: 8px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--studio-writing-paper-muted);
+}
+
+.studio-context-color-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 2px;
+  border: 2px solid;
+  flex-shrink: 0;
+}
+
+/* ── Wiki Link (inline mark) ──────────────────── */
+
+.studio-wiki-link {
+  color: var(--studio-teal);
+  font-weight: 500;
+  border-bottom: 1px dashed color-mix(in srgb, var(--studio-teal) 40%, transparent);
+  cursor: pointer;
+  transition: border-color 0.1s ease;
+}
+
+.studio-wiki-link:hover {
+  border-bottom-style: solid;
+  border-color: var(--studio-teal);
+}
+
+/* ── Wiki Link Popup ──────────────────────────── */
+
+.studio-wiki-popup {
+  position: fixed;
+  z-index: 200;
+  width: 360px;
+  max-height: 320px;
+  overflow-y: auto;
+  background-color: var(--studio-surface);
+  border: 1px solid var(--studio-border-strong);
+  border-radius: 10px;
+  box-shadow: 0 14px 40px rgba(0, 0, 0, 0.5), 0 2px 8px rgba(0, 0, 0, 0.3);
+  padding: 5px;
+  animation: studio-menu-in 0.1s ease-out;
+}
+
+.studio-wiki-popup-header {
+  padding: 6px 10px 6px;
+  font-family: var(--studio-font-mono);
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--studio-text-3);
+  border-bottom: 1px solid var(--studio-border);
+  margin-bottom: 3px;
+}
+
+.studio-wiki-popup-query {
+  color: var(--studio-teal);
+  text-transform: none;
+  letter-spacing: 0;
+}
+
+.studio-wiki-popup-empty {
+  padding: 12px 10px;
+  font-family: var(--studio-font-body);
+  font-size: 12px;
+  color: var(--studio-text-3);
+  font-style: italic;
+}
+
+.studio-wiki-popup-item {
+  display: block;
+  width: 100%;
+  text-align: left;
+  padding: 8px 10px;
+  border-radius: 6px;
+  border: none;
+  background-color: transparent;
+  cursor: pointer;
+  transition: background-color 0.08s ease;
+}
+
+.studio-wiki-popup-item:hover,
+.studio-wiki-popup-item.is-active {
+  background-color: var(--studio-surface-hover);
+}
+
+.studio-wiki-popup-item-title {
+  font-family: var(--studio-font-title);
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--studio-text-1);
+}
+
+.studio-wiki-popup-item-text {
+  font-family: var(--studio-font-body);
+  font-size: 11px;
+  color: var(--studio-text-3);
+  line-height: 1.4;
+  margin-top: 2px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.studio-wiki-popup-item-source {
+  font-family: var(--studio-font-mono);
+  font-size: 9px;
+  color: var(--studio-teal);
+  margin-top: 2px;
 }
