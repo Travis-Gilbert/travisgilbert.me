@@ -37,6 +37,8 @@ import NotebookView from './NotebookView';
 import ProjectView from './ProjectView';
 import NotebookListView from './NotebookListView';
 import ProjectListView from './ProjectListView';
+import CalendarView from './CalendarView';
+import LooseEndsView from './LooseEndsView';
 
 const STORAGE_KEY = 'commonplace-layout';
 
@@ -889,6 +891,32 @@ function PaneViewContent({ viewType, context, paneId, onOpenObject }: PaneViewCo
       );
     }
     return <ProjectListView />;
+  }
+
+  /* Live view: Calendar */
+  if (viewType === 'calendar') {
+    return (
+      <CalendarView
+        onOpenObject={
+          paneId && onOpenObject
+            ? (ref, title) => onOpenObject(paneId, ref, title)
+            : undefined
+        }
+      />
+    );
+  }
+
+  /* Live view: Loose Ends */
+  if (viewType === 'loose-ends') {
+    return (
+      <LooseEndsView
+        onOpenObject={
+          paneId && onOpenObject
+            ? (ref, title) => onOpenObject(paneId, ref, title)
+            : undefined
+        }
+      />
+    );
   }
 
   /* Placeholder for views not yet implemented */

@@ -315,6 +315,31 @@ export default function CommonPlaceSidebar() {
                   );
                 }
 
+                /* Items with viewType open pane tabs instead of navigating */
+                if (item.viewType) {
+                  return (
+                    <button
+                      key={item.href}
+                      type="button"
+                      className="cp-sidebar-item"
+                      data-active={isActive}
+                      onClick={() => {
+                        requestView(item.viewType!, item.label);
+                        closeDrawerIfMobile();
+                      }}
+                      style={{
+                        width: '100%',
+                        border: 'none',
+                        background: 'transparent',
+                        textAlign: 'left',
+                      }}
+                    >
+                      <SidebarIcon name={item.icon} />
+                      <span>{item.label}</span>
+                    </button>
+                  );
+                }
+
                 return (
                   <Link
                     key={item.href}

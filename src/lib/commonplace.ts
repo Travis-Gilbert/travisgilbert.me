@@ -131,8 +131,8 @@ export const SIDEBAR_SECTIONS: SidebarSection[] = [
           { label: 'Saved Frames', href: '/commonplace/networks/frames', icon: 'frame' },
         ],
       },
-      { label: 'Calendar', href: '/commonplace/calendar', icon: 'calendar' },
-      { label: 'Loose Ends', href: '/commonplace/loose-ends', icon: 'scatter' },
+      { label: 'Calendar', href: '/commonplace/calendar', icon: 'calendar', viewType: 'calendar' as ViewType },
+      { label: 'Loose Ends', href: '/commonplace/loose-ends', icon: 'scatter', viewType: 'loose-ends' as ViewType },
     ],
   },
   {
@@ -159,7 +159,7 @@ export const SIDEBAR_SECTIONS: SidebarSection[] = [
     items: [
       { label: 'Connection Engine', href: '/commonplace/engine', icon: 'engine' },
       { label: 'Reminders', href: '/commonplace/reminders', icon: 'bell' },
-      { label: 'Resurface', href: '/commonplace/resurface', icon: 'sparkle' },
+      { label: 'Resurface', href: '/commonplace/resurface', icon: 'sparkle', viewType: 'resurface' as ViewType },
       { label: 'Settings', href: '/commonplace/settings', icon: 'gear' },
     ],
   },
@@ -413,6 +413,43 @@ export interface ApiProjectDetail extends ApiProjectListItem {
   template_from: string | null;
   settings_override: Record<string, unknown>;
   objects: { id: number; title: string; object_type: string }[];
+}
+
+/* ── DailyLog types (DailyLogSerializer) ── */
+
+export interface ApiDailyLogObject {
+  id: number;
+  title: string;
+  object_type: string;
+}
+
+export interface ApiDailyLogUpdate {
+  id: number;
+  title: string;
+  action: string;
+}
+
+export interface ApiDailyLogEdge {
+  id: number;
+  from_title: string;
+  to_title: string;
+  reason: string;
+}
+
+export interface ApiDailyLogEntity {
+  text: string;
+  entity_type: string;
+  resolved_to: string;
+}
+
+export interface ApiDailyLog {
+  id: number;
+  date: string;
+  objects_created: ApiDailyLogObject[];
+  objects_updated: ApiDailyLogUpdate[];
+  edges_created: ApiDailyLogEdge[];
+  entities_resolved: ApiDailyLogEntity[];
+  summary: string;
 }
 
 /* ─────────────────────────────────────────────────

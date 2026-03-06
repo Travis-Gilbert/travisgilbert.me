@@ -27,6 +27,7 @@ import type {
   ApiNotebookDetail,
   ApiProjectListItem,
   ApiProjectDetail,
+  ApiDailyLog,
   CapturedObject,
 } from '@/lib/commonplace';
 import { API_BASE } from '@/lib/commonplace';
@@ -270,6 +271,21 @@ export async function fetchProjectBySlug(
   slug: string,
 ): Promise<ApiProjectDetail> {
   return apiFetch<ApiProjectDetail>(`/projects/${slug}/`);
+}
+
+/* ─────────────────────────────────────────────────
+   DailyLog endpoint functions
+   ───────────────────────────────────────────────── */
+
+/** Fetch all daily logs (newest first). Handles both flat array and paginated envelope. */
+export async function fetchDailyLogs(): Promise<ApiDailyLog[]> {
+  const data = await apiFetch<{ results: ApiDailyLog[] } | ApiDailyLog[]>('/daily-logs/');
+  return Array.isArray(data) ? data : data.results;
+}
+
+/** Fetch a single daily log by date (YYYY-MM-DD) */
+export async function fetchDailyLogByDate(date: string): Promise<ApiDailyLog> {
+  return apiFetch<ApiDailyLog>(`/daily-logs/${date}/`);
 }
 
 /* ─────────────────────────────────────────────────
