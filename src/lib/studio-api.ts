@@ -488,6 +488,14 @@ export interface VideoProjectSession {
   nextTool: string;
 }
 
+export interface EvidenceBoardRow {
+  clue: string;
+  source: string;
+  confidence: 'high' | 'medium' | 'low';
+  nextAction: string;
+  visual: string;
+}
+
 export interface VideoProject {
   slug: string;
   title: string;
@@ -502,6 +510,7 @@ export interface VideoProject {
   scenes: VideoProjectScene[];
   deliverables: VideoProjectDeliverable[];
   sessions: VideoProjectSession[];
+  evidenceBoard: EvidenceBoardRow[];
   linkedEssays: Array<{ slug: string; title: string }>;
   linkedFieldNotes: Array<{ slug: string; title: string }>;
   youtubeTitle: string;
@@ -570,6 +579,16 @@ export async function logVideoSession(
   });
 }
 
+export async function updateEvidenceBoard(
+  slug: string,
+  rows: EvidenceBoardRow[],
+): Promise<{ success: boolean }> {
+  return studioFetch(`/api/videos/${slug}/`, {
+    method: 'PATCH',
+    body: JSON.stringify({ evidence_board: rows }),
+  });
+}
+
 function mapVideoProject(data: any): VideoProject {
   return {
     slug: data.slug,
@@ -617,6 +636,13 @@ function mapVideoProject(data: any): VideoProject {
       subtasksCompleted: s.subtasks_completed ?? s.subtasksCompleted ?? [],
       nextAction: s.next_action ?? s.nextAction ?? '',
       nextTool: s.next_tool ?? s.nextTool ?? '',
+    })),
+    evidenceBoard: (data.evidence_board ?? data.evidenceBoard ?? []).map((r: any) => ({
+      clue: r.clue ?? '',
+      source: r.source ?? '',
+      confidence: r.confidence ?? 'low',
+      nextAction: r.nextAction ?? r.next_action ?? '',
+      visual: r.visual ?? '',
     })),
     linkedEssays: data.linked_essays ?? data.linkedEssays ?? [],
     linkedFieldNotes: data.linked_field_notes ?? data.linkedFieldNotes ?? [],

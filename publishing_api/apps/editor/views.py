@@ -1638,11 +1638,18 @@ def _serialize_video(video, detail=False):
         data.update({
             "thesis": video.thesis,
             "sources": video.sources,
+            "research_notes": video.research_notes,
+            "script_body": video.script_body,
             "script_word_count": video.script_word_count,
             "script_estimated_duration": video.script_estimated_duration,
+            "phase_locked_through": video.phase_locked_through,
+            "evidence_board": video.evidence_board,
             "youtube_id": video.youtube_id,
             "youtube_url": video.youtube_url,
             "youtube_title": video.youtube_title,
+            "youtube_description": video.youtube_description,
+            "youtube_chapters": video.youtube_chapters,
+            "created_at": video.created_at.isoformat(),
             "linked_essays": [
                 {"slug": e.slug, "title": e.title}
                 for e in video.linked_essays.all()
@@ -1654,6 +1661,9 @@ def _serialize_video(video, detail=False):
             "scenes": [_serialize_scene(s) for s in video.scenes.all()],
             "deliverables": [
                 _serialize_deliverable(d) for d in video.deliverables.all()
+            ],
+            "sessions": [
+                _serialize_session(s) for s in video.sessions.all()[:20]
             ],
         })
 
@@ -1695,11 +1705,37 @@ class VideoAPIListView(View):
 
 
 class VideoAPIDetailView(View):
-    """GET /api/videos/<slug>/ : full project detail with scenes and deliverables."""
+    """
+    GET  /api/videos/<slug>/ : full project detail with scenes and deliverables.
+    PATCH /api/videos/<slug>/ : partial update (evidence_board, etc.).
+    """
 
     def get(self, request, slug):
         video = get_object_or_404(VideoProject, slug=slug)
         return JsonResponse(_serialize_video(video, detail=True))
+
+    def patch(self, request, slug):
+        video = get_object_or_404(VideoProject, slug=slug)
+        try:
+            data = json.loads(request.body)
+        except json.JSONDecodeError:
+            return JsonResponse({"error": "Invalid JSON"}, status=400)
+
+        # Allowlist of PATCH-able fields
+        patchable = {"evidence_board", "research_notes", "thesis", "sources"}
+        updated = []
+        for field in patchable:
+            if field in data:
+                setattr(video, field, data[field])
+                updated.append(field)
+
+        if not updated:
+            return JsonResponse(
+                {"error": "No patchable fields provided"}, status=400
+            )
+
+        video.save(update_fields=updated + ["updated_at"])
+        return JsonResponse({"success": True, "updated": updated})
 
 
 class VideoAPISessionsView(View):

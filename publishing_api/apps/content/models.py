@@ -460,6 +460,13 @@ class VideoProject(TimeStampedModel):
         help_text="Free-form research notes (Markdown)",
     )
 
+    # Evidence Board (structured clue/source/confidence tracking)
+    evidence_board = models.JSONField(
+        default=list,
+        blank=True,
+        help_text="Array of {clue, source, confidence, nextAction, visual} objects",
+    )
+
     # Script
     script_body = models.TextField(
         blank=True,

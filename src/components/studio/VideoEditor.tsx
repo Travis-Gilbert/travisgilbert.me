@@ -8,12 +8,14 @@ import { fetchVideoNextAction } from '@/lib/studio-api';
 import VideoSessionTracker, { VideoSessionLog } from './VideoSessionTracker';
 
 const VideoScriptEditor = lazy(() => import('./VideoScriptEditor'));
+const EvidenceBoard = lazy(() => import('./EvidenceBoard'));
 
-type VideoTab = 'overview' | 'script' | 'details' | 'sessions';
+type VideoTab = 'overview' | 'script' | 'evidence' | 'details' | 'sessions';
 
 const VIDEO_TABS: Array<{ key: VideoTab; label: string }> = [
   { key: 'overview', label: 'Overview' },
   { key: 'script', label: 'Script' },
+  { key: 'evidence', label: 'Evidence' },
   { key: 'details', label: 'Details' },
   { key: 'sessions', label: 'Sessions' },
 ];
@@ -739,6 +741,46 @@ export default function VideoEditor({
             slug={slug}
             initialScript={video.scriptBody}
           />
+        </Suspense>
+      )}
+
+      {activeTab === 'evidence' && (
+        <Suspense
+          fallback={
+            <div
+              className="studio-editor-column"
+              style={{
+                padding: '32px 0',
+                textAlign: 'center',
+                fontFamily: 'var(--studio-font-mono)',
+                fontSize: '11px',
+                color: 'var(--studio-text-3)',
+              }}
+            >
+              Loading...
+            </div>
+          }
+        >
+          <div className="studio-editor-column" style={{ padding: '8px 0' }}>
+            <div
+              style={{
+                fontFamily: 'var(--studio-font-mono)',
+                fontSize: '9px',
+                fontWeight: 700,
+                letterSpacing: '0.1em',
+                textTransform: 'uppercase',
+                color: 'var(--studio-text-3)',
+                marginBottom: '8px',
+              }}
+            >
+              Evidence Board
+            </div>
+            <EvidenceBoard
+              slug={slug}
+              initialRows={video.evidenceBoard}
+              sources={Array.isArray(video.sources) ? video.sources.map((s) => s.title).filter(Boolean) : []}
+            />
+          </div>
         </Suspense>
       )}
 
