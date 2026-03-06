@@ -3,17 +3,19 @@
 import { useState, useEffect, useCallback, lazy, Suspense } from 'react';
 import { VIDEO_PHASES, getVideoPhase } from '@/lib/studio';
 import type { StageDefinition } from '@/lib/studio';
-import type { VideoProject, VideoProjectScene, VideoNextAction } from '@/lib/studio-api';
+import type { VideoProject, VideoProjectScene, VideoProjectSession, VideoNextAction } from '@/lib/studio-api';
 import { fetchVideoNextAction } from '@/lib/studio-api';
+import VideoSessionTracker, { VideoSessionLog } from './VideoSessionTracker';
 
 const VideoScriptEditor = lazy(() => import('./VideoScriptEditor'));
 
-type VideoTab = 'overview' | 'script' | 'details';
+type VideoTab = 'overview' | 'script' | 'details' | 'sessions';
 
 const VIDEO_TABS: Array<{ key: VideoTab; label: string }> = [
   { key: 'overview', label: 'Overview' },
   { key: 'script', label: 'Script' },
   { key: 'details', label: 'Details' },
+  { key: 'sessions', label: 'Sessions' },
 ];
 
 /* ─────────────────────────────────────────────────
@@ -491,6 +493,8 @@ export default function VideoEditor({
   const [title, setTitle] = useState(video.title);
   const [thesis, setThesis] = useState(video.thesis);
   const [activeTab, setActiveTab] = useState<VideoTab>('overview');
+  const [sessions, setSessions] = useState<VideoProjectSession[]>(video.sessions);
+  const [activeSession, setActiveSession] = useState<{ startedAt: string; phase: string } | null>(null);
 
   const currentPhase = getVideoPhase(video.phase);
 
@@ -500,6 +504,19 @@ export default function VideoEditor({
       if (data) setNextAction(data);
     });
   }, [slug]);
+
+  const handleSessionStart = useCallback((startedAt: string) => {
+    setActiveSession({ startedAt, phase: video.phase });
+  }, [video.phase]);
+
+  const handleSessionEnd = useCallback(() => {
+    setActiveSession(null);
+  }, []);
+
+  const handleSessionLogged = useCallback((session: VideoProjectSession) => {
+    setSessions((prev) => [session, ...prev]);
+    setActiveSession(null);
+  }, []);
 
   // Aggregate stats
   const totalScenes = video.scenes.length;
@@ -587,6 +604,17 @@ export default function VideoEditor({
       {/* Tab Content */}
       {activeTab === 'overview' && (
         <>
+          {/* Session Tracker */}
+          <div className="studio-editor-column">
+            <VideoSessionTracker
+              video={video}
+              nextAction={nextAction}
+              onSessionLogged={handleSessionLogged}
+              onSessionStart={handleSessionStart}
+              onSessionEnd={handleSessionEnd}
+            />
+          </div>
+
           {/* Next Action Card */}
           {nextAction && (
             <div className="studio-editor-column">
@@ -716,6 +744,15 @@ export default function VideoEditor({
 
       {activeTab === 'details' && (
         <VideoDetailsTab video={video} />
+      )}
+
+      {activeTab === 'sessions' && (
+        <div className="studio-editor-column">
+          <VideoSessionLog
+            sessions={sessions}
+            activeSession={activeSession}
+          />
+        </div>
       )}
     </div>
   );

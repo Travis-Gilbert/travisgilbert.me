@@ -2293,6 +2293,73 @@
   border-bottom-color: var(--studio-tc);
 }
 
+/* ── Session Tracker ──────────────────────────── */
+
+.studio-session-active {
+  padding: 10px 16px;
+  border-radius: 8px;
+  border: 1px solid rgba(106, 154, 90, 0.3);
+  background-color: rgba(106, 154, 90, 0.06);
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 8px 0;
+}
+
+.studio-session-timer {
+  font-family: var(--studio-font-mono);
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--studio-green);
+  letter-spacing: 0.04em;
+  font-variant-numeric: tabular-nums;
+}
+
+.studio-session-end-btn {
+  margin-left: auto;
+  padding: 6px 14px;
+  border-radius: 5px;
+  border: 1px solid rgba(164, 74, 58, 0.3);
+  background-color: rgba(164, 74, 58, 0.08);
+  color: #A44A3A;
+  font-family: var(--studio-font-mono);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+
+.studio-session-end-btn:hover {
+  background-color: rgba(164, 74, 58, 0.14);
+}
+
+.studio-session-form {
+  padding: 14px;
+  border-radius: 8px;
+  border: 1px solid var(--studio-border-strong);
+  background-color: var(--studio-surface);
+  margin: 8px 0;
+}
+
+.studio-session-form textarea {
+  width: 100%;
+  min-height: 60px;
+  padding: 8px 10px;
+  border-radius: 5px;
+  border: 1px solid var(--studio-border);
+  background-color: var(--studio-bg);
+  color: var(--studio-text-1);
+  font-family: var(--studio-font-body);
+  font-size: 13px;
+  resize: vertical;
+  outline: none;
+}
+
+.studio-session-form textarea:focus {
+  border-color: var(--studio-tc);
+}
+
 /* ── Video Phase Pipeline ─────────────────────── */
 
 .studio-phase-locked {
