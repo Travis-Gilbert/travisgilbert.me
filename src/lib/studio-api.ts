@@ -325,6 +325,26 @@ export async function updateStage(
   return mapApiContentItem(data);
 }
 
+/**
+ * Publish content: saves, advances stage to "published", and triggers
+ * the Django publisher to commit the markdown file to GitHub.
+ * The Vercel git integration then auto-deploys the change.
+ */
+export async function publishContentItem(
+  contentType: string,
+  slug: string,
+): Promise<StudioContentItem> {
+  const apiType = toStudioApiContentType(contentType);
+  const data = await studioFetch<StudioApiContentItem>(
+    `/content/${apiType}/${slug}/publish/`,
+    {
+      method: 'POST',
+      body: JSON.stringify({}),
+    },
+  );
+  return mapApiContentItem(data);
+}
+
 export async function fetchTimeline(params?: {
   content_type?: string;
   limit?: number;

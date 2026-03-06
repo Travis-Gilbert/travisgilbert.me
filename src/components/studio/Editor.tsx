@@ -8,6 +8,7 @@ import { normalizeStudioContentType } from '@/lib/studio';
 import {
   saveContentItem,
   updateStage,
+  publishContentItem,
   fetchStash,
   createStashItem,
   deleteStashItem,
@@ -29,6 +30,7 @@ import TiptapEditor from './TiptapEditor';
 import type { TiptapUpdatePayload } from './TiptapEditor';
 import WordCountBand from './WordCountBand';
 import EditorContextMenu from './EditorContextMenu';
+import PublishButton from './PublishButton';
 import { useStudioView } from './StudioViewContext';
 
 type SaveState = WorkbenchSaveState;
@@ -481,7 +483,6 @@ export default function Editor({
 
   const handleStageChange = useCallback(
     (newStage: string) => {
-      const previousStage = stage;
       setStage(newStage);
 
       void updateStage(normalizedContentType, slug, newStage)
@@ -489,11 +490,27 @@ export default function Editor({
           setStage(updated.stage);
         })
         .catch(() => {
-          setStage(previousStage);
+          /* Keep local stage; API sync is best-effort.
+           * Without this, the stage reverts on every failed API call
+           * (e.g., Django not running) and appears "stuck." */
         });
     },
-    [normalizedContentType, slug, stage],
+    [normalizedContentType, slug],
   );
+
+  const handlePublish = useCallback(async () => {
+    /* Save first, then publish via Django publisher (commits to GitHub) */
+    const serializedBody = getEditorMarkdown(editor) ?? currentBody;
+    await saveContentItem(normalizedContentType, slug, {
+      title: currentTitle.trim() || 'Untitled',
+      body: serializedBody,
+      excerpt: excerptFromContent(serializedBody),
+      tags: contentItem?.tags ?? [],
+    });
+    const published = await publishContentItem(normalizedContentType, slug);
+    setStage(published.stage);
+    setLastSaved(formatSavedTime(published.updatedAt));
+  }, [contentItem?.tags, currentBody, currentTitle, editor, normalizedContentType, slug]);
 
   const handleStash = useCallback(
     (text: string) => {
@@ -668,6 +685,7 @@ export default function Editor({
           saveState={saveState}
           autosaveState={autosaveState}
           onStageChange={handleStageChange}
+          onPublish={handlePublish}
         />
 
         <div className="studio-editor-header studio-editor-chrome">

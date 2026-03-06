@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { getContentTypeIdentity } from '@/lib/studio';
 import type { WorkbenchAutosaveState, WorkbenchSaveState } from './WorkbenchContext';
+import PublishButton from './PublishButton';
 
 type StageOption = {
   slug: string;
@@ -33,6 +34,7 @@ export default function StageStepper({
   saveState,
   autosaveState,
   onStageChange,
+  onPublish,
 }: {
   stage: string;
   contentType: string;
@@ -40,6 +42,7 @@ export default function StageStepper({
   saveState: WorkbenchSaveState;
   autosaveState: WorkbenchAutosaveState;
   onStageChange: (newStage: string) => void;
+  onPublish?: () => Promise<void>;
 }) {
   const [pendingStage, setPendingStage] = useState<string | null>(null);
   const [anchorDirection, setAnchorDirection] = useState<'back' | 'forward' | null>(
@@ -243,6 +246,13 @@ export default function StageStepper({
           Advance
         </button>
       </div>
+
+        {onPublish && (
+          <PublishButton
+            onPublish={onPublish}
+            disabled={stage === 'published'}
+          />
+        )}
 
         <div style={{ flex: 1 }} />
 
