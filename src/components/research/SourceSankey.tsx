@@ -18,37 +18,8 @@ import { useRef, useEffect, useState } from 'react';
 import * as d3 from 'd3';
 import type { GraphResponse } from '@/lib/research';
 import { fetchSourceGraph } from '@/lib/research';
-
-const SOURCE_TYPE_COLORS: Record<string, string> = {
-  book: '#C49A4A',
-  article: '#B45A2D',
-  paper: '#6B4A8A',
-  video: '#A44A3A',
-  podcast: '#5A7A4A',
-  dataset: '#2D5F6B',
-  document: '#8A7A5A',
-  report: '#5A6A7A',
-  map: '#4A7A5A',
-  archive: '#7A6A4A',
-  interview: '#6A5A7A',
-  website: '#5A7A8A',
-  other: '#6A5E52',
-};
-
-const CONTENT_COLORS: Record<string, string> = {
-  essay: '#B45A2D',
-  field_note: '#2D5F6B',
-};
-
-const ROLE_COLORS: Record<string, string> = {
-  primary: '#B45A2D',
-  background: '#9A8E82',
-  inspiration: '#C49A4A',
-  data: '#2D5F6B',
-  counterargument: '#A44A3A',
-  methodology: '#5A7A4A',
-  reference: '#6A5E52',
-};
+import { SOURCE_COLORS, NODE_COLORS, ROLE_COLORS } from '@/lib/graph/colors';
+import GraphTooltip from '@/components/GraphTooltip';
 
 interface SankeyNode {
   id: string;
@@ -76,6 +47,10 @@ export default function SourceSankey() {
   const [loaded, setLoaded] = useState(false);
   const [hoveredNode, setHoveredNode] = useState<string | null>(null);
   const [dimensions, setDimensions] = useState({ width: 900, height: 500 });
+  const [tooltipData, setTooltipData] = useState<{
+    title: string; subtitle: string; lines: string[];
+    position: { x: number; y: number }; visible: boolean;
+  }>({ title: '', subtitle: '', lines: [], position: { x: 0, y: 0 }, visible: false });
 
   useEffect(() => {
     let cancelled = false;
@@ -150,7 +125,7 @@ export default function SourceSankey() {
       id: node.id,
       label: node.label,
       type: node.sourceType || 'other',
-      color: SOURCE_TYPE_COLORS[node.sourceType || 'other'] || '#6A5E52',
+      color: SOURCE_COLORS[node.sourceType || 'other'] || '#6A5E52',
       x: 0,
       y: sourceStartY + i * (sourceNodeHeight + 2),
       height: sourceNodeHeight,
@@ -166,7 +141,7 @@ export default function SourceSankey() {
       id: node.id,
       label: node.label,
       type: node.type,
-      color: CONTENT_COLORS[node.type] || '#6A5E52',
+      color: NODE_COLORS[node.type] || '#6A5E52',
       x: innerWidth,
       y: contentStartY + i * (contentNodeHeight + 4),
       height: contentNodeHeight,
@@ -302,29 +277,36 @@ export default function SourceSankey() {
       .text('CONTENT');
 
     // Hover interactions
-    sourceSelection
-      .on('mouseenter', function (_, d) {
-        setHoveredNode(d.id);
-        linkSelection.attr('stroke-opacity', (l) =>
-          l.sourceId === d.id || l.targetId === d.id ? 0.6 : 0.05
-        );
-      })
-      .on('mouseleave', function () {
-        setHoveredNode(null);
-        linkSelection.attr('stroke-opacity', 0.2);
+    const showNodeTooltip = (event: MouseEvent, d: SankeyNode) => {
+      setHoveredNode(d.id);
+      linkSelection.attr('stroke-opacity', (l) =>
+        l.sourceId === d.id || l.targetId === d.id ? 0.6 : 0.05
+      );
+      const rect = svgRef.current!.getBoundingClientRect();
+      const roles = links
+        .filter((l) => l.sourceId === d.id || l.targetId === d.id)
+        .map((l) => l.role);
+      setTooltipData({
+        title: d.label,
+        subtitle: d.type,
+        lines: [`${d.connectionCount} connection${d.connectionCount !== 1 ? 's' : ''}`, ...new Set(roles)],
+        position: { x: event.clientX - rect.left, y: event.clientY - rect.top - 12 },
+        visible: true,
       });
+    };
+    const hideNodeTooltip = () => {
+      setHoveredNode(null);
+      linkSelection.attr('stroke-opacity', 0.2);
+      setTooltipData((prev) => ({ ...prev, visible: false }));
+    };
+
+    sourceSelection
+      .on('mouseenter', function (event, d) { showNodeTooltip(event as unknown as MouseEvent, d); })
+      .on('mouseleave', hideNodeTooltip);
 
     contentSelection
-      .on('mouseenter', function (_, d) {
-        setHoveredNode(d.id);
-        linkSelection.attr('stroke-opacity', (l) =>
-          l.sourceId === d.id || l.targetId === d.id ? 0.6 : 0.05
-        );
-      })
-      .on('mouseleave', function () {
-        setHoveredNode(null);
-        linkSelection.attr('stroke-opacity', 0.2);
-      });
+      .on('mouseenter', function (event, d) { showNodeTooltip(event as unknown as MouseEvent, d); })
+      .on('mouseleave', hideNodeTooltip);
 
   }, [data, dimensions]);
 
@@ -352,6 +334,8 @@ export default function SourceSankey() {
         height={dimensions.height}
         className="rounded-lg border border-border bg-surface"
       />
+
+      <GraphTooltip {...tooltipData} />
 
       {/* Role legend */}
       <div className="flex flex-wrap gap-3 mt-3 text-[10px] font-mono text-ink-light">

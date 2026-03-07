@@ -226,7 +226,7 @@ export function mountWealthHealth(
       .attr('x', width - MARGIN.right)
       .attr('y', MARGIN.top + 16)
       .attr('text-anchor', 'end')
-      .attr('font-family', 'var(--studio-font-mono), monospace')
+      .attr('font-family', 'var(--font-mono), monospace')
       .attr('font-size', 14)
       .attr('fill', 'currentColor')
       .attr('opacity', 0.7)

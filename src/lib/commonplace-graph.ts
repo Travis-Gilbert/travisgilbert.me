@@ -158,10 +158,10 @@ export function getNodeColor(objectType: string): string {
 }
 
 /* ─────────────────────────────────────────────────
-   Edge color (warm gray matching parchment aesthetic)
+   Edge color (re-exported from canonical source)
    ───────────────────────────────────────────────── */
 
-export const EDGE_RGB = '140, 130, 120';
+export { EDGE_RGB } from '@/lib/graph/colors';
 
 /* ─────────────────────────────────────────────────
    Frame management (localStorage persistence)

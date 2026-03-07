@@ -1,7 +1,9 @@
 'use client';
 
-import { useRef, useEffect } from 'react';
+import { useRef, useEffect, useState } from 'react';
 import * as d3 from 'd3';
+import { CHART_SERIES } from '@/lib/graph/colors';
+import GraphTooltip from '@/components/GraphTooltip';
 
 interface TagData {
   tag: string;
@@ -12,10 +14,12 @@ interface TopicDistributionProps {
   data: TagData[];
 }
 
-const COLORS = ['#B45A2D', '#2D5F6B', '#C49A4A', '#5A7A4A'];
-
 export default function TopicDistribution({ data }: TopicDistributionProps) {
   const svgRef = useRef<SVGSVGElement | null>(null);
+  const [tooltipData, setTooltipData] = useState<{
+    title: string; subtitle: string; lines: string[];
+    position: { x: number; y: number }; visible: boolean;
+  }>({ title: '', subtitle: '', lines: [], position: { x: 0, y: 0 }, visible: false });
 
   useEffect(() => {
     if (!svgRef.current || data.length === 0) return;
@@ -45,9 +49,9 @@ export default function TopicDistribution({ data }: TopicDistributionProps) {
     cell.append('rect')
       .attr('width', (d) => d.x1 - d.x0)
       .attr('height', (d) => d.y1 - d.y0)
-      .attr('fill', (_, i) => COLORS[i % COLORS.length])
+      .attr('fill', (_, i) => CHART_SERIES[i % CHART_SERIES.length])
       .attr('fill-opacity', 0.15)
-      .attr('stroke', (_, i) => COLORS[i % COLORS.length])
+      .attr('stroke', (_, i) => CHART_SERIES[i % CHART_SERIES.length])
       .attr('stroke-opacity', 0.4)
       .attr('rx', 2);
 
@@ -61,16 +65,39 @@ export default function TopicDistribution({ data }: TopicDistributionProps) {
         const w = d.x1 - d.x0;
         return w > 50 ? `${d.data.tag} (${d.data.count})` : '';
       });
+
+    // Hover interactions
+    cell.attr('cursor', 'pointer')
+      .on('mouseenter', function (event, d) {
+        d3.select(this).select('rect').attr('fill-opacity', 0.3).attr('stroke-opacity', 0.7);
+        const rect = svgRef.current!.getBoundingClientRect();
+        const total = leaves.reduce((sum, l) => sum + l.data.count, 0);
+        const pct = total > 0 ? ((d.data.count / total) * 100).toFixed(1) : '0';
+        setTooltipData({
+          title: d.data.tag,
+          subtitle: `${d.data.count} occurrence${d.data.count !== 1 ? 's' : ''}`,
+          lines: [`${pct}% of total`],
+          position: { x: event.clientX - rect.left, y: event.clientY - rect.top - 12 },
+          visible: true,
+        });
+      })
+      .on('mouseleave', function () {
+        d3.select(this).select('rect').attr('fill-opacity', 0.15).attr('stroke-opacity', 0.4);
+        setTooltipData((prev) => ({ ...prev, visible: false }));
+      });
   }, [data]);
 
   return (
-    <svg
-      ref={svgRef}
-      className="w-full"
-      viewBox="0 0 800 300"
-      preserveAspectRatio="xMidYMid meet"
-      role="img"
-      aria-label="Topic distribution treemap"
-    />
+    <div className="relative">
+      <svg
+        ref={svgRef}
+        className="w-full"
+        viewBox="0 0 800 300"
+        preserveAspectRatio="xMidYMid meet"
+        role="img"
+        aria-label="Topic distribution treemap"
+      />
+      <GraphTooltip {...tooltipData} />
+    </div>
   );
 }

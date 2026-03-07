@@ -16,24 +16,9 @@ import { useRef, useEffect, useState } from 'react';
 import * as d3 from 'd3';
 import type { GraphResponse, GraphNode } from '@/lib/research';
 import { fetchSourceGraph } from '@/lib/research';
-
-const TYPE_COLORS: Record<string, string> = {
-  book: '#C49A4A',
-  article: '#B45A2D',
-  paper: '#6B4A8A',
-  video: '#A44A3A',
-  podcast: '#5A7A4A',
-  dataset: '#2D5F6B',
-  document: '#8A7A5A',
-  report: '#5A6A7A',
-  map: '#4A7A5A',
-  archive: '#7A6A4A',
-  interview: '#6A5A7A',
-  website: '#5A7A8A',
-  other: '#6A5E52',
-  essay: '#B45A2D',
-  field_note: '#2D5F6B',
-};
+import { ALL_NODE_COLORS } from '@/lib/graph/colors';
+import { scaleByCount } from '@/lib/graph/radius';
+import GraphTooltip from '@/components/GraphTooltip';
 
 const TYPE_LABELS: Record<string, string> = {
   book: 'Books',
@@ -67,6 +52,10 @@ export default function SourceConstellation() {
   const [loaded, setLoaded] = useState(false);
   const [selected, setSelected] = useState<ConstellationNode | null>(null);
   const [dimensions, setDimensions] = useState({ width: 700, height: 700 });
+  const [tooltipData, setTooltipData] = useState<{
+    title: string; subtitle: string; lines: string[];
+    position: { x: number; y: number }; visible: boolean;
+  }>({ title: '', subtitle: '', lines: [], position: { x: 0, y: 0 }, visible: false });
 
   useEffect(() => {
     let cancelled = false;
@@ -147,6 +136,9 @@ export default function SourceConstellation() {
       .attr('letter-spacing', '0.1em')
       .attr('fill', 'var(--color-ink-light)');
 
+    // Max connections for radius scaling
+    const maxCount = Math.max(1, ...Array.from(connectionCounts.values()));
+
     // Place each type group as a wedge
     const angleStep = (2 * Math.PI) / sortedTypes.length;
     const constellation: ConstellationNode[] = [];
@@ -171,7 +163,7 @@ export default function SourceConstellation() {
         .attr('dominant-baseline', 'middle')
         .attr('font-family', 'var(--font-mono)')
         .attr('font-size', '9px')
-        .attr('fill', TYPE_COLORS[type] || '#6A5E52')
+        .attr('fill', ALL_NODE_COLORS[type] || '#6A5E52')
         .attr('letter-spacing', '0.05em')
         .attr('text-transform', 'uppercase');
 
@@ -211,8 +203,8 @@ export default function SourceConstellation() {
 
     nodeGroups
       .append('circle')
-      .attr('r', (d) => Math.min(3 + d.connectionCount * 1.5, 10))
-      .attr('fill', (d) => TYPE_COLORS[d.sourceType] || '#6A5E52')
+      .attr('r', (d) => scaleByCount(d.connectionCount, maxCount, 3, 10))
+      .attr('fill', (d) => ALL_NODE_COLORS[d.sourceType] || '#6A5E52')
       .attr('stroke', '#F0EBE4')
       .attr('stroke-width', 1)
       .attr('opacity', 0.8);
@@ -224,17 +216,26 @@ export default function SourceConstellation() {
       .attr('y1', 0)
       .attr('x2', (d) => -Math.cos(d.angle) * d.radius)
       .attr('y2', (d) => -Math.sin(d.angle) * d.radius)
-      .attr('stroke', (d) => TYPE_COLORS[d.sourceType] || '#6A5E52')
+      .attr('stroke', (d) => ALL_NODE_COLORS[d.sourceType] || '#6A5E52')
       .attr('stroke-width', 0.5)
       .attr('stroke-opacity', 0.1);
 
     // Interactions
     nodeGroups
-      .on('mouseenter', function (_, d) {
+      .on('mouseenter', function (event, d) {
         d3.select(this).select('circle').attr('opacity', 1).attr('stroke-width', 2);
+        const rect = svgRef.current!.getBoundingClientRect();
+        setTooltipData({
+          title: d.label,
+          subtitle: d.creator || d.sourceType,
+          lines: [d.sourceType, `${d.connectionCount} connection${d.connectionCount !== 1 ? 's' : ''}`],
+          position: { x: event.clientX - rect.left, y: event.clientY - rect.top - 12 },
+          visible: true,
+        });
       })
       .on('mouseleave', function () {
         d3.select(this).select('circle').attr('opacity', 0.8).attr('stroke-width', 1);
+        setTooltipData((prev) => ({ ...prev, visible: false }));
       })
       .on('click', function (_, d) {
         setSelected(d);
@@ -267,14 +268,16 @@ export default function SourceConstellation() {
         className="rounded-lg border border-border bg-surface mx-auto"
       />
 
+      <GraphTooltip {...tooltipData} />
+
       {selected && (
         <div className="absolute top-4 right-4 w-64 bg-surface border border-border rounded-lg shadow-warm p-4 z-10">
           <div className="flex items-start justify-between mb-2">
             <span
               className="inline-block text-[10px] font-mono uppercase tracking-wider px-1.5 py-0.5 rounded"
               style={{
-                backgroundColor: TYPE_COLORS[selected.sourceType] + '20',
-                color: TYPE_COLORS[selected.sourceType],
+                backgroundColor: ALL_NODE_COLORS[selected.sourceType] + '20',
+                color: ALL_NODE_COLORS[selected.sourceType],
               }}
             >
               {selected.sourceType}

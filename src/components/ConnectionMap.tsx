@@ -4,60 +4,71 @@
  * ConnectionMap: D3 force-directed graph showing content relationships.
  *
  * Two-layer rendering:
- *   Canvas (behind): rough.js hand-drawn edges
+ *   Canvas (behind): rough.js hand-drawn edges with signal-based encoding
  *   SVG (front): colored nodes, labels, hover interactions
  *
- * Force simulation runs synchronously (300 iterations) for instant layout.
- * Disconnected nodes are pushed to a radial ring via forceRadial.
+ * Visual encoding (from research API):
+ *   Edge thickness: 0.5 to 3.0 (weight-scaled via connectionTransform)
+ *   Edge roughness: varies by connection strength (strong=smooth, weak=sketchy)
+ *   Edge color: dominant signal color at 40% opacity (70% on hover)
+ *   Node radius: scales by connection count or total score
+ *
+ * Signal filter: toggle to show only edges matching a specific signal.
+ *   Non-matching edges fade to 4% opacity. Disconnected nodes shrink.
+ *
+ * Cluster overlay: optional convex hulls from /api/v1/clusters/ drawn
+ *   as rough.js cross-hatch polygons behind edges.
+ *
+ * Force simulation runs synchronously via shared simulation.ts presets.
  */
 
-import { useRef, useEffect, useState, useMemo } from 'react';
+import { useRef, useEffect, useState, useMemo, useCallback } from 'react';
 import * as d3 from 'd3';
 import rough from 'roughjs';
 import { useRouter } from 'next/navigation';
+import { NODE_COLORS, SIGNAL_COLORS } from '@/lib/graph/colors';
+import { scaleByCount, scaleByScore } from '@/lib/graph/radius';
+import {
+  runSynchronousSimulation,
+  PRESET_SPREAD,
+  type SimulationNode,
+} from '@/lib/graph/simulation';
+import type { GraphNode, GraphEdge } from '@/lib/graph/connectionTransform';
+import GraphTooltip, { buildSignalIndicators } from '@/components/GraphTooltip';
+import SignalFilter, { type SignalKey } from '@/components/SignalFilter';
 
 // ─────────────────────────────────────────────────
 // Types
 // ─────────────────────────────────────────────────
 
-interface NodeData {
-  id: string;
-  slug: string;
-  title: string;
-  type: 'essay' | 'field-note' | 'project' | 'shelf';
-  connectionCount: number;
-  href: string;
-}
-
-interface EdgeData {
-  source: string;
-  target: string;
-  type: string;
-  strokeWidth: number;
-}
-
 interface ConnectionMapProps {
-  nodes: NodeData[];
-  edges: EdgeData[];
+  nodes: GraphNode[];
+  edges: GraphEdge[];
+  /** Size nodes by connection count or total score (default: 'count') */
+  sizeMode?: 'count' | 'score';
 }
 
-interface LayoutNode {
-  x: number;
-  y: number;
-  radius: number;
-  node: NodeData;
+/** Extended simulation node carrying the original GraphNode data */
+interface MapNode extends SimulationNode {
+  nodeData: GraphNode;
+}
+
+/** Cluster from the research API /api/v1/clusters/ */
+interface Cluster {
+  id: number;
+  label: string;
+  top_tags: string[];
+  members: Array<{
+    content_type: string;
+    content_slug: string;
+    content_title: string;
+  }>;
+  size: number;
 }
 
 // ─────────────────────────────────────────────────
 // Constants
 // ─────────────────────────────────────────────────
-
-const NODE_COLORS: Record<string, string> = {
-  essay: '#B45A2D',
-  'field-note': '#2D5F6B',
-  project: '#C49A4A',
-  shelf: '#5A7A4A',
-};
 
 const TYPE_LABELS: Record<string, string> = {
   essay: 'ESSAYS',
@@ -66,8 +77,20 @@ const TYPE_LABELS: Record<string, string> = {
   shelf: 'SHELF',
 };
 
-/** Warm gray for hand-drawn edges (matches parchment aesthetic) */
-const EDGE_RGB = '140, 130, 120';
+/** Soft palette for cluster hulls (low opacity fills, no harsh borders) */
+const CLUSTER_HULL_COLORS = [
+  '#B45A2D',
+  '#2D5F6B',
+  '#C49A4A',
+  '#5A7A4A',
+  '#6B5A7A',
+  '#A44A3A',
+  '#5A6A7A',
+  '#8A7A5A',
+];
+
+const RESEARCH_URL =
+  process.env.NEXT_PUBLIC_RESEARCH_API_URL ?? 'http://localhost:8001';
 
 // ─────────────────────────────────────────────────
 // Helpers
@@ -78,100 +101,88 @@ function truncateTitle(str: string, maxLen = 20): string {
   return str.slice(0, maxLen - 1).toUpperCase() + '\u2026';
 }
 
+/** Convert hex color to rgba string */
+function hexToRgba(hex: string, alpha: number): string {
+  const r = parseInt(hex.slice(1, 3), 16);
+  const g = parseInt(hex.slice(3, 5), 16);
+  const b = parseInt(hex.slice(5, 7), 16);
+  return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+}
+
+/** Does an edge have a non-null value for the given signal? */
+function edgeHasSignal(edge: GraphEdge, signal: SignalKey): boolean {
+  return edge.signals[signal] !== null && edge.signals[signal] !== undefined;
+}
+
 /**
- * Run D3 force simulation synchronously and return final node positions.
- * 300 iterations is enough for convergence on graphs with <50 nodes.
+ * Normalize content_type from API (underscored) to match our GraphNode.id
+ * format: "essay:slug" or "field-note:slug".
  */
-function computeLayout(
-  nodes: NodeData[],
-  edges: EdgeData[],
-  width: number,
-  height: number,
-): LayoutNode[] {
-  if (nodes.length === 0) return [];
-
-  const maxConn = Math.max(1, ...nodes.map((n) => n.connectionCount));
-
-  interface SimNode extends d3.SimulationNodeDatum {
-    id: string;
-    radius: number;
-    nodeData: NodeData;
-  }
-
-  const simNodes: SimNode[] = nodes.map((n) => ({
-    id: n.id,
-    radius: 8 + (n.connectionCount / maxConn) * 16,
-    nodeData: n,
-  }));
-
-  const simEdges: d3.SimulationLinkDatum<SimNode>[] = edges.map((e) => ({
-    source: e.source,
-    target: e.target,
-  }));
-
-  const simulation = d3
-    .forceSimulation<SimNode>(simNodes)
-    .force(
-      'link',
-      d3
-        .forceLink<SimNode, d3.SimulationLinkDatum<SimNode>>(simEdges)
-        .id((d) => d.id)
-        .distance(90),
-    )
-    .force('charge', d3.forceManyBody().strength(-150))
-    .force('center', d3.forceCenter(width / 2, height / 2))
-    .force(
-      'collision',
-      d3.forceCollide<SimNode>().radius((d) => d.radius + 6),
-    )
-    .force(
-      'radial',
-      d3
-        .forceRadial<SimNode>(
-          (d) =>
-            d.nodeData.connectionCount === 0
-              ? Math.min(width, height) * 0.35
-              : 0,
-          width / 2,
-          height / 2,
-        )
-        .strength((d) => (d.nodeData.connectionCount === 0 ? 0.3 : 0)),
-    )
-    .stop();
-
-  for (let i = 0; i < 300; i++) simulation.tick();
-
-  return simNodes.map((n) => ({
-    x: Math.max(
-      n.radius + 20,
-      Math.min(width - n.radius - 20, n.x ?? width / 2),
-    ),
-    y: Math.max(
-      n.radius + 20,
-      Math.min(height - n.radius - 20, n.y ?? height / 2),
-    ),
-    radius: n.radius,
-    node: n.nodeData,
-  }));
+function clusterMemberKey(member: { content_type: string; content_slug: string }): string {
+  const type = member.content_type.replace('_', '-');
+  return `${type}:${member.content_slug}`;
 }
 
 // ─────────────────────────────────────────────────
 // Component
 // ─────────────────────────────────────────────────
 
-export default function ConnectionMap({ nodes, edges }: ConnectionMapProps) {
+export default function ConnectionMap({
+  nodes,
+  edges,
+  sizeMode = 'count',
+}: ConnectionMapProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [width, setWidth] = useState(800);
   const [hoveredId, setHoveredId] = useState<string | null>(null);
+  const [tooltipPos, setTooltipPos] = useState({ x: 0, y: 0 });
+  const [signalFilter, setSignalFilter] = useState<SignalKey | null>(null);
+  const [showClusters, setShowClusters] = useState(false);
+  const [clusters, setClusters] = useState<Cluster[]>([]);
   const router = useRouter();
 
   const height = Math.max(500, Math.round(width * 0.6));
 
-  const layout = useMemo(
-    () => computeLayout(nodes, edges, width, height),
-    [nodes, edges, width, height],
-  );
+  // Compute which signals are present in the dataset
+  const availableSignals = useMemo(() => {
+    const signals = new Set<string>();
+    for (const e of edges) {
+      for (const [key, val] of Object.entries(e.signals)) {
+        if (val) signals.add(key);
+      }
+    }
+    return signals;
+  }, [edges]);
+
+  // Compute node radii and run force simulation
+  const layout = useMemo(() => {
+    if (nodes.length === 0) return [];
+
+    const maxCount = Math.max(1, ...nodes.map((n) => n.connectionCount));
+    const maxScore = Math.max(1, ...nodes.map((n) => n.totalScore));
+
+    const simNodes: MapNode[] = nodes.map((n) => ({
+      id: n.id,
+      radius:
+        sizeMode === 'score'
+          ? scaleByScore(n.totalScore, maxScore)
+          : scaleByCount(n.connectionCount, maxCount),
+      connectionCount: n.connectionCount,
+      nodeData: n,
+    }));
+
+    // Build sim edges referencing node IDs
+    const simEdges = edges.map((e) => ({
+      source: e.source,
+      target: e.target,
+      weight: e.weight,
+    }));
+
+    runSynchronousSimulation(simNodes, simEdges, width, height, PRESET_SPREAD);
+
+    return simNodes;
+  }, [nodes, edges, width, height, sizeMode]);
 
   // Track container width
   useEffect(() => {
@@ -186,7 +197,77 @@ export default function ConnectionMap({ nodes, edges }: ConnectionMapProps) {
     return () => ro.disconnect();
   }, []);
 
-  // Draw rough.js edges on canvas
+  // Fetch clusters on demand
+  const fetchClusters = useCallback(async () => {
+    if (clusters.length > 0) return; // already fetched
+    try {
+      const res = await fetch(`${RESEARCH_URL}/api/v1/clusters/`);
+      if (!res.ok) return;
+      const data = await res.json();
+      setClusters(data.clusters ?? []);
+    } catch {
+      // Silently ignore cluster fetch failures
+    }
+  }, [clusters.length]);
+
+  // Determine which edges pass the signal filter
+  const filteredEdgeSet = useMemo(() => {
+    if (!signalFilter) return null; // null = all edges pass
+    const passing = new Set<string>();
+    for (const e of edges) {
+      if (edgeHasSignal(e, signalFilter)) {
+        passing.add(`${e.source}->${e.target}`);
+      }
+    }
+    return passing;
+  }, [edges, signalFilter]);
+
+  // Nodes that are connected to at least one visible edge under the filter
+  const connectedUnderFilter = useMemo(() => {
+    if (!signalFilter) return null; // null = all nodes connected
+    const connected = new Set<string>();
+    for (const e of edges) {
+      if (edgeHasSignal(e, signalFilter)) {
+        connected.add(e.source);
+        connected.add(e.target);
+      }
+    }
+    return connected;
+  }, [edges, signalFilter]);
+
+  // Compute cluster hulls mapped to simulation positions
+  const clusterHulls = useMemo(() => {
+    if (!showClusters || clusters.length === 0 || layout.length === 0) return [];
+
+    const posMap = new Map(
+      layout.map((n) => [n.id, { x: n.x ?? 0, y: n.y ?? 0 }]),
+    );
+
+    return clusters.map((cluster, i) => {
+      const points: [number, number][] = [];
+
+      for (const member of cluster.members) {
+        const key = clusterMemberKey(member);
+        const pos = posMap.get(key);
+        if (pos) {
+          points.push([pos.x, pos.y]);
+        }
+      }
+
+      // d3.polygonHull requires >= 3 non-collinear points
+      const hull = points.length >= 3 ? d3.polygonHull(points) : null;
+
+      return {
+        id: cluster.id,
+        label: cluster.label,
+        color: CLUSTER_HULL_COLORS[i % CLUSTER_HULL_COLORS.length],
+        hull,
+        points,
+      };
+    });
+  }, [showClusters, clusters, layout]);
+
+  // Draw rough.js edges (and cluster hulls) on canvas
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas || layout.length === 0) return;
@@ -204,8 +285,35 @@ export default function ConnectionMap({ nodes, edges }: ConnectionMapProps) {
 
     const rc = rough.canvas(canvas);
     const posMap = new Map(
-      layout.map((l) => [l.node.id, { x: l.x, y: l.y }]),
+      layout.map((n) => [n.id, { x: n.x ?? 0, y: n.y ?? 0 }]),
     );
+
+    // Draw cluster hulls first (behind everything)
+    for (const ch of clusterHulls) {
+      if (!ch.hull) continue;
+
+      // Pad the hull outward by ~20px for visual breathing room
+      const centroid = d3.polygonCentroid(ch.hull);
+      const padded = ch.hull.map(([px, py]) => {
+        const dx = px - centroid[0];
+        const dy = py - centroid[1];
+        const dist = Math.sqrt(dx * dx + dy * dy);
+        const scale = dist > 0 ? (dist + 24) / dist : 1;
+        return [centroid[0] + dx * scale, centroid[1] + dy * scale] as [number, number];
+      });
+
+      rc.polygon(padded, {
+        roughness: 1.8,
+        stroke: hexToRgba(ch.color, 0.15),
+        strokeWidth: 1,
+        fill: hexToRgba(ch.color, 0.04),
+        fillStyle: 'cross-hatch',
+        fillWeight: 0.3,
+        hachureAngle: 45 + ch.id * 30,
+        hachureGap: 8,
+        bowing: 2,
+      });
+    }
 
     // Connected IDs for hover highlighting
     const connectedIds = new Set<string>();
@@ -217,26 +325,35 @@ export default function ConnectionMap({ nodes, edges }: ConnectionMapProps) {
       });
     }
 
+    // Draw edges
     edges.forEach((e) => {
       const from = posMap.get(e.source);
       const to = posMap.get(e.target);
       if (!from || !to) return;
 
-      let alpha = 0.3;
-      if (hoveredId) {
+      const edgeKey = `${e.source}->${e.target}`;
+      const passesFilter = !filteredEdgeSet || filteredEdgeSet.has(edgeKey);
+
+      let alpha: number;
+      if (!passesFilter) {
+        // Edge does not match the active signal filter
+        alpha = 0.04;
+      } else if (hoveredId) {
         const isConnected =
           connectedIds.has(e.source) && connectedIds.has(e.target);
-        alpha = isConnected ? 0.6 : 0.06;
+        alpha = isConnected ? 0.7 : 0.04;
+      } else {
+        alpha = 0.4;
       }
 
       rc.line(from.x, from.y, to.x, to.y, {
-        roughness: 1.5,
-        stroke: `rgba(${EDGE_RGB}, ${alpha})`,
+        roughness: e.roughness,
+        stroke: hexToRgba(e.color, alpha),
         strokeWidth: e.strokeWidth,
-        bowing: 2,
+        bowing: e.bowing,
       });
     });
-  }, [layout, edges, hoveredId, width, height]);
+  }, [layout, edges, hoveredId, width, height, filteredEdgeSet, clusterHulls]);
 
   // Connected IDs for node dimming (computed in render for SVG)
   const connectedIds = new Set<string>();
@@ -250,11 +367,68 @@ export default function ConnectionMap({ nodes, edges }: ConnectionMapProps) {
 
   const presentTypes = [...new Set(nodes.map((n) => n.type))];
 
+  // Build tooltip data for hovered node
+  const hoveredNode = hoveredId
+    ? layout.find((n) => n.id === hoveredId)?.nodeData
+    : null;
+
+  const tooltipSignals = hoveredNode
+    ? buildSignalIndicators(
+        // Aggregate signals from all edges connected to this node
+        edges
+          .filter(
+            (e) => e.source === hoveredId || e.target === hoveredId,
+          )
+          .reduce(
+            (acc, e) => {
+              for (const [key, val] of Object.entries(e.signals)) {
+                if (val && !acc[key]) acc[key] = val;
+              }
+              return acc;
+            },
+            {} as Record<string, { score: number; detail: string } | null>,
+          ),
+      )
+    : [];
+
   return (
     <div
       ref={containerRef}
       style={{ position: 'relative', minHeight: 500, width: '100%' }}
     >
+      {/* Controls bar: signal filter + cluster toggle */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', marginBottom: 4 }}>
+        <SignalFilter
+          activeSignal={signalFilter}
+          onSignalChange={setSignalFilter}
+          availableSignals={availableSignals}
+        />
+
+        <button
+          onClick={() => {
+            const next = !showClusters;
+            setShowClusters(next);
+            if (next) fetchClusters();
+          }}
+          style={{
+            padding: '3px 10px',
+            borderRadius: 4,
+            border: `1px solid ${showClusters ? 'var(--color-ink-secondary)' : 'transparent'}`,
+            background: showClusters ? 'var(--color-surface-elevated, #F5F0E8)' : 'transparent',
+            color: showClusters ? 'var(--color-ink)' : 'var(--color-ink-light)',
+            fontFamily: 'var(--font-metadata)',
+            fontSize: 10,
+            letterSpacing: '0.06em',
+            textTransform: 'uppercase' as const,
+            cursor: 'pointer',
+            transition: 'all 150ms ease',
+            minHeight: 28,
+          }}
+        >
+          Clusters
+        </button>
+      </div>
+
       {/* rough.js edge canvas (behind nodes) */}
       <canvas
         ref={canvasRef}
@@ -267,7 +441,7 @@ export default function ConnectionMap({ nodes, edges }: ConnectionMapProps) {
         }}
       />
 
-      {/* Node SVG (interactive layer; pointer-events only on nodes) */}
+      {/* Node SVG (interactive layer) */}
       <svg
         width={width}
         height={height}
@@ -275,18 +449,39 @@ export default function ConnectionMap({ nodes, edges }: ConnectionMapProps) {
         role="img"
         aria-label="Content connection map showing relationships between essays, field notes, projects, and shelf items"
       >
-        {layout.map(({ x, y, radius, node }) => {
-          const dimmed = hoveredId !== null && !connectedIds.has(node.id);
+        {layout.map((simNode) => {
+          const { nodeData: node } = simNode;
+          const x = simNode.x ?? 0;
+          const y = simNode.y ?? 0;
+          const baseRadius = simNode.radius;
+
+          // Node disconnected under signal filter: shrink to half
+          const disconnected = connectedUnderFilter !== null && !connectedUnderFilter.has(node.id);
+          const radius = disconnected ? baseRadius * 0.5 : baseRadius;
+
+          // Dimming: hover or filter disconnection
+          const hoverDimmed = hoveredId !== null && !connectedIds.has(node.id);
+          const dimmed = hoverDimmed || disconnected;
+
           return (
             <g
               key={node.id}
               style={{
                 cursor: 'pointer',
                 pointerEvents: 'all',
-                transition: 'opacity 200ms ease',
+                transition: 'opacity 200ms ease, transform 300ms ease',
               }}
               opacity={dimmed ? 0.12 : 1}
-              onMouseEnter={() => setHoveredId(node.id)}
+              onMouseEnter={(e) => {
+                setHoveredId(node.id);
+                const rect = containerRef.current?.getBoundingClientRect();
+                if (rect) {
+                  setTooltipPos({
+                    x: e.clientX - rect.left,
+                    y: y - radius - 12,
+                  });
+                }
+              }}
               onMouseLeave={() => setHoveredId(null)}
               onClick={() => router.push(node.href)}
               role="link"
@@ -307,6 +502,7 @@ export default function ConnectionMap({ nodes, edges }: ConnectionMapProps) {
                 fillOpacity={0.7}
                 stroke={NODE_COLORS[node.type]}
                 strokeWidth={1.5}
+                style={{ transition: 'r 300ms ease' }}
               />
               <text
                 x={x}
@@ -315,8 +511,9 @@ export default function ConnectionMap({ nodes, edges }: ConnectionMapProps) {
                 fill="var(--color-ink-secondary)"
                 style={{
                   fontFamily: 'var(--font-metadata)',
-                  fontSize: 9,
+                  fontSize: disconnected ? 7 : 9,
                   letterSpacing: '0.06em',
+                  transition: 'font-size 300ms ease',
                 }}
               >
                 {truncateTitle(node.title)}
@@ -325,6 +522,50 @@ export default function ConnectionMap({ nodes, edges }: ConnectionMapProps) {
           );
         })}
       </svg>
+
+      {/* Tooltip */}
+      <GraphTooltip
+        title={hoveredNode?.title ?? ''}
+        subtitle={hoveredNode ? TYPE_LABELS[hoveredNode.type] : undefined}
+        lines={
+          hoveredNode
+            ? [
+                `${hoveredNode.connectionCount} connection${hoveredNode.connectionCount !== 1 ? 's' : ''}`,
+                ...(hoveredNode.explanation ? [hoveredNode.explanation] : []),
+              ]
+            : undefined
+        }
+        signals={tooltipSignals}
+        position={tooltipPos}
+        visible={hoveredNode !== null}
+      />
+
+      {/* Cluster labels (positioned at hull centroid) */}
+      {showClusters && clusterHulls.map((ch) => {
+        if (!ch.hull) return null;
+        const centroid = d3.polygonCentroid(ch.hull);
+        return (
+          <div
+            key={`cluster-label-${ch.id}`}
+            style={{
+              position: 'absolute',
+              left: centroid[0],
+              top: centroid[1] - 10,
+              transform: 'translateX(-50%)',
+              fontFamily: 'var(--font-metadata)',
+              fontSize: 8,
+              letterSpacing: '0.06em',
+              textTransform: 'uppercase',
+              color: hexToRgba(ch.color, 0.5),
+              pointerEvents: 'none',
+              zIndex: 0,
+              whiteSpace: 'nowrap',
+            }}
+          >
+            {ch.label}
+          </div>
+        );
+      })}
 
       {/* Legend (bottom-right) */}
       <div

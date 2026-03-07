@@ -11,6 +11,7 @@ import dynamic from 'next/dynamic';
 import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useIsMobile } from '@/hooks/useIsMobile';
+import type { GraphNode, GraphEdge } from '@/lib/graph/connectionTransform';
 
 const LazySourceGraph = dynamic(() => import('./SourceGraph'), {
   ssr: false,
@@ -42,6 +43,11 @@ const LazySourceSankey = dynamic(() => import('./SourceSankey'), {
   loading: () => <TabLoading label="Loading flow" />,
 });
 
+const LazyResearchSummary = dynamic(() => import('./ResearchSummary'), {
+  ssr: false,
+  loading: () => <TabLoading label="Loading summary" />,
+});
+
 type TabId =
   | 'list'
   | 'graph'
@@ -49,7 +55,8 @@ type TabId =
   | 'timeline'
   | 'constellation'
   | 'activity'
-  | 'sankey';
+  | 'sankey'
+  | 'summary';
 
 interface Tab {
   id: TabId;
@@ -88,6 +95,11 @@ const DESKTOP_TABS: Tab[] = [
     label: 'Flow',
     description: 'How sources connect to essays and field notes, colored by role.',
   },
+  {
+    id: 'summary',
+    label: 'Summary',
+    description: 'Source counts by type and role, plus content ranked by connection count.',
+  },
 ];
 
 const MOBILE_TABS: Tab[] = [
@@ -99,29 +111,11 @@ const MOBILE_TABS: Tab[] = [
   ...DESKTOP_TABS,
 ];
 
-/** Node shape expected by ConnectionMap (server-computed) */
-interface ConnectionNode {
-  id: string;
-  slug: string;
-  title: string;
-  type: 'essay' | 'field-note' | 'project' | 'shelf';
-  connectionCount: number;
-  href: string;
-}
-
-/** Edge shape expected by ConnectionMap (server-computed) */
-interface ConnectionEdge {
-  source: string;
-  target: string;
-  type: string;
-  strokeWidth: number;
-}
-
 interface VisualizationTabsProps {
-  /** Pre-computed connection graph nodes (from connectionEngine) */
-  connectionNodes?: ConnectionNode[];
-  /** Pre-computed connection graph edges (from connectionEngine) */
-  connectionEdges?: ConnectionEdge[];
+  /** Connection graph nodes (from research API via connectionTransform) */
+  connectionNodes?: GraphNode[];
+  /** Connection graph edges (from research API via connectionTransform) */
+  connectionEdges?: GraphEdge[];
 }
 
 export default function VisualizationTabs({
@@ -181,12 +175,13 @@ export default function VisualizationTabs({
         {activeTab === 'constellation' && <LazySourceConstellation />}
         {activeTab === 'activity' && <LazyActivityHeatmap />}
         {activeTab === 'sankey' && <LazySourceSankey />}
+        {activeTab === 'summary' && <LazyResearchSummary />}
       </div>
     </div>
   );
 }
 
-function ResearchListMode({ nodes }: { nodes: ConnectionNode[] }) {
+function ResearchListMode({ nodes }: { nodes: GraphNode[] }) {
   const sorted = useMemo(
     () =>
       [...nodes].sort((a, b) => {
