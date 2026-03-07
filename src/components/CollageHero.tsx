@@ -67,7 +67,7 @@ export default function CollageHero({
       >
         {/* Content layer */}
         <div className="relative z-10 max-w-6xl mx-auto px-3 sm:px-6">
-          <div className="flex flex-col lg:grid lg:items-start py-8 md:py-16 lg:py-20 gap-4 sm:gap-8 lg:gap-12"
+          <div className="flex flex-col lg:grid lg:items-start pt-8 pb-4 md:pt-16 md:pb-8 lg:pt-20 lg:pb-10 gap-4 sm:gap-8 lg:gap-12"
             style={{ gridTemplateColumns: '55% 1fr' }}
           >
             {/* Left column: featured essay + studio status */}
@@ -213,36 +213,34 @@ export default function CollageHero({
                 </div>
               )}
 
-              {/* Also working on + Right now: side-by-side on md+ */}
-              <div className="mt-6 grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6 items-start">
-                <div>
-                  <span
-                    style={{
-                      fontFamily: 'var(--font-metadata)',
-                      fontSize: 10,
-                      textTransform: 'uppercase',
-                      letterSpacing: '0.1em',
-                      color: 'var(--color-ink-muted)',
-                    }}
-                  >
-                    Also working on
-                  </span>
-                  <div className="mt-1">
-                    <CyclingTagline />
-                  </div>
-                  {/* Pipeline status (studio activity counts) */}
-                  <div className="mt-3">{pipelineStatus}</div>
+              {/* Also working on: cycling topic ticker */}
+              <div className="mt-6">
+                <span
+                  style={{
+                    fontFamily: 'var(--font-metadata)',
+                    fontSize: 10,
+                    textTransform: 'uppercase',
+                    letterSpacing: '0.1em',
+                    color: 'var(--color-ink-muted)',
+                  }}
+                >
+                  Also working on
+                </span>
+                <div className="mt-1">
+                  <CyclingTagline />
                 </div>
-                <div>
-                  {nowPreview}
-                </div>
+                {/* Pipeline status (studio activity counts) */}
+                <div className="mt-3">{pipelineStatus}</div>
               </div>
             </div>
 
-            {/* Right column: artifact only */}
+            {/* Right column: artifact + /now snapshot */}
             <div className="flex flex-col">
               <div className="max-w-sm mx-auto lg:max-w-none lg:mx-0">
                 {artifact}
+              </div>
+              <div className="mt-6 lg:mt-8">
+                {nowPreview}
               </div>
             </div>
           </div>
