@@ -127,7 +127,7 @@ export default function ProgressTracker({
       })}
       {annotationCount != null && annotationCount > 0 && (
         <span
-          className="font-mono ml-3"
+          className="font-mono ml-3 hidden sm:inline"
           style={{
             fontSize: 9,
             textTransform: 'uppercase',
