@@ -1,7 +1,6 @@
 import { Extension } from '@tiptap/core';
 import { Plugin, PluginKey } from '@tiptap/pm/state';
 import { NodeSelection } from '@tiptap/pm/state';
-import { Decoration, DecorationSet } from '@tiptap/pm/view';
 import type { EditorView } from '@tiptap/pm/view';
 import type { Node as ProseMirrorNode } from '@tiptap/pm/model';
 
@@ -10,14 +9,20 @@ const dragHandlePluginKey = new PluginKey('dragHandle');
 /* ── Position helpers ────────────────────────── */
 
 /** Find the top-level block node at a given document position. */
-function resolveBlockAt(view: EditorView, pos: number): { node: ProseMirrorNode; pos: number } | null {
-  const $pos = view.state.doc.resolve(pos);
-  const depth = $pos.depth;
-  if (depth < 1) return null;
-  const nodePos = $pos.before(1);
-  const node = view.state.doc.nodeAt(nodePos);
-  if (!node) return null;
-  return { node, pos: nodePos };
+function resolveBlockAt(
+  view: EditorView,
+  pos: number,
+): { node: ProseMirrorNode; pos: number } | null {
+  try {
+    const $pos = view.state.doc.resolve(pos);
+    if ($pos.depth < 1) return null;
+    const nodePos = $pos.before(1);
+    const node = view.state.doc.nodeAt(nodePos);
+    if (!node) return null;
+    return { node, pos: nodePos };
+  } catch {
+    return null;
+  }
 }
 
 /** Find the nearest block boundary (top-level) for a drop target. */
@@ -26,13 +31,13 @@ function nearestDropTarget(
   y: number,
 ): { pos: number; side: 'before' | 'after' } | null {
   const { doc } = view.state;
-  let best: { pos: number; side: 'before' | 'after'; dist: number } | null = null;
+  let best: { pos: number; side: 'before' | 'after'; dist: number } | null =
+    null;
 
   doc.forEach((node, offset) => {
     const dom = view.nodeDOM(offset);
     if (!(dom instanceof HTMLElement)) return;
     const rect = dom.getBoundingClientRect();
-    const midY = rect.top + rect.height / 2;
 
     /* Check distance to top edge (insert before) */
     const distBefore = Math.abs(y - rect.top);
@@ -42,8 +47,12 @@ function nearestDropTarget(
 
     /* Check distance to bottom edge (insert after) */
     const distAfter = Math.abs(y - rect.bottom);
-    if (distAfter < best.dist) {
-      best = { pos: offset + node.nodeSize, side: 'after', dist: distAfter };
+    if (distAfter < best!.dist) {
+      best = {
+        pos: offset + node.nodeSize,
+        side: 'after',
+        dist: distAfter,
+      };
     }
   });
 
@@ -54,19 +63,26 @@ function nearestDropTarget(
 
 let dropIndicator: HTMLElement | null = null;
 
-function showDropIndicator(view: EditorView, targetPos: number, side: 'before' | 'after') {
+function showDropIndicator(
+  view: EditorView,
+  targetPos: number,
+  side: 'before' | 'after',
+) {
   const { doc } = view.state;
 
-  /* Find the DOM node at target position to get coordinates */
   let refDom: HTMLElement | null = null;
 
   if (side === 'before') {
     refDom = view.nodeDOM(targetPos) as HTMLElement | null;
   } else {
-    /* For 'after', targetPos points after the node, walk back */
-    const $pos = doc.resolve(targetPos);
-    const beforePos = $pos.before($pos.depth);
-    refDom = view.nodeDOM(beforePos) as HTMLElement | null;
+    /* For 'after', targetPos points after the node; walk back */
+    try {
+      const $pos = doc.resolve(targetPos);
+      const beforePos = $pos.before($pos.depth);
+      refDom = view.nodeDOM(beforePos) as HTMLElement | null;
+    } catch {
+      refDom = null;
+    }
   }
 
   if (!refDom || !(refDom instanceof HTMLElement)) {
@@ -103,98 +119,222 @@ function cleanupDropIndicator() {
   }
 }
 
+/* ── Grip icon builder (safe DOM, no innerHTML) ─ */
+
+function buildGripIcon(): SVGSVGElement {
+  const ns = 'http://www.w3.org/2000/svg';
+  const svg = document.createElementNS(ns, 'svg');
+  svg.setAttribute('width', '10');
+  svg.setAttribute('height', '14');
+  svg.setAttribute('viewBox', '0 0 10 14');
+  svg.setAttribute('fill', 'currentColor');
+
+  const dots = [
+    [3, 2],
+    [7, 2],
+    [3, 7],
+    [7, 7],
+    [3, 12],
+    [7, 12],
+  ];
+  for (const [cx, cy] of dots) {
+    const c = document.createElementNS(ns, 'circle');
+    c.setAttribute('cx', String(cx));
+    c.setAttribute('cy', String(cy));
+    c.setAttribute('r', '1.2');
+    svg.appendChild(c);
+  }
+
+  return svg;
+}
+
 /* ── Extension ───────────────────────────────── */
 
+/**
+ * Floating drag handle for block reordering.
+ *
+ * Architecture: a single body-mounted element repositioned via mousemove.
+ * This avoids ProseMirror Decoration.widget sibling DOM issues and
+ * overflow:hidden clipping on .studio-page.
+ */
 const DragHandle = Extension.create({
   name: 'dragHandle',
 
   addProseMirrorPlugins() {
     let dragSourcePos: number | null = null;
     let isDragging = false;
+    let handleEl: HTMLElement | null = null;
+    let activeBlockPos: number | null = null;
+    let currentView: EditorView | null = null;
+    let scrollContainer: HTMLElement | null = null;
+
+    /* ── Handle element lifecycle ────────────── */
+
+    function createHandle(): HTMLElement {
+      const el = document.createElement('div');
+      el.className = 'studio-drag-handle';
+      el.contentEditable = 'false';
+      el.draggable = true;
+      el.appendChild(buildGripIcon());
+
+      /* Direct listeners (handle is body-mounted, outside view.dom) */
+      el.addEventListener('mousedown', onHandleMousedown);
+      el.addEventListener('dragstart', onHandleDragstart);
+      el.addEventListener('dragend', onHandleDragend);
+      el.addEventListener('mouseenter', () => {
+        if (el) el.style.opacity = '1';
+      });
+
+      document.body.appendChild(el);
+      return el;
+    }
+
+    function positionHandle(view: EditorView, blockPos: number) {
+      if (!handleEl) handleEl = createHandle();
+
+      const dom = view.nodeDOM(blockPos);
+      if (!(dom instanceof HTMLElement)) {
+        handleEl.style.opacity = '0';
+        return;
+      }
+
+      const blockRect = dom.getBoundingClientRect();
+
+      handleEl.dataset.blockPos = String(blockPos);
+      handleEl.style.left = `${blockRect.left - 26}px`;
+      handleEl.style.top = `${blockRect.top + 4}px`;
+      handleEl.style.opacity = '1';
+      activeBlockPos = blockPos;
+    }
+
+    function hideHandle() {
+      if (handleEl && !isDragging) {
+        handleEl.style.opacity = '0';
+        activeBlockPos = null;
+      }
+    }
+
+    /* ── Handle event handlers ───────────────── */
+
+    function onHandleMousedown(_e: MouseEvent) {
+      if (!currentView || !handleEl) return;
+      const blockPos = handleEl.dataset.blockPos;
+      if (blockPos == null) return;
+
+      const pos = Number(blockPos);
+      const node = currentView.state.doc.nodeAt(pos);
+      if (!node) return;
+
+      const selection = NodeSelection.create(currentView.state.doc, pos);
+      currentView.dispatch(currentView.state.tr.setSelection(selection));
+    }
+
+    function onHandleDragstart(e: DragEvent) {
+      if (!currentView || !handleEl) return;
+      const blockPos = handleEl.dataset.blockPos;
+      if (blockPos == null) return;
+
+      const pos = Number(blockPos);
+      const node = currentView.state.doc.nodeAt(pos);
+      if (!node) return;
+
+      dragSourcePos = pos;
+      isDragging = true;
+
+      if (e.dataTransfer) {
+        e.dataTransfer.effectAllowed = 'move';
+        e.dataTransfer.setData('text/plain', node.textContent ?? '');
+
+        /* Create a compact ghost preview */
+        const ghost = document.createElement('div');
+        ghost.className = 'studio-drag-ghost';
+        const text = node.textContent ?? '';
+        ghost.textContent =
+          text.slice(0, 48) + (text.length > 48 ? '...' : '');
+        ghost.style.position = 'absolute';
+        ghost.style.top = '-1000px';
+        document.body.appendChild(ghost);
+        e.dataTransfer.setDragImage(ghost, 0, 0);
+        requestAnimationFrame(() => ghost.remove());
+      }
+
+      /* Fade the source block */
+      const sourceDom = currentView.nodeDOM(pos);
+      if (sourceDom instanceof HTMLElement) {
+        sourceDom.classList.add('studio-block-dragging');
+      }
+    }
+
+    function onHandleDragend() {
+      /* Fires on the dragged element regardless of drop outcome */
+      hideDropIndicator();
+
+      if (currentView && dragSourcePos != null) {
+        const sourceDom = currentView.nodeDOM(dragSourcePos);
+        if (sourceDom instanceof HTMLElement) {
+          sourceDom.classList.remove('studio-block-dragging');
+        }
+      }
+
+      dragSourcePos = null;
+      isDragging = false;
+
+      /* Hide handle after drag ends */
+      if (handleEl) {
+        handleEl.style.opacity = '0';
+      }
+    }
+
+    /* ── Scroll tracking ────────────────────── */
+
+    function onScroll() {
+      if (activeBlockPos != null && currentView && !isDragging) {
+        positionHandle(currentView, activeBlockPos);
+      }
+    }
+
+    /* ── ProseMirror plugin ─────────────────── */
 
     return [
       new Plugin({
         key: dragHandlePluginKey,
         props: {
-          decorations(state) {
-            const { doc } = state;
-            const decorations: Decoration[] = [];
-
-            doc.forEach((node, pos) => {
-              if (node.isBlock) {
-                const handle = document.createElement('div');
-                handle.className = 'studio-drag-handle';
-                handle.contentEditable = 'false';
-                handle.draggable = true;
-                handle.textContent = '\u2630';
-                handle.dataset.blockPos = String(pos);
-
-                decorations.push(
-                  Decoration.widget(pos, handle, {
-                    side: -1,
-                    key: `drag-${pos}`,
-                  }),
-                );
-              }
-            });
-
-            return DecorationSet.create(doc, decorations);
-          },
           handleDOMEvents: {
-            mousedown(view, event) {
-              const target = event.target as HTMLElement;
-              if (!target.classList.contains('studio-drag-handle')) return false;
+            mousemove(view, event) {
+              if (isDragging) return false;
 
-              /* Select the block on mousedown (existing behavior) */
-              const blockPos = target.dataset.blockPos;
-              if (blockPos == null) return false;
+              const coords = { left: event.clientX, top: event.clientY };
+              const posInfo = view.posAtCoords(coords);
+              if (!posInfo) {
+                hideHandle();
+                return false;
+              }
 
-              const pos = Number(blockPos);
-              const node = view.state.doc.nodeAt(pos);
-              if (!node) return false;
+              const resolved = resolveBlockAt(view, posInfo.pos);
+              if (!resolved) {
+                hideHandle();
+                return false;
+              }
 
-              const selection = NodeSelection.create(view.state.doc, pos);
-              view.dispatch(view.state.tr.setSelection(selection));
+              /* Only reposition when changing blocks */
+              if (activeBlockPos !== resolved.pos) {
+                positionHandle(view, resolved.pos);
+              }
 
               return false;
             },
 
-            dragstart(view, event) {
-              const target = event.target as HTMLElement;
-              if (!target.classList.contains('studio-drag-handle')) return false;
-
-              const blockPos = target.dataset.blockPos;
-              if (blockPos == null) return false;
-
-              const pos = Number(blockPos);
-              const node = view.state.doc.nodeAt(pos);
-              if (!node) return false;
-
-              dragSourcePos = pos;
-              isDragging = true;
-
-              /* Set drag data so the browser shows a ghost */
-              if (event.dataTransfer) {
-                event.dataTransfer.effectAllowed = 'move';
-                event.dataTransfer.setData('text/plain', node.textContent ?? '');
-
-                /* Create a lightweight ghost element */
-                const ghost = document.createElement('div');
-                ghost.className = 'studio-drag-ghost';
-                ghost.textContent = (node.textContent ?? '').slice(0, 48) + (node.textContent && node.textContent.length > 48 ? '...' : '');
-                ghost.style.position = 'absolute';
-                ghost.style.top = '-1000px';
-                document.body.appendChild(ghost);
-                event.dataTransfer.setDragImage(ghost, 0, 0);
-                requestAnimationFrame(() => ghost.remove());
+            mouseleave(view, event) {
+              const related = event.relatedTarget as HTMLElement | null;
+              /* Don't hide if moving to the handle itself */
+              if (
+                related &&
+                handleEl &&
+                (handleEl === related || handleEl.contains(related))
+              ) {
+                return false;
               }
-
-              /* Add dragging class to source block */
-              const sourceDom = view.nodeDOM(pos);
-              if (sourceDom instanceof HTMLElement) {
-                sourceDom.classList.add('studio-block-dragging');
-              }
-
+              hideHandle();
               return false;
             },
 
@@ -215,7 +355,6 @@ const DragHandle = Extension.create({
             },
 
             dragleave(view, event) {
-              /* Only hide if we're leaving the editor entirely */
               const related = event.relatedTarget as HTMLElement | null;
               if (!related || !view.dom.contains(related)) {
                 hideDropIndicator();
@@ -244,7 +383,6 @@ const DragHandle = Extension.create({
               /* Don't drop onto itself */
               const sourceEnd = sourcePos + sourceNode.nodeSize;
               if (insertPos >= sourcePos && insertPos <= sourceEnd) {
-                /* Remove dragging class */
                 const sourceDom = view.nodeDOM(sourcePos);
                 if (sourceDom instanceof HTMLElement) {
                   sourceDom.classList.remove('studio-block-dragging');
@@ -254,14 +392,17 @@ const DragHandle = Extension.create({
 
               const { tr } = view.state;
 
-              /* If dropping after the source, we need to adjust for
-                 the upcoming deletion shifting positions */
+              /*
+               * Position adjustment: deleting the source shifts all
+               * positions after it. The operation order depends on
+               * whether we are dragging up or down.
+               */
               if (insertPos > sourcePos) {
-                /* Delete first, then adjust insert position */
+                /* Dragging DOWN: delete first, then insert at adjusted pos */
                 tr.delete(sourcePos, sourceEnd);
                 insertPos -= sourceNode.nodeSize;
               } else {
-                /* Insert first at earlier position, then delete shifted source */
+                /* Dragging UP: insert first, then delete shifted source */
                 tr.insert(insertPos, sourceNode);
                 tr.delete(
                   sourcePos + sourceNode.nodeSize,
@@ -272,27 +413,50 @@ const DragHandle = Extension.create({
               view.dispatch(tr);
               return true;
             },
-
-            dragend(view) {
-              /* Clean up regardless of whether drop succeeded */
-              hideDropIndicator();
-
-              if (dragSourcePos != null) {
-                const sourceDom = view.nodeDOM(dragSourcePos);
-                if (sourceDom instanceof HTMLElement) {
-                  sourceDom.classList.remove('studio-block-dragging');
-                }
-              }
-
-              dragSourcePos = null;
-              isDragging = false;
-              return false;
-            },
           },
         },
-        view() {
+        view(view) {
+          currentView = view;
+
+          /* Find the scrollable ancestor for scroll tracking */
+          scrollContainer = view.dom.closest(
+            '.studio-tiptap-wrapper',
+          ) as HTMLElement | null;
+          if (scrollContainer) {
+            scrollContainer.addEventListener('scroll', onScroll, {
+              passive: true,
+            });
+          }
+
           return {
+            update(updatedView) {
+              currentView = updatedView;
+              /* Reposition if document structure changed (typing, etc.) */
+              if (activeBlockPos != null && !isDragging) {
+                const node = updatedView.state.doc.nodeAt(activeBlockPos);
+                if (node) {
+                  positionHandle(updatedView, activeBlockPos);
+                } else {
+                  hideHandle();
+                }
+              }
+            },
             destroy() {
+              currentView = null;
+
+              if (scrollContainer) {
+                scrollContainer.removeEventListener('scroll', onScroll);
+                scrollContainer = null;
+              }
+
+              if (handleEl) {
+                handleEl.removeEventListener('mousedown', onHandleMousedown);
+                handleEl.removeEventListener('dragstart', onHandleDragstart);
+                handleEl.removeEventListener('dragend', onHandleDragend);
+                handleEl.remove();
+                handleEl = null;
+              }
+
               cleanupDropIndicator();
             },
           };

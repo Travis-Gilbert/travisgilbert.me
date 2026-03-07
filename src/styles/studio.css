@@ -2776,36 +2776,32 @@
 /* ── Drag Handles ─────────────────────────────── */
 
 .studio-drag-handle {
-  position: absolute;
-  left: -28px;
-  top: 4px;
-  width: 18px;
-  height: 18px;
+  position: fixed;
+  width: 20px;
+  height: 20px;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 10px;
   color: var(--studio-writing-paper-border);
   cursor: grab;
   opacity: 0;
-  transition: opacity 0.15s ease;
+  transition: opacity 0.15s ease, color 0.12s ease, background-color 0.12s ease;
   border-radius: 3px;
   user-select: none;
-}
-
-.studio-prose > *:hover > .studio-drag-handle,
-.studio-prose > .studio-drag-handle-visible {
-  opacity: 1;
+  z-index: 50;
+  pointer-events: auto;
 }
 
 .studio-drag-handle:hover {
+  opacity: 1 !important;
   color: var(--studio-writing-paper-muted);
-  background-color: rgba(180, 90, 45, 0.06);
+  background-color: rgba(180, 90, 45, 0.08);
 }
 
 .studio-drag-handle:active {
   cursor: grabbing;
   color: var(--studio-tc);
+  background-color: rgba(180, 90, 45, 0.12);
 }
 
 /* Block being dragged */

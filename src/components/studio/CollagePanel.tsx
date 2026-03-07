@@ -89,15 +89,15 @@ export default function CollagePanel({ slug, editor }: CollagePanelProps) {
       <div
         style={{
           fontFamily: 'var(--studio-font-mono)',
-          fontSize: '9px',
-          letterSpacing: '0.1em',
+          fontSize: '11px',
+          letterSpacing: '0.08em',
           textTransform: 'uppercase',
           color: 'var(--studio-tc)',
-          marginBottom: '10px',
+          marginBottom: '12px',
           fontWeight: 600,
         }}
       >
-        HERO IMAGE
+        Collage Builder
       </div>
 
       {previewUrl && (
@@ -122,10 +122,10 @@ export default function CollagePanel({ slug, editor }: CollagePanelProps) {
       <label style={{ display: 'block', marginBottom: '8px' }}>
         <span
           style={{
-            fontSize: '11px',
+            fontSize: '12px',
             color: 'var(--studio-text-2)',
             display: 'block',
-            marginBottom: '3px',
+            marginBottom: '4px',
           }}
         >
           Hero cutout
@@ -147,10 +147,10 @@ export default function CollagePanel({ slug, editor }: CollagePanelProps) {
       <div style={{ marginBottom: '8px' }}>
         <span
           style={{
-            fontSize: '11px',
+            fontSize: '12px',
             color: 'var(--studio-text-2)',
             display: 'block',
-            marginBottom: '3px',
+            marginBottom: '4px',
           }}
         >
           Supports (max 5)
@@ -162,8 +162,8 @@ export default function CollagePanel({ slug, editor }: CollagePanelProps) {
               type="button"
               onClick={() => toggleSupport(c.path)}
               style={{
-                fontSize: '10px',
-                padding: '2px 6px',
+                fontSize: '11px',
+                padding: '3px 8px',
                 borderRadius: '4px',
                 border: '1px solid var(--studio-border)',
                 background: supports.includes(c.path)
@@ -184,10 +184,10 @@ export default function CollagePanel({ slug, editor }: CollagePanelProps) {
       <div style={{ marginBottom: '8px' }}>
         <span
           style={{
-            fontSize: '11px',
+            fontSize: '12px',
             color: 'var(--studio-text-2)',
             display: 'block',
-            marginBottom: '3px',
+            marginBottom: '4px',
           }}
         >
           Strips (max 2)
@@ -199,8 +199,8 @@ export default function CollagePanel({ slug, editor }: CollagePanelProps) {
               type="button"
               onClick={() => toggleStrip(c.path)}
               style={{
-                fontSize: '10px',
-                padding: '2px 6px',
+                fontSize: '11px',
+                padding: '3px 8px',
                 borderRadius: '4px',
                 border: '1px solid var(--studio-border)',
                 background: strips.includes(c.path)
@@ -221,10 +221,10 @@ export default function CollagePanel({ slug, editor }: CollagePanelProps) {
       <div style={{ marginBottom: '10px' }}>
         <span
           style={{
-            fontSize: '11px',
+            fontSize: '12px',
             color: 'var(--studio-text-2)',
             display: 'block',
-            marginBottom: '3px',
+            marginBottom: '4px',
           }}
         >
           Ground
@@ -234,10 +234,10 @@ export default function CollagePanel({ slug, editor }: CollagePanelProps) {
             <label
               key={g}
               style={{
-                fontSize: '11px',
+                fontSize: '12px',
                 display: 'flex',
                 alignItems: 'center',
-                gap: '3px',
+                gap: '4px',
                 cursor: 'pointer',
               }}
             >
@@ -275,9 +275,9 @@ export default function CollagePanel({ slug, editor }: CollagePanelProps) {
               value={customHex}
               onChange={(e) => setCustomHex(e.target.value)}
               style={{
-                width: '72px',
-                fontSize: '11px',
-                padding: '2px 4px',
+                width: '78px',
+                fontSize: '12px',
+                padding: '3px 5px',
                 border: '1px solid var(--studio-border)',
                 borderRadius: '4px',
                 background: 'transparent',
@@ -291,7 +291,7 @@ export default function CollagePanel({ slug, editor }: CollagePanelProps) {
       {error && (
         <div
           style={{
-            fontSize: '11px',
+            fontSize: '12px',
             color: '#D4875A',
             marginBottom: '8px',
           }}
@@ -307,7 +307,7 @@ export default function CollagePanel({ slug, editor }: CollagePanelProps) {
         style={{
           width: '100%',
           padding: '6px 12px',
-          fontSize: '12px',
+          fontSize: '13px',
           fontFamily: 'var(--studio-font-mono)',
           borderRadius: '6px',
           border: '1px solid var(--studio-border)',
