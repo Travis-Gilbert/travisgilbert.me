@@ -1,6 +1,7 @@
 from django.urls import path
 
 from apps.api import views
+from apps.api import connection_views
 from apps.research.views import (
     approved_suggestions,
     suggest_connection,
@@ -27,7 +28,7 @@ urlpatterns = [
     # Backlinks
     path('backlinks/<slug:slug>/', views.backlinks_for_content, name='backlinks'),
 
-    # Full graph (for D3.js visual explorer)
+    # Full graph (for D3.js visual explorer) - source-to-content relationships
     path('graph/', views.source_graph, name='source-graph'),
 
     # Activity data (for heatmap visualization)
@@ -35,6 +36,18 @@ urlpatterns = [
 
     # Aggregate stats
     path('stats/', views.research_stats, name='research-stats'),
+
+    # ── NEW: Connection engine ──────────────────────────────────────
+    # Content-to-content connections (multi-signal: sources, tags, threads, semantic)
+    path('connections/<slug:slug>/', connection_views.content_connections, name='connections'),
+    # Full content-to-content graph (D3-ready, distinct from source graph)
+    path('connections/graph/', connection_views.connection_graph, name='connection-graph'),
+
+    # ── NEW: Semantic similarity ────────────────────────────────────
+    # Similar content (pure embedding-based, no structural signals)
+    path('similar/<slug:slug>/', connection_views.similar_content, name='similar-content'),
+    # Similar sources
+    path('similar/sources/', connection_views.similar_sources, name='similar-sources'),
 
     # Community contributions
     path('suggest/source/', suggest_source, name='suggest-source'),

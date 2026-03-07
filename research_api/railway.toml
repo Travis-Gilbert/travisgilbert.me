@@ -3,6 +3,11 @@ builder = "nixpacks"
 
 [build.nixpacks]
 providers = ["python"]
+# Download the medium spaCy model after pip install.
+# en_core_web_md (~40MB) includes 20,000 word vectors (GloVe).
+# The small model (en_core_web_sm) has NO word vectors, so semantic
+# similarity would return 0.0 for everything.
+cmds = ["python -m spacy download en_core_web_md"]
 
 [deploy]
 startCommand = "python manage.py migrate --noinput && python manage.py collectstatic --noinput && python manage.py ensure_superuser && gunicorn config.wsgi --bind 0.0.0.0:$PORT --access-logfile - --error-logfile -"
