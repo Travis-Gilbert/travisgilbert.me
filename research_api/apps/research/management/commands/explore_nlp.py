@@ -3,11 +3,11 @@ Management command: explore advanced NLP features on real source data.
 
 Run from the research_api directory:
 
-    python manage.py explore_nlp --status
-    python manage.py explore_nlp --tensions
-    python manage.py explore_nlp --similar <source-slug>
-    python manage.py explore_nlp --compare <slug-a> <slug-b>
-    python manage.py explore_nlp --upgrade-test
+    python3 manage.py explore_nlp --status
+    python3 manage.py explore_nlp --tensions
+    python3 manage.py explore_nlp --similar <source-slug>
+    python3 manage.py explore_nlp --compare <slug-a> <slug-b>
+    python3 manage.py explore_nlp --upgrade-test
 
 This command is for experimentation only. It prints results to the
 console. Once you find patterns that are valuable, they get built
@@ -164,7 +164,7 @@ class Command(BaseCommand):
         for c in contradictions[:top_n]:
             for (text_a, text_b), (src_a, src_b, content) in zip(pairs, pair_metadata):
                 if text_a == c['text_a'] and text_b == c['text_b']:
-                    self.stdout.write(f"  TENSION (score: {c['contradiction_score']:.2f})")
+                    self.stdout.write(f"  TENSION ({c['contradiction_score']:.0%} contradiction)")
                     self.stdout.write(f"    Source A: {src_a.title}")
                     self.stdout.write(f"      \"{src_a.public_annotation[:120]}...\"")
                     self.stdout.write(f"    Source B: {src_b.title}")
@@ -247,14 +247,24 @@ class Command(BaseCommand):
         result = analyze_pair(text_a, text_b)
 
         if result['similarity'] is not None:
-            self.stdout.write(f"  Similarity:     {result['similarity']:.3f}")
+            self.stdout.write(f"  Similarity:       {result['similarity']:.3f}")
+
         if result['relationship']:
             r = result['relationship']
-            self.stdout.write(f"  Relationship:   {r['label']} (confidence: {r['confidence']:.2f})")
-            self.stdout.write(f"    Contradiction: {r['scores']['contradiction']:.3f}")
-            self.stdout.write(f"    Entailment:    {r['scores']['entailment']:.3f}")
-            self.stdout.write(f"    Neutral:       {r['scores']['neutral']:.3f}")
-        self.stdout.write(f"  Tension signal: {result['tension_signal']:.3f}")
+            self.stdout.write(f"  Relationship:     {r['label'].upper()} ({r['confidence']:.0%} confident)")
+            self.stdout.write('')
+            self.stdout.write(f"  Probabilities (after softmax):")
+            self.stdout.write(f"    Contradiction:  {r['probabilities']['contradiction']:.1%}")
+            self.stdout.write(f"    Entailment:     {r['probabilities']['entailment']:.1%}")
+            self.stdout.write(f"    Neutral:        {r['probabilities']['neutral']:.1%}")
+            self.stdout.write('')
+            self.stdout.write(f"  Raw logits (before softmax):")
+            self.stdout.write(f"    Contradiction:  {r['raw_logits']['contradiction']:.3f}")
+            self.stdout.write(f"    Entailment:     {r['raw_logits']['entailment']:.3f}")
+            self.stdout.write(f"    Neutral:        {r['raw_logits']['neutral']:.3f}")
+
+        self.stdout.write('')
+        self.stdout.write(f"  Tension signal:   {result['tension_signal']:.3f}")
         self.stdout.write(f"\n  {result['interpretation']}\n")
 
     def _upgrade_comparison(self, sentence_similarity):
