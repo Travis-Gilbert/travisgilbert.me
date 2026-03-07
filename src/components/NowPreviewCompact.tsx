@@ -83,7 +83,7 @@ export default function NowPreviewCompact({ inverted = false }: NowPreviewCompac
           Right now &rarr;
         </span>
       </Link>
-      <div className="grid grid-cols-2 gap-x-4 gap-y-1.5">
+      <div className="grid grid-cols-2 gap-x-8 gap-y-4 items-start">
         {QUADRANTS.map((q) => (
           <div key={q.field}>
             <span
