@@ -30,7 +30,6 @@ export default function RecentCaptures({
           fontFamily: 'var(--cp-font-mono)',
           fontSize: 11,
           color: 'var(--cp-sidebar-text-faint)',
-          fontStyle: 'italic',
         }}
       >
         No captures yet

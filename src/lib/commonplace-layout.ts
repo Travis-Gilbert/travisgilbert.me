@@ -107,6 +107,7 @@ export function createSplit(
 function viewTypeLabel(viewType: ViewType): string {
   const labels: Record<ViewType, string> = {
     timeline: 'The Timeline',
+    'scoped-timeline': 'My Timelines',
     network: 'Knowledge Map',
     notebook: 'Notebook',
     project: 'Project',
@@ -114,6 +115,7 @@ function viewTypeLabel(viewType: ViewType): string {
     calendar: 'Calendar',
     resurface: 'Resurface',
     'loose-ends': 'Loose Ends',
+    compose: 'Compose',
     empty: 'Empty',
   };
   return labels[viewType] ?? viewType;

@@ -71,6 +71,7 @@ export default function TiptapEditor({
   onEditorReady,
   onFocusChange,
   typewriterMode = true,
+  placeholder: placeholderText = 'Start writing...',
 }: {
   initialContent?: string;
   initialContentFormat?: 'html' | 'markdown';
@@ -78,6 +79,7 @@ export default function TiptapEditor({
   onEditorReady?: (editor: Editor) => void;
   onFocusChange?: (focused: boolean) => void;
   typewriterMode?: boolean;
+  placeholder?: string;
 }) {
   const wrapperRef = useRef<HTMLDivElement | null>(null);
   const typewriterFrameRef = useRef<number | null>(null);
@@ -162,7 +164,7 @@ export default function TiptapEditor({
         },
       }).configure({ lowlight }),
       Placeholder.configure({
-        placeholder: 'Start writing...',
+        placeholder: placeholderText,
       }),
       CharacterCount,
       Link.configure({

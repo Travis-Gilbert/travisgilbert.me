@@ -577,8 +577,7 @@
     text-align: center;
     font-family: var(--cp-font-title);
     font-size: 18px;
-    font-style: italic;
-    color: var(--cp-text);
+      color: var(--cp-text);
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -1471,7 +1470,6 @@
 }
 
 .cp-component-empty {
-  font-style: italic;
   color: var(--cp-color-text-muted);
   opacity: 0.6;
 }
@@ -1732,7 +1730,6 @@
   color: var(--cp-color-text-muted);
   margin: 0;
   line-height: 1.5;
-  font-style: italic;
 }
 
 .cp-resurface-score {
@@ -1818,7 +1815,6 @@
 
 .cp-notebook-title {
   font-family: var(--font-title, 'Vollkorn', serif);
-  font-style: italic;
   font-size: 22px;
   font-weight: 600;
   color: var(--cp-color-text);
@@ -1880,7 +1876,6 @@
 
 .cp-project-title {
   font-family: var(--font-title, 'Vollkorn', serif);
-  font-style: italic;
   font-size: 22px;
   font-weight: 600;
   color: var(--cp-color-text);
@@ -2018,7 +2013,6 @@
 
 .cp-list-view-title {
   font-family: var(--font-title, 'Vollkorn', serif);
-  font-style: italic;
   font-size: 22px;
   font-weight: 600;
   color: var(--cp-color-text);
@@ -2161,7 +2155,6 @@
 
 .cp-calendar-title {
   font-family: var(--cp-font-title);
-  font-style: italic;
   font-size: 18px;
   color: var(--cp-text);
   margin: 0;
@@ -2369,7 +2362,6 @@
 }
 
 .cp-daily-log-edge-reason {
-  font-style: italic;
   color: var(--cp-text-faint);
   font-size: 11px;
   margin-left: auto;
@@ -2383,7 +2375,6 @@
   font-size: 12px;
   color: var(--cp-text-muted);
   padding: 4px 8px;
-  font-style: italic;
 }
 
 .cp-daily-log-entity-text {
@@ -2403,7 +2394,6 @@
 
 .cp-daily-log-summary {
   font-family: var(--cp-font-mono);
-  font-style: italic;
   font-size: 12px;
   color: var(--cp-text-muted);
   border-left: 2px solid var(--cp-terracotta);
@@ -2431,7 +2421,6 @@
 
 .cp-loose-ends-title {
   font-family: var(--cp-font-title);
-  font-style: italic;
   font-size: 18px;
   color: var(--cp-text);
   margin: 0 0 4px;
@@ -2534,4 +2523,238 @@
   font-family: var(--cp-font-mono);
   font-size: 10px;
   color: var(--cp-text-faint);
+}
+
+/* ─────────────────────────────────────────────────
+   CommonPlace Editor Wrapper
+   ───────────────────────────────────────────────── */
+
+.cp-editor-wrapper {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.cp-editor-wrapper .studio-tiptap-wrapper {
+  background: var(--cp-surface);
+  border-radius: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.cp-editor-wrapper .studio-page {
+  max-width: 680px;
+  margin: 0 auto;
+  padding: 24px 32px 120px;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Make ProseMirror's parent div and ProseMirror itself fill height */
+.cp-editor-wrapper .studio-page > div {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+
+.cp-editor-wrapper .ProseMirror {
+  flex: 1;
+  min-height: 200px;
+}
+
+/* Override Studio prose for CommonPlace warmth */
+.cp-editor-wrapper .studio-prose {
+  font-family: var(--cp-font-body);
+  font-size: 15px;
+  line-height: 1.7;
+  color: var(--cp-text);
+}
+
+.cp-editor-wrapper .studio-prose h1,
+.cp-editor-wrapper .studio-prose h2,
+.cp-editor-wrapper .studio-prose h3 {
+  font-family: var(--cp-font-title);
+  color: var(--cp-text);
+  margin-top: 1.5em;
+  margin-bottom: 0.5em;
+}
+
+.cp-editor-wrapper .studio-prose h1 {
+  font-size: 28px;
+}
+
+.cp-editor-wrapper .studio-prose h2 {
+  font-size: 22px;
+}
+
+.cp-editor-wrapper .studio-prose h3 {
+  font-size: 17px;
+  font-weight: 600;
+}
+
+.cp-editor-wrapper .studio-prose blockquote {
+  border-left: 3px solid var(--cp-terracotta);
+  padding-left: 16px;
+  color: var(--cp-text-muted);
+}
+
+.cp-editor-wrapper .studio-prose code {
+  font-family: var(--cp-font-mono);
+  font-size: 13px;
+  background: var(--cp-card);
+  padding: 2px 5px;
+  border-radius: 3px;
+}
+
+.cp-editor-wrapper .studio-prose pre {
+  background: #1E1B17;
+  border-radius: 6px;
+  padding: 16px;
+  overflow-x: auto;
+}
+
+.cp-editor-wrapper .studio-prose pre code {
+  background: transparent;
+  padding: 0;
+  font-size: 13px;
+  color: #E8E0D4;
+}
+
+.cp-editor-wrapper .studio-prose a {
+  color: var(--cp-terracotta);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.cp-editor-wrapper .studio-prose hr {
+  border: none;
+  border-top: 1px solid var(--cp-border);
+  margin: 2em 0;
+}
+
+.cp-editor-wrapper .studio-prose ul,
+.cp-editor-wrapper .studio-prose ol {
+  padding-left: 1.5em;
+}
+
+.cp-editor-wrapper .studio-prose li {
+  margin-bottom: 0.3em;
+}
+
+.cp-editor-wrapper .studio-prose .is-empty::before {
+  color: var(--cp-text-faint);
+}
+
+/* ─────────────────────────────────────────────────
+   ComposeView Pane
+   ───────────────────────────────────────────────── */
+
+.cp-compose-pane {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+  background: var(--cp-surface);
+}
+
+.cp-compose-type-bar {
+  display: flex;
+  gap: 6px;
+  padding: 12px 16px 8px;
+  flex-wrap: wrap;
+  border-bottom: 1px solid var(--cp-border-faint);
+}
+
+.cp-compose-type-pill {
+  font-family: var(--cp-font-mono);
+  font-size: 10px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  padding: 4px 10px;
+  border-radius: 12px;
+  border: 1px solid var(--cp-border);
+  background: transparent;
+  color: var(--cp-text-muted);
+  cursor: pointer;
+  transition: all 150ms;
+}
+
+.cp-compose-type-pill:hover {
+  border-color: var(--pill-color, var(--cp-terracotta));
+  color: var(--cp-text);
+}
+
+.cp-compose-type-pill.active {
+  background: var(--pill-color, var(--cp-terracotta));
+  border-color: var(--pill-color, var(--cp-terracotta));
+  color: #FAF6F1;
+}
+
+.cp-compose-title {
+  display: block;
+  width: 100%;
+  max-width: 680px;
+  margin: 0 auto;
+  padding: 20px 32px 0;
+  border: none;
+  outline: none;
+  background: transparent;
+  font-family: var(--cp-font-title);
+  font-size: 26px;
+  font-weight: 600;
+  color: var(--cp-text);
+  box-sizing: border-box;
+}
+
+.cp-compose-title::placeholder {
+  color: var(--cp-text-faint);
+}
+
+.cp-compose-editor-area {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.cp-compose-save-bar {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 12px;
+  padding: 8px 16px;
+  border-top: 1px solid var(--cp-border-faint);
+  background: var(--cp-card);
+}
+
+.cp-compose-error {
+  font-family: var(--cp-font-mono);
+  font-size: 11px;
+  color: #C0392B;
+}
+
+.cp-compose-save-btn {
+  font-family: var(--cp-font-mono);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  padding: 6px 18px;
+  border-radius: 4px;
+  border: none;
+  background: var(--cp-terracotta);
+  color: #FAF6F1;
+  cursor: pointer;
+  transition: opacity 150ms;
+}
+
+.cp-compose-save-btn:hover {
+  opacity: 0.9;
+}
+
+.cp-compose-save-btn:disabled {
+  opacity: 0.5;
+  cursor: default;
 }

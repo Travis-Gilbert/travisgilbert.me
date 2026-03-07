@@ -7,6 +7,7 @@ import {
   createCapturedObject,
   isUrl,
 } from '@/lib/commonplace-capture';
+import { useCommonPlace } from '@/lib/commonplace-context';
 
 /**
  * CaptureButton: spring-animated sidebar capture input.
@@ -25,6 +26,7 @@ interface CaptureButtonProps {
 }
 
 export default function CaptureButton({ onCapture }: CaptureButtonProps) {
+  const { requestView } = useCommonPlace();
   const [isOpen, setIsOpen] = useState(false);
   const [text, setText] = useState('');
   const [selectedType, setSelectedType] = useState<string | null>(null);
@@ -296,6 +298,33 @@ export default function CaptureButton({ onCapture }: CaptureButtonProps) {
         >
           ESC
         </button>
+        {text.trim() && (
+          <button
+            type="button"
+            onClick={() => {
+              requestView('compose', 'Compose', {
+                prefillText: text.trim(),
+                prefillType: selectedType ?? undefined,
+              });
+              setText('');
+              setSelectedType(null);
+              setIsOpen(false);
+            }}
+            style={{
+              padding: '4px 12px',
+              borderRadius: 4,
+              border: '1px solid var(--cp-sidebar-border)',
+              background: 'transparent',
+              color: 'var(--cp-sidebar-text-muted)',
+              fontFamily: 'var(--cp-font-mono)',
+              fontSize: 10,
+              cursor: 'pointer',
+              transition: 'border-color 200ms',
+            }}
+          >
+            EXPAND
+          </button>
+        )}
         <button
           type="button"
           onClick={handleSubmit}

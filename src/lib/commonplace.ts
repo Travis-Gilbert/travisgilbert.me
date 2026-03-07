@@ -56,6 +56,7 @@ export function getObjectTypeIdentity(slug: string): ObjectTypeIdentity {
 
 export type ViewType =
   | 'timeline'
+  | 'scoped-timeline'
   | 'network'
   | 'notebook'
   | 'project'
@@ -63,6 +64,7 @@ export type ViewType =
   | 'calendar'
   | 'resurface'
   | 'loose-ends'
+  | 'compose'
   | 'empty';
 
 export interface ViewDefinition {
@@ -75,6 +77,7 @@ export interface ViewDefinition {
 
 export const VIEW_REGISTRY: Record<ViewType, { label: string; icon: string }> = {
   timeline: { label: 'The Timeline', icon: 'timeline' },
+  'scoped-timeline': { label: 'My Timelines', icon: 'filter' },
   network: { label: 'Knowledge Map', icon: 'graph' },
   notebook: { label: 'Notebook', icon: 'book' },
   project: { label: 'Project', icon: 'briefcase' },
@@ -82,6 +85,7 @@ export const VIEW_REGISTRY: Record<ViewType, { label: string; icon: string }> = 
   calendar: { label: 'Calendar', icon: 'calendar' },
   resurface: { label: 'Resurface', icon: 'sparkle' },
   'loose-ends': { label: 'Loose Ends', icon: 'scatter' },
+  compose: { label: 'Compose', icon: 'note-pencil' },
   empty: { label: 'Empty', icon: 'plus' },
 };
 
@@ -120,19 +124,20 @@ export const SIDEBAR_SECTIONS: SidebarSection[] = [
   {
     title: 'View',
     items: [
-      { label: 'The Timeline', href: '/commonplace', icon: 'timeline' },
-      { label: 'My Timelines', href: '/commonplace/timelines', icon: 'filter' },
+      { label: 'The Timeline', href: '#timeline', icon: 'timeline', viewType: 'timeline' as ViewType },
+      { label: 'My Timelines', href: '#scoped-timeline', icon: 'filter', viewType: 'scoped-timeline' as ViewType },
       {
         label: 'Networks',
-        href: '/commonplace/networks',
+        href: '#networks',
         icon: 'graph',
+        viewType: 'network' as ViewType,
         expandable: true,
         children: [
-          { label: 'Saved Frames', href: '/commonplace/networks/frames', icon: 'frame' },
+          { label: 'Saved Frames', href: '#frames', icon: 'frame', viewType: 'network' as ViewType, viewContext: { showFrames: true } },
         ],
       },
-      { label: 'Calendar', href: '/commonplace/calendar', icon: 'calendar', viewType: 'calendar' as ViewType },
-      { label: 'Loose Ends', href: '/commonplace/loose-ends', icon: 'scatter', viewType: 'loose-ends' as ViewType },
+      { label: 'Calendar', href: '#calendar', icon: 'calendar', viewType: 'calendar' as ViewType },
+      { label: 'Loose Ends', href: '#loose-ends', icon: 'scatter', viewType: 'loose-ends' as ViewType },
     ],
   },
   {
@@ -157,10 +162,10 @@ export const SIDEBAR_SECTIONS: SidebarSection[] = [
   {
     title: 'System',
     items: [
-      { label: 'Connection Engine', href: '/commonplace/engine', icon: 'engine' },
-      { label: 'Reminders', href: '/commonplace/reminders', icon: 'bell' },
-      { label: 'Resurface', href: '/commonplace/resurface', icon: 'sparkle', viewType: 'resurface' as ViewType },
-      { label: 'Settings', href: '/commonplace/settings', icon: 'gear' },
+      { label: 'Connection Engine', href: '#engine', icon: 'engine' },
+      { label: 'Reminders', href: '#reminders', icon: 'bell' },
+      { label: 'Resurface', href: '#resurface', icon: 'sparkle', viewType: 'resurface' as ViewType },
+      { label: 'Settings', href: '#settings', icon: 'gear' },
     ],
   },
 ];

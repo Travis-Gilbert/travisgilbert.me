@@ -115,7 +115,6 @@ export default function CommonPlaceSidebar() {
           onClick={closeDrawerIfMobile}
           style={{
             fontFamily: 'var(--cp-font-title)',
-            fontStyle: 'italic',
             fontSize: 22,
             fontWeight: 600,
             color: 'var(--cp-sidebar-text)',
@@ -159,6 +158,21 @@ export default function CommonPlaceSidebar() {
                     onCapture={handleCapture}
                   />
                 </div>
+                <button
+                  type="button"
+                  className="cp-sidebar-item"
+                  onClick={() => requestView('compose', 'Compose')}
+                  style={{
+                    width: '100%',
+                    border: 'none',
+                    background: 'transparent',
+                    textAlign: 'left',
+                    marginTop: 2,
+                  }}
+                >
+                  <SidebarIcon name="note-pencil" />
+                  <span>Compose</span>
+                </button>
               </div>
             ) : (
               section.items.map((item) => {
@@ -257,8 +271,7 @@ export default function CommonPlaceSidebar() {
                             fontFamily: 'var(--cp-font-mono)',
                             fontSize: 11,
                             color: 'var(--cp-sidebar-text-faint)',
-                            fontStyle: 'italic',
-                          }}
+                                          }}
                         >
                           None yet
                         </div>

@@ -67,7 +67,6 @@ export default function RetroNote({
       <div
         style={{
           fontFamily: 'var(--cp-font-title)',
-          fontStyle: 'italic',
           fontSize: 14,
           color: 'var(--cp-text-muted)',
           lineHeight: 1.4,

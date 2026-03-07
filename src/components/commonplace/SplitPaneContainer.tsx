@@ -43,6 +43,7 @@ import NotebookListView from './NotebookListView';
 import ProjectListView from './ProjectListView';
 import CalendarView from './CalendarView';
 import LooseEndsView from './LooseEndsView';
+import ComposeView from './ComposeView';
 
 const STORAGE_KEY = 'commonplace-layout';
 
@@ -847,6 +848,19 @@ function PaneViewContent({ viewType, context, paneId, onOpenObject }: PaneViewCo
     );
   }
 
+  /* Live view: Scoped Timeline (re-uses TimelineView for now) */
+  if (viewType === 'scoped-timeline') {
+    return (
+      <TimelineView
+        onOpenObject={
+          paneId && onOpenObject
+            ? (objectRef) => onOpenObject(paneId, objectRef)
+            : undefined
+        }
+      />
+    );
+  }
+
   /* Live view: Network (Map / Entities / Timeline viz) */
   if (viewType === 'network') {
     return (
@@ -947,6 +961,21 @@ function PaneViewContent({ viewType, context, paneId, onOpenObject }: PaneViewCo
     );
   }
 
+  /* Live view: Compose (rich text editor) */
+  if (viewType === 'compose') {
+    return (
+      <ComposeView
+        prefillText={context?.prefillText as string | undefined}
+        prefillType={context?.prefillType as string | undefined}
+        onSaved={
+          paneId && onOpenObject
+            ? (objectId) => onOpenObject(paneId, objectId)
+            : undefined
+        }
+      />
+    );
+  }
+
   /* Placeholder for views not yet implemented */
   return (
     <div
@@ -963,7 +992,6 @@ function PaneViewContent({ viewType, context, paneId, onOpenObject }: PaneViewCo
         <div
           style={{
             fontFamily: 'var(--cp-font-title)',
-            fontStyle: 'italic',
             fontSize: 20,
             color: 'var(--cp-text)',
             marginTop: 12,
@@ -1090,6 +1118,25 @@ function ViewTypeIcon({ viewType, size = 16 }: { viewType: ViewType; size?: numb
           <circle cx={12} cy={6} r={1.5} />
           <circle cx={6} cy={11} r={1.5} />
           <circle cx={11} cy={13} r={1.5} />
+        </svg>
+      );
+    case 'scoped-timeline':
+      return (
+        <svg width={s} height={s} viewBox="0 0 16 16" fill="none" stroke={color} strokeWidth={sw} style={{ display: 'block', margin: '0 auto' }}>
+          <line x1={3} y1={2} x2={3} y2={14} />
+          <line x1={3} y1={5} x2={10} y2={5} />
+          <line x1={3} y1={9} x2={8} y2={9} />
+          <circle cx={13} cy={5} r={1.5} />
+          <circle cx={11} cy={9} r={1.5} />
+        </svg>
+      );
+    case 'compose':
+      return (
+        <svg width={s} height={s} viewBox="0 0 16 16" fill="none" stroke={color} strokeWidth={sw} style={{ display: 'block', margin: '0 auto' }}>
+          <rect x={2} y={2} width={12} height={12} rx={1} />
+          <line x1={5} y1={5} x2={11} y2={5} />
+          <line x1={5} y1={8} x2={11} y2={8} />
+          <line x1={5} y1={11} x2={8} y2={11} />
         </svg>
       );
     default:
