@@ -14,38 +14,8 @@ import { useRef, useEffect, useState, useCallback } from 'react';
 import * as d3 from 'd3';
 import type { GraphNode, GraphEdge, GraphResponse } from '@/lib/research';
 import { fetchSourceGraph } from '@/lib/research';
-
-// ─── Color mapping ───────────────────────────────────────────────────────────
-
-const NODE_COLORS: Record<string, string> = {
-  // Source types
-  book: '#C49A4A',
-  article: '#B45A2D',
-  paper: '#6B4A8A',
-  video: '#A44A3A',
-  podcast: '#5A7A4A',
-  dataset: '#2D5F6B',
-  document: '#8A7A5A',
-  report: '#5A6A7A',
-  map: '#4A7A5A',
-  archive: '#7A6A4A',
-  interview: '#6A5A7A',
-  website: '#5A7A8A',
-  other: '#6A5E52',
-  // Content types
-  essay: '#B45A2D',
-  field_note: '#2D5F6B',
-};
-
-const EDGE_COLORS: Record<string, string> = {
-  primary: '#B45A2D',
-  background: '#9A8E82',
-  inspiration: '#C49A4A',
-  data: '#2D5F6B',
-  counterargument: '#A44A3A',
-  methodology: '#5A7A4A',
-  reference: '#6A5E52',
-};
+import { ALL_NODE_COLORS, ROLE_COLORS } from '@/lib/graph/colors';
+import GraphTooltip from '@/components/GraphTooltip';
 
 // ─── Types for D3 simulation ─────────────────────────────────────────────────
 
@@ -68,6 +38,10 @@ export default function SourceGraph() {
   const [loaded, setLoaded] = useState(false);
   const [detail, setDetail] = useState<DetailPanel | null>(null);
   const [dimensions, setDimensions] = useState({ width: 900, height: 600 });
+  const [tooltipData, setTooltipData] = useState<{
+    title: string; subtitle: string; lines: string[];
+    position: { x: number; y: number }; visible: boolean;
+  }>({ title: '', subtitle: '', lines: [], position: { x: 0, y: 0 }, visible: false });
 
   // Fetch graph data
   useEffect(() => {
@@ -159,7 +133,7 @@ export default function SourceGraph() {
       .selectAll('line')
       .data(edges)
       .join('line')
-      .attr('stroke', (d) => EDGE_COLORS[d.role] || '#9A8E82')
+      .attr('stroke', (d) => ROLE_COLORS[d.role] || '#9A8E82')
       .attr('stroke-width', 1.5)
       .attr('stroke-opacity', 0.4);
 
@@ -177,7 +151,7 @@ export default function SourceGraph() {
       .filter((d) => d.type === 'source')
       .append('circle')
       .attr('r', 8)
-      .attr('fill', (d) => NODE_COLORS[d.sourceType || 'other'] || '#6A5E52')
+      .attr('fill', (d) => ALL_NODE_COLORS[d.sourceType || 'other'] || '#6A5E52')
       .attr('stroke', '#F0EBE4')
       .attr('stroke-width', 1.5);
 
@@ -190,7 +164,7 @@ export default function SourceGraph() {
       .attr('x', -8)
       .attr('y', -8)
       .attr('rx', 3)
-      .attr('fill', (d) => NODE_COLORS[d.type] || '#6A5E52')
+      .attr('fill', (d) => ALL_NODE_COLORS[d.type] || '#6A5E52')
       .attr('stroke', '#F0EBE4')
       .attr('stroke-width', 1.5);
 
@@ -205,16 +179,24 @@ export default function SourceGraph() {
       .attr('fill', 'var(--color-ink-muted)')
       .attr('pointer-events', 'none');
 
-    // Interaction: hover highlight
+    // Edge opacity by role importance (primary/data stronger, background/reference fainter)
+    const ROLE_OPACITY: Record<string, number> = {
+      primary: 0.55, data: 0.5, inspiration: 0.4, counterargument: 0.45,
+      methodology: 0.4, background: 0.25, reference: 0.2,
+    };
+    edgeSelection.attr('stroke-opacity', (d) => ROLE_OPACITY[d.role] ?? 0.3);
+
+    // Interaction: hover highlight + tooltip
     nodeGroup
-      .on('mouseenter', function (_event, d) {
+      .on('mouseenter', function (event, d) {
         const connectedIds = new Set<string>();
         connectedIds.add(d.id);
+        const roles: string[] = [];
         edges.forEach((e) => {
           const srcId = typeof e.source === 'object' ? (e.source as SimNode).id : e.source;
           const tgtId = typeof e.target === 'object' ? (e.target as SimNode).id : e.target;
-          if (srcId === d.id) connectedIds.add(tgtId as string);
-          if (tgtId === d.id) connectedIds.add(srcId as string);
+          if (srcId === d.id) { connectedIds.add(tgtId as string); roles.push(e.role); }
+          if (tgtId === d.id) { connectedIds.add(srcId as string); roles.push(e.role); }
         });
 
         nodeGroup.attr('opacity', (n) => connectedIds.has(n.id) ? 1 : 0.15);
@@ -223,10 +205,20 @@ export default function SourceGraph() {
           const tgtId = typeof e.target === 'object' ? (e.target as SimNode).id : e.target;
           return (srcId === d.id || tgtId === d.id) ? 0.8 : 0.05;
         });
+
+        const rect = svgRef.current!.getBoundingClientRect();
+        setTooltipData({
+          title: d.label,
+          subtitle: d.creator || d.sourceType || d.type,
+          lines: [`${connectedIds.size - 1} connections`, ...new Set(roles)],
+          position: { x: event.clientX - rect.left, y: event.clientY - rect.top - 12 },
+          visible: true,
+        });
       })
       .on('mouseleave', function () {
         nodeGroup.attr('opacity', 1);
-        edgeSelection.attr('stroke-opacity', 0.4);
+        edgeSelection.attr('stroke-opacity', (d) => ROLE_OPACITY[d.role] ?? 0.3);
+        setTooltipData((prev) => ({ ...prev, visible: false }));
       })
       .on('click', function (_event, d) {
         showDetail(d, edges, nodes);
@@ -291,6 +283,8 @@ export default function SourceGraph() {
         style={{ touchAction: 'none' }}
       />
 
+      <GraphTooltip {...tooltipData} />
+
       {/* Legend */}
       <div className="flex flex-wrap gap-4 mt-4 text-[11px] font-mono text-ink-light">
         <span className="flex items-center gap-1.5">
@@ -323,8 +317,8 @@ export default function SourceGraph() {
               <span
                 className="inline-block text-[10px] font-mono uppercase tracking-wider px-1.5 py-0.5 rounded mb-1"
                 style={{
-                  backgroundColor: NODE_COLORS[detail.node.sourceType || detail.node.type] + '20',
-                  color: NODE_COLORS[detail.node.sourceType || detail.node.type],
+                  backgroundColor: ALL_NODE_COLORS[detail.node.sourceType || detail.node.type] + '20',
+                  color: ALL_NODE_COLORS[detail.node.sourceType || detail.node.type],
                 }}
               >
                 {detail.node.sourceType || detail.node.type}
@@ -357,7 +351,7 @@ export default function SourceGraph() {
                   <li key={i} className="text-[12px] font-body-alt text-ink-muted leading-snug">
                     <span
                       className="inline-block w-2 h-2 rounded-full mr-1.5"
-                      style={{ backgroundColor: NODE_COLORS[c.type] || '#6A5E52' }}
+                      style={{ backgroundColor: ALL_NODE_COLORS[c.type] || '#6A5E52' }}
                     />
                     {c.label}
                     <span className="text-[10px] text-ink-light ml-1">({c.role})</span>

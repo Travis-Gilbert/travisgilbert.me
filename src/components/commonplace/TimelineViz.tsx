@@ -16,6 +16,8 @@ import * as d3 from 'd3';
 import { getObjectTypeIdentity, OBJECT_TYPES } from '@/lib/commonplace';
 import type { GraphNode, GraphLink } from '@/lib/commonplace';
 import { getNodeColor, truncateLabel } from '@/lib/commonplace-graph';
+import { EDGE_RGB } from '@/lib/graph/colors';
+import GraphTooltip from '@/components/GraphTooltip';
 
 interface TimelineVizProps {
   onOpenObject?: (objectId: string) => void;
@@ -191,7 +193,7 @@ export default function TimelineViz({
       const arcHeight = Math.min(MAX_ARC_HEIGHT, Math.max(MIN_ARC_HEIGHT, dx * 0.3));
 
       ctx.beginPath();
-      ctx.strokeStyle = `rgba(140, 130, 120, ${alpha})`;
+      ctx.strokeStyle = `rgba(${EDGE_RGB}, ${alpha})`;
       ctx.lineWidth = 1;
 
       /* Quadratic bezier arc above the nodes */
@@ -309,25 +311,20 @@ export default function TimelineViz({
       </svg>
 
       {/* Tooltip */}
-      {hoveredPos && (
-        <div
-          className="cp-node-tooltip"
-          style={{
-            position: 'absolute',
-            left: hoveredPos.x,
-            top: hoveredPos.y - 32,
-            transform: 'translateX(-50%)',
-            pointerEvents: 'none',
-            zIndex: 10,
-          }}
-        >
-          <div style={{ fontWeight: 600, marginBottom: 2 }}>{hoveredPos.node.title}</div>
-          <div style={{ opacity: 0.6, fontSize: 9 }}>
-            {getObjectTypeIdentity(hoveredPos.node.objectType).label} ·{' '}
-            {hoveredPos.node.edgeCount} connections
-          </div>
-        </div>
-      )}
+      <GraphTooltip
+        title={hoveredPos?.node.title ?? ''}
+        subtitle={
+          hoveredPos
+            ? `${getObjectTypeIdentity(hoveredPos.node.objectType).label} · ${hoveredPos.node.edgeCount} connections`
+            : ''
+        }
+        position={{
+          x: hoveredPos?.x ?? 0,
+          y: (hoveredPos?.y ?? 0) - 32,
+        }}
+        visible={!!hoveredPos}
+        className="commonplace-theme"
+      />
 
       {/* Legend (bottom-right) */}
       <div

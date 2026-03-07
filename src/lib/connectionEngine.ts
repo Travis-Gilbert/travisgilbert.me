@@ -60,6 +60,11 @@ export const WEIGHT_STROKE: Record<ConnectionWeight, number> = {
 // Core function
 // ─────────────────────────────────────────────────
 
+/**
+ * @deprecated Replaced by Research API `/api/v1/connections/graph/` endpoint.
+ * Kept for backward compatibility with essay pages that still use build-time data.
+ * See `src/lib/graph/connectionTransform.ts` for the API-backed replacement.
+ */
 export function computeConnections(
   essay: ContentEntry<Essay>,
   content: AllContent,
@@ -235,6 +240,11 @@ export interface ThreadPair {
  * Compute unique thread pairs across all content for listing page arcs.
  * Deduplicates bidirectional relationships (A→B and B→A become one pair).
  * Limited to `maxPairs` to prevent visual noise.
+ */
+/**
+ * @deprecated Replaced by Research API `/api/v1/connections/graph/` endpoint.
+ * Kept for backward compatibility with pages that still use build-time thread arcs.
+ * See `src/lib/graph/connectionTransform.ts` for the API-backed replacement.
  */
 export function computeThreadPairs(
   content: AllContent,

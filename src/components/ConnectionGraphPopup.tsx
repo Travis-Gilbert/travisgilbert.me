@@ -5,198 +5,137 @@
  * of all connections for the current essay.
  *
  * Rendering follows the same two-layer pattern as ConnectionMap:
- *   - Canvas (behind): rough.js hand-drawn edges
- *   - SVG (front): React-rendered interactive nodes
+ *   Canvas (behind): rough.js hand-drawn edges with signal-based encoding
+ *   SVG (front): React-rendered interactive nodes
  *
- * Force layout is computed synchronously (300 ticks) so the graph
- * appears instantly with no animation jank. Same technique as ConnectionMap.
+ * Data is fetched client-side from the research API via useConnectionGraph.
+ * Force layout uses the PRESET_COMPACT simulation preset (synchronous 300 ticks).
  *
  * Keyboard: Escape closes. Focus trapped inside modal (backdrop click closes).
  */
 
-import { useEffect, useRef, useState, useCallback } from 'react';
+import { useEffect, useRef, useState, useMemo, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import { useRouter } from 'next/navigation';
-import * as d3 from 'd3';
 import rough from 'roughjs';
-import type { Connection } from '@/lib/connectionEngine';
+import { NODE_COLORS } from '@/lib/graph/colors';
+import { scaleByScore, scaleByCount } from '@/lib/graph/radius';
+import {
+  runSynchronousSimulation,
+  PRESET_COMPACT,
+  type SimulationNode,
+} from '@/lib/graph/simulation';
+import { useConnectionGraph } from '@/lib/graph/useConnectionGraph';
+import type { GraphNode, GraphEdge } from '@/lib/graph/connectionTransform';
+import GraphTooltip, { buildSignalIndicators } from '@/components/GraphTooltip';
 
-const RESEARCH_URL =
-  process.env.NEXT_PUBLIC_RESEARCH_URL ?? 'https://research.travisgilbert.me';
+// ─────────────────────────────────────────────────
+// Types
+// ─────────────────────────────────────────────────
 
-const TYPE_URL: Record<string, string> = {
-  essay: '/essays',
-  'field-note': '/field-notes',
-  shelf: '/shelf',
-};
+interface ConnectionGraphPopupProps {
+  essayTitle: string;
+  essaySlug: string;
+  onClose: () => void;
+}
 
-const TYPE_LABEL: Record<string, string> = {
-  essay: 'Essay',
-  'field-note': 'Field Note',
-  shelf: 'Shelf',
+/** Extended simulation node carrying the original GraphNode data */
+interface PopupNode extends SimulationNode {
+  nodeData: GraphNode;
+  isCenter: boolean;
+}
+
+// ─────────────────────────────────────────────────
+// Constants
+// ─────────────────────────────────────────────────
+
+const TYPE_LABELS: Record<string, string> = {
+  essay: 'ESSAY',
+  'field-note': 'FIELD NOTE',
+  project: 'PROJECT',
+  shelf: 'SHELF',
 };
 
 /** Fixed canvas dimensions. The popup is xl-only (ConnectionDots is hidden below xl). */
 const GRAPH_W = 508;
 const GRAPH_H = 320;
 
-// ─── D3 force layout (pure data, no DOM) ────────────────────────────────────
+const RESEARCH_URL =
+  process.env.NEXT_PUBLIC_RESEARCH_API_URL ?? 'http://localhost:8001';
 
-interface SimNode extends d3.SimulationNodeDatum {
-  id: string;
-  isCenter: boolean;
-  connection?: Connection;
-  radius: number;
-  color: string;
+// ─────────────────────────────────────────────────
+// Helpers
+// ─────────────────────────────────────────────────
+
+function truncateTitle(str: string, maxLen = 20): string {
+  if (str.length <= maxLen) return str;
+  return str.slice(0, maxLen - 1) + '\u2026';
 }
 
-interface SimEdge extends d3.SimulationLinkDatum<SimNode> {
-  color: string;
+/** Convert hex color to rgba string */
+function hexToRgba(hex: string, alpha: number): string {
+  const r = parseInt(hex.slice(1, 3), 16);
+  const g = parseInt(hex.slice(3, 5), 16);
+  const b = parseInt(hex.slice(5, 7), 16);
+  return `rgba(${r}, ${g}, ${b}, ${alpha})`;
 }
 
-interface LayoutNode {
-  id: string;
-  x: number;
-  y: number;
-  radius: number;
-  isCenter: boolean;
-  connection?: Connection;
-  color: string;
-}
-
-interface LayoutEdge {
-  x1: number;
-  y1: number;
-  x2: number;
-  y2: number;
-  color: string;
-}
-
-function truncate(text: string, max: number): string {
-  return text.length > max ? text.slice(0, max - 2) + '...' : text;
-}
-
-function computeLayout(
-  essaySlug: string,
-  connections: Connection[],
-  width: number,
-  height: number,
-): { nodes: LayoutNode[]; edges: LayoutEdge[] } {
-  const centerId = `essay-${essaySlug}`;
-
-  const centerSim: SimNode = {
-    id: centerId,
-    isCenter: true,
-    radius: 15,
-    color: '#B45A2D',
-    x: width / 2,
-    y: height / 2,
-    fx: width / 2,
-    fy: height / 2,
-  };
-
-  const connSim: SimNode[] = connections.map((c) => ({
-    id: c.id,
-    isCenter: false,
-    connection: c,
-    radius: c.weight === 'heavy' ? 11 : c.weight === 'medium' ? 9 : 7,
-    color: c.color,
-  }));
-
-  const allNodes: SimNode[] = [centerSim, ...connSim];
-
-  const links: SimEdge[] = connections.map((c) => ({
-    source: centerId,
-    target: c.id,
-    color: c.color,
-  }));
-
-  const simulation = d3
-    .forceSimulation<SimNode>(allNodes)
-    .force(
-      'link',
-      d3
-        .forceLink<SimNode, SimEdge>(links)
-        .id((d) => d.id)
-        .distance(110)
-        .strength(0.7),
-    )
-    .force('charge', d3.forceManyBody<SimNode>().strength(-200))
-    .force('center', d3.forceCenter(width / 2, height / 2).strength(0.3))
-    .force(
-      'collision',
-      d3.forceCollide<SimNode>().radius((d) => d.radius + 14),
-    )
-    .stop();
-
-  for (let i = 0; i < 300; i++) simulation.tick();
-
-  // Clamp nodes to canvas bounds
-  const pad = 28;
-  for (const n of allNodes) {
-    n.x = Math.max(pad + n.radius, Math.min(width - pad - n.radius, n.x ?? width / 2));
-    n.y = Math.max(pad + n.radius, Math.min(height - pad - n.radius, n.y ?? height / 2));
-  }
-
-  const nodeById = new Map(allNodes.map((n) => [n.id, n]));
-
-  const edges: LayoutEdge[] = links.map((l) => {
-    const sid = typeof l.source === 'string' ? l.source : (l.source as SimNode).id;
-    const tid = typeof l.target === 'string' ? l.target : (l.target as SimNode).id;
-    const s = nodeById.get(sid)!;
-    const t = nodeById.get(tid)!;
-    return { x1: s.x ?? 0, y1: s.y ?? 0, x2: t.x ?? 0, y2: t.y ?? 0, color: l.color };
-  });
-
-  const nodes: LayoutNode[] = allNodes.map((n) => ({
-    id: n.id,
-    x: n.x ?? 0,
-    y: n.y ?? 0,
-    radius: n.radius,
-    isCenter: n.isCenter,
-    connection: n.connection,
-    color: n.color,
-  }));
-
-  return { nodes, edges };
-}
-
-// ─── Component ──────────────────────────────────────────────────────────────
-
-interface ConnectionGraphPopupProps {
-  connections: Connection[];
-  essayTitle: string;
-  essaySlug: string;
-  onClose: () => void;
-}
+// ─────────────────────────────────────────────────
+// Component
+// ─────────────────────────────────────────────────
 
 export default function ConnectionGraphPopup({
-  connections,
   essayTitle,
   essaySlug,
   onClose,
 }: ConnectionGraphPopupProps) {
   const router = useRouter();
   const canvasRef = useRef<HTMLCanvasElement>(null);
-
-  // Portal requires client-side mount
   const [mounted, setMounted] = useState(false);
+  const [hoveredId, setHoveredId] = useState<string | null>(null);
+  const [tooltipPos, setTooltipPos] = useState({ x: 0, y: 0 });
+  const graphAreaRef = useRef<HTMLDivElement>(null);
+
+  // Fetch connection data from research API
+  const { nodes, edges, loading, error } = useConnectionGraph(essaySlug, essayTitle);
+
   useEffect(() => { setMounted(true); }, []);
 
-  // Hover state for SVG nodes
-  const [hoveredId, setHoveredId] = useState<string | null>(null);
+  // Run force simulation
+  const layout = useMemo(() => {
+    if (nodes.length === 0) return [];
 
-  // Compute layout once (connections are static, computed at build time)
-  const [layout, setLayout] = useState<{ nodes: LayoutNode[]; edges: LayoutEdge[] } | null>(null);
+    const maxCount = Math.max(1, ...nodes.map((n) => n.connectionCount));
+    const maxScore = Math.max(1, ...nodes.map((n) => n.totalScore));
 
+    const simNodes: PopupNode[] = nodes.map((n, i) => ({
+      id: n.id,
+      radius: i === 0
+        ? 15 // Center node: fixed prominent size
+        : scaleByScore(n.totalScore, maxScore, 6, 12),
+      connectionCount: n.connectionCount,
+      nodeData: n,
+      isCenter: i === 0,
+      // Pin center node
+      ...(i === 0 ? { fx: GRAPH_W / 2, fy: GRAPH_H / 2 } : {}),
+    }));
+
+    const simEdges = edges.map((e) => ({
+      source: e.source,
+      target: e.target,
+      weight: e.weight,
+    }));
+
+    runSynchronousSimulation(simNodes, simEdges, GRAPH_W, GRAPH_H, PRESET_COMPACT);
+
+    return simNodes;
+  }, [nodes, edges]);
+
+  // Draw rough.js edges on canvas
   useEffect(() => {
-    setLayout(computeLayout(essaySlug, connections, GRAPH_W, GRAPH_H));
-  }, [connections, essaySlug]);
-
-  // Draw rough.js edges on canvas after layout is ready
-  useEffect(() => {
-    if (!layout || !canvasRef.current) return;
     const canvas = canvasRef.current;
+    if (!canvas || layout.length === 0) return;
+
     const dpr = window.devicePixelRatio || 1;
     canvas.width = GRAPH_W * dpr;
     canvas.height = GRAPH_H * dpr;
@@ -206,15 +145,40 @@ export default function ConnectionGraphPopup({
     ctx.clearRect(0, 0, GRAPH_W, GRAPH_H);
 
     const rc = rough.canvas(canvas);
-    for (const edge of layout.edges) {
-      rc.line(edge.x1, edge.y1, edge.x2, edge.y2, {
-        roughness: 1.3,
-        bowing: 0.9,
-        stroke: `${edge.color}55`,
-        strokeWidth: 1.2,
+    const posMap = new Map(
+      layout.map((n) => [n.id, { x: n.x ?? 0, y: n.y ?? 0 }]),
+    );
+
+    // Connected IDs for hover highlighting
+    const connectedIds = new Set<string>();
+    if (hoveredId) {
+      connectedIds.add(hoveredId);
+      edges.forEach((e) => {
+        if (e.source === hoveredId) connectedIds.add(e.target);
+        if (e.target === hoveredId) connectedIds.add(e.source);
       });
     }
-  }, [layout]);
+
+    edges.forEach((e) => {
+      const from = posMap.get(e.source);
+      const to = posMap.get(e.target);
+      if (!from || !to) return;
+
+      let alpha = 0.4;
+      if (hoveredId) {
+        const isConnected =
+          connectedIds.has(e.source) && connectedIds.has(e.target);
+        alpha = isConnected ? 0.7 : 0.04;
+      }
+
+      rc.line(from.x, from.y, to.x, to.y, {
+        roughness: e.roughness,
+        stroke: hexToRgba(e.color, alpha),
+        strokeWidth: e.strokeWidth,
+        bowing: e.bowing,
+      });
+    });
+  }, [layout, edges, hoveredId]);
 
   // Escape key to close
   useEffect(() => {
@@ -226,14 +190,44 @@ export default function ConnectionGraphPopup({
   }, [onClose]);
 
   const handleNodeClick = useCallback(
-    (node: LayoutNode) => {
-      if (node.isCenter || !node.connection) return;
-      const prefix = TYPE_URL[node.connection.type] ?? '';
+    (node: PopupNode) => {
+      if (node.isCenter) return;
       onClose();
-      router.push(`${prefix}/${node.connection.slug}`);
+      router.push(node.nodeData.href);
     },
     [onClose, router],
   );
+
+  // Connected IDs for node dimming (SVG render)
+  const connectedIds = new Set<string>();
+  if (hoveredId) {
+    connectedIds.add(hoveredId);
+    edges.forEach((e) => {
+      if (e.source === hoveredId) connectedIds.add(e.target);
+      if (e.target === hoveredId) connectedIds.add(e.source);
+    });
+  }
+
+  // Tooltip data for hovered node
+  const hoveredNode = hoveredId
+    ? layout.find((n) => n.id === hoveredId)?.nodeData
+    : null;
+
+  const tooltipSignals = hoveredNode
+    ? buildSignalIndicators(
+        edges
+          .filter((e) => e.source === hoveredId || e.target === hoveredId)
+          .reduce(
+            (acc, e) => {
+              for (const [key, val] of Object.entries(e.signals)) {
+                if (val && !acc[key]) acc[key] = val;
+              }
+              return acc;
+            },
+            {} as Record<string, { score: number; detail: string } | null>,
+          ),
+      )
+    : [];
 
   const researcherUrl = `${RESEARCH_URL}/paper-trail/essay-trail/${essaySlug}/`;
 
@@ -341,8 +335,9 @@ export default function ConnectionGraphPopup({
           </button>
         </div>
 
-        {/* Graph area: canvas (edges) + SVG (nodes) */}
+        {/* Graph area */}
         <div
+          ref={graphAreaRef}
           style={{
             position: 'relative',
             width: GRAPH_W,
@@ -350,6 +345,46 @@ export default function ConnectionGraphPopup({
             margin: '0 auto',
           }}
         >
+          {/* Loading state */}
+          {loading && (
+            <div
+              style={{
+                position: 'absolute',
+                inset: 0,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                fontFamily: 'var(--font-mono)',
+                fontSize: 10,
+                textTransform: 'uppercase',
+                letterSpacing: '0.08em',
+                color: 'var(--color-ink-muted)',
+              }}
+            >
+              Loading connections...
+            </div>
+          )}
+
+          {/* Error state */}
+          {error && !loading && (
+            <div
+              style={{
+                position: 'absolute',
+                inset: 0,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                fontFamily: 'var(--font-mono)',
+                fontSize: 10,
+                textTransform: 'uppercase',
+                letterSpacing: '0.08em',
+                color: 'var(--color-ink-muted)',
+              }}
+            >
+              Could not load connections
+            </div>
+          )}
+
           {/* Rough.js edge layer */}
           <canvas
             ref={canvasRef}
@@ -368,41 +403,76 @@ export default function ConnectionGraphPopup({
           <svg
             width={GRAPH_W}
             height={GRAPH_H}
-            style={{ position: 'absolute', top: 0, left: 0 }}
+            style={{ position: 'absolute', top: 0, left: 0, pointerEvents: 'none' }}
           >
-            {layout?.nodes.map((node) => {
+            {layout.map((simNode) => {
+              const { nodeData: node } = simNode;
+              const x = simNode.x ?? 0;
+              const y = simNode.y ?? 0;
+              const { radius } = simNode;
               const isHovered = hoveredId === node.id;
-              const isDimmed = hoveredId !== null && !isHovered && !node.isCenter;
-              const title = node.isCenter
-                ? essayTitle
-                : (node.connection?.title ?? '');
+              const isDimmed = hoveredId !== null && !connectedIds.has(node.id);
 
               return (
                 <g
                   key={node.id}
-                  transform={`translate(${node.x}, ${node.y})`}
                   style={{
-                    cursor: node.isCenter ? 'default' : 'pointer',
-                    transition: 'opacity 150ms',
-                    opacity: isDimmed ? 0.28 : 1,
+                    cursor: simNode.isCenter ? 'default' : 'pointer',
+                    pointerEvents: 'all',
+                    transition: 'opacity 200ms ease',
                   }}
-                  onClick={() => handleNodeClick(node)}
-                  onMouseEnter={() => { if (!node.isCenter) setHoveredId(node.id); }}
+                  opacity={isDimmed ? 0.15 : 1}
+                  onMouseEnter={(e) => {
+                    if (simNode.isCenter) return;
+                    setHoveredId(node.id);
+                    const rect = graphAreaRef.current?.getBoundingClientRect();
+                    if (rect) {
+                      setTooltipPos({
+                        x: e.clientX - rect.left,
+                        y: y - radius - 12,
+                      });
+                    }
+                  }}
                   onMouseLeave={() => setHoveredId(null)}
+                  onClick={() => handleNodeClick(simNode)}
+                  role={simNode.isCenter ? undefined : 'link'}
+                  tabIndex={simNode.isCenter ? undefined : 0}
+                  aria-label={
+                    simNode.isCenter
+                      ? undefined
+                      : `${node.title} (${TYPE_LABELS[node.type]})`
+                  }
+                  onKeyDown={(e) => {
+                    if (simNode.isCenter) return;
+                    if (e.key === 'Enter' || e.key === ' ') {
+                      e.preventDefault();
+                      handleNodeClick(simNode);
+                    }
+                  }}
                 >
                   {/* Main circle */}
                   <circle
-                    r={node.radius}
-                    fill={node.isCenter ? node.color : `${node.color}20`}
-                    stroke={node.color}
-                    strokeWidth={node.isCenter ? 0 : isHovered ? 2 : 1.5}
+                    cx={x}
+                    cy={y}
+                    r={radius}
+                    fill={
+                      simNode.isCenter
+                        ? NODE_COLORS[node.type]
+                        : `${NODE_COLORS[node.type]}20`
+                    }
+                    stroke={NODE_COLORS[node.type]}
+                    strokeWidth={
+                      simNode.isCenter ? 0 : isHovered ? 2 : 1.5
+                    }
                     style={{ transition: 'stroke-width 150ms' }}
                   />
 
-                  {/* Center node inner ring for visual depth */}
-                  {node.isCenter && (
+                  {/* Center node inner ring */}
+                  {simNode.isCenter && (
                     <circle
-                      r={node.radius - 4}
+                      cx={x}
+                      cy={y}
+                      r={radius - 4}
                       fill="none"
                       stroke="rgba(255,255,255,0.25)"
                       strokeWidth={1}
@@ -410,53 +480,66 @@ export default function ConnectionGraphPopup({
                   )}
 
                   {/* Type label above (connection nodes only) */}
-                  {!node.isCenter && (
+                  {!simNode.isCenter && (
                     <text
-                      y={-(node.radius + 5)}
+                      x={x}
+                      y={y - radius - 5}
                       textAnchor="middle"
-                      fill={node.color}
-                      fontFamily="var(--font-mono), monospace"
-                      fontSize={7}
-                      fontWeight="400"
-                      letterSpacing="0.08em"
-                      style={{ opacity: 0.6, textTransform: 'uppercase' }}
+                      fill={NODE_COLORS[node.type]}
+                      style={{
+                        fontFamily: 'var(--font-mono), monospace',
+                        fontSize: 7,
+                        fontWeight: 400,
+                        letterSpacing: '0.08em',
+                        textTransform: 'uppercase',
+                        opacity: 0.6,
+                      }}
                     >
-                      {TYPE_LABEL[node.connection!.type]?.toUpperCase() ?? ''}
+                      {TYPE_LABELS[node.type] ?? ''}
                     </text>
                   )}
 
                   {/* Title label below */}
                   <text
-                    y={node.radius + 12}
+                    x={x}
+                    y={y + radius + 12}
                     textAnchor="middle"
-                    fill={node.color}
-                    fontFamily="var(--font-mono), monospace"
-                    fontSize={node.isCenter ? 9 : 8}
-                    fontWeight={node.isCenter ? '700' : isHovered ? '600' : '400'}
-                    letterSpacing="0.04em"
-                    style={{ transition: 'font-weight 100ms' }}
+                    fill={NODE_COLORS[node.type]}
+                    style={{
+                      fontFamily: 'var(--font-mono), monospace',
+                      fontSize: simNode.isCenter ? 9 : 8,
+                      fontWeight: simNode.isCenter ? 700 : isHovered ? 600 : 400,
+                      letterSpacing: '0.04em',
+                      transition: 'font-weight 100ms',
+                    }}
                   >
-                    {truncate(title, node.isCenter ? 26 : 20)}
+                    {truncateTitle(node.title, simNode.isCenter ? 26 : 20)}
                   </text>
-
-                  {/* Hover: secondary line with full title if truncated */}
-                  {isHovered && title.length > 20 && (
-                    <text
-                      y={node.radius + 22}
-                      textAnchor="middle"
-                      fill={node.color}
-                      fontFamily="var(--font-mono), monospace"
-                      fontSize={8}
-                      letterSpacing="0.03em"
-                      style={{ opacity: 0.6 }}
-                    >
-                      {truncate(title.slice(18), 20)}
-                    </text>
-                  )}
                 </g>
               );
             })}
           </svg>
+
+          {/* Tooltip */}
+          <GraphTooltip
+            title={hoveredNode?.title ?? ''}
+            subtitle={hoveredNode ? TYPE_LABELS[hoveredNode.type] : undefined}
+            lines={
+              hoveredNode
+                ? [
+                    ...(hoveredNode.score !== undefined
+                      ? [`Score: ${hoveredNode.score.toFixed(2)}`]
+                      : []),
+                    ...(hoveredNode.explanation
+                      ? [hoveredNode.explanation]
+                      : []),
+                  ]
+                : undefined
+            }
+            signals={tooltipSignals}
+            position={tooltipPos}
+            visible={hoveredNode !== null}
+          />
         </div>
 
         {/* Footer */}
@@ -478,7 +561,9 @@ export default function ConnectionGraphPopup({
               color: 'var(--color-ink-muted)',
             }}
           >
-            {connections.length} connection{connections.length !== 1 ? 's' : ''}
+            {loading
+              ? 'Loading...'
+              : `${edges.length} connection${edges.length !== 1 ? 's' : ''}`}
           </span>
           <a
             href={researcherUrl}

@@ -20,6 +20,7 @@ import {
   type StudioConnectionsGraph,
 } from '@/lib/studio-api';
 import { getContentTypeIdentity, studioMix } from '@/lib/studio';
+import GraphTooltip from '@/components/GraphTooltip';
 
 interface LayoutNode extends d3.SimulationNodeDatum {
   id: string;
@@ -427,6 +428,27 @@ export default function TimelineGraph() {
                 })}
               </g>
             </svg>
+
+            {/* Hover tooltip */}
+            {(() => {
+              const hNode = hoveredId ? layout.lookup.get(hoveredId) ?? null : null;
+              return (
+                <GraphTooltip
+                  title={hNode?.title ?? ''}
+                  subtitle={
+                    hNode
+                      ? `${getContentTypeIdentity(hNode.contentType).label}${hNode.stage ? ` · ${hNode.stage}` : ''} · ${hNode.degree} links`
+                      : ''
+                  }
+                  position={{
+                    x: hNode ? (hNode.x ?? 0) * zoomTransform.k + zoomTransform.x : 0,
+                    y: hNode ? (hNode.y ?? 0) * zoomTransform.k + zoomTransform.y - hNode.radius * zoomTransform.k - 36 : 0,
+                  }}
+                  visible={!!hNode}
+                  className="studio-theme"
+                />
+              );
+            })()}
 
             {/* Hint: top-right */}
             <div

@@ -15,25 +15,8 @@ import { useRef, useEffect, useState } from 'react';
 import * as d3 from 'd3';
 import type { GraphResponse, GraphNode } from '@/lib/research';
 import { fetchSourceGraph } from '@/lib/research';
-
-// Brand colors by source type (shared with SourceGraph)
-const TYPE_COLORS: Record<string, string> = {
-  book: '#C49A4A',
-  article: '#B45A2D',
-  paper: '#6B4A8A',
-  video: '#A44A3A',
-  podcast: '#5A7A4A',
-  dataset: '#2D5F6B',
-  document: '#8A7A5A',
-  report: '#5A6A7A',
-  map: '#4A7A5A',
-  archive: '#7A6A4A',
-  interview: '#6A5A7A',
-  website: '#5A7A8A',
-  other: '#6A5E52',
-  essay: '#B45A2D',
-  field_note: '#2D5F6B',
-};
+import { ALL_NODE_COLORS } from '@/lib/graph/colors';
+import GraphTooltip from '@/components/GraphTooltip';
 
 interface TimelineNode {
   id: string;
@@ -48,7 +31,10 @@ export default function ResearchTimeline() {
   const svgRef = useRef<SVGSVGElement>(null);
   const [data, setData] = useState<GraphResponse | null>(null);
   const [loaded, setLoaded] = useState(false);
-  const [tooltip, setTooltip] = useState<{ x: number; y: number; node: TimelineNode } | null>(null);
+  const [tooltipData, setTooltipData] = useState<{
+    title: string; subtitle: string; lines: string[];
+    position: { x: number; y: number }; visible: boolean;
+  }>({ title: '', subtitle: '', lines: [], position: { x: 0, y: 0 }, visible: false });
   const [dimensions, setDimensions] = useState({ width: 900, height: 400 });
 
   useEffect(() => {
@@ -158,7 +144,7 @@ export default function ResearchTimeline() {
         const count = connectionCounts.get(d.id) || 1;
         return Math.min(4 + count * 2, 12);
       })
-      .attr('fill', (d) => TYPE_COLORS[d.sourceType || 'other'] || '#6A5E52')
+      .attr('fill', (d) => ALL_NODE_COLORS[d.sourceType || 'other'] || '#6A5E52')
       .attr('stroke', '#F0EBE4')
       .attr('stroke-width', 1.5)
       .attr('opacity', 0.85);
@@ -168,22 +154,18 @@ export default function ResearchTimeline() {
       .on('mouseenter', function (event, d) {
         d3.select(this).select('circle').attr('opacity', 1).attr('stroke-width', 2.5);
         const rect = svgRef.current!.getBoundingClientRect();
-        setTooltip({
-          x: event.clientX - rect.left,
-          y: event.clientY - rect.top - 12,
-          node: {
-            id: d.id,
-            label: d.label,
-            type: d.type,
-            sourceType: d.sourceType || 'other',
-            creator: d.creator || '',
-            connectionCount: connectionCounts.get(d.id) || 0,
-          },
+        const count = connectionCounts.get(d.id) || 0;
+        setTooltipData({
+          title: d.label,
+          subtitle: d.creator || d.sourceType || 'source',
+          lines: [d.sourceType || 'other', `${count} connection${count !== 1 ? 's' : ''}`],
+          position: { x: event.clientX - rect.left, y: event.clientY - rect.top - 12 },
+          visible: true,
         });
       })
       .on('mouseleave', function () {
         d3.select(this).select('circle').attr('opacity', 0.85).attr('stroke-width', 1.5);
-        setTooltip(null);
+        setTooltipData((prev) => ({ ...prev, visible: false }));
       });
 
   }, [data, dimensions]);
@@ -213,30 +195,7 @@ export default function ResearchTimeline() {
         className="rounded-lg border border-border bg-surface"
       />
 
-      {tooltip && (
-        <div
-          className="absolute pointer-events-none bg-surface border border-border rounded-md shadow-warm px-3 py-2 z-10"
-          style={{
-            left: tooltip.x,
-            top: tooltip.y,
-            transform: 'translate(-50%, -100%)',
-          }}
-        >
-          <p className="font-title text-sm font-bold text-ink leading-tight">
-            {tooltip.node.label}
-          </p>
-          {tooltip.node.creator && (
-            <p className="text-[11px] text-ink-light font-body-alt">{tooltip.node.creator}</p>
-          )}
-          <p className="text-[10px] font-mono text-ink-light mt-1">
-            <span
-              className="inline-block w-2 h-2 rounded-full mr-1"
-              style={{ backgroundColor: TYPE_COLORS[tooltip.node.sourceType] }}
-            />
-            {tooltip.node.sourceType} · {tooltip.node.connectionCount} connection{tooltip.node.connectionCount !== 1 ? 's' : ''}
-          </p>
-        </div>
-      )}
+      <GraphTooltip {...tooltipData} />
     </div>
   );
 }

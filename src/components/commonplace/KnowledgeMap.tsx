@@ -25,8 +25,9 @@ import {
   computeGraphLayout,
   getNodeColor,
   truncateLabel,
-  EDGE_RGB,
 } from '@/lib/commonplace-graph';
+import { EDGE_RGB } from '@/lib/graph/colors';
+import GraphTooltip from '@/components/GraphTooltip';
 
 interface KnowledgeMapProps {
   onOpenObject?: (objectId: string) => void;
@@ -300,24 +301,20 @@ export default function KnowledgeMap({
       </svg>
 
       {/* Tooltip for hovered node */}
-      {hoveredNode && (
-        <div
-          className="cp-node-tooltip"
-          style={{
-            position: 'absolute',
-            left: hoveredNode.x * transform.k + transform.x,
-            top: hoveredNode.y * transform.k + transform.y - hoveredNode.radius * transform.k - 36,
-            transform: 'translateX(-50%)',
-            pointerEvents: 'none',
-            zIndex: 10,
-          }}
-        >
-          <div style={{ fontWeight: 600, marginBottom: 2 }}>{hoveredNode.node.title}</div>
-          <div style={{ opacity: 0.6, fontSize: 9 }}>
-            {getObjectTypeIdentity(hoveredNode.node.objectType).label} · {hoveredNode.node.edgeCount} connections
-          </div>
-        </div>
-      )}
+      <GraphTooltip
+        title={hoveredNode?.node.title ?? ''}
+        subtitle={
+          hoveredNode
+            ? `${getObjectTypeIdentity(hoveredNode.node.objectType).label} · ${hoveredNode.node.edgeCount} connections`
+            : ''
+        }
+        position={{
+          x: hoveredNode ? hoveredNode.x * transform.k + transform.x : 0,
+          y: hoveredNode ? hoveredNode.y * transform.k + transform.y - hoveredNode.radius * transform.k - 36 : 0,
+        }}
+        visible={!!hoveredNode}
+        className="commonplace-theme"
+      />
 
       {/* Legend (bottom-right) */}
       <div

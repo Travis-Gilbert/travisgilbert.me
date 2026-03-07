@@ -180,9 +180,15 @@ export default async function PublicationGraph() {
           <title>Cumulative publication output over 12 months</title>
 
           {/* Area fills (rendered first, behind the lines) */}
-          <polygon points={essayArea} fill="var(--color-terracotta)" opacity={0.08} />
-          <polygon points={noteArea} fill="var(--color-teal)" opacity={0.08} />
-          <polygon points={videoArea} fill="var(--color-gold)" opacity={0.08} />
+          <polygon points={essayArea} fill="var(--color-terracotta)" opacity={0.08}>
+            <title>Essays: {totalEssays} cumulative</title>
+          </polygon>
+          <polygon points={noteArea} fill="var(--color-teal)" opacity={0.08}>
+            <title>Field Notes: {totalNotes} cumulative</title>
+          </polygon>
+          <polygon points={videoArea} fill="var(--color-gold)" opacity={0.08}>
+            <title>Videos: {totalVideos} cumulative</title>
+          </polygon>
 
           {/* Step lines */}
           <polyline
@@ -193,7 +199,9 @@ export default async function PublicationGraph() {
             strokeLinecap="round"
             strokeLinejoin="round"
             opacity={1.0}
-          />
+          >
+            <title>Essays: {totalEssays} total</title>
+          </polyline>
           <polyline
             points={notePoints}
             fill="none"
@@ -202,7 +210,9 @@ export default async function PublicationGraph() {
             strokeLinecap="round"
             strokeLinejoin="round"
             opacity={1.0}
-          />
+          >
+            <title>Field Notes: {totalNotes} total</title>
+          </polyline>
           <polyline
             points={videoPoints}
             fill="none"
@@ -211,7 +221,9 @@ export default async function PublicationGraph() {
             strokeLinecap="round"
             strokeLinejoin="round"
             opacity={1.0}
-          />
+          >
+            <title>Videos: {totalVideos} total</title>
+          </polyline>
 
           {/* Month labels */}
           {cumulative.map((bucket, i) => {

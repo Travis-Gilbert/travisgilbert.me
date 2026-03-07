@@ -15,14 +15,12 @@ import { useRef, useEffect, useState } from 'react';
 import * as d3 from 'd3';
 import type { ActivityDay } from '@/lib/research';
 import { fetchResearchActivity } from '@/lib/research';
+import { HEATMAP_EMPTY, HEATMAP_SCALE } from '@/lib/graph/colors';
+import GraphTooltip from '@/components/GraphTooltip';
 
 const CELL_SIZE = 13;
 const CELL_GAP = 2;
 const CELL_TOTAL = CELL_SIZE + CELL_GAP;
-
-// Warm brand-tinted heatmap scale (parchment to terracotta)
-const COLOR_EMPTY = '#E8E0D6';
-const COLOR_SCALE = ['#D4C4B0', '#C49A4A', '#B4783A', '#B45A2D'];
 
 const DAY_LABELS = ['', 'Mon', '', 'Wed', '', 'Fri', ''];
 const MONTH_LABELS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
@@ -41,7 +39,10 @@ interface HeatmapCell {
 export default function ActivityHeatmap() {
   const svgRef = useRef<SVGSVGElement>(null);
   const [loaded, setLoaded] = useState(false);
-  const [tooltip, setTooltip] = useState<{ x: number; y: number; cell: HeatmapCell } | null>(null);
+  const [tooltipData, setTooltipData] = useState<{
+    title: string; subtitle: string; lines: string[];
+    position: { x: number; y: number }; visible: boolean;
+  }>({ title: '', subtitle: '', lines: [], position: { x: 0, y: 0 }, visible: false });
   const [activity, setActivity] = useState<ActivityDay[]>([]);
 
   useEffect(() => {
@@ -112,7 +113,7 @@ export default function ActivityHeatmap() {
     const colorScale = d3
       .scaleQuantize<string>()
       .domain([1, Math.max(maxTotal, 4)])
-      .range(COLOR_SCALE);
+      .range(HEATMAP_SCALE);
 
     const g = svg.append('g').attr('transform', `translate(${marginLeft},${marginTop})`);
 
@@ -163,7 +164,7 @@ export default function ActivityHeatmap() {
       .attr('width', CELL_SIZE)
       .attr('height', CELL_SIZE)
       .attr('rx', 2)
-      .attr('fill', (d) => (d.total === 0 ? COLOR_EMPTY : colorScale(d.total)))
+      .attr('fill', (d) => (d.total === 0 ? HEATMAP_EMPTY : colorScale(d.total)))
       .attr('stroke', '#F0EBE4')
       .attr('stroke-width', 1)
       .attr('cursor', 'pointer');
@@ -172,20 +173,33 @@ export default function ActivityHeatmap() {
       .on('mouseenter', function (event, d) {
         d3.select(this).attr('stroke', 'var(--color-ink-light)').attr('stroke-width', 2);
         const rect = svgRef.current!.getBoundingClientRect();
-        setTooltip({
-          x: event.clientX - rect.left,
-          y: event.clientY - rect.top - 8,
-          cell: d,
+        const dateLabel = new Date(d.dateStr + 'T12:00:00').toLocaleDateString('en-US', {
+          month: 'short', day: 'numeric', year: 'numeric',
+        });
+        const lines: string[] = [];
+        if (d.total === 0) {
+          lines.push('No activity');
+        } else {
+          if (d.sources > 0) lines.push(`${d.sources} source${d.sources !== 1 ? 's' : ''} added`);
+          if (d.links > 0) lines.push(`${d.links} link${d.links !== 1 ? 's' : ''} created`);
+          if (d.entries > 0) lines.push(`${d.entries} thread entr${d.entries !== 1 ? 'ies' : 'y'}`);
+        }
+        setTooltipData({
+          title: dateLabel,
+          subtitle: d.total > 0 ? `${d.total} total` : '',
+          lines,
+          position: { x: event.clientX - rect.left, y: event.clientY - rect.top - 12 },
+          visible: true,
         });
       })
       .on('mouseleave', function () {
         d3.select(this).attr('stroke', '#F0EBE4').attr('stroke-width', 1);
-        setTooltip(null);
+        setTooltipData((prev) => ({ ...prev, visible: false }));
       });
 
     // Legend
     const legendY = 7 * CELL_TOTAL + 16;
-    const legendColors = [COLOR_EMPTY, ...COLOR_SCALE];
+    const legendColors = [HEATMAP_EMPTY, ...HEATMAP_SCALE];
 
     g.append('text')
       .attr('x', 0)
@@ -241,48 +255,7 @@ export default function ActivityHeatmap() {
         className="rounded-lg border border-border bg-surface"
       />
 
-      {tooltip && (
-        <div
-          className="absolute pointer-events-none bg-surface border border-border rounded-md shadow-warm px-3 py-2 z-10 whitespace-nowrap"
-          style={{
-            left: tooltip.x,
-            top: tooltip.y,
-            transform: 'translate(-50%, -100%)',
-          }}
-        >
-          <p className="font-mono text-[11px] text-ink font-bold">
-            {new Date(tooltip.cell.dateStr + 'T12:00:00').toLocaleDateString('en-US', {
-              month: 'short',
-              day: 'numeric',
-              year: 'numeric',
-            })}
-          </p>
-          {tooltip.cell.total === 0 ? (
-            <p className="text-[10px] text-ink-light font-mono">No activity</p>
-          ) : (
-            <div className="text-[10px] font-mono text-ink-muted mt-0.5 space-y-0.5">
-              {tooltip.cell.sources > 0 && (
-                <p>
-                  <span className="inline-block w-2 h-2 rounded-full mr-1" style={{ backgroundColor: '#2D5F6B' }} />
-                  {tooltip.cell.sources} source{tooltip.cell.sources !== 1 ? 's' : ''} added
-                </p>
-              )}
-              {tooltip.cell.links > 0 && (
-                <p>
-                  <span className="inline-block w-2 h-2 rounded-full mr-1" style={{ backgroundColor: '#C49A4A' }} />
-                  {tooltip.cell.links} link{tooltip.cell.links !== 1 ? 's' : ''} created
-                </p>
-              )}
-              {tooltip.cell.entries > 0 && (
-                <p>
-                  <span className="inline-block w-2 h-2 rounded-full mr-1" style={{ backgroundColor: '#5A7A4A' }} />
-                  {tooltip.cell.entries} thread entr{tooltip.cell.entries !== 1 ? 'ies' : 'y'}
-                </p>
-              )}
-            </div>
-          )}
-        </div>
-      )}
+      <GraphTooltip {...tooltipData} />
     </div>
   );
 }

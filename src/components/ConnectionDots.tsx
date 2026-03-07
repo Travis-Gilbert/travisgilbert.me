@@ -318,7 +318,6 @@ export default function ConnectionDots({
       {/* D3 popup graph: portal to document.body, shown on graph trigger click */}
       {showGraph && essayTitle && essaySlug && (
         <ConnectionGraphPopup
-          connections={allConnectionData}
           essayTitle={essayTitle}
           essaySlug={essaySlug}
           onClose={() => setShowGraph(false)}
