@@ -14,6 +14,22 @@ interface CollagePanelProps {
   editor?: Editor | null;
 }
 
+async function uploadCollageImage(file: File): Promise<boolean> {
+  const formData = new FormData();
+  formData.append('image', file);
+
+  try {
+    const res = await fetch(`${STUDIO_API_BASE}/upload/collage/`, {
+      method: 'POST',
+      body: formData,
+      credentials: 'omit',
+    });
+    return res.ok;
+  } catch {
+    return false;
+  }
+}
+
 export default function CollagePanel({ slug, editor }: CollagePanelProps) {
   const [cutouts, setCutouts] = useState<CutoutItem[]>([]);
   const [hero, setHero] = useState('');
@@ -24,13 +40,47 @@ export default function CollagePanel({ slug, editor }: CollagePanelProps) {
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [isDragOver, setIsDragOver] = useState(false);
+  const [uploading, setUploading] = useState(false);
 
-  useEffect(() => {
+  const refreshCutouts = useCallback(() => {
     fetch(`${STUDIO_API_BASE}/collage/cutouts/`, { credentials: 'omit' })
       .then((r) => r.json())
       .then((data) => setCutouts(data.cutouts ?? []))
-      .catch(() => setCutouts([]));
+      .catch(() => {});
   }, []);
+
+  useEffect(() => {
+    refreshCutouts();
+  }, [refreshCutouts]);
+
+  const handleFileDrop = useCallback(
+    async (e: React.DragEvent) => {
+      e.preventDefault();
+      setIsDragOver(false);
+
+      const files = Array.from(e.dataTransfer.files).filter((f) =>
+        f.type.startsWith('image/'),
+      );
+      if (files.length === 0) return;
+
+      setUploading(true);
+      setError(null);
+
+      let anyFailed = false;
+      for (const file of files) {
+        const ok = await uploadCollageImage(file);
+        if (!ok) anyFailed = true;
+      }
+
+      setUploading(false);
+      if (anyFailed) {
+        setError('Some uploads failed');
+      }
+      refreshCutouts();
+    },
+    [refreshCutouts],
+  );
 
   const toggleSupport = useCallback((path: string) => {
     setSupports((prev) =>
@@ -98,6 +148,41 @@ export default function CollagePanel({ slug, editor }: CollagePanelProps) {
         }}
       >
         Collage Builder
+      </div>
+
+      {/* Drop zone for uploading cutout images */}
+      <div
+        onDragOver={(e) => {
+          e.preventDefault();
+          setIsDragOver(true);
+        }}
+        onDragEnter={(e) => {
+          e.preventDefault();
+          setIsDragOver(true);
+        }}
+        onDragLeave={() => setIsDragOver(false)}
+        onDrop={handleFileDrop}
+        style={{
+          border: `1.5px dashed ${isDragOver ? 'var(--studio-tc)' : 'var(--studio-border)'}`,
+          borderRadius: '6px',
+          padding: '14px 12px',
+          textAlign: 'center',
+          marginBottom: '12px',
+          background: isDragOver ? 'rgba(180, 90, 45, 0.06)' : 'transparent',
+          transition: 'border-color 0.15s ease, background 0.15s ease',
+          cursor: 'default',
+        }}
+      >
+        <span
+          style={{
+            fontSize: '11px',
+            color: isDragOver ? 'var(--studio-tc)' : 'var(--studio-text-3)',
+            fontFamily: 'var(--studio-font-mono)',
+            letterSpacing: '0.04em',
+          }}
+        >
+          {uploading ? 'Uploading...' : 'Drop cutout images here'}
+        </span>
       </div>
 
       {previewUrl && (

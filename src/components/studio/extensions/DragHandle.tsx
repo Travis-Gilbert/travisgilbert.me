@@ -167,6 +167,23 @@ const DragHandle = Extension.create({
     let activeBlockPos: number | null = null;
     let currentView: EditorView | null = null;
     let scrollContainer: HTMLElement | null = null;
+    let hideTimer: ReturnType<typeof setTimeout> | null = null;
+
+    /** Delay hiding to bridge the gap between editor DOM and handle. */
+    function scheduleHide() {
+      if (hideTimer) clearTimeout(hideTimer);
+      hideTimer = setTimeout(() => {
+        hideHandle();
+        hideTimer = null;
+      }, 150);
+    }
+
+    function cancelHide() {
+      if (hideTimer) {
+        clearTimeout(hideTimer);
+        hideTimer = null;
+      }
+    }
 
     /* ── Handle element lifecycle ────────────── */
 
@@ -182,7 +199,11 @@ const DragHandle = Extension.create({
       el.addEventListener('dragstart', onHandleDragstart);
       el.addEventListener('dragend', onHandleDragend);
       el.addEventListener('mouseenter', () => {
+        cancelHide();
         if (el) el.style.opacity = '1';
+      });
+      el.addEventListener('mouseleave', () => {
+        scheduleHide();
       });
 
       document.body.appendChild(el);
@@ -195,21 +216,25 @@ const DragHandle = Extension.create({
       const dom = view.nodeDOM(blockPos);
       if (!(dom instanceof HTMLElement)) {
         handleEl.style.opacity = '0';
+        handleEl.style.pointerEvents = 'none';
         return;
       }
 
       const blockRect = dom.getBoundingClientRect();
 
+      cancelHide();
       handleEl.dataset.blockPos = String(blockPos);
       handleEl.style.left = `${blockRect.left - 26}px`;
       handleEl.style.top = `${blockRect.top + 4}px`;
       handleEl.style.opacity = '1';
+      handleEl.style.pointerEvents = 'auto';
       activeBlockPos = blockPos;
     }
 
     function hideHandle() {
       if (handleEl && !isDragging) {
         handleEl.style.opacity = '0';
+        handleEl.style.pointerEvents = 'none';
         activeBlockPos = null;
       }
     }
@@ -306,19 +331,20 @@ const DragHandle = Extension.create({
               const coords = { left: event.clientX, top: event.clientY };
               const posInfo = view.posAtCoords(coords);
               if (!posInfo) {
-                hideHandle();
+                /* Mouse is over padding or margin; keep current handle visible */
                 return false;
               }
 
               const resolved = resolveBlockAt(view, posInfo.pos);
               if (!resolved) {
-                hideHandle();
                 return false;
               }
 
-              /* Only reposition when changing blocks */
+              /* Reposition when changing blocks */
               if (activeBlockPos !== resolved.pos) {
                 positionHandle(view, resolved.pos);
+              } else {
+                cancelHide();
               }
 
               return false;
@@ -334,24 +360,35 @@ const DragHandle = Extension.create({
               ) {
                 return false;
               }
-              hideHandle();
+              scheduleHide();
               return false;
             },
 
             dragover(view, event) {
-              if (!isDragging || dragSourcePos == null) return false;
+              /* Internal block reorder drag: show indicator */
+              if (isDragging && dragSourcePos != null) {
+                event.preventDefault();
+                if (event.dataTransfer) {
+                  event.dataTransfer.dropEffect = 'move';
+                }
 
-              event.preventDefault();
-              if (event.dataTransfer) {
-                event.dataTransfer.dropEffect = 'move';
+                const target = nearestDropTarget(view, event.clientY);
+                if (target) {
+                  showDropIndicator(view, target.pos, target.side);
+                }
+                return true;
               }
 
-              const target = nearestDropTarget(view, event.clientY);
-              if (target) {
-                showDropIndicator(view, target.pos, target.side);
+              /* External file drag (images from OS): allow the drop */
+              if (event.dataTransfer?.types?.includes('Files')) {
+                event.preventDefault();
+                if (event.dataTransfer) {
+                  event.dataTransfer.dropEffect = 'copy';
+                }
+                return true;
               }
 
-              return true;
+              return false;
             },
 
             dragleave(view, event) {
@@ -443,6 +480,11 @@ const DragHandle = Extension.create({
             },
             destroy() {
               currentView = null;
+
+              if (hideTimer) {
+                clearTimeout(hideTimer);
+                hideTimer = null;
+              }
 
               if (scrollContainer) {
                 scrollContainer.removeEventListener('scroll', onScroll);
