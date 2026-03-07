@@ -211,6 +211,8 @@ export interface MockNode {
   id: string;
   /** Object database ID for detail navigation */
   objectRef: number;
+  /** Object slug for URL-friendly lookups */
+  objectSlug: string;
   objectType: string;
   title: string;
   summary: string;
@@ -280,6 +282,7 @@ export interface ApiFeedNode {
   object_ref: number;
   object_title: string;
   object_type: string;
+  object_slug: string;
 }
 
 /** GET /graph/ object (GraphObjectSerializer) */

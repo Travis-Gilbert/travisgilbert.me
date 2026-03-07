@@ -20,6 +20,7 @@ from datetime import timedelta
 
 from django.db.models import Count, F, Max, Q, Value
 from django.db.models.functions import Coalesce
+from django.shortcuts import get_object_or_404
 from django.utils import timezone
 from rest_framework import mixins, serializers, status, viewsets
 from rest_framework.decorators import action, api_view
@@ -104,8 +105,24 @@ class ObjectViewSet(viewsets.ModelViewSet):
     list:   Compact cards with type info, edge/component counts.
     detail: Full record with nested components, edges, entities, nodes.
     create/update: Mutable fields only (title, body, status, etc.).
+
+    Lookup accepts both slug strings and numeric PKs so the frontend
+    can navigate by either identifier (e.g. /objects/42/ or /objects/my-slug/).
     """
     lookup_field = 'slug'
+
+    def get_object(self):
+        """Resolve by PK when the lookup value is numeric, otherwise by slug."""
+        queryset = self.filter_queryset(self.get_queryset())
+        lookup_value = self.kwargs.get(self.lookup_field, '')
+
+        if lookup_value.isdigit():
+            obj = get_object_or_404(queryset, pk=int(lookup_value))
+        else:
+            obj = get_object_or_404(queryset, slug=lookup_value)
+
+        self.check_object_permissions(self.request, obj)
+        return obj
 
     def get_serializer_class(self):
         if self.action == 'list':

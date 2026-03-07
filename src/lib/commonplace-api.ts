@@ -104,6 +104,7 @@ function mapFeedNodeToMockNode(node: ApiFeedNode): MockNode {
   return {
     id: `node-${node.id}`,
     objectRef: node.object_ref,
+    objectSlug: node.object_slug ?? '',
     objectType: node.object_type,
     title: node.object_title,
     summary: node.title,

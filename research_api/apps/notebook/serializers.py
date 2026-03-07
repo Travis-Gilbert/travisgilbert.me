@@ -175,12 +175,16 @@ class NodeListSerializer(serializers.ModelSerializer):
     object_type = serializers.CharField(
         source='object_ref.object_type.slug', read_only=True, default='',
     )
+    object_slug = serializers.CharField(
+        source='object_ref.slug', read_only=True, default='',
+    )
 
     class Meta:
         model = Node
         fields = [
             'id', 'sha_hash', 'node_type', 'occurred_at',
             'title', 'object_ref', 'object_title', 'object_type',
+            'object_slug',
         ]
 
 
