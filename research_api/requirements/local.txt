@@ -1,0 +1,14 @@
+# Local/experimental requirements (Travis's machine only)
+# Production uses requirements/base.txt + production.txt (no PyTorch)
+#
+# Install with:
+#   pip install torch --extra-index-url https://download.pytorch.org/whl/cpu --break-system-packages
+#   pip install -r requirements/local.txt --break-system-packages
+
+-r base.txt
+
+# Sentence-level embeddings (Level 4 similarity, upgrade from spaCy)
+sentence-transformers>=3.0
+
+# Graph algorithms (needed for Batch 2: PageRank, paths)
+networkx>=3.2
