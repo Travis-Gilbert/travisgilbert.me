@@ -456,6 +456,25 @@ export default function TiptapEditor({
     };
   }, [editor, scheduleTypewriterCenter, typewriterMode]);
 
+  /* Dampen wheel scroll speed so the editor doesn't fly past content */
+  useEffect(() => {
+    const wrapper = wrapperRef.current;
+    if (!wrapper) return;
+
+    const DAMPING = 0.45;
+
+    const handleWheel = (e: WheelEvent) => {
+      e.preventDefault();
+      wrapper.scrollTop += e.deltaY * DAMPING;
+      wrapper.scrollLeft += e.deltaX * DAMPING;
+    };
+
+    wrapper.addEventListener('wheel', handleWheel, { passive: false });
+    return () => {
+      wrapper.removeEventListener('wheel', handleWheel);
+    };
+  }, []);
+
   return (
     <div
       ref={wrapperRef}
