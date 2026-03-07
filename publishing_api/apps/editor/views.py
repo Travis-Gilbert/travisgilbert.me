@@ -2475,6 +2475,7 @@ STUDIO_API_ALLOWED_ORIGINS = {
     "http://127.0.0.1:3000",
     "https://travisgilbert.me",
     "https://www.travisgilbert.me",
+    "https://studio.travisgilbert.me",
 }
 
 _studio_api_extra_origins = {
