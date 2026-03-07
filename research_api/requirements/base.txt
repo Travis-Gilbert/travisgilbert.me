@@ -8,3 +8,4 @@ scikit-learn>=1.4
 numpy>=1.26
 httpx>=0.27
 networkx>=3.2
+bibtexparser>=1.4
