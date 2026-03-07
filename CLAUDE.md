@@ -48,7 +48,8 @@ Next.js 16 (App Router, Turbopack, React Compiler), React 19, Tailwind CSS v4 (`
 | `research_api/` | Django research API: source tracking, backlinks, Webmention receiver, DRF read-only API. Sibling service to publishing_api |
 | `research_api/apps/research/` | Source, SourceLink, ResearchThread, ThreadEntry models + backlink computation service |
 | `research_api/apps/mentions/` | Webmention model + W3C webhook receiver |
-| `research_api/apps/api/` | API-key-gated product: 22 endpoints (search, graph algorithms, export/import, temporal analysis, health monitoring, tensions, sessions, webhooks) + internal promote endpoint. 189 tests in `tests.py` |
+| `research_api/apps/api/` | API-key-gated product: 22 endpoints (search, graph algorithms, export/import, temporal analysis, health monitoring, tensions, sessions, webhooks) + internal promote endpoint. 190 tests in `tests.py` |
+| `research_api/apps/api/middleware.py` | API key auth + rate limiting; `EXEMPT_PREFIXES` for public endpoints (notebook, health, admin, webmention) |
 | `research_api/apps/api/webhooks.py` | Webhook dispatch service: HMAC-SHA256 signing, delivery tracking, auto-deactivation after 5 consecutive failures |
 | `research_api/apps/api/tensions.py` | Contradiction/tension detection across sources (counterargument, publisher divergence, temporal, tag divergence) |
 | `research_api/apps/research/graph.py` | Graph algorithms: PageRank, shortest path (BFS), topological reading order |
@@ -411,7 +412,10 @@ Phases 1 through 4 (Foundation, Micro-interactions, Animations, Polish) are **al
 - **spaCy model installed separately**: `python3 -m spacy download en_core_web_sm` after pip install
 - **JSONField `__contains` is PostgreSQL-only**: `tags__contains=[value]` fails on SQLite (tests). Use Python-side filtering: `[s for s in queryset if value in (s.tags or [])]`
 - **API key feature flags pattern**: `can_import`, `can_sessions`, `can_webhook` on APIKey. Each gated module has a `_require_*()` helper returning `(api_key, error_response)` tuple
-- **research_api tests use in-memory SQLite**: `python3 manage.py test apps.api -v 2` runs 189 tests. All JSONField queries must be SQLite-compatible
+- **research_api tests use in-memory SQLite**: `python3 manage.py test apps.api -v 2` runs 190 tests. All JSONField queries must be SQLite-compatible
+- **Studio CORS allowlist**: `STUDIO_API_ALLOWED_ORIGINS` in `publishing_api/apps/editor/views.py`. Must include every domain serving Next.js (travisgilbert.me, www, studio.travisgilbert.me, .vercel.app suffix). Also supports `STUDIO_API_ALLOWED_ORIGINS` env var
+- **"Loads but can't save" = CORS**: Server Components fetch server-side (no CORS), Client Components POST from browser (CORS preflight). If GETs work but POSTs fail, check the CORS allowlist
+- **APIKeyMiddleware gates ALL `/api/v1/` paths**: New public endpoints under `/api/v1/` must be added to `EXEMPT_PREFIXES` in `research_api/apps/api/middleware.py`
 
 ### CommonPlace
 - **Route group scoping**: `(commonplace)` has its own layout.tsx, does NOT render html/body. Applies `commonplace-theme` class. Do not add DotGrid, TopNav, or Footer here
@@ -425,3 +429,5 @@ Phases 1 through 4 (Foundation, Micro-interactions, Animations, Polish) are **al
 - **Vercel Output Directory**: Must be blank/default. `dist` setting from old Astro config breaks Next.js builds
 - **research_api publishes to `src/data/research/`**: JSON files committed via Git Trees API. Next.js reads at build time
 - **reCAPTCHA v3 tokens are single-use**: Never split verification and scoring into separate HTTP calls
+- **Railway auto-deploys from `main`**: Both `publishing_api` and `research_api` deploy independently, ~2 minutes each
+- **Verify CORS after Railway deploy**: `curl -s -D - -X OPTIONS -H "Origin: https://studio.travisgilbert.me" -H "Access-Control-Request-Method: POST" -H "Access-Control-Request-Headers: Content-Type" <url>` and check for `access-control-allow-origin` header
