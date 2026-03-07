@@ -1,9 +1,9 @@
 /**
  * CollageHero: full-bleed homepage hero (transparent over DotGrid).
  *
- * Unified editorial spread containing identity (name, tagline gradient,
- * PipelineCounter), the featured essay, and a /now snapshot in the left
- * column. Right column: composed visual artifact.
+ * Left column: featured essay (title as h1, thesis pull-quote, summary,
+ * metadata, CyclingTagline ticker, PipelineCounter) + /now snapshot.
+ * Right column: composed visual artifact.
  *
  * Two-column grid on desktop (55% text / 45% artifact).
  * Single-column stack on mobile.
@@ -13,6 +13,7 @@
 
 import Link from 'next/link';
 import TagList from './TagList';
+import CyclingTagline from './CyclingTagline';
 import { CompactTracker, ESSAY_STAGES } from './ProgressTracker';
 
 interface FeaturedEssay {
@@ -25,10 +26,10 @@ interface FeaturedEssay {
   stage?: string;
   lastAdvanced?: string;
   callouts?: string[];
+  thesis?: string;
 }
 
 interface CollageHeroProps {
-  name: string;
   /** Slot for PipelineCounter component */
   pipelineStatus: React.ReactNode;
   /** Slot for NowPreviewCompact component */
@@ -48,14 +49,11 @@ function formatDate(iso: string): string {
 }
 
 export default function CollageHero({
-  name,
   pipelineStatus,
   nowPreview,
   artifact,
   featured,
 }: CollageHeroProps) {
-  const latestHref = featured ? `/essays/${featured.slug}` : '/essays';
-
   return (
     <div>
       <div
@@ -72,50 +70,27 @@ export default function CollageHero({
           <div className="flex flex-col lg:grid lg:items-start py-12 md:py-16 lg:py-20 gap-8 lg:gap-12"
             style={{ gridTemplateColumns: '55% 1fr' }}
           >
-            {/* Left column: identity + featured essay */}
+            {/* Left column: featured essay + studio status */}
             <div className="flex flex-col">
-              {/* Zone A: Identity */}
-              <div>
+              {/* Fallback h1 when no essays exist */}
+              {!featured && (
                 <h1
                   className="m-0"
                   style={{
                     fontFamily: 'var(--font-title)',
                     fontWeight: 700,
-                    lineHeight: 1.0,
-                    fontSize: 'clamp(2.35rem, 11vw, 4.5rem)',
+                    lineHeight: 1.1,
+                    fontSize: 'clamp(2rem, 8vw, 3.2rem)',
                     color: 'var(--color-ink)',
                   }}
                 >
-                  {name}
+                  Research notes on how design decisions shape human outcomes
                 </h1>
+              )}
 
-                <p
-                  className="mt-3 mb-0"
-                  style={{
-                    fontFamily: 'var(--font-title)',
-                    fontWeight: 700,
-                    fontSize: 'clamp(1.15rem, 5.6vw, 1.65rem)',
-                    background: 'linear-gradient(in srgb, to right, var(--color-ink), var(--color-terracotta))',
-                    WebkitBackgroundClip: 'text',
-                    WebkitTextFillColor: 'transparent',
-                    backgroundClip: 'text',
-                  }}
-                >
-                  <Link
-                    href={latestHref}
-                    className="no-underline"
-                    style={{ color: 'inherit', WebkitTextFillColor: 'inherit' }}
-                  >
-                    Hey, I&apos;m working here
-                  </Link>
-                </p>
-
-                <div className="mt-4">{pipelineStatus}</div>
-              </div>
-
-              {/* Zone B: Featured Essay */}
+              {/* Featured Essay (promoted to h1) */}
               {featured && (
-                <div className="mt-8 lg:mt-10">
+                <div>
                   <span
                     className="block mb-2"
                     style={{
@@ -133,21 +108,43 @@ export default function CollageHero({
                     href={`/essays/${featured.slug}`}
                     className="no-underline block group"
                   >
-                    <h2
+                    <h1
                       className="m-0 transition-colors"
                       style={{
                         fontFamily: 'var(--font-title)',
-                        fontSize: 'clamp(1.65rem, 7vw, 2.3rem)',
+                        fontSize: 'clamp(2rem, 8vw, 3.2rem)',
                         fontWeight: 700,
-                        lineHeight: 1.15,
+                        lineHeight: 1.1,
                         color: 'var(--color-ink)',
+                        maxWidth: '18ch',
                       }}
                     >
                       <span className="group-hover:text-[var(--color-terracotta)] transition-colors">
                         {featured.title}
                       </span>
-                    </h2>
+                    </h1>
                   </Link>
+
+                  {/* Thesis pull-quote */}
+                  {featured.thesis && (
+                    <p
+                      className="mt-3 mb-0"
+                      style={{
+                        fontFamily: 'var(--font-title)',
+                        fontSize: 'clamp(1.05rem, 4vw, 1.2rem)',
+                        fontWeight: 600,
+                        fontStyle: 'italic',
+                        lineHeight: 1.5,
+                        color: 'var(--color-terracotta)',
+                        maxWidth: '36ch',
+                        borderLeft: '3px solid var(--color-terracotta)',
+                        paddingLeft: '1rem',
+                        opacity: 0.85,
+                      }}
+                    >
+                      {featured.thesis}
+                    </p>
+                  )}
 
                   <p
                     className="mt-3 mb-0"
@@ -216,7 +213,28 @@ export default function CollageHero({
                 </div>
               )}
 
-              {/* Zone C: /now snapshot */}
+              {/* Also working on: cycling topic ticker */}
+              <div className="mt-6 flex items-baseline gap-2">
+                <span
+                  style={{
+                    fontFamily: 'var(--font-metadata)',
+                    fontSize: 10,
+                    textTransform: 'uppercase',
+                    letterSpacing: '0.1em',
+                    color: 'var(--color-ink-muted)',
+                  }}
+                >
+                  Also working on
+                </span>
+              </div>
+              <div className="mt-1">
+                <CyclingTagline />
+              </div>
+
+              {/* Pipeline status (studio activity counts) */}
+              <div className="mt-4">{pipelineStatus}</div>
+
+              {/* /now snapshot */}
               <div className="mt-6 lg:mt-8">
                 {nowPreview}
               </div>

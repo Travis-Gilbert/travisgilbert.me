@@ -117,10 +117,22 @@ export default function TopNav({ navItems }: TopNavProps) {
         {/* Site title (left) */}
         <Link
           href="/"
-          className="text-xl no-underline hover:text-terracotta transition-colors shrink-0"
+          className="no-underline hover:text-terracotta transition-colors shrink-0 flex flex-col"
           style={{ color: 'var(--color-hero-text)', fontFamily: 'var(--font-name)', fontWeight: 400 }}
         >
-          Travis Gilbert
+          <span className="text-xl leading-tight">Travis Gilbert</span>
+          <span
+            className="hidden lg:block leading-tight"
+            style={{
+              fontFamily: 'var(--font-metadata)',
+              fontSize: 9,
+              textTransform: 'uppercase',
+              letterSpacing: '0.1em',
+              color: 'var(--color-hero-text-muted)',
+            }}
+          >
+            Hey, I&apos;m working here
+          </span>
         </Link>
 
         {/* Desktop nav (centered, fills middle) */}

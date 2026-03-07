@@ -46,14 +46,13 @@ export default function HomePage() {
   return (
     <div>
       {/* ═══════════════════════════════════════════════
-          Hero: Unified dark-ground editorial spread.
-          Identity (name, PipelineCounter), featured essay (title, summary,
-          tags, progress), and composed visual artifact.
-          CollageHero breaks out of max-w-4xl to span full viewport width.
+          Hero: Unified editorial spread.
+          Featured essay as h1 (title, thesis pull-quote, summary, tags,
+          progress), CyclingTagline ticker, PipelineCounter, and composed
+          visual artifact. CollageHero breaks out to span full viewport width.
           DotGrid renders cream dots in top viewport zone via inversion gradient.
           ═══════════════════════════════════════════════ */}
       <CollageHero
-        name="Travis Gilbert"
         pipelineStatus={<PipelineCounter />}
         nowPreview={<NowPreviewCompact />}
         artifact={
@@ -73,6 +72,7 @@ export default function HomePage() {
           stage: featured.data.stage,
           lastAdvanced: featured.data.lastAdvanced?.toISOString(),
           callouts: featured.data.callouts,
+          thesis: featured.data.thesis,
         } : null}
       />
 
