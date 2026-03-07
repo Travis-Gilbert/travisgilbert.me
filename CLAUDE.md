@@ -48,7 +48,10 @@ Next.js 16 (App Router, Turbopack, React Compiler), React 19, Tailwind CSS v4 (`
 | `research_api/` | Django research API: source tracking, backlinks, Webmention receiver, DRF read-only API. Sibling service to publishing_api |
 | `research_api/apps/research/` | Source, SourceLink, ResearchThread, ThreadEntry models + backlink computation service |
 | `research_api/apps/mentions/` | Webmention model + W3C webhook receiver |
-| `research_api/apps/api/` | DRF read-only viewsets (sources, links, threads, mentions, backlinks, graph, activity) + internal promote endpoint |
+| `research_api/apps/api/` | API-key-gated product: 22 endpoints (search, graph algorithms, export/import, temporal analysis, health monitoring, tensions, sessions, webhooks) + internal promote endpoint. 189 tests in `tests.py` |
+| `research_api/apps/api/webhooks.py` | Webhook dispatch service: HMAC-SHA256 signing, delivery tracking, auto-deactivation after 5 consecutive failures |
+| `research_api/apps/api/tensions.py` | Contradiction/tension detection across sources (counterargument, publisher divergence, temporal, tag divergence) |
+| `research_api/apps/research/graph.py` | Graph algorithms: PageRank, shortest path (BFS), topological reading order |
 | `research_api/apps/paper_trail/` | Public browsing pages: explorer (D3 graph), essay trail, threads, community wall with HTMX suggestion form |
 | `research_api/apps/publisher/` | PublishLog model, GitHub API client, JSON serializers, publish orchestrator (commits to `src/data/research/`) |
 | `research_api/apps/notebook/` | CommonPlace knowledge graph: 12 models (ObjectType, Object, ComponentType, Component, Timeline, Node, Edge, ResolvedEntity, DailyLog, Notebook, Project, Layout), DRF API with 11 ViewSets + 6 custom endpoints |
@@ -336,7 +339,7 @@ Phases 1 through 4 (Foundation, Micro-interactions, Animations, Polish) are **al
 
 **Django Studio:** Full site management control panel. Brand component library redesign complete. Deployed to Railway at draftroom.travisgilbert.me. See `docs/plans/2026-02-25-studio-redesign-design.md` for the design doc and `docs/records/002-publishing-api.md` for the original scaffold. Django check passes (0 issues).
 
-**Research API:** Deployed to Railway at research.travisgilbert.me. Source promotion pipeline: Sourcebox triage accept in publishing_api calls research_api's `/api/v1/internal/promote/` endpoint via Bearer token auth. See `docs/records/003-research-api.md`.
+**Research API:** Deployed to Railway at research.travisgilbert.me. Product spec complete (Batches 0-8): API key management, full-text search, graph algorithms, multi-format export/import, temporal analysis, source health monitoring, tension detection, research sessions, and webhooks. 189 tests passing. Source promotion pipeline from publishing_api via Bearer token auth. See `docs/records/003-research-api.md`.
 
 **Notebook (Knowledge Graph):** Sessions 1 through 3 complete (Django backend). Evolved from 6 models (v2) to 12 models (v4 Object/Node/Component architecture): ObjectType, Object, ComponentType, Component, Timeline, Node, Edge, ResolvedEntity, DailyLog, Notebook, Project, Layout. Session 3 added full DRF API layer: 11 ViewSets (ObjectType, ComponentType, Object, Component, Node, Edge, Notebook, Project, Timeline, Layout, DailyLog) + 6 custom endpoints (capture, feed, graph, resurface, object export, notebook export). Service layer with URL enrichment and quick capture. Management commands: seed_object_types, seed_component_types, seed_commonplace (combined), create_sample_data. spaCy NER engine with three-pass connection logic preserved from v2.
 
@@ -346,7 +349,7 @@ Phases 1 through 4 (Foundation, Micro-interactions, Animations, Polish) are **al
 
 **CommonPlace Frontend:** Sessions 5 through 9 complete. Full Next.js frontend at `/commonplace` route group with warm studio theme (cream parchment + dark sidebar), wired to live Django API. Session 5: split pane system (SplitPaneContainer, DragHandle, LayoutPresetSelector, CommonPlaceSidebar) with recursive binary tree layout, keyboard shortcuts, 4 layout presets. Session 6 (Capture): CaptureButton with spring animation, ObjectPalette type grid, DropZone drag-and-drop, RecentCaptures sidebar list, local-first capture with optimistic IDs. Session 7 (Timeline): TimelineView with NodeCard, DateHeader, RetroNote reflection prompts, ConnectionLabel edge badges, TimelineSearch with type filters. Session 8 (Network): KnowledgeMap (D3 force graph + rough.js canvas edges), EntityNetwork (Person/Org filtered view), TimelineViz (chronological dot plot with arcs), FrameManager (save/restore view configs), NetworkView (toggle toolbar wrapper). Session 9 (API Integration): created `commonplace-api.ts` anti-corruption layer mapping Django serializer responses to frontend types; replaced all mock data with live API calls to `/api/v1/notebook/` endpoints (feed, graph, capture, retrospective, resurface); `useApiData<T>()` hook for loading/error/refetch; NetworkView lifted to single fetch parent; loading skeleton, error banner, empty state styles added. All components use CommonPlace scoped CSS tokens from `commonplace.css`.
 
-**Next step:** Verify production API connectivity end-to-end (env vars are set: `NEXT_PUBLIC_RESEARCH_API_URL`, `NEXT_PUBLIC_STUDIO_URL`, `INTERNAL_API_KEY`, `RESEARCH_API_URL`/`RESEARCH_API_KEY`). Test source promotion pipeline across both Railway services.
+**Next step:** Deploy Research API product spec to Railway (run migrations for 0001-0005). Verify production API connectivity end-to-end (env vars are set: `NEXT_PUBLIC_RESEARCH_API_URL`, `NEXT_PUBLIC_STUDIO_URL`, `INTERNAL_API_KEY`, `RESEARCH_API_URL`/`RESEARCH_API_KEY`). Test source promotion pipeline across both Railway services.
 
 **Remaining backlog:**
 - CommonPlace: verify production deploy with live API
@@ -406,6 +409,9 @@ Phases 1 through 4 (Foundation, Micro-interactions, Animations, Polish) are **al
 - **Source promotion requires 3 env vars**: `INTERNAL_API_KEY` (same on both), `RESEARCH_API_URL` and `RESEARCH_API_KEY` on publishing_api
 - **`python3 -m pip` required on this machine**: `pip` alone is not found
 - **spaCy model installed separately**: `python3 -m spacy download en_core_web_sm` after pip install
+- **JSONField `__contains` is PostgreSQL-only**: `tags__contains=[value]` fails on SQLite (tests). Use Python-side filtering: `[s for s in queryset if value in (s.tags or [])]`
+- **API key feature flags pattern**: `can_import`, `can_sessions`, `can_webhook` on APIKey. Each gated module has a `_require_*()` helper returning `(api_key, error_response)` tuple
+- **research_api tests use in-memory SQLite**: `python3 manage.py test apps.api -v 2` runs 189 tests. All JSONField queries must be SQLite-compatible
 
 ### CommonPlace
 - **Route group scoping**: `(commonplace)` has its own layout.tsx, does NOT render html/body. Applies `commonplace-theme` class. Do not add DotGrid, TopNav, or Footer here
