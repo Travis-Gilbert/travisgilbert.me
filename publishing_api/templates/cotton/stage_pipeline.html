@@ -11,29 +11,42 @@
     <div class="flex items-center">
       {# Connector line (before every dot except the first) #}
       <div x-show="i > 0"
-           class="h-px w-4 transition-colors duration-200"
+           class="h-[2px] w-5 transition-colors duration-200 rounded-sm"
            :style="i <= currentIdx
              ? 'background-color:' + color
              : 'background-color: var(--color-border)'"
       ></div>
 
       {# Stage dot + label group #}
-      <div class="flex flex-col items-center relative group">
-        {# Dot #}
-        <div class="w-2.5 h-2.5 rounded-full border-2 transition-all duration-200"
-             :style="i < currentIdx
-               ? 'background-color:' + color + '; border-color:' + color
-               : i === currentIdx
-                 ? 'background-color:' + color + '; border-color:' + color + '; box-shadow: 0 0 0 3px ' + color + '22'
-                 : 'background-color: transparent; border-color: var(--color-border)'"
-        ></div>
-
-        {# Hover label #}
-        <span class="absolute top-full mt-1.5 font-mono text-[9px] uppercase tracking-widest whitespace-nowrap
-                      opacity-0 group-hover:opacity-100 transition-opacity duration-150 pointer-events-none"
-              :class="i <= currentIdx ? 'text-ink' : 'text-ink-muted'"
+      <div class="flex flex-col items-center gap-1 min-w-[40px]">
+        {# Label (above dot) #}
+        <span class="font-mono text-[9px] uppercase tracking-[0.08em] whitespace-nowrap transition-colors duration-200"
+              :class="i === currentIdx ? 'font-bold' : 'font-normal'"
+              :style="i === currentIdx
+                ? 'color:' + color
+                : i < currentIdx
+                  ? 'color: var(--color-ink-muted)'
+                  : 'color: var(--color-ink-light)'"
               x-text="stage"
         ></span>
+
+        {# Dot #}
+        <div class="relative flex items-center justify-center">
+          <div class="w-3 h-3 rounded-full border-2 transition-all duration-200"
+               :style="i < currentIdx
+                 ? 'background-color:' + color + '; border-color:' + color
+                 : i === currentIdx
+                   ? 'background-color:' + color + '; border-color:' + color + '; box-shadow: 0 0 0 3px ' + color + '18, 0 0 8px ' + color + '20'
+                   : 'background-color: transparent; border-color: var(--color-border)'"
+          >
+            {# Checkmark for completed #}
+            <template x-if="i < currentIdx">
+              <svg viewBox="0 0 12 12" class="absolute top-[1px] left-[1px] w-2 h-2">
+                <path d="M2.5 6L5 8.5L9.5 3.5" fill="none" stroke="var(--color-cream)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+              </svg>
+            </template>
+          </div>
+        </div>
       </div>
     </div>
   </template>

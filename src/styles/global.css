@@ -524,6 +524,11 @@ body::after {
   100% { opacity: 0; transform: translate(calc(-50% + var(--scatter-x, 0px)), calc(-50% + var(--scatter-y, 0px))); }
 }
 
+@keyframes pulseRing {
+  0%, 100% { opacity: 0.4; transform: scale(1); }
+  50%      { opacity: 0; transform: scale(1.4); }
+}
+
 /* Torn-edge clip-path:subtle paper-tear effect */
 .torn-edge-bottom {
   clip-path: polygon(
@@ -1778,15 +1783,15 @@ blockquote {
 
   /* ProgressTracker: scale down to fit 375px viewport */
   .mobile-tracker .tracker-connector {
-    width: 20px !important;
+    width: 16px !important;
   }
   .mobile-tracker .tracker-label {
-    font-size: 9px !important;
+    font-size: 8px !important;
     letter-spacing: 0.04em !important;
   }
   .mobile-tracker .tracker-dot {
-    width: 8px !important;
-    height: 8px !important;
+    width: 10px !important;
+    height: 10px !important;
   }
 
   /* Tap feedback on interactive cards */

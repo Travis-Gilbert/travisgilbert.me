@@ -38,6 +38,40 @@ import { relativeTime } from '@/lib/studio-time';
 import { useStudioWorkbench } from './WorkbenchContext';
 import NewContentModal from './NewContentModal';
 import CollagePanel from './CollagePanel';
+import PipelinePanel from './PipelinePanel';
+
+/* Stage definitions for PipelinePanel per content type */
+const CONTENT_STAGE_MAP: Record<string, Array<{ key: string; label: string }>> = {
+  essay: [
+    { key: 'idea', label: 'Idea' },
+    { key: 'research', label: 'Research' },
+    { key: 'drafting', label: 'Drafting' },
+    { key: 'revising', label: 'Editing' },
+    { key: 'production', label: 'Production' },
+    { key: 'published', label: 'Published' },
+  ],
+  'field-note': [
+    { key: 'observation', label: 'Observation' },
+    { key: 'developing', label: 'Developing' },
+    { key: 'connected', label: 'Connected' },
+  ],
+  video: [
+    { key: 'p0_research', label: 'Research' },
+    { key: 'p1_script_lock', label: 'Script' },
+    { key: 'p2_voiceover', label: 'Voiceover' },
+    { key: 'p3_filming', label: 'Filming' },
+    { key: 'p4_assembly', label: 'Assembly' },
+    { key: 'p5_polish', label: 'Polish' },
+    { key: 'p6_metadata', label: 'Metadata' },
+    { key: 'p7_published', label: 'Publish' },
+  ],
+};
+
+/* Fallback for shelf, project, toolkit */
+const DEFAULT_STAGES = [
+  { key: 'draft', label: 'Draft' },
+  { key: 'published', label: 'Published' },
+];
 
 const STORAGE_KEY = 'studio-workbench-open';
 const STORAGE_EDITOR_MODE_KEY = 'studio-workbench-editor-mode';
@@ -2062,30 +2096,16 @@ function OutlineMode({
         )}
       </div>
 
-      <div>
-        <ToolboxLabel>Export</ToolboxLabel>
-        <div
-          style={{
-            display: 'flex',
-            gap: '6px',
-            marginTop: '6px',
-          }}
-        >
-          <ExportButton label="HTML" onClick={handleExportHtml} />
-          <ExportButton
-            label="PDF"
-            onClick={() => undefined}
-            disabled
-            tooltip="Coming soon"
-          />
-          <ExportButton
-            label="TXT"
-            onClick={() => undefined}
-            disabled
-            tooltip="Coming soon"
-          />
-        </div>
-      </div>
+      {/* Pipeline timeline */}
+      {contentItem && (
+        <PipelinePanel
+          stages={CONTENT_STAGE_MAP[contentItem.contentType] ?? DEFAULT_STAGES}
+          currentStage={contentItem.stage}
+          color={typeInfo.color}
+          wordCount={wordCount}
+          wordTarget={target}
+        />
+      )}
     </>
   );
 }
