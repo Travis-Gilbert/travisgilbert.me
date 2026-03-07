@@ -224,6 +224,13 @@ class MiddlewareTests(TestCase):
         response = self.client.get('/health/')
         self.assertNotEqual(response.status_code, 401)
 
+    def test_notebook_endpoints_exempt_from_api_key(self):
+        """Notebook (CommonPlace) endpoints bypass API key middleware."""
+        response = self.client.get('/api/v1/notebook/feed/')
+        # Should NOT get the middleware 401; the DRF view handles auth.
+        error_msg = response.json().get('error', '')
+        self.assertNotIn('Provide Authorization: Bearer', error_msg)
+
     def test_usage_logged_after_request(self):
         self.client.credentials(HTTP_AUTHORIZATION=f'Bearer {self.key.key}')
         self.client.get('/api/v1/stats/')

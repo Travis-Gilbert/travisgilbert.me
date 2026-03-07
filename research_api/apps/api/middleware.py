@@ -25,6 +25,7 @@ EXEMPT_PREFIXES = (
     '/health/',
     '/admin/',
     '/webhooks/webmention/',
+    '/api/v1/notebook/',
 )
 
 EXEMPT_PATHS = (
