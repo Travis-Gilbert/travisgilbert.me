@@ -1,7 +1,6 @@
 from django.urls import path
 
-from apps.api import views
-from apps.api import connection_views
+from apps.api import cluster_views, connection_views, views
 from apps.research.views import (
     approved_suggestions,
     suggest_connection,
@@ -37,17 +36,21 @@ urlpatterns = [
     # Aggregate stats
     path('stats/', views.research_stats, name='research-stats'),
 
-    # ── NEW: Connection engine ──────────────────────────────────────
+    # ── Connection engine ───────────────────────────────────────────
     # Content-to-content connections (multi-signal: sources, tags, threads, semantic)
     path('connections/<slug:slug>/', connection_views.content_connections, name='connections'),
     # Full content-to-content graph (D3-ready, distinct from source graph)
     path('connections/graph/', connection_views.connection_graph, name='connection-graph'),
 
-    # ── NEW: Semantic similarity ────────────────────────────────────
+    # ── Semantic similarity ─────────────────────────────────────────
     # Similar content (pure embedding-based, no structural signals)
     path('similar/<slug:slug>/', connection_views.similar_content, name='similar-content'),
     # Similar sources
     path('similar/sources/', connection_views.similar_sources, name='similar-sources'),
+
+    # ── Cluster detection ───────────────────────────────────────────
+    # Automatic thematic clusters via agglomerative clustering
+    path('clusters/', cluster_views.content_clusters, name='clusters'),
 
     # Community contributions
     path('suggest/source/', suggest_source, name='suggest-source'),
