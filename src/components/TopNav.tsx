@@ -160,15 +160,25 @@ export default function TopNav({ navItems }: TopNavProps) {
 
         {/* Utilities (right) */}
         <div className="flex items-center gap-3 shrink-0 ml-auto">
-          {/* Search trigger */}
+          {/* Search trigger: dispatches custom event to open Terminal overlay */}
           <button
-            onClick={() => {
-              document.dispatchEvent(new KeyboardEvent('keydown', { key: 'k', metaKey: true }));
-            }}
-            className="text-ink-light hover:text-terracotta transition-colors p-1 bg-transparent border-none cursor-pointer min-h-[44px] min-w-[44px] inline-flex items-center justify-center"
+            onClick={() => window.dispatchEvent(new Event('open-terminal'))}
+            className="hover:text-terracotta transition-colors px-2 py-1 bg-transparent border-none cursor-pointer min-h-[44px] inline-flex items-center gap-1.5"
             aria-label="Search (Cmd+K)"
+            style={{ color: 'var(--color-hero-text-muted)' }}
           >
-            <MagnifyingGlass size={18} weight="thin" />
+            <MagnifyingGlass size={16} weight="regular" />
+            <kbd
+              className="hidden sm:inline-flex items-center gap-0.5 rounded px-1.5 py-0.5 font-mono"
+              style={{
+                fontSize: 10,
+                color: 'var(--color-hero-text-muted)',
+                backgroundColor: 'rgba(255,255,255,0.08)',
+                border: '1px solid rgba(255,255,255,0.12)',
+              }}
+            >
+              ⌘K
+            </kbd>
           </button>
 
           {/* Theme toggle (visible at all breakpoints) */}

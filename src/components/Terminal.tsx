@@ -14,7 +14,7 @@ export default function Terminal() {
     handleSubmit, handleArrowUp, handleArrowDown, selectResult,
   } = useTerminal(close);
 
-  // Global Cmd+K / Ctrl+K listener
+  // Global Cmd+K / Ctrl+K listener + custom event from TopNav search button
   useEffect(() => {
     function onKeyDown(e: KeyboardEvent) {
       if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
@@ -22,8 +22,15 @@ export default function Terminal() {
         setOpen((prev) => !prev);
       }
     }
+    function onOpenTerminal() {
+      setOpen(true);
+    }
     document.addEventListener('keydown', onKeyDown);
-    return () => document.removeEventListener('keydown', onKeyDown);
+    window.addEventListener('open-terminal', onOpenTerminal);
+    return () => {
+      document.removeEventListener('keydown', onKeyDown);
+      window.removeEventListener('open-terminal', onOpenTerminal);
+    };
   }, []);
 
   if (!open) return null;

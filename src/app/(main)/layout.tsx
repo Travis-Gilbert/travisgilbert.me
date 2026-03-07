@@ -5,7 +5,6 @@ import Footer from '@/components/Footer';
 import ConsoleEasterEgg from '@/components/ConsoleEasterEgg';
 import StudioShortcut from '@/components/StudioShortcut';
 import ArchitectureEasterEgg from '@/components/ArchitectureEasterEgg';
-import DesignLanguageEasterEgg from '@/components/DesignLanguageEasterEgg';
 import ResearchAPIEasterEgg from '@/components/ResearchAPIEasterEgg';
 import SourceGraphEasterEgg from '@/components/SourceGraphEasterEgg';
 import DotGridEasterEgg from '@/components/DotGridEasterEgg';
@@ -62,7 +61,6 @@ export default function MainLayout({
       />
       <StudioShortcut />
       <ArchitectureEasterEgg />
-      <DesignLanguageEasterEgg />
       <ResearchAPIEasterEgg />
       <SourceGraphEasterEgg />
       <DotGridEasterEgg />
