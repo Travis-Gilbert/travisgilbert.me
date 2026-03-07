@@ -18,7 +18,7 @@ export default function FieldNotesPage() {
 
   return (
     <>
-      <section className="py-8">
+      <section className="py-4 sm:py-8">
         <SectionLabel color="teal">Field Observation</SectionLabel>
         <h1 className="font-title text-3xl md:text-4xl font-bold mb-2 flex items-center gap-3">
           <DrawOnIcon name="note-pencil" size={32} color="var(--color-teal)" />
@@ -29,7 +29,7 @@ export default function FieldNotesPage() {
         </p>
       </section>
 
-      <div className="space-y-6">
+      <div className="space-y-3 sm:space-y-6">
         {allNotes.map((note) => (
           <FieldNoteEntry
             key={note.slug}

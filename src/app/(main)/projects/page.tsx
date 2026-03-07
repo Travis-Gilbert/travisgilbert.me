@@ -18,7 +18,7 @@ export default function ProjectsPage() {
 
   return (
     <>
-      <section className="py-8">
+      <section className="py-4 sm:py-8" data-pagefind-ignore>
         <SectionLabel color="gold">Project Archive</SectionLabel>
         <h1 className="font-title text-3xl md:text-4xl font-bold mb-2 flex items-center gap-3">
           <DrawOnIcon name="briefcase" size={32} color="var(--color-gold)" />

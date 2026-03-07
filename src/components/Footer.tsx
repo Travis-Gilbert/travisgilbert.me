@@ -7,7 +7,7 @@ export default function Footer() {
   const { footer } = getSiteConfig();
 
   return (
-    <footer className="mt-auto border-t border-border-light py-8 px-4 safe-area-pad-bottom">
+    <footer className="mt-auto border-t border-border-light py-8 px-3 sm:px-4 safe-area-pad-bottom">
       <div className="max-w-4xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-4 text-sm font-mono text-ink-light">
         <div className="flex flex-col items-center sm:items-start gap-1">
           {footer.tagline && (
@@ -54,6 +54,13 @@ export default function Footer() {
           >
             <GitBranch size={12} weight="regular" />
             Paper Trails
+          </Link>
+          <Link
+            href="/changelog"
+            className="text-ink-light hover:text-terracotta no-underline min-h-[44px] inline-flex items-center"
+            style={{ fontSize: 11 }}
+          >
+            Changelog
           </Link>
           <span className="text-border-light" aria-hidden="true">|</span>
           <Link

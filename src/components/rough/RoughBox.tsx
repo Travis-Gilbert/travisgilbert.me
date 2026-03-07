@@ -90,6 +90,7 @@ export default function RoughBox({
   // Build className string from props
   const classes = [
     'relative',
+    'rough-box-pad',
     elevated ? 'surface-elevated' : '',
     hover ? 'surface-hover' : '',
     tintClass[tint],

@@ -80,10 +80,10 @@ export default function HomePage() {
           Field Notes: Asymmetric grid with compact tracker + callouts
           ═══════════════════════════════════════════════ */}
       {fieldNotes.length > 0 && (
-        <section className="py-6">
+        <section className="py-3 sm:py-6">
           <RoughLine label="Field Notes" labelColor="var(--color-teal)" />
 
-          <div className="grid grid-cols-1 md:grid-cols-[3fr_2fr] gap-5 items-start">
+          <div className="grid grid-cols-1 md:grid-cols-[3fr_2fr] gap-3 sm:gap-5 items-start">
             {fieldNotes.map((note, i) => (
               <ScrollReveal
                 key={note.slug}
@@ -169,7 +169,7 @@ export default function HomePage() {
           Renders nothing if the research API is unreachable or has no
           active threads, so the homepage degrades gracefully.
           ═══════════════════════════════════════════════ */}
-      <section className="py-6">
+      <section className="py-3 sm:py-6">
         <RoughLine label="Currently Researching" labelColor="var(--color-green)" />
         <ActiveThreads />
       </section>
@@ -178,10 +178,10 @@ export default function HomePage() {
           Projects: Grid with role icons and scroll-reveal stagger
           ═══════════════════════════════════════════════ */}
       {projects.length > 0 && (
-        <section className="py-6">
+        <section className="py-3 sm:py-6">
           <RoughLine label="Projects" labelColor="var(--color-gold)" />
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-6">
             {projects.map((project, i) => (
               <ScrollReveal key={project.slug} delay={i * 80}>
                 <div data-cursor="crosshair">

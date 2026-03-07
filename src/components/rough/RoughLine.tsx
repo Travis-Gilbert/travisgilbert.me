@@ -124,7 +124,7 @@ export default function RoughLine({
 
   if (label) {
     return (
-      <div className={`w-full my-8 ${className || ''}`}>
+      <div className={`w-full my-4 sm:my-8 ${className || ''}`}>
         <div className="relative flex items-center">
           {/* Left line segment: rough.js canvas */}
           <div ref={leftWrapperRef} className="flex-1">
@@ -147,7 +147,7 @@ export default function RoughLine({
   }
 
   return (
-    <div ref={wrapperRef} className={`w-full my-4 ${className || ''}`}>
+    <div ref={wrapperRef} className={`w-full my-2 sm:my-4 ${className || ''}`}>
       <canvas ref={canvasRef} aria-hidden="true" className="block" />
     </div>
   );

@@ -1766,6 +1766,47 @@ blockquote {
 }
 
 /* ─────────────────────────────────────────────────
+   Mobile Density (<640px)
+   Tighter card interiors, scaled tracker, tap feedback
+   ───────────────────────────────────────────────── */
+
+@media (max-width: 639px) {
+  /* Tighter card interiors (overrides inline padding) */
+  .rough-box-pad {
+    padding: 14px !important;
+  }
+
+  /* ProgressTracker: scale down to fit 375px viewport */
+  .mobile-tracker .tracker-connector {
+    width: 20px !important;
+  }
+  .mobile-tracker .tracker-label {
+    font-size: 9px !important;
+    letter-spacing: 0.04em !important;
+  }
+  .mobile-tracker .tracker-dot {
+    width: 8px !important;
+    height: 8px !important;
+  }
+
+  /* Tap feedback on interactive cards */
+  .surface-hover:active {
+    transform: scale(0.98);
+    transition: transform 100ms ease;
+  }
+}
+
+/* Smooth scrolling (respects reduced-motion) */
+html {
+  scroll-behavior: smooth;
+}
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+}
+
+/* ─────────────────────────────────────────────────
    Reading Typography + Mobile Footnotes
    ───────────────────────────────────────────────── */
 

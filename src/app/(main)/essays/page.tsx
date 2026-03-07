@@ -35,7 +35,7 @@ export default function EssaysPage() {
 
   return (
     <>
-      <section className="py-8">
+      <section className="py-4 sm:py-8">
         <SectionLabel color="terracotta">Works in Progress</SectionLabel>
         <h1 className="font-title text-3xl md:text-4xl font-bold mb-2 flex items-center gap-3">
           <DrawOnIcon name="file-text" size={32} color="var(--color-terracotta)" />
@@ -103,7 +103,7 @@ export default function EssaysPage() {
 
         {/* Remaining essays: 2-column grid */}
         {essays.length > 1 && (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-6 mt-4 sm:mt-6">
             {essays.slice(1).map((essay) => (
               <div key={essay.slug} data-slug={essay.slug}>
                 <EssayCard

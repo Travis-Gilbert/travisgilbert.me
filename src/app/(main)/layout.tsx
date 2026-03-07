@@ -1,4 +1,5 @@
 import DotGrid from '@/components/DotGrid';
+import Terminal from '@/components/Terminal';
 import TopNav from '@/components/TopNav';
 import Footer from '@/components/Footer';
 import ConsoleEasterEgg from '@/components/ConsoleEasterEgg';
@@ -40,13 +41,14 @@ export default function MainLayout({
       <PersonJsonLd />
       <WebSiteJsonLd />
       <DotGrid />
+      <Terminal />
       <a href="#main-content" className="skip-to-content">
         Skip to content
       </a>
       <TopNav navItems={visibleNav} />
       <main
         id="main-content"
-        className="main-content flex-1 max-w-4xl mx-auto w-full px-4 sm:px-6 py-6 sm:py-8"
+        className="main-content flex-1 max-w-4xl mx-auto w-full px-3 sm:px-6 py-4 sm:py-8"
       >
         {children}
       </main>

@@ -155,7 +155,7 @@ export default function EssayHero({
       />
 
       {/* Typography layer */}
-      <div className="relative z-10 max-w-4xl mx-auto px-4 sm:px-6 pt-16 md:pt-24 pb-10 md:pb-14">
+      <div className="relative z-10 max-w-4xl mx-auto px-3 sm:px-6 pt-10 md:pt-24 pb-6 md:pb-14">
         {/* Date + reading time: top-right corner */}
         <div
           className="absolute top-4 right-4 sm:right-6 md:top-6 text-right"

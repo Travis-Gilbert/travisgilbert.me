@@ -64,7 +64,7 @@ export default function ProgressTracker({
   const showStamp = lastAdvanced ? isRecent(lastAdvanced) : false;
 
   return (
-    <div className="flex items-center gap-0 mt-2">
+    <div className="mobile-tracker flex items-center gap-0 mt-2">
       {stages.map((stage, i) => {
         const isComplete = i < currentIdx;
         const isCurrent = i === currentIdx;
@@ -82,7 +82,7 @@ export default function ProgressTracker({
                 />
               ) : (
                 <div
-                  className="rounded-full transition-all duration-300"
+                  className="tracker-dot rounded-full transition-all duration-300"
                   style={{
                     width: 10,
                     height: 10,
@@ -94,7 +94,7 @@ export default function ProgressTracker({
               )}
               {/* Label */}
               <span
-                className="font-mono whitespace-nowrap"
+                className="tracker-label font-mono whitespace-nowrap"
                 style={{
                   fontSize: 11,
                   textTransform: 'uppercase',
@@ -111,7 +111,7 @@ export default function ProgressTracker({
             {/* Connector line between dots */}
             {i < stages.length - 1 && (
               <div
-                className="transition-colors duration-300"
+                className="tracker-connector transition-colors duration-300"
                 style={{
                   width: 32,
                   height: 2,

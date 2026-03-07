@@ -36,7 +36,7 @@ export default async function ToolkitPage() {
 
   return (
     <>
-      <section className="py-8">
+      <section className="py-4 sm:py-8" data-pagefind-ignore>
         <SectionLabel color="terracotta">Workshop Tools</SectionLabel>
         <h1 className="font-title-alt text-3xl md:text-4xl font-semibold mb-2 flex items-center gap-3">
           <DrawOnIcon name="wrench" size={32} color="var(--color-terracotta)" />
@@ -54,7 +54,7 @@ export default async function ToolkitPage() {
         if (items.length === 0) return null;
 
         return (
-          <section key={cat.key} className="mb-12">
+          <section key={cat.key} className="mb-6 sm:mb-12">
             <h2 className="font-title-alt text-2xl font-semibold mb-6">
               {cat.label}
             </h2>

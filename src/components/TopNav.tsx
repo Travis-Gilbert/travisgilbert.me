@@ -6,6 +6,7 @@ import Link from 'next/link';
 import SketchIcon from '@/components/rough/SketchIcon';
 import type { IconName } from '@/components/rough/SketchIcon';
 import ThemeToggle from '@/components/ThemeToggle';
+import { MagnifyingGlass } from '@phosphor-icons/react';
 
 interface NavLink {
   href: string;
@@ -113,7 +114,7 @@ export default function TopNav({ navItems }: TopNavProps) {
       className="sticky top-0 z-50 nav-fade safe-area-pad-top"
       style={{ backgroundColor: 'var(--color-nav-bg)', boxShadow: '0 1px 12px rgba(34, 26, 28, 0.5)' }}
     >
-      <div className="w-full px-4 sm:px-6 py-3 flex items-center">
+      <div className="w-full px-3 sm:px-6 py-3 flex items-center">
         {/* Site title (left) */}
         <Link
           href="/"
@@ -159,6 +160,17 @@ export default function TopNav({ navItems }: TopNavProps) {
 
         {/* Utilities (right) */}
         <div className="flex items-center gap-3 shrink-0 ml-auto">
+          {/* Search trigger */}
+          <button
+            onClick={() => {
+              document.dispatchEvent(new KeyboardEvent('keydown', { key: 'k', metaKey: true }));
+            }}
+            className="text-ink-light hover:text-terracotta transition-colors p-1 bg-transparent border-none cursor-pointer min-h-[44px] min-w-[44px] inline-flex items-center justify-center"
+            aria-label="Search (Cmd+K)"
+          >
+            <MagnifyingGlass size={18} weight="thin" />
+          </button>
+
           {/* Theme toggle (visible at all breakpoints) */}
           <ThemeToggle />
 
@@ -195,7 +207,7 @@ export default function TopNav({ navItems }: TopNavProps) {
       {/* Mobile menu panel */}
       {mobileOpen && (
         <div ref={mobileMenuRef} className="lg:hidden" style={{ backgroundColor: 'var(--color-nav-bg)' }}>
-          <ul className="list-none m-0 p-4 flex flex-col gap-3">
+          <ul className="list-none m-0 px-3 py-4 flex flex-col gap-3">
             {navLinks.map((link) => {
               const active = isActive(link.href);
               return (
