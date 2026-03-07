@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import { STUDIO_API_BASE } from '@/lib/studio';
+import { STUDIO_API_BASE, STUDIO_URL } from '@/lib/studio';
 import type { Editor } from '@tiptap/react';
 
 interface CutoutItem {
@@ -19,7 +19,7 @@ async function uploadCollageImage(file: File): Promise<boolean> {
   formData.append('image', file);
 
   try {
-    const res = await fetch(`${STUDIO_API_BASE}/upload/collage/`, {
+    const res = await fetch(`${STUDIO_URL}/upload/collage/`, {
       method: 'POST',
       body: formData,
       credentials: 'omit',

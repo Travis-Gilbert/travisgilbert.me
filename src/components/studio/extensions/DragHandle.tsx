@@ -175,7 +175,7 @@ const DragHandle = Extension.create({
       hideTimer = setTimeout(() => {
         hideHandle();
         hideTimer = null;
-      }, 150);
+      }, 280);
     }
 
     function cancelHide() {

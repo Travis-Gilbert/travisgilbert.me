@@ -2785,7 +2785,7 @@
   color: var(--studio-writing-paper-border);
   cursor: grab;
   opacity: 0;
-  transition: opacity 0.15s ease, color 0.12s ease, background-color 0.12s ease;
+  transition: opacity 0.2s ease, color 0.12s ease, background-color 0.12s ease;
   border-radius: 3px;
   user-select: none;
   z-index: 50;

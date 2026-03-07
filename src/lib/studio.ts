@@ -10,7 +10,7 @@
    API base
    ───────────────────────────────────────────────── */
 
-const STUDIO_URL =
+export const STUDIO_URL =
   process.env.NEXT_PUBLIC_STUDIO_URL ?? 'http://localhost:8000';
 
 export const STUDIO_API_BASE = `${STUDIO_URL}/editor/api`;
