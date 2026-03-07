@@ -462,7 +462,7 @@
    ───────────────────────────────────────────────── */
 
 .studio-scrollbar::-webkit-scrollbar {
-  width: 4px;
+  width: 8px;
 }
 
 .studio-scrollbar::-webkit-scrollbar-track {
@@ -471,11 +471,15 @@
 
 .studio-scrollbar::-webkit-scrollbar-thumb {
   background: var(--studio-text-3);
-  border-radius: 2px;
+  border-radius: 4px;
 }
 
 .studio-scrollbar::-webkit-scrollbar-thumb:hover {
   background: var(--studio-text-2);
+}
+
+.studio-scrollbar::-webkit-scrollbar-thumb:active {
+  background: var(--studio-text-1);
 }
 
 /* ─────────────────────────────────────────────────
@@ -1109,13 +1113,13 @@
 .studio-tiptap-wrapper {
   background-color: transparent;
   padding: 0 32px 24px;
-  scroll-padding-top: 45vh;
-  scroll-padding-bottom: 45vh;
+  scroll-padding-top: 20vh;
+  scroll-padding-bottom: 20vh;
 }
 
 .studio-tiptap-wrapper[data-typewriter-mode='false'] {
-  scroll-padding-top: 24vh;
-  scroll-padding-bottom: 24vh;
+  scroll-padding-top: 4vh;
+  scroll-padding-bottom: 4vh;
 }
 
 .studio-markdown-view-wrap {
