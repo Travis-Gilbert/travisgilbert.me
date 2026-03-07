@@ -4,7 +4,7 @@ import { createContext, useContext, useState, useCallback } from 'react';
 import type { Editor as TiptapEditorType } from '@tiptap/react';
 import type { StudioContentItem } from '@/lib/studio';
 
-export type WorkbenchSaveState = 'idle' | 'saving' | 'success' | 'error';
+export type WorkbenchSaveState = 'idle' | 'saving' | 'success' | 'error' | 'retrying';
 export type WorkbenchAutosaveState = 'idle' | 'saved';
 
 export interface StashItem {

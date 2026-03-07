@@ -14,6 +14,7 @@ import {
   useStudioWorkbench,
 } from './WorkbenchContext';
 import { StudioViewProvider } from './StudioViewContext';
+import type { StudioThemeMode } from './StudioViewContext';
 import StudioMobileDock from './StudioMobileDock';
 import NewContentModal from './NewContentModal';
 
@@ -42,6 +43,7 @@ function StudioLayoutInner({
   children: React.ReactNode;
 }) {
   const ZEN_MODE_STORAGE_KEY = 'studio-zen-mode-v1';
+  const THEME_STORAGE_KEY = 'studio-theme-v1';
   const pathname = usePathname();
   const isAppShellMobile = useIsAppShellMobile();
   const { editorState } = useStudioWorkbench();
@@ -49,6 +51,7 @@ function StudioLayoutInner({
   const [mobileWorkbenchOpen, setMobileWorkbenchOpen] = useState(false);
   const [showNewModal, setShowNewModal] = useState(false);
   const [zenMode, setZenModeState] = useState(false);
+  const [themeMode, setThemeModeState] = useState<StudioThemeMode>('dark');
 
   const editorMode = useMemo(() => isEditorRoute(pathname), [pathname]);
   const setZenMode = useCallback((enabled: boolean) => {
@@ -62,6 +65,14 @@ function StudioLayoutInner({
     setZenModeState((prev) => !prev);
     setMobileOpen(false);
     setMobileWorkbenchOpen(false);
+  }, []);
+
+  const setThemeMode = useCallback((mode: StudioThemeMode) => {
+    setThemeModeState(mode);
+  }, []);
+
+  const toggleThemeMode = useCallback(() => {
+    setThemeModeState((prev) => (prev === 'dark' ? 'light' : 'dark'));
   }, []);
 
   useEffect(() => {
@@ -80,6 +91,35 @@ function StudioLayoutInner({
     window.localStorage.setItem(ZEN_MODE_STORAGE_KEY, String(zenMode));
   }, [zenMode]);
 
+  /* Theme: read from localStorage on mount */
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    try {
+      const raw = window.localStorage.getItem(THEME_STORAGE_KEY);
+      if (raw === 'light' || raw === 'dark') {
+        setThemeModeState(raw);
+      }
+    } catch {
+      /* ignore */
+    }
+  }, []);
+
+  /* Theme: persist to localStorage and sync DOM class */
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    window.localStorage.setItem(THEME_STORAGE_KEY, themeMode);
+
+    /* Apply class to the .studio-theme container */
+    const themeEl = document.querySelector('.studio-theme');
+    if (themeEl) {
+      if (themeMode === 'light') {
+        themeEl.classList.add('studio-theme-light');
+      } else {
+        themeEl.classList.remove('studio-theme-light');
+      }
+    }
+  }, [themeMode]);
+
   useEffect(() => {
     setMobileOpen(false);
     setMobileWorkbenchOpen(false);
@@ -88,19 +128,30 @@ function StudioLayoutInner({
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
       if (!(event.metaKey || event.ctrlKey) || !event.shiftKey) return;
-      if (event.key.toLowerCase() !== 'z') return;
-      event.preventDefault();
-      toggleZenMode();
+      const key = event.key.toLowerCase();
+
+      /* Cmd+Shift+Z: zen mode */
+      if (key === 'z') {
+        event.preventDefault();
+        toggleZenMode();
+        return;
+      }
+
+      /* Cmd+Shift+T: toggle theme */
+      if (key === 't') {
+        event.preventDefault();
+        toggleThemeMode();
+      }
     };
 
     window.addEventListener('keydown', handleKeyDown);
     return () => {
       window.removeEventListener('keydown', handleKeyDown);
     };
-  }, [toggleZenMode]);
+  }, [toggleZenMode, toggleThemeMode]);
 
   return (
-    <StudioViewProvider value={{ zenMode, setZenMode, toggleZenMode }}>
+    <StudioViewProvider value={{ zenMode, setZenMode, toggleZenMode, themeMode, setThemeMode, toggleThemeMode }}>
       {!zenMode && (
         <div
           style={{

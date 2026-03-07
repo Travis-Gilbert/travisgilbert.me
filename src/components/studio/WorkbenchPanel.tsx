@@ -101,7 +101,7 @@ interface TodoItem {
   done: boolean;
 }
 
-type SaveState = 'idle' | 'saving' | 'success' | 'error';
+type SaveState = 'idle' | 'saving' | 'success' | 'error' | 'retrying';
 type AutosaveState = 'idle' | 'saved';
 
 type WorkbenchMode = 'editor' | 'dashboard';

@@ -23,25 +23,14 @@ export const metadata: Metadata = {
 };
 
 /**
- * Studio route group layout: dark creative workbench.
+ * Studio route group layout: themed creative workbench.
  *
  * Does NOT render html/body (root layout handles that).
  * Applies `.studio-theme` to scope all `--studio-*` tokens.
+ * Light mode via `.studio-theme-light` (additive override).
  *
- * Three-column flex layout:
- *   Left:   232px sidebar (navigation, wordmark, quick capture)
- *   Center: fluid main area (dashboard, content lists, editor)
- *   Right:  300px collapsible workbench (pipeline stats, activity)
- *
- * Visual layers (back to front):
- *   1. Near-black background (#0F1012)
- *   2. Dot field (28px terracotta dots at 13%)
- *   3. Grid lines (40px terracotta at 2.5%)
- *   4. Upper-left corner glow (radial terracotta at 6%)
- *   5. Paper grain (SVG noise at 5.5%, overlay blend)
- *   6. Sidebar (#111210) with terracotta glow, grid lines, grain
- *   7. Workbench panel (#111210) with bottom-right glow, grid, grain
- *   8. Main content area with intelligence dashboard and glow cards
+ * Flash prevention: inline script reads localStorage before React hydrates
+ * to apply the light theme class immediately (no dark flash on load).
  */
 export default function StudioGroupLayout({
   children,
@@ -60,6 +49,13 @@ export default function StudioGroupLayout({
         isolation: 'isolate',
       }}
     >
+      {/* Theme flash prevention: applies light class before React hydrates */}
+      <script
+        dangerouslySetInnerHTML={{
+          __html: `(function(){try{if(localStorage.getItem('studio-theme-v1')==='light'){document.querySelector('.studio-theme').classList.add('studio-theme-light')}}catch(e){}})()`,
+        }}
+      />
+
       {/* Interactive multi-color dot grid (terracotta, teal, gold) */}
       <StudioDotGrid />
 

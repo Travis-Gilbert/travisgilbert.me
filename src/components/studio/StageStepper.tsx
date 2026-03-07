@@ -76,13 +76,15 @@ export default function StageStepper({
   const saveMessage =
     saveState === 'saving'
       ? 'Saving...'
-      : saveState === 'error'
-        ? 'Save failed'
-        : autosaveState === 'saved'
-          ? 'Saved'
-          : lastSaved
-            ? `Saved ${lastSaved}`
-            : null;
+      : saveState === 'retrying'
+        ? 'Retrying...'
+        : saveState === 'error'
+          ? 'Save failed'
+          : autosaveState === 'saved'
+            ? 'Saved'
+            : lastSaved
+              ? `Saved ${lastSaved}`
+              : null;
 
   const typeInfo = getContentTypeIdentity(contentType);
 
@@ -258,14 +260,12 @@ export default function StageStepper({
 
         {saveMessage && (
           <span
-            style={{
-              fontFamily: 'var(--studio-font-mono)',
-              fontSize: '10px',
-              color: saveState === 'error' ? '#A44A3A' : 'var(--studio-text-3)',
-            }}
+            className={`studio-save-indicator studio-save-indicator--${saveState === 'idle' && autosaveState === 'saved' ? 'autosaved' : saveState}`}
             aria-live="polite"
+            title={saveMessage}
           >
-            {saveMessage}
+            <span className="studio-save-dot" />
+            <span className="studio-save-text">{saveMessage}</span>
           </span>
         )}
 

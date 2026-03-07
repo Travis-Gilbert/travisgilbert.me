@@ -9,13 +9,16 @@ import {
   ClockCounterClockwise,
   FileText,
   Gear,
+  Moon,
   NotePencil,
   Notebook,
+  Sun,
   Toolbox,
   VideoCamera,
 } from '@phosphor-icons/react';
 import { SIDEBAR_SECTIONS, SIDEBAR_TIMELINE_ITEM } from '@/lib/studio';
 import { fetchContentList } from '@/lib/studio-api';
+import { useStudioView } from './StudioViewContext';
 import NewContentModal from './NewContentModal';
 
 /**

@@ -17,7 +17,9 @@ import {
   updateTask,
   deleteTask,
 } from '@/lib/studio-api';
+import { useDraftBuffer } from '@/lib/studio-draft-buffer';
 import type { ApiStashItem, ApiContentTask } from '@/lib/studio-api';
+import { StudioApiError } from '@/lib/studio-api';
 import {
   useStudioWorkbench,
   type WorkbenchAutosaveState,
@@ -275,6 +277,16 @@ export default function Editor({
   const [stash, setStash] = useState<Array<{ id: string; text: string; savedAt: string }>>([]);
   const [tasks, setTasks] = useState<StashTask[]>([]);
 
+  /* Draft buffer: localStorage crash recovery */
+  const {
+    hasRecoverableDraft,
+    recoverableDraft,
+    restoreDraft,
+    discardDraft,
+    bufferContent,
+    clearBuffer,
+  } = useDraftBuffer(normalizedContentType, slug, contentItem?.updatedAt);
+
   /* Fetch persisted stash and tasks from Django on mount / slug change */
   useEffect(() => {
     let cancelled = false;
@@ -311,16 +323,18 @@ export default function Editor({
   const autosaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const saveStateTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const currentTitleRef = useRef(currentTitle);
-  const snapshotRef = useRef(
-    JSON.stringify({
-      title,
-      body: initialContent ?? '',
-    }),
-  );
+  const contentItemRef = useRef(contentItem);
+  const readingPanelRef = useRef<HTMLDivElement>(null);
+  const readingToggleRef = useRef<HTMLButtonElement>(null);
+  const snapshotRef = useRef<string | null>(null);
 
   useEffect(() => {
     currentTitleRef.current = currentTitle;
   }, [currentTitle]);
+
+  useEffect(() => {
+    contentItemRef.current = contentItem;
+  }, [contentItem]);
 
   useEffect(() => {
     const detectedFormat = detectEditorContentFormat(initialContent ?? '');
@@ -332,10 +346,10 @@ export default function Editor({
     setSaveState('idle');
     setAutosaveState('idle');
     setShowMarkdownView(false);
-    snapshotRef.current = JSON.stringify({
-      title,
-      body: initialContent ?? '',
-    });
+    /* Snapshot is set to null until handleEditorReady fires with the
+     * markdown-converted content. This prevents phantom autosaves caused
+     * by comparing raw initialContent with the markdown serialization. */
+    snapshotRef.current = null;
   }, [title, initialContent, initialStage, contentItem?.updatedAt, slug]);
 
   useEffect(() => {
@@ -344,6 +358,31 @@ export default function Editor({
       if (saveStateTimerRef.current) clearTimeout(saveStateTimerRef.current);
     };
   }, []);
+
+  /* Close reading panel on click-outside or Escape */
+  useEffect(() => {
+    if (!isReadingPanelOpen) return;
+
+    function handleClickOutside(e: MouseEvent) {
+      const target = e.target as Node;
+      if (
+        readingPanelRef.current?.contains(target) ||
+        readingToggleRef.current?.contains(target)
+      ) return;
+      setIsReadingPanelOpen(false);
+    }
+
+    function handleEscape(e: KeyboardEvent) {
+      if (e.key === 'Escape') setIsReadingPanelOpen(false);
+    }
+
+    document.addEventListener('mousedown', handleClickOutside);
+    document.addEventListener('keydown', handleEscape);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+      document.removeEventListener('keydown', handleEscape);
+    };
+  }, [isReadingPanelOpen]);
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
@@ -408,45 +447,65 @@ export default function Editor({
 
       setSaveState('saving');
       setAutosaveState('idle');
-      const serializedBody = getEditorMarkdown(editor) ?? currentBody;
 
-      const payload = {
-        title: currentTitle.trim() || 'Untitled',
-        body: serializedBody,
-        excerpt: excerptFromContent(serializedBody),
-        tags: contentItem?.tags ?? [],
-      };
+      const RETRY_DELAYS = [1000, 2000, 4000]; // exponential backoff
+      let lastError: unknown = null;
 
-      try {
-        const saved = await saveContentItem(normalizedContentType, slug, payload);
+      for (let attempt = 0; attempt <= RETRY_DELAYS.length; attempt++) {
+        /* Re-serialize on every attempt so retries send the freshest content */
+        const serializedBody = getEditorMarkdown(editor) ?? currentBody;
+        const payload = {
+          title: currentTitle.trim() || 'Untitled',
+          body: serializedBody,
+          excerpt: excerptFromContent(serializedBody),
+          tags: contentItemRef.current?.tags ?? [],
+        };
 
-        const snapshot = JSON.stringify({
-          title: payload.title,
-          body: payload.body,
-        });
-        snapshotRef.current = snapshot;
+        try {
+          const saved = await saveContentItem(normalizedContentType, slug, payload);
 
-        setCurrentTitle(saved.title);
-        setLastSaved(formatSavedTime(saved.updatedAt));
-        setSaveState('success');
+          const snapshot = JSON.stringify({
+            title: payload.title,
+            body: payload.body,
+          });
+          snapshotRef.current = snapshot;
 
-        if (mode === 'autosave') {
-          setAutosaveState('saved');
+          setCurrentTitle(saved.title);
+          setLastSaved(formatSavedTime(saved.updatedAt));
+          setSaveState('success');
+          clearBuffer();
+
+          if (mode === 'autosave') {
+            setAutosaveState('saved');
+          }
+
+          saveStateTimerRef.current = setTimeout(() => {
+            setSaveState('idle');
+          }, 1500);
+          return; // success, exit retry loop
+        } catch (err) {
+          lastError = err;
+
+          /* Only retry on network errors; server errors (4xx/5xx) fail immediately */
+          const isNetwork = err instanceof StudioApiError && err.isNetworkError;
+          if (!isNetwork || attempt >= RETRY_DELAYS.length) {
+            break;
+          }
+
+          setSaveState('retrying');
+          await new Promise((r) => setTimeout(r, RETRY_DELAYS[attempt]));
         }
-
-        saveStateTimerRef.current = setTimeout(() => {
-          setSaveState('idle');
-        }, 1500);
-      } catch {
-        setSaveState('error');
-        setAutosaveState('idle');
-
-        saveStateTimerRef.current = setTimeout(() => {
-          setSaveState('idle');
-        }, 3000);
       }
+
+      /* All attempts exhausted */
+      setSaveState('error');
+      setAutosaveState('idle');
+
+      saveStateTimerRef.current = setTimeout(() => {
+        setSaveState('idle');
+      }, 5000);
     },
-    [contentItem?.tags, currentBody, currentTitle, editor, normalizedContentType, slug],
+    [currentBody, currentTitle, editor, normalizedContentType, slug, clearBuffer],
   );
 
   const handleUpdate = useCallback((payload: TiptapUpdatePayload) => {
@@ -460,7 +519,24 @@ export default function Editor({
     void persistChanges('manual');
   }, [persistChanges]);
 
+  const handleRestoreDraft = useCallback(() => {
+    const draft = restoreDraft();
+    if (!draft) return;
+    setCurrentTitle(draft.title);
+    if (editor) {
+      editor.commands.setContent(draft.body);
+    }
+    setCurrentBody(draft.body);
+  }, [restoreDraft, editor]);
+
   useEffect(() => {
+    /* snapshotRef is null until handleEditorReady fires. Skip dirty
+     * checks until the editor has initialized and set the baseline
+     * snapshot. This prevents phantom autosaves on first load. */
+    if (snapshotRef.current === null) {
+      return;
+    }
+
     const nextSnapshot = JSON.stringify({
       title: currentTitle,
       body: currentBody,
@@ -469,6 +545,9 @@ export default function Editor({
     if (nextSnapshot === snapshotRef.current) {
       return;
     }
+
+    /* Buffer to localStorage for crash recovery (1s debounce inside hook) */
+    bufferContent(currentTitle, currentBody);
 
     if (autosaveTimerRef.current) {
       clearTimeout(autosaveTimerRef.current);
@@ -483,7 +562,7 @@ export default function Editor({
         clearTimeout(autosaveTimerRef.current);
       }
     };
-  }, [currentBody, currentTitle, persistChanges]);
+  }, [currentBody, currentTitle, persistChanges, bufferContent]);
 
   const handleStageChange = useCallback(
     (newStage: string) => {
@@ -509,12 +588,12 @@ export default function Editor({
       title: currentTitle.trim() || 'Untitled',
       body: serializedBody,
       excerpt: excerptFromContent(serializedBody),
-      tags: contentItem?.tags ?? [],
+      tags: contentItemRef.current?.tags ?? [],
     });
     const published = await publishContentItem(normalizedContentType, slug);
     setStage(published.stage);
     setLastSaved(formatSavedTime(published.updatedAt));
-  }, [contentItem?.tags, currentBody, currentTitle, editor, normalizedContentType, slug]);
+  }, [currentBody, currentTitle, editor, normalizedContentType, slug]);
 
   const handleStash = useCallback(
     (text: string) => {
@@ -674,7 +753,10 @@ export default function Editor({
     setReadingSettings((prev) => normalizeReadingSettings({ ...prev, ...patch }));
   };
   const markdownPreview = getEditorMarkdown(editor) ?? currentBody;
-  const saveButtonLabel = saveState === 'saving' ? 'Saving...' : 'Save';
+  const saveButtonLabel =
+    saveState === 'saving' ? 'Saving...'
+    : saveState === 'retrying' ? 'Retrying...'
+    : 'Save';
 
   return (
     <div style={{ display: 'flex', height: '100vh', maxHeight: '100vh' }}>
@@ -683,6 +765,37 @@ export default function Editor({
         data-writing-focused={isWritingFocused ? 'true' : 'false'}
         style={writingSurfaceStyle}
       >
+        {hasRecoverableDraft && (
+          <div className="studio-draft-recovery-banner">
+            <span className="studio-draft-recovery-text">
+              Unsaved draft found from{' '}
+              {recoverableDraft
+                ? new Date(recoverableDraft.savedAt).toLocaleString('en-US', {
+                    month: 'short',
+                    day: 'numeric',
+                    hour: 'numeric',
+                    minute: '2-digit',
+                    hour12: true,
+                  })
+                : 'earlier'}
+            </span>
+            <button
+              type="button"
+              className="studio-draft-recovery-btn studio-draft-recovery-restore"
+              onClick={handleRestoreDraft}
+            >
+              Restore
+            </button>
+            <button
+              type="button"
+              className="studio-draft-recovery-btn studio-draft-recovery-discard"
+              onClick={discardDraft}
+            >
+              Discard
+            </button>
+          </div>
+        )}
+
         <StageStepper
           stage={stage}
           contentType={normalizedContentType}
@@ -706,6 +819,7 @@ export default function Editor({
               />
               <div className="studio-editor-title-actions">
                 <button
+                  ref={readingToggleRef}
                   type="button"
                   className="studio-reading-toggle"
                   onClick={() => setIsReadingPanelOpen((open) => !open)}
@@ -723,7 +837,7 @@ export default function Editor({
             </div>
 
             {isReadingPanelOpen && (
-              <div id="studio-reading-panel" className="studio-reading-panel">
+              <div ref={readingPanelRef} id="studio-reading-panel" className="studio-reading-panel">
                 <div className="studio-reading-control">
                   <span className="studio-reading-label">Font</span>
                   <div className="studio-font-grid" role="radiogroup" aria-label="Reading font">

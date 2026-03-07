@@ -2,10 +2,15 @@
 
 import { createContext, useContext } from 'react';
 
+export type StudioThemeMode = 'dark' | 'light';
+
 export interface StudioViewState {
   zenMode: boolean;
   setZenMode: (enabled: boolean) => void;
   toggleZenMode: () => void;
+  themeMode: StudioThemeMode;
+  setThemeMode: (mode: StudioThemeMode) => void;
+  toggleThemeMode: () => void;
 }
 
 const StudioViewContext = createContext<StudioViewState | null>(null);
