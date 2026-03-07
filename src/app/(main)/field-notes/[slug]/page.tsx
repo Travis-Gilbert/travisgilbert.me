@@ -2,7 +2,10 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { getCollection, getEntry, renderMarkdown, estimateReadingTime } from '@/lib/content';
-import type { FieldNote, Essay } from '@/lib/content';
+import type { FieldNote, Essay, ShelfEntry } from '@/lib/content';
+import { computeFieldNoteConnections, generateNavigationSuggestions } from '@/lib/connectionEngine';
+import type { AllContent } from '@/lib/connectionEngine';
+import WhereToNext from '@/components/WhereToNext';
 import ArticleBody from '@/components/ArticleBody';
 import DateStamp from '@/components/DateStamp';
 import TagList from '@/components/TagList';
@@ -47,6 +50,15 @@ export default async function FieldNoteDetailPage({ params }: Props) {
     currentIndex < allNotes.length - 1 ? allNotes[currentIndex + 1] : null;
   const nextNote = currentIndex > 0 ? allNotes[currentIndex - 1] : null;
 
+  // Connection engine: suggest related content
+  const allContent: AllContent = {
+    essays: getCollection<Essay>('essays').filter((e) => !e.data.draft),
+    fieldNotes: allNotes,
+    shelf: getCollection<ShelfEntry>('shelf'),
+  };
+  const fieldNoteConnections = computeFieldNoteConnections(entry, allContent);
+  const suggestions = generateNavigationSuggestions(fieldNoteConnections, entry.data.tags, 2);
+
   return (
     <>
     <ArticleJsonLd
@@ -57,7 +69,7 @@ export default async function FieldNoteDetailPage({ params }: Props) {
       section="field-notes"
       tags={entry.data.tags}
     />
-    <article className="py-8">
+    <article className="py-8" data-pagefind-body data-pagefind-filter="type:field-note">
       <header className="mb-8">
         <div className="flex justify-between items-center">
           <div className="flex items-center gap-2">
@@ -111,6 +123,8 @@ export default async function FieldNoteDetailPage({ params }: Props) {
       />
 
       <RoughLine />
+
+      <WhereToNext suggestions={suggestions} />
 
       <nav className="flex justify-between items-start gap-4 py-4">
         <div>

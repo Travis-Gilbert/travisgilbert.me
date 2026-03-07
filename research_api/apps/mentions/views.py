@@ -310,3 +310,41 @@ def _verify_mention(source_url, target_url):
             'Webmention verification failed for %s: %s', source_url, e
         )
         return False
+
+
+# ---------------------------------------------------------------------------
+# Outbound Trigger (called by publishing_api after publish)
+# ---------------------------------------------------------------------------
+
+@csrf_exempt
+@require_POST
+def trigger_outbound_webmentions(request):
+    """
+    Internal endpoint: triggered by publishing_api after content publish.
+    Accepts JSON: { "content_type": "essay", "slug": "the-sidewalk-tax" }
+    """
+    # Verify internal API key
+    auth = request.headers.get("Authorization", "")
+    expected = f"Bearer {getattr(settings, 'INTERNAL_API_KEY', '')}"
+    if auth != expected:
+        return JsonResponse({"error": "Unauthorized"}, status=401)
+
+    try:
+        body = json.loads(request.body)
+    except (json.JSONDecodeError, ValueError):
+        return JsonResponse({"error": "Invalid JSON"}, status=400)
+
+    content_type = body.get("content_type", "essay")
+    slug = body.get("slug", "")
+    if not slug:
+        return JsonResponse({"error": "slug is required"}, status=400)
+
+    type_prefix = {
+        "essay": "essays",
+        "field-note": "field-notes",
+    }.get(content_type, content_type)
+    content_url = f"https://travisgilbert.me/{type_prefix}/{slug}"
+
+    from .sender import send_webmentions_for_content
+    result = send_webmentions_for_content(content_url)
+    return JsonResponse(result)

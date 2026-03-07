@@ -62,6 +62,13 @@ export default function Footer() {
           >
             Changelog
           </Link>
+          <Link
+            href="/stats"
+            className="text-ink-light hover:text-terracotta no-underline min-h-[44px] inline-flex items-center"
+            style={{ fontSize: 11 }}
+          >
+            Stats
+          </Link>
           <span className="text-border-light" aria-hidden="true">|</span>
           <Link
             href="/colophon"

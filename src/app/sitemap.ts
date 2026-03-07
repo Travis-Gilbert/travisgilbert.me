@@ -44,6 +44,8 @@ export default function sitemap(): MetadataRoute.Sitemap {
     { url: `${BASE_URL}/colophon`, changeFrequency: 'yearly' as const, priority: 0.3 },
     { url: `${BASE_URL}/connect`, changeFrequency: 'yearly' as const, priority: 0.3 },
     { url: `${BASE_URL}/now`, changeFrequency: 'monthly' as const, priority: 0.5 },
+    { url: `${BASE_URL}/changelog`, changeFrequency: 'daily' as const, priority: 0.5 },
+    { url: `${BASE_URL}/stats`, changeFrequency: 'weekly' as const, priority: 0.5 },
 
     // Dynamic essay pages
     ...essays.map((i) => ({

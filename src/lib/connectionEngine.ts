@@ -17,6 +17,7 @@ export interface Connection {
   color: string;
   weight: ConnectionWeight;
   date: string;
+  tags?: string[];
 }
 
 export interface PositionedConnection {
@@ -95,6 +96,7 @@ function resolveRelatedEssays(
       color: TYPE_COLOR.essay,
       weight: TYPE_WEIGHT.essay,
       date: match.data.date.toISOString(),
+      tags: match.data.tags,
     });
   }
 
@@ -120,6 +122,7 @@ function resolveConnectedFieldNotes(
       color: TYPE_COLOR['field-note'],
       weight: TYPE_WEIGHT['field-note'],
       date: note.data.date.toISOString(),
+      tags: note.data.tags,
     });
   }
 
@@ -144,6 +147,7 @@ function resolveConnectedShelfEntries(
       color: TYPE_COLOR.shelf,
       weight: TYPE_WEIGHT.shelf,
       date: entry.data.date.toISOString(),
+      tags: entry.data.tags,
     });
   }
 
@@ -308,4 +312,128 @@ export function computeThreadPairs(
   pairs.sort((a, b) => (WEIGHT_SORT[a.weight] ?? 2) - (WEIGHT_SORT[b.weight] ?? 2));
 
   return pairs.slice(0, maxPairs);
+}
+
+/**
+ * Compute connections from a field note's perspective.
+ * Returns the parent essay (if connectedTo) plus tag-matched essays.
+ */
+export function computeFieldNoteConnections(
+  note: ContentEntry<FieldNote>,
+  content: AllContent,
+): Connection[] {
+  const results: Connection[] = [];
+  const seen = new Set<string>();
+
+  // Parent essay via connectedTo
+  if (note.data.connectedTo) {
+    const parent = content.essays.find(
+      (e) => e.slug === note.data.connectedTo && !e.data.draft,
+    );
+    if (parent) {
+      seen.add(parent.slug);
+      results.push({
+        id: `essay-${parent.slug}`,
+        type: 'essay',
+        slug: parent.slug,
+        title: parent.data.title,
+        summary: parent.data.summary,
+        color: TYPE_COLOR.essay,
+        weight: 'heavy',
+        date: parent.data.date.toISOString(),
+        tags: parent.data.tags,
+      });
+    }
+  }
+
+  // Tag-matched essays (excluding parent)
+  if (note.data.tags.length > 0) {
+    const noteTags = new Set(note.data.tags);
+    for (const essay of content.essays) {
+      if (essay.data.draft || seen.has(essay.slug)) continue;
+      if (essay.data.tags.some((t) => noteTags.has(t))) {
+        results.push({
+          id: `essay-${essay.slug}`,
+          type: 'essay',
+          slug: essay.slug,
+          title: essay.data.title,
+          summary: essay.data.summary,
+          color: TYPE_COLOR.essay,
+          weight: 'light',
+          date: essay.data.date.toISOString(),
+          tags: essay.data.tags,
+        });
+      }
+    }
+  }
+
+  return results;
+}
+
+// ─────────────────────────────────────────────────
+// Navigation Suggestions (Feature: Where To Next)
+// ─────────────────────────────────────────────────
+
+export interface NavigationSuggestion {
+  connection: Connection;
+  rationale: string;
+  relevanceScore: number;
+  curveStyle: 'heavy' | 'medium' | 'light';
+}
+
+const RATIONALE_TEMPLATES: Record<string, (conn: Connection, sharedTag?: string) => string> = {
+  essay: (conn, tag) =>
+    tag
+      ? `Explores a related question about ${tag}`
+      : 'Part of the same thread of inquiry',
+  'field-note': () => 'A field observation connected to this essay',
+  shelf: () => 'A source that shaped this investigation',
+};
+
+const WEIGHT_BASE_SCORE: Record<string, number> = {
+  heavy: 0.8,
+  medium: 0.6,
+  light: 0.4,
+};
+
+/**
+ * Generate ranked navigation suggestions from computed connections.
+ *
+ * Picks the top N connections by relevance score, each with a
+ * human-readable rationale string for display in the WhereToNext panel.
+ */
+export function generateNavigationSuggestions(
+  connections: Connection[],
+  currentTags: string[],
+  maxSuggestions = 4,
+): NavigationSuggestion[] {
+  const now = Date.now();
+  const NINETY_DAYS = 90 * 24 * 60 * 60 * 1000;
+
+  return connections
+    .map((conn) => {
+      let score = WEIGHT_BASE_SCORE[conn.weight] ?? 0.4;
+
+      // Recency bonus
+      if (conn.date && now - new Date(conn.date).getTime() < NINETY_DAYS) {
+        score += 0.1;
+      }
+
+      // Tag overlap bonus
+      const connTags = conn.tags ?? [];
+      const shared = currentTags.filter((t) => connTags.includes(t));
+      score += Math.min(shared.length * 0.05, 0.15);
+
+      const templateFn = RATIONALE_TEMPLATES[conn.type] ?? (() => 'Related content');
+      const rationale = templateFn(conn, shared[0]);
+
+      return {
+        connection: conn,
+        rationale,
+        relevanceScore: score,
+        curveStyle: conn.weight,
+      };
+    })
+    .sort((a, b) => b.relevanceScore - a.relevanceScore)
+    .slice(0, maxSuggestions);
 }

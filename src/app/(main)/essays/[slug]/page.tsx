@@ -15,13 +15,15 @@ import ProgressTracker, { ESSAY_STAGES } from '@/components/ProgressTracker';
 import ReadingProgress from '@/components/ReadingProgress';
 import { ArticleJsonLd } from '@/components/JsonLd';
 import EssayHero from '@/components/EssayHero';
-import { computeConnections, positionConnections } from '@/lib/connectionEngine';
+import { computeConnections, positionConnections, generateNavigationSuggestions } from '@/lib/connectionEngine';
 import type { AllContent } from '@/lib/connectionEngine';
+import WhereToNext from '@/components/WhereToNext';
 import ResearchTrail from '@/components/research/ResearchTrail';
 import DocumentStamp from '@/components/DocumentStamp';
 import ProcessNotes from '@/components/ProcessNotes';
 import { fetchVideosForEssay, fetchVideoDetail } from '@/lib/videos';
 import RoughBox from '@/components/rough/RoughBox';
+import ConnectedReadingSidebar from '@/components/ConnectedReadingSidebar';
 
 interface Props {
   params: Promise<{ slug: string }>;
@@ -127,6 +129,7 @@ export default async function EssayDetailPage({ params }: Props) {
   };
   const engineConnections = computeConnections(entry, allContent);
   const positionedConnections = positionConnections(engineConnections, annotatedHtml, entry.data.connectionNotes);
+  const suggestions = generateNavigationSuggestions(engineConnections, entry.data.tags, 4);
 
   // Inject inline callouts for connections with text mentions
   const calloutHtml = injectConnectionCallouts(annotatedHtml, positionedConnections);
@@ -146,7 +149,7 @@ export default async function EssayDetailPage({ params }: Props) {
     />
     <ReadingProgress />
     <DocumentStamp title={entry.data.title} />
-    <article>
+    <article data-pagefind-body data-pagefind-filter="type:essay">
       {/* Full-bleed editorial hero header */}
       <EssayHero
         title={entry.data.title}
@@ -332,6 +335,8 @@ export default async function EssayDetailPage({ params }: Props) {
         );
       })()}
 
+      <WhereToNext suggestions={suggestions} />
+
       <nav className="flex justify-between items-start gap-4 py-4 border-t border-border mt-6">
         <div>
           {prevEssay && (
@@ -360,6 +365,11 @@ export default async function EssayDetailPage({ params }: Props) {
         travisgilbert.me/essays/{slug} | Travis Gilbert
       </div>
     </article>
+    <ConnectedReadingSidebar
+      connections={engineConnections}
+      currentSlug={slug}
+      currentTitle={entry.data.title}
+    />
     </>
   );
 }
