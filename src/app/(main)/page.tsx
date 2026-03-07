@@ -166,13 +166,10 @@ export default function HomePage() {
 
       {/* ═══════════════════════════════════════════════
           Currently Researching: Active research threads from the API.
-          Renders nothing if the research API is unreachable or has no
-          active threads, so the homepage degrades gracefully.
+          Renders nothing (including label) if the research API is
+          unreachable or has no active threads.
           ═══════════════════════════════════════════════ */}
-      <section className="py-3 sm:py-6">
-        <RoughLine label="Currently Researching" labelColor="var(--color-green)" />
-        <ActiveThreads />
-      </section>
+      <ActiveThreads showLabel />
 
       {/* ═══════════════════════════════════════════════
           Projects: Grid with role icons and scroll-reveal stagger

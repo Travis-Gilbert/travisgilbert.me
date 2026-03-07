@@ -11,10 +11,16 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { ArrowRight } from '@phosphor-icons/react/dist/ssr';
+import RoughLine from '@/components/rough/RoughLine';
 import type { ThreadListItem } from '@/lib/research';
 import { fetchActiveThreads } from '@/lib/research';
 
-export default function ActiveThreads() {
+interface ActiveThreadsProps {
+  /** When true, the component renders its own section wrapper + RoughLine label */
+  showLabel?: boolean;
+}
+
+export default function ActiveThreads({ showLabel = false }: ActiveThreadsProps) {
   const [threads, setThreads] = useState<ThreadListItem[]>([]);
   const [loaded, setLoaded] = useState(false);
 
@@ -31,7 +37,7 @@ export default function ActiveThreads() {
   // Render nothing if API returned empty or hasn't loaded
   if (!loaded || threads.length === 0) return null;
 
-  return (
+  const content = (
     <div className="space-y-4">
       {threads.map((thread) => (
         <Link
@@ -102,5 +108,14 @@ export default function ActiveThreads() {
         </Link>
       </p>
     </div>
+  );
+
+  if (!showLabel) return content;
+
+  return (
+    <section className="py-3 sm:py-6">
+      <RoughLine label="Currently Researching" labelColor="var(--color-green)" />
+      {content}
+    </section>
   );
 }

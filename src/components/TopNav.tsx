@@ -127,12 +127,11 @@ export default function TopNav({ navItems }: TopNavProps) {
             style={{
               fontFamily: 'var(--font-metadata)',
               fontSize: 9,
-              textTransform: 'uppercase',
               letterSpacing: '0.1em',
               color: 'var(--color-hero-text-muted)',
             }}
           >
-            Hey, I&apos;m working here
+            i&apos;m working here
           </span>
         </Link>
 
