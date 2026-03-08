@@ -1027,6 +1027,97 @@
   }
 }
 
+/* ── Sprint Timer ─────────────────────────────── */
+.sprint-timer {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.sprint-timer--idle {
+  position: relative;
+}
+.sprint-timer--running {
+  color: var(--studio-tc, #EDE7DC);
+}
+.sprint-timer--done {
+  color: #6A9A5A;
+}
+.sprint-countdown {
+  font-family: var(--studio-font-mono);
+  font-size: 16px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+.sprint-timer-trigger {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border: none;
+  background: transparent;
+  color: var(--studio-writing-paper-muted, #6A5E52);
+  cursor: pointer;
+  border-radius: 4px;
+  transition: color 0.15s ease, background 0.15s ease;
+}
+.sprint-timer-trigger:hover {
+  color: var(--studio-writing-paper-text, #2A2420);
+  background: rgba(42,36,32,0.06);
+}
+.sprint-timer-presets {
+  display: flex;
+  gap: 4px;
+  padding-left: 4px;
+}
+.sprint-preset-btn {
+  font-family: var(--studio-font-mono);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  border: 1px solid rgba(42,36,32,0.12);
+  background: transparent;
+  color: var(--studio-writing-paper-muted, #6A5E52);
+  padding: 2px 8px;
+  border-radius: 3px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+.sprint-preset-btn:hover {
+  border-color: rgba(180,90,45,0.4);
+  color: var(--studio-writing-paper-text, #2A2420);
+}
+.sprint-preset-btn--active {
+  border-color: rgba(180,90,45,0.6);
+  background: rgba(180,90,45,0.08);
+  color: #B45A2D;
+}
+.sprint-action-btn {
+  font-family: var(--studio-font-mono);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  border: 1px solid rgba(42,36,32,0.12);
+  background: transparent;
+  color: var(--studio-writing-paper-muted, #6A5E52);
+  padding: 2px 10px;
+  border-radius: 3px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+.sprint-action-btn:hover {
+  border-color: rgba(42,36,32,0.25);
+  color: var(--studio-writing-paper-text, #2A2420);
+}
+.sprint-action-btn--cancel {
+  color: rgba(180,60,60,0.6);
+}
+.sprint-action-btn--cancel:hover {
+  border-color: rgba(180,60,60,0.35);
+  color: rgba(180,60,60,0.85);
+}
+
 /* Back / Advance / Cancel / Confirm buttons */
 .stage-stepper-btn {
   font-family: var(--studio-font-body);

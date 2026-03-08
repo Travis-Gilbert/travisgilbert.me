@@ -2,6 +2,7 @@
 
 import type { Editor } from '@tiptap/react';
 import { useSessionTimer, formatSessionTime } from '@/lib/studio-session';
+import SprintTimer from './SprintTimer';
 
 /**
  * Word count band fixed to the bottom of the editor paper.
@@ -94,6 +95,10 @@ export default function WordCountBand({
           )}
         </>
       )}
+
+      {/* Sprint timer (right edge) */}
+      {session.activeSeconds === 0 && <span style={{ flex: 1 }} />}
+      <SprintTimer editor={editor} />
     </div>
   );
 }
