@@ -996,6 +996,37 @@
   to { opacity: 0; }
 }
 
+/* Ink soak save animation: terracotta wash sweeps across paper on save */
+.ink-soak-overlay {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 5;
+  mix-blend-mode: multiply;
+  background: linear-gradient(
+    90deg,
+    var(--ink-color, rgba(180,90,45,0.06)) 0%,
+    transparent 40%
+  );
+  animation: ink-soak-sweep 0.9s ease-out forwards;
+  border-radius: inherit;
+}
+
+@keyframes ink-soak-sweep {
+  0% {
+    clip-path: inset(0 100% 0 0);
+    opacity: 1;
+  }
+  50% {
+    clip-path: inset(0 0% 0 0);
+    opacity: 0.8;
+  }
+  100% {
+    clip-path: inset(0 0% 0 0);
+    opacity: 0;
+  }
+}
+
 /* Back / Advance / Cancel / Confirm buttons */
 .stage-stepper-btn {
   font-family: var(--studio-font-body);

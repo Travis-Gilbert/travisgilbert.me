@@ -37,6 +37,7 @@ import ExportMenu from './ExportMenu';
 import DeskLamp from './DeskLamp';
 import PaperWeathering from './PaperWeathering';
 import { useFocusFade } from './FocusFade';
+import InkSoakOverlay from './InkSoakOverlay';
 import { useStudioView } from './StudioViewContext';
 
 type SaveState = WorkbenchSaveState;
@@ -275,6 +276,7 @@ export default function Editor({
   const [showMarkdownView, setShowMarkdownView] = useState(false);
   const [typewriterMode, setTypewriterMode] = useState(true);
   const focusFade = useFocusFade(editor);
+  const [saveTrigger, setSaveTrigger] = useState(0);
   const [readingSettings, setReadingSettings] = useState<ReadingSettings>(
     DEFAULT_READING_SETTINGS,
   );
@@ -492,6 +494,7 @@ export default function Editor({
           setCurrentTitle(saved.title);
           setLastSaved(formatSavedTime(saved.updatedAt));
           setSaveState('success');
+          setSaveTrigger((prev) => prev + 1);
           clearBuffer();
 
           if (mode === 'autosave') {
@@ -1080,7 +1083,12 @@ export default function Editor({
             </div>
           }
           toolbar={<EditorToolbar editor={editor} />}
-          paperOverlay={<PaperWeathering stage={stage} slug={slug} />}
+          paperOverlay={
+            <>
+              <PaperWeathering stage={stage} slug={slug} />
+              <InkSoakOverlay trigger={saveTrigger} stageColor={getStage(stage).color} />
+            </>
+          }
           focusFadeActive={focusFade.active}
         />
 
