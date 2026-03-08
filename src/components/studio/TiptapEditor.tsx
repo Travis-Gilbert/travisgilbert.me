@@ -453,13 +453,12 @@ export default function TiptapEditor({
       scheduleTypewriterCenter();
     };
 
-    editor.on('focus', handleSelectionActivity);
-    editor.on('selectionUpdate', handleSelectionActivity);
+    /* Only center on content edits (typing), not on clicks.
+       selectionUpdate fires on every click, causing a disorienting
+       jump when clicking near the top or bottom of the viewport. */
     editor.on('update', handleSelectionActivity);
 
     return () => {
-      editor.off('focus', handleSelectionActivity);
-      editor.off('selectionUpdate', handleSelectionActivity);
       editor.off('update', handleSelectionActivity);
       if (typewriterFrameRef.current !== null) {
         cancelAnimationFrame(typewriterFrameRef.current);
