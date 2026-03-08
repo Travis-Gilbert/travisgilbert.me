@@ -35,6 +35,7 @@ import WordCountBand from './WordCountBand';
 import EditorContextMenu from './EditorContextMenu';
 import ExportMenu from './ExportMenu';
 import DeskLamp from './DeskLamp';
+import PaperWeathering from './PaperWeathering';
 import { useStudioView } from './StudioViewContext';
 
 type SaveState = WorkbenchSaveState;
@@ -1077,6 +1078,7 @@ export default function Editor({
             </div>
           }
           toolbar={<EditorToolbar editor={editor} />}
+          paperOverlay={<PaperWeathering stage={stage} slug={slug} />}
         />
 
         {editor && (

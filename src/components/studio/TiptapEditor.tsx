@@ -76,6 +76,7 @@ export default function TiptapEditor({
   stageColor,
   titleZone,
   toolbar,
+  paperOverlay,
 }: {
   initialContent?: string;
   initialContentFormat?: 'html' | 'markdown';
@@ -88,6 +89,7 @@ export default function TiptapEditor({
   stageColor?: string;
   titleZone?: React.ReactNode;
   toolbar?: React.ReactNode;
+  paperOverlay?: React.ReactNode;
 }) {
   const wrapperRef = useRef<HTMLDivElement | null>(null);
   const typewriterFrameRef = useRef<number | null>(null);
@@ -511,6 +513,7 @@ export default function TiptapEditor({
         {titleZone}
         {toolbar}
         <EditorContent editor={editor} />
+        {paperOverlay}
       </div>
       {wikiPopup.visible && (
         <WikiLinkPopup
