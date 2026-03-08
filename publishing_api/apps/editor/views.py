@@ -3810,11 +3810,24 @@ class StudioApiContentPublishView(StudioApiBaseView):
 
     Publishes content to GitHub and returns JSON with commit info.
     Replaces the template-redirect publish views for Next.js Studio.
+
+    Auth: Bearer token via STUDIO_API_TOKEN env var (session auth not
+    available because the Next.js frontend sends credentials: 'omit').
     """
 
+    def _check_publish_token(self, request):
+        """Validate Bearer token against STUDIO_API_TOKEN env var."""
+        expected = os.environ.get("STUDIO_API_TOKEN", "")
+        if not expected:
+            return False
+        auth = request.META.get("HTTP_AUTHORIZATION", "")
+        if not auth.startswith("Bearer "):
+            return False
+        return auth[7:] == expected
+
     def post(self, request, content_type, slug):
-        if not request.user.is_authenticated:
-            return self._error(request, "Authentication required", status=401)
+        if not self._check_publish_token(request):
+            return self._error(request, "Invalid or missing API token", status=401)
 
         normalized, config = _get_studio_api_content_config(content_type)
         if not normalized or not config:
