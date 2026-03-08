@@ -198,6 +198,8 @@ export interface CapturedObject {
   sourceUrl?: string;
   /** Enriched OG title (populated after mock delay) */
   enrichedTitle?: string;
+  /** Binary file attachment (PDF, image) for server-side extraction */
+  file?: File;
 }
 
 /* ─────────────────────────────────────────────────

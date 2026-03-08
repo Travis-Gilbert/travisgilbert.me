@@ -86,6 +86,7 @@ export default function DropZone({ onCapture }: DropZoneProps) {
             text: textContent ?? dropInfo.file.name,
             objectType: fileType,
             captureMethod: 'dropped',
+            file: textContent ? undefined : dropInfo.file,
           });
           object.title = dropInfo.file.name;
         } else {

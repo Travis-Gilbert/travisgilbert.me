@@ -89,8 +89,10 @@ export function createCapturedObject(opts: {
   objectType?: string;
   captureMethod: CaptureMethod;
   sourceUrl?: string;
+  /** Binary file for server-side extraction (PDF, image) */
+  file?: File;
 }): CapturedObject {
-  const { text, captureMethod, sourceUrl } = opts;
+  const { text, captureMethod, sourceUrl, file } = opts;
   const trimmed = text.trim();
   const objectType = opts.objectType ?? inferObjectType(trimmed);
 
@@ -110,6 +112,7 @@ export function createCapturedObject(opts: {
     captureMethod,
     status: 'local',
     sourceUrl: sourceUrl ?? (isUrl(trimmed) ? extractUrls(trimmed)[0] : undefined),
+    file,
   };
 }
 

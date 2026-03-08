@@ -214,7 +214,44 @@ export async function captureToApi(data: {
   title?: string;
   notebook_slug?: string;
   project_slug?: string;
+  file?: File;
 }): Promise<ApiCaptureResponse> {
+  /* When a file is attached (PDF, binary), send as multipart/form-data
+     so the server receives the actual bytes for extraction.
+     The browser auto-sets the Content-Type boundary for FormData. */
+  if (data.file) {
+    const form = new FormData();
+    form.append('file', data.file);
+    if (data.content) form.append('content', data.content);
+    if (data.hint_type) form.append('hint_type', data.hint_type);
+    if (data.title) form.append('title', data.title);
+    if (data.notebook_slug) form.append('notebook_slug', data.notebook_slug);
+    if (data.project_slug) form.append('project_slug', data.project_slug);
+
+    const url = `${API_BASE}/capture/`;
+    const headers: HeadersInit = {};
+    const token =
+      typeof process !== 'undefined'
+        ? process.env.NEXT_PUBLIC_COMMONPLACE_API_TOKEN
+        : undefined;
+    if (token) headers['Authorization'] = `Bearer ${token}`;
+
+    const res = await fetch(url, {
+      method: 'POST',
+      headers,
+      body: form,
+      cache: 'no-store',
+    });
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({}));
+      throw new ApiError(
+        res.status,
+        body.detail ?? body.error ?? `API error ${res.status}`,
+      );
+    }
+    return res.json();
+  }
+
   return apiFetch<ApiCaptureResponse>('/capture/', {
     method: 'POST',
     body: JSON.stringify(data),
@@ -320,6 +357,7 @@ export async function syncCapturedObject(
     content,
     hint_type: obj.objectType,
     title: obj.title,
+    file: obj.file,
   });
 }
 

@@ -280,26 +280,6 @@ export default function CommonPlaceSidebar() {
                   );
                 }
 
-                /* Any remaining action buttons (shouldn't appear outside Capture) */
-                if (item.href.startsWith('#')) {
-                  return (
-                    <button
-                      key={item.href}
-                      type="button"
-                      className="cp-sidebar-item"
-                      style={{
-                        width: '100%',
-                        border: 'none',
-                        background: 'transparent',
-                        textAlign: 'left',
-                      }}
-                    >
-                      <SidebarIcon name={item.icon} />
-                      <span>{item.label}</span>
-                    </button>
-                  );
-                }
-
                 /* Items with viewType open pane tabs instead of navigating */
                 if (item.viewType) {
                   return (

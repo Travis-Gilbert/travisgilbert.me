@@ -561,8 +561,15 @@ class DailyLogViewSet(
 # ---------------------------------------------------------------------------
 
 class CaptureInputSerializer(serializers.Serializer):
-    """Input for the capture endpoint (replaces QuickCaptureSerializer)."""
-    content = serializers.CharField(required=True, help_text='Text body or URL')
+    """Input for the capture endpoint (replaces QuickCaptureSerializer).
+
+    Accepts either text content OR a file upload (for PDF extraction).
+    When a file is provided, content becomes optional.
+    """
+    content = serializers.CharField(
+        required=False, default='', allow_blank=True,
+        help_text='Text body or URL (optional when file is provided)',
+    )
     hint_type = serializers.SlugField(
         required=False, default='', allow_blank=True,
         help_text='Optional object type slug hint (e.g. "hunch", "source")',
@@ -570,6 +577,17 @@ class CaptureInputSerializer(serializers.Serializer):
     notebook_slug = serializers.SlugField(required=False, default='', allow_blank=True)
     project_slug = serializers.SlugField(required=False, default='', allow_blank=True)
     title = serializers.CharField(required=False, default='', allow_blank=True)
+    file = serializers.FileField(
+        required=False,
+        help_text='Binary file (PDF) for server-side text extraction',
+    )
+
+    def validate(self, attrs):
+        if not attrs.get('content') and not attrs.get('file'):
+            raise serializers.ValidationError(
+                'Either content or file must be provided.'
+            )
+        return attrs
 
 
 # Keep legacy serializer for backward compatibility
@@ -607,28 +625,44 @@ def quick_capture_view(request):
     POST /api/v1/notebook/capture/
 
     Create an Object from raw input with type inference.
+    Accepts JSON or multipart/form-data (for file uploads).
 
-    Input: {content, hint_type?, notebook_slug?, project_slug?, title?}
+    Input: {content?, hint_type?, notebook_slug?, project_slug?, title?, file?}
     Returns: {object, inferred_type, creation_node}
     """
     serializer = CaptureInputSerializer(data=request.data)
     serializer.is_valid(raise_exception=True)
     data = serializer.validated_data
 
-    content = data['content']
-    inferred_type = _infer_type(content, data['hint_type'])
+    uploaded = data.get('file')
 
-    # Determine body vs URL based on inferred type
-    is_url = inferred_type == 'source' or content.strip().startswith(('http://', 'https://'))
-    body = '' if is_url else content
-    url = content.strip() if is_url else ''
+    if uploaded:
+        # File upload path: extract text from PDF using spacy-layout/pypdf
+        from .pdf_ingestion import extract_pdf_text
+
+        pdf_bytes = uploaded.read()
+        extracted = extract_pdf_text(pdf_bytes)
+
+        body = extracted.get('body', '') or ''
+        title = data['title'] or extracted.get('title', '') or uploaded.name
+        inferred_type = data['hint_type'] or 'source'
+        url = ''
+    else:
+        content = data['content']
+        inferred_type = _infer_type(content, data['hint_type'])
+
+        # Determine body vs URL based on inferred type
+        is_url = inferred_type == 'source' or content.strip().startswith(('http://', 'https://'))
+        body = '' if is_url else content
+        url = content.strip() if is_url else ''
+        title = data['title']
 
     from .services import quick_capture
 
     obj = quick_capture(
         body=body,
         url=url,
-        title=data['title'],
+        title=title,
         object_type_slug=inferred_type,
         notebook_slug=data['notebook_slug'],
         project_slug=data['project_slug'],
