@@ -31,7 +31,7 @@ feel like a modal or overlay.
                   [   Stage progress strip (2px, stage-colored) ]
                   [   Paper surface: #E4D9CC                    ]
                   [     Title zone: 32px top padding            ]
-                  [     Toolbar rail: inside paper              ]
+                  [     Toolbar rail: B I U S ... [] READING EXPORT | More ]
                   [     Writing body: indented past margin rule ]
                   [     Word count band: inside paper bottom    ]
                   [ Workbench panel: collapsible, 272px default ]
@@ -73,7 +73,7 @@ Render all 6 stages as a horizontal flow with connecting lines. Do NOT just show
 - Dot field: `radial-gradient(circle, rgba(180,90,45,0.08) 1px, transparent 1px)`, `28px 28px`
 - Blueprint grid: `linear-gradient` both axes, `rgba(180,90,45,0.032)`, `40px 40px`
 - Ambient desk lamp glow: `radial-gradient(ellipse 900px 600px at 54% 48%, rgba(245,238,220,0.04) 0%, transparent 65%)`
-- Padding around paper: `36px 24px 48px`
+- Padding around paper: `16px 24px 48px` (reduced top to 16px -- paper sits close to stage bar)
 
 ### The Paper
 
@@ -159,6 +159,8 @@ appears to grow from the top edge of the document.
 - Above the title: a small metadata row with content type + stage in JetBrains Mono 9px
 - `caret-color: #B45A2D` on the title input
 - Font: Vollkorn 700, 27px, `#2A2420`, line-height 1.25
+- Letter-spacing: `-0.02em` (tight, intentional, editorial -- NOT the default)
+- **Do NOT render READING or EXPORT buttons in the title zone.** They live in the toolbar.
 
 ### Toolbar Rail (inside the paper, NOT chrome)
 This is the most critical structural decision. The toolbar must live inside the
@@ -171,19 +173,138 @@ background: rgba(42,36,32,0.04);
 padding: 4px 52px 4px 76px; /* left matches title indent */
 ```
 
-Toolbar buttons: ghost-button style with `border: 1px solid transparent` that gets
-a light border on hover. Not bare text characters floating in space.
+#### Toolbar Layout (left to right)
+```
+[ B I U S | H1 H2 H3 | • 1. Bq HR Ln | Im Tb [] ] [ flex spacer ] [ READING  EXPORT ] [ | ] [ More ]
+```
+
+The READING and EXPORT buttons live at the right end of the toolbar rail, separated
+from More by a divider. They do NOT float above the paper as a separate row.
+Removing the separate READING/EXPORT chrome row eliminates one layer of vertical
+space between the stage bar and the paper content.
+
+In `EditorToolbar.tsx`, accept these additional props:
+```typescript
+onReadingToggle: () => void;
+readingOpen: boolean;
+onExportToggle: () => void;
+```
+
+After `insertItems.map(...)`, add:
+```tsx
+<div className="studio-toolbar-spacer" /> {/* flex: 1 */}
+<button
+  className={`studio-tool studio-tool--ghost ${readingOpen ? 'studio-tool--active' : ''}`}
+  onClick={onReadingToggle}
+  aria-label="Reading settings"
+  aria-pressed={readingOpen}
+>
+  Reading
+</button>
+<button
+  className="studio-tool studio-tool--ghost"
+  onClick={onExportToggle}
+  aria-label="Export"
+>
+  Export
+</button>
+<div className="studio-tool-divider" aria-hidden="true" />
+{/* ...existing More button */}
+```
+
+In `Editor.tsx`, remove the `studio-editor-title-actions` block (which contains the
+old READING and EXPORT buttons), and pass `onReadingToggle`, `readingOpen`, and
+`onExportToggle` as props to `EditorToolbar`.
+
+#### Toolbar Button Style
 Format buttons (B, I, U, S): Georgia/serif font so they carry typographic meaning.
 Block format buttons (H1, H2, etc.): JetBrains Mono 10.5px.
-
-If the toolbar is rendered as a separate dark chrome band above the paper, the design
-is wrong. It should read as a printed ruler strip on the paper's top margin.
+READING and EXPORT: JetBrains Mono 9px, uppercase, `letter-spacing: 0.08em`.
+All buttons: ghost-button style with `border: 1px solid transparent` on default,
+subtle border on hover, terracotta bg tint when active.
 
 ### Writing Body
 - Padding: `28px 52px 64px 76px` (same left indent past margin rule)
 - Font: Amarna Variable (fallback: Georgia), 18.5px, line-height 1.8, `#2A2420`
 - Cursor color: `#B45A2D`
 - Left gutter (0 to 62px) reserved for future margin annotations
+
+#### Prose Column Width
+The `.studio-tiptap-content` element (the actual Tiptap writing area) must have its
+text measure constrained to roughly 60-65ch to avoid overly long lines:
+
+```css
+.studio-tiptap-content {
+  max-width: 65ch;
+  margin-left: 0; /* left-aligned within the padded writing area, not centered */
+}
+```
+
+This keeps the paper visually wide (good for the field-notebook identity) while
+the prose column stays at a comfortable measure. The right side of the paper beyond
+the text column remains visible as breathing room -- the same effect as a journal
+page where text does not reach the right edge.
+
+#### Typography: Kerning, Ligatures, Letter-spacing
+
+Apply to `.studio-tiptap-content`:
+```css
+font-kerning: normal;
+font-feature-settings: 'kern' 1, 'liga' 1, 'calt' 1, 'onum' 1;
+-webkit-font-smoothing: antialiased;
+-moz-osx-font-smoothing: grayscale;
+```
+
+Headings within the prose (`h1`, `h2`, `h3`, `h4` inside `.studio-prose`):
+```css
+letter-spacing: -0.02em; /* tight -- intentional editorial weight */
+```
+
+All-caps labels and metadata (`.studio-section-label`, content type/stage chip,
+the ESSAY / RESEARCH breadcrumb above the title):
+```css
+letter-spacing: 0.12em; /* loose -- increases legibility at small sizes */
+```
+
+#### Heading Separator Rule
+After every heading (`h1`, `h2`, `h3`, `h4`) in the prose, render a thin horizontal
+rule that does NOT add to the visual spacing between the heading and the following
+paragraph. The rule is a visual separator, not a spacer.
+
+```css
+.studio-prose h1::after,
+.studio-prose h2::after,
+.studio-prose h3::after,
+.studio-prose h4::after {
+  content: '';
+  display: block;
+  height: 1px;
+  background: rgba(42,36,32,0.12);
+  margin-top: 6px;
+  margin-bottom: -7px; /* negative to cancel the line's own height from spacing */
+}
+```
+
+The negative `margin-bottom` is intentional: it pulls the following paragraph back
+up so the total spacing between heading and body text appears unchanged. The line
+reads as part of the heading, not as additional whitespace.
+
+#### List Item Spacing
+Reduce inter-item spacing in bullet and numbered lists so list items read as a
+tight group rather than paragraphs:
+
+```css
+.studio-prose ul li,
+.studio-prose ol li {
+  margin-top: 0.2em;
+  margin-bottom: 0.2em;
+}
+
+.studio-prose ul li + li,
+.studio-prose ol li + li {
+  margin-top: 0.15em;
+}
+```
 
 ### Word Count Band (bottom of paper, inside paper)
 ```css
@@ -197,6 +318,68 @@ Secondary metrics (chars, read time, paragraphs): 13px, `#6A5E52`.
 Session metrics right-aligned: 12px, `#8A7A6A`.
 
 This hierarchy is intentional. Do not equalize the sizes.
+
+---
+
+## Reading Panel (compact horizontal layout)
+
+The reading panel is triggered by the READING button in the toolbar. It drops down
+directly below the toolbar rail, attached to the paper surface, and must be as
+compact as possible to avoid pushing the writing area far down the screen.
+
+**Current problem:** The panel renders settings vertically (font grid, sliders,
+toggles stacked), causing the paper content to be pushed ~400px below the stage bar
+when the panel is open. This is too tall.
+
+**Required:** Horizontal compact layout in two rows, total height ~120px max.
+
+### Reading Panel Structure
+
+```
+Row 1 (font presets): [ Amarna ] [ Archivist ] [ Cabin ] [ Plex ] [ System ] [ Mono ]
+Row 2 (controls):     Font Size [====o====] 19px  |  Line Height [=o=======] 1.5  |  Spacing: Normal Relaxed
+Row 3 (toggles):      Zen: Off On  |  Typewriter: Off On  |  Appearance: Dark Light  |  Markdown: Off On
+```
+
+Row 1: Font presets as compact horizontal pill buttons (not large tiles):
+```css
+.studio-reading-font-btn {
+  padding: 4px 12px;
+  height: 28px;
+  font-size: 11px;
+  border-radius: 4px;
+  border: 1px solid rgba(42,36,32,0.14);
+  background: rgba(42,36,32,0.04);
+  color: #6A5E52;
+}
+.studio-reading-font-btn[aria-pressed="true"] {
+  background: rgba(180,90,45,0.12);
+  border-color: rgba(180,90,45,0.35);
+  color: #2A2420;
+}
+```
+
+Row 2: Sliders sit inline with their labels and current values. Use `display: flex;
+align-items: center; gap: 8px` per control group. Font size and line height sliders
+sit side by side in the same row, not stacked.
+
+Row 3: Toggle pairs (Off/On, Dark/Light) rendered as small segment controls
+(two adjacent pill buttons), all in one flex row.
+
+**Container:**
+```css
+.studio-reading-panel {
+  border-bottom: 1px solid rgba(42,36,32,0.10);
+  background: rgba(228,217,204,0.97); /* same paper color */
+  padding: 10px 76px 12px; /* left matches writing body indent */
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+```
+
+The panel background matches the paper (`#E4D9CC`) so it reads as a revealed section
+of the document, not an overlay dropped from the chrome zone.
 
 ---
 
@@ -243,6 +426,7 @@ These are anti-patterns. If any of these appear in the implementation, fix them:
 
 - **Paper as `#FAF6F1` or lighter:** too bright, reads as a web page, not paper
 - **Toolbar as separate dark chrome band above paper:** kills the document illusion
+- **READING/EXPORT as a separate row of chrome above the paper:** they must live in the toolbar right side
 - **Title with visible input border:** makes it look like a form field
 - **`box-shadow: 0 24px 44px` on paper:** floating modal feel, not resting document
 - **Word count equalized with secondary metrics:** word count must dominate visually
@@ -252,6 +436,11 @@ These are anti-patterns. If any of these appear in the implementation, fix them:
 - **Left margin rule removed:** this is the brand identity element for the editor
 - **Blueprint grid at `opacity: 0.022`:** too subtle, use `0.032` minimum on desk
 - **Workbench collapse/resize logic removed during style changes:** preserve it always
+- **Reading panel as a tall vertical stack:** must use compact horizontal rows, max ~120px
+- **Prose text reaching the right edge of the paper:** add `max-width: 65ch` to `.studio-tiptap-content`
+- **Headings with default letter-spacing:** must be `-0.02em` (tighter, editorial weight)
+- **All-caps labels with default letter-spacing:** must be `0.12em` (looser, more legible)
+- **List items with paragraph-level spacing:** reduce to `0.15-0.2em` between items
 
 ---
 
@@ -283,13 +472,13 @@ These are anti-patterns. If any of these appear in the implementation, fix them:
 When implementing this spec, the primary files to touch are:
 
 ```
-src/styles/studio.css
-src/components/studio/Editor.tsx
-src/components/studio/TiptapEditor.tsx
-src/components/studio/EditorToolbar.tsx
-src/components/studio/WordCountBand.tsx
-src/components/studio/StageStepper.tsx
-src/components/studio/WorkbenchPanel.tsx
+src/styles/studio.css              -- token updates, writing surface rules, prose styles
+src/components/studio/Editor.tsx   -- remove title-zone READING/EXPORT, pass toolbar props
+src/components/studio/TiptapEditor.tsx     -- paper surface rendering, prose column width
+src/components/studio/EditorToolbar.tsx    -- add READING/EXPORT to right end of toolbar
+src/components/studio/WordCountBand.tsx    -- dominant word count
+src/components/studio/StageStepper.tsx     -- pipeline visualization
+src/components/studio/WorkbenchPanel.tsx   -- collapsible + resizable behavior
 ```
 
 Do NOT change:
