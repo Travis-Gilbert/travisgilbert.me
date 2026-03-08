@@ -19,7 +19,7 @@
 import { useMemo } from 'react';
 import { fetchObjectById, useApiData } from '@/lib/commonplace-api';
 import { getObjectTypeIdentity } from '@/lib/commonplace';
-import type { ApiObjectDetail, ApiFeedNode } from '@/lib/commonplace';
+import type { ApiObjectDetail, ApiNodeListItem } from '@/lib/commonplace';
 import ComponentList from './ComponentList';
 import ConnectionList from './ConnectionList';
 
@@ -55,7 +55,7 @@ function relativeTime(isoDate: string): string {
 }
 
 /** Describe a node's event type for the mini timeline */
-function nodeEventLabel(node: ApiFeedNode): string {
+function nodeEventLabel(node: ApiNodeListItem): string {
   const typeMap: Record<string, string> = {
     creation: 'Created',
     update: 'Updated',
@@ -195,7 +195,7 @@ export default function ObjectDetailView({
         <div className="cp-detail-section">
           <h3 className="cp-detail-section-label">Recent Activity</h3>
           <div className="cp-history-list">
-            {detail.recent_nodes.map((node: ApiFeedNode) => (
+            {detail.recent_nodes.map((node: ApiNodeListItem) => (
               <div key={node.id} className="cp-history-item">
                 <span className="cp-history-dot" />
                 <span className="cp-history-label">

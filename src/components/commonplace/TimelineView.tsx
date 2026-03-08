@@ -45,7 +45,7 @@ export default function TimelineView({ onOpenObject }: TimelineViewProps) {
   const { captureVersion } = useCommonPlace();
   const isMobile = useIsMobile();
   const { data: nodes, loading, error, refetch } = useApiData(
-    () => fetchFeed({ page_size: 100 }),
+    () => fetchFeed({ per_page: 100 }),
     [captureVersion],
   );
 

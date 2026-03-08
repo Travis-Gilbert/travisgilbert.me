@@ -28,7 +28,7 @@ export default function ScopedTimelinePanel({
   onOpenObject,
 }: ScopedTimelinePanelProps) {
   const { data: nodes, loading, error, refetch } = useApiData(
-    () => fetchFeed({ page_size: 50, notebook, project }),
+    () => fetchFeed({ per_page: 50, notebook, project }),
     [notebook, project],
   );
 

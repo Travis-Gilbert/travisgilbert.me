@@ -60,9 +60,9 @@ export default function ComposeView({
 
     try {
       const result = await captureToApi({
+        content: bodyText,
         title: title.trim() || undefined,
-        body: bodyText,
-        object_type: objectType,
+        hint_type: objectType,
       });
       onSaved?.(result.object.id);
 

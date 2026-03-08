@@ -281,34 +281,53 @@ export const CAPTURE_PLACEHOLDERS = [
 
 /** GET /feed/ item (NodeListSerializer) */
 export interface ApiFeedNode {
-  id: number;
-  sha_hash: string;
+  id: string;             // "node:<pk>"
   node_type: string;
-  occurred_at: string;
-  title: string;
-  object_ref: number;
-  object_title: string;
+  icon: string;
   object_type: string;
-  object_slug: string;
+  object_type_color: string;
+  title: string;
+  body: string;
+  timestamp: string;      // ISO datetime
+  has_retrospective: boolean;
+  retrospective: { text: string; written_at: string } | null;
+  object_id: string;      // "object:<pk>"
 }
 
-/** GET /graph/ object (GraphObjectSerializer) */
+/** Day bucket returned by /feed/ */
+export interface ApiFeedDay {
+  date: string;           // "YYYY-MM-DD"
+  nodes: ApiFeedNode[];
+}
+
+/** GET /feed/ paginated response */
+export interface ApiFeedResponse {
+  days: ApiFeedDay[];
+  total: number;
+  page: number;
+  per_page: number;
+  has_next: boolean;
+}
+
+/** GET /graph/ node */
 export interface ApiGraphObject {
-  id: number;
+  id: string;             // "object:<pk>"
   title: string;
   slug: string;
+  body_preview: string;
   object_type: string;
   object_type_color: string;
   object_type_icon: string;
   edge_count: number;
+  size: number;
   status: string;
 }
 
-/** GET /graph/ edge (GraphEdgeSerializer) */
+/** GET /graph/ edge */
 export interface ApiGraphEdge {
-  id: number;
-  source: number;
-  target: number;
+  id: string;             // "edge:<pk>"
+  source: string;         // "object:<pk>"
+  target: string;         // "object:<pk>"
   edge_type: string;
   strength: number;
   reason: string;
@@ -316,10 +335,10 @@ export interface ApiGraphEdge {
 
 /** GET /graph/ full response */
 export interface ApiGraphResponse {
-  objects: ApiGraphObject[];
+  nodes: ApiGraphObject[];
   edges: ApiGraphEdge[];
   meta: {
-    object_count: number;
+    node_count: number;
     edge_count: number;
     type_distribution: Record<string, number>;
   };
@@ -347,6 +366,19 @@ export interface ApiComponent {
   sort_order: number;
 }
 
+/** Node list item (NodeListSerializer, used in object detail recent_nodes) */
+export interface ApiNodeListItem {
+  id: number;
+  sha_hash: string;
+  node_type: string;
+  occurred_at: string;
+  title: string;
+  object_ref: number;
+  object_title: string;
+  object_type: string;
+  object_slug: string;
+}
+
 /** GET /objects/{slug}/ (ObjectDetailSerializer) */
 export interface ApiObjectDetail {
   id: number;
@@ -364,25 +396,29 @@ export interface ApiObjectDetail {
   capture_method: string;
   edges: ApiEdgeCompact[];
   components: ApiComponent[];
-  recent_nodes: ApiFeedNode[];
+  recent_nodes: ApiNodeListItem[];
 }
 
 /** POST /capture/ response */
 export interface ApiCaptureResponse {
   object: ApiObjectDetail;
-  creation_node: ApiFeedNode | null;
+  inferred_type?: string;
+  creation_node: ApiNodeListItem | null;
 }
 
-/** GET /resurface/ item */
-export interface ApiResurfaceItem extends ApiGraphObject {
-  captured_at: string;
+/** GET /resurface/ card */
+export interface ApiResurfaceCard {
+  object: ApiObjectDetail;
+  signal: string;
+  signal_label: string;
+  explanation: string;
   score: number;
-  why_this: string;
+  actions: string[];
 }
 
 /** GET /resurface/ response */
 export interface ApiResurfaceResponse {
-  objects: ApiResurfaceItem[];
+  cards: ApiResurfaceCard[];
   meta: { count: number };
 }
 

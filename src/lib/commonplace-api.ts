@@ -14,10 +14,10 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import type {
   MockNode,
-  MockEdge,
   GraphNode,
   GraphLink,
   ApiFeedNode,
+  ApiFeedResponse,
   ApiGraphResponse,
   ApiGraphObject,
   ApiObjectDetail,
@@ -100,15 +100,21 @@ export async function apiFetch<T>(
    Mapping: /feed/ → MockNode[]
    ───────────────────────────────────────────────── */
 
+/** Extract numeric ID from prefixed string ("node:4" -> 4, "object:7" -> 7) */
+function extractNumericId(prefixed: string): number {
+  const parts = prefixed.split(':');
+  return parseInt(parts[parts.length - 1], 10) || 0;
+}
+
 function mapFeedNodeToMockNode(node: ApiFeedNode): MockNode {
   return {
-    id: `node-${node.id}`,
-    objectRef: node.object_ref,
-    objectSlug: node.object_slug ?? '',
-    objectType: node.object_type,
-    title: node.object_title,
-    summary: node.title,
-    capturedAt: node.occurred_at,
+    id: node.id,
+    objectRef: extractNumericId(node.object_id ?? '0'),
+    objectSlug: '',
+    objectType: node.object_type ?? '',
+    title: node.title,
+    summary: node.body ?? '',
+    capturedAt: node.timestamp,
     edgeCount: 0,
     edges: [],
   };
@@ -122,8 +128,8 @@ function mapGraphResponseToD3(resp: ApiGraphResponse): {
   nodes: GraphNode[];
   links: GraphLink[];
 } {
-  const nodes: GraphNode[] = resp.objects.map((o: ApiGraphObject) => ({
-    id: String(o.id),
+  const nodes: GraphNode[] = resp.nodes.map((o: ApiGraphObject) => ({
+    id: o.id,
     objectType: o.object_type,
     title: o.title,
     edgeCount: o.edge_count,
@@ -132,11 +138,11 @@ function mapGraphResponseToD3(resp: ApiGraphResponse): {
   const nodeIds = new Set(nodes.map((n) => n.id));
   const links: GraphLink[] = resp.edges
     .filter(
-      (e) => nodeIds.has(String(e.source)) && nodeIds.has(String(e.target)),
+      (e) => nodeIds.has(e.source) && nodeIds.has(e.target),
     )
     .map((e) => ({
-      source: String(e.source),
-      target: String(e.target),
+      source: e.source,
+      target: e.target,
       reason: e.reason,
     }));
 
@@ -150,14 +156,14 @@ function mapGraphResponseToD3(resp: ApiGraphResponse): {
 /** Fetch timeline feed, mapped to MockNode[] */
 export async function fetchFeed(params?: {
   page?: number;
-  page_size?: number;
+  per_page?: number;
   object_type?: string;
   notebook?: string;
   project?: string;
 }): Promise<MockNode[]> {
   const search = new URLSearchParams();
   if (params?.page) search.set('page', String(params.page));
-  if (params?.page_size) search.set('page_size', String(params.page_size));
+  if (params?.per_page) search.set('per_page', String(params.per_page));
   if (params?.object_type) search.set('object_type', params.object_type);
   if (params?.notebook) search.set('notebook', params.notebook);
   if (params?.project) search.set('project', params.project);
@@ -165,10 +171,9 @@ export async function fetchFeed(params?: {
   const qs = search.toString();
   const path = `/feed/${qs ? `?${qs}` : ''}`;
 
-  const data = await apiFetch<{ results: ApiFeedNode[] } | ApiFeedNode[]>(
-    path,
-  );
-  const items = Array.isArray(data) ? data : data.results;
+  const data = await apiFetch<ApiFeedResponse>(path);
+  // Flatten day-grouped response into a flat node array
+  const items: ApiFeedNode[] = data.days.flatMap((day) => day.nodes);
   return items.map(mapFeedNodeToMockNode);
 }
 
@@ -204,10 +209,11 @@ export async function fetchObjectById(
 
 /** Capture a new object via POST /capture/ */
 export async function captureToApi(data: {
-  body?: string;
-  url?: string;
+  content: string;
+  hint_type?: string;
   title?: string;
-  object_type?: string;
+  notebook_slug?: string;
+  project_slug?: string;
 }): Promise<ApiCaptureResponse> {
   return apiFetch<ApiCaptureResponse>('/capture/', {
     method: 'POST',
@@ -230,9 +236,15 @@ export async function postRetrospective(
 /** Fetch resurface suggestions */
 export async function fetchResurface(params?: {
   count?: number;
+  notebook?: string;
+  project?: string;
+  exclude?: number[];
 }): Promise<ApiResurfaceResponse> {
   const search = new URLSearchParams();
   if (params?.count) search.set('count', String(params.count));
+  if (params?.notebook) search.set('notebook', params.notebook);
+  if (params?.project) search.set('project', params.project);
+  if (params?.exclude?.length) search.set('exclude', params.exclude.join(','));
 
   const qs = search.toString();
   const path = `/resurface/${qs ? `?${qs}` : ''}`;
@@ -302,11 +314,12 @@ export async function fetchDailyLogByDate(date: string): Promise<ApiDailyLog> {
 export async function syncCapturedObject(
   obj: CapturedObject,
 ): Promise<ApiCaptureResponse> {
+  // New capture endpoint accepts `content` (body or URL) + `hint_type`
+  const content = obj.sourceUrl || obj.body || '';
   return captureToApi({
-    body: obj.body,
-    url: obj.sourceUrl,
+    content,
+    hint_type: obj.objectType,
     title: obj.title,
-    object_type: obj.objectType,
   });
 }
 

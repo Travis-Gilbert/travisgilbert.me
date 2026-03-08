@@ -4,8 +4,8 @@
  * ResurfaceView: surfaces forgotten objects for rediscovery.
  *
  * Uses the /resurface/ API endpoint to fetch scored suggestions.
- * Each card shows the object's type, title, score, and a
- * "why_this" explanation of why it was surfaced. Clicking a card
+ * Each card shows the object's type, title, score, and an
+ * explanation of why it was surfaced. Clicking a card
  * opens the object detail in an adjacent pane.
  *
  * Refresh button triggers a new fetch for fresh suggestions.
@@ -13,7 +13,7 @@
 
 import { fetchResurface, useApiData } from '@/lib/commonplace-api';
 import { getObjectTypeIdentity } from '@/lib/commonplace';
-import type { ApiResurfaceItem } from '@/lib/commonplace';
+import type { ApiResurfaceCard } from '@/lib/commonplace';
 
 interface ResurfaceViewProps {
   onOpenObject?: (objectRef: number, title?: string) => void;
@@ -42,7 +42,7 @@ export default function ResurfaceView({ onOpenObject }: ResurfaceViewProps) {
     refetch,
   } = useApiData(() => fetchResurface({ count: 5 }), []);
 
-  const items: ApiResurfaceItem[] = resurfaceData?.objects ?? [];
+  const cards: ApiResurfaceCard[] = resurfaceData?.cards ?? [];
 
   /* ── Loading state ── */
   if (loading) {
@@ -86,7 +86,7 @@ export default function ResurfaceView({ onOpenObject }: ResurfaceViewProps) {
   }
 
   /* ── Empty state ── */
-  if (items.length === 0) {
+  if (cards.length === 0) {
     return (
       <div className="cp-resurface-view">
         <div className="cp-resurface-header">
@@ -118,14 +118,16 @@ export default function ResurfaceView({ onOpenObject }: ResurfaceViewProps) {
       </p>
 
       <div className="cp-resurface-list">
-        {items.map((item) => {
-          const typeId = getObjectTypeIdentity(item.object_type);
+        {cards.map((card) => {
+          const obj = card.object;
+          const typeSlug = obj.object_type_data?.slug ?? '';
+          const typeId = getObjectTypeIdentity(typeSlug);
           return (
             <button
-              key={item.id}
+              key={obj.id}
               type="button"
               className="cp-resurface-card"
-              onClick={() => onOpenObject?.(item.id, item.title)}
+              onClick={() => onOpenObject?.(obj.id, obj.title)}
             >
               <div className="cp-resurface-card-header">
                 <span
@@ -136,17 +138,18 @@ export default function ResurfaceView({ onOpenObject }: ResurfaceViewProps) {
                   {typeId.label}
                 </span>
                 <span className="cp-resurface-card-time">
-                  {relativeTime(item.captured_at)}
+                  {relativeTime(obj.captured_at)}
                 </span>
               </div>
-              <h3 className="cp-resurface-card-title">{item.title}</h3>
-              {item.why_this && (
-                <p className="cp-resurface-card-why">{item.why_this}</p>
+              <h3 className="cp-resurface-card-title">{obj.display_title}</h3>
+              <p className="cp-resurface-card-signal">{card.signal_label}</p>
+              {card.explanation && (
+                <p className="cp-resurface-card-why">{card.explanation}</p>
               )}
               <div className="cp-resurface-score">
                 <span
                   className="cp-resurface-score-bar"
-                  style={{ width: `${Math.round(item.score * 100)}%` }}
+                  style={{ width: `${Math.round(card.score * 100)}%` }}
                 />
               </div>
             </button>
