@@ -1,23 +1,25 @@
 """
 Connection Engine: finds relationships between Objects.
 
-Five-pass pipeline with per-Notebook configuration.
+Seven-pass pipeline with per-Notebook configuration.
 
 Pass 1: Named entity extraction (spaCy NER) -- always runs
 Pass 2: Shared entity edge discovery -- always runs
 Pass 3: Topic similarity via Jaccard keyword overlap -- always runs (fast)
 Pass 4: TF-IDF corpus similarity -- production-safe, auto-activates at 500+ objects
 Pass 5: SBERT semantic similarity -- dev/local only (requires PyTorch)
-Pass 6: NLI contradiction/support detection -- dev/local only, gated by config flag
+        Uses FAISS ANN index when available (vector_store.py)
+Pass 6: NLI contradiction/support detection -- dev/local only, config-gated
+Pass 7: KGE structural similarity -- dev/local only, requires trained embeddings
 
 Also: auto-objectification of PERSON/ORG entities,
-LLM explanation generation for strong connections,
+LLM explanation generation for strong connections (ANTHROPIC_API_KEY + env flag),
 connection Node creation for every new Edge,
 TF-IDF corpus caching with signal-driven invalidation.
 
 Two-mode deployment contract:
   LOCAL/DEV: PyTorch installed, all passes active.
-  PRODUCTION (Railway): No PyTorch. Passes 5 and 6 silently skip.
+  PRODUCTION (Railway): No PyTorch. Passes 5, 6, 7 silently skip.
   The API is identical in both modes. Never let an ImportError escape.
 """
 
@@ -25,12 +27,10 @@ import logging
 import os
 import re
 import time
-from collections import Counter
 
 from django.db.models import Q
-from django.utils import timezone
 
-from .models import Component, Edge, Node, Object, ObjectType, ResolvedEntity, Timeline
+from .models import Edge, Node, Object, ObjectType, ResolvedEntity, Timeline
 
 logger = logging.getLogger(__name__)
 
@@ -116,11 +116,12 @@ DEFAULT_ENGINE_CONFIG = {
 }
 
 HIGH_NOVELTY_CONFIG = {
-    'engines': ['spacy', 'sbert', 'tfidf'],
+    'engines': ['spacy', 'sbert', 'tfidf', 'kge'],
     'topic_threshold': 0.10,
     'max_candidates': 1000,
     'sbert_threshold': 0.45,
     'tfidf_threshold': 0.20,
+    'kge_threshold': 0.60,
     'nli_enabled': True,
     'entity_types': [
         'PERSON', 'ORG', 'GPE', 'LOC', 'EVENT', 'WORK_OF_ART', 'DATE',
@@ -147,6 +148,7 @@ def interpolate_config(novelty: float) -> dict:
         ),
         'sbert_threshold': aggressive.get('sbert_threshold', 0.45),
         'tfidf_threshold': aggressive.get('tfidf_threshold', 0.20),
+        'kge_threshold': aggressive.get('kge_threshold', 0.60),
         'nli_enabled': novelty > 0.7,
         'entity_types': (
             aggressive['entity_types']
@@ -161,9 +163,7 @@ def interpolate_config(novelty: float) -> dict:
 # ---------------------------------------------------------------------------
 
 def get_engine_config(notebook=None) -> dict:
-    """
-    Return engine config, optionally merged with Notebook overrides.
-    """
+    """Return engine config, optionally merged with Notebook overrides."""
     config = dict(DEFAULT_ENGINE_CONFIG)
     if notebook and notebook.engine_config:
         config.update(notebook.engine_config)
@@ -279,10 +279,7 @@ def extract_entities(obj: Object, config: dict | None = None) -> list[ResolvedEn
                 to_object=resolved_object,
                 edge_type='mentions',
                 defaults={
-                    'reason': (
-                        f'This note mentions {ent.text} '
-                        f'({ent.label_.lower()}).'
-                    ),
+                    'reason': f'This note mentions {ent.text} ({ent.label_.lower()}).',
                     'strength': 0.7,
                     'is_auto': True,
                     'engine': 'spacy',
@@ -344,7 +341,6 @@ def find_shared_entity_connections(obj: Object, config: dict | None = None) -> l
 def _synthesize_topic_reason(my_keywords: set, other_keywords: set, obj_a, obj_b) -> str:
     overlap = my_keywords & other_keywords
     top = sorted(overlap, key=len, reverse=True)[:4]
-
     type_a = obj_a.object_type.name if obj_a.object_type else 'note'
 
     if not top:
@@ -430,17 +426,14 @@ _TFIDF_CACHE_MAX_AGE_SECONDS = 3600
 
 
 def invalidate_tfidf_cache() -> None:
-    """Signal-driven invalidation. Called from signals.py on Object creation."""
+    """Signal-driven invalidation. Called from signals.py on Object create/delete."""
     _TFIDF_CACHE['built_at'] = None
 
 
 def _get_or_build_tfidf_corpus(max_objects: int = 2000) -> dict | None:
     """
     Return a fitted TF-IDF matrix over all active Objects.
-
-    Builds lazily, caches in module memory, invalidates hourly or when
-    the corpus changes by 50+ objects. Uses bigrams and sublinear TF
-    so term frequency doesn't swamp inverse document frequency.
+    Builds lazily, caches, invalidates hourly or on 50-object corpus drift.
     """
     if not _TFIDF_AVAILABLE:
         return None
@@ -492,10 +485,7 @@ def _get_or_build_tfidf_corpus(max_objects: int = 2000) -> dict | None:
         cache['built_at'] = now
         cache['size'] = current_count
 
-        logger.info(
-            'TF-IDF corpus built: %d docs, %d features',
-            len(objects), matrix.shape[1],
-        )
+        logger.info('TF-IDF corpus built: %d docs, %d features', len(objects), matrix.shape[1])
         return cache
 
     except Exception as exc:
@@ -514,13 +504,8 @@ def _synthesize_tfidf_reason(obj_a: Object, obj_b: Object, similarity: float) ->
 
 def _run_tfidf_engine(obj: Object, config: dict) -> list[Edge]:
     """
-    TF-IDF topic similarity pass.
-
-    Production-safe: no PyTorch required. sklearn TfidfVectorizer is
-    fitted on the full Object corpus and cached. Common terms across
-    all Objects are automatically downweighted by IDF. Catches connections
-    that Jaccard misses because synonymous concepts rarely share exact words,
-    but TF-IDF's IDF weighting amplifies rare distinctive terms.
+    TF-IDF topic similarity pass. Production-safe: no PyTorch required.
+    Catches connections that Jaccard misses via IDF-weighted rare terms.
     """
     if not _TFIDF_AVAILABLE:
         return []
@@ -564,9 +549,7 @@ def _run_tfidf_engine(obj: Object, config: dict) -> list[Edge]:
             continue
 
         try:
-            other = Object.objects.select_related('object_type').get(
-                pk=other_pk, is_deleted=False,
-            )
+            other = Object.objects.select_related('object_type').get(pk=other_pk, is_deleted=False)
         except Object.DoesNotExist:
             continue
 
@@ -595,6 +578,7 @@ def _run_tfidf_engine(obj: Object, config: dict) -> list[Edge]:
 
 # ---------------------------------------------------------------------------
 # Pass 5: SBERT semantic similarity (dev/local only)
+# Uses FAISS ANN index when available, falls back to brute-force batch encode
 # ---------------------------------------------------------------------------
 
 def _synthesize_sbert_reason(obj_a: Object, obj_b: Object, similarity: float) -> str:
@@ -611,26 +595,16 @@ def _synthesize_sbert_reason(obj_a: Object, obj_b: Object, similarity: float) ->
             f'This {type_a} and this {type_b} explore related themes '
             f'(semantic similarity: {similarity:.0%}).'
         )
-    else:
-        return (
-            f'These share underlying conceptual territory '
-            f'(semantic similarity: {similarity:.0%}).'
-        )
+    return f'These share underlying conceptual territory (semantic similarity: {similarity:.0%}).'
 
 
 def _run_semantic_engine(obj: Object, config: dict) -> list[Edge]:
     """
-    SBERT semantic similarity pass.
+    SBERT semantic similarity pass. Dev/local only, requires PyTorch.
 
-    Requires PyTorch (dev/local only). Silently skips in production.
-    Finds Objects whose full text is semantically close to obj even
-    when they share no keywords -- because SBERT encodes meaning, not
-    just vocabulary. A note about "desire paths" and a note about
-    "induced demand" share almost no words but SBERT recognizes both
-    as being about how human behavior diverges from designed systems.
-
-    Uses find_most_similar() from advanced_nlp.py which encodes all
-    candidates in a single batch call for efficiency.
+    Prefers the FAISS ANN index (from vector_store.py) for O(log n) search.
+    Falls back to brute-force batch encoding if FAISS index is not built.
+    Finds Objects semantically related even when no keywords overlap.
     """
     if not _SBERT_AVAILABLE:
         logger.debug('SBERT unavailable. Skipping semantic engine pass.')
@@ -638,7 +612,48 @@ def _run_semantic_engine(obj: Object, config: dict) -> list[Edge]:
 
     threshold = config.get('sbert_threshold', 0.45)
     max_candidates = config.get('max_candidates', 500)
+    new_edges = []
 
+    # Try FAISS ANN first (fast)
+    try:
+        from apps.notebook.vector_store import faiss_find_similar_objects
+        faiss_matches = faiss_find_similar_objects(obj, top_n=20, threshold=threshold)
+
+        if faiss_matches:
+            pk_map = {
+                o.pk: o
+                for o in Object.objects.filter(
+                    pk__in=[m['pk'] for m in faiss_matches],
+                    is_deleted=False,
+                ).select_related('object_type')
+            }
+            for match in faiss_matches:
+                other = pk_map.get(match['pk'])
+                if not other:
+                    continue
+                sim = match['score']
+                reason = (
+                    _llm_explanation(obj, other, strength=sim)
+                    or _synthesize_sbert_reason(obj, other, sim)
+                )
+                edge, created = Edge.objects.get_or_create(
+                    from_object=obj,
+                    to_object=other,
+                    edge_type='semantic',
+                    defaults={
+                        'reason': reason,
+                        'strength': round(sim, 4),
+                        'is_auto': True,
+                        'engine': 'sbert_faiss',
+                    },
+                )
+                if created:
+                    new_edges.append(edge)
+            return new_edges
+    except Exception as exc:
+        logger.debug('FAISS SBERT path failed, falling back to batch encode: %s', exc)
+
+    # Fallback: brute-force batch encode
     my_text = _build_full_text(obj)
     if not my_text or len(my_text) < 20:
         return []
@@ -655,14 +670,11 @@ def _run_semantic_engine(obj: Object, config: dict) -> list[Edge]:
     if not candidates:
         return []
 
-    candidate_texts = [_build_full_text(c) for c in candidates]
-    candidate_ids = [str(c.pk) for c in candidates]
-
     try:
         matches = find_most_similar(
             target_text=my_text,
-            candidate_texts=candidate_texts,
-            candidate_ids=candidate_ids,
+            candidate_texts=[_build_full_text(c) for c in candidates],
+            candidate_ids=[str(c.pk) for c in candidates],
             top_n=20,
             threshold=threshold,
         )
@@ -671,19 +683,16 @@ def _run_semantic_engine(obj: Object, config: dict) -> list[Edge]:
         return []
 
     pk_map = {str(c.pk): c for c in candidates}
-    new_edges = []
 
     for match in matches:
         other = pk_map.get(match['id'])
         if not other:
             continue
-
         sim = match['similarity']
         reason = (
             _llm_explanation(obj, other, strength=sim)
             or _synthesize_sbert_reason(obj, other, sim)
         )
-
         edge, created = Edge.objects.get_or_create(
             from_object=obj,
             to_object=other,
@@ -702,7 +711,7 @@ def _run_semantic_engine(obj: Object, config: dict) -> list[Edge]:
 
 
 # ---------------------------------------------------------------------------
-# Pass 6: NLI contradiction and support detection (dev/local only)
+# Pass 6: NLI contradiction/support detection (dev/local only)
 # ---------------------------------------------------------------------------
 
 def _synthesize_contradiction_reason(obj_a, obj_b, similarity, prob) -> str:
@@ -728,16 +737,8 @@ def _synthesize_entailment_reason(obj_a, obj_b, similarity, prob) -> str:
 
 def _run_nli_contradiction_pass(obj: Object, config: dict) -> list[Edge]:
     """
-    NLI contradiction/support detection pass.
-
-    Requires PyTorch + cross-encoder/nli-distilroberta-base. Dev/local only.
-    Strategy: SBERT screens for topically similar Objects first (fast),
-    then NLI classifies the logical relationship (slow but accurate).
-    Without the SBERT gate, NLI would run on every pair -- O(n^2) and too slow.
-
-    Contradiction edge: both objects discuss the same topic but reach
-    opposite conclusions. This is the "genuine intellectual tension" case.
-    Support edge: same topic, claims reinforce each other.
+    NLI contradiction/support detection. Dev/local only.
+    SBERT pre-screens candidates before NLI to avoid O(n^2) inference cost.
     """
     if not _SBERT_AVAILABLE:
         return []
@@ -758,7 +759,6 @@ def _run_nli_contradiction_pass(obj: Object, config: dict) -> list[Edge]:
     if not my_text or len(my_text) < 30:
         return []
 
-    # Screen candidates via SBERT first
     candidates = list(
         Object.objects
         .filter(is_deleted=False)
@@ -854,6 +854,108 @@ def _run_nli_contradiction_pass(obj: Object, config: dict) -> list[Edge]:
 
 
 # ---------------------------------------------------------------------------
+# Pass 7: KGE structural similarity (dev/local only)
+# Requires trained embeddings from scripts/train_kge.py
+# ---------------------------------------------------------------------------
+
+def _synthesize_kge_reason(obj_a: Object, obj_b: Object, score: float) -> str:
+    """
+    KGE connections are structural -- they reflect graph position, not text.
+    The reason should make that clear so the user understands why they're seeing it.
+    """
+    type_a = obj_a.object_type.name.lower() if obj_a.object_type else 'note'
+    type_b = obj_b.object_type.name.lower() if obj_b.object_type else 'note'
+    return (
+        f'This {type_a} and this {type_b} occupy structurally similar positions '
+        f'in the knowledge graph -- they are cited by, or cite, similar things '
+        f'(graph similarity: {score:.0%}). '
+        f'They may play the same conceptual role in different contexts.'
+    )
+
+
+def _run_kge_engine(obj: Object, config: dict) -> list[Edge]:
+    """
+    KGE structural similarity pass. Dev/local only, requires trained embeddings.
+
+    Loads RotatE (or TransE) entity embeddings trained on the Edge graph
+    and finds Objects that occupy structurally similar positions, even if
+    their text content is completely different.
+
+    This is the fifth signal -- it captures relationships that no text-based
+    engine can see: two Source Objects that are consistently co-cited by the
+    same Notes, or two Person Objects that appear in the same organizational
+    contexts. The graph structure reveals roles and functions that the text alone
+    does not express.
+
+    KGE engine is gated by: embeddings loaded in vector_store.kge_store AND
+    'kge' in active engines. Auto-skips if embeddings haven't been trained.
+    """
+    try:
+        from apps.notebook.vector_store import kge_store
+    except ImportError:
+        return []
+
+    if not kge_store.is_loaded:
+        return []
+
+    sha = obj.sha_hash
+    if not sha:
+        return []
+
+    threshold = config.get('kge_threshold', 0.60)
+
+    try:
+        matches = kge_store.find_similar_entities(
+            sha_hash=sha,
+            top_n=15,
+            threshold=threshold,
+        )
+    except Exception as exc:
+        logger.warning('KGE find_similar_entities failed: %s', exc)
+        return []
+
+    if not matches:
+        return []
+
+    sha_map = {
+        o.sha_hash: o
+        for o in Object.objects.filter(
+            sha_hash__in=[m['sha_hash'] for m in matches],
+            is_deleted=False,
+        ).select_related('object_type')
+    }
+
+    new_edges = []
+
+    for match in matches:
+        other = sha_map.get(match['sha_hash'])
+        if not other or other.pk == obj.pk:
+            continue
+
+        score = match['score']
+        reason = (
+            _llm_explanation(obj, other, strength=score)
+            or _synthesize_kge_reason(obj, other, score)
+        )
+
+        edge, created = Edge.objects.get_or_create(
+            from_object=obj,
+            to_object=other,
+            edge_type='shared_topic',
+            defaults={
+                'reason': reason,
+                'strength': round(score, 4),
+                'is_auto': True,
+                'engine': 'kge',
+            },
+        )
+        if created:
+            new_edges.append(edge)
+
+    return new_edges
+
+
+# ---------------------------------------------------------------------------
 # LLM explanation (optional -- gated by env var)
 # ---------------------------------------------------------------------------
 
@@ -866,14 +968,9 @@ def _llm_explanation(obj_a: Object, obj_b: Object, strength: float = 0.5) -> str
     """
     Call Claude Haiku to generate a high-quality plain-English explanation.
 
-    Only runs when:
-      - COMMONPLACE_LLM_EXPLANATIONS=true in environment
-      - Connection strength >= LLM_EXPLANATION_MIN_STRENGTH
-      - Both objects have enough content to reason about
-
-    Gated by strength to avoid API cost on weak, uncertain connections.
-    Uses Haiku (not Sonnet) -- single-sentence explanation is well within
-    Haiku's capability and the latency is acceptable inline.
+    Gated by: COMMONPLACE_LLM_EXPLANATIONS=true and strength >= 0.55.
+    Uses Haiku for latency and cost. 80-token cap enforces single-sentence output.
+    Falls back to None on any failure -- caller uses template reason instead.
     """
     if not LLM_EXPLANATION_ENABLED:
         return None
@@ -909,7 +1006,6 @@ def _llm_explanation(obj_a: Object, obj_b: Object, strength: float = 0.5) -> str
 
         api_key = os.environ.get('ANTHROPIC_API_KEY', '')
         if not api_key:
-            logger.warning('ANTHROPIC_API_KEY not set. LLM explanation skipped.')
             return None
 
         response = httpx.post(
@@ -949,9 +1045,8 @@ AUTO_OBJECTIFY_MIN_LENGTH = 4
 def auto_objectify(obj: Object) -> list[Object]:
     """
     Auto-create Objects for high-confidence PERSON/ORG entities.
-
-    Guards: 4-char minimum, not a stop word, case-insensitive dedup,
-    PERSON and ORG only (GPE/LOC are too noisy for auto-creation).
+    Guards: 4-char minimum, not a stop word, case-insensitive dedup.
+    PERSON and ORG only -- GPE/LOC are too noisy for auto-creation.
     """
     entities = ResolvedEntity.objects.filter(
         source_object=obj,
@@ -977,8 +1072,7 @@ def auto_objectify(obj: Object) -> list[Object]:
             object_type__slug=target_type_slug,
             is_deleted=False,
         ).filter(
-            Q(title__iexact=text)
-            | Q(title__icontains=entity.normalized_text)
+            Q(title__iexact=text) | Q(title__icontains=entity.normalized_text)
         ).first()
 
         if existing:
@@ -1024,10 +1118,7 @@ def auto_objectify(obj: Object) -> list[Object]:
 # ---------------------------------------------------------------------------
 
 def _create_connection_nodes(edges: list[Edge], engine_name: str) -> int:
-    """
-    Create Timeline Nodes for newly discovered Edges.
-    Each new Edge gets a Node with type='connection' on the master Timeline.
-    """
+    """Create Timeline Nodes for newly discovered Edges."""
     timeline = _get_master_timeline()
     if not timeline:
         logger.warning('No master Timeline found. Skipping connection Nodes.')
@@ -1059,16 +1150,14 @@ def run_engine(obj: Object, notebook=None) -> dict:
     """
     Run the full connection engine on a single Object.
 
-    Accepts optional notebook to use per-Notebook engine config.
-    Creates connection Nodes for every new Edge discovered.
-
-    Engine run order:
-      Pass 1: spaCy NER (always)
-      Pass 2: Shared entity edges (always)
-      Pass 3: Jaccard topic similarity (always, fast)
-      Pass 4: TF-IDF (production-safe, auto at 500+ objects)
-      Pass 5: SBERT semantic (dev only, requires PyTorch)
-      Pass 6: NLI contradiction/support (dev only, requires nli_enabled config)
+    Pass order:
+      1. spaCy NER + auto-objectification (always)
+      2. Shared entity edges (always)
+      3. Jaccard topic similarity (always, fast)
+      4. TF-IDF (production-safe, auto at 500+ objects)
+      5. SBERT semantic via FAISS or batch encode (dev only)
+      6. NLI contradiction/support (dev only, config-gated)
+      7. KGE structural similarity (dev only, requires trained embeddings)
     """
     config = get_engine_config(notebook or obj.notebook)
     object_count = Object.objects.count()
@@ -1083,67 +1172,64 @@ def run_engine(obj: Object, notebook=None) -> dict:
         'edges_from_tfidf': 0,
         'edges_from_semantic': 0,
         'edges_from_nli': 0,
+        'edges_from_kge': 0,
         'objects_auto_created': 0,
         'connection_nodes_created': 0,
     }
 
     all_new_edges = []
 
-    # Pass 1: spaCy NER + auto-objectification
+    # Pass 1 + auto-objectification
     if 'spacy' in active_engines:
         entities = extract_entities(obj, config)
         results['entities_extracted'] = len(entities)
         created = auto_objectify(obj)
         results['objects_auto_created'] = len(created)
 
-    # Pass 2: Shared entity edges
+    # Pass 2
     if 'spacy' in active_engines:
         shared_edges = find_shared_entity_connections(obj, config)
         results['edges_from_shared'] = len(shared_edges)
         all_new_edges.extend(shared_edges)
 
-    # Pass 3: Jaccard topic similarity
+    # Pass 3
     if 'spacy' in active_engines:
         topic_edges = find_topic_connections(obj, config)
         results['edges_from_topics'] = len(topic_edges)
         all_new_edges.extend(topic_edges)
 
-    # Pass 4: TF-IDF (production-safe)
+    # Pass 4
     if 'tfidf' in active_engines:
         tfidf_edges = _run_tfidf_engine(obj, config)
         results['edges_from_tfidf'] = len(tfidf_edges)
         all_new_edges.extend(tfidf_edges)
 
-    # Pass 5: SBERT semantic (dev only)
+    # Pass 5
     if 'sbert' in active_engines or 'semantic' in active_engines:
         semantic_edges = _run_semantic_engine(obj, config)
         results['edges_from_semantic'] = len(semantic_edges)
         all_new_edges.extend(semantic_edges)
 
-    # Pass 6: NLI contradiction/support (dev only, config-gated)
+    # Pass 6
     if config.get('nli_enabled', False) and _SBERT_AVAILABLE:
         nli_edges = _run_nli_contradiction_pass(obj, config)
         results['edges_from_nli'] = len(nli_edges)
         all_new_edges.extend(nli_edges)
 
+    # Pass 7
+    if 'kge' in active_engines:
+        kge_edges = _run_kge_engine(obj, config)
+        results['edges_from_kge'] = len(kge_edges)
+        all_new_edges.extend(kge_edges)
+
     # Entity mention edge count (includes edges from Pass 1)
     results['edges_from_entities'] = (
-        Edge.objects
-        .filter(from_object=obj, edge_type='mentions', is_auto=True)
-        .count()
+        Edge.objects.filter(from_object=obj, edge_type='mentions', is_auto=True).count()
     )
 
-    # Connection Nodes for all new edges
-    nodes_created = _create_connection_nodes(
-        all_new_edges,
-        engine_name='engine',
-    )
+    nodes_created = _create_connection_nodes(all_new_edges, engine_name='engine')
     results['connection_nodes_created'] = nodes_created
 
-    logger.info(
-        'Connection engine results for "%s": %s',
-        obj.display_title[:40],
-        results,
-    )
+    logger.info('Connection engine results for "%s": %s', obj.display_title[:40], results)
 
     return results
