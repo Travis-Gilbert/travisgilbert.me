@@ -1389,43 +1389,67 @@
   width: var(--studio-editor-column-width);
   margin: 32px auto;
   padding: 64px;
-  border-radius: 14px;
-  border: 1px solid var(--studio-writing-paper-border);
+  border-radius: 0 0 3px 3px;
   background-color: var(--studio-writing-paper-bg);
   box-shadow: var(--studio-writing-paper-shadow);
   overflow: hidden;
 }
 
+/* Paper grain layer 1: coarse (fractalNoise) */
+.studio-page::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 1;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='250' height='250'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.62' numOctaves='5' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  background-size: 250px 250px;
+  mix-blend-mode: multiply;
+  opacity: 0.13;
+}
+
+/* Paper grain layer 2: fine fiber (turbulence) */
 .studio-page::after {
   content: '';
   position: absolute;
   inset: 0;
   pointer-events: none;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='220' height='220'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.78' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
-  background-size: 220px 220px;
+  z-index: 1;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='turbulence' baseFrequency='0.85' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  background-size: 120px 120px;
   mix-blend-mode: multiply;
-  opacity: 0.04;
+  opacity: 0.07;
 }
 
-/* Field notebook margin line */
-.studio-page::before {
-  content: '';
+/* Field notebook margin line (DOM element, not pseudo) */
+.studio-margin-rule {
   position: absolute;
-  left: 51px;
+  left: 62px;
   top: 0;
   bottom: 0;
   width: 1px;
-  background-color: rgba(180, 90, 45, 0.08);
+  background: var(--studio-writing-margin-rule);
   pointer-events: none;
-  z-index: 0;
+  z-index: 2;
 }
 
-/* Subtle terracotta glow when editor is focused */
+/* Stage progress strip: colored bar above paper top edge */
+.studio-stage-strip {
+  width: var(--studio-editor-column-width);
+  margin: 0 auto;
+  height: 2px;
+  border-radius: 2px 2px 0 0;
+  background: linear-gradient(90deg, var(--stage-color, #B45A2D) 0%, color-mix(in srgb, var(--stage-color, #B45A2D) 55%, transparent) 60%, transparent 100%);
+}
+
+/* Warm focused glow when editor is active (NOT floating modal shadow) */
 .studio-editor-shell[data-writing-focused="true"] .studio-page {
   box-shadow:
-    0 24px 44px rgba(0, 0, 0, 0.22),
-    0 6px 16px rgba(0, 0, 0, 0.16),
-    0 0 0 1px rgba(180, 90, 45, 0.08);
+    0 1px 3px rgba(20, 14, 8, 0.14),
+    0 4px 12px rgba(20, 14, 8, 0.2),
+    0 10px 28px rgba(20, 14, 8, 0.15),
+    0 0 0 1px rgba(180, 90, 45, 0.12),
+    inset 0 -1px 0 rgba(255, 255, 255, 0.08);
   transition: box-shadow 0.3s ease;
 }
 
@@ -1441,6 +1465,9 @@
   min-height: 400px;
   margin: 0 auto;
   outline: none;
+  /* Faint ruled lines in writing body */
+  background-image: linear-gradient(var(--studio-writing-ruled-line) 1px, transparent 1px);
+  background-size: 100% 32px;
 }
 
 .studio-prose::after {

@@ -72,6 +72,8 @@ export default function TiptapEditor({
   onFocusChange,
   typewriterMode = true,
   placeholder: placeholderText = 'Start writing...',
+  stage,
+  stageColor,
 }: {
   initialContent?: string;
   initialContentFormat?: 'html' | 'markdown';
@@ -80,6 +82,8 @@ export default function TiptapEditor({
   onFocusChange?: (focused: boolean) => void;
   typewriterMode?: boolean;
   placeholder?: string;
+  stage?: string;
+  stageColor?: string;
 }) {
   const wrapperRef = useRef<HTMLDivElement | null>(null);
   const typewriterFrameRef = useRef<number | null>(null);
@@ -492,7 +496,14 @@ export default function TiptapEditor({
         overflowY: 'auto',
       }}
     >
-      <div className="studio-page">
+      {stageColor && (
+        <div
+          className="studio-stage-strip"
+          style={{ '--stage-color': stageColor } as React.CSSProperties}
+        />
+      )}
+      <div className="studio-page" data-stage={stage}>
+        <div className="studio-margin-rule" />
         <EditorContent editor={editor} />
       </div>
       {wikiPopup.visible && (

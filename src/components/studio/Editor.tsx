@@ -4,7 +4,7 @@ import { useState, useCallback, useEffect, useRef } from 'react';
 import type { CSSProperties } from 'react';
 import type { Editor as TiptapEditorType } from '@tiptap/react';
 import type { StudioContentItem } from '@/lib/studio';
-import { normalizeStudioContentType } from '@/lib/studio';
+import { normalizeStudioContentType, getStage } from '@/lib/studio';
 import {
   saveContentItem,
   updateStage,
@@ -1063,6 +1063,8 @@ export default function Editor({
           onEditorReady={handleEditorReady}
           onFocusChange={setIsWritingFocused}
           typewriterMode={typewriterMode}
+          stage={stage}
+          stageColor={getStage(stage).color}
         />
 
         {editor && (
