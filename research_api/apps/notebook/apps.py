@@ -8,3 +8,11 @@ class NotebookConfig(AppConfig):
 
     def ready(self):
         import apps.notebook.signals  # noqa: F401
+
+        # Load KGE embeddings on startup if available.
+        # Gracefully no-ops if embeddings haven't been trained yet.
+        try:
+            from apps.notebook.vector_store import kge_store
+            kge_store.load()
+        except Exception:
+            pass
