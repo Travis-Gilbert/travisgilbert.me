@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { getContentTypeIdentity } from '@/lib/studio';
 import type { WorkbenchAutosaveState, WorkbenchSaveState } from './WorkbenchContext';
 import PublishButton from './PublishButton';
+import StageStamp, { useStageStamp } from './StageStamp';
 
 type StageOption = {
   slug: string;
@@ -51,6 +52,7 @@ export default function StageStepper({
     null,
   );
   const confirmButtonRef = useRef<HTMLButtonElement | null>(null);
+  const stamp = useStageStamp();
 
   const currentIndex = findStageIndex(stage);
   const canMoveBack = currentIndex > 0;
@@ -100,6 +102,8 @@ export default function StageStepper({
 
       if (event.key === 'Enter') {
         event.preventDefault();
+        const stageColor = STAGE_FLOW.find((s) => s.slug === pendingStage)?.color ?? '#B45A2D';
+        stamp.trigger(pendingStage, stageColor);
         onStageChange(pendingStage);
         setPendingStage(null);
         setAnchorDirection(null);
@@ -125,6 +129,8 @@ export default function StageStepper({
 
   const confirmMove = () => {
     if (!pendingStage) return;
+    const stageColor = STAGE_FLOW.find((s) => s.slug === pendingStage)?.color ?? '#B45A2D';
+    stamp.trigger(pendingStage, stageColor);
     onStageChange(pendingStage);
     setPendingStage(null);
     setAnchorDirection(null);
@@ -285,6 +291,14 @@ export default function StageStepper({
           </div>
         )}
       </div>
+
+      {stamp.stamp && (
+        <StageStamp
+          stage={stamp.stamp.stage}
+          stageColor={stamp.stamp.color}
+          onComplete={stamp.clear}
+        />
+      )}
     </div>
   );
 }
