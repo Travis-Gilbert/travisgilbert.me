@@ -43,6 +43,7 @@ import PipelinePanel from './PipelinePanel';
 import RevisionHistory from './RevisionHistory';
 import CorkboardPanel from './CorkboardPanel';
 import OutlineDragWall from './OutlineDragWall';
+import RelationshipMap from './RelationshipMap';
 
 /* Stage definitions for PipelinePanel per content type */
 const CONTENT_STAGE_MAP: Record<string, Array<{ key: string; label: string }>> = {
@@ -105,7 +106,7 @@ type SaveState = 'idle' | 'saving' | 'success' | 'error' | 'retrying';
 type AutosaveState = 'idle' | 'saved';
 
 type WorkbenchMode = 'editor' | 'dashboard';
-type EditorPanelMode = 'research' | 'outline' | 'stash' | 'collage' | 'history';
+type EditorPanelMode = 'research' | 'outline' | 'stash' | 'collage' | 'history' | 'links';
 
 function clampWidth(width: number): number {
   return Math.min(Math.max(width, MIN_WORKBENCH_WIDTH), MAX_WORKBENCH_WIDTH);
@@ -158,7 +159,7 @@ export default function WorkbenchPanel({
     }
 
     const storedMode = localStorage.getItem(STORAGE_EDITOR_MODE_KEY);
-    if (storedMode === 'research' || storedMode === 'outline' || storedMode === 'stash' || storedMode === 'collage' || storedMode === 'history') {
+    if (storedMode === 'research' || storedMode === 'outline' || storedMode === 'stash' || storedMode === 'collage' || storedMode === 'history' || storedMode === 'links') {
       setEditorPanelMode(storedMode);
     }
 
@@ -347,13 +348,14 @@ export default function WorkbenchPanel({
           {mode === 'editor' ? (
             <>
               <div className="studio-workbench-tabs">
-                {(['research', 'outline', 'stash', 'history', 'collage'] as const).map((tab) => {
+                {(['research', 'outline', 'stash', 'history', 'collage', 'links'] as const).map((tab) => {
                   const TAB_LABELS: Record<EditorPanelMode, string> = {
                     research: 'Research',
                     outline: 'Outline',
                     stash: 'Stash',
                     history: 'History',
                     collage: 'Collage',
+                    links: 'Links',
                   };
                   return (
                     <button
@@ -397,6 +399,12 @@ export default function WorkbenchPanel({
                 <CollagePanel
                   slug={contentItem?.slug ?? ''}
                   editor={editor}
+                />
+              )}
+              {editorPanelMode === 'links' && (
+                <LinksMode
+                  editor={editor ?? null}
+                  contentItem={contentItem ?? null}
                 />
               )}
             </>
@@ -916,6 +924,60 @@ const ROLE_COLORS: Record<string, string> = {
   data: '#3A8A9A',
   inspiration: '#D4AA4A',
 };
+
+/* ── Links mode: relationship map ──────────── */
+
+function LinksMode({
+  editor,
+  contentItem,
+}: {
+  editor: TiptapEditorType | null;
+  contentItem: StudioContentItem | null;
+}) {
+  const slug = contentItem?.slug ?? 'untitled';
+  const contentType = contentItem?.contentType ?? 'essay';
+  const stageColor = contentItem?.stage
+    ? getContentTypeIdentity(contentItem.contentType).color
+    : undefined;
+
+  /* Fetch research trail sources */
+  const [sources, setSources] = useState<
+    import('@/lib/studio-api').ResearchTrailSource[]
+  >([]);
+  useEffect(() => {
+    let cancelled = false;
+    fetchResearchTrail(slug)
+      .then((data) => {
+        if (!cancelled) setSources(data?.sources ?? []);
+      })
+      .catch(() => {});
+    return () => { cancelled = true; };
+  }, [slug]);
+
+  /* Fetch mention backlinks */
+  const [backlinks, setBacklinks] = useState<MentionBacklink[]>([]);
+  useEffect(() => {
+    let cancelled = false;
+    fetchMentionBacklinks(contentType, slug).then((data) => {
+      if (!cancelled) setBacklinks(data);
+    });
+    return () => { cancelled = true; };
+  }, [contentType, slug]);
+
+  return (
+    <div style={{ marginTop: '6px' }}>
+      <RelationshipMap
+        contentItem={contentItem}
+        editor={editor}
+        sources={sources}
+        backlinks={backlinks}
+        stageColor={stageColor}
+      />
+    </div>
+  );
+}
+
+/* ── Research mode ────────────────────────────── */
 
 function ResearchMode({
   editor,
