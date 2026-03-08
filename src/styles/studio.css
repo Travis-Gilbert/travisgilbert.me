@@ -825,6 +825,8 @@
     0 8px 24px rgba(20, 14, 8, 0.12),
     inset 0 -1px 0 rgba(255, 255, 255, 0.08);
 
+  position: relative;
+  overflow-y: auto;
   /* Desk surface: warm near-black, NOT cold slate */
   background-color: var(--studio-desk-bg);
   /* Three desk texture layers */
@@ -841,6 +843,15 @@
     40px 40px,
     40px 40px,
     28px 28px;
+}
+
+/* Interactive desk lamp: stage-reactive glow overlay */
+.studio-desk-lamp {
+  animation: desk-lamp-breathe 8s ease-in-out infinite;
+}
+@keyframes desk-lamp-breathe {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.85; }
 }
 
 .studio-editor-column {

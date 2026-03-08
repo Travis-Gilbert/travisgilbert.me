@@ -34,6 +34,7 @@ import type { TiptapUpdatePayload } from './TiptapEditor';
 import WordCountBand from './WordCountBand';
 import EditorContextMenu from './EditorContextMenu';
 import ExportMenu from './ExportMenu';
+import DeskLamp from './DeskLamp';
 import { useStudioView } from './StudioViewContext';
 
 type SaveState = WorkbenchSaveState;
@@ -797,6 +798,7 @@ export default function Editor({
         data-writing-focused={isWritingFocused ? 'true' : 'false'}
         style={writingSurfaceStyle}
       >
+        <DeskLamp stage={stage} />
         {hasRecoverableDraft && (
           <div className="studio-draft-recovery-banner">
             <span className="studio-draft-recovery-text">
