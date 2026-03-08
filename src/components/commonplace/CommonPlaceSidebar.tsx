@@ -216,8 +216,11 @@ export default function CommonPlaceSidebar() {
                         data-active={isActive}
                         onClick={() => {
                           toggleGroup(item.label);
-                          /* Parent click also opens list view */
-                          if (item.label === 'Notebooks') {
+                          /* Parent click also opens the associated view */
+                          if (item.viewType) {
+                            requestView(item.viewType, item.label, item.viewContext);
+                            closeDrawerIfMobile();
+                          } else if (item.label === 'Notebooks') {
                             requestView('notebook', 'Notebooks', { listMode: true });
                             closeDrawerIfMobile();
                           } else if (item.label === 'Projects') {
