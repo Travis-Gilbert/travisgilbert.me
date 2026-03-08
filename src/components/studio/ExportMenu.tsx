@@ -80,7 +80,7 @@ export default function ExportMenu({
     <div className={`studio-export-menu ${className}`.trim()} ref={containerRef}>
       <button
         type="button"
-        className="studio-reading-toggle studio-export-toggle"
+        className="studio-tool studio-tool--ghost studio-tool--label studio-export-toggle"
         onClick={() => setIsOpen((open) => !open)}
         aria-expanded={isOpen}
         aria-haspopup="menu"

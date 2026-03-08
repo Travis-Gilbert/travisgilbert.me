@@ -333,7 +333,6 @@ export default function Editor({
   const currentTitleRef = useRef(currentTitle);
   const contentItemRef = useRef(contentItem);
   const readingPanelRef = useRef<HTMLDivElement>(null);
-  const readingToggleRef = useRef<HTMLButtonElement>(null);
   const snapshotRef = useRef<string | null>(null);
   const lastRevisionAtRef = useRef<number>(0);
 
@@ -376,7 +375,7 @@ export default function Editor({
       const target = e.target as Node;
       if (
         readingPanelRef.current?.contains(target) ||
-        readingToggleRef.current?.contains(target)
+        (target instanceof Element && target.closest('.studio-toolbar'))
       ) return;
       setIsReadingPanelOpen(false);
     }
@@ -853,188 +852,6 @@ export default function Editor({
           onPublish={handlePublish}
         />
 
-        <div className="studio-editor-header studio-editor-chrome">
-          <div className="studio-editor-column">
-            <div className="studio-editor-title-row">
-              <div className="studio-editor-title-actions">
-                <button
-                  ref={readingToggleRef}
-                  type="button"
-                  className="studio-reading-toggle"
-                  onClick={() => setIsReadingPanelOpen((open) => !open)}
-                  aria-expanded={isReadingPanelOpen}
-                  aria-controls="studio-reading-panel"
-                >
-                  Reading
-                </button>
-                <ExportMenu
-                  title={currentTitle}
-                  slug={slug}
-                  markdown={markdownPreview}
-                />
-              </div>
-            </div>
-
-            {isReadingPanelOpen && (
-              <div ref={readingPanelRef} id="studio-reading-panel" className="studio-reading-panel">
-                <div className="studio-reading-control">
-                  <span className="studio-reading-label">Font</span>
-                  <div className="studio-font-grid" role="radiogroup" aria-label="Reading font">
-                    {([
-                      { preset: 'writing-serif' as const, label: 'Amarna', family: FONT_PRESET_FAMILIES['writing-serif'] },
-                      { preset: 'archivist' as const, label: 'Archivist', family: FONT_PRESET_FAMILIES['archivist'] },
-                      { preset: 'cabin' as const, label: 'Cabin', family: FONT_PRESET_FAMILIES['cabin'] },
-                      { preset: 'plex' as const, label: 'Plex', family: FONT_PRESET_FAMILIES['plex'] },
-                      { preset: 'clean-sans' as const, label: 'System', family: FONT_PRESET_FAMILIES['clean-sans'] },
-                      { preset: 'mono' as const, label: 'Mono', family: FONT_PRESET_FAMILIES['mono'] },
-                    ]).map(({ preset, label, family }) => (
-                      <button
-                        key={preset}
-                        type="button"
-                        className={`studio-font-preview ${readingSettings.fontPreset === preset ? 'is-active' : ''}`}
-                        onClick={() => updateReadingSettings({ fontPreset: preset })}
-                        role="radio"
-                        aria-checked={readingSettings.fontPreset === preset}
-                        aria-label={label}
-                      >
-                        <span className="studio-font-preview-sample" style={{ fontFamily: family }}>
-                          Aa
-                        </span>
-                        <span className="studio-font-preview-label">{label}</span>
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
-                <label className="studio-reading-control">
-                  <span className="studio-reading-label">
-                    Font Size: {readingSettings.fontSize}px
-                  </span>
-                  <input
-                    type="range"
-                    min={16}
-                    max={22}
-                    step={1}
-                    value={readingSettings.fontSize}
-                    onChange={(event) =>
-                      updateReadingSettings({
-                        fontSize: Number(event.target.value),
-                      })
-                    }
-                  />
-                </label>
-
-                <label className="studio-reading-control">
-                  <span className="studio-reading-label">
-                    Line Height: {readingSettings.lineHeight.toFixed(2)}
-                  </span>
-                  <input
-                    type="range"
-                    min={1.5}
-                    max={2}
-                    step={0.05}
-                    value={readingSettings.lineHeight}
-                    onChange={(event) =>
-                      updateReadingSettings({
-                        lineHeight: Number(event.target.value),
-                      })
-                    }
-                  />
-                </label>
-
-                <div className="studio-reading-control">
-                  <span className="studio-reading-label">Paragraph Spacing</span>
-                  <div className="studio-reading-options" role="radiogroup" aria-label="Paragraph spacing">
-                    <button
-                      type="button"
-                      className={`studio-reading-option ${readingSettings.paragraphSpacing === 'normal' ? 'is-active' : ''}`}
-                      onClick={() =>
-                        updateReadingSettings({ paragraphSpacing: 'normal' })
-                      }
-                      role="radio"
-                      aria-checked={readingSettings.paragraphSpacing === 'normal'}
-                    >
-                      Normal
-                    </button>
-                    <button
-                      type="button"
-                      className={`studio-reading-option ${readingSettings.paragraphSpacing === 'relaxed' ? 'is-active' : ''}`}
-                      onClick={() =>
-                        updateReadingSettings({ paragraphSpacing: 'relaxed' })
-                      }
-                      role="radio"
-                      aria-checked={readingSettings.paragraphSpacing === 'relaxed'}
-                    >
-                      Relaxed
-                    </button>
-                  </div>
-                </div>
-
-                <div className="studio-reading-control">
-                  <span className="studio-reading-label">Focus Tools</span>
-                  <div className="studio-reading-options">
-                    <button
-                      type="button"
-                      className={`studio-reading-option ${zenMode ? 'is-active' : ''}`}
-                      onClick={() => setZenMode(!zenMode)}
-                      aria-pressed={zenMode}
-                      title="Toggle Zen mode (Cmd+Shift+Z)"
-                    >
-                      Zen {zenMode ? 'On' : 'Off'}
-                    </button>
-                    <button
-                      type="button"
-                      className={`studio-reading-option ${typewriterMode ? 'is-active' : ''}`}
-                      onClick={() => setTypewriterMode((enabled) => !enabled)}
-                      aria-pressed={typewriterMode}
-                    >
-                      Typewriter {typewriterMode ? 'On' : 'Off'}
-                    </button>
-                  </div>
-                </div>
-
-                <div className="studio-reading-control">
-                  <span className="studio-reading-label">Appearance</span>
-                  <div className="studio-reading-options">
-                    <button
-                      type="button"
-                      className={`studio-reading-option ${themeMode === 'dark' ? 'is-active' : ''}`}
-                      onClick={() => { if (themeMode !== 'dark') toggleThemeMode(); }}
-                      aria-pressed={themeMode === 'dark'}
-                      title="Dark mode"
-                    >
-                      Dark
-                    </button>
-                    <button
-                      type="button"
-                      className={`studio-reading-option ${themeMode === 'light' ? 'is-active' : ''}`}
-                      onClick={() => { if (themeMode !== 'light') toggleThemeMode(); }}
-                      aria-pressed={themeMode === 'light'}
-                      title="Light mode (Cmd+Shift+T)"
-                    >
-                      Light
-                    </button>
-                  </div>
-                </div>
-
-                <div className="studio-reading-control">
-                  <span className="studio-reading-label">Markdown</span>
-                  <div className="studio-reading-options">
-                    <button
-                      type="button"
-                      className={`studio-reading-option ${showMarkdownView ? 'is-active' : ''}`}
-                      onClick={() => setShowMarkdownView((open) => !open)}
-                      aria-pressed={showMarkdownView}
-                    >
-                      Markdown View {showMarkdownView ? 'On' : 'Off'}
-                    </button>
-                  </div>
-                </div>
-              </div>
-            )}
-          </div>
-        </div>
-
         <div className="studio-mobile-editor-actions studio-editor-column">
           <button
             type="button"
@@ -1089,7 +906,193 @@ export default function Editor({
               />
             </div>
           }
-          toolbar={<EditorToolbar editor={editor} />}
+          toolbar={
+            <>
+              <EditorToolbar
+                editor={editor}
+                onReadingToggle={() => setIsReadingPanelOpen((open) => !open)}
+                readingOpen={isReadingPanelOpen}
+                exportSlot={
+                  <ExportMenu
+                    title={currentTitle}
+                    slug={slug}
+                    markdown={markdownPreview}
+                  />
+                }
+              />
+              {isReadingPanelOpen && (
+                <div ref={readingPanelRef} id="studio-reading-panel" className="studio-reading-panel">
+                  <div className="studio-reading-row" role="radiogroup" aria-label="Reading font">
+                    {([
+                      { preset: 'writing-serif' as const, label: 'Amarna', family: FONT_PRESET_FAMILIES['writing-serif'] },
+                      { preset: 'archivist' as const, label: 'Archivist', family: FONT_PRESET_FAMILIES['archivist'] },
+                      { preset: 'cabin' as const, label: 'Cabin', family: FONT_PRESET_FAMILIES['cabin'] },
+                      { preset: 'plex' as const, label: 'Plex', family: FONT_PRESET_FAMILIES['plex'] },
+                      { preset: 'clean-sans' as const, label: 'System', family: FONT_PRESET_FAMILIES['clean-sans'] },
+                      { preset: 'mono' as const, label: 'Mono', family: FONT_PRESET_FAMILIES['mono'] },
+                    ]).map(({ preset, label, family }) => (
+                      <button
+                        key={preset}
+                        type="button"
+                        className={`studio-reading-font-btn ${readingSettings.fontPreset === preset ? 'is-active' : ''}`}
+                        onClick={() => updateReadingSettings({ fontPreset: preset })}
+                        role="radio"
+                        aria-checked={readingSettings.fontPreset === preset}
+                        aria-label={label}
+                        style={{ fontFamily: family }}
+                      >
+                        {label}
+                      </button>
+                    ))}
+                  </div>
+
+                  <div className="studio-reading-row">
+                    <span className="studio-reading-inline-label">Size</span>
+                    <input
+                      type="range"
+                      min={16}
+                      max={22}
+                      step={1}
+                      value={readingSettings.fontSize}
+                      onChange={(event) =>
+                        updateReadingSettings({ fontSize: Number(event.target.value) })
+                      }
+                      className="studio-reading-slider"
+                    />
+                    <span className="studio-reading-value">{readingSettings.fontSize}px</span>
+
+                    <span className="studio-reading-row-divider" />
+
+                    <span className="studio-reading-inline-label">Leading</span>
+                    <input
+                      type="range"
+                      min={1.5}
+                      max={2}
+                      step={0.05}
+                      value={readingSettings.lineHeight}
+                      onChange={(event) =>
+                        updateReadingSettings({ lineHeight: Number(event.target.value) })
+                      }
+                      className="studio-reading-slider"
+                    />
+                    <span className="studio-reading-value">{readingSettings.lineHeight.toFixed(2)}</span>
+
+                    <span className="studio-reading-row-divider" />
+
+                    <span className="studio-reading-inline-label">Spacing</span>
+                    <div className="studio-reading-segment" role="radiogroup" aria-label="Paragraph spacing">
+                      <button
+                        type="button"
+                        className={`studio-reading-seg-btn ${readingSettings.paragraphSpacing === 'normal' ? 'is-active' : ''}`}
+                        onClick={() => updateReadingSettings({ paragraphSpacing: 'normal' })}
+                        role="radio"
+                        aria-checked={readingSettings.paragraphSpacing === 'normal'}
+                      >
+                        Normal
+                      </button>
+                      <button
+                        type="button"
+                        className={`studio-reading-seg-btn ${readingSettings.paragraphSpacing === 'relaxed' ? 'is-active' : ''}`}
+                        onClick={() => updateReadingSettings({ paragraphSpacing: 'relaxed' })}
+                        role="radio"
+                        aria-checked={readingSettings.paragraphSpacing === 'relaxed'}
+                      >
+                        Relaxed
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="studio-reading-row">
+                    <span className="studio-reading-inline-label">Zen</span>
+                    <div className="studio-reading-segment">
+                      <button
+                        type="button"
+                        className={`studio-reading-seg-btn ${!zenMode ? 'is-active' : ''}`}
+                        onClick={() => { if (zenMode) setZenMode(false); }}
+                        aria-pressed={!zenMode}
+                      >
+                        Off
+                      </button>
+                      <button
+                        type="button"
+                        className={`studio-reading-seg-btn ${zenMode ? 'is-active' : ''}`}
+                        onClick={() => { if (!zenMode) setZenMode(true); }}
+                        aria-pressed={zenMode}
+                      >
+                        On
+                      </button>
+                    </div>
+
+                    <span className="studio-reading-row-divider" />
+
+                    <span className="studio-reading-inline-label">Typewriter</span>
+                    <div className="studio-reading-segment">
+                      <button
+                        type="button"
+                        className={`studio-reading-seg-btn ${!typewriterMode ? 'is-active' : ''}`}
+                        onClick={() => { if (typewriterMode) setTypewriterMode(false); }}
+                        aria-pressed={!typewriterMode}
+                      >
+                        Off
+                      </button>
+                      <button
+                        type="button"
+                        className={`studio-reading-seg-btn ${typewriterMode ? 'is-active' : ''}`}
+                        onClick={() => { if (!typewriterMode) setTypewriterMode(true); }}
+                        aria-pressed={typewriterMode}
+                      >
+                        On
+                      </button>
+                    </div>
+
+                    <span className="studio-reading-row-divider" />
+
+                    <span className="studio-reading-inline-label">Theme</span>
+                    <div className="studio-reading-segment">
+                      <button
+                        type="button"
+                        className={`studio-reading-seg-btn ${themeMode === 'dark' ? 'is-active' : ''}`}
+                        onClick={() => { if (themeMode !== 'dark') toggleThemeMode(); }}
+                        aria-pressed={themeMode === 'dark'}
+                      >
+                        Dark
+                      </button>
+                      <button
+                        type="button"
+                        className={`studio-reading-seg-btn ${themeMode === 'light' ? 'is-active' : ''}`}
+                        onClick={() => { if (themeMode !== 'light') toggleThemeMode(); }}
+                        aria-pressed={themeMode === 'light'}
+                      >
+                        Light
+                      </button>
+                    </div>
+
+                    <span className="studio-reading-row-divider" />
+
+                    <span className="studio-reading-inline-label">Markdown</span>
+                    <div className="studio-reading-segment">
+                      <button
+                        type="button"
+                        className={`studio-reading-seg-btn ${!showMarkdownView ? 'is-active' : ''}`}
+                        onClick={() => { if (showMarkdownView) setShowMarkdownView(false); }}
+                        aria-pressed={!showMarkdownView}
+                      >
+                        Off
+                      </button>
+                      <button
+                        type="button"
+                        className={`studio-reading-seg-btn ${showMarkdownView ? 'is-active' : ''}`}
+                        onClick={() => { if (!showMarkdownView) setShowMarkdownView(true); }}
+                        aria-pressed={showMarkdownView}
+                      >
+                        On
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </>
+          }
           paperOverlay={
             <>
               <PaperWeathering stage={stage} slug={slug} />

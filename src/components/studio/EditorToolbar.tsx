@@ -1,5 +1,6 @@
 'use client';
 
+import type { ReactNode } from 'react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { Editor } from '@tiptap/react';
 
@@ -24,8 +25,14 @@ function fontFamilyForStyle(style?: 'title' | 'mono'): string {
  */
 export default function EditorToolbar({
   editor,
+  onReadingToggle,
+  readingOpen,
+  exportSlot,
 }: {
   editor: Editor | null;
+  onReadingToggle?: () => void;
+  readingOpen?: boolean;
+  exportSlot?: ReactNode;
 }) {
   const [isMoreOpen, setIsMoreOpen] = useState(false);
   const moreMenuRef = useRef<HTMLDivElement | null>(null);
@@ -363,6 +370,23 @@ export default function EditorToolbar({
         <div className="studio-toolbar-group" aria-label="Insert tools">
           {insertItems.map((item) => renderTool(item))}
         </div>
+
+        <div className="studio-toolbar-spacer" />
+
+        {onReadingToggle && (
+          <button
+            type="button"
+            className={`studio-tool studio-tool--ghost studio-tool--label${readingOpen ? ' studio-tool--active' : ''}`}
+            onClick={onReadingToggle}
+            aria-label="Reading settings"
+            aria-pressed={readingOpen}
+          >
+            Reading
+          </button>
+        )}
+        {exportSlot}
+
+        <div className="studio-tool-divider" aria-hidden="true" />
 
         <div
           className="studio-toolbar-more"

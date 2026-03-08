@@ -214,8 +214,8 @@
   pointer-events: none;
   z-index: 0;
   background-image:
-    linear-gradient(rgba(180, 90, 45, 0.022) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(180, 90, 45, 0.022) 1px, transparent 1px);
+    linear-gradient(rgba(180, 90, 45, 0.032) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(180, 90, 45, 0.032) 1px, transparent 1px);
   background-size: 40px 40px;
 }
 
@@ -235,12 +235,12 @@
 .studio-bg-grid {
   background-image:
     linear-gradient(
-      rgba(180, 90, 45, 0.025) 1px,
+      rgba(180, 90, 45, 0.032) 1px,
       transparent 1px
     ),
     linear-gradient(
       90deg,
-      rgba(180, 90, 45, 0.025) 1px,
+      rgba(180, 90, 45, 0.032) 1px,
       transparent 1px
     );
   background-size: 40px 40px;
@@ -1541,66 +1541,6 @@
   50% { opacity: 0.35; }
 }
 
-.studio-editor-header {
-  padding: 20px 0 0;
-  background-color: var(--studio-surface);
-}
-
-.studio-editor-title {
-  display: block;
-  width: 100%;
-  font-family: var(--studio-font-title);
-  font-size: 28px;
-  font-weight: 700;
-  color: var(--studio-text-bright);
-  background: none;
-  border: none;
-  outline: none;
-  margin: 0;
-  padding: 0 0 16px;
-  line-height: 1.2;
-  border-bottom: 1px solid var(--studio-border);
-  box-sizing: border-box;
-}
-
-.studio-editor-title-row {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-}
-
-.studio-editor-title-actions {
-  flex-shrink: 0;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.studio-reading-toggle {
-  flex-shrink: 0;
-  border: 1px solid var(--studio-border-strong);
-  background: color-mix(in srgb, var(--studio-surface) 80%, #1E2125);
-  color: var(--studio-text-2);
-  border-radius: 9px;
-  height: 34px;
-  padding: 0 12px;
-  font-family: var(--studio-font-mono);
-  font-size: 10px;
-  font-weight: 600;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  cursor: pointer;
-}
-
-.studio-reading-toggle:hover {
-  color: var(--studio-text-bright);
-  border-color: rgba(180, 90, 45, 0.44);
-}
-
-.studio-reading-toggle:focus-visible {
-  outline: 2px solid rgba(58, 138, 154, 0.55);
-  outline-offset: 2px;
-}
 
 .studio-export-menu {
   position: relative;
@@ -1615,10 +1555,12 @@
   right: 0;
   top: calc(100% + 8px);
   min-width: 168px;
-  border-radius: 10px;
-  border: 1px solid var(--studio-border-strong);
-  background: color-mix(in srgb, var(--studio-surface) 88%, #23272B);
-  box-shadow: var(--studio-shadow);
+  border-radius: 6px;
+  border: 1px solid rgba(42, 36, 32, 0.14);
+  background: rgba(228, 217, 204, 0.98);
+  box-shadow:
+    0 4px 12px rgba(20, 14, 8, 0.12),
+    0 1px 3px rgba(20, 14, 8, 0.08);
   padding: 6px;
   z-index: 9;
 }
@@ -1626,9 +1568,9 @@
 .studio-export-item {
   width: 100%;
   border: 1px solid transparent;
-  border-radius: 7px;
+  border-radius: 4px;
   background: transparent;
-  color: var(--studio-text-2);
+  color: #6A5E52;
   text-align: left;
   font-family: var(--studio-font-body);
   font-size: 12px;
@@ -1638,8 +1580,8 @@
 }
 
 .studio-export-item:hover {
-  color: var(--studio-text-bright);
-  border-color: var(--studio-border);
+  color: #2A2420;
+  border-color: rgba(42, 36, 32, 0.14);
   background: rgba(180, 90, 45, 0.08);
 }
 
@@ -1655,123 +1597,113 @@
   font-size: 11px;
 }
 
+/* Reading panel: compact horizontal layout inside the paper */
 .studio-reading-panel {
-  margin-top: 12px;
-  padding: 12px;
-  border-radius: 11px;
-  border: 1px solid var(--studio-border-strong);
-  background: color-mix(in srgb, var(--studio-surface) 88%, #23272B);
-  box-shadow: var(--studio-shadow-sm);
+  border-bottom: 1px solid rgba(42, 36, 32, 0.10);
+  background: rgba(228, 217, 204, 0.97);
+  padding: 10px 76px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
 }
 
-.studio-reading-control {
-  display: block;
+/* Row containers for horizontal layout */
+.studio-reading-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
 }
 
-.studio-reading-control + .studio-reading-control {
-  margin-top: 10px;
-}
-
-.studio-reading-label {
-  display: block;
-  margin-bottom: 6px;
+.studio-reading-inline-label {
   font-family: var(--studio-font-mono);
-  font-size: 10px;
+  font-size: 9px;
   font-weight: 600;
   letter-spacing: 0.08em;
   text-transform: uppercase;
-  color: var(--studio-text-2);
+  color: #6A5E52;
+  flex-shrink: 0;
 }
 
-.studio-reading-options {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
+.studio-reading-value {
+  font-family: var(--studio-font-mono);
+  font-size: 10px;
+  color: #6A5E52;
+  min-width: 32px;
+  flex-shrink: 0;
 }
 
-.studio-reading-option {
-  border: 1px solid var(--studio-border);
-  background: rgba(15, 16, 18, 0.28);
-  color: var(--studio-text-2);
-  border-radius: 7px;
-  padding: 5px 9px;
-  font-family: var(--studio-font-body);
-  font-size: 12px;
-  line-height: 1.2;
-  cursor: pointer;
+.studio-reading-row-divider {
+  width: 1px;
+  height: 18px;
+  background: rgba(42, 36, 32, 0.12);
+  flex-shrink: 0;
 }
 
-.studio-reading-option:hover {
-  color: var(--studio-text-bright);
-  border-color: var(--studio-border-strong);
-}
-
-.studio-reading-option.is-active {
-  border-color: rgba(180, 90, 45, 0.56);
-  background: rgba(180, 90, 45, 0.12);
-  color: var(--studio-text-bright);
-}
-
-/* Font preview grid: 3 columns for 6 presets */
-.studio-font-grid {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 6px;
-}
-
-.studio-font-preview {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 4px;
-  padding: 8px 4px 6px;
-  border: 1px solid var(--studio-border);
-  background: rgba(15, 16, 18, 0.28);
-  border-radius: 7px;
+/* Compact font preset pills (Row 1) */
+.studio-reading-font-btn {
+  padding: 4px 12px;
+  height: 28px;
+  font-size: 11px;
+  border-radius: 4px;
+  border: 1px solid rgba(42, 36, 32, 0.14);
+  background: rgba(42, 36, 32, 0.04);
+  color: #6A5E52;
   cursor: pointer;
   transition: border-color 0.15s ease, background 0.15s ease;
 }
 
-.studio-font-preview-sample {
-  font-size: 22px;
-  line-height: 1;
-  color: var(--studio-text-2);
-  transition: color 0.15s ease;
+.studio-reading-font-btn:hover {
+  border-color: rgba(42, 36, 32, 0.28);
+  color: #2A2420;
 }
 
-.studio-font-preview-label {
-  font-family: var(--studio-font-metadata);
-  font-size: 9px;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-  color: var(--studio-text-3);
-  transition: color 0.15s ease;
-}
-
-.studio-font-preview:hover {
-  border-color: var(--studio-border-strong);
-}
-
-.studio-font-preview:hover .studio-font-preview-sample {
-  color: var(--studio-text-bright);
-}
-
-.studio-font-preview.is-active {
-  border-color: rgba(180, 90, 45, 0.56);
+.studio-reading-font-btn.is-active {
   background: rgba(180, 90, 45, 0.12);
+  border-color: rgba(180, 90, 45, 0.35);
+  color: #2A2420;
 }
 
-.studio-font-preview.is-active .studio-font-preview-sample {
-  color: var(--studio-text-bright);
-}
-
-.studio-font-preview.is-active .studio-font-preview-label {
-  color: var(--studio-text-2);
-}
-
-.studio-reading-panel input[type='range'] {
-  width: 100%;
+/* Inline range sliders */
+.studio-reading-slider {
+  width: 80px;
   accent-color: #B45A2D;
+  flex-shrink: 0;
+}
+
+/* Segment toggle controls (Off/On, Dark/Light pairs) */
+.studio-reading-segment {
+  display: flex;
+  border-radius: 4px;
+  overflow: hidden;
+  border: 1px solid rgba(42, 36, 32, 0.14);
+}
+
+.studio-reading-seg-btn {
+  padding: 3px 10px;
+  font-family: var(--studio-font-mono);
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  background: rgba(42, 36, 32, 0.04);
+  color: #8A7A6A;
+  border: none;
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+.studio-reading-seg-btn + .studio-reading-seg-btn {
+  border-left: 1px solid rgba(42, 36, 32, 0.14);
+}
+
+.studio-reading-seg-btn:hover {
+  color: #2A2420;
+}
+
+.studio-reading-seg-btn.is-active {
+  background: rgba(180, 90, 45, 0.12);
+  color: #2A2420;
 }
 
 /* Draft recovery banner */
@@ -2065,8 +1997,19 @@
   text-decoration: line-through;
 }
 
+.studio-toolbar-spacer {
+  flex: 1;
+}
+
+.studio-tool--label {
+  font-family: var(--studio-font-mono);
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
 .studio-toolbar-more {
-  margin-left: auto;
   position: relative;
 }
 
@@ -2158,6 +2101,7 @@
   font-size: 27px;
   color: var(--studio-writing-paper-text);
   line-height: 1.25;
+  letter-spacing: -0.02em;
   caret-color: #B45A2D;
   outline: none;
 }
@@ -2292,7 +2236,12 @@
 }
 
 .studio-tiptap-content {
-  margin: 0;
+  max-width: 65ch;
+  margin-left: 0;
+  font-kerning: normal;
+  font-feature-settings: 'kern' 1, 'liga' 1, 'calt' 1, 'onum' 1;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
 .studio-prose h1 {
@@ -2302,6 +2251,7 @@
   color: var(--studio-writing-paper-text);
   margin: 1.6em 0 0.35em;
   line-height: 1.18;
+  letter-spacing: -0.02em;
 }
 
 .studio-prose h2 {
@@ -2311,6 +2261,7 @@
   color: var(--studio-writing-paper-text);
   margin: 1.4em 0 0.3em;
   line-height: 1.24;
+  letter-spacing: -0.02em;
 }
 
 .studio-prose h3 {
@@ -2320,6 +2271,7 @@
   color: var(--studio-writing-paper-text);
   margin: 1.2em 0 0.25em;
   line-height: 1.3;
+  letter-spacing: -0.02em;
 }
 
 .studio-prose h4 {
@@ -2343,6 +2295,19 @@
 .studio-prose h3:first-child,
 .studio-prose h4:first-child {
   margin-top: 0.2em;
+}
+
+/* Heading separator rules: thin line after each heading, no extra spacing */
+.studio-prose h1::after,
+.studio-prose h2::after,
+.studio-prose h3::after,
+.studio-prose h4::after {
+  content: '';
+  display: block;
+  height: 1px;
+  background: rgba(42, 36, 32, 0.12);
+  margin-top: 6px;
+  margin-bottom: -7px;
 }
 
 .studio-prose p {
@@ -2400,8 +2365,13 @@
 }
 
 .studio-prose li {
-  margin: 0.34em 0;
+  margin: 0.2em 0;
   padding-left: 0.2em;
+}
+
+.studio-prose ul li + li,
+.studio-prose ol li + li {
+  margin-top: 0.15em;
 }
 
 .studio-prose.ProseMirror li::marker {
@@ -2583,30 +2553,6 @@
 
   .stage-pipeline-line {
     width: 8px;
-  }
-
-  .studio-editor-header {
-    padding: 14px 0 0;
-  }
-
-  .studio-editor-title {
-    font-size: 23px;
-    padding-bottom: 12px;
-  }
-
-  .studio-editor-title-row {
-    flex-wrap: wrap;
-    align-items: flex-start;
-  }
-
-  .studio-editor-title-actions {
-    width: 100%;
-  }
-
-  .studio-reading-toggle,
-  .studio-export-toggle {
-    flex: 1 1 0;
-    justify-content: center;
   }
 
   .studio-toolbar {
