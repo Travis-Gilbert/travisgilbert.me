@@ -25,6 +25,7 @@ import {
 } from '@/lib/studio-mock-data';
 import {
   fetchResearchTrail,
+  ResearchTimeoutError,
   fetchMentionBacklinks,
   searchCommonplace,
   fetchAllTasks,
@@ -39,6 +40,7 @@ import { useStudioWorkbench } from './WorkbenchContext';
 import NewContentModal from './NewContentModal';
 import CollagePanel from './CollagePanel';
 import PipelinePanel from './PipelinePanel';
+import RevisionHistory from './RevisionHistory';
 
 /* Stage definitions for PipelinePanel per content type */
 const CONTENT_STAGE_MAP: Record<string, Array<{ key: string; label: string }>> = {
@@ -105,7 +107,7 @@ type SaveState = 'idle' | 'saving' | 'success' | 'error' | 'retrying';
 type AutosaveState = 'idle' | 'saved';
 
 type WorkbenchMode = 'editor' | 'dashboard';
-type EditorPanelMode = 'research' | 'outline' | 'stash' | 'collage';
+type EditorPanelMode = 'research' | 'outline' | 'stash' | 'collage' | 'history';
 
 function clampWidth(width: number): number {
   return Math.min(Math.max(width, MIN_WORKBENCH_WIDTH), MAX_WORKBENCH_WIDTH);
@@ -158,7 +160,7 @@ export default function WorkbenchPanel({
     }
 
     const storedMode = localStorage.getItem(STORAGE_EDITOR_MODE_KEY);
-    if (storedMode === 'research' || storedMode === 'outline' || storedMode === 'stash' || storedMode === 'collage') {
+    if (storedMode === 'research' || storedMode === 'outline' || storedMode === 'stash' || storedMode === 'collage' || storedMode === 'history') {
       setEditorPanelMode(storedMode);
     }
 
@@ -355,11 +357,12 @@ export default function WorkbenchPanel({
                   paddingBottom: '8px',
                 }}
               >
-                {(['research', 'outline', 'stash', 'collage'] as const).map((tab) => {
+                {(['research', 'outline', 'stash', 'history', 'collage'] as const).map((tab) => {
                   const TAB_LABELS: Record<EditorPanelMode, string> = {
                     research: 'Research',
                     outline: 'Outline',
                     stash: 'Stash',
+                    history: 'History',
                     collage: 'Collage',
                   };
                   return (
@@ -413,6 +416,12 @@ export default function WorkbenchPanel({
               )}
               {editorPanelMode === 'stash' && (
                 <StashMode editor={editor ?? null} />
+              )}
+              {editorPanelMode === 'history' && contentItem && (
+                <RevisionHistory
+                  contentType={contentItem.contentType}
+                  slug={contentItem.slug}
+                />
               )}
               {editorPanelMode === 'collage' && (
                 <CollagePanel
@@ -950,17 +959,28 @@ function ResearchMode({
   /* Fetch live research trail */
   const [trail, setTrail] = useState<ResearchTrail | null>(null);
   const [loading, setLoading] = useState(true);
+  const [timedOut, setTimedOut] = useState(false);
+  const [retryCount, setRetryCount] = useState(0);
 
   useEffect(() => {
     let cancelled = false;
     setLoading(true);
-    fetchResearchTrail(slug).then((data) => {
-      if (cancelled) return;
-      setTrail(data);
-      setLoading(false);
-    });
+    setTimedOut(false);
+    fetchResearchTrail(slug)
+      .then((data) => {
+        if (cancelled) return;
+        setTrail(data);
+        setLoading(false);
+      })
+      .catch((err) => {
+        if (cancelled) return;
+        if (err instanceof ResearchTimeoutError) {
+          setTimedOut(true);
+        }
+        setLoading(false);
+      });
     return () => { cancelled = true; };
-  }, [slug]);
+  }, [slug, retryCount]);
 
   /* Fetch mention backlinks */
   const contentType = contentItem?.contentType ?? 'essay';
@@ -1047,6 +1067,55 @@ function ResearchMode({
             />
           </div>
         ))}
+      </div>
+    );
+  }
+
+  /* Timeout state */
+  if (timedOut) {
+    return (
+      <div
+        style={{
+          fontFamily: 'var(--studio-font-body)',
+          fontSize: '12px',
+          color: 'var(--studio-text-3)',
+          textAlign: 'center',
+          padding: '24px 12px',
+          lineHeight: 1.6,
+        }}
+      >
+        <div
+          style={{
+            fontFamily: 'var(--studio-font-mono)',
+            fontSize: '11px',
+            color: 'var(--studio-tc)',
+            textTransform: 'uppercase' as const,
+            letterSpacing: '0.06em',
+            marginBottom: '8px',
+          }}
+        >
+          Research API unavailable
+        </div>
+        <div style={{ marginBottom: '12px' }}>
+          The request timed out after 5 seconds.
+        </div>
+        <button
+          type="button"
+          onClick={() => setRetryCount((c) => c + 1)}
+          style={{
+            fontFamily: 'var(--studio-font-mono)',
+            fontSize: '11px',
+            padding: '6px 14px',
+            border: '1px solid var(--studio-border)',
+            borderRadius: '4px',
+            backgroundColor: 'var(--studio-surface)',
+            color: 'var(--studio-text-2)',
+            cursor: 'pointer',
+            letterSpacing: '0.04em',
+          }}
+        >
+          Retry
+        </button>
       </div>
     );
   }

@@ -34,6 +34,7 @@ import NewContentModal from './NewContentModal';
  */
 export default function StudioSidebar() {
   const pathname = usePathname();
+  const { themeMode, toggleThemeMode } = useStudioView();
   const [showNewModal, setShowNewModal] = useState(false);
   const [counts, setCounts] = useState<Record<string, number>>({});
 
@@ -245,6 +246,32 @@ export default function StudioSidebar() {
           </span>
           <span>{SIDEBAR_TIMELINE_ITEM.label}</span>
         </Link>
+
+        <button
+          type="button"
+          onClick={toggleThemeMode}
+          className="studio-nav-item"
+          style={{ marginTop: '4px' }}
+          aria-label={themeMode === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
+        >
+          <span
+            style={{
+              width: '16px',
+              color: 'var(--studio-gold)',
+              display: 'inline-flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              flexShrink: 0,
+            }}
+          >
+            {themeMode === 'dark' ? (
+              <Sun size={16} weight="thin" aria-hidden="true" />
+            ) : (
+              <Moon size={16} weight="thin" aria-hidden="true" />
+            )}
+          </span>
+          <span>{themeMode === 'dark' ? 'Light Mode' : 'Dark Mode'}</span>
+        </button>
       </div>
 
       {showNewModal && (

@@ -1029,3 +1029,58 @@ class EditorMention(TimeStampedModel):
 
     def __str__(self):
         return f'{self.source_type}:{self.source_slug} -> @{self.target_type}:{self.target_slug}'
+
+
+class ContentRevision(TimeStampedModel):
+    """
+    Immutable snapshot of a content item at a point in time.
+
+    Created on manual save, stage change, or throttled autosave (max 1 per 10 min).
+    Follows the content_type + content_slug attachment pattern (StashItem, ContentTask).
+    """
+
+    class Source(models.TextChoices):
+        AUTOSAVE = "autosave", "Autosave"
+        MANUAL = "manual", "Manual Save"
+        STAGE = "stage", "Stage Change"
+        RESTORE = "restore", "Restore Checkpoint"
+
+    content_type = models.CharField(
+        max_length=30,
+        help_text="Content type (essay, field-note, video, etc.)",
+    )
+    content_slug = models.SlugField(
+        max_length=300,
+        help_text="Slug of the content item",
+    )
+    revision_number = models.PositiveIntegerField(
+        help_text="Sequential revision number within this content item",
+    )
+    title = models.CharField(max_length=500, blank=True, default="")
+    body = models.TextField(blank=True, default="")
+    word_count = models.PositiveIntegerField(default=0)
+    label = models.CharField(
+        max_length=100,
+        blank=True,
+        default="",
+        help_text="Optional human label (e.g. 'before restructure')",
+    )
+    source = models.CharField(
+        max_length=20,
+        choices=Source.choices,
+        default=Source.MANUAL,
+    )
+
+    class Meta:
+        unique_together = [("content_type", "content_slug", "revision_number")]
+        ordering = ["-revision_number"]
+        indexes = [
+            models.Index(
+                fields=["content_type", "content_slug", "-revision_number"],
+                name="idx_revision_lookup",
+            ),
+        ]
+
+    def __str__(self):
+        src = self.get_source_display()
+        return f"{self.content_type}:{self.content_slug} r{self.revision_number} ({src})"

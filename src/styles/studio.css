@@ -170,6 +170,39 @@
   border-bottom-color: var(--studio-border);
 }
 
+/* Light mode: soften glow effects and grain */
+.studio-theme-light .studio-corner-glow {
+  background: radial-gradient(
+    ellipse at 0% 0%,
+    rgba(180, 90, 45, 0.03) 0%,
+    rgba(180, 90, 45, 0.01) 25%,
+    transparent 50%
+  );
+}
+
+.studio-theme-light .studio-sidebar-glow {
+  background: radial-gradient(
+    ellipse 360px 280px at 30% 30%,
+    rgba(180, 90, 45, 0.06) 0%,
+    rgba(180, 90, 45, 0.02) 40%,
+    transparent 75%
+  );
+}
+
+.studio-theme-light .studio-grain {
+  background-image: none;
+}
+
+.studio-theme-light .studio-sidebar-grid {
+  background-image: none;
+}
+
+.studio-theme-light.studio-canvas::before {
+  background-image:
+    linear-gradient(rgba(180, 90, 45, 0.012) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(180, 90, 45, 0.012) 1px, transparent 1px);
+}
+
 .studio-canvas {
   position: relative;
 }
@@ -3747,4 +3780,10 @@
   font-family: var(--studio-font-body);
   font-size: 11px;
   color: var(--studio-text-3);
+}
+
+/* ── Utility keyframes ───────────────────────── */
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
 }

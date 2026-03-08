@@ -1,11 +1,11 @@
 'use client';
 
-// StudioDotGrid.tsx: Multi-color interactive dot grid for the Studio dark context.
+// StudioDotGrid.tsx: Multi-color interactive dot grid for Studio.
 //
 // Adapted from DotGrid.tsx with these differences:
 //   Multi-color palette (75% terracotta, 15% teal, 10% gold)
-//   No theme hooks (always dark)
-//   Gradient and dot inversion adapted for Studio's dark ground
+//   Theme-aware via MutationObserver on .studio-theme-light class
+//   Gradient and dot inversion adapted for both dark and light ground
 //
 // ~12% of positions render tiny 0/1 binary characters.
 // Spring physics with idle detection, kite-shaped edge fade, ink trail.
@@ -13,14 +13,18 @@
 import { useEffect, useRef, useCallback } from 'react';
 
 // ── Gradient settings ──────────────────────────────────
-// Studio dark mode: warm ground at top fading to base dark
 const INVERSION_DEPTH = 0.30;     // fraction of viewport for gradient
 const GRADIENT_TAIL = 0.08;       // soft fade-out below gradient
 
-// Studio ground colors
-const GROUND_RGB: [number, number, number] = [42, 38, 34];       // warm dark (top)
-const BASE_RGB: [number, number, number] = [15, 16, 18];         // --studio-bg (#0F1012)
-const INVERTED_DOT_RGB: [number, number, number] = [240, 235, 228]; // cream dots in gradient zone
+// ── Dark mode ground colors ──────────────────────────
+const DARK_GROUND_RGB: [number, number, number] = [42, 38, 34];       // warm dark (top)
+const DARK_BASE_RGB: [number, number, number] = [15, 16, 18];         // --studio-bg (#0F1012)
+const DARK_INVERTED_DOT_RGB: [number, number, number] = [240, 235, 228]; // cream dots in gradient zone
+
+// ── Light mode ground colors ─────────────────────────
+const LIGHT_GROUND_RGB: [number, number, number] = [225, 218, 208];   // warm parchment (top)
+const LIGHT_BASE_RGB: [number, number, number] = [245, 240, 234];     // --studio-bg light (#F5F0EA)
+const LIGHT_INVERTED_DOT_RGB: [number, number, number] = [42, 36, 32]; // dark dots in gradient zone
 
 // ── Weighted color palette ─────────────────────────────
 const DOT_PALETTE: { rgb: [number, number, number]; weight: number }[] = [
@@ -88,6 +92,8 @@ export default function StudioDotGrid({
   const animRef = useRef<number>(0);
   const visibleRef = useRef(true);
   const mouseRef = useRef({ x: -9999, y: -9999, active: false });
+  /** True when .studio-theme-light is active. Read inside rendering closures. */
+  const lightModeRef = useRef(false);
   /** Ink trail: ring buffer of recent mouse positions with decay */
   const trailRef = useRef<{ x: number; y: number; age: number }[]>([]);
 
@@ -193,6 +199,12 @@ export default function StudioDotGrid({
     const ctx = canvas.getContext('2d', { alpha: true });
     if (!ctx) return;
 
+    // Theme-aware color getters (read ref at render time)
+    function groundRgb() { return lightModeRef.current ? LIGHT_GROUND_RGB : DARK_GROUND_RGB; }
+    function baseRgb() { return lightModeRef.current ? LIGHT_BASE_RGB : DARK_BASE_RGB; }
+    function invertedDotRgb() { return lightModeRef.current ? LIGHT_INVERTED_DOT_RGB : DARK_INVERTED_DOT_RGB; }
+    function dotBaseOpacity() { return lightModeRef.current ? dotOpacity * 0.65 : dotOpacity; }
+
     let w = 0;
     let h = 0;
     let idleFrames = 0;
@@ -225,31 +237,30 @@ export default function StudioDotGrid({
     }
 
     // ── Gradient rendering ─────────────────────────
-    // Warm dark ground at top easing to Studio base dark
     function drawGradient() {
+      const ground = groundRgb();
+      const base = baseRgb();
       const gradEnd = Math.round(h * INVERSION_DEPTH);
       const tailLength = Math.round(h * GRADIENT_TAIL);
 
-      // Main gradient: warm ground easing to base dark
       const grad = ctx!.createLinearGradient(0, 0, 0, gradEnd);
       const stops = [0, 0.15, 0.35, 0.55, 0.75, 0.90, 1.0];
       for (let i = 0; i < stops.length; i++) {
         const t = stops[i];
         const eased = t * t * (3 - 2 * t); // Hermite smoothstep
-        const r = Math.round(GROUND_RGB[0] + (BASE_RGB[0] - GROUND_RGB[0]) * eased);
-        const g = Math.round(GROUND_RGB[1] + (BASE_RGB[1] - GROUND_RGB[1]) * eased);
-        const b = Math.round(GROUND_RGB[2] + (BASE_RGB[2] - GROUND_RGB[2]) * eased);
+        const r = Math.round(ground[0] + (base[0] - ground[0]) * eased);
+        const g = Math.round(ground[1] + (base[1] - ground[1]) * eased);
+        const b = Math.round(ground[2] + (base[2] - ground[2]) * eased);
         grad.addColorStop(t, `rgb(${r},${g},${b})`);
       }
       ctx!.fillStyle = grad;
       ctx!.fillRect(0, 0, w, gradEnd);
 
-      // Tail zone: base dark fades to transparent
       if (tailLength > 0) {
         const tailGrad = ctx!.createLinearGradient(0, gradEnd, 0, gradEnd + tailLength);
-        tailGrad.addColorStop(0, `rgba(${BASE_RGB[0]},${BASE_RGB[1]},${BASE_RGB[2]},1)`);
-        tailGrad.addColorStop(0.5, `rgba(${BASE_RGB[0]},${BASE_RGB[1]},${BASE_RGB[2]},0.3)`);
-        tailGrad.addColorStop(1, `rgba(${BASE_RGB[0]},${BASE_RGB[1]},${BASE_RGB[2]},0)`);
+        tailGrad.addColorStop(0, `rgba(${base[0]},${base[1]},${base[2]},1)`);
+        tailGrad.addColorStop(0.5, `rgba(${base[0]},${base[1]},${base[2]},0.3)`);
+        tailGrad.addColorStop(1, `rgba(${base[0]},${base[1]},${base[2]},0)`);
         ctx!.fillStyle = tailGrad;
         ctx!.fillRect(0, gradEnd, w, tailLength);
       }
@@ -293,11 +304,12 @@ export default function StudioDotGrid({
       x: number, y: number, baseY: number, fadeVal: number,
       dotKind: number, paletteRgb: [number, number, number],
     ) {
+      const invDot = invertedDotRgb();
       const inv = getInversionFactor(baseY);
-      const dr = Math.round(paletteRgb[0] + (INVERTED_DOT_RGB[0] - paletteRgb[0]) * inv);
-      const dg = Math.round(paletteRgb[1] + (INVERTED_DOT_RGB[1] - paletteRgb[1]) * inv);
-      const db = Math.round(paletteRgb[2] + (INVERTED_DOT_RGB[2] - paletteRgb[2]) * inv);
-      const alpha = (dotOpacity + inv * 0.20) * fadeVal;
+      const dr = Math.round(paletteRgb[0] + (invDot[0] - paletteRgb[0]) * inv);
+      const dg = Math.round(paletteRgb[1] + (invDot[1] - paletteRgb[1]) * inv);
+      const db = Math.round(paletteRgb[2] + (invDot[2] - paletteRgb[2]) * inv);
+      const alpha = (dotBaseOpacity() + inv * 0.20) * fadeVal;
       drawDot(x, y, alpha, dotKind, dr, dg, db);
     }
 
@@ -335,10 +347,11 @@ export default function StudioDotGrid({
         }
         const opacity = (1 - trail[t].age / 60) * 0.12;
         const radius = 1.2 + (trail[t].age / 60) * 0.5;
+        const invDot = invertedDotRgb();
         const tInv = getInversionFactor(trail[t].y);
-        const tr = Math.round(180 + (INVERTED_DOT_RGB[0] - 180) * tInv);
-        const tg = Math.round(90 + (INVERTED_DOT_RGB[1] - 90) * tInv);
-        const tb = Math.round(45 + (INVERTED_DOT_RGB[2] - 45) * tInv);
+        const tr = Math.round(180 + (invDot[0] - 180) * tInv);
+        const tg = Math.round(90 + (invDot[1] - 90) * tInv);
+        const tb = Math.round(45 + (invDot[2] - 45) * tInv);
         ctx!.fillStyle = `rgba(${tr},${tg},${tb},${opacity})`;
         ctx!.beginPath();
         ctx!.arc(trail[t].x, trail[t].y, radius, 0, Math.PI * 2);
@@ -436,6 +449,23 @@ export default function StudioDotGrid({
     );
     observer.observe(canvas);
 
+    // Detect initial theme
+    const themeEl = document.querySelector('.studio-theme');
+    lightModeRef.current = themeEl?.classList.contains('studio-theme-light') ?? false;
+
+    // Watch for theme class toggles and redraw
+    let themeObserver: MutationObserver | null = null;
+    if (themeEl) {
+      themeObserver = new MutationObserver(() => {
+        const isLight = themeEl.classList.contains('studio-theme-light');
+        if (isLight !== lightModeRef.current) {
+          lightModeRef.current = isLight;
+          drawStatic();
+        }
+      });
+      themeObserver.observe(themeEl, { attributes: true, attributeFilter: ['class'] });
+    }
+
     resize();
 
     if (prefersReducedMotion) {
@@ -443,6 +473,7 @@ export default function StudioDotGrid({
       return () => {
         cancelAnimationFrame(resizeRaf);
         observer.disconnect();
+        themeObserver?.disconnect();
         window.removeEventListener('resize', debouncedResize);
       };
     }
@@ -457,6 +488,7 @@ export default function StudioDotGrid({
       cancelAnimationFrame(animRef.current);
       cancelAnimationFrame(resizeRaf);
       observer.disconnect();
+      themeObserver?.disconnect();
       if (!isTouchOnly) {
         window.removeEventListener('mousemove', onMouseMove);
       }

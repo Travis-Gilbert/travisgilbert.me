@@ -16,6 +16,7 @@ import {
   createTask,
   updateTask,
   deleteTask,
+  createRevision,
 } from '@/lib/studio-api';
 import { useDraftBuffer } from '@/lib/studio-draft-buffer';
 import type { ApiStashItem, ApiContentTask } from '@/lib/studio-api';
@@ -251,7 +252,7 @@ export default function Editor({
   contentItem?: StudioContentItem | null;
 }) {
   const { setEditorState, resetEditorState } = useStudioWorkbench();
-  const { zenMode, setZenMode } = useStudioView();
+  const { zenMode, setZenMode, themeMode, toggleThemeMode } = useStudioView();
   const normalizedContentType = normalizeStudioContentType(contentType);
 
   const [editor, setEditor] = useState<TiptapEditorType | null>(null);
@@ -327,6 +328,7 @@ export default function Editor({
   const readingPanelRef = useRef<HTMLDivElement>(null);
   const readingToggleRef = useRef<HTMLButtonElement>(null);
   const snapshotRef = useRef<string | null>(null);
+  const lastRevisionAtRef = useRef<number>(0);
 
   useEffect(() => {
     currentTitleRef.current = currentTitle;
@@ -383,6 +385,19 @@ export default function Editor({
       document.removeEventListener('keydown', handleEscape);
     };
   }, [isReadingPanelOpen]);
+
+  /* Listen for command palette dispatched events */
+  useEffect(() => {
+    function handleStudioCommand(e: Event) {
+      const id = (e as CustomEvent<{ id: string }>).detail?.id;
+      if (id === 'typewriter-mode') setTypewriterMode((prev) => !prev);
+      if (id === 'reading-panel') setIsReadingPanelOpen((prev) => !prev);
+    }
+
+    window.addEventListener('studio:command', handleStudioCommand);
+    return () =>
+      window.removeEventListener('studio:command', handleStudioCommand);
+  }, []);
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
@@ -477,6 +492,23 @@ export default function Editor({
 
           if (mode === 'autosave') {
             setAutosaveState('saved');
+          }
+
+          /* Create revision: manual saves always, autosaves throttled to 10min */
+          const REVISION_THROTTLE_MS = 10 * 60 * 1000;
+          const now = Date.now();
+          const shouldCreateRevision =
+            mode === 'manual' ||
+            now - lastRevisionAtRef.current >= REVISION_THROTTLE_MS;
+          if (shouldCreateRevision) {
+            lastRevisionAtRef.current = now;
+            void createRevision(normalizedContentType, slug, {
+              title: payload.title,
+              body: payload.body,
+              source: mode === 'autosave' ? 'autosave' : 'manual',
+            }).catch(() => {
+              /* Revision creation is best-effort; don't block save flow */
+            });
           }
 
           saveStateTimerRef.current = setTimeout(() => {
@@ -950,6 +982,30 @@ export default function Editor({
                       aria-pressed={typewriterMode}
                     >
                       Typewriter {typewriterMode ? 'On' : 'Off'}
+                    </button>
+                  </div>
+                </div>
+
+                <div className="studio-reading-control">
+                  <span className="studio-reading-label">Appearance</span>
+                  <div className="studio-reading-options">
+                    <button
+                      type="button"
+                      className={`studio-reading-option ${themeMode === 'dark' ? 'is-active' : ''}`}
+                      onClick={() => { if (themeMode !== 'dark') toggleThemeMode(); }}
+                      aria-pressed={themeMode === 'dark'}
+                      title="Dark mode"
+                    >
+                      Dark
+                    </button>
+                    <button
+                      type="button"
+                      className={`studio-reading-option ${themeMode === 'light' ? 'is-active' : ''}`}
+                      onClick={() => { if (themeMode !== 'light') toggleThemeMode(); }}
+                      aria-pressed={themeMode === 'light'}
+                      title="Light mode (Cmd+Shift+T)"
+                    >
+                      Light
                     </button>
                   </div>
                 </div>

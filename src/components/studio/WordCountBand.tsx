@@ -1,18 +1,24 @@
 'use client';
 
 import type { Editor } from '@tiptap/react';
+import { useSessionTimer, formatSessionTime } from '@/lib/studio-session';
 
 /**
  * Word count band fixed to the bottom of the editor.
  *
  * Shows word count as the primary stat (large JetBrains Mono),
- * plus character count, reading time, and paragraph count.
+ * plus character count, reading time, paragraph count,
+ * and session focus analytics (active time + words written).
  */
 export default function WordCountBand({
   editor,
 }: {
   editor: Editor | null;
 }) {
+  const editorEl = editor?.view?.dom ?? null;
+  const currentWords = editor?.storage.characterCount?.words() ?? 0;
+  const session = useSessionTimer(editorEl, currentWords);
+
   if (!editor) return null;
 
   const chars = editor.storage.characterCount?.characters() ?? 0;
@@ -95,6 +101,33 @@ export default function WordCountBand({
       )}
       {containBlocks > 0 && (
         <Stat label="contained" value={String(containBlocks)} color="#C49A4A" />
+      )}
+
+      {/* Session focus analytics (right-aligned) */}
+      {session.activeSeconds > 0 && (
+        <>
+          <span style={{ flex: 1 }} />
+          <span
+            style={{
+              width: '1px',
+              height: '14px',
+              backgroundColor: 'var(--studio-border)',
+              alignSelf: 'center',
+            }}
+          />
+          <Stat
+            label="session"
+            value={formatSessionTime(session.activeSeconds)}
+            color={session.isActive ? 'var(--studio-tc)' : undefined}
+          />
+          {session.wordsWritten > 0 && (
+            <Stat
+              label="written"
+              value={`+${session.wordsWritten}`}
+              color="var(--studio-tc)"
+            />
+          )}
+        </>
       )}
     </div>
   );

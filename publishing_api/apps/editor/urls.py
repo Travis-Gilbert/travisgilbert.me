@@ -254,4 +254,30 @@ urlpatterns = [
         views.EditorMentionBacklinksView.as_view(),
         name="api-mention-backlinks",
     ),
+    # Revisions
+    path(
+        "editor/api/content/<slug:content_type>/<slug:slug>/revisions/",
+        views.StudioApiRevisionListView.as_view(),
+        name="api-revision-list",
+    ),
+    path(
+        "editor/api/content/<slug:content_type>/<slug:slug>/revisions/<int:pk>/",
+        views.StudioApiRevisionDetailView.as_view(),
+        name="api-revision-detail",
+    ),
+    path(
+        "editor/api/content/<slug:content_type>/<slug:slug>/revisions/<int:pk>/diff/",
+        views.StudioApiRevisionDiffView.as_view(),
+        name="api-revision-diff",
+    ),
+    path(
+        "editor/api/content/<slug:content_type>/<slug:slug>/revisions/<int:pk>/restore/",
+        views.StudioApiRevisionRestoreView.as_view(),
+        name="api-revision-restore",
+    ),
+    path(
+        "editor/api/content/<slug:content_type>/<slug:slug>/publish/",
+        views.StudioApiContentPublishView.as_view(),
+        name="api-content-publish",
+    ),
 ]

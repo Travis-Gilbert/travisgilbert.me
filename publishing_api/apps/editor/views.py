@@ -25,6 +25,7 @@ All views require login (enforced via LoginRequiredMixin). The URL structure:
   /auto-save/                       Auto-save (HTMX endpoint)
 """
 
+import difflib
 import json
 import logging
 import os
@@ -50,6 +51,7 @@ from django.views.generic import CreateView, ListView, TemplateView, UpdateView
 logger = logging.getLogger(__name__)
 
 from apps.content.models import (
+    ContentRevision,
     ContentTask,
     DesignTokenSet,
     EditorMention,
@@ -3552,3 +3554,300 @@ class EditorMentionBacklinksView(StudioApiBaseView):
             })
 
         return self._json(request, {'mentionedBy': results})
+
+
+# ---------------------------------------------------------------------------
+# Content Revision CRUD
+# ---------------------------------------------------------------------------
+
+
+def _next_revision_number(content_type, content_slug):
+    """Return the next sequential revision number for a content item."""
+    last = (
+        ContentRevision.objects.filter(
+            content_type=content_type,
+            content_slug=content_slug,
+        )
+        .order_by("-revision_number")
+        .values_list("revision_number", flat=True)
+        .first()
+    )
+    return (last or 0) + 1
+
+
+class StudioApiRevisionListView(StudioApiBaseView):
+    """
+    GET  .../revisions/           list revisions (excludes body for speed)
+    POST .../revisions/           create a revision snapshot
+    """
+
+    def get(self, request, content_type, slug):
+        normalized = _normalize_studio_api_content_type(content_type)
+        if not normalized:
+            return self._error(request, "Unknown content type", status=404)
+
+        revisions = ContentRevision.objects.filter(
+            content_type=normalized,
+            content_slug=slug,
+        ).values(
+            "id", "revision_number", "title", "word_count",
+            "label", "source", "created_at",
+        )
+        return self._json(request, {"revisions": list(revisions)})
+
+    def post(self, request, content_type, slug):
+        normalized = _normalize_studio_api_content_type(content_type)
+        if not normalized:
+            return self._error(request, "Unknown content type", status=404)
+
+        body = self._parse_json_body(request)
+        if body is None:
+            return self._error(request, "Invalid JSON body", 400)
+
+        title = body.get("title", "")
+        text = body.get("body", "")
+        word_count = len(text.split()) if text else 0
+        source = body.get("source", ContentRevision.Source.MANUAL)
+        label = body.get("label", "")
+
+        # Validate source choice
+        valid_sources = [c[0] for c in ContentRevision.Source.choices]
+        if source not in valid_sources:
+            source = ContentRevision.Source.MANUAL
+
+        rev_number = _next_revision_number(normalized, slug)
+        rev = ContentRevision.objects.create(
+            content_type=normalized,
+            content_slug=slug,
+            revision_number=rev_number,
+            title=title,
+            body=text,
+            word_count=word_count,
+            source=source,
+            label=label,
+        )
+        return self._json(request, {
+            "id": rev.pk,
+            "revision_number": rev.revision_number,
+            "title": rev.title,
+            "word_count": rev.word_count,
+            "source": rev.source,
+            "label": rev.label,
+            "created_at": rev.created_at.isoformat(),
+        })
+
+
+class StudioApiRevisionDetailView(StudioApiBaseView):
+    """GET .../revisions/<pk>/ (includes body)."""
+
+    def get(self, request, content_type, slug, pk):
+        normalized = _normalize_studio_api_content_type(content_type)
+        if not normalized:
+            return self._error(request, "Unknown content type", status=404)
+
+        try:
+            rev = ContentRevision.objects.get(
+                pk=pk,
+                content_type=normalized,
+                content_slug=slug,
+            )
+        except ContentRevision.DoesNotExist:
+            return self._error(request, "Revision not found", status=404)
+
+        return self._json(request, {
+            "id": rev.pk,
+            "revision_number": rev.revision_number,
+            "title": rev.title,
+            "body": rev.body,
+            "word_count": rev.word_count,
+            "source": rev.source,
+            "label": rev.label,
+            "created_at": rev.created_at.isoformat(),
+        })
+
+
+class StudioApiRevisionDiffView(StudioApiBaseView):
+    """
+    GET .../revisions/<pk>/diff/?compare_to=<other_pk>
+
+    Returns unified diff lines. If compare_to omitted, diffs against the
+    immediately preceding revision (or empty if this is revision 1).
+    """
+
+    def get(self, request, content_type, slug, pk):
+        normalized = _normalize_studio_api_content_type(content_type)
+        if not normalized:
+            return self._error(request, "Unknown content type", status=404)
+
+        try:
+            rev = ContentRevision.objects.get(
+                pk=pk,
+                content_type=normalized,
+                content_slug=slug,
+            )
+        except ContentRevision.DoesNotExist:
+            return self._error(request, "Revision not found", status=404)
+
+        compare_to_pk = request.GET.get("compare_to")
+        if compare_to_pk:
+            try:
+                other = ContentRevision.objects.get(
+                    pk=int(compare_to_pk),
+                    content_type=normalized,
+                    content_slug=slug,
+                )
+            except (ContentRevision.DoesNotExist, ValueError):
+                return self._error(request, "Comparison revision not found", status=404)
+        else:
+            # Find preceding revision
+            other = (
+                ContentRevision.objects.filter(
+                    content_type=normalized,
+                    content_slug=slug,
+                    revision_number__lt=rev.revision_number,
+                )
+                .order_by("-revision_number")
+                .first()
+            )
+
+        old_lines = (other.body if other else "").splitlines(keepends=True)
+        new_lines = rev.body.splitlines(keepends=True)
+
+        diff_lines = list(difflib.unified_diff(
+            old_lines,
+            new_lines,
+            fromfile=f"r{other.revision_number}" if other else "empty",
+            tofile=f"r{rev.revision_number}",
+            lineterm="",
+        ))
+
+        old_wc = other.word_count if other else 0
+        return self._json(request, {
+            "revision": rev.revision_number,
+            "compare_to": other.revision_number if other else None,
+            "diff": diff_lines,
+            "word_count_delta": rev.word_count - old_wc,
+        })
+
+
+class StudioApiRevisionRestoreView(StudioApiBaseView):
+    """
+    POST .../revisions/<pk>/restore/
+
+    Checkpoints the current content as a 'restore' revision, then overwrites
+    the content item's body/title with the selected revision's data.
+    Returns the updated content and new checkpoint revision ID.
+    """
+
+    def post(self, request, content_type, slug, pk):
+        normalized, config = _get_studio_api_content_config(content_type)
+        if not normalized or not config:
+            return self._error(request, "Unknown content type", status=404)
+
+        try:
+            rev = ContentRevision.objects.get(
+                pk=pk,
+                content_type=normalized,
+                content_slug=slug,
+            )
+        except ContentRevision.DoesNotExist:
+            return self._error(request, "Revision not found", status=404)
+
+        # Load the current content item
+        model_cls = config["model"]
+        try:
+            instance = model_cls.objects.get(slug=slug)
+        except model_cls.DoesNotExist:
+            return self._error(request, "Content item not found", status=404)
+
+        # Determine body field name
+        body_field = config.get("body_field", "body")
+        current_body = getattr(instance, body_field, "") or ""
+        current_title = getattr(instance, "title", "") or ""
+
+        # Checkpoint current state before restoring
+        checkpoint_number = _next_revision_number(normalized, slug)
+        checkpoint = ContentRevision.objects.create(
+            content_type=normalized,
+            content_slug=slug,
+            revision_number=checkpoint_number,
+            title=current_title,
+            body=current_body,
+            word_count=len(current_body.split()) if current_body else 0,
+            source=ContentRevision.Source.RESTORE,
+            label=f"Checkpoint before restore to r{rev.revision_number}",
+        )
+
+        # Overwrite content with restored revision
+        setattr(instance, body_field, rev.body)
+        if hasattr(instance, "title"):
+            instance.title = rev.title
+        instance.save()
+
+        return self._json(request, {
+            "ok": True,
+            "restored_revision": rev.revision_number,
+            "checkpoint_id": checkpoint.pk,
+            "checkpoint_revision": checkpoint.revision_number,
+            "title": rev.title,
+            "body": rev.body,
+        })
+
+
+# Maps content types to their publish functions.
+_PUBLISH_FUNCTIONS = {
+    "essay": publish_essay,
+    "field-note": publish_field_note,
+    "shelf": publish_shelf_entry,
+    "project": publish_project,
+    "toolkit": publish_toolkit_entry,
+}
+
+
+class StudioApiContentPublishView(StudioApiBaseView):
+    """
+    POST /editor/api/content/<content_type>/<slug>/publish/
+
+    Publishes content to GitHub and returns JSON with commit info.
+    Replaces the template-redirect publish views for Next.js Studio.
+    """
+
+    def post(self, request, content_type, slug):
+        if not request.user.is_authenticated:
+            return self._error(request, "Authentication required", status=401)
+
+        normalized, config = _get_studio_api_content_config(content_type)
+        if not normalized or not config:
+            return self._error(request, "Unknown content type", status=404)
+
+        publish_fn = _PUBLISH_FUNCTIONS.get(normalized)
+        if not publish_fn:
+            return self._error(
+                request,
+                f"Publishing not supported for {normalized}",
+                status=400,
+            )
+
+        model_cls = config["model"]
+        try:
+            instance = model_cls.objects.get(slug=slug)
+        except model_cls.DoesNotExist:
+            return self._error(request, "Content item not found", status=404)
+
+        try:
+            log = publish_fn(instance)
+        except Exception:
+            logger.exception("Publish failed for %s '%s'", normalized, slug)
+            return self._json(request, {
+                "success": False,
+                "commit_sha": "",
+                "commit_url": "",
+                "error": traceback.format_exc().splitlines()[-1],
+            }, status=500)
+
+        return self._json(request, {
+            "success": log.success,
+            "commit_sha": log.commit_sha or "",
+            "commit_url": log.commit_url or "",
+            "error": log.error_message or "",
+        })

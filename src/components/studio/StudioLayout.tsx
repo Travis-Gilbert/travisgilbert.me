@@ -1,7 +1,7 @@
 'use client';
 
 import { useMemo, useState, useCallback, useEffect } from 'react';
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import { normalizeStudioContentType } from '@/lib/studio';
 import { useIsAppShellMobile } from '@/hooks/useIsAppShellMobile';
 import MobileTopBar from '@/components/mobile-shell/MobileTopBar';
@@ -17,6 +17,7 @@ import { StudioViewProvider } from './StudioViewContext';
 import type { StudioThemeMode } from './StudioViewContext';
 import StudioMobileDock from './StudioMobileDock';
 import NewContentModal from './NewContentModal';
+import CommandPalette from './CommandPalette';
 
 const EDITOR_ROUTE_TYPES = new Set([
   'essay',
@@ -49,7 +50,9 @@ function StudioLayoutInner({
   const { editorState } = useStudioWorkbench();
   const [mobileOpen, setMobileOpen] = useState(false);
   const [mobileWorkbenchOpen, setMobileWorkbenchOpen] = useState(false);
+  const router = useRouter();
   const [showNewModal, setShowNewModal] = useState(false);
+  const [commandPaletteOpen, setCommandPaletteOpen] = useState(false);
   const [zenMode, setZenModeState] = useState(false);
   const [themeMode, setThemeModeState] = useState<StudioThemeMode>('dark');
 
@@ -127,8 +130,17 @@ function StudioLayoutInner({
 
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
-      if (!(event.metaKey || event.ctrlKey) || !event.shiftKey) return;
+      if (!(event.metaKey || event.ctrlKey)) return;
       const key = event.key.toLowerCase();
+
+      /* Cmd+K: command palette */
+      if (key === 'k' && !event.shiftKey) {
+        event.preventDefault();
+        setCommandPaletteOpen((prev) => !prev);
+        return;
+      }
+
+      if (!event.shiftKey) return;
 
       /* Cmd+Shift+Z: zen mode */
       if (key === 'z') {
@@ -255,6 +267,73 @@ function StudioLayoutInner({
 
       {showNewModal && (
         <NewContentModal onClose={() => setShowNewModal(false)} />
+      )}
+
+      {commandPaletteOpen && (
+        <CommandPalette
+          isEditorActive={editorMode}
+          onClose={() => setCommandPaletteOpen(false)}
+          onExecute={(commandId) => {
+            switch (commandId) {
+              /* Editor actions */
+              case 'save':
+                editorState.onSave?.();
+                break;
+              case 'zen-mode':
+                toggleZenMode();
+                break;
+              case 'typewriter-mode':
+              case 'markdown-view':
+              case 'reading-panel':
+                /* These are handled inside Editor.tsx; dispatch a custom event */
+                window.dispatchEvent(
+                  new CustomEvent('studio:command', {
+                    detail: { id: commandId },
+                  }),
+                );
+                break;
+
+              /* View actions */
+              case 'toggle-theme':
+                toggleThemeMode();
+                break;
+              case 'toggle-workbench':
+                /* Toggle workbench visibility on mobile */
+                if (isAppShellMobile) {
+                  setMobileWorkbenchOpen((prev) => !prev);
+                }
+                break;
+
+              /* Navigation */
+              case 'nav-dashboard':
+                router.push('/studio');
+                break;
+              case 'nav-essays':
+                router.push('/studio/essays');
+                break;
+              case 'nav-field-notes':
+                router.push('/studio/field-notes');
+                break;
+              case 'nav-shelf':
+                router.push('/studio/shelf');
+                break;
+              case 'nav-projects':
+                router.push('/studio/projects');
+                break;
+              case 'nav-toolkit':
+                router.push('/studio/toolkit');
+                break;
+              case 'nav-video':
+                router.push('/studio/video');
+                break;
+
+              /* Content */
+              case 'new-content':
+                setShowNewModal(true);
+                break;
+            }
+          }}
+        />
       )}
     </StudioViewProvider>
   );

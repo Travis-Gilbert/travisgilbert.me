@@ -448,15 +448,29 @@ export interface ResearchTrail {
   }>;
 }
 
-export async function fetchResearchTrail(slug: string): Promise<ResearchTrail | null> {
+export class ResearchTimeoutError extends Error {
+  constructor() {
+    super('Research API request timed out');
+    this.name = 'ResearchTimeoutError';
+  }
+}
+
+export async function fetchResearchTrail(
+  slug: string,
+  timeoutMs = 5000,
+): Promise<ResearchTrail | null> {
   try {
     const res = await fetch(`${RESEARCH_API_BASE}/api/v1/trail/${slug}/`, {
       credentials: 'omit',
       cache: 'no-store',
+      signal: AbortSignal.timeout(timeoutMs),
     });
     if (!res.ok) return null;
     return await res.json();
-  } catch {
+  } catch (err) {
+    if (err instanceof DOMException && err.name === 'TimeoutError') {
+      throw new ResearchTimeoutError();
+    }
     return null;
   }
 }
@@ -940,5 +954,233 @@ export async function fetchMentionBacklinks(
     return data.mentionedBy ?? [];
   } catch {
     return [];
+  }
+}
+
+/* ─────────────────────────────────────────────────
+   Content Revisions
+   ───────────────────────────────────────────────── */
+
+export type RevisionSource = 'autosave' | 'manual' | 'stage' | 'restore';
+
+export interface ContentRevisionSummary {
+  id: number;
+  revisionNumber: number;
+  title: string;
+  wordCount: number;
+  label: string;
+  source: RevisionSource;
+  createdAt: string;
+}
+
+export interface ContentRevisionDetail extends ContentRevisionSummary {
+  body: string;
+}
+
+export interface ContentRevisionDiff {
+  revision: number;
+  compareTo: number | null;
+  diff: string[];
+  wordCountDelta: number;
+}
+
+export interface RevisionRestoreResult {
+  ok: boolean;
+  restoredRevision: number;
+  checkpointId: number;
+  checkpointRevision: number;
+  title: string;
+  body: string;
+}
+
+export async function fetchRevisions(
+  contentType: string,
+  slug: string,
+): Promise<ContentRevisionSummary[]> {
+  try {
+    const data = await studioFetch<{
+      revisions: Array<{
+        id: number;
+        revision_number: number;
+        title: string;
+        word_count: number;
+        label: string;
+        source: RevisionSource;
+        created_at: string;
+      }>;
+    }>(`/content/${contentType}/${slug}/revisions/`);
+    return (data.revisions ?? []).map((r) => ({
+      id: r.id,
+      revisionNumber: r.revision_number,
+      title: r.title,
+      wordCount: r.word_count,
+      label: r.label,
+      source: r.source,
+      createdAt: r.created_at,
+    }));
+  } catch {
+    return [];
+  }
+}
+
+export async function fetchRevision(
+  contentType: string,
+  slug: string,
+  revisionId: number,
+): Promise<ContentRevisionDetail | null> {
+  try {
+    const r = await studioFetch<{
+      id: number;
+      revision_number: number;
+      title: string;
+      body: string;
+      word_count: number;
+      label: string;
+      source: RevisionSource;
+      created_at: string;
+    }>(`/content/${contentType}/${slug}/revisions/${revisionId}/`);
+    return {
+      id: r.id,
+      revisionNumber: r.revision_number,
+      title: r.title,
+      body: r.body,
+      wordCount: r.word_count,
+      label: r.label,
+      source: r.source,
+      createdAt: r.created_at,
+    };
+  } catch {
+    return null;
+  }
+}
+
+export async function fetchRevisionDiff(
+  contentType: string,
+  slug: string,
+  revisionId: number,
+  compareToId?: number,
+): Promise<ContentRevisionDiff | null> {
+  try {
+    const qs = compareToId ? `?compare_to=${compareToId}` : '';
+    const data = await studioFetch<{
+      revision: number;
+      compare_to: number | null;
+      diff: string[];
+      word_count_delta: number;
+    }>(`/content/${contentType}/${slug}/revisions/${revisionId}/diff/${qs}`);
+    return {
+      revision: data.revision,
+      compareTo: data.compare_to,
+      diff: data.diff,
+      wordCountDelta: data.word_count_delta,
+    };
+  } catch {
+    return null;
+  }
+}
+
+export async function createRevision(
+  contentType: string,
+  slug: string,
+  payload: {
+    title: string;
+    body: string;
+    source?: RevisionSource;
+    label?: string;
+  },
+): Promise<ContentRevisionSummary | null> {
+  try {
+    const r = await studioFetch<{
+      id: number;
+      revision_number: number;
+      title: string;
+      word_count: number;
+      source: RevisionSource;
+      label: string;
+      created_at: string;
+    }>(`/content/${contentType}/${slug}/revisions/`, {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    });
+    return {
+      id: r.id,
+      revisionNumber: r.revision_number,
+      title: r.title,
+      wordCount: r.word_count,
+      source: r.source,
+      label: r.label,
+      createdAt: r.created_at,
+    };
+  } catch {
+    return null;
+  }
+}
+
+export async function restoreRevision(
+  contentType: string,
+  slug: string,
+  revisionId: number,
+): Promise<RevisionRestoreResult | null> {
+  try {
+    const data = await studioFetch<{
+      ok: boolean;
+      restored_revision: number;
+      checkpoint_id: number;
+      checkpoint_revision: number;
+      title: string;
+      body: string;
+    }>(`/content/${contentType}/${slug}/revisions/${revisionId}/restore/`, {
+      method: 'POST',
+      body: JSON.stringify({}),
+    });
+    return {
+      ok: data.ok,
+      restoredRevision: data.restored_revision,
+      checkpointId: data.checkpoint_id,
+      checkpointRevision: data.checkpoint_revision,
+      title: data.title,
+      body: data.body,
+    };
+  } catch {
+    return null;
+  }
+}
+
+/* ── Publish ──────────────────────────────────────────────── */
+
+export interface PublishResult {
+  success: boolean;
+  commitSha: string;
+  commitUrl: string;
+  error: string;
+}
+
+export async function publishContent(
+  contentType: string,
+  slug: string,
+): Promise<PublishResult> {
+  try {
+    const data = await studioFetch<{
+      success: boolean;
+      commit_sha: string;
+      commit_url: string;
+      error: string;
+    }>(`/content/${contentType}/${slug}/publish/`, {
+      method: 'POST',
+      body: JSON.stringify({}),
+    });
+    return {
+      success: data.success,
+      commitSha: data.commit_sha,
+      commitUrl: data.commit_url,
+      error: data.error,
+    };
+  } catch (err) {
+    return {
+      success: false,
+      commitSha: '',
+      commitUrl: '',
+      error: err instanceof Error ? err.message : 'Network error',
+    };
   }
 }
