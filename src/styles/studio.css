@@ -1165,6 +1165,104 @@
   z-index: 10;
 }
 
+/* ── Corkboard Research Panel ────────────────── */
+.corkboard-surface {
+  background: #C4A882;
+  border-radius: 4px;
+  padding: 12px 10px;
+  min-height: 120px;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  /* Cork texture via subtle noise */
+  background-image:
+    radial-gradient(circle, rgba(120, 80, 40, 0.06) 1px, transparent 1px);
+  background-size: 12px 12px;
+}
+.corkboard-surface--empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 80px;
+}
+
+.corkboard-card {
+  background: #E4D9CC;
+  padding: 10px 12px 8px;
+  border-radius: 2px;
+  box-shadow: 1px 2px 6px rgba(20, 14, 8, 0.15);
+  cursor: grab;
+  position: relative;
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+.corkboard-card:hover {
+  box-shadow: 2px 3px 10px rgba(20, 14, 8, 0.22);
+}
+.corkboard-card--dragging {
+  opacity: 0.5;
+  cursor: grabbing;
+}
+.corkboard-card--drop-target {
+  box-shadow: 0 0 0 2px rgba(180, 90, 45, 0.5), 2px 3px 10px rgba(20, 14, 8, 0.22);
+}
+
+.corkboard-pin {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  position: absolute;
+  top: -4px;
+  left: 50%;
+  transform: translateX(-50%);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
+}
+
+.corkboard-card-title {
+  font-family: var(--studio-font-serif, Georgia);
+  font-size: 12.5px;
+  font-weight: 600;
+  color: #2A2420;
+  line-height: 1.3;
+  margin-bottom: 3px;
+}
+.corkboard-card-creator {
+  font-family: var(--studio-font-mono, monospace);
+  font-size: 9px;
+  color: #6A5E52;
+  margin-bottom: 4px;
+}
+.corkboard-card-quote {
+  font-family: var(--studio-font-serif, Georgia);
+  font-size: 10.5px;
+  color: #4A4038;
+  line-height: 1.4;
+  font-style: italic;
+  border-left: 1.5px solid rgba(180, 90, 45, 0.25);
+  padding-left: 6px;
+  margin: 4px 0;
+}
+.corkboard-card-footer {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 4px;
+}
+.corkboard-card-type {
+  font-family: var(--studio-font-mono, monospace);
+  font-size: 8px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  padding: 1px 4px;
+  border-radius: 2px;
+}
+.corkboard-card-domain {
+  font-family: var(--studio-font-mono, monospace);
+  font-size: 8px;
+  color: #8A7A6A;
+}
+
 /* Back / Advance / Cancel / Confirm buttons */
 .stage-stepper-btn {
   font-family: var(--studio-font-body);

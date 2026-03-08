@@ -41,6 +41,7 @@ import NewContentModal from './NewContentModal';
 import CollagePanel from './CollagePanel';
 import PipelinePanel from './PipelinePanel';
 import RevisionHistory from './RevisionHistory';
+import CorkboardPanel from './CorkboardPanel';
 
 /* Stage definitions for PipelinePanel per content type */
 const CONTENT_STAGE_MAP: Record<string, Array<{ key: string; label: string }>> = {
@@ -1013,6 +1014,9 @@ function ResearchMode({
 
   const nextMove = (contentItem as StudioContentItem & { nextMove?: string })?.nextMove;
 
+  /* Corkboard vs flat list toggle for sources */
+  const [corkboardView, setCorkboardView] = useState(false);
+
   /* Loading skeleton */
   if (loading) {
     return (
@@ -1113,99 +1117,130 @@ function ResearchMode({
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-      {/* 1. Sources */}
+      {/* 1. Sources (flat list or corkboard) */}
       <div>
-        <ToolboxLabel>Sources</ToolboxLabel>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', marginTop: '8px' }}>
-          {trail.sources.map((src) => {
-            const roleColor = ROLE_COLORS[src.role] ?? 'var(--studio-text-3)';
-            const abbr = SOURCE_TYPE_ABBR[src.sourceType] ?? src.sourceType.slice(0, 2).toUpperCase();
-            return (
-              <div
-                key={src.id}
-                style={{
-                  display: 'flex',
-                  gap: '8px',
-                  alignItems: 'flex-start',
-                  padding: '6px 8px',
-                  borderLeft: `2px solid ${roleColor}`,
-                  backgroundColor: 'var(--studio-surface)',
-                  borderRadius: '2px',
-                }}
-              >
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <ToolboxLabel>Sources</ToolboxLabel>
+          {trail.sources.length > 0 && (
+            <button
+              type="button"
+              onClick={() => setCorkboardView((p) => !p)}
+              style={{
+                fontFamily: 'var(--studio-font-mono)',
+                fontSize: '8px',
+                fontWeight: 600,
+                letterSpacing: '0.06em',
+                textTransform: 'uppercase',
+                color: corkboardView ? '#B45A2D' : 'var(--studio-text-3)',
+                backgroundColor: corkboardView ? 'rgba(180, 90, 45, 0.1)' : 'transparent',
+                border: `1px solid ${corkboardView ? 'rgba(180, 90, 45, 0.3)' : 'var(--studio-border)'}`,
+                borderRadius: '3px',
+                padding: '2px 6px',
+                cursor: 'pointer',
+                transition: 'all 0.15s ease',
+              }}
+            >
+              {corkboardView ? 'List' : 'Board'}
+            </button>
+          )}
+        </div>
+
+        {corkboardView ? (
+          <div style={{ marginTop: '8px' }}>
+            <CorkboardPanel sources={trail.sources} />
+          </div>
+        ) : (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', marginTop: '8px' }}>
+            {trail.sources.map((src) => {
+              const roleColor = ROLE_COLORS[src.role] ?? 'var(--studio-text-3)';
+              const abbr = SOURCE_TYPE_ABBR[src.sourceType] ?? src.sourceType.slice(0, 2).toUpperCase();
+              return (
                 <div
+                  key={src.id}
                   style={{
-                    fontFamily: 'var(--studio-font-mono)',
-                    fontSize: '8px',
-                    fontWeight: 700,
-                    letterSpacing: '0.08em',
-                    color: roleColor,
-                    backgroundColor: `color-mix(in srgb, ${roleColor} 12%, transparent)`,
-                    padding: '1px 4px',
+                    display: 'flex',
+                    gap: '8px',
+                    alignItems: 'flex-start',
+                    padding: '6px 8px',
+                    borderLeft: `2px solid ${roleColor}`,
+                    backgroundColor: 'var(--studio-surface)',
                     borderRadius: '2px',
-                    flexShrink: 0,
-                    marginTop: '1px',
                   }}
                 >
-                  {abbr}
-                </div>
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <div
-                    style={{
-                      fontFamily: 'var(--studio-font-serif)',
-                      fontSize: '12.5px',
-                      fontWeight: 600,
-                      color: 'var(--studio-text-bright)',
-                      lineHeight: 1.3,
-                    }}
-                  >
-                    {src.title}
-                  </div>
                   <div
                     style={{
                       fontFamily: 'var(--studio-font-mono)',
-                      fontSize: '9px',
-                      color: 'var(--studio-text-3)',
-                      marginTop: '2px',
+                      fontSize: '8px',
+                      fontWeight: 700,
+                      letterSpacing: '0.08em',
+                      color: roleColor,
+                      backgroundColor: `color-mix(in srgb, ${roleColor} 12%, transparent)`,
+                      padding: '1px 4px',
+                      borderRadius: '2px',
+                      flexShrink: 0,
+                      marginTop: '1px',
                     }}
                   >
-                    {src.creator} · {src.role}
+                    {abbr}
+                  </div>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div
+                      style={{
+                        fontFamily: 'var(--studio-font-serif)',
+                        fontSize: '12.5px',
+                        fontWeight: 600,
+                        color: 'var(--studio-text-bright)',
+                        lineHeight: 1.3,
+                      }}
+                    >
+                      {src.title}
+                    </div>
+                    <div
+                      style={{
+                        fontFamily: 'var(--studio-font-mono)',
+                        fontSize: '9px',
+                        color: 'var(--studio-text-3)',
+                        marginTop: '2px',
+                      }}
+                    >
+                      {src.creator} · {src.role}
+                    </div>
                   </div>
                 </div>
+              );
+            })}
+            {trail.sources.length === 0 && (
+              <div
+                style={{
+                  fontFamily: 'var(--studio-font-serif)',
+                  fontSize: '11px',
+                  color: 'var(--studio-text-3)',
+                  fontStyle: 'italic',
+                  padding: '6px 0',
+                }}
+              >
+                No sources linked yet.
               </div>
-            );
-          })}
-          {trail.sources.length === 0 && (
-            <div
+            )}
+            <button
+              type="button"
               style={{
-                fontFamily: 'var(--studio-font-serif)',
-                fontSize: '11px',
-                color: 'var(--studio-text-3)',
-                fontStyle: 'italic',
                 padding: '6px 0',
+                fontFamily: 'var(--studio-font-mono)',
+                fontSize: '9px',
+                fontWeight: 600,
+                color: 'var(--studio-text-3)',
+                backgroundColor: 'transparent',
+                border: '1px dashed var(--studio-border)',
+                borderRadius: '3px',
+                cursor: 'pointer',
+                letterSpacing: '0.06em',
               }}
             >
-              No sources linked yet.
-            </div>
-          )}
-          <button
-            type="button"
-            style={{
-              padding: '6px 0',
-              fontFamily: 'var(--studio-font-mono)',
-              fontSize: '9px',
-              fontWeight: 600,
-              color: 'var(--studio-text-3)',
-              backgroundColor: 'transparent',
-              border: '1px dashed var(--studio-border)',
-              borderRadius: '3px',
-              cursor: 'pointer',
-              letterSpacing: '0.06em',
-            }}
-          >
-            + Add source
-          </button>
-        </div>
+              + Add source
+            </button>
+          </div>
+        )}
       </div>
 
       {/* 2. Connected Content */}
