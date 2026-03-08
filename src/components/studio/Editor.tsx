@@ -38,6 +38,7 @@ import DeskLamp from './DeskLamp';
 import PaperWeathering from './PaperWeathering';
 import { useFocusFade } from './FocusFade';
 import InkSoakOverlay from './InkSoakOverlay';
+import MarginAnnotationGutter from './MarginAnnotationGutter';
 import { useStudioView } from './StudioViewContext';
 
 type SaveState = WorkbenchSaveState;
@@ -1087,6 +1088,7 @@ export default function Editor({
             <>
               <PaperWeathering stage={stage} slug={slug} />
               <InkSoakOverlay trigger={saveTrigger} stageColor={getStage(stage).color} />
+              <MarginAnnotationGutter editor={editor} />
             </>
           }
           focusFadeActive={focusFade.active}

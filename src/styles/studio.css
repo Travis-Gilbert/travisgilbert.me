@@ -1118,6 +1118,53 @@
   color: rgba(180,60,60,0.85);
 }
 
+/* ── Margin Annotation Gutter ─────────────────── */
+.margin-annotation-gutter {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 62px;
+  height: 100%;
+  pointer-events: none;
+  z-index: 4;
+}
+.margin-annotation-dot {
+  position: absolute;
+  left: 40px;
+  transform: translateY(-50%);
+  pointer-events: auto;
+  cursor: pointer;
+}
+.margin-dot-circle {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: rgba(180, 90, 45, 0.5);
+  transition: transform 0.2s ease, background 0.2s ease;
+}
+.margin-annotation-dot:hover .margin-dot-circle {
+  transform: scale(1.6);
+  background: rgba(180, 90, 45, 0.8);
+}
+.margin-annotation-tooltip {
+  position: absolute;
+  left: 20px;
+  top: 50%;
+  transform: translateY(-50%);
+  background: var(--studio-writing-paper-bg, #E4D9CC);
+  border: 1px solid rgba(42, 36, 32, 0.12);
+  border-radius: 4px;
+  padding: 6px 10px;
+  font-size: 12px;
+  color: var(--studio-writing-paper-text, #2A2420);
+  white-space: nowrap;
+  max-width: 240px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  box-shadow: 0 2px 8px rgba(20, 14, 8, 0.12);
+  z-index: 10;
+}
+
 /* Back / Advance / Cancel / Confirm buttons */
 .stage-stepper-btn {
   font-family: var(--studio-font-body);
