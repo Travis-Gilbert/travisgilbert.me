@@ -8,15 +8,16 @@ import PublishButton from './PublishButton';
 type StageOption = {
   slug: string;
   label: string;
+  color: string;
 };
 
 const STAGE_FLOW: StageOption[] = [
-  { slug: 'idea', label: 'Idea' },
-  { slug: 'research', label: 'Research' },
-  { slug: 'drafting', label: 'Drafting' },
-  { slug: 'revising', label: 'Editing' },
-  { slug: 'production', label: 'Production' },
-  { slug: 'published', label: 'Published' },
+  { slug: 'idea', label: 'Idea', color: '#9A8E82' },
+  { slug: 'research', label: 'Research', color: '#3A8A9A' },
+  { slug: 'drafting', label: 'Drafting', color: '#D4AA4A' },
+  { slug: 'revising', label: 'Editing', color: '#8A6A9A' },
+  { slug: 'production', label: 'Production', color: '#B45A2D' },
+  { slug: 'published', label: 'Published', color: '#6A9A5A' },
 ];
 
 function findStageIndex(stage: string): number {
@@ -24,8 +25,9 @@ function findStageIndex(stage: string): number {
 }
 
 /**
- * Stage stepper for the editor header: current stage select plus back/advance
- * actions with confirmation before mutating stage.
+ * Stage stepper: horizontal dot pipeline showing all 6 stages as a connected flow.
+ * Past stages are colored dots at 50% opacity; current stage shows a labeled chip
+ * with glow animation; future stages are muted dots.
  */
 export default function StageStepper({
   stage,
@@ -51,16 +53,6 @@ export default function StageStepper({
   const confirmButtonRef = useRef<HTMLButtonElement | null>(null);
 
   const currentIndex = findStageIndex(stage);
-  const stageOptions =
-    currentIndex >= 0
-      ? STAGE_FLOW
-      : [
-          {
-            slug: stage,
-            label: stage.charAt(0).toUpperCase() + stage.slice(1),
-          },
-          ...STAGE_FLOW,
-        ];
   const canMoveBack = currentIndex > 0;
   const canMoveForward =
     currentIndex >= 0 && currentIndex < STAGE_FLOW.length - 1;
@@ -141,113 +133,100 @@ export default function StageStepper({
   return (
     <div className="studio-stage-stepper-shell">
       <div className="studio-editor-column studio-stage-stepper">
-      <span
-        style={{
-          fontFamily: 'var(--studio-font-mono)',
-          fontSize: '9px',
-          fontWeight: 600,
-          letterSpacing: '0.1em',
-          textTransform: 'uppercase',
-          color: typeInfo.color,
-          backgroundColor: `${typeInfo.color}18`,
-          padding: '3px 8px',
-          borderRadius: '3px',
-          border: `1px solid ${typeInfo.color}30`,
-        }}
-      >
-        {typeInfo.label}
-      </span>
-
-      <label
-        htmlFor="studio-stage-select"
-        style={{
-          fontFamily: 'var(--studio-font-mono)',
-          fontSize: '10px',
-          color: 'var(--studio-text-3)',
-          letterSpacing: '0.08em',
-          textTransform: 'uppercase',
-        }}
-      >
-        Stage
-      </label>
-
-      <select
-        id="studio-stage-select"
-        value={stage}
-        onChange={(event) => {
-          const target = event.target.value;
-          const targetIndex = findStageIndex(target);
-          const direction =
-            targetIndex >= 0 && currentIndex >= 0 && targetIndex < currentIndex
-              ? 'back'
-              : 'forward';
-          openConfirm(target, direction);
-        }}
-        style={{
-          appearance: 'none',
-          fontFamily: 'var(--studio-font-body)',
-          fontSize: '12px',
-          color: 'var(--studio-text-bright)',
-          backgroundColor: 'var(--studio-surface-hover)',
-          border: '1px solid var(--studio-border-strong)',
-          borderRadius: '8px',
-          padding: '5px 10px',
-          minWidth: '140px',
-        }}
-      >
-        {stageOptions.map((item) => (
-          <option key={item.slug} value={item.slug}>
-            {item.label}
-          </option>
-        ))}
-      </select>
-
-      <div style={{ display: 'flex', gap: '6px' }}>
-        <button
-          type="button"
-          disabled={!previousStage}
-          onClick={() => {
-            if (previousStage) openConfirm(previousStage.slug, 'back');
-          }}
-          aria-label="Move to previous stage"
+        {/* Content type chip */}
+        <span
+          className="stage-stepper-type-chip"
           style={{
-            background: 'none',
-            border: '1px solid var(--studio-border)',
-            borderRadius: '6px',
-            color: previousStage ? 'var(--studio-text-2)' : 'var(--studio-text-3)',
-            fontSize: '11px',
-            padding: '4px 9px',
-            cursor: previousStage ? 'pointer' : 'not-allowed',
-            fontFamily: 'var(--studio-font-body)',
-            opacity: previousStage ? 1 : 0.55,
-          }}
+            '--chip-color': typeInfo.color,
+          } as React.CSSProperties}
         >
-          Back
-        </button>
+          {typeInfo.label}
+        </span>
 
-        <button
-          type="button"
-          disabled={!nextStage}
-          onClick={() => {
-            if (nextStage) openConfirm(nextStage.slug, 'forward');
-          }}
-          aria-label="Move to next stage"
-          style={{
-            background: 'var(--studio-surface-hover)',
-            border: '1px solid var(--studio-border-strong)',
-            borderRadius: '6px',
-            color: nextStage ? 'var(--studio-text-bright)' : 'var(--studio-text-3)',
-            fontSize: '11px',
-            fontWeight: 600,
-            padding: '4px 11px',
-            cursor: nextStage ? 'pointer' : 'not-allowed',
-            fontFamily: 'var(--studio-font-body)',
-            opacity: nextStage ? 1 : 0.55,
-          }}
-        >
-          Advance
-        </button>
-      </div>
+        {/* Stage pipeline: horizontal dot flow */}
+        <div className="stage-pipeline" role="group" aria-label="Content stage pipeline">
+          {STAGE_FLOW.map((item, i) => {
+            const isCurrent = item.slug === stage;
+            const isPast = currentIndex >= 0 && i < currentIndex;
+            const isFuture = currentIndex >= 0 && i > currentIndex;
+
+            return (
+              <div key={item.slug} className="stage-pipeline-node">
+                {/* Connecting line before this dot (skip first) */}
+                {i > 0 && (
+                  <span
+                    className="stage-pipeline-line"
+                    style={{
+                      backgroundColor: isPast || isCurrent
+                        ? `color-mix(in srgb, ${STAGE_FLOW[i - 1].color} 40%, transparent)`
+                        : 'rgba(237,231,220,0.1)',
+                    }}
+                  />
+                )}
+
+                {/* Dot + optional label */}
+                {isCurrent ? (
+                  <span
+                    className="stage-pipeline-chip"
+                    style={{
+                      '--stage-color': item.color,
+                    } as React.CSSProperties}
+                  >
+                    <span className="stage-pipeline-dot stage-pipeline-dot--current" />
+                    <span className="stage-pipeline-chip-label">{item.label}</span>
+                  </span>
+                ) : (
+                  <span
+                    className={`stage-pipeline-dot ${isPast ? 'stage-pipeline-dot--past' : 'stage-pipeline-dot--future'}`}
+                    style={{
+                      backgroundColor: isPast
+                        ? item.color
+                        : isFuture
+                          ? 'rgba(237,231,220,0.18)'
+                          : item.color,
+                    }}
+                    title={item.label}
+                  />
+                )}
+              </div>
+            );
+          })}
+        </div>
+
+        {/* Back / Advance buttons */}
+        <div style={{ display: 'flex', gap: '6px' }}>
+          <button
+            type="button"
+            disabled={!previousStage}
+            onClick={() => {
+              if (previousStage) openConfirm(previousStage.slug, 'back');
+            }}
+            aria-label="Move to previous stage"
+            className="stage-stepper-btn stage-stepper-btn--back"
+            style={{
+              opacity: previousStage ? 1 : 0.55,
+              cursor: previousStage ? 'pointer' : 'not-allowed',
+            }}
+          >
+            Back
+          </button>
+
+          <button
+            type="button"
+            disabled={!nextStage}
+            onClick={() => {
+              if (nextStage) openConfirm(nextStage.slug, 'forward');
+            }}
+            aria-label="Move to next stage"
+            className="stage-stepper-btn stage-stepper-btn--advance"
+            style={{
+              opacity: nextStage ? 1 : 0.55,
+              cursor: nextStage ? 'pointer' : 'not-allowed',
+            }}
+          >
+            Advance
+          </button>
+        </div>
 
         {onPublish && (
           <PublishButton
@@ -269,57 +248,27 @@ export default function StageStepper({
           </span>
         )}
 
+        {/* Confirm stage change dialog */}
         {pendingStage && (
           <div
             role="dialog"
             aria-modal="false"
             aria-label="Confirm stage change"
+            className="stage-confirm-dialog"
             style={{
-              position: 'absolute',
-              top: 'calc(100% + 8px)',
-              [anchorDirection === 'back' ? 'left' : 'right']: anchorDirection === 'back' ? '20px' : '20px',
-              zIndex: 20,
-              minWidth: '220px',
-              backgroundColor: 'var(--studio-surface)',
-              border: '1px solid var(--studio-border-strong)',
-              borderRadius: '10px',
-              boxShadow: 'var(--studio-shadow)',
-              padding: '10px',
+              [anchorDirection === 'back' ? 'left' : 'right']: '20px',
             }}
           >
-            <p
-              style={{
-                margin: 0,
-                fontFamily: 'var(--studio-font-body)',
-                fontSize: '12px',
-                color: 'var(--studio-text-2)',
-              }}
-            >
+            <p className="stage-confirm-text">
               Move to {pendingLabel}?
             </p>
 
-            <div
-              style={{
-                display: 'flex',
-                justifyContent: 'flex-end',
-                gap: '6px',
-                marginTop: '10px',
-              }}
-            >
+            <div className="stage-confirm-actions">
               <button
                 type="button"
                 onClick={cancelConfirm}
                 aria-label="Cancel stage change"
-                style={{
-                  border: '1px solid var(--studio-border)',
-                  background: 'none',
-                  color: 'var(--studio-text-2)',
-                  borderRadius: '6px',
-                  padding: '4px 8px',
-                  fontSize: '11px',
-                  fontFamily: 'var(--studio-font-body)',
-                  cursor: 'pointer',
-                }}
+                className="stage-stepper-btn stage-stepper-btn--back"
               >
                 Cancel
               </button>
@@ -328,17 +277,7 @@ export default function StageStepper({
                 type="button"
                 onClick={confirmMove}
                 aria-label={`Confirm move to ${pendingLabel}`}
-                style={{
-                  border: '1px solid var(--studio-border-strong)',
-                  background: 'var(--studio-surface-hover)',
-                  color: 'var(--studio-text-bright)',
-                  borderRadius: '6px',
-                  padding: '4px 10px',
-                  fontSize: '11px',
-                  fontWeight: 600,
-                  fontFamily: 'var(--studio-font-body)',
-                  cursor: 'pointer',
-                }}
+                className="stage-stepper-btn stage-stepper-btn--advance"
               >
                 Confirm
               </button>
