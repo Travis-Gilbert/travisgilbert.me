@@ -42,6 +42,7 @@ import CollagePanel from './CollagePanel';
 import PipelinePanel from './PipelinePanel';
 import RevisionHistory from './RevisionHistory';
 import CorkboardPanel from './CorkboardPanel';
+import OutlineDragWall from './OutlineDragWall';
 
 /* Stage definitions for PipelinePanel per content type */
 const CONTENT_STAGE_MAP: Record<string, Array<{ key: string; label: string }>> = {
@@ -94,10 +95,6 @@ const WORD_TARGETS: Record<string, number> = {
   toolkit: 400,
 };
 
-interface HeadingItem {
-  level: number;
-  text: string;
-}
 
 interface TodoItem {
   text: string;
@@ -1909,24 +1906,6 @@ function OutlineMode({
   saveState: SaveState;
   autosaveState: AutosaveState;
 }) {
-  /* Extract headings from ProseMirror document tree */
-  const headings = useMemo<HeadingItem[]>(() => {
-    if (!editor) return [];
-    const result: HeadingItem[] = [];
-
-    editor.state.doc.descendants((node) => {
-      if (node.type.name === 'heading' && node.textContent.trim()) {
-        result.push({
-          level: (node.attrs.level as number) ?? 1,
-          text: node.textContent,
-        });
-      }
-      return true;
-    });
-
-    return result;
-  }, [editor]);
-
   /* Word count and target */
   const wordCount = useMemo(() => {
     if (!editor) return 0;
@@ -1937,42 +1916,6 @@ function OutlineMode({
   const target = WORD_TARGETS[contentType] ?? 1500;
   const progress = Math.min((wordCount / target) * 100, 100);
   const typeInfo = getContentTypeIdentity(contentType);
-
-  const scrollToHeading = useCallback(
-    (text: string) => {
-      if (!editor) return;
-
-      const doc = editor.state.doc;
-      let targetPos = 0;
-      doc.descendants((node, pos) => {
-        if (
-          node.type.name === 'heading' &&
-          node.textContent === text &&
-          targetPos === 0
-        ) {
-          targetPos = pos;
-          return false;
-        }
-        return true;
-      });
-
-      if (targetPos > 0) {
-        editor.commands.focus();
-        editor.commands.setTextSelection(targetPos + 1);
-
-        const domAtPos = editor.view.domAtPos(targetPos + 1);
-        if (domAtPos.node instanceof HTMLElement) {
-          domAtPos.node.scrollIntoView({ behavior: 'smooth', block: 'center' });
-        } else if (domAtPos.node.parentElement) {
-          domAtPos.node.parentElement.scrollIntoView({
-            behavior: 'smooth',
-            block: 'center',
-          });
-        }
-      }
-    },
-    [editor],
-  );
 
   const handleExportHtml = useCallback(() => {
     if (!editor) return;
@@ -2007,59 +1950,7 @@ function OutlineMode({
     <>
       <div style={{ marginBottom: '20px' }}>
         <ToolboxLabel>Document outline</ToolboxLabel>
-        {headings.length === 0 ? (
-          <p
-            style={{
-              fontFamily: 'var(--studio-font-body)',
-              fontSize: '12px',
-              color: 'var(--studio-text-3)',
-              fontStyle: 'italic',
-              margin: '8px 0 0',
-            }}
-          >
-            No headings yet. Add headings to see an outline.
-          </p>
-        ) : (
-          <div style={{ marginTop: '6px' }}>
-            {headings.map((heading, index) => (
-              <button
-                key={`${heading.text}-${index}`}
-                type="button"
-                onClick={() => scrollToHeading(heading.text)}
-                style={{
-                  display: 'block',
-                  width: '100%',
-                  textAlign: 'left' as const,
-                  padding: '3px 0',
-                  paddingLeft: `${(heading.level - 1) * 12}px`,
-                  fontFamily: 'var(--studio-font-body)',
-                  fontSize: heading.level === 1 ? '13px' : '12px',
-                  fontWeight: heading.level <= 2 ? 600 : 400,
-                  color:
-                    heading.level === 1
-                      ? 'var(--studio-text-bright)'
-                      : 'var(--studio-text-2)',
-                  backgroundColor: 'transparent',
-                  border: 'none',
-                  cursor: 'pointer',
-                  lineHeight: 1.4,
-                  transition: 'color 0.1s',
-                }}
-                onMouseEnter={(event) => {
-                  event.currentTarget.style.color = typeInfo.color;
-                }}
-                onMouseLeave={(event) => {
-                  event.currentTarget.style.color =
-                    heading.level === 1
-                      ? 'var(--studio-text-bright)'
-                      : 'var(--studio-text-2)';
-                }}
-              >
-                {heading.text}
-              </button>
-            ))}
-          </div>
-        )}
+        <OutlineDragWall editor={editor} stageColor={typeInfo.color} />
       </div>
 
       <div style={{ marginBottom: '20px' }}>
