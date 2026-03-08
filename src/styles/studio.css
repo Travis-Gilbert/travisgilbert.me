@@ -1763,6 +1763,26 @@
   background-size: 100% 32px;
 }
 
+/* Stage-scoped ruled line tinting: subtle hue shift per stage */
+.studio-page[data-stage="idea"] .studio-prose {
+  --studio-writing-ruled-line: rgba(154, 142, 130, 0.05);
+}
+.studio-page[data-stage="research"] .studio-prose {
+  --studio-writing-ruled-line: rgba(58, 138, 154, 0.04);
+}
+.studio-page[data-stage="drafting"] .studio-prose {
+  --studio-writing-ruled-line: rgba(212, 170, 74, 0.045);
+}
+.studio-page[data-stage="revising"] .studio-prose {
+  --studio-writing-ruled-line: rgba(138, 106, 154, 0.04);
+}
+.studio-page[data-stage="production"] .studio-prose {
+  --studio-writing-ruled-line: rgba(180, 90, 45, 0.05);
+}
+.studio-page[data-stage="published"] .studio-prose {
+  --studio-writing-ruled-line: rgba(106, 154, 90, 0.04);
+}
+
 .studio-prose::after {
   content: '';
   display: block;
