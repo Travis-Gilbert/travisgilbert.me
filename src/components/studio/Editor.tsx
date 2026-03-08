@@ -4,7 +4,7 @@ import { useState, useCallback, useEffect, useRef } from 'react';
 import type { CSSProperties } from 'react';
 import type { Editor as TiptapEditorType } from '@tiptap/react';
 import type { StudioContentItem } from '@/lib/studio';
-import { normalizeStudioContentType, getStage } from '@/lib/studio';
+import { normalizeStudioContentType, getStage, getContentTypeIdentity } from '@/lib/studio';
 import {
   saveContentItem,
   updateStage,
@@ -841,14 +841,6 @@ export default function Editor({
         <div className="studio-editor-header studio-editor-chrome">
           <div className="studio-editor-column">
             <div className="studio-editor-title-row">
-              <input
-                type="text"
-                value={currentTitle}
-                onChange={(e) => setCurrentTitle(e.target.value)}
-                placeholder="Untitled"
-                spellCheck={false}
-                className="studio-editor-title"
-              />
               <div className="studio-editor-title-actions">
                 <button
                   ref={readingToggleRef}
@@ -1028,10 +1020,6 @@ export default function Editor({
           </div>
         </div>
 
-        <div className="studio-editor-chrome">
-          <EditorToolbar editor={editor} />
-        </div>
-
         <div className="studio-mobile-editor-actions studio-editor-column">
           <button
             type="button"
@@ -1065,6 +1053,28 @@ export default function Editor({
           typewriterMode={typewriterMode}
           stage={stage}
           stageColor={getStage(stage).color}
+          titleZone={
+            <div className="studio-title-zone">
+              <div className="studio-title-meta">
+                <span style={{ color: getContentTypeIdentity(normalizedContentType).color }}>
+                  {getContentTypeIdentity(normalizedContentType).label}
+                </span>
+                {' / '}
+                <span style={{ color: getStage(stage).color }}>
+                  {getStage(stage).label}
+                </span>
+              </div>
+              <input
+                type="text"
+                value={currentTitle}
+                onChange={(e) => setCurrentTitle(e.target.value)}
+                placeholder="Untitled"
+                spellCheck={false}
+                className="studio-title-input"
+              />
+            </div>
+          }
+          toolbar={<EditorToolbar editor={editor} />}
         />
 
         {editor && (

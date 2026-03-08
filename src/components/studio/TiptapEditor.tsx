@@ -74,6 +74,8 @@ export default function TiptapEditor({
   placeholder: placeholderText = 'Start writing...',
   stage,
   stageColor,
+  titleZone,
+  toolbar,
 }: {
   initialContent?: string;
   initialContentFormat?: 'html' | 'markdown';
@@ -84,6 +86,8 @@ export default function TiptapEditor({
   placeholder?: string;
   stage?: string;
   stageColor?: string;
+  titleZone?: React.ReactNode;
+  toolbar?: React.ReactNode;
 }) {
   const wrapperRef = useRef<HTMLDivElement | null>(null);
   const typewriterFrameRef = useRef<number | null>(null);
@@ -504,6 +508,8 @@ export default function TiptapEditor({
       )}
       <div className="studio-page" data-stage={stage}>
         <div className="studio-margin-rule" />
+        {titleZone}
+        {toolbar}
         <EditorContent editor={editor} />
       </div>
       {wikiPopup.visible && (

@@ -1377,21 +1377,20 @@
   color: #F3CEC8;
 }
 
+/* Toolbar rail: sits inside the paper surface, not as chrome */
 .studio-toolbar {
-  padding: 10px 32px 6px;
+  position: relative;
+  z-index: 2;
+  border-top: 1px solid rgba(42, 36, 32, 0.10);
+  border-bottom: 1px solid rgba(42, 36, 32, 0.08);
+  background: rgba(42, 36, 32, 0.04);
+  padding: 4px 52px 4px 76px;
 }
 
 .studio-toolbar-inner {
-  width: var(--studio-editor-column-width);
-  margin: 0 auto;
-  padding: 8px 10px;
   display: flex;
   align-items: center;
   gap: 8px;
-  border-radius: 13px;
-  border: 1px solid var(--studio-toolbar-border);
-  background-color: var(--studio-toolbar-bg);
-  box-shadow: var(--studio-toolbar-shadow);
 }
 
 .studio-toolbar-group {
@@ -1406,18 +1405,19 @@
   background-color: rgba(125, 108, 93, 0.35);
 }
 
+/* Ghost-button style: transparent border with light border on hover */
 .studio-tool {
-  height: 30px;
-  min-width: 30px;
-  border-radius: 9px;
+  height: 28px;
+  min-width: 28px;
+  border-radius: 6px;
   border: 1px solid transparent;
   background: none;
-  color: #63574C;
-  padding: 0 8px;
+  color: var(--studio-writing-paper-text);
+  padding: 0 7px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 7px;
+  gap: 6px;
   font-size: 12px;
   font-weight: 600;
   line-height: 1;
@@ -1426,13 +1426,14 @@
 }
 
 .studio-tool:hover {
-  background-color: var(--studio-tool-bg-hover);
-  color: #30271F;
+  border-color: rgba(42, 36, 32, 0.12);
+  background-color: rgba(42, 36, 32, 0.06);
+  color: #2A2420;
 }
 
 .studio-tool--active {
-  border-color: var(--studio-tool-border-active);
-  background-color: var(--studio-tool-bg-active);
+  border-color: rgba(42, 36, 32, 0.18);
+  background-color: rgba(42, 36, 32, 0.08);
   color: #2A1F17;
 }
 
@@ -1461,16 +1462,16 @@
 .studio-toolbar-menu {
   position: absolute;
   right: 0;
-  top: calc(100% + 8px);
+  top: calc(100% + 6px);
   min-width: 188px;
   z-index: 8;
   padding: 7px;
-  border-radius: 12px;
-  border: 1px solid var(--studio-toolbar-border);
-  background-color: #EFE5DA;
+  border-radius: 8px;
+  border: 1px solid rgba(42, 36, 32, 0.12);
+  background-color: var(--studio-writing-paper-bg);
   box-shadow:
-    0 14px 24px rgba(24, 18, 13, 0.14),
-    0 2px 4px rgba(24, 18, 13, 0.12);
+    0 8px 18px rgba(20, 14, 8, 0.14),
+    0 2px 4px rgba(20, 14, 8, 0.10);
 }
 
 .studio-toolbar-menu .studio-tool {
@@ -1520,11 +1521,44 @@
     0 1px 2px rgba(34, 26, 19, 0.12);
 }
 
+/* Title zone: inside the paper, above toolbar rail */
+.studio-title-zone {
+  position: relative;
+  z-index: 2;
+  padding: 32px 52px 24px 76px;
+}
+
+.studio-title-meta {
+  font-family: var(--studio-font-mono);
+  font-size: 9px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--studio-writing-paper-muted);
+  margin-bottom: 8px;
+}
+
+.studio-title-input {
+  display: block;
+  width: 100%;
+  border: none;
+  background: transparent;
+  font-family: var(--studio-font-title), Georgia, serif;
+  font-weight: 700;
+  font-size: 27px;
+  color: var(--studio-writing-paper-text);
+  line-height: 1.25;
+  caret-color: #B45A2D;
+  outline: none;
+}
+
+.studio-title-input::placeholder {
+  color: rgba(42, 36, 32, 0.25);
+}
+
 .studio-page {
   position: relative;
-  width: var(--studio-editor-column-width);
+  width: min(100%, calc(72ch + 128px));
   margin: 32px auto;
-  padding: 64px;
   border-radius: 0 0 3px 3px;
   background-color: var(--studio-writing-paper-bg);
   box-shadow: var(--studio-writing-paper-shadow);
@@ -1571,7 +1605,7 @@
 
 /* Stage progress strip: colored bar above paper top edge */
 .studio-stage-strip {
-  width: var(--studio-editor-column-width);
+  width: min(100%, calc(72ch + 128px));
   margin: 0 auto;
   height: 2px;
   border-radius: 2px 2px 0 0;
@@ -1597,9 +1631,8 @@
   line-height: var(--studio-reading-line-height);
   letter-spacing: 0.002em;
   color: var(--studio-writing-paper-text);
-  max-width: 72ch;
   min-height: 400px;
-  margin: 0 auto;
+  padding: 28px 52px 64px 76px;
   outline: none;
   /* Faint ruled lines in writing body */
   background-image: linear-gradient(var(--studio-writing-ruled-line) 1px, transparent 1px);
@@ -1926,23 +1959,22 @@
   }
 
   .studio-toolbar {
-    padding: 8px 10px 4px;
+    padding: 4px 16px;
   }
 
   .studio-toolbar-inner {
-    padding: 7px;
-    gap: 6px;
+    gap: 4px;
     flex-wrap: wrap;
   }
 
   .studio-toolbar-group {
-    gap: 3px;
+    gap: 2px;
   }
 
   .studio-tool {
     height: 28px;
     min-width: 28px;
-    padding: 0 7px;
+    padding: 0 6px;
     border-radius: 8px;
     font-size: 11px;
   }
@@ -1962,14 +1994,26 @@
   }
 
   .studio-page {
-    margin: 20px auto;
-    padding: 24px;
-    border-radius: 12px;
+    margin: 12px auto;
+    border-radius: 0 0 8px 8px;
+  }
+
+  .studio-title-zone {
+    padding: 20px 20px 16px;
+  }
+
+  .studio-title-input {
+    font-size: 22px;
   }
 
   .studio-prose {
+    padding: 16px 20px 40px;
     font-size: var(--studio-reading-font-size);
     line-height: var(--studio-reading-line-height);
+  }
+
+  .studio-margin-rule {
+    display: none;
   }
 
   .studio-mobile-editor-actions {

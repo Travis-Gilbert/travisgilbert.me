@@ -14,8 +14,8 @@ type ToolbarItem = {
 };
 
 function fontFamilyForStyle(style?: 'title' | 'mono'): string {
-  if (style === 'title') return 'var(--studio-font-title)';
-  if (style === 'mono') return 'var(--studio-font-mono)';
+  if (style === 'title') return 'Georgia, serif';
+  if (style === 'mono') return "'JetBrains Mono', var(--studio-font-mono)";
   return 'var(--studio-font-body)';
 }
 
