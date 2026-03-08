@@ -71,7 +71,8 @@ def publish_essay(essay: Essay):
 
     if result["success"]:
         essay.draft = False
-        essay.save(update_fields=["draft", "updated_at"])
+        essay.stage = "published"
+        essay.save(update_fields=["draft", "stage", "updated_at"])
 
     return log
 
@@ -87,7 +88,8 @@ def publish_field_note(note: FieldNote):
 
     if result["success"]:
         note.draft = False
-        note.save(update_fields=["draft", "updated_at"])
+        note.stage = "published"
+        note.save(update_fields=["draft", "stage", "updated_at"])
 
     return log
 
@@ -114,7 +116,8 @@ def publish_project(project: Project):
 
     if result["success"]:
         project.draft = False
-        project.save(update_fields=["draft", "updated_at"])
+        project.stage = "published"
+        project.save(update_fields=["draft", "stage", "updated_at"])
 
     return log
 

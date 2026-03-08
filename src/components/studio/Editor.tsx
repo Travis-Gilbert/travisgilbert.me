@@ -8,7 +8,7 @@ import { normalizeStudioContentType, getStage, getContentTypeIdentity } from '@/
 import {
   saveContentItem,
   updateStage,
-  publishContentItem,
+  publishContent,
   fetchStash,
   createStashItem,
   deleteStashItem,
@@ -630,9 +630,15 @@ export default function Editor({
       excerpt: excerptFromContent(serializedBody),
       tags: contentItemRef.current?.tags ?? [],
     });
-    const published = await publishContentItem(normalizedContentType, slug);
-    setStage(published.stage);
-    setLastSaved(formatSavedTime(published.updatedAt));
+
+    const result = await publishContent(normalizedContentType, slug);
+
+    if (result.success) {
+      setStage('published');
+      setLastSaved(formatSavedTime(new Date().toISOString()));
+    } else {
+      console.error('Publish failed:', result.error);
+    }
   }, [currentBody, currentTitle, editor, normalizedContentType, slug]);
 
   const handleStash = useCallback(

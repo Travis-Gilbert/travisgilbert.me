@@ -1167,12 +1167,13 @@ export async function publishContent(
   slug: string,
 ): Promise<PublishResult> {
   try {
+    const apiType = toStudioApiContentType(contentType);
     const data = await studioFetch<{
       success: boolean;
       commit_sha: string;
       commit_url: string;
       error: string;
-    }>(`/content/${contentType}/${slug}/publish/`, {
+    }>(`/content/${apiType}/${slug}/publish/`, {
       method: 'POST',
       body: JSON.stringify({}),
     });
