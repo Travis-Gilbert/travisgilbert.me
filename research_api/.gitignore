@@ -9,3 +9,4 @@ venv/
 .venv/
 staticfiles/
 media/
+refs/

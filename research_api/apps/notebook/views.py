@@ -15,16 +15,14 @@ Custom endpoints:
   GET  /export/notebook/<slug>/  JSON archive export (Task 22)
 """
 
-import random
+from collections import OrderedDict
 from datetime import timedelta
 
-from django.db.models import Count, F, Max, Q, Value
-from django.db.models.functions import Coalesce
+from django.db.models import Count, Q
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
 from rest_framework import mixins, serializers, status, viewsets
 from rest_framework.decorators import action, api_view
-from rest_framework.pagination import PageNumberPagination
 from rest_framework.response import Response
 
 from .models import (
@@ -62,6 +60,28 @@ from .serializers import (
     RetrospectiveNoteSerializer,
     TimelineSerializer,
 )
+
+
+# ---------------------------------------------------------------------------
+# Node icon mapping (Phase 6)
+# ---------------------------------------------------------------------------
+
+NODE_ICONS = {
+    'creation': 'plus',
+    'deletion': 'trash',
+    'modification': 'edit',
+    'connection': 'link',
+    'project_created': 'folder',
+    'project_completed': 'check-circle',
+    'reminder_set': 'bell',
+    'reminder_fired': 'bell-ring',
+    'reminder_dismissed': 'bell-off',
+    'recurring_date': 'repeat',
+    'capture': 'download',
+    'retrospective': 'message-circle',
+    'status_change': 'toggle-right',
+    'component_trigger': 'zap',
+}
 
 
 # ---------------------------------------------------------------------------
@@ -134,6 +154,11 @@ class ObjectViewSet(viewsets.ModelViewSet):
     def get_queryset(self):
         qs = Object.objects.select_related('object_type', 'notebook', 'project')
 
+        # Soft-delete filter: exclude deleted Objects unless admin override
+        include_deleted = self.request.query_params.get('include_deleted') == 'true'
+        if not include_deleted:
+            qs = qs.filter(is_deleted=False)
+
         if self.action == 'list':
             qs = qs.annotate(
                 edge_count=Count('edges_out', distinct=True) + Count('edges_in', distinct=True),
@@ -170,6 +195,51 @@ class ObjectViewSet(viewsets.ModelViewSet):
             qs = qs.filter(search_text__icontains=search)
 
         return qs.order_by('-is_pinned', '-captured_at')
+
+    def perform_update(self, serializer):
+        """Save the Object and create an explicit modification Node."""
+        from .models import Node
+        from .signals import _get_master_timeline
+
+        old_obj = self.get_object()
+        instance = serializer.save()
+
+        # Determine which fields actually changed
+        changed = []
+        for field in ('title', 'body', 'status', 'is_pinned', 'is_starred'):
+            if getattr(old_obj, field) != getattr(instance, field):
+                changed.append(field)
+
+        if changed:
+            timeline = _get_master_timeline()
+            Node.objects.create(
+                node_type='modification',
+                title=f'Updated: {instance.display_title[:80]}',
+                body=f'Changed fields: {", ".join(changed)}',
+                object_ref=instance,
+                timeline=timeline,
+            )
+
+    @action(detail=True, methods=['post'], url_path='delete')
+    def soft_delete(self, request, slug=None):
+        """Soft-delete an Object: sets is_deleted=True and creates a deletion Node."""
+        from .models import Node
+        from .signals import _get_master_timeline
+
+        obj = self.get_object()
+        obj.is_deleted = True
+        obj.save(update_fields=['is_deleted', 'updated_at'])
+
+        timeline = _get_master_timeline()
+        Node.objects.create(
+            node_type='deletion',
+            title=f'Deleted: {obj.display_title[:80]}',
+            body=f'Object "{obj.title}" (type: {getattr(obj.object_type, "name", "unknown")}) was soft-deleted.',
+            object_ref=obj,
+            timeline=timeline,
+        )
+
+        return Response({'detail': 'Object soft-deleted.'}, status=status.HTTP_200_OK)
 
 
 # ---------------------------------------------------------------------------
@@ -384,6 +454,53 @@ class ProjectViewSet(viewsets.ModelViewSet):
 
         return qs.order_by('-pk')
 
+    @action(detail=True, methods=['post'], url_path='fork')
+    def fork(self, request, slug=None):
+        """Deep-copy a project and all its objects.
+
+        Records parent_sha for lineage tracking and creates
+        a PROJECT_CREATED Node on the master Timeline.
+        """
+        source = self.get_object()
+        new_name = request.data.get('name', f'{source.name} (fork)')
+
+        forked = Project.objects.create(
+            name=new_name,
+            notebook=source.notebook,
+            description=source.description,
+            status='active',
+            parent_sha=source.sha_hash,
+            mode=source.mode,
+            settings_override=source.settings_override or {},
+        )
+
+        # Deep-copy all objects in the source project
+        source_objects = Object.objects.filter(
+            project=source, is_deleted=False,
+        )
+        for obj in source_objects:
+            obj.pk = None
+            obj.sha_hash = ''
+            obj.slug = ''
+            obj.project = forked
+            obj.save()
+
+        # Record the fork on the master Timeline
+        timeline = Timeline.objects.filter(is_master=True).first()
+        if timeline:
+            Node.objects.create(
+                node_type='project_created',
+                title=f'Project forked: {forked.name}',
+                body=f'Forked from "{source.name}" (SHA: {source.sha_hash[:12]})',
+                project_ref=forked,
+                timeline=timeline,
+            )
+
+        return Response(
+            ProjectDetailSerializer(forked).data,
+            status=status.HTTP_201_CREATED,
+        )
+
 
 # ---------------------------------------------------------------------------
 # Timeline (read-only)
@@ -443,8 +560,21 @@ class DailyLogViewSet(
 # Task 17-18: QuickCapture + URL auto-parse
 # ---------------------------------------------------------------------------
 
+class CaptureInputSerializer(serializers.Serializer):
+    """Input for the capture endpoint (replaces QuickCaptureSerializer)."""
+    content = serializers.CharField(required=True, help_text='Text body or URL')
+    hint_type = serializers.SlugField(
+        required=False, default='', allow_blank=True,
+        help_text='Optional object type slug hint (e.g. "hunch", "source")',
+    )
+    notebook_slug = serializers.SlugField(required=False, default='', allow_blank=True)
+    project_slug = serializers.SlugField(required=False, default='', allow_blank=True)
+    title = serializers.CharField(required=False, default='', allow_blank=True)
+
+
+# Keep legacy serializer for backward compatibility
 class QuickCaptureSerializer(serializers.Serializer):
-    """Input for the QuickCapture endpoint."""
+    """Legacy input format (mounted at /capture/legacy/)."""
     body = serializers.CharField(required=False, default='', allow_blank=True)
     url = serializers.URLField(required=False, default='', allow_blank=True)
     title = serializers.CharField(required=False, default='', allow_blank=True)
@@ -460,17 +590,67 @@ class QuickCaptureSerializer(serializers.Serializer):
         return attrs
 
 
+def _infer_type(content: str, hint_type: str) -> str:
+    """Determine object type slug from content and optional hint."""
+    if hint_type:
+        return hint_type
+    # URL detection
+    content_stripped = content.strip()
+    if content_stripped.startswith(('http://', 'https://', 'www.')):
+        return 'source'
+    return 'note'
+
+
 @api_view(['POST'])
 def quick_capture_view(request):
     """
     POST /api/v1/notebook/capture/
 
-    Create an Object from raw input. Auto-detects type:
-      URL provided -> Source
-      Text only    -> Note
+    Create an Object from raw input with type inference.
 
-    Returns the created Object with its creation Node.
+    Input: {content, hint_type?, notebook_slug?, project_slug?, title?}
+    Returns: {object, inferred_type, creation_node}
     """
+    serializer = CaptureInputSerializer(data=request.data)
+    serializer.is_valid(raise_exception=True)
+    data = serializer.validated_data
+
+    content = data['content']
+    inferred_type = _infer_type(content, data['hint_type'])
+
+    # Determine body vs URL based on inferred type
+    is_url = inferred_type == 'source' or content.strip().startswith(('http://', 'https://'))
+    body = '' if is_url else content
+    url = content.strip() if is_url else ''
+
+    from .services import quick_capture
+
+    obj = quick_capture(
+        body=body,
+        url=url,
+        title=data['title'],
+        object_type_slug=inferred_type,
+        notebook_slug=data['notebook_slug'],
+        project_slug=data['project_slug'],
+    )
+
+    # Return created Object with detail serializer
+    detail = ObjectDetailSerializer(obj).data
+
+    # Include the creation Node if one exists
+    creation_node = obj.timeline_nodes.filter(node_type='creation').first()
+    node_data = NodeListSerializer(creation_node).data if creation_node else None
+
+    return Response({
+        'object': detail,
+        'inferred_type': inferred_type,
+        'creation_node': node_data,
+    }, status=status.HTTP_201_CREATED)
+
+
+@api_view(['POST'])
+def quick_capture_legacy_view(request):
+    """Legacy capture endpoint at /api/v1/notebook/capture/legacy/."""
     serializer = QuickCaptureSerializer(data=request.data)
     serializer.is_valid(raise_exception=True)
     data = serializer.validated_data
@@ -486,10 +666,7 @@ def quick_capture_view(request):
         project_slug=data['project'],
     )
 
-    # Return created Object with detail serializer
     detail = ObjectDetailSerializer(obj).data
-
-    # Include the creation Node if one exists
     creation_node = obj.timeline_nodes.filter(node_type='creation').first()
     node_data = NodeListSerializer(creation_node).data if creation_node else None
 
@@ -503,18 +680,14 @@ def quick_capture_view(request):
 # Task 19: Timeline feed (paginated, filterable)
 # ---------------------------------------------------------------------------
 
-class TimelineFeedPagination(PageNumberPagination):
-    page_size = 50
-    page_size_query_param = 'page_size'
-    max_page_size = 200
-
-
 @api_view(['GET'])
 def timeline_feed_view(request):
     """
     GET /api/v1/notebook/feed/
 
-    Paginated list of Nodes (timeline events).
+    Day-grouped paginated timeline feed.
+
+    Response: {days: [{date, nodes}], total, page, per_page, has_next}
 
     Filters:
       ?timeline=<slug>    Filter by Timeline
@@ -524,9 +697,14 @@ def timeline_feed_view(request):
       ?date_to=<iso>      Nodes before this date
       ?notebook=<slug>    Nodes whose object_ref belongs to this Notebook
       ?project=<slug>     Nodes whose object_ref belongs to this Project
+
+    Pagination:
+      ?page=1&per_page=50 (max 200)
     """
     qs = Node.objects.select_related(
         'object_ref', 'object_ref__object_type', 'timeline',
+    ).filter(
+        object_ref__is_deleted=False,
     ).order_by('-occurred_at')
 
     # Filters
@@ -538,9 +716,9 @@ def timeline_feed_view(request):
     if node_type:
         qs = qs.filter(node_type=node_type)
 
-    object_type = request.query_params.get('object_type')
-    if object_type:
-        qs = qs.filter(object_ref__object_type__slug=object_type)
+    object_type_slug = request.query_params.get('object_type')
+    if object_type_slug:
+        qs = qs.filter(object_ref__object_type__slug=object_type_slug)
 
     date_from = request.query_params.get('date_from')
     if date_from:
@@ -558,29 +736,79 @@ def timeline_feed_view(request):
     if project_slug:
         qs = qs.filter(object_ref__project__slug=project_slug)
 
-    paginator = TimelineFeedPagination()
-    page = paginator.paginate_queryset(qs, request)
-    serializer = NodeListSerializer(page, many=True)
-    return paginator.get_paginated_response(serializer.data)
+    # Pagination
+    per_page = min(int(request.query_params.get('per_page', 50)), 200)
+    page = max(int(request.query_params.get('page', 1)), 1)
+    total = qs.count()
+    offset = (page - 1) * per_page
+    page_nodes = list(qs[offset:offset + per_page])
+
+    # Group by date
+    days = OrderedDict()
+
+    for node in page_nodes:
+        date_str = node.occurred_at.strftime('%Y-%m-%d')
+        if date_str not in days:
+            days[date_str] = []
+
+        obj = node.object_ref
+        obj_type = obj.object_type if obj else None
+
+        retro = node.retrospective_notes or []
+        latest_retro = retro[-1] if retro else None
+
+        days[date_str].append({
+            'id': f'node:{node.pk}',
+            'node_type': node.node_type,
+            'icon': NODE_ICONS.get(node.node_type, 'circle'),
+            'object_type': obj_type.slug if obj_type else None,
+            'object_type_color': obj_type.color if obj_type else '#9A8E82',
+            'title': node.title,
+            'body': node.body,
+            'timestamp': node.occurred_at.isoformat(),
+            'has_retrospective': bool(retro),
+            'retrospective': {
+                'text': latest_retro['text'],
+                'written_at': latest_retro['created_at'],
+            } if latest_retro else None,
+            'object_id': f'object:{obj.pk}' if obj else None,
+        })
+
+    return Response({
+        'days': [{'date': d, 'nodes': n} for d, n in days.items()],
+        'total': total,
+        'page': page,
+        'per_page': per_page,
+        'has_next': (offset + per_page) < total,
+    })
 
 
 # ---------------------------------------------------------------------------
 # Task 20: Graph data (Objects + Edges for D3)
 # ---------------------------------------------------------------------------
 
+BASE_NODE_SIZE = 12
+MAX_NODE_SIZE = 48
+
+
 @api_view(['GET'])
 def graph_data_view(request):
     """
     GET /api/v1/notebook/graph/
 
-    Returns {objects, edges, meta} for a D3 force-directed graph.
+    Returns {nodes, edges, meta} for a D3 force-directed graph.
+
+    Node IDs are prefixed strings: "object:<pk>".
+    Node size is computed from body length and edge count.
 
     Filters:
       ?notebook=<slug>
       ?project=<slug>
       ?type=<object_type_slug>
     """
-    obj_qs = Object.objects.select_related('object_type').annotate(
+    obj_qs = Object.objects.select_related('object_type').filter(
+        is_deleted=False,
+    ).annotate(
         edge_count=Count('edges_out', distinct=True) + Count('edges_in', distinct=True),
     )
 
@@ -597,7 +825,7 @@ def graph_data_view(request):
     if object_type:
         obj_qs = obj_qs.filter(object_type__slug=object_type)
 
-    objects = []
+    nodes = []
     obj_ids = set()
     type_counts = {}
 
@@ -606,14 +834,20 @@ def graph_data_view(request):
         type_slug = obj.object_type.slug if obj.object_type else 'unknown'
         type_counts[type_slug] = type_counts.get(type_slug, 0) + 1
 
-        objects.append({
-            'id': obj.id,
+        body_len = len(obj.body or '')
+        ec = obj.edge_count or 0
+        size = min(MAX_NODE_SIZE, BASE_NODE_SIZE + body_len / 200 + ec * 2)
+
+        nodes.append({
+            'id': f'object:{obj.id}',
             'title': obj.display_title,
             'slug': obj.slug,
+            'body_preview': (obj.body or '')[:80],
             'object_type': type_slug,
             'object_type_color': obj.object_type.color if obj.object_type else '',
             'object_type_icon': obj.object_type.icon if obj.object_type else '',
-            'edge_count': obj.edge_count,
+            'edge_count': ec,
+            'size': round(size, 1),
             'status': obj.status,
         })
 
@@ -626,19 +860,19 @@ def graph_data_view(request):
     edges = []
     for edge in edge_qs:
         edges.append({
-            'id': edge.id,
-            'source': edge.from_object_id,
-            'target': edge.to_object_id,
+            'id': f'edge:{edge.id}',
+            'source': f'object:{edge.from_object_id}',
+            'target': f'object:{edge.to_object_id}',
             'edge_type': edge.edge_type,
             'strength': float(edge.strength) if edge.strength else 0.0,
             'reason': edge.reason,
         })
 
     return Response({
-        'objects': objects,
+        'nodes': nodes,
         'edges': edges,
         'meta': {
-            'object_count': len(objects),
+            'node_count': len(nodes),
             'edge_count': len(edges),
             'type_distribution': type_counts,
         },
@@ -654,136 +888,134 @@ def resurface_view(request):
     """
     GET /api/v1/notebook/resurface/
 
-    Returns 1-5 Objects selected for serendipitous rediscovery.
+    Returns {cards: [{object, signal, signal_label, explanation, score, actions}]}
 
-    Weighted multi-signal scoring:
-      Connection Recency  (0.30): Edge created recently to old Object
-      Orphan Score        (0.25): Few/no connections boost
-      Engagement Decay    (0.20): Not updated recently = boosted
-      Temporal Resonance  (0.15): "This day" in history + seasonal
-      Contextual Fit      (0.10): Current notebook/project relevance
-
-    Params:
-      ?count=<1-5>     Number of Objects to return (default 3)
-      ?notebook=<slug> Scope to Notebook
-      ?project=<slug>  Scope to Project
-      ?exclude=<ids>   Comma-separated IDs to exclude
+    Params: ?count=<1-5>, ?notebook=<slug>, ?project=<slug>, ?exclude=<ids>
     """
+    from .resurface import score_candidates
+    from .serializers import ObjectDetailSerializer
+
     count = min(int(request.query_params.get('count', 3)), 5)
-    now = timezone.now()
-
-    qs = Object.objects.select_related('object_type').filter(status='active')
-
     notebook_slug = request.query_params.get('notebook')
-    if notebook_slug:
-        qs = qs.filter(notebook__slug=notebook_slug)
-
     project_slug = request.query_params.get('project')
-    if project_slug:
-        qs = qs.filter(project__slug=project_slug)
 
     exclude_str = request.query_params.get('exclude', '')
-    if exclude_str:
-        exclude_ids = [int(x) for x in exclude_str.split(',') if x.strip().isdigit()]
-        qs = qs.exclude(id__in=exclude_ids)
+    exclude_ids = [int(x) for x in exclude_str.split(',') if x.strip().isdigit()]
 
-    # Annotate with edge count and latest edge date
-    qs = qs.annotate(
-        edge_count=Count('edges_out', distinct=True) + Count('edges_in', distinct=True),
-        latest_edge_at=Coalesce(
-            Max('edges_out__created_at'),
-            Max('edges_in__created_at'),
-            Value(None),
-        ),
-    )
+    qs = Object.objects.filter(
+        status='active', is_deleted=False
+    ).select_related('object_type', 'notebook', 'project')
 
-    candidates = list(qs[:500])  # Cap candidates
+    if notebook_slug:
+        qs = qs.filter(notebook__slug=notebook_slug)
+    if project_slug:
+        qs = qs.filter(project__slug=project_slug)
+    if exclude_ids:
+        qs = qs.exclude(pk__in=exclude_ids)
 
-    if not candidates:
-        return Response({'objects': [], 'meta': {'count': 0}})
+    candidates = score_candidates(qs[:500], notebook_slug=notebook_slug, project_slug=project_slug)
+    top = candidates[:count]
 
-    scored = []
-    for obj in candidates:
-        score = 0.0
-        reasons = []
+    obj_map = {
+        o.pk: o
+        for o in Object.objects.filter(
+            pk__in=[c['object_id'] for c in top]
+        ).select_related('object_type')
+    }
 
-        # --- Connection Recency (0.30) ---
-        # Boost old Objects that got a recent edge
-        if obj.latest_edge_at:
-            edge_age_days = (now - obj.latest_edge_at).days
-            obj_age_days = (now - obj.captured_at).days if obj.captured_at else 365
-            if edge_age_days < 14 and obj_age_days > 30:
-                recency = 0.30 * max(0, 1.0 - edge_age_days / 14)
-                score += recency
-                reasons.append('Recently connected to something new')
-
-        # --- Orphan Score (0.25) ---
-        ec = obj.edge_count or 0
-        if ec == 0:
-            score += 0.25
-            reasons.append('No connections yet: ripe for discovery')
-        elif ec <= 2:
-            score += 0.15
-            reasons.append('Lightly connected: could use more links')
-
-        # --- Engagement Decay (0.20) ---
-        days_since_update = (now - obj.updated_at).days if obj.updated_at else 365
-        if days_since_update > 30:
-            decay = min(0.20, 0.20 * (days_since_update / 180))
-            score += decay
-            reasons.append(f'Untouched for {days_since_update} days')
-
-        # --- Temporal Resonance (0.15) ---
-        if obj.captured_at:
-            same_day = (
-                obj.captured_at.month == now.month
-                and obj.captured_at.day == now.day
-                and obj.captured_at.year != now.year
-            )
-            if same_day:
-                score += 0.15
-                years_ago = now.year - obj.captured_at.year
-                reasons.append(f'Captured on this day {years_ago} year(s) ago')
-            elif abs(obj.captured_at.month - now.month) <= 1:
-                score += 0.05
-                reasons.append('Captured around this time of year')
-
-        # --- Contextual Fit (0.10) ---
-        # Boost Objects in the requested notebook/project scope
-        if notebook_slug and obj.notebook and obj.notebook.slug == notebook_slug:
-            score += 0.10
-            reasons.append('Relevant to your current notebook')
-        elif project_slug and obj.project and obj.project.slug == project_slug:
-            score += 0.10
-            reasons.append('Part of your current project')
-
-        # Small randomness to prevent stale results
-        score += random.uniform(0, 0.05)
-
-        scored.append((score, reasons, obj))
-
-    # Sort by score descending, take top N
-    scored.sort(key=lambda x: x[0], reverse=True)
-    top = scored[:count]
-
-    results = []
-    for score, reasons, obj in top:
-        results.append({
-            'id': obj.id,
-            'title': obj.display_title,
-            'slug': obj.slug,
-            'object_type': obj.object_type.slug if obj.object_type else '',
-            'object_type_color': obj.object_type.color if obj.object_type else '',
-            'status': obj.status,
-            'captured_at': obj.captured_at.isoformat() if obj.captured_at else None,
-            'score': round(score, 3),
-            'why_this': '. '.join(reasons) if reasons else 'Random selection',
+    cards = []
+    for c in top:
+        obj = obj_map.get(c['object_id'])
+        if not obj:
+            continue
+        cards.append({
+            'object': ObjectDetailSerializer(obj).data,
+            'signal': c['signal'],
+            'signal_label': c['signal_label'],
+            'explanation': c['explanation'],
+            'score': round(c['score'], 3),
+            'actions': ['add_note', 'connect', 'dismiss'],
         })
 
-    return Response({
-        'objects': results,
-        'meta': {'count': len(results)},
-    })
+    return Response({'cards': cards, 'meta': {'count': len(cards)}})
+
+
+@api_view(['POST'])
+def resurface_dismiss_view(request):
+    """POST /api/v1/notebook/resurface/dismiss/ - Mark object as dismissed for this cycle."""
+    # For now: no-op (frontend stores dismissals in state/localStorage).
+    # Future: write to a DismissedObject model with expiry.
+    return Response({'detail': 'Dismissed.'})
+
+
+@api_view(['GET', 'PATCH'])
+def notebook_engine_config_view(request, slug):
+    """
+    GET/PATCH /api/v1/notebook/notebooks/<slug>/engine-config/
+
+    GET: returns current engine_config and resolved novelty value
+    PATCH: accepts {"novelty": 0.0-1.0} and updates engine_config
+    """
+    from .engine import interpolate_config
+
+    notebook = get_object_or_404(Notebook, slug=slug)
+
+    if request.method == 'GET':
+        current_novelty = (notebook.engine_config or {}).get('novelty', 0.3)
+        return Response({
+            'engine_config': notebook.engine_config,
+            'novelty': current_novelty,
+            'resolved_config': interpolate_config(current_novelty),
+        })
+
+    # PATCH
+    novelty = request.data.get('novelty')
+    if novelty is None or not (0.0 <= float(novelty) <= 1.0):
+        return Response(
+            {'error': 'novelty must be a float between 0.0 and 1.0'},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+    novelty = float(novelty)
+    config = interpolate_config(novelty)
+    config['novelty'] = novelty
+    notebook.engine_config = config
+    notebook.save(update_fields=['engine_config', 'updated_at'])
+    return Response({'novelty': novelty, 'engine_config': config})
+
+
+@api_view(['POST'])
+def object_connect_view(request, slug):
+    """
+    POST /api/v1/notebook/objects/<slug>/connect/
+
+    Manually connect two Objects. Body: {target_slug, edge_type?, reason?}
+    """
+    obj = get_object_or_404(Object, slug=slug, is_deleted=False)
+    target_slug = request.data.get('target_slug')
+    if not target_slug:
+        return Response(
+            {'detail': 'target_slug is required.'},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+    target = get_object_or_404(Object, slug=target_slug, is_deleted=False)
+
+    edge, created = Edge.objects.get_or_create(
+        from_object=obj,
+        to_object=target,
+        defaults={
+            'edge_type': request.data.get('edge_type', 'related'),
+            'reason': request.data.get('reason', ''),
+            'strength': 0.5,
+            'is_auto': False,
+            'engine': 'manual',
+        },
+    )
+
+    from .serializers import EdgeSerializer
+    return Response(
+        EdgeSerializer(edge).data,
+        status=status.HTTP_201_CREATED if created else status.HTTP_200_OK,
+    )
 
 
 # ---------------------------------------------------------------------------

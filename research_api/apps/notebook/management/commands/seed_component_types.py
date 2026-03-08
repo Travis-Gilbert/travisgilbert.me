@@ -88,11 +88,25 @@ BUILT_IN_TYPES = [
         'triggers_node': False,
         'sort_order': 10,
     },
+    {
+        'name': 'Author',
+        'slug': 'author',
+        'data_type': 'text',
+        'triggers_node': False,
+        'sort_order': 11,
+    },
+    {
+        'name': 'History',
+        'slug': 'history',
+        'data_type': 'history',
+        'triggers_node': False,
+        'sort_order': 12,
+    },
 ]
 
 
 class Command(BaseCommand):
-    help = 'Create or update the 11 built-in ComponentTypes for CommonPlace.'
+    help = 'Create or update the 13 built-in ComponentTypes for CommonPlace.'
 
     def handle(self, *args, **options):
         created_count = 0

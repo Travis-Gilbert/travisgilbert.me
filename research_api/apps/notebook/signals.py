@@ -17,7 +17,7 @@ DailyLog recording is preserved for all Object/Edge/Entity activity.
 
 import logging
 
-from django.db.models.signals import post_delete, post_save
+from django.db.models.signals import post_save
 from django.dispatch import receiver
 from django.utils import timezone
 
@@ -40,16 +40,22 @@ def _get_master_timeline():
 
 @receiver(post_save, sender='notebook.Object')
 def create_object_node(sender, instance, created, **kwargs):
-    """Create a Node on the master Timeline when an Object is created or updated."""
+    """Create a creation Node on the master Timeline when an Object is first created.
+
+    Modification Nodes are created explicitly via ObjectViewSet.perform_update(),
+    not from this signal, to avoid noise from engine saves and internal updates.
+    Deletion Nodes are created via the soft_delete ViewSet action.
+    """
     from .models import Node
 
-    # Skip if called during raw SQL or fixture loading
+    # Skip raw SQL, fixture loading, or soft-deleted Objects
     if kwargs.get('raw', False):
         return
-
-    timeline = _get_master_timeline()
+    if instance.is_deleted:
+        return
 
     if created:
+        timeline = _get_master_timeline()
         Node.objects.create(
             node_type='creation',
             title=f'Created: {instance.display_title[:80]}',
@@ -57,31 +63,6 @@ def create_object_node(sender, instance, created, **kwargs):
             timeline=timeline,
         )
         logger.debug('Created creation Node for Object %s', instance.pk)
-    else:
-        # Only log modification if not just created (avoids double-fire)
-        Node.objects.create(
-            node_type='modification',
-            title=f'Updated: {instance.display_title[:80]}',
-            object_ref=instance,
-            timeline=timeline,
-        )
-        logger.debug('Created modification Node for Object %s', instance.pk)
-
-
-@receiver(post_delete, sender='notebook.Object')
-def create_deletion_node(sender, instance, **kwargs):
-    """Create a Node when an Object is deleted."""
-    from .models import Node
-
-    timeline = _get_master_timeline()
-    Node.objects.create(
-        node_type='deletion',
-        title=f'Deleted: {instance.display_title[:80]}',
-        body=f'Object "{instance.title}" (type: {getattr(instance.object_type, "name", "unknown")}) was deleted.',
-        timeline=timeline,
-        # object_ref intentionally left null since the Object no longer exists
-    )
-    logger.debug('Created deletion Node for former Object "%s"', instance.title[:40])
 
 
 # ---------------------------------------------------------------------------
@@ -194,10 +175,21 @@ def component_trigger_node(sender, instance, created, **kwargs):
 
 @receiver(post_save, sender='notebook.Object')
 def log_object_activity(sender, instance, created, **kwargs):
-    """Record object creation or update in today's DailyLog."""
+    """Record object creation or update in today's DailyLog.
+
+    Skips engine-driven saves (e.g. enrich_url, auto_objectify) to avoid
+    noisy DailyLog entries that the user did not initiate.
+    """
     from .models import DailyLog
 
     if kwargs.get('raw', False):
+        return
+
+    # Skip internal engine saves: auto-created objects and enrichment updates
+    update_fields = kwargs.get('update_fields')
+    if not created and update_fields and 'search_text' in update_fields:
+        return
+    if not created and instance.capture_method == 'auto':
         return
 
     today = timezone.localdate()

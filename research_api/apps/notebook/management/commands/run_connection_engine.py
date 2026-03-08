@@ -35,6 +35,11 @@ class Command(BaseCommand):
             help='Scope to a Notebook slug and use its engine config.',
         )
         parser.add_argument(
+            '--limit',
+            type=int,
+            help='Maximum number of Objects to process.',
+        )
+        parser.add_argument(
             '--dry-run',
             action='store_true',
             help='Preview which Objects would be processed without running the engine.',
@@ -59,15 +64,18 @@ class Command(BaseCommand):
                 raise CommandError(f'Object with pk={options["object"]} not found.')
             objects = [obj]
         elif options['all']:
-            qs = Object.objects.all()
+            qs = Object.objects.filter(is_deleted=False)
             if notebook:
                 qs = qs.filter(notebook=notebook)
             objects = list(qs.order_by('-captured_at'))
         else:
-            qs = Object.objects.filter(status='active')
+            qs = Object.objects.filter(status='active', is_deleted=False)
             if notebook:
                 qs = qs.filter(notebook=notebook)
             objects = list(qs.order_by('-captured_at'))
+
+        if options['limit']:
+            objects = objects[:options['limit']]
 
         if not objects:
             self.stdout.write('No Objects to process.')

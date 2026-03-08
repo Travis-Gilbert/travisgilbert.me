@@ -71,6 +71,41 @@ DEFAULT_ENGINE_CONFIG = {
     'max_candidates': 500,
 }
 
+HIGH_NOVELTY_CONFIG = {
+    'engines': ['spacy', 'sbert'],
+    'topic_threshold': 0.10,
+    'max_candidates': 1000,
+    'sbert_threshold': 0.40,
+    'entity_types': [
+        'PERSON', 'ORG', 'GPE', 'LOC', 'EVENT', 'WORK_OF_ART', 'DATE',
+    ],
+}
+
+
+def interpolate_config(novelty: float) -> dict:
+    """
+    Interpolate between conservative and aggressive engine configs.
+    novelty: float 0.0 (conservative) to 1.0 (aggressive)
+    """
+    conservative = DEFAULT_ENGINE_CONFIG
+    aggressive = HIGH_NOVELTY_CONFIG
+    return {
+        'engines': aggressive['engines'] if novelty > 0.5 else conservative['engines'],
+        'topic_threshold': (
+            conservative['topic_threshold']
+            - (conservative['topic_threshold'] - aggressive['topic_threshold']) * novelty
+        ),
+        'max_candidates': int(
+            conservative['max_candidates']
+            + (aggressive['max_candidates'] - conservative['max_candidates']) * novelty
+        ),
+        'entity_types': (
+            aggressive['entity_types']
+            if novelty > 0.3
+            else conservative.get('entity_types', aggressive['entity_types'])
+        ),
+    }
+
 
 # ---------------------------------------------------------------------------
 # Engine configuration (Task 10)
@@ -239,6 +274,7 @@ def find_shared_entity_connections(obj: Object, config: dict | None = None) -> l
             .filter(
                 normalized_text=entity.normalized_text,
                 entity_type=entity.entity_type,
+                source_object__is_deleted=False,
             )
             .exclude(source_object=obj)
             .select_related('source_object')
@@ -246,14 +282,18 @@ def find_shared_entity_connections(obj: Object, config: dict | None = None) -> l
 
         for sibling in siblings:
             other_obj = sibling.source_object
+            type_label = {
+                'PERSON': 'person', 'ORG': 'organization', 'GPE': 'place',
+                'LOC': 'location', 'EVENT': 'event', 'WORK_OF_ART': 'work',
+            }.get(entity.entity_type, entity.entity_type.lower())
+
             edge, created = Edge.objects.get_or_create(
                 from_object=obj,
                 to_object=other_obj,
                 edge_type='shared_entity',
                 defaults={
                     'reason': (
-                        f'Both notes reference {entity.text} '
-                        f'({entity.entity_type.lower()}).'
+                        f'Both mention {entity.text}, the same {type_label}.'
                     ),
                     'strength': 0.6,
                     'is_auto': True,
@@ -269,6 +309,27 @@ def find_shared_entity_connections(obj: Object, config: dict | None = None) -> l
 # ---------------------------------------------------------------------------
 # Pass 3: Topic similarity
 # ---------------------------------------------------------------------------
+
+def _synthesize_topic_reason(my_keywords: set, other_keywords: set, obj_a, obj_b) -> str:
+    """
+    Generate a plain-English explanation of why two Objects are connected.
+    Uses keyword overlap to infer the conceptual link.
+    """
+    overlap = my_keywords & other_keywords
+    top = sorted(overlap, key=len, reverse=True)[:4]  # Prefer longer, more specific words
+
+    type_a = obj_a.object_type.name if obj_a.object_type else 'note'
+    type_b = obj_b.object_type.name if obj_b.object_type else 'note'
+
+    if not top:
+        return f'These two {type_a.lower()}s share thematic content.'
+
+    if len(top) == 1:
+        return f'Both {type_a.lower()}s discuss {top[0]}.'
+
+    concept_str = ', '.join(top[:-1]) + f' and {top[-1]}'
+    return f'Both explore {concept_str}.'
+
 
 def find_topic_connections(
     obj: Object,
@@ -293,6 +354,7 @@ def find_topic_connections(
 
     candidates = (
         Object.objects
+        .filter(is_deleted=False)
         .exclude(pk=obj.pk)
         .exclude(search_text='')
         .order_by('-captured_at')
@@ -316,8 +378,10 @@ def find_topic_connections(
         jaccard = len(overlap) / len(union)
 
         if jaccard >= threshold and len(overlap) >= 3:
-            top_shared = sorted(overlap)[:6]
-            reason = f'Shared topics: {", ".join(top_shared)}.'
+            reason = (
+                _llm_explanation(obj, other)
+                or _synthesize_topic_reason(my_keywords, other_keywords, obj, other)
+            )
 
             edge, created = Edge.objects.get_or_create(
                 from_object=obj,
@@ -337,11 +401,48 @@ def find_topic_connections(
 
 
 # ---------------------------------------------------------------------------
+# LLM explanation stub (Phase 10c)
+# ---------------------------------------------------------------------------
+
+LLM_EXPLANATION_ENABLED = False  # Set to True when LLM call is ready
+
+
+def _llm_explanation(obj_a: Object, obj_b: Object) -> str | None:
+    """
+    Call an LLM to synthesize a high-quality connection explanation.
+    Only runs when LLM_EXPLANATION_ENABLED is True.
+
+    Stub implementation: returns None (falls back to template reason).
+    Real implementation: POST to anthropic /v1/messages with a
+    prompt that includes both objects' titles + body excerpts.
+    """
+    if not LLM_EXPLANATION_ENABLED:
+        return None
+    # TODO: implement Anthropic API call
+    # prompt = (
+    #     "In one sentence, explain the conceptual connection between:\n"
+    #     f"A: {obj_a.title} - {(obj_a.body or '')[:200]}\n"
+    #     f"B: {obj_b.title} - {(obj_b.body or '')[:200]}"
+    # )
+    return None
+
+
+# ---------------------------------------------------------------------------
 # Auto-objectification
 # ---------------------------------------------------------------------------
 
+AUTO_OBJECTIFY_MIN_LENGTH = 4
+
+
 def auto_objectify(obj: Object) -> list[Object]:
-    """Auto-create Objects for significant entities (PERSON, ORG)."""
+    """Auto-create Objects for high-confidence PERSON/ORG entities.
+
+    Guards:
+    - Entity text must be >= 4 characters
+    - Entity must not be a common stop-word
+    - Case-insensitive deduplication
+    - Only PERSON and ORG types (GPE/LOC are too noisy)
+    """
     entities = ResolvedEntity.objects.filter(
         source_object=obj,
         resolved_object__isnull=True,
@@ -351,13 +452,25 @@ def auto_objectify(obj: Object) -> list[Object]:
     created_objects = []
 
     for entity in entities:
+        text = entity.text.strip()
+
+        # Skip short or low-quality entities
+        if len(text) < AUTO_OBJECTIFY_MIN_LENGTH:
+            continue
+        if text.lower() in STOP_WORDS:
+            continue
+
         target_type_slug = ENTITY_TO_OBJECT_TYPE.get(entity.entity_type)
         if not target_type_slug:
             continue
 
+        # Case-insensitive deduplication
         existing = Object.objects.filter(
             object_type__slug=target_type_slug,
-            title__iexact=entity.text,
+            is_deleted=False,
+        ).filter(
+            Q(title__iexact=text)
+            | Q(title__icontains=entity.normalized_text)
         ).first()
 
         if existing:
@@ -370,11 +483,12 @@ def auto_objectify(obj: Object) -> list[Object]:
             continue
 
         new_obj = Object.objects.create(
-            title=entity.text,
+            title=text,
             object_type=object_type,
             body=f'Auto-created from mention in: {obj.display_title}',
             status='active',
             capture_method='auto',
+            notebook=obj.notebook,
         )
 
         entity.resolved_object = new_obj
@@ -385,7 +499,7 @@ def auto_objectify(obj: Object) -> list[Object]:
             to_object=new_obj,
             edge_type='mentions',
             defaults={
-                'reason': f'This note mentions {entity.text}.',
+                'reason': f'{obj.display_title[:40]} mentions {text}.',
                 'strength': 0.7,
                 'is_auto': True,
                 'engine': 'spacy',

@@ -182,6 +182,15 @@ class Object(TimeStampedModel):
     )
     is_pinned = models.BooleanField(default=False)
     is_starred = models.BooleanField(default=False)
+    is_deleted = models.BooleanField(
+        default=False,
+        db_index=True,
+        help_text=(
+            'Soft-delete flag. Deleted Objects stay in the DB for Timeline '
+            'integrity but are excluded from all API responses and future '
+            'connection discovery.'
+        ),
+    )
 
     # Notebook and Project (single FK, not M2M)
     notebook = models.ForeignKey(
@@ -318,6 +327,7 @@ class ComponentType(TimeStampedModel):
         ('number', 'Number'),
         ('tag', 'Tag'),
         ('code', 'Code'),
+        ('history', 'History'),
     ]
 
     name = models.CharField(max_length=100)
@@ -636,6 +646,7 @@ class Edge(TimeStampedModel):
             ('supports', 'Supports'),
             ('contradicts', 'Contradicts'),
             ('inspires', 'Inspires'),
+            ('related', 'Related'),
             ('manual', 'Manual'),
         ],
         default='manual',
@@ -912,6 +923,12 @@ class Project(TimeStampedModel):
         max_length=40,
         unique=True,
         editable=False,
+    )
+    parent_sha = models.CharField(
+        max_length=40,
+        blank=True,
+        default='',
+        help_text='SHA of the parent Project this was forked from (empty if original).',
     )
     notebook = models.ForeignKey(
         Notebook,

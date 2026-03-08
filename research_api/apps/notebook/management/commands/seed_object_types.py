@@ -24,7 +24,7 @@ BUILT_IN_TYPES = [
         'slug': 'source',
         'icon': 'book-open',
         'color': '#2D5F6B',
-        'default_components': ['url', 'author', 'publication', 'date'],
+        'default_components': ['url', 'author', 'publication', 'date', 'history'],
         'sort_order': 1,
     },
     {
@@ -32,7 +32,7 @@ BUILT_IN_TYPES = [
         'slug': 'person',
         'icon': 'person',
         'color': '#B45A2D',
-        'default_components': ['birthday', 'death_date', 'relations'],
+        'default_components': ['birthday', 'death_date', 'relations', 'history'],
         'sort_order': 2,
     },
     {
@@ -40,7 +40,7 @@ BUILT_IN_TYPES = [
         'slug': 'place',
         'icon': 'map-pin',
         'color': '#C49A4A',
-        'default_components': ['location', 'coordinates'],
+        'default_components': ['location', 'coordinates', 'history'],
         'sort_order': 3,
     },
     {
@@ -48,7 +48,7 @@ BUILT_IN_TYPES = [
         'slug': 'organization',
         'icon': 'building',
         'color': '#5A7A4A',
-        'default_components': ['hq_location', 'founding_date'],
+        'default_components': ['hq_location', 'founding_date', 'history'],
         'sort_order': 4,
     },
     {
@@ -76,26 +76,34 @@ BUILT_IN_TYPES = [
         'sort_order': 7,
     },
     {
+        'name': 'Event',
+        'slug': 'event',
+        'icon': 'calendar',
+        'color': '#4A6A8A',
+        'default_components': ['date', 'location', 'history'],
+        'sort_order': 8,
+    },
+    {
         'name': 'Script',
         'slug': 'script',
         'icon': 'code',
-        'color': '#6B7D8B',
+        'color': '#6A7A8A',
         'default_components': ['language', 'file', 'version'],
-        'sort_order': 8,
+        'sort_order': 9,
     },
     {
         'name': 'Task',
         'slug': 'task',
         'icon': 'check-circle',
-        'color': '#D47B2D',
-        'default_components': ['status', 'due_date', 'assignee'],
-        'sort_order': 9,
+        'color': '#C46A3A',
+        'default_components': ['status', 'due_date', 'assignee', 'history'],
+        'sort_order': 10,
     },
 ]
 
 
 class Command(BaseCommand):
-    help = 'Create or update the 10 built-in ObjectTypes for CommonPlace.'
+    help = 'Create or update the 11 built-in ObjectTypes for CommonPlace.'
 
     def handle(self, *args, **options):
         created_count = 0

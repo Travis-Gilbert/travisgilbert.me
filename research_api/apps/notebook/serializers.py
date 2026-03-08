@@ -5,6 +5,7 @@ Provides List/Detail/Write serializer tiers for Object, Node, Component,
 plus flat serializers for supporting models.
 """
 
+from django.db.models import Q
 from rest_framework import serializers
 
 from .models import (
@@ -78,6 +79,30 @@ class ComponentWriteSerializer(serializers.ModelSerializer):
 # ---------------------------------------------------------------------------
 # Edge
 # ---------------------------------------------------------------------------
+
+class ObjectConnectionSerializer(serializers.Serializer):
+    """One connection (Edge) for the Object detail panel."""
+    connected_object = serializers.SerializerMethodField()
+    explanation = serializers.CharField(source='reason')
+    is_manual = serializers.SerializerMethodField()
+    created_at = serializers.DateTimeField()
+    edge_type = serializers.CharField()
+
+    def get_connected_object(self, edge):
+        # Return the OTHER end of the edge, not the current object
+        current_id = self.context.get('current_object_id')
+        other = edge.to_object if edge.from_object_id == current_id else edge.from_object
+        return {
+            'id': f'object:{other.pk}',
+            'type': other.object_type.slug if other.object_type else 'unknown',
+            'type_color': other.object_type.color if other.object_type else '#9A8E82',
+            'title': other.display_title,
+            'slug': other.slug,
+        }
+
+    def get_is_manual(self, edge):
+        return not edge.is_auto
+
 
 class EdgeSerializer(serializers.ModelSerializer):
     from_title = serializers.CharField(
@@ -256,11 +281,16 @@ class ObjectDetailSerializer(serializers.ModelSerializer):
     )
     edges = serializers.SerializerMethodField()
     recent_nodes = serializers.SerializerMethodField()
+    id_prefixed = serializers.SerializerMethodField()
+    connections = serializers.SerializerMethodField()
+    history = serializers.SerializerMethodField()
+    projects = serializers.SerializerMethodField()
+    notebooks = serializers.SerializerMethodField()
 
     class Meta:
         model = Object
         fields = [
-            'id', 'title', 'display_title', 'slug', 'sha_hash',
+            'id', 'id_prefixed', 'title', 'display_title', 'slug', 'sha_hash',
             'object_type', 'object_type_data',
             'body', 'url', 'properties',
             'og_title', 'og_description', 'og_image', 'og_site_name',
@@ -271,7 +301,11 @@ class ObjectDetailSerializer(serializers.ModelSerializer):
             'captured_at', 'capture_method',
             'created_at', 'updated_at',
             'components', 'entities', 'edges', 'recent_nodes',
+            'connections', 'history', 'projects', 'notebooks',
         ]
+
+    def get_id_prefixed(self, obj):
+        return f'object:{obj.pk}'
 
     def get_edges(self, obj):
         all_edges = list(obj.edges_out.all()) + list(obj.edges_in.all())
@@ -283,6 +317,41 @@ class ObjectDetailSerializer(serializers.ModelSerializer):
     def get_recent_nodes(self, obj):
         nodes = obj.timeline_nodes.order_by('-occurred_at')[:10]
         return NodeListSerializer(nodes, many=True).data
+
+    def get_connections(self, obj):
+        from .models import Edge
+        edges = Edge.objects.filter(
+            Q(from_object=obj) | Q(to_object=obj)
+        ).select_related(
+            'from_object', 'from_object__object_type',
+            'to_object', 'to_object__object_type',
+        ).order_by('-strength')[:20]
+        return ObjectConnectionSerializer(
+            edges, many=True, context={'current_object_id': obj.pk}
+        ).data
+
+    def get_history(self, obj):
+        from .views import NODE_ICONS
+        nodes = obj.timeline_nodes.order_by('-occurred_at')[:20]
+        return [
+            {
+                'node_type': n.node_type,
+                'icon': NODE_ICONS.get(n.node_type, 'circle'),
+                'timestamp': n.occurred_at.isoformat(),
+                'summary': n.title,
+            }
+            for n in nodes
+        ]
+
+    def get_projects(self, obj):
+        if obj.project:
+            return [obj.project.slug]
+        return []
+
+    def get_notebooks(self, obj):
+        if obj.notebook:
+            return [obj.notebook.slug]
+        return []
 
 
 class ObjectWriteSerializer(serializers.ModelSerializer):

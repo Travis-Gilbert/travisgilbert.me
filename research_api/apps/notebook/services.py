@@ -3,9 +3,11 @@ Service layer for the CommonPlace knowledge graph.
 
 enrich_url(): Fetch OG metadata and update an Object.
 quick_capture(): Create an Object from raw input (text, URL, or both).
+_run_engine_async(): Background thread wrapper for connection engine.
 """
 
 import logging
+import threading
 from urllib.parse import urlparse
 
 import requests
@@ -149,20 +151,43 @@ def quick_capture(
         body=body,
         url=url,
         status='active',
-        capture_method='quick_capture',
+        capture_method='api',
         notebook=notebook,
         project=project,
     )
 
-    # Enrich URL if provided (synchronous for now)
+    # Enrich URL if provided (synchronous: fast, updates title)
     if url:
         enrich_url(obj)
 
-    # Run connection engine (import here to avoid circular import)
-    try:
-        from .engine import run_engine
-        run_engine(obj, notebook=notebook)
-    except Exception as exc:
-        logger.warning('Connection engine failed for Object %s: %s', obj.pk, exc)
+    # Run connection engine in background thread
+    _run_engine_async(obj.pk, notebook_slug=notebook_slug)
 
     return obj
+
+
+# ---------------------------------------------------------------------------
+# Background engine execution
+# ---------------------------------------------------------------------------
+
+def _run_engine_async(obj_pk: int, notebook_slug: str = '') -> None:
+    """Spawn a daemon thread to run the connection engine for a single Object.
+
+    The daemon=True flag ensures the thread won't prevent server shutdown.
+    """
+    def _worker():
+        try:
+            from .engine import run_engine
+            obj = Object.objects.get(pk=obj_pk)
+            notebook = None
+            if notebook_slug:
+                notebook = Notebook.objects.filter(slug=notebook_slug).first()
+            run_engine(obj, notebook=notebook)
+            logger.info('Background engine completed for Object %s', obj_pk)
+        except Object.DoesNotExist:
+            logger.warning('Object %s not found for background engine run', obj_pk)
+        except Exception as exc:
+            logger.warning('Background engine failed for Object %s: %s', obj_pk, exc)
+
+    thread = threading.Thread(target=_worker, daemon=True)
+    thread.start()
