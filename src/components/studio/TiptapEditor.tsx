@@ -77,6 +77,7 @@ export default function TiptapEditor({
   titleZone,
   toolbar,
   paperOverlay,
+  focusFadeActive = false,
 }: {
   initialContent?: string;
   initialContentFormat?: 'html' | 'markdown';
@@ -90,6 +91,7 @@ export default function TiptapEditor({
   titleZone?: React.ReactNode;
   toolbar?: React.ReactNode;
   paperOverlay?: React.ReactNode;
+  focusFadeActive?: boolean;
 }) {
   const wrapperRef = useRef<HTMLDivElement | null>(null);
   const typewriterFrameRef = useRef<number | null>(null);
@@ -508,7 +510,7 @@ export default function TiptapEditor({
           style={{ '--stage-color': stageColor } as React.CSSProperties}
         />
       )}
-      <div className="studio-page" data-stage={stage}>
+      <div className="studio-page" data-stage={stage} data-focus-fade={focusFadeActive ? 'true' : undefined}>
         <div className="studio-margin-rule" />
         {titleZone}
         {toolbar}

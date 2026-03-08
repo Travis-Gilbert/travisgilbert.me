@@ -1794,6 +1794,21 @@
   --studio-writing-ruled-line: rgba(106, 154, 90, 0.04);
 }
 
+/* Focus fade: dims all blocks except the one containing the cursor */
+.studio-page[data-focus-fade="true"] .ProseMirror > * {
+  opacity: 0.25;
+  transition: opacity 0.35s ease;
+}
+.studio-page[data-focus-fade="true"] .ProseMirror > .focus-fade-current {
+  opacity: 1;
+}
+
+/* Dim toolbar and chrome when focus fade is active */
+.studio-page[data-focus-fade="true"] .studio-toolbar-rail {
+  opacity: 0.3;
+  transition: opacity 0.4s ease;
+}
+
 .studio-prose::after {
   content: '';
   display: block;

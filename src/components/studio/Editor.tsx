@@ -36,6 +36,7 @@ import EditorContextMenu from './EditorContextMenu';
 import ExportMenu from './ExportMenu';
 import DeskLamp from './DeskLamp';
 import PaperWeathering from './PaperWeathering';
+import { useFocusFade } from './FocusFade';
 import { useStudioView } from './StudioViewContext';
 
 type SaveState = WorkbenchSaveState;
@@ -273,6 +274,7 @@ export default function Editor({
   const [isReadingPanelOpen, setIsReadingPanelOpen] = useState(false);
   const [showMarkdownView, setShowMarkdownView] = useState(false);
   const [typewriterMode, setTypewriterMode] = useState(true);
+  const focusFade = useFocusFade(editor);
   const [readingSettings, setReadingSettings] = useState<ReadingSettings>(
     DEFAULT_READING_SETTINGS,
   );
@@ -1079,6 +1081,7 @@ export default function Editor({
           }
           toolbar={<EditorToolbar editor={editor} />}
           paperOverlay={<PaperWeathering stage={stage} slug={slug} />}
+          focusFadeActive={focusFade.active}
         />
 
         {editor && (
