@@ -4,16 +4,18 @@ import type { Editor } from '@tiptap/react';
 import { useSessionTimer, formatSessionTime } from '@/lib/studio-session';
 
 /**
- * Word count band fixed to the bottom of the editor.
+ * Word count band fixed to the bottom of the editor paper.
  *
- * Shows word count as the primary stat (large JetBrains Mono),
+ * Shows word count as the primary stat (36px JetBrains Mono, colored by stage),
  * plus character count, reading time, paragraph count,
  * and session focus analytics (active time + words written).
  */
 export default function WordCountBand({
   editor,
+  stageColor,
 }: {
   editor: Editor | null;
+  stageColor?: string;
 }) {
   const editorEl = editor?.view?.dom ?? null;
   const currentWords = editor?.storage.characterCount?.words() ?? 0;
@@ -46,50 +48,20 @@ export default function WordCountBand({
   const wikiLinks = wikiLinkSet.size;
 
   return (
-    <div
-      style={{
-        display: 'flex',
-        alignItems: 'baseline',
-        gap: '20px',
-        padding: '8px 20px',
-        borderTop: '1px solid var(--studio-border)',
-        backgroundColor: 'var(--studio-surface)',
-        flexShrink: 0,
-      }}
-    >
+    <div className="studio-word-count-band">
       {/* Primary: word count */}
       <span
-        style={{
-          fontFamily: 'var(--studio-font-mono)',
-          fontSize: '22px',
-          fontWeight: 700,
-          color: 'var(--studio-text-bright)',
-          lineHeight: 1,
-        }}
+        className="studio-word-count-primary"
+        style={{ color: stageColor ?? '#6A5E52' }}
       >
         {words.toLocaleString()}
       </span>
-      <span
-        style={{
-          fontFamily: 'var(--studio-font-body)',
-          fontSize: '11px',
-          color: 'var(--studio-text-3)',
-          textTransform: 'uppercase' as const,
-          letterSpacing: '0.06em',
-        }}
-      >
+      <span className="studio-word-count-label">
         words
       </span>
 
       {/* Divider */}
-      <span
-        style={{
-          width: '1px',
-          height: '14px',
-          backgroundColor: 'var(--studio-border)',
-          alignSelf: 'center',
-        }}
-      />
+      <span className="studio-word-count-divider" />
 
       {/* Secondary stats */}
       <Stat label="chars" value={chars.toLocaleString()} />
@@ -107,24 +79,17 @@ export default function WordCountBand({
       {session.activeSeconds > 0 && (
         <>
           <span style={{ flex: 1 }} />
-          <span
-            style={{
-              width: '1px',
-              height: '14px',
-              backgroundColor: 'var(--studio-border)',
-              alignSelf: 'center',
-            }}
-          />
+          <span className="studio-word-count-divider" />
           <Stat
             label="session"
             value={formatSessionTime(session.activeSeconds)}
-            color={session.isActive ? 'var(--studio-tc)' : undefined}
+            color={session.isActive ? '#B45A2D' : undefined}
           />
           {session.wordsWritten > 0 && (
             <Stat
               label="written"
               value={`+${session.wordsWritten}`}
-              color="var(--studio-tc)"
+              color="#B45A2D"
             />
           )}
         </>
@@ -135,32 +100,14 @@ export default function WordCountBand({
 
 function Stat({ label, value, color }: { label: string; value: string; color?: string }) {
   return (
-    <span
-      style={{
-        display: 'flex',
-        gap: '4px',
-        alignItems: 'baseline',
-      }}
-    >
+    <span className="studio-word-count-stat">
       <span
-        style={{
-          fontFamily: 'var(--studio-font-mono)',
-          fontSize: '13px',
-          fontWeight: 600,
-          color: color ?? 'var(--studio-text-2)',
-        }}
+        className="studio-word-count-stat-value"
+        style={color ? { color } : undefined}
       >
         {value}
       </span>
-      <span
-        style={{
-          fontFamily: 'var(--studio-font-body)',
-          fontSize: '10px',
-          color: 'var(--studio-text-3)',
-          textTransform: 'uppercase' as const,
-          letterSpacing: '0.05em',
-        }}
-      >
+      <span className="studio-word-count-stat-label">
         {label}
       </span>
     </span>

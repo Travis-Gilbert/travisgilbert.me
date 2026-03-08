@@ -1347,6 +1347,130 @@
   opacity: 1;
 }
 
+/* ── Word count band (inside paper bottom) ─── */
+
+.studio-word-count-band {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  padding: 10px 52px 12px 76px;
+  border-top: 1px solid rgba(42,36,32,0.08);
+  background: rgba(42,36,32,0.03);
+  position: relative;
+  z-index: 2;
+}
+
+.studio-word-count-primary {
+  font-family: var(--studio-font-mono);
+  font-size: 36px;
+  font-weight: 700;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+}
+
+.studio-word-count-label {
+  font-family: var(--studio-font-mono);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #6A5E52;
+  margin-left: -4px;
+}
+
+.studio-word-count-divider {
+  display: inline-block;
+  width: 1px;
+  height: 18px;
+  background: rgba(42,36,32,0.10);
+  align-self: center;
+}
+
+.studio-word-count-stat {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 4px;
+}
+
+.studio-word-count-stat-value {
+  font-family: var(--studio-font-mono);
+  font-size: 13px;
+  font-weight: 600;
+  color: #6A5E52;
+  font-variant-numeric: tabular-nums;
+}
+
+.studio-word-count-stat-label {
+  font-family: var(--studio-font-mono);
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #8A7A6A;
+}
+
+/* ── Workbench tab bar ─────────────────────── */
+
+.studio-workbench-tabs {
+  display: flex;
+  gap: 2px;
+  margin-bottom: 16px;
+  border-bottom: 1px solid rgba(237,231,220,0.08);
+  padding-bottom: 0;
+  height: 38px;
+}
+
+.studio-workbench-tab {
+  flex: 1;
+  padding: 5px 0;
+  font-family: var(--studio-font-mono);
+  font-size: 8px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--studio-text-3);
+  background: transparent;
+  border: none;
+  border-bottom: 2px solid transparent;
+  cursor: pointer;
+  transition: all 0.12s ease;
+}
+
+.studio-workbench-tab:hover {
+  color: var(--studio-text-2);
+}
+
+.studio-workbench-tab--active {
+  color: var(--studio-text-bright);
+  border-bottom-color: var(--studio-tc);
+  background: rgba(180,90,45,0.1);
+}
+
+/* ── Workbench section labels ──────────────── */
+
+.studio-workbench-section-label {
+  font-family: var(--studio-font-mono);
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: rgba(237,231,220,0.30);
+}
+
+/* ── Evidence card pattern ─────────────────── */
+
+.studio-evidence-card {
+  border-left: 2px solid var(--card-accent, var(--studio-tc));
+  border-radius: 0 4px 4px 0;
+  padding: 8px 10px;
+  background: rgba(237,231,220,0.03);
+  transition: background 0.12s ease;
+}
+
+.studio-evidence-card:hover {
+  background: rgba(237,231,220,0.06);
+}
+
 .studio-mobile-editor-actions {
   display: none;
 }
@@ -2014,6 +2138,16 @@
 
   .studio-margin-rule {
     display: none;
+  }
+
+  .studio-word-count-band {
+    padding: 8px 20px 10px;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+
+  .studio-word-count-primary {
+    font-size: 24px;
   }
 
   .studio-mobile-editor-actions {

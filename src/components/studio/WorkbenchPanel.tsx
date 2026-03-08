@@ -265,8 +265,8 @@ export default function WorkbenchPanel({
         width: mobileSheetMode ? '100%' : (open ? `${width}px` : '0px'),
         minWidth: mobileSheetMode ? '0px' : (open ? `${width}px` : '0px'),
         flexShrink: 0,
-        backgroundColor: 'var(--studio-bg-sidebar)',
-        borderLeft: mobileSheetMode ? 'none' : (open ? '1px solid var(--studio-border)' : 'none'),
+        backgroundColor: '#111210',
+        borderLeft: mobileSheetMode ? 'none' : (open ? '1px solid rgba(237,231,220,0.08)' : 'none'),
         display: 'flex',
         flexDirection: 'column',
         position: 'relative',
@@ -348,15 +348,7 @@ export default function WorkbenchPanel({
         >
           {mode === 'editor' ? (
             <>
-              <div
-                style={{
-                  display: 'flex',
-                  gap: '2px',
-                  marginBottom: '16px',
-                  borderBottom: '1px solid var(--studio-border)',
-                  paddingBottom: '8px',
-                }}
-              >
+              <div className="studio-workbench-tabs">
                 {(['research', 'outline', 'stash', 'history', 'collage'] as const).map((tab) => {
                   const TAB_LABELS: Record<EditorPanelMode, string> = {
                     research: 'Research',
@@ -370,27 +362,7 @@ export default function WorkbenchPanel({
                       key={tab}
                       type="button"
                       onClick={() => switchEditorMode(tab)}
-                      style={{
-                        flex: 1,
-                        padding: '5px 0',
-                        fontFamily: 'var(--studio-font-mono)',
-                        fontSize: '9.5px',
-                        fontWeight: 700,
-                        letterSpacing: '0.1em',
-                        textTransform: 'uppercase' as const,
-                        color:
-                          editorPanelMode === tab
-                            ? 'var(--studio-text-bright)'
-                            : 'var(--studio-text-3)',
-                        backgroundColor: 'transparent',
-                        border: 'none',
-                        borderBottom:
-                          editorPanelMode === tab
-                            ? '2px solid var(--studio-tc)'
-                            : '2px solid transparent',
-                        cursor: 'pointer',
-                        transition: 'all 0.12s ease',
-                      }}
+                      className={`studio-workbench-tab ${editorPanelMode === tab ? 'studio-workbench-tab--active' : ''}`}
                     >
                       {TAB_LABELS[tab]}
                     </button>
@@ -2391,16 +2363,7 @@ function NotesMode({
 
 function ToolboxLabel({ children }: { children: React.ReactNode }) {
   return (
-    <div
-      style={{
-        fontFamily: 'var(--studio-font-mono)',
-        fontSize: '8.5px',
-        fontWeight: 700,
-        letterSpacing: '0.12em',
-        textTransform: 'uppercase' as const,
-        color: 'var(--studio-text-3)',
-      }}
-    >
+    <div className="studio-workbench-section-label">
       {children}
     </div>
   );

@@ -1082,7 +1082,7 @@ export default function Editor({
         )}
 
         <div className="studio-editor-chrome">
-          <WordCountBand editor={editor} />
+          <WordCountBand editor={editor} stageColor={getStage(stage).color} />
         </div>
       </div>
     </div>
