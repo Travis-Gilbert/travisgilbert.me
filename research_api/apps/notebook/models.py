@@ -683,6 +683,10 @@ class Edge(TimeStampedModel):
                 fields=['from_object', 'to_object', 'edge_type'],
                 name='unique_edge_per_type',
             ),
+            models.CheckConstraint(
+                condition=~models.Q(from_object=models.F('to_object')),
+                name='no_self_edges',
+            ),
         ]
         indexes = [
             models.Index(
