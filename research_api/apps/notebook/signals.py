@@ -13,11 +13,13 @@ Component triggers:
 
 All Nodes are auto-assigned to the master Timeline.
 DailyLog recording is preserved for all Object/Edge/Entity activity.
+
+TF-IDF cache: invalidated whenever the Object corpus changes.
 """
 
 import logging
 
-from django.db.models.signals import post_save
+from django.db.models.signals import post_delete, post_save
 from django.dispatch import receiver
 from django.utils import timezone
 
@@ -35,7 +37,7 @@ def _get_master_timeline():
 
 
 # ---------------------------------------------------------------------------
-# Task 5: Object lifecycle signals
+# Object lifecycle signals
 # ---------------------------------------------------------------------------
 
 @receiver(post_save, sender='notebook.Object')
@@ -48,7 +50,6 @@ def create_object_node(sender, instance, created, **kwargs):
     """
     from .models import Node
 
-    # Skip raw SQL, fixture loading, or soft-deleted Objects
     if kwargs.get('raw', False):
         return
     if instance.is_deleted:
@@ -65,8 +66,40 @@ def create_object_node(sender, instance, created, **kwargs):
         logger.debug('Created creation Node for Object %s', instance.pk)
 
 
+@receiver(post_save, sender='notebook.Object')
+def invalidate_tfidf_on_object_change(sender, instance, created, **kwargs):
+    """
+    Invalidate the module-level TF-IDF corpus cache whenever an Object
+    is created or deleted. Deletion signal handled separately below.
+
+    The cache rebuilds lazily on the next engine run. This ensures
+    TF-IDF similarity scores always reflect the current corpus.
+    The cache has a secondary drift threshold (50 objects) as a
+    backup, but signal-driven invalidation is the primary mechanism.
+    """
+    if kwargs.get('raw', False):
+        return
+
+    if created:
+        try:
+            from .engine import invalidate_tfidf_cache
+            invalidate_tfidf_cache()
+        except ImportError:
+            pass
+
+
+@receiver(post_delete, sender='notebook.Object')
+def invalidate_tfidf_on_object_delete(sender, instance, **kwargs):
+    """Invalidate TF-IDF cache on hard delete."""
+    try:
+        from .engine import invalidate_tfidf_cache
+        invalidate_tfidf_cache()
+    except ImportError:
+        pass
+
+
 # ---------------------------------------------------------------------------
-# Task 6: Component trigger signals
+# Component trigger signals
 # ---------------------------------------------------------------------------
 
 @receiver(post_save, sender='notebook.Component')
@@ -77,7 +110,6 @@ def component_trigger_node(sender, instance, created, **kwargs):
     if kwargs.get('raw', False):
         return
 
-    # Only fire for ComponentTypes that trigger nodes
     if not instance.component_type.triggers_node:
         return
 
@@ -99,7 +131,6 @@ def component_trigger_node(sender, instance, created, **kwargs):
         )
 
     elif data_type == 'relationship':
-        # Relationship components store a target object ID in value
         Node.objects.create(
             node_type='connection',
             title=f'Relationship: {instance.key}',
@@ -108,7 +139,6 @@ def component_trigger_node(sender, instance, created, **kwargs):
             component_ref=instance,
             timeline=timeline,
         )
-        # Try to create an Edge if value references a valid Object pk
         target_id = None
         if isinstance(instance.value, dict):
             target_id = instance.value.get('object_id')
@@ -158,7 +188,6 @@ def component_trigger_node(sender, instance, created, **kwargs):
         )
 
     else:
-        # Catch-all for future triggering types
         Node.objects.create(
             node_type='component_trigger',
             title=f'{instance.component_type.name}: {instance.key}',
@@ -170,22 +199,20 @@ def component_trigger_node(sender, instance, created, **kwargs):
 
 
 # ---------------------------------------------------------------------------
-# DailyLog recording (preserved from original)
+# DailyLog recording
 # ---------------------------------------------------------------------------
 
 @receiver(post_save, sender='notebook.Object')
 def log_object_activity(sender, instance, created, **kwargs):
     """Record object creation or update in today's DailyLog.
 
-    Skips engine-driven saves (e.g. enrich_url, auto_objectify) to avoid
-    noisy DailyLog entries that the user did not initiate.
+    Skips engine-driven saves to avoid noisy DailyLog entries.
     """
     from .models import DailyLog
 
     if kwargs.get('raw', False):
         return
 
-    # Skip internal engine saves: auto-created objects and enrichment updates
     update_fields = kwargs.get('update_fields')
     if not created and update_fields and 'search_text' in update_fields:
         return
