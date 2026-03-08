@@ -116,6 +116,9 @@ function viewTypeLabel(viewType: ViewType): string {
     resurface: 'Resurface',
     'loose-ends': 'Loose Ends',
     compose: 'Compose',
+    'connection-engine': 'Connection Engine',
+    reminders: 'Reminders',
+    settings: 'Settings',
     empty: 'Empty',
   };
   return labels[viewType] ?? viewType;

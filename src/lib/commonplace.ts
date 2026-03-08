@@ -35,6 +35,7 @@ export const OBJECT_TYPES: ObjectTypeIdentity[] = [
   { slug: 'concept', label: 'Concept', color: '#8B6FA0', icon: 'lightbulb' },
   { slug: 'quote', label: 'Quote', color: '#C49A4A', icon: 'quote' },
   { slug: 'hunch', label: 'Hunch', color: '#B06080', icon: 'sparkle' },
+  { slug: 'event', label: 'Event', color: '#4A6A8A', icon: 'calendar' },
   { slug: 'script', label: 'Script', color: '#6B7A8A', icon: 'code' },
   { slug: 'task', label: 'Task', color: '#C47A3A', icon: 'check-circle' },
 ];
@@ -65,6 +66,9 @@ export type ViewType =
   | 'resurface'
   | 'loose-ends'
   | 'compose'
+  | 'connection-engine'
+  | 'reminders'
+  | 'settings'
   | 'empty';
 
 export interface ViewDefinition {
@@ -86,6 +90,9 @@ export const VIEW_REGISTRY: Record<ViewType, { label: string; icon: string }> = 
   resurface: { label: 'Resurface', icon: 'sparkle' },
   'loose-ends': { label: 'Loose Ends', icon: 'scatter' },
   compose: { label: 'Compose', icon: 'note-pencil' },
+  'connection-engine': { label: 'Connection Engine', icon: 'engine' },
+  reminders: { label: 'Reminders', icon: 'bell' },
+  settings: { label: 'Settings', icon: 'gear' },
   empty: { label: 'Empty', icon: 'plus' },
 };
 
@@ -162,10 +169,10 @@ export const SIDEBAR_SECTIONS: SidebarSection[] = [
   {
     title: 'System',
     items: [
-      { label: 'Connection Engine', href: '#engine', icon: 'engine' },
-      { label: 'Reminders', href: '#reminders', icon: 'bell' },
+      { label: 'Connection Engine', href: '#engine', icon: 'engine', viewType: 'connection-engine' as ViewType },
+      { label: 'Reminders', href: '#reminders', icon: 'bell', viewType: 'reminders' as ViewType },
       { label: 'Resurface', href: '#resurface', icon: 'sparkle', viewType: 'resurface' as ViewType },
-      { label: 'Settings', href: '#settings', icon: 'gear' },
+      { label: 'Settings', href: '#settings', icon: 'gear', viewType: 'settings' as ViewType },
     ],
   },
 ];

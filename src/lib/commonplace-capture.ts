@@ -155,6 +155,22 @@ export function inferTypeFromFile(file: File): string {
   return 'note';
 }
 
+/** Read text content from a File using FileReader.
+ *  Returns the text for text-based files, or null for binary files. */
+export function readFileAsText(file: File): Promise<string | null> {
+  const textExtensions = ['.md', '.txt', '.csv', '.json', '.xml', '.html', '.htm', '.yaml', '.yml', '.toml'];
+  const ext = file.name.toLowerCase().slice(file.name.lastIndexOf('.'));
+  const isText = file.type.startsWith('text/') || file.type === 'application/json' || textExtensions.includes(ext);
+  if (!isText) return Promise.resolve(null);
+
+  return new Promise((resolve) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result as string);
+    reader.onerror = () => resolve(null);
+    reader.readAsText(file);
+  });
+}
+
 export function inferTypeFromDrop(dataTransfer: DataTransfer): {
   type: 'url' | 'text' | 'file';
   content: string;

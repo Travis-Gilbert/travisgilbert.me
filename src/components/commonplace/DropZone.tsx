@@ -7,6 +7,7 @@ import {
   createCapturedObject,
   inferTypeFromDrop,
   inferTypeFromFile,
+  readFileAsText,
 } from '@/lib/commonplace-capture';
 
 /**
@@ -69,37 +70,46 @@ export default function DropZone({ onCapture }: DropZoneProps) {
 
       if (!e.dataTransfer) return;
 
+      /* Extract drop info synchronously (DataTransfer only lives during the event).
+         The File reference persists, so we can read it asynchronously below. */
       const dropInfo = inferTypeFromDrop(e.dataTransfer);
 
-      let object: CapturedObject;
+      const processCapture = async () => {
+        let object: CapturedObject;
 
-      if (dropInfo.type === 'file' && dropInfo.file) {
-        const fileType = inferTypeFromFile(dropInfo.file);
-        object = createCapturedObject({
-          text: dropInfo.file.name,
-          objectType: fileType,
-          captureMethod: 'dropped',
-        });
-        object.title = dropInfo.file.name;
-      } else {
-        object = createCapturedObject({
-          text: dropInfo.content,
-          captureMethod: 'dropped',
-          sourceUrl: dropInfo.type === 'url' ? dropInfo.content : undefined,
-        });
-      }
+        if (dropInfo.type === 'file' && dropInfo.file) {
+          const fileType = inferTypeFromFile(dropInfo.file);
+          /* Read text content for text-based files (.md, .txt, .json, etc.).
+             Returns null for binary files (PDFs, images). */
+          const textContent = await readFileAsText(dropInfo.file);
+          object = createCapturedObject({
+            text: textContent ?? dropInfo.file.name,
+            objectType: fileType,
+            captureMethod: 'dropped',
+          });
+          object.title = dropInfo.file.name;
+        } else {
+          object = createCapturedObject({
+            text: dropInfo.content,
+            captureMethod: 'dropped',
+            sourceUrl: dropInfo.type === 'url' ? dropInfo.content : undefined,
+          });
+        }
 
-      /* Show absorb animation */
-      const typeInfo = getObjectTypeIdentity(object.objectType);
-      setAbsorbLabel(typeInfo.label);
-      setIsAbsorbing(true);
+        /* Show absorb animation */
+        const typeInfo = getObjectTypeIdentity(object.objectType);
+        setAbsorbLabel(typeInfo.label);
+        setIsAbsorbing(true);
 
-      /* Deliver the object after a brief animation delay */
-      setTimeout(() => {
-        onCapture(object);
-        setIsAbsorbing(false);
-        setAbsorbLabel('');
-      }, 600);
+        /* Deliver the object after a brief animation delay */
+        setTimeout(() => {
+          onCapture(object);
+          setIsAbsorbing(false);
+          setAbsorbLabel('');
+        }, 600);
+      };
+
+      processCapture();
     },
     [onCapture]
   );
