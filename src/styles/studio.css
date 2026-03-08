@@ -275,9 +275,9 @@
   height: 400px;
   border-radius: 50%;
   background: radial-gradient(
-    ellipse 360px 280px at 30% 30%,
-    rgba(180, 90, 45, 0.14) 0%,
-    rgba(180, 90, 45, 0.06) 40%,
+    ellipse 320px 260px at 32% 32%,
+    rgba(180, 90, 45, 0.18) 0%,
+    rgba(180, 90, 45, 0.06) 42%,
     transparent 75%
   );
   pointer-events: none;
@@ -796,35 +796,51 @@
 /* ── Tiptap Editor ────────────────────────────── */
 
 .studio-writing-surface {
-  --studio-writing-paper-bg: #F5EEE4;
+  /* Writing surface: aged Moleskine, NOT near-white */
+  --studio-writing-paper-bg: #E4D9CC;
   --studio-writing-paper-text: #2A2420;
   --studio-writing-paper-muted: #6A5E52;
   --studio-writing-paper-border: #D4CCC4;
-  --studio-writing-paper-surface: #FAF6F1;
+  --studio-writing-paper-surface: #E4D9CC;
+  --studio-writing-margin-rule: rgba(180, 90, 45, 0.28);
+  --studio-writing-ruled-line: rgba(42, 36, 32, 0.045);
+  --studio-desk-bg: #231E18;
   --studio-editor-column-width: min(100%, calc(72ch + 128px));
   --studio-reading-font-family: var(--studio-font-writing), 'Iowan Old Style', Georgia, 'Times New Roman', serif;
   --studio-reading-font-size: 19px;
   --studio-reading-line-height: 1.75;
   --studio-reading-paragraph-gap: 1.18em;
-  --studio-toolbar-bg: #E8DDD0;
-  --studio-toolbar-border: rgba(196, 182, 168, 0.92);
-  --studio-toolbar-shadow:
-    0 7px 18px rgba(34, 26, 19, 0.11),
-    0 1px 2px rgba(34, 26, 19, 0.14);
+  /* Toolbar: inside paper, not separate chrome */
+  --studio-toolbar-bg: rgba(42, 36, 32, 0.04);
+  --studio-toolbar-border: rgba(42, 36, 32, 0.09);
+  --studio-toolbar-shadow: none;
   --studio-tool-bg-hover: rgba(113, 93, 75, 0.1);
   --studio-tool-bg-active: rgba(180, 90, 45, 0.14);
   --studio-tool-border-active: rgba(180, 90, 45, 0.45);
   --studio-tool-outline: rgba(58, 138, 154, 0.5);
+  /* Paper shadow: warm directional, NOT floating modal */
   --studio-writing-paper-shadow:
-    0 24px 44px rgba(0, 0, 0, 0.22),
-    0 6px 16px rgba(0, 0, 0, 0.16);
+    0 1px 3px rgba(20, 14, 8, 0.12),
+    0 3px 10px rgba(20, 14, 8, 0.18),
+    0 8px 24px rgba(20, 14, 8, 0.12),
+    inset 0 -1px 0 rgba(255, 255, 255, 0.08);
 
-  background-color: #111315;
-  background-image: linear-gradient(
-    to bottom,
-    rgba(245, 238, 228, 0.015),
-    rgba(245, 238, 228, 0)
-  );
+  /* Desk surface: warm near-black, NOT cold slate */
+  background-color: var(--studio-desk-bg);
+  /* Three desk texture layers */
+  background-image:
+    /* Ambient desk lamp glow */
+    radial-gradient(ellipse 900px 600px at 54% 48%, rgba(245, 238, 220, 0.04) 0%, transparent 65%),
+    /* Blueprint grid */
+    linear-gradient(rgba(180, 90, 45, 0.032) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(180, 90, 45, 0.032) 1px, transparent 1px),
+    /* Dot field */
+    radial-gradient(circle, rgba(180, 90, 45, 0.08) 1px, transparent 1px);
+  background-size:
+    100% 100%,
+    40px 40px,
+    40px 40px,
+    28px 28px;
 }
 
 .studio-editor-column {
