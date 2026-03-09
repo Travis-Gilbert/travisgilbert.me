@@ -1,14 +1,18 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
+import dynamic from 'next/dynamic';
 import { Reorder } from 'framer-motion';
 import { Drawer } from 'vaul';
 import * as Tabs from '@radix-ui/react-tabs';
 import { useCommonPlace } from '@/lib/commonplace-context';
-import { fetchObjectDetail, fetchObjectById } from '@/lib/commonplace-api';
+import { fetchObjectDetail, fetchObjectById, patchComponent } from '@/lib/commonplace-api';
 import type { ApiObjectDetail, ApiEdgeCompact, ApiNodeListItem, ApiComponent } from '@/lib/commonplace';
+import type { TiptapUpdatePayload } from '@/components/studio/TiptapEditor';
 import HunchSketch from './HunchSketch';
 import ObjectTasks from './ObjectTasks';
+
+const CommonPlaceEditor = dynamic(() => import('./CommonPlaceEditor'), { ssr: false });
 
 /**
  * ObjectDrawer: Vaul slide-in drawer from the right for object detail.
@@ -258,13 +262,25 @@ function HistoryItem({
 
 interface InfoItem {
   id: string;
-  kind: 'og' | 'file-section' | 'connection';
+  kind: 'og' | 'file-section' | 'connected-source';
   title: string;
   subtitle?: string;
   body?: string;
+  url?: string;
+  componentId?: number;
 }
 
-function buildInfoItems(detail: ApiObjectDetail): InfoItem[] {
+function stringifyInfoValue(value: unknown): string {
+  if (typeof value === 'string') return value;
+  if (value == null) return '';
+  try {
+    return JSON.stringify(value, null, 2);
+  } catch {
+    return String(value);
+  }
+}
+
+function buildInfoItems(detail: ApiObjectDetail, connectedSources: ApiObjectDetail[]): InfoItem[] {
   const items: InfoItem[] = [];
 
   if (detail.url) {
@@ -274,6 +290,7 @@ function buildInfoItems(detail: ApiObjectDetail): InfoItem[] {
       title: detail.og_title || detail.url,
       subtitle: detail.og_description ?? undefined,
       body: [detail.og_title, detail.og_description].filter(Boolean).join('\n\n'),
+      url: detail.url,
     });
   }
 
@@ -285,18 +302,21 @@ function buildInfoItems(detail: ApiObjectDetail): InfoItem[] {
       id: `comp-${comp.id}`,
       kind: 'file-section',
       title: comp.key || comp.component_type_name,
-      body: comp.value,
+      body: stringifyInfoValue(comp.value),
+      componentId: comp.id,
     });
   }
 
-  const sourceEdges = detail.edges.filter((e) => e.edge_type === 'source');
-  for (const edge of sourceEdges) {
+  for (const source of connectedSources) {
+    const subtitle = source.og_description || source.url || undefined;
+    const body = source.body || source.og_description || source.url || '';
     items.push({
-      id: `edge-${edge.id}`,
-      kind: 'connection',
-      title: edge.other_title,
-      subtitle: edge.reason,
-      body: edge.reason,
+      id: `source-${source.id}`,
+      kind: 'connected-source',
+      title: source.display_title || source.title,
+      subtitle,
+      body,
+      url: source.url || undefined,
     });
   }
 
@@ -363,10 +383,14 @@ export default function ObjectDrawer() {
 
   const [detail, setDetail] = useState<ApiObjectDetail | null>(null);
   const [liveComponents, setLiveComponents] = useState<ApiComponent[]>([]);
+  const [connectedSources, setConnectedSources] = useState<ApiObjectDetail[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState('overview');
   const [activeInfoItem, setActiveInfoItem] = useState<InfoItem | null>(null);
+  const [infoDraft, setInfoDraft] = useState('');
+  const [savingInfo, setSavingInfo] = useState(false);
+  const [infoSaveError, setInfoSaveError] = useState<string | null>(null);
   const [tabOrder, setTabOrder] = useState<string[]>(DEFAULT_TAB_ORDER);
 
   useEffect(() => {
@@ -379,8 +403,10 @@ export default function ObjectDrawer() {
     setError(null);
     setActiveTab('overview');
     setActiveInfoItem(null);
+    setInfoDraft('');
+    setInfoSaveError(null);
     setLiveComponents([]);
-    setTabOrder(DEFAULT_TAB_ORDER);
+    setConnectedSources([]);
 
     // drawerSlug may be a URL slug or a numeric ID string (from edge navigation)
     const isNumeric = /^\d+$/.test(drawerSlug);
@@ -400,6 +426,40 @@ export default function ObjectDrawer() {
       });
   }, [drawerSlug]);
 
+  useEffect(() => {
+    if (!detail) {
+      setConnectedSources([]);
+      return;
+    }
+
+    const ids = Array.from(new Set(detail.edges.map((edge) => edge.other_id)));
+    if (ids.length === 0) {
+      setConnectedSources([]);
+      return;
+    }
+
+    let cancelled = false;
+    Promise.all(
+      ids.map((id) => fetchObjectById(id).catch(() => null)),
+    ).then((objects) => {
+      if (cancelled) return;
+      const sources = objects.filter((obj): obj is ApiObjectDetail => (
+        obj !== null && obj.object_type_data?.slug === 'source'
+      ));
+      setConnectedSources(sources);
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [detail]);
+
+  useEffect(() => {
+    if (!activeInfoItem) return;
+    setInfoDraft(activeInfoItem.body ?? '');
+    setInfoSaveError(null);
+  }, [activeInfoItem?.id]);
+
   // Navigate to a connected object by its numeric ID
   function navigateToObject(id: number) {
     openDrawer(String(id));
@@ -414,7 +474,10 @@ export default function ObjectDrawer() {
   const isEntityComponent = (name: string) =>
     ENTITY_KEYWORDS.some((k) => name.toLowerCase().includes(k));
   const isTaskComponent = (c: ApiComponent) =>
-    c.component_type_name.toLowerCase() === 'task' || c.key === 'task';
+    c.component_type_name.toLowerCase() === 'task' ||
+    (c.component_type_name.toLowerCase() === 'status' && (c.key || '').toLowerCase().startsWith('task')) ||
+    (c.key || '').toLowerCase() === 'task' ||
+    (c.key || '').toLowerCase().startsWith('task-');
 
   const tagComponents = liveComponents.filter(
     (c) => c.key === 'tags' || c.component_type_name.toLowerCase() === 'tags',
@@ -432,7 +495,29 @@ export default function ObjectDrawer() {
       !isTaskComponent(c),
   );
 
-  const infoItems = detail ? buildInfoItems({ ...detail, components: liveComponents }) : [];
+  const infoItems = useMemo(
+    () => (detail ? buildInfoItems({ ...detail, components: liveComponents }, connectedSources) : []),
+    [detail, liveComponents, connectedSources],
+  );
+
+  async function saveInfoItemEdits() {
+    if (!activeInfoItem?.componentId) return;
+    setSavingInfo(true);
+    setInfoSaveError(null);
+    try {
+      await patchComponent(activeInfoItem.componentId, { value: infoDraft });
+      setLiveComponents((prev) => prev.map((comp) => (
+        comp.id === activeInfoItem.componentId
+          ? { ...comp, value: infoDraft }
+          : comp
+      )));
+      setActiveInfoItem((prev) => (prev ? { ...prev, body: infoDraft } : prev));
+    } catch (err) {
+      setInfoSaveError(err instanceof Error ? err.message : 'Could not save changes.');
+    } finally {
+      setSavingInfo(false);
+    }
+  }
 
   // Tension edges: counter or contradiction semantics
   const tensionEdges = detail?.edges.filter(
@@ -667,8 +752,48 @@ export default function ObjectDrawer() {
                         Back
                       </button>
                       <div className="cp-info-content-title">{activeInfoItem.title}</div>
-                      {activeInfoItem.body && (
-                        <div className="cp-info-content-body">{activeInfoItem.body}</div>
+                      {activeInfoItem.url && (
+                        <a
+                          href={activeInfoItem.url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="cp-info-content-link"
+                        >
+                          {activeInfoItem.url}
+                        </a>
+                      )}
+                      {activeInfoItem.kind === 'file-section' ? (
+                        <>
+                          <div className="cp-info-editor">
+                            <CommonPlaceEditor
+                              key={activeInfoItem.id}
+                              initialContent={activeInfoItem.body ?? ''}
+                              initialContentFormat="markdown"
+                              onUpdate={(payload: TiptapUpdatePayload) => {
+                                const next = payload.markdown || payload.html || '';
+                                setInfoDraft(next);
+                              }}
+                              placeholder="No extracted content yet."
+                            />
+                          </div>
+                          <div className="cp-info-actions">
+                            {infoSaveError && (
+                              <span className="cp-info-save-error">{infoSaveError}</span>
+                            )}
+                            <button
+                              type="button"
+                              className="cp-info-save-btn"
+                              onClick={saveInfoItemEdits}
+                              disabled={savingInfo}
+                            >
+                              {savingInfo ? 'Saving...' : 'Save changes'}
+                            </button>
+                          </div>
+                        </>
+                      ) : (
+                        activeInfoItem.body && (
+                          <div className="cp-info-content-body">{activeInfoItem.body}</div>
+                        )
                       )}
                     </div>
                   )}
