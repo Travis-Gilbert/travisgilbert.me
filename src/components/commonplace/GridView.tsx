@@ -234,9 +234,7 @@ export default function GridView({ onOpenObject }: GridViewProps) {
       {/* Resurface strip */}
       {resurfaceNodes.length > 0 && (
         <div className="cp-resurface-strip">
-          <div className="cp-resurface-label">
-            {'R\nE\nS\nU\nR\nF\nA\nC\nE'}
-          </div>
+          <div className="cp-resurface-label">RESURFACE</div>
           <div className="cp-resurface-cards">
             {resurfaceNodes.map((node) => (
               <ObjectCard
