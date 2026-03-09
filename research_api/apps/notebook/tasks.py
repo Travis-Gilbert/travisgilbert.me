@@ -1,0 +1,203 @@
+"""
+Background task definitions for CommonPlace (django-rq).
+
+Three queues:
+  engine     - Connection engine runs (post-save, can take seconds with SBERT)
+  ingestion  - Heavy file processing (SAM-2, advanced OCR, re-extraction)
+  default    - Everything else (notifications, cleanup, etc.)
+
+Usage:
+  from apps.notebook.tasks import run_engine_task
+  run_engine_task.delay(obj.pk, notebook_slug='urban-research')
+"""
+
+import logging
+
+import django_rq
+
+logger = logging.getLogger(__name__)
+
+
+@django_rq.job('engine', timeout=600)
+def run_engine_task(obj_pk: int, notebook_slug: str = ''):
+    """
+    Run the full 7-pass connection engine for a single Object.
+
+    Replaces the old threading.Thread approach in services.py.
+    Jobs survive container restarts, are monitorable via django-rq
+    admin, and retryable on failure.
+    """
+    from .engine import run_engine
+    from .models import Notebook, Object
+
+    try:
+        obj = Object.objects.get(pk=obj_pk)
+    except Object.DoesNotExist:
+        logger.warning('Engine task: Object %s not found', obj_pk)
+        return
+
+    notebook = None
+    if notebook_slug:
+        notebook = Notebook.objects.filter(slug=notebook_slug).first()
+
+    try:
+        run_engine(obj, notebook=notebook)
+        logger.info('Engine task completed for Object %s (%s)', obj_pk, obj.title[:40])
+    except Exception as exc:
+        logger.error('Engine task failed for Object %s: %s', obj_pk, exc)
+        raise  # Let RQ handle retry
+
+
+@django_rq.job('ingestion', timeout=120)
+def run_file_ingestion_task(obj_pk: int, file_key: str):
+    """
+    Heavy file processing after initial capture.
+
+    Tier 1 extraction (Pillow, pytesseract, python-docx) runs synchronously
+    during capture. This task handles Tier 2 (SAM-2 via Modal, deep OCR,
+    re-extraction with better models).
+
+    The Object already exists with basic metadata. This task enriches it.
+    """
+    from django.conf import settings
+
+    from .models import Object
+
+    try:
+        obj = Object.objects.get(pk=obj_pk)
+    except Object.DoesNotExist:
+        logger.warning('Ingestion task: Object %s not found', obj_pk)
+        return
+
+    try:
+        # If Modal is configured, offload heavy image analysis
+        if settings.MODAL_ENABLED and _is_image_file(file_key):
+            _run_modal_image_analysis(obj, file_key)
+        else:
+            logger.info(
+                'Ingestion task: no heavy processing needed for %s', file_key
+            )
+    except Exception as exc:
+        logger.error('Ingestion task failed for Object %s: %s', obj_pk, exc)
+        raise
+
+
+@django_rq.job('default', timeout=60)
+def rebuild_sbert_index_task():
+    """
+    Rebuild the SBERT FAISS index and cache it in Redis.
+
+    Called periodically or when corpus drifts by 100+ objects.
+    Shared across all gunicorn workers via Redis cache.
+    """
+    from django.core.cache import cache
+
+    from .vector_store import _build_sbert_faiss_index
+
+    logger.info('Rebuilding SBERT FAISS index...')
+    try:
+        result = _build_sbert_faiss_index()
+        if result and result.get('index'):
+            import pickle
+            cache.set(
+                'sbert_faiss_index',
+                pickle.dumps({
+                    'object_pks': result['object_pks'],
+                    'size': result['size'],
+                }),
+                timeout=7200,  # 2 hours
+            )
+            logger.info(
+                'SBERT index cached in Redis: %d vectors', result['size']
+            )
+    except Exception as exc:
+        logger.error('SBERT index rebuild failed: %s', exc)
+        raise
+
+
+@django_rq.job('default', timeout=30)
+def notify_new_connections_task(obj_pk: int, edge_count: int):
+    """
+    Placeholder for real-time push notifications.
+
+    When the engine discovers new connections, this task can:
+    1. Publish to a Redis pub/sub channel (for SSE/WebSocket push)
+    2. Store a notification record for the UI to poll
+    3. Trigger a Sonner toast via the frontend context
+
+    For now, just logs. Will be wired to SSE when the push
+    infrastructure is built.
+    """
+    logger.info(
+        'New connections notification: Object %s gained %d edges',
+        obj_pk, edge_count,
+    )
+
+
+# -----------------------------------------------------------------------
+# Helpers
+# -----------------------------------------------------------------------
+
+def _is_image_file(file_key: str) -> bool:
+    """Check if a file key points to an image."""
+    image_extensions = ('.jpg', '.jpeg', '.png', '.gif', '.webp', '.tiff', '.bmp')
+    return any(file_key.lower().endswith(ext) for ext in image_extensions)
+
+
+def _run_modal_image_analysis(obj, file_key: str):
+    """
+    Offload image analysis to Modal (GPU serverless).
+
+    Modal runs Grounded SAM-2 for object detection/segmentation.
+    Results are stored as Components on the Object.
+    """
+    from django.conf import settings
+    from django.core.files.storage import default_storage
+
+    logger.info('Running Modal image analysis for %s', file_key)
+
+    # Read file from S3
+    try:
+        with default_storage.open(file_key, 'rb') as f:
+            file_bytes = f.read()
+    except Exception as exc:
+        logger.warning('Could not read file %s from storage: %s', file_key, exc)
+        return
+
+    # Call Modal endpoint
+    import httpx
+    try:
+        resp = httpx.post(
+            f'https://{settings.MODAL_TOKEN_ID}--commonplace-vision.modal.run/analyze',
+            content=file_bytes,
+            headers={
+                'Content-Type': 'application/octet-stream',
+                'X-Filename': file_key.split('/')[-1],
+            },
+            timeout=60,
+        )
+        resp.raise_for_status()
+        results = resp.json()
+
+        # Store results as Components
+        from .models import ComponentType
+        comp_type, _ = ComponentType.objects.get_or_create(
+            slug='image_analysis',
+            defaults={
+                'name': 'Image Analysis',
+                'data_type': 'text',
+                'triggers_node': True,
+            },
+        )
+        obj.components.update_or_create(
+            component_type=comp_type,
+            key='sam2_analysis',
+            defaults={
+                'value': results,
+                'sort_order': 99,
+            },
+        )
+        logger.info('Modal analysis stored for Object %s: %s', obj.pk, list(results.keys()))
+
+    except Exception as exc:
+        logger.warning('Modal image analysis failed: %s', exc)

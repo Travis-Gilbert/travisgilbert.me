@@ -3,9 +3,18 @@ builder = "nixpacks"
 
 [build.nixpacks]
 providers = ["python"]
+# Aptfile in repo root installs tesseract-ocr for image OCR
+aptPkgs = ["tesseract-ocr", "tesseract-ocr-eng", "libtesseract-dev"]
 
 [deploy]
-# spaCy model download runs at startup (not build) because nixpacks cmds
-# did not persist the model to the runtime container. The conditional check
-# skips the download if the model is already cached from a previous boot.
-startCommand = "python -c \"import spacy; spacy.load('en_core_web_md')\" 2>/dev/null || python -m spacy download en_core_web_md && python manage.py migrate --noinput && python manage.py collectstatic --noinput && python manage.py ensure_superuser && gunicorn config.wsgi --bind 0.0.0.0:$PORT --access-logfile - --error-logfile -"
+# Startup sequence:
+# 1. Download spaCy model (cached after first boot)
+# 2. Run database migrations
+# 3. Collect static files
+# 4. Ensure superuser exists
+# 5. Start RQ worker in background (3 queues: default, engine, ingestion)
+# 6. Start gunicorn web server in foreground
+#
+# The RQ worker runs in the same container for simplicity.
+# For production scale: create a second Railway service with just the worker.
+startCommand = "python -c \"import spacy; spacy.load('en_core_web_md')\" 2>/dev/null || python -m spacy download en_core_web_md && python manage.py migrate --noinput && python manage.py collectstatic --noinput && python manage.py ensure_superuser && python manage.py rqworker default engine ingestion &  gunicorn config.wsgi --bind 0.0.0.0:$PORT --workers 2 --access-logfile - --error-logfile -"
