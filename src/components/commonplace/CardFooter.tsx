@@ -60,7 +60,15 @@ export default function CardFooter({
       <span style={{ flex: 1 }} />
 
       {edgeCount > 0 && (
-        <span className="cp-card-footer-edges">
+        <span
+          className="cp-card-edge-count cp-card-footer-edges"
+          style={{
+            ...monoStyle,
+            display: 'flex',
+            alignItems: 'center',
+            gap: 3,
+          }}
+        >
           {/* Minimal graph icon: two dots connected by a line */}
           <svg
             width={10}
@@ -82,6 +90,7 @@ export default function CardFooter({
       <time
         className="cp-card-footer-time"
         dateTime={capturedAt}
+        style={monoStyle}
       >
         {formatDate(capturedAt)}
       </time>

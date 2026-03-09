@@ -244,7 +244,10 @@ export default function SplitPaneContainer() {
     if (!pendingView) return;
     setLayout((prev) => {
       const leaves = collectLeafIds(prev);
-      const targetPaneId = leaves[0];
+      const targetPaneId =
+        focusedPaneId && leaves.includes(focusedPaneId)
+          ? focusedPaneId
+          : leaves[0];
       if (!targetPaneId) return prev;
       return addTab(
         prev,
@@ -255,7 +258,7 @@ export default function SplitPaneContainer() {
       );
     });
     clearPendingView();
-  }, [pendingView, clearPendingView]);
+  }, [pendingView, clearPendingView, focusedPaneId]);
 
   /* ── Mobile: single pane view ── */
 

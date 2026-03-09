@@ -111,7 +111,6 @@ function PersonHeader({ node, color, sat }: { node: MockNode; color: string; sat
 
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8 }}>
-      {/* Conic gradient avatar circle */}
       <div
         style={{
           width: 40,
@@ -323,7 +322,7 @@ export default function ObjectCard({
     width: '100%',
     textAlign: 'left',
     background: 'var(--cp-card)',
-    border: `1px solid var(--cp-border-faint)`,
+    border: '1px solid var(--cp-border-faint)',
     borderRadius: 10,
     padding: '14px 16px 10px',
     cursor: 'pointer',
@@ -333,37 +332,36 @@ export default function ObjectCard({
     overflow: 'hidden',
   };
 
-  /* Type-specific border overrides applied via conditional spreads */
   const cardStyle: CSSProperties = {
     ...baseCardStyle,
 
-    // Source: teal top accent (3px gradient bar)
+    // Source: teal top accent
     ...(node.objectType === 'source' && {
       borderTop: `3px solid ${hexAlpha(color, sat)}`,
       borderTopLeftRadius: 2,
       borderTopRightRadius: 2,
     }),
 
-    // Hunch: dashed pink border + warm gradient background
+    // Hunch: dashed border + warm gradient
     ...(node.objectType === 'hunch' && {
       border: `1.5px dashed ${hexAlpha(color, sat * 0.5)}`,
-      background: `linear-gradient(140deg, #FFF8F4 0%, #FEF3EC 100%)`,
+      background: 'linear-gradient(140deg, #FFF8F4 0%, #FEF3EC 100%)',
     }),
 
-    // Quote: 4px gold left border + warm gradient
+    // Quote: gold left border + warm gradient
     ...(node.objectType === 'quote' && {
       borderLeft: `4px solid ${hexAlpha(color, sat)}`,
-      background: `linear-gradient(135deg, var(--cp-card) 0%, #FBF8F0 100%)`,
+      background: 'linear-gradient(135deg, var(--cp-card) 0%, #FBF8F0 100%)',
       paddingTop: 18,
     }),
 
-    // Place: gold left border + subtle gold top gradient
+    // Place: gold left border + subtle top gradient
     ...(node.objectType === 'place' && {
       borderLeft: `4px solid ${hexAlpha(color, sat)}`,
       background: `linear-gradient(180deg, ${hexAlpha(color, 0.04)} 0%, var(--cp-card) 40%)`,
     }),
 
-    // Person: terracotta bottom border (contact card feel)
+    // Person: terracotta bottom border
     ...(node.objectType === 'person' && {
       borderBottom: `3px solid ${hexAlpha(color, sat * 0.7)}`,
     }),
@@ -373,13 +371,13 @@ export default function ObjectCard({
       borderLeft: `3px solid ${hexAlpha(color, sat)}`,
     }),
 
-    // Event: blue gradient banner at top
+    // Event: blue top accent + gradient
     ...(node.objectType === 'event' && {
       background: `linear-gradient(160deg, ${hexAlpha(color, 0.06)} 0%, var(--cp-card) 50%)`,
       borderTop: `3px solid ${hexAlpha(color, sat * 0.7)}`,
     }),
 
-    // Script: steel left border + slightly different background
+    // Script: steel left border
     ...(node.objectType === 'script' && {
       borderLeft: `3px solid ${hexAlpha(color, sat * 0.6)}`,
       background: '#FAFAF8',

@@ -12,12 +12,12 @@ import ObjectCard from './ObjectCard';
  *
  * Layout:
  *   - Resurface strip at top (3 compact cards from /resurface/)
- *   - Three-way toggle: Grid | Timeline | Graph (stored in context)
+ *   - Three-way toggle: Grid | Timeline | Graph (opens matching views)
  *   - Type filter chip row
  *   - CSS columns masonry (3 cols >1200px, 2 cols 768-1200px, 1 col mobile)
  *
- * The three-way toggle changes viewMode in CommonPlaceContext. The
- * SplitPaneContainer reads this and switches the rendered view type.
+ * Timeline/Graph are launched as real pane tabs via requestView().
+ * Grid stays the active mode for this component.
  *
  * Adjacency clustering: before the masonry render, filteredNodes is
  * reordered by clusterByAdjacency() so strongly connected cards land
@@ -113,7 +113,7 @@ interface GridViewProps {
 }
 
 export default function GridView({ onOpenObject }: GridViewProps) {
-  const { captureVersion, viewMode, setViewMode } = useCommonPlace();
+  const { captureVersion, requestView } = useCommonPlace();
 
   const { data: nodes, loading, error, refetch } = useApiData(
     () => fetchFeed({ per_page: 100 }),
@@ -175,9 +175,17 @@ export default function GridView({ onOpenObject }: GridViewProps) {
             <button
               key={mode}
               type="button"
-              className={`cp-view-toggle-btn${viewMode === mode ? ' cp-view-toggle-btn--active' : ''}`}
-              onClick={() => setViewMode(mode)}
-              aria-pressed={viewMode === mode}
+              className={`cp-view-toggle-btn${mode === 'grid' ? ' cp-view-toggle-btn--active' : ''}`}
+              onClick={() => {
+                if (mode === 'timeline') {
+                  requestView('timeline', 'The Timeline');
+                  return;
+                }
+                if (mode === 'graph') {
+                  requestView('network', 'Knowledge Map');
+                }
+              }}
+              aria-pressed={mode === 'grid'}
             >
               {mode === 'grid' && (
                 <svg width={13} height={13} viewBox="0 0 13 13" fill="none" aria-hidden="true">
