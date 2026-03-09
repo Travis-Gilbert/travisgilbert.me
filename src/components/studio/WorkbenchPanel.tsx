@@ -36,14 +36,16 @@ import {
   type TaskGroup,
 } from '@/lib/studio-api';
 import {
-  MagnifyingGlass,
-  ListBullets,
-  Tray,
-  ClockCounterClockwise,
-  SquaresFour,
-  LinkSimple,
-  type Icon as PhosphorIconType,
-} from '@phosphor-icons/react';
+  Search,
+  List,
+  Archive,
+  ClockRotateRight,
+  CollageFrame,
+  Link as LinkIcon,
+} from 'iconoir-react';
+import type { SVGProps, FC } from 'react';
+
+type IconoirIconType = FC<SVGProps<SVGSVGElement> & { width?: number; height?: number; strokeWidth?: number; color?: string }>;
 import { relativeTime } from '@/lib/studio-time';
 import { useStudioWorkbench } from './WorkbenchContext';
 import NewContentModal from './NewContentModal';
@@ -118,13 +120,13 @@ type AutosaveState = 'idle' | 'saved';
 type WorkbenchMode = 'editor' | 'dashboard';
 type EditorPanelMode = 'research' | 'outline' | 'stash' | 'collage' | 'history' | 'links';
 
-const TAB_CONFIG: Record<EditorPanelMode, { Icon: PhosphorIconType; label: string }> = {
-  research: { Icon: MagnifyingGlass,       label: 'Research' },
-  outline:  { Icon: ListBullets,           label: 'Outline'  },
-  stash:    { Icon: Tray,                  label: 'Stash'    },
-  history:  { Icon: ClockCounterClockwise, label: 'History'  },
-  collage:  { Icon: SquaresFour,           label: 'Collage'  },
-  links:    { Icon: LinkSimple,            label: 'Links'    },
+const TAB_CONFIG: Record<EditorPanelMode, { Icon: IconoirIconType; label: string }> = {
+  research: { Icon: Search,           label: 'Research' },
+  outline:  { Icon: List,             label: 'Outline'  },
+  stash:    { Icon: Archive,          label: 'Stash'    },
+  history:  { Icon: ClockRotateRight, label: 'History'  },
+  collage:  { Icon: CollageFrame,     label: 'Collage'  },
+  links:    { Icon: LinkIcon,         label: 'Links'    },
 };
 
 function clampWidth(width: number): number {
@@ -379,7 +381,7 @@ export default function WorkbenchPanel({
                       title={label}
                     >
                       <span className="studio-workbench-tab-icon">
-                        <Icon size={14} weight={isActive ? 'bold' : 'regular'} />
+                        <Icon width={14} height={14} strokeWidth={isActive ? 2 : 1.5} />
                       </span>
                       <span className="studio-workbench-tab-label">{label}</span>
                     </button>

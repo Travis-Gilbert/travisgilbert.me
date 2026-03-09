@@ -3,13 +3,13 @@
 import { useMemo } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import {
-  ClockCounterClockwise,
-  FileText,
-  House,
-  NotePencil,
-  Briefcase,
-  Toolbox,
-} from '@phosphor-icons/react';
+  ClockRotateRight,
+  PageEdit,
+  Home,
+  Notes,
+  KanbanBoard,
+  Tools,
+} from 'iconoir-react';
 import MobileTabs from '@/components/mobile-shell/MobileTabs';
 
 interface StudioMobileDockProps {
@@ -17,12 +17,12 @@ interface StudioMobileDockProps {
 }
 
 const MOBILE_DOCK_ITEMS = [
-  { key: 'home', href: '/studio', label: 'Home', icon: House },
-  { key: 'essays', href: '/studio/essays', label: 'Essays', icon: FileText },
-  { key: 'notes', href: '/studio/field-notes', label: 'Notes', icon: NotePencil },
-  { key: 'projects', href: '/studio/projects', label: 'Projects', icon: Briefcase },
-  { key: 'timeline', href: '/studio/timeline', label: 'Timeline', icon: ClockCounterClockwise },
-  { key: 'workbench', href: '', label: 'Workbench', icon: Toolbox },
+  { key: 'home', href: '/studio', label: 'Home', icon: Home },
+  { key: 'essays', href: '/studio/essays', label: 'Essays', icon: PageEdit },
+  { key: 'notes', href: '/studio/field-notes', label: 'Notes', icon: Notes },
+  { key: 'projects', href: '/studio/projects', label: 'Projects', icon: KanbanBoard },
+  { key: 'timeline', href: '/studio/timeline', label: 'Timeline', icon: ClockRotateRight },
+  { key: 'workbench', href: '', label: 'Workbench', icon: Tools },
 ] as const;
 
 export default function StudioMobileDock({ onOpenWorkbench }: StudioMobileDockProps) {
@@ -45,7 +45,7 @@ export default function StudioMobileDock({ onOpenWorkbench }: StudioMobileDockPr
         return {
           key: item.key,
           label: item.label,
-          icon: <Icon size={16} weight="regular" aria-hidden="true" />,
+          icon: <Icon width={16} height={16} aria-hidden="true" />,
           ariaLabel: item.label,
         };
       })}
