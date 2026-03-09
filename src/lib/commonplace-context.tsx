@@ -45,6 +45,22 @@ interface CommonPlaceContextValue {
   pendingView: ViewRequest | null;
   /** Clear the pending view after consuming it */
   clearPendingView: () => void;
+  /** Active content view mode within a pane (Grid, Timeline, or Graph) */
+  viewMode: 'grid' | 'timeline' | 'graph';
+  /** Set the active content view mode */
+  setViewMode: (mode: 'grid' | 'timeline' | 'graph') => void;
+  /** Cmd+K command palette open state */
+  paletteOpen: boolean;
+  /** Open the command palette */
+  openPalette: () => void;
+  /** Close the command palette */
+  closePalette: () => void;
+  /** Slug of the object currently open in the Vaul drawer (null when closed) */
+  drawerSlug: string | null;
+  /** Open the object detail drawer for the given slug */
+  openDrawer: (slug: string) => void;
+  /** Close the object detail drawer */
+  closeDrawer: () => void;
 }
 
 const CommonPlaceContext = createContext<CommonPlaceContextValue>({
@@ -57,12 +73,23 @@ const CommonPlaceContext = createContext<CommonPlaceContextValue>({
   requestView: () => {},
   pendingView: null,
   clearPendingView: () => {},
+  viewMode: 'grid',
+  setViewMode: () => {},
+  paletteOpen: false,
+  openPalette: () => {},
+  closePalette: () => {},
+  drawerSlug: null,
+  openDrawer: () => {},
+  closeDrawer: () => {},
 });
 
 export function CommonPlaceProvider({ children }: { children: ReactNode }) {
   const [captureVersion, setCaptureVersion] = useState(0);
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
   const [pendingView, setPendingView] = useState<ViewRequest | null>(null);
+  const [viewMode, setViewMode] = useState<'grid' | 'timeline' | 'graph'>('grid');
+  const [paletteOpen, setPaletteOpen] = useState(false);
+  const [drawerSlug, setDrawerSlug] = useState<string | null>(null);
 
   const notifyCaptured = useCallback(() => {
     setCaptureVersion((v) => v + 1);
@@ -91,6 +118,11 @@ export function CommonPlaceProvider({ children }: { children: ReactNode }) {
     setMobileSidebarOpen((open) => !open);
   }, []);
 
+  const openPalette = useCallback(() => setPaletteOpen(true), []);
+  const closePalette = useCallback(() => setPaletteOpen(false), []);
+  const openDrawer = useCallback((slug: string) => setDrawerSlug(slug), []);
+  const closeDrawer = useCallback(() => setDrawerSlug(null), []);
+
   const value = useMemo(
     () => ({
       captureVersion,
@@ -102,6 +134,14 @@ export function CommonPlaceProvider({ children }: { children: ReactNode }) {
       requestView,
       pendingView,
       clearPendingView,
+      viewMode,
+      setViewMode,
+      paletteOpen,
+      openPalette,
+      closePalette,
+      drawerSlug,
+      openDrawer,
+      closeDrawer,
     }),
     [
       captureVersion,
@@ -113,6 +153,13 @@ export function CommonPlaceProvider({ children }: { children: ReactNode }) {
       requestView,
       pendingView,
       clearPendingView,
+      viewMode,
+      paletteOpen,
+      openPalette,
+      closePalette,
+      drawerSlug,
+      openDrawer,
+      closeDrawer,
     ],
   );
 

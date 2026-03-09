@@ -33,6 +33,7 @@ import MobileTabs from '@/components/mobile-shell/MobileTabs';
 import MobileSheet from '@/components/mobile-shell/MobileSheet';
 import DragHandle from './DragHandle';
 import LayoutPresetSelector from './LayoutPresetSelector';
+import GridView from './GridView';
 import TimelineView from './TimelineView';
 import NetworkView from './NetworkView';
 import ObjectDetailView from './ObjectDetailView';
@@ -835,10 +836,10 @@ function PaneViewContent({ viewType, context, paneId, onOpenObject }: PaneViewCo
     );
   }
 
-  /* Live view: Timeline */
-  if (viewType === 'timeline') {
+  /* Live view: Grid (masonry object browser, default view) */
+  if (viewType === 'grid') {
     return (
-      <TimelineView
+      <GridView
         onOpenObject={
           paneId && onOpenObject
             ? (objectRef) => onOpenObject(paneId, objectRef)
@@ -848,17 +849,14 @@ function PaneViewContent({ viewType, context, paneId, onOpenObject }: PaneViewCo
     );
   }
 
+  /* Live view: Timeline */
+  if (viewType === 'timeline') {
+    return <TimelineView />;
+  }
+
   /* Live view: Scoped Timeline (re-uses TimelineView for now) */
   if (viewType === 'scoped-timeline') {
-    return (
-      <TimelineView
-        onOpenObject={
-          paneId && onOpenObject
-            ? (objectRef) => onOpenObject(paneId, objectRef)
-            : undefined
-        }
-      />
-    );
+    return <TimelineView />;
   }
 
   /* Live view: Network (Map / Entities / Timeline viz) */
@@ -1053,6 +1051,15 @@ function ViewTypeIcon({ viewType, size = 16 }: { viewType: ViewType; size?: numb
   const color = 'currentColor';
 
   switch (viewType) {
+    case 'grid':
+      return (
+        <svg width={s} height={s} viewBox="0 0 16 16" fill="none" stroke={color} strokeWidth={sw} style={{ display: 'block', margin: '0 auto' }}>
+          <rect x={1} y={1} width={6} height={6} rx={1} />
+          <rect x={9} y={1} width={6} height={6} rx={1} />
+          <rect x={1} y={9} width={6} height={6} rx={1} />
+          <rect x={9} y={9} width={6} height={6} rx={1} />
+        </svg>
+      );
     case 'timeline':
       return (
         <svg width={s} height={s} viewBox="0 0 16 16" fill="none" stroke={color} strokeWidth={sw} style={{ display: 'block', margin: '0 auto' }}>

@@ -2,6 +2,7 @@
 
 import type { MockNode } from '@/lib/commonplace';
 import { getObjectTypeIdentity } from '@/lib/commonplace';
+import { useCommonPlace } from '@/lib/commonplace-context';
 import ConnectionLabel from './ConnectionLabel';
 
 /**
@@ -27,13 +28,14 @@ interface NodeCardProps {
 }
 
 export default function NodeCard({ node, onSelect, allNodes }: NodeCardProps) {
+  const { openDrawer } = useCommonPlace();
   const typeInfo = getObjectTypeIdentity(node.objectType);
 
   return (
     <button
       type="button"
       className="cp-node-card"
-      onClick={() => onSelect?.(node.id)}
+      onClick={() => openDrawer(node.objectSlug)}
       style={{
         borderLeftColor: typeInfo.color,
         minHeight: 104,

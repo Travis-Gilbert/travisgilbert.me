@@ -12,7 +12,7 @@ Personal "creative workbench" site: a living record of work, interests, and thin
 
 ## Tech Stack
 
-Next.js 16 (App Router, Turbopack, React Compiler), React 19, Tailwind CSS v4 (`@tailwindcss/postcss`), rough.js, rough-notation, `next/font` (Google + local), Zod, gray-matter + remark, Django 5.x (publishing_api + research_api), DRF, spaCy (en_core_web_sm), django-cotton, django-crispy-forms (`studio` pack), django-tailwind, django-template-partials
+Next.js 16 (App Router, Turbopack, React Compiler), React 19, Tailwind CSS v4 (`@tailwindcss/postcss`), rough.js, rough-notation, `next/font` (Google + local), Zod, gray-matter + remark, Django 5.x (publishing_api + research_api), DRF, spaCy (en_core_web_md), PyTorch (CPU), sentence-transformers, FAISS, django-cotton, django-crispy-forms (`studio` pack), django-tailwind, django-template-partials
 
 ## Key Directories
 
@@ -350,7 +350,7 @@ Phases 1 through 4 (Foundation, Micro-interactions, Animations, Polish) are **al
 
 **CommonPlace Frontend:** Sessions 5 through 9 complete. Full Next.js frontend at `/commonplace` route group with warm studio theme (cream parchment + dark sidebar), wired to live Django API. Session 5: split pane system (SplitPaneContainer, DragHandle, LayoutPresetSelector, CommonPlaceSidebar) with recursive binary tree layout, keyboard shortcuts, 4 layout presets. Session 6 (Capture): CaptureButton with spring animation, ObjectPalette type grid, DropZone drag-and-drop, RecentCaptures sidebar list, local-first capture with optimistic IDs. Session 7 (Timeline): TimelineView with NodeCard, DateHeader, RetroNote reflection prompts, ConnectionLabel edge badges, TimelineSearch with type filters. Session 8 (Network): KnowledgeMap (D3 force graph + rough.js canvas edges), EntityNetwork (Person/Org filtered view), TimelineViz (chronological dot plot with arcs), FrameManager (save/restore view configs), NetworkView (toggle toolbar wrapper). Session 9 (API Integration): created `commonplace-api.ts` anti-corruption layer mapping Django serializer responses to frontend types; replaced all mock data with live API calls to `/api/v1/notebook/` endpoints (feed, graph, capture, retrospective, resurface); `useApiData<T>()` hook for loading/error/refetch; NetworkView lifted to single fetch parent; loading skeleton, error banner, empty state styles added. All components use CommonPlace scoped CSS tokens from `commonplace.css`.
 
-**Next step:** Deploy Research API product spec to Railway (run migrations for 0001-0005). Verify production API connectivity end-to-end (env vars are set: `NEXT_PUBLIC_RESEARCH_API_URL`, `NEXT_PUBLIC_STUDIO_URL`, `INTERNAL_API_KEY`, `RESEARCH_API_URL`/`RESEARCH_API_KEY`). Test source promotion pipeline across both Railway services.
+**Next step:** Train KGE embeddings for production (`export_kge_triples` + `train_kge.py`). Verify production API connectivity end-to-end (env vars are set: `NEXT_PUBLIC_RESEARCH_API_URL`, `NEXT_PUBLIC_STUDIO_URL`, `INTERNAL_API_KEY`, `RESEARCH_API_URL`/`RESEARCH_API_KEY`). Test source promotion pipeline across both Railway services. Production NLP stack fully active: spaCy md, SBERT FAISS (11 vectors), PyTorch CPU.
 
 **Remaining backlog:**
 - CommonPlace: verify production deploy with live API
@@ -409,13 +409,16 @@ Phases 1 through 4 (Foundation, Micro-interactions, Animations, Polish) are **al
 - **Two Django services share patterns**: When updating `publishing_api` or `research_api`, check if the other needs the same change
 - **Source promotion requires 3 env vars**: `INTERNAL_API_KEY` (same on both), `RESEARCH_API_URL` and `RESEARCH_API_KEY` on publishing_api
 - **`python3 -m pip` required on this machine**: `pip` alone is not found
-- **spaCy model installed separately**: `python3 -m spacy download en_core_web_sm` after pip install
+- **spaCy model fallback pattern**: Always try `en_core_web_md` first, fall back to `en_core_web_sm`. Railway downloads md; local dev may have sm. See `embeddings.py` for reference pattern
 - **JSONField `__contains` is PostgreSQL-only**: `tags__contains=[value]` fails on SQLite (tests). Use Python-side filtering: `[s for s in queryset if value in (s.tags or [])]`
 - **API key feature flags pattern**: `can_import`, `can_sessions`, `can_webhook` on APIKey. Each gated module has a `_require_*()` helper returning `(api_key, error_response)` tuple
 - **research_api tests use in-memory SQLite**: `python3 manage.py test apps.api -v 2` runs 190 tests. All JSONField queries must be SQLite-compatible
 - **Studio CORS allowlist**: `STUDIO_API_ALLOWED_ORIGINS` in `publishing_api/apps/editor/views.py`. Must include every domain serving Next.js (travisgilbert.me, www, studio.travisgilbert.me, .vercel.app suffix). Also supports `STUDIO_API_ALLOWED_ORIGINS` env var
 - **"Loads but can't save" = CORS**: Server Components fetch server-side (no CORS), Client Components POST from browser (CORS preflight). If GETs work but POSTs fail, check the CORS allowlist
 - **APIKeyMiddleware gates ALL `/api/v1/` paths**: New public endpoints under `/api/v1/` must be added to `EXEMPT_PREFIXES` in `research_api/apps/api/middleware.py`
+- **Railway nixpacks `cmds` doesn't persist to runtime**: Downloaded models (spaCy, etc.) vanish. Use `startCommand` with conditional download instead
+- **`--extra-index-url` must be in top-level `requirements.txt`**: Nixpacks doesn't propagate pip options from nested `-r` included files (base.txt is 2 levels deep)
+- **CPU-only PyTorch on Railway**: `--extra-index-url https://download.pytorch.org/whl/cpu` in requirements.txt; without it pip pulls ~2GB CUDA wheels or fails
 
 ### CommonPlace
 - **Route group scoping**: `(commonplace)` has its own layout.tsx, does NOT render html/body. Applies `commonplace-theme` class. Do not add DotGrid, TopNav, or Footer here

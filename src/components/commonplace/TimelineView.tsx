@@ -1,404 +1,439 @@
 'use client';
 
-import { useState, useMemo, useCallback, useEffect, useRef, type ReactNode } from 'react';
-import { fetchFeed, groupNodesByDate, useApiData, postRetrospective } from '@/lib/commonplace-api';
-import { useCommonPlace } from '@/lib/commonplace-context';
-import type { MockNode } from '@/lib/commonplace';
-import DateHeader from './DateHeader';
-import NodeCard from './NodeCard';
-import RetroNote from './RetroNote';
-import TimelineSearch from './TimelineSearch';
-import type { TimelineFilters } from './TimelineSearch';
-import { useIsMobile } from '@/hooks/useIsMobile';
-
 /**
- * TimelineView: scrollable feed of objects grouped by date.
+ * TimelineView: chronological feed of captured objects.
  *
- * The primary "daily-use" view for CommonPlace. Shows all
- * captured objects in reverse chronological order, grouped by
- * date with sticky DateHeaders. Includes:
- *   - TimelineSearch at top (text + type filters)
- *   - DateHeader sticky separators
- *   - NodeCards for each object
- *   - RetroNotes inserted every 5 to 7 entries
+ * Layout: two-column grid (100px gutter + card body).
+ * Left gutter: continuous 2px terracotta rail, type-colored dot markers,
+ * short Courier Prime time label.
+ * Right column: rich cards with type badge pill, full body text (not
+ * truncated), connections 2-col grid, inline retrospective notes.
  *
- * Registers as the 'timeline' view in PaneViewContent.
+ * GSAP ScrollTrigger animates cards as they enter the scroll container.
+ * Respects prefers-reduced-motion: skip animations entirely if set.
+ *
+ * Dropped from prior version: the custom binary-search virtualizer
+ * (MeasuredTimelineRow, findStartIndex, findEndIndex, rowHeights, spacers)
+ * -- incompatible with GSAP ScrollTrigger which needs stable DOM nodes.
+ *
+ * Preserved from prior version:
+ *   fetchFeed, groupNodesByDate, useApiData, postRetrospective,
+ *   TimelineSearch, TimelineFilters, filter state, captureVersion refetch.
  */
 
-interface TimelineViewProps {
-  /** Callback when a node is clicked (opens detail in adjacent pane) */
-  onOpenObject?: (objectRef: number) => void;
+import { useState, useMemo, useEffect, useRef } from 'react';
+import {
+  fetchFeed,
+  groupNodesByDate,
+  useApiData,
+  postRetrospective,
+} from '@/lib/commonplace-api';
+import { useCommonPlace } from '@/lib/commonplace-context';
+import type { MockNode } from '@/lib/commonplace';
+import { getObjectTypeIdentity } from '@/lib/commonplace';
+import TimelineSearch from './TimelineSearch';
+import type { TimelineFilters } from './TimelineSearch';
+
+/* ─────────────────────────────────────────────────
+   Utilities
+   ───────────────────────────────────────────────── */
+
+function formatShortTime(iso: string): string {
+  const d = new Date(iso);
+  return d.toLocaleTimeString('en-US', {
+    hour: 'numeric',
+    minute: '2-digit',
+    hour12: true,
+  });
 }
 
-type TimelineRow =
-  | { key: string; type: 'date'; label: string; estimatedHeight: number }
-  | { key: string; type: 'retro'; nodeId: string; estimatedHeight: number }
-  | { key: string; type: 'node'; node: MockNode; estimatedHeight: number };
+/* ─────────────────────────────────────────────────
+   ConnectionPill
+   ───────────────────────────────────────────────── */
 
-const RETRO_INTERVAL = 6;
-const DESKTOP_VIRTUALIZE_AFTER_ROWS = 120;
-const MOBILE_VIRTUALIZE_AFTER_ROWS = 64;
-const DESKTOP_OVERSCAN_PX = 920;
-const MOBILE_OVERSCAN_PX = 560;
-
-export default function TimelineView({ onOpenObject }: TimelineViewProps) {
-  const { captureVersion } = useCommonPlace();
-  const isMobile = useIsMobile();
-  const { data: nodes, loading, error, refetch } = useApiData(
-    () => fetchFeed({ per_page: 100 }),
-    [captureVersion],
-  );
-
-  const [filters, setFilters] = useState<TimelineFilters>({
-    query: '',
-    activeTypes: new Set(),
-  });
-
-  /* Filter nodes (client-side on fetched data) */
-  const filteredNodes = useMemo(() => {
-    if (!nodes) return [];
-    let result = nodes;
-
-    /* Text search (title + summary) */
-    if (filters.query) {
-      const q = filters.query.toLowerCase();
-      result = result.filter(
-        (n) =>
-          n.title.toLowerCase().includes(q) ||
-          n.summary.toLowerCase().includes(q)
-      );
-    }
-
-    /* Type filter */
-    if (filters.activeTypes.size > 0) {
-      result = result.filter((n) => filters.activeTypes.has(n.objectType));
-    }
-
-    return result;
-  }, [nodes, filters]);
-
-  /* Group by date */
-  const dateGroups = useMemo(
-    () => groupNodesByDate(filteredNodes),
-    [filteredNodes]
-  );
-
-  const handleSelect = useCallback(
-    (nodeId: string) => {
-      const node = (nodes ?? []).find((n) => n.id === nodeId);
-      if (node) onOpenObject?.(node.objectRef);
-    },
-    [onOpenObject, nodes]
-  );
-
-  const timelineRows = useMemo(() => {
-    const rows: TimelineRow[] = [];
-    let cardIndex = 0;
-
-    for (const group of dateGroups) {
-      rows.push({
-        key: `date-${group.dateKey}`,
-        type: 'date',
-        label: group.dateLabel,
-        estimatedHeight: 42,
-      });
-
-      for (const node of group.nodes) {
-        const showRetro = cardIndex > 0 && cardIndex % RETRO_INTERVAL === 0 && !filters.query;
-        if (showRetro) {
-          rows.push({
-            key: `retro-${node.id}`,
-            type: 'retro',
-            nodeId: node.id,
-            estimatedHeight: 118,
-          });
-        }
-        rows.push({
-          key: node.id,
-          type: 'node',
-          node,
-          estimatedHeight: 142,
-        });
-        cardIndex += 1;
-      }
-    }
-
-    return rows;
-  }, [dateGroups, filters.query]);
-
-  const shouldVirtualize =
-    timelineRows.length >= (isMobile ? MOBILE_VIRTUALIZE_AFTER_ROWS : DESKTOP_VIRTUALIZE_AFTER_ROWS);
-  const overscanPx = isMobile ? MOBILE_OVERSCAN_PX : DESKTOP_OVERSCAN_PX;
-  const feedRef = useRef<HTMLDivElement>(null);
-  const [scrollTop, setScrollTop] = useState(0);
-  const [viewportHeight, setViewportHeight] = useState(0);
-  const [rowHeights, setRowHeights] = useState<Record<string, number>>({});
-
-  useEffect(() => {
-    const container = feedRef.current;
-    if (!container) return;
-
-    const onScroll = () => setScrollTop(container.scrollTop);
-    onScroll();
-    container.addEventListener('scroll', onScroll, { passive: true });
-
-    const resizeObserver = new ResizeObserver((entries) => {
-      const next = Math.round(entries[0].contentRect.height);
-      setViewportHeight(next);
-    });
-    resizeObserver.observe(container);
-
-    return () => {
-      container.removeEventListener('scroll', onScroll);
-      resizeObserver.disconnect();
-    };
-  }, []);
-
-  useEffect(() => {
-    const container = feedRef.current;
-    if (!container) return;
-    container.scrollTop = 0;
-  }, [captureVersion, filters.query, filters.activeTypes]);
-
-  const handleRowHeight = useCallback((rowKey: string, height: number) => {
-    setRowHeights((prev) => {
-      if (prev[rowKey] === height) return prev;
-      return { ...prev, [rowKey]: height };
-    });
-  }, []);
-
-  const { offsets, heights, totalHeight } = useMemo(() => {
-    const nextOffsets: number[] = [];
-    const nextHeights: number[] = [];
-    let total = 0;
-
-    for (const row of timelineRows) {
-      nextOffsets.push(total);
-      const measured = rowHeights[row.key];
-      const rowHeight = measured && measured > 0 ? measured : row.estimatedHeight;
-      nextHeights.push(rowHeight);
-      total += rowHeight;
-    }
-
-    return { offsets: nextOffsets, heights: nextHeights, totalHeight: total };
-  }, [timelineRows, rowHeights]);
-
-  const { startIndex, endIndex, beforeHeight, afterHeight } = useMemo(() => {
-    if (!shouldVirtualize || timelineRows.length === 0) {
-      return {
-        startIndex: 0,
-        endIndex: timelineRows.length - 1,
-        beforeHeight: 0,
-        afterHeight: 0,
-      };
-    }
-
-    const visibleStart = Math.max(0, scrollTop - overscanPx);
-    const visibleEnd = scrollTop + Math.max(viewportHeight, 400) + overscanPx;
-    const start = findStartIndex(offsets, heights, visibleStart);
-    const end = findEndIndex(offsets, visibleEnd);
-    const topSpacer = offsets[start] ?? 0;
-    const bottomStart = (offsets[end] ?? 0) + (heights[end] ?? 0);
-    const bottomSpacer = Math.max(0, totalHeight - bottomStart);
-
-    return {
-      startIndex: start,
-      endIndex: end,
-      beforeHeight: topSpacer,
-      afterHeight: bottomSpacer,
-    };
-  }, [shouldVirtualize, timelineRows.length, scrollTop, viewportHeight, offsets, heights, totalHeight, overscanPx]);
-
-  const visibleRows = useMemo(() => {
-    if (!shouldVirtualize) return timelineRows;
-    if (timelineRows.length === 0) return [];
-    return timelineRows.slice(startIndex, endIndex + 1);
-  }, [shouldVirtualize, timelineRows, startIndex, endIndex]);
-
-  const renderRow = useCallback((row: TimelineRow) => {
-    if (row.type === 'date') {
-      return <DateHeader label={row.label} />;
-    }
-
-    if (row.type === 'retro') {
-      return (
-        <RetroNote
-          adjacentNodeId={row.nodeId}
-          onSubmit={(text) => {
-            postRetrospective(row.nodeId, text).catch((err) => {
-              console.warn('[RetroNote] save failed:', err.message);
-            });
-          }}
-        />
-      );
-    }
-
-    return (
-      <NodeCard
-        node={row.node}
-        onSelect={handleSelect}
-        allNodes={nodes ?? []}
-      />
-    );
-  }, [handleSelect, nodes]);
+function ConnectionPill({
+  edge,
+  node,
+  allNodes,
+  onOpenDrawer,
+}: {
+  edge: MockNode['edges'][number];
+  node: MockNode;
+  allNodes: MockNode[];
+  onOpenDrawer: (slug: string) => void;
+}) {
+  const isSource = edge.sourceId === node.id;
+  const otherId = isSource ? edge.targetId : edge.sourceId;
+  const other = allNodes.find((n) => n.id === otherId);
+  const otherInfo = other ? getObjectTypeIdentity(other.objectType) : null;
 
   return (
-    <div
-      style={{
-        display: 'flex',
-        flexDirection: 'column',
-        height: '100%',
-        overflow: 'hidden',
+    <button
+      type="button"
+      className="cp-tl-connection-pill"
+      onClick={() => {
+        if (other) onOpenDrawer(other.objectSlug);
       }}
+      title={edge.reason ?? undefined}
+      style={{ borderColor: otherInfo ? `${otherInfo.color}55` : 'var(--cp-border)' }}
     >
-      {/* Search bar */}
+      {/* Directional arrow */}
+      <svg
+        width={7}
+        height={7}
+        viewBox="0 0 7 7"
+        fill="none"
+        aria-hidden="true"
+        style={{
+          flexShrink: 0,
+          opacity: 0.6,
+          color: otherInfo?.color ?? 'var(--cp-text-faint)',
+        }}
+      >
+        {isSource ? (
+          <path
+            d="M1 3.5h5M3.5 1.5L5.5 3.5 3.5 5.5"
+            stroke="currentColor"
+            strokeWidth={1.1}
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          />
+        ) : (
+          <path
+            d="M6 3.5H1M3.5 1.5L1.5 3.5 3.5 5.5"
+            stroke="currentColor"
+            strokeWidth={1.1}
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          />
+        )}
+      </svg>
+
+      {/* Other object type label */}
+      {otherInfo && (
+        <span
+          style={{
+            fontFamily: 'var(--cp-font-mono)',
+            fontSize: 8.5,
+            letterSpacing: '0.08em',
+            textTransform: 'uppercase',
+            color: otherInfo.color,
+            flexShrink: 0,
+          }}
+        >
+          {otherInfo.label}
+        </span>
+      )}
+
+      {/* Other object title */}
+      <span
+        style={{
+          fontFamily: 'var(--cp-font-body)',
+          fontSize: 11.5,
+          color: 'var(--cp-text-muted)',
+          overflow: 'hidden',
+          whiteSpace: 'nowrap',
+          textOverflow: 'ellipsis',
+        }}
+      >
+        {other?.title ?? String(otherId)}
+      </span>
+    </button>
+  );
+}
+
+/* ─────────────────────────────────────────────────
+   TimelineCard
+   ───────────────────────────────────────────────── */
+
+function TimelineCard({
+  node,
+  allNodes,
+  onOpenDrawer,
+}: {
+  node: MockNode;
+  allNodes: MockNode[];
+  onOpenDrawer: (slug: string) => void;
+}) {
+  const typeInfo = getObjectTypeIdentity(node.objectType);
+  const [retroOpen, setRetroOpen] = useState(false);
+  const [retroText, setRetroText] = useState('');
+  const [retroSaved, setRetroSaved] = useState('');
+  const [saving, setSaving] = useState(false);
+
+  const handleSaveRetro = async () => {
+    if (!retroText.trim()) return;
+    setSaving(true);
+    try {
+      await postRetrospective(String(node.id), retroText.trim());
+      setRetroSaved(retroText.trim());
+      setRetroText('');
+      setRetroOpen(false);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div className="cp-timeline-card" data-type={node.objectType}>
+      {/* Left gutter: continuous rail + dot marker + time label */}
+      <div className="cp-tl-gutter" aria-hidden="true">
+        <div className="cp-tl-rail" />
+        <div
+          className="cp-tl-dot"
+          style={{
+            backgroundColor: typeInfo.color,
+            boxShadow: `0 0 5px ${typeInfo.color}44`,
+          }}
+        />
+        <span className="cp-tl-time">{formatShortTime(node.capturedAt)}</span>
+      </div>
+
+      {/* Right column: rich card body */}
+      <div className="cp-tl-body">
+        {/* Type badge pill */}
+        <span
+          className="cp-tl-type-badge"
+          style={{
+            color: typeInfo.color,
+            borderColor: `${typeInfo.color}40`,
+          }}
+        >
+          {typeInfo.label}
+        </span>
+
+        {/* Title: clickable, opens ObjectDrawer */}
+        <div
+          className="cp-tl-title"
+          role="button"
+          tabIndex={0}
+          onClick={() => onOpenDrawer(node.objectSlug)}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') onOpenDrawer(node.objectSlug);
+          }}
+        >
+          {node.title}
+        </div>
+
+        {/* Full body text, not truncated */}
+        {node.summary && <div className="cp-tl-summary">{node.summary}</div>}
+
+        {/* Connections: 2-col grid of connection pills */}
+        {node.edgeCount > 0 && (
+          <div className="cp-tl-connections">
+            <div className="cp-tl-section-label">CONNECTIONS</div>
+            <div className="cp-tl-connections-grid">
+              {node.edges.map((edge) => (
+                <ConnectionPill
+                  key={edge.id}
+                  edge={edge}
+                  node={node}
+                  allNodes={allNodes}
+                  onOpenDrawer={onOpenDrawer}
+                />
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Retrospective notes */}
+        <div className="cp-tl-retro">
+          {retroSaved && <div className="cp-tl-retro-text">{retroSaved}</div>}
+
+          {retroOpen ? (
+            <div className="cp-tl-retro-form">
+              <textarea
+                className="cp-tl-retro-textarea"
+                value={retroText}
+                onChange={(e) => setRetroText(e.target.value)}
+                placeholder="Retrospective note..."
+                rows={2}
+                autoFocus
+              />
+              <div className="cp-tl-retro-actions">
+                <button
+                  type="button"
+                  className="cp-tl-retro-save"
+                  onClick={handleSaveRetro}
+                  disabled={saving || !retroText.trim()}
+                >
+                  {saving ? 'Saving' : 'Save'}
+                </button>
+                <button
+                  type="button"
+                  className="cp-tl-retro-cancel"
+                  onClick={() => {
+                    setRetroOpen(false);
+                    setRetroText('');
+                  }}
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          ) : (
+            <button
+              type="button"
+              className="cp-tl-retro-add"
+              onClick={() => setRetroOpen(true)}
+            >
+              + Add note
+            </button>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ─────────────────────────────────────────────────
+   TimelineView (main export)
+   ───────────────────────────────────────────────── */
+
+export default function TimelineView() {
+  const [filters, setFilters] = useState<TimelineFilters>({
+    query: '',
+    activeTypes: new Set<string>(),
+  });
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const { captureVersion, openDrawer } = useCommonPlace();
+
+  const { data: feed, loading, error, refetch } = useApiData(fetchFeed, [captureVersion]);
+
+  // Full unfiltered node list kept for connection lookups within ConnectionPill
+  const allNodes: MockNode[] = feed ?? [];
+
+  // Apply search text and type filters
+  const filteredNodes = useMemo<MockNode[]>(() => {
+    let nodes = allNodes;
+    if (filters.query) {
+      const q = filters.query.toLowerCase();
+      nodes = nodes.filter(
+        (n) =>
+          n.title.toLowerCase().includes(q) ||
+          (n.summary?.toLowerCase().includes(q) ?? false),
+      );
+    }
+    if (filters.activeTypes.size > 0) {
+      nodes = nodes.filter((n) => filters.activeTypes.has(n.objectType));
+    }
+    return nodes;
+  }, [allNodes, filters]);
+
+  // Group filtered nodes by calendar date for the date-section layout
+  const dateGroups = useMemo(() => groupNodesByDate(filteredNodes), [filteredNodes]);
+
+  // GSAP ScrollTrigger: fade + rise each card as it enters the scroll container.
+  // Dynamic import keeps GSAP out of the SSR bundle (window access on import).
+  useEffect(() => {
+    const container = scrollRef.current;
+    if (!container || dateGroups.length === 0) return;
+
+    // Honor prefers-reduced-motion: show cards immediately, skip animations
+    const prefersReduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    if (prefersReduced) return;
+
+    // Guard against the effect re-running before the previous Promise resolves
+    let killed = false;
+    const triggers: { kill: () => void }[] = [];
+
+    Promise.all([import('gsap'), import('gsap/ScrollTrigger')]).then(
+      ([{ gsap }, { ScrollTrigger }]) => {
+        if (killed) return;
+
+        gsap.registerPlugin(ScrollTrigger);
+
+        const cards = Array.from(
+          container.querySelectorAll<HTMLElement>('.cp-timeline-card'),
+        );
+
+        cards.forEach((card) => {
+          gsap.set(card, { opacity: 0, y: 16 });
+
+          const trigger = ScrollTrigger.create({
+            trigger: card,
+            scroller: container,
+            start: 'top 92%',
+            onEnter: () => {
+              gsap.to(card, { opacity: 1, y: 0, duration: 0.42, ease: 'power2.out' });
+            },
+          });
+
+          triggers.push(trigger);
+        });
+      },
+    );
+
+    return () => {
+      killed = true;
+      triggers.forEach((t) => t.kill());
+    };
+  }, [dateGroups]);
+
+  /* Loading */
+  if (loading) {
+    return (
+      <div className="cp-timeline-root">
+        <div className="cp-loading-state">
+          <div className="cp-loading-spinner" aria-label="Loading timeline" />
+        </div>
+      </div>
+    );
+  }
+
+  /* Error */
+  if (error) {
+    return (
+      <div className="cp-timeline-root">
+        <div className="cp-error-banner">
+          <span>Failed to load timeline.</span>
+          <button type="button" onClick={refetch} className="cp-error-retry">
+            Retry
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="cp-timeline-root">
       <TimelineSearch
         filters={filters}
         onChange={setFilters}
         resultCount={filteredNodes.length}
       />
 
-      {/* Timeline feed */}
-      <div
-        ref={feedRef}
-        className="cp-scrollbar cp-timeline-feed"
-        style={{
-          flex: 1,
-          overflowY: 'auto',
-          padding: '0 12px 20px',
-        }}
-      >
-        {/* Loading state */}
-        {loading && (
-          <div className="cp-loading-skeleton">
-            {Array.from({ length: 5 }).map((_, i) => (
-              <div key={i} className="cp-skeleton-card" />
-            ))}
-          </div>
-        )}
-
-        {/* Error state */}
-        {error && !loading && (
-          <div className="cp-error-banner">
-            <span>
-              {error.isNetworkError
-                ? 'Could not reach CommonPlace API.'
-                : `Error: ${error.message}`}
-            </span>
-            <button type="button" onClick={refetch}>
-              Retry
-            </button>
-          </div>
-        )}
-
-        {/* Empty state (not loading, no error, no data) */}
-        {!loading && !error && dateGroups.length === 0 && (
+      <div ref={scrollRef} className="cp-timeline-scroll">
+        {dateGroups.length === 0 ? (
           <div className="cp-empty-state">
-            {filters.query || filters.activeTypes.size > 0
-              ? 'No objects match your filters'
-              : 'No objects captured yet. Use the capture bar to get started.'}
+            <p>No objects match the current filters.</p>
           </div>
-        )}
-
-        {/* Data */}
-        {!loading && !error && timelineRows.length > 0 && (
-          <>
-            {shouldVirtualize && beforeHeight > 0 && (
-              <div style={{ height: beforeHeight }} aria-hidden="true" />
-            )}
-            {visibleRows.map((row) => (
-              shouldVirtualize ? (
-                <MeasuredTimelineRow
-                  key={row.key}
-                  rowKey={row.key}
-                  onHeight={handleRowHeight}
-                >
-                  {renderRow(row)}
-                </MeasuredTimelineRow>
-              ) : (
-                <div key={row.key}>
-                  {renderRow(row)}
+        ) : (
+          dateGroups.map((group) => (
+            <div key={group.dateKey} className="cp-tl-date-group">
+              {/* Date header row: gutter spacer + date label */}
+              <div className="cp-tl-date-row">
+                <div className="cp-tl-gutter-spacer" aria-hidden="true">
+                  <div className="cp-tl-rail" />
                 </div>
-              )
-            ))}
-            {shouldVirtualize && afterHeight > 0 && (
-              <div style={{ height: afterHeight }} aria-hidden="true" />
-            )}
-          </>
+                <div className="cp-tl-date-label-text">
+                  {group.dateLabel}
+                </div>
+              </div>
+
+              {/* Rich cards for this date */}
+              {group.nodes.map((node) => (
+                <TimelineCard
+                  key={`node-${node.id}`}
+                  node={node}
+                  allNodes={allNodes}
+                  onOpenDrawer={openDrawer}
+                />
+              ))}
+            </div>
+          ))
         )}
       </div>
     </div>
   );
-}
-
-function findStartIndex(offsets: number[], heights: number[], scrollValue: number): number {
-  if (offsets.length === 0) return 0;
-  let low = 0;
-  let high = offsets.length - 1;
-  let result = 0;
-
-  while (low <= high) {
-    const mid = Math.floor((low + high) / 2);
-    const rowEnd = offsets[mid] + heights[mid];
-    if (rowEnd < scrollValue) {
-      low = mid + 1;
-    } else {
-      result = mid;
-      high = mid - 1;
-    }
-  }
-
-  return result;
-}
-
-function findEndIndex(offsets: number[], visibleEnd: number): number {
-  if (offsets.length === 0) return 0;
-  let low = 0;
-  let high = offsets.length - 1;
-  let result = 0;
-
-  while (low <= high) {
-    const mid = Math.floor((low + high) / 2);
-    if (offsets[mid] <= visibleEnd) {
-      result = mid;
-      low = mid + 1;
-    } else {
-      high = mid - 1;
-    }
-  }
-
-  return result;
-}
-
-function MeasuredTimelineRow({
-  rowKey,
-  onHeight,
-  children,
-}: {
-  rowKey: string;
-  onHeight: (rowKey: string, height: number) => void;
-  children: ReactNode;
-}) {
-  const rowRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    const row = rowRef.current;
-    if (!row) return;
-
-    const emitHeight = () => {
-      const next = Math.round(row.getBoundingClientRect().height);
-      if (next > 0) onHeight(rowKey, next);
-    };
-
-    emitHeight();
-
-    const resizeObserver = new ResizeObserver(() => {
-      emitHeight();
-    });
-    resizeObserver.observe(row);
-
-    return () => resizeObserver.disconnect();
-  }, [rowKey, onHeight]);
-
-  return <div ref={rowRef}>{children}</div>;
 }

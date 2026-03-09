@@ -376,6 +376,33 @@ export async function fetchDailyLogByDate(date: string): Promise<ApiDailyLog> {
 }
 
 /* ─────────────────────────────────────────────────
+   Pinned objects: sidebar 2x3 grid showing recently
+   resurfaced objects (full data: slug + edge count)
+   ───────────────────────────────────────────────── */
+
+export interface PinnedObject {
+  id: number;
+  slug: string;
+  title: string;
+  objectTypeName: string;
+  objectTypeColor: string;
+  edgeCount: number;
+}
+
+/** Fetch up to 6 recently resurfaced objects for the sidebar pinned grid. */
+export async function fetchPinnedObjects(): Promise<PinnedObject[]> {
+  const data = await fetchResurface({ count: 6 });
+  return data.cards.map((card) => ({
+    id: card.object.id,
+    slug: card.object.slug,
+    title: card.object.display_title ?? card.object.title,
+    objectTypeName: card.object.object_type_data?.name ?? '',
+    objectTypeColor: card.object.object_type_data?.color ?? '',
+    edgeCount: card.object.edges.length,
+  }));
+}
+
+/* ─────────────────────────────────────────────────
    Sync helper: maps CapturedObject to API payload
    ───────────────────────────────────────────────── */
 
