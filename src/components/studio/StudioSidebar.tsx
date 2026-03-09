@@ -4,19 +4,19 @@ import { useEffect, useState } from 'react';
 import { usePathname } from 'next/navigation';
 import Link from 'next/link';
 import {
-  Books,
-  Briefcase,
-  ClockCounterClockwise,
-  FileText,
-  Gear,
-  Moon,
-  NotePencil,
-  Notebook,
-  Sun,
-  Toolbox,
-  Tray,
+  BookStack,
+  KanbanBoard,
+  ClockRotateRight,
+  PageEdit,
+  Settings,
+  HalfMoon,
+  Notes,
+  JournalPage,
+  SunLight,
+  Tools,
+  Archive,
   VideoCamera,
-} from '@phosphor-icons/react';
+} from 'iconoir-react';
 import { SIDEBAR_SECTIONS, SIDEBAR_TIMELINE_ITEM } from '@/lib/studio';
 import { fetchContentList } from '@/lib/studio-api';
 import { useStudioView } from './StudioViewContext';
@@ -40,16 +40,16 @@ export default function StudioSidebar() {
   const [counts, setCounts] = useState<Record<string, number>>({});
 
   const iconByName = {
-    'file-text': FileText,
-    'note-pencil': NotePencil,
+    'file-text': PageEdit,
+    'note-pencil': Notes,
     video: VideoCamera,
-    'book-open': Books,
-    notebook: Notebook,
-    wrench: Toolbox,
-    briefcase: Briefcase,
-    gear: Gear,
-    tray: Tray,
-    timeline: ClockCounterClockwise,
+    'book-open': BookStack,
+    notebook: JournalPage,
+    wrench: Tools,
+    briefcase: KanbanBoard,
+    gear: Settings,
+    tray: Archive,
+    timeline: ClockRotateRight,
   } as const;
 
   const timelineActive =
@@ -191,7 +191,7 @@ export default function StudioSidebar() {
                 (item.href !== '/studio' && pathname?.startsWith(item.href));
               const countType = hrefToType[item.href];
               const count = countType ? (counts[countType] ?? 0) : undefined;
-              const Icon = iconByName[item.icon as keyof typeof iconByName] ?? FileText;
+              const Icon = iconByName[item.icon as keyof typeof iconByName] ?? PageEdit;
 
               return (
                 <Link
@@ -210,7 +210,7 @@ export default function StudioSidebar() {
                       flexShrink: 0,
                     }}
                   >
-                    <Icon size={16} weight="thin" aria-hidden="true" />
+                    <Icon width={16} height={16} aria-hidden="true" />
                   </span>
                   <span>{item.label}</span>
                   {count !== undefined && (
@@ -244,7 +244,7 @@ export default function StudioSidebar() {
               flexShrink: 0,
             }}
           >
-            <ClockCounterClockwise size={16} weight="thin" aria-hidden="true" />
+            <ClockRotateRight width={16} height={16} aria-hidden="true" />
           </span>
           <span>{SIDEBAR_TIMELINE_ITEM.label}</span>
         </Link>
@@ -267,9 +267,9 @@ export default function StudioSidebar() {
             }}
           >
             {themeMode === 'dark' ? (
-              <Sun size={16} weight="thin" aria-hidden="true" />
+              <SunLight width={16} height={16} aria-hidden="true" />
             ) : (
-              <Moon size={16} weight="thin" aria-hidden="true" />
+              <HalfMoon width={16} height={16} aria-hidden="true" />
             )}
           </span>
           <span>{themeMode === 'dark' ? 'Light Mode' : 'Dark Mode'}</span>
