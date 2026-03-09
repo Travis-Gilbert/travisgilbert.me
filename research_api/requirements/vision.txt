@@ -1,0 +1,14 @@
+# Optional: heavy vision dependencies for advanced image analysis.
+# Only install in GPU environments. Do not add to base.txt.
+#
+# Usage (local GPU machine):
+#   pip install -r requirements/vision.txt
+#
+# Railway: not included in the default build. Set ENABLE_VISION=true
+# in environment variables and add a custom nixpacks build step if needed.
+
+scikit-image>=0.22.0
+
+# Grounded SAM-2 for object segmentation (requires CUDA-capable GPU)
+# groundingdino-py>=0.4.0
+# segment-anything-2>=0.1.0

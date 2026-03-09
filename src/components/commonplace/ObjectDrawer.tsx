@@ -1,12 +1,14 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { Reorder } from 'framer-motion';
 import { Drawer } from 'vaul';
 import * as Tabs from '@radix-ui/react-tabs';
 import { useCommonPlace } from '@/lib/commonplace-context';
 import { fetchObjectDetail, fetchObjectById } from '@/lib/commonplace-api';
-import type { ApiObjectDetail, ApiEdgeCompact, ApiNodeListItem } from '@/lib/commonplace';
+import type { ApiObjectDetail, ApiEdgeCompact, ApiNodeListItem, ApiComponent } from '@/lib/commonplace';
 import HunchSketch from './HunchSketch';
+import ObjectTasks from './ObjectTasks';
 
 /**
  * ObjectDrawer: Vaul slide-in drawer from the right for object detail.
@@ -18,9 +20,9 @@ import HunchSketch from './HunchSketch';
  * (e.g. "42") when navigating via edge connections. The component routes to
  * fetchObjectDetail or fetchObjectById accordingly.
  *
- * Three tabs: Overview (body, source URL, components, tags, entity chips),
- * Connections (strength bars, reason text, tension section), and History
- * (immutable event timeline).
+ * Four tabs: Overview (body, source URL, components, tags, entity chips),
+ * Info (OG card, file sections, source connections), Connections (strength
+ * bars, reason text, tension section), and History (immutable event timeline).
  */
 
 /* ─────────────────────────────────────────────────
@@ -251,6 +253,108 @@ function HistoryItem({
 }
 
 /* ─────────────────────────────────────────────────
+   Info tab: item model + builder
+   ───────────────────────────────────────────────── */
+
+interface InfoItem {
+  id: string;
+  kind: 'og' | 'file-section' | 'connection';
+  title: string;
+  subtitle?: string;
+  body?: string;
+}
+
+function buildInfoItems(detail: ApiObjectDetail): InfoItem[] {
+  const items: InfoItem[] = [];
+
+  if (detail.url) {
+    items.push({
+      id: 'og-card',
+      kind: 'og',
+      title: detail.og_title || detail.url,
+      subtitle: detail.og_description ?? undefined,
+      body: [detail.og_title, detail.og_description].filter(Boolean).join('\n\n'),
+    });
+  }
+
+  const fileSectionComps = detail.components.filter(
+    (c) => c.data_type === 'file' || c.key === 'extracted_sections',
+  );
+  for (const comp of fileSectionComps) {
+    items.push({
+      id: `comp-${comp.id}`,
+      kind: 'file-section',
+      title: comp.key || comp.component_type_name,
+      body: comp.value,
+    });
+  }
+
+  const sourceEdges = detail.edges.filter((e) => e.edge_type === 'source');
+  for (const edge of sourceEdges) {
+    items.push({
+      id: `edge-${edge.id}`,
+      kind: 'connection',
+      title: edge.other_title,
+      subtitle: edge.reason,
+      body: edge.reason,
+    });
+  }
+
+  return items;
+}
+
+/* ─────────────────────────────────────────────────
+   DrawerTabBar: draggable horizontal tab strip
+   ───────────────────────────────────────────────── */
+
+const TAB_LABELS: Record<string, string> = {
+  overview: 'Overview',
+  info: 'Info',
+  connections: 'Connections',
+  history: 'History',
+};
+
+const DEFAULT_TAB_ORDER = ['overview', 'info', 'connections', 'history'];
+
+function DrawerTabBar({
+  order,
+  onReorder,
+  counts,
+}: {
+  order: string[];
+  onReorder: (newOrder: string[]) => void;
+  counts: Record<string, number>;
+}) {
+  return (
+    <Reorder.Group
+      as="div"
+      axis="x"
+      values={order}
+      onReorder={onReorder}
+      className="cp-drawer-tab-list"
+      role="tablist"
+    >
+      {order.map((tabId) => (
+        <Reorder.Item
+          key={tabId}
+          value={tabId}
+          as="div"
+          className="cp-drawer-tab-item"
+          whileDrag={{ scale: 1.04, zIndex: 10 }}
+        >
+          <Tabs.Trigger value={tabId} className="cp-drawer-tab">
+            {TAB_LABELS[tabId] ?? tabId}
+            {(counts[tabId] ?? 0) > 0 && (
+              <span className="cp-drawer-tab-count">{counts[tabId]}</span>
+            )}
+          </Tabs.Trigger>
+        </Reorder.Item>
+      ))}
+    </Reorder.Group>
+  );
+}
+
+/* ─────────────────────────────────────────────────
    Main component
    ───────────────────────────────────────────────── */
 
@@ -258,9 +362,12 @@ export default function ObjectDrawer() {
   const { drawerSlug, closeDrawer, openDrawer } = useCommonPlace();
 
   const [detail, setDetail] = useState<ApiObjectDetail | null>(null);
+  const [liveComponents, setLiveComponents] = useState<ApiComponent[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState('overview');
+  const [activeInfoItem, setActiveInfoItem] = useState<InfoItem | null>(null);
+  const [tabOrder, setTabOrder] = useState<string[]>(DEFAULT_TAB_ORDER);
 
   useEffect(() => {
     if (!drawerSlug) {
@@ -271,6 +378,9 @@ export default function ObjectDrawer() {
     setLoading(true);
     setError(null);
     setActiveTab('overview');
+    setActiveInfoItem(null);
+    setLiveComponents([]);
+    setTabOrder(DEFAULT_TAB_ORDER);
 
     // drawerSlug may be a URL slug or a numeric ID string (from edge navigation)
     const isNumeric = /^\d+$/.test(drawerSlug);
@@ -281,6 +391,7 @@ export default function ObjectDrawer() {
     fetchFn()
       .then((data) => {
         setDetail(data);
+        setLiveComponents(data.components);
         setLoading(false);
       })
       .catch((err: Error) => {
@@ -298,25 +409,30 @@ export default function ObjectDrawer() {
   const typeName = detail?.object_type_data?.name ?? '';
   const displayTitle = detail?.display_title || detail?.title || '';
 
-  // Classify components by type
+  // Classify components by type (uses liveComponents for optimistic updates)
   const ENTITY_KEYWORDS = ['person', 'people', 'place', 'location', 'org', 'company', 'entity', 'geo'];
   const isEntityComponent = (name: string) =>
     ENTITY_KEYWORDS.some((k) => name.toLowerCase().includes(k));
+  const isTaskComponent = (c: ApiComponent) =>
+    c.component_type_name.toLowerCase() === 'task' || c.key === 'task';
 
-  const tagComponents = detail?.components.filter(
+  const tagComponents = liveComponents.filter(
     (c) => c.key === 'tags' || c.component_type_name.toLowerCase() === 'tags',
-  ) ?? [];
+  );
 
-  const entityComponents = detail?.components.filter(
+  const entityComponents = liveComponents.filter(
     (c) => isEntityComponent(c.component_type_name),
-  ) ?? [];
+  );
 
-  const regularComponents = detail?.components.filter(
+  const regularComponents = liveComponents.filter(
     (c) =>
       c.key !== 'tags' &&
       c.component_type_name.toLowerCase() !== 'tags' &&
-      !isEntityComponent(c.component_type_name),
-  ) ?? [];
+      !isEntityComponent(c.component_type_name) &&
+      !isTaskComponent(c),
+  );
+
+  const infoItems = detail ? buildInfoItems({ ...detail, components: liveComponents }) : [];
 
   // Tension edges: counter or contradiction semantics
   const tensionEdges = detail?.edges.filter(
@@ -413,20 +529,14 @@ export default function ObjectDrawer() {
                 onValueChange={setActiveTab}
                 className="cp-drawer-tabs"
               >
-                <Tabs.List className="cp-drawer-tab-list">
-                  <Tabs.Trigger value="overview" className="cp-drawer-tab">
-                    Overview
-                  </Tabs.Trigger>
-                  <Tabs.Trigger value="connections" className="cp-drawer-tab">
-                    Connections
-                    {detail.edges.length > 0 && (
-                      <span className="cp-drawer-tab-count">{detail.edges.length}</span>
-                    )}
-                  </Tabs.Trigger>
-                  <Tabs.Trigger value="history" className="cp-drawer-tab">
-                    History
-                  </Tabs.Trigger>
-                </Tabs.List>
+                <DrawerTabBar
+                  order={tabOrder}
+                  onReorder={setTabOrder}
+                  counts={{
+                    info: infoItems.length,
+                    connections: detail.edges.length,
+                  }}
+                />
 
                 {/* ─── Overview ─── */}
                 <Tabs.Content value="overview" className="cp-drawer-tab-content">
@@ -474,6 +584,12 @@ export default function ObjectDrawer() {
                     </div>
                   )}
 
+                  <ObjectTasks
+                    objectId={detail.id}
+                    components={liveComponents}
+                    onComponentsChange={setLiveComponents}
+                  />
+
                   {tagComponents.length > 0 && (
                     <div className="cp-drawer-tags-row">
                       {tagComponents
@@ -505,8 +621,56 @@ export default function ObjectDrawer() {
                     </div>
                   )}
 
-                  {!detail.body && !detail.url && regularComponents.length === 0 && (
+                  {!detail.body && !detail.url && regularComponents.length === 0 &&
+                    !liveComponents.some(isTaskComponent) && (
                     <div className="cp-drawer-empty">No content captured yet</div>
+                  )}
+                </Tabs.Content>
+
+                {/* ─── Info ─── */}
+                <Tabs.Content value="info" className="cp-drawer-tab-content">
+                  {infoItems.length === 0 ? (
+                    <div className="cp-drawer-empty">No metadata or linked files</div>
+                  ) : activeInfoItem === null ? (
+                    <div className="cp-info-grid">
+                      {infoItems.map((item) => (
+                        <button
+                          key={item.id}
+                          type="button"
+                          className="cp-info-thumbnail"
+                          onClick={() => setActiveInfoItem(item)}
+                        >
+                          <span className="cp-info-thumbnail-kind">{item.kind}</span>
+                          <span className="cp-info-thumbnail-title">{item.title}</span>
+                          {item.subtitle && (
+                            <span className="cp-info-thumbnail-subtitle">{item.subtitle}</span>
+                          )}
+                        </button>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="cp-info-content">
+                      <button
+                        type="button"
+                        className="cp-info-back"
+                        onClick={() => setActiveInfoItem(null)}
+                      >
+                        <svg width={10} height={10} viewBox="0 0 10 10" fill="none" aria-hidden="true">
+                          <polyline
+                            points="7,1 3,5 7,9"
+                            stroke="currentColor"
+                            strokeWidth={1.5}
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                          />
+                        </svg>
+                        Back
+                      </button>
+                      <div className="cp-info-content-title">{activeInfoItem.title}</div>
+                      {activeInfoItem.body && (
+                        <div className="cp-info-content-body">{activeInfoItem.body}</div>
+                      )}
+                    </div>
                   )}
                 </Tabs.Content>
 

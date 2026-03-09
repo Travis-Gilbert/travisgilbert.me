@@ -637,15 +637,18 @@ def quick_capture_view(request):
     uploaded = data.get('file')
 
     if uploaded:
-        # File upload path: extract text from PDF using spacy-layout/pypdf
-        from .pdf_ingestion import extract_pdf_text
+        # File upload path: route through unified multi-format extractor
+        from .file_ingestion import extract_file_content
 
-        pdf_bytes = uploaded.read()
-        extracted = extract_pdf_text(pdf_bytes)
+        file_bytes = uploaded.read()
+        mime_type = getattr(uploaded, 'content_type', '') or ''
+        extracted = extract_file_content(file_bytes, uploaded.name, mime_type)
 
         body = extracted.get('body', '') or ''
         title = data['title'] or extracted.get('title', '') or uploaded.name
-        inferred_type = data['hint_type'] or 'source'
+        # Images default to 'note'; documents default to 'source'
+        default_type = 'note' if extracted.get('method', '').startswith('image') else 'source'
+        inferred_type = data['hint_type'] or default_type
         url = ''
     else:
         content = data['content']

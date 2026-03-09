@@ -3333,6 +3333,11 @@
   padding: 0 4px;
 }
 
+.cp-drawer-tab-item {
+  display: flex;
+  align-items: stretch;
+}
+
 .cp-drawer-tab {
   display: flex;
   align-items: center;
@@ -3840,6 +3845,325 @@
 @keyframes cp-skeleton-shimmer {
   0% { background-position: 200% 0; }
   100% { background-position: -200% 0; }
+}
+
+/* ─── Info tab: thumbnail grid and detail view ─── */
+
+.cp-info-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 8px;
+}
+
+.cp-info-thumbnail {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 10px 12px;
+  background: rgba(42, 36, 32, 0.04);
+  border: 1px solid var(--cp-border);
+  border-radius: 6px;
+  text-align: left;
+  cursor: pointer;
+  transition: background 0.15s ease, border-color 0.15s ease;
+  min-height: 72px;
+  overflow: hidden;
+}
+
+.cp-info-thumbnail:hover {
+  background: rgba(42, 36, 32, 0.08);
+  border-color: rgba(42, 36, 32, 0.2);
+}
+
+.cp-info-thumbnail-kind {
+  font-family: var(--cp-font-mono);
+  font-size: 9px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--cp-terracotta);
+  opacity: 0.75;
+}
+
+.cp-info-thumbnail-title {
+  font-family: var(--cp-font-body);
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--cp-text);
+  line-height: 1.35;
+  overflow: hidden;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+}
+
+.cp-info-thumbnail-subtitle {
+  font-family: var(--cp-font-body);
+  font-size: 11px;
+  color: var(--cp-text-muted);
+  line-height: 1.3;
+  overflow: hidden;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+}
+
+.cp-info-content {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.cp-info-back {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-family: var(--cp-font-mono);
+  font-size: 10.5px;
+  letter-spacing: 0.06em;
+  color: var(--cp-text-muted);
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  align-self: flex-start;
+  transition: color 0.12s ease;
+}
+
+.cp-info-back:hover {
+  color: var(--cp-text);
+}
+
+.cp-info-content-title {
+  font-family: var(--cp-font-body);
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--cp-text);
+  line-height: 1.4;
+}
+
+.cp-info-content-body {
+  font-family: var(--cp-font-body);
+  font-size: 13px;
+  color: var(--cp-text-muted);
+  line-height: 1.6;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+/* ─── ObjectTasks ─── */
+
+.cp-object-tasks {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+
+.cp-object-tasks--empty {
+  padding: 2px 0;
+}
+
+.cp-object-tasks-header {
+  font-family: var(--cp-font-mono);
+  font-size: 9.5px;
+  letter-spacing: 0.08em;
+  color: var(--cp-text-muted);
+  padding: 8px 0 4px;
+}
+
+.cp-task-list {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin-bottom: 2px;
+}
+
+.cp-task-item {
+  cursor: grab;
+}
+
+.cp-task-item:active {
+  cursor: grabbing;
+}
+
+.cp-task-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 6px;
+  border-radius: 5px;
+  transition: background 0.12s;
+  border-left: 2px solid transparent;
+}
+
+.cp-task-row:hover {
+  background: rgba(42, 36, 32, 0.04);
+}
+
+.cp-task-row--done {
+  opacity: 0.5;
+}
+
+.cp-task-row--high {
+  border-left-color: var(--cp-terracotta);
+}
+
+.cp-task-row--low {
+  border-left-color: rgba(42, 36, 32, 0.2);
+}
+
+.cp-task-checkbox {
+  flex-shrink: 0;
+  width: 14px;
+  height: 14px;
+  border-radius: 3px;
+  border: 1.5px solid rgba(42, 36, 32, 0.3);
+  background: transparent;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: border-color 0.12s, background 0.12s;
+  padding: 0;
+  color: var(--cp-cream);
+}
+
+.cp-task-checkbox:hover {
+  border-color: var(--cp-terracotta);
+}
+
+.cp-task-checkbox--done {
+  background: var(--cp-terracotta);
+  border-color: var(--cp-terracotta);
+}
+
+.cp-task-title {
+  flex: 1;
+  font-size: 13px;
+  color: var(--cp-text);
+  line-height: 1.4;
+  text-align: left;
+}
+
+.cp-task-row--done .cp-task-title {
+  text-decoration: line-through;
+  color: var(--cp-text-muted);
+}
+
+.cp-task-due {
+  font-family: var(--cp-font-mono);
+  font-size: 10px;
+  color: var(--cp-text-muted);
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.cp-task-due--overdue {
+  color: #c0392b;
+}
+
+.cp-task-delete {
+  flex-shrink: 0;
+  width: 18px;
+  height: 18px;
+  border-radius: 3px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--cp-text-muted);
+  opacity: 0;
+  transition: opacity 0.12s, background 0.12s;
+  padding: 0;
+}
+
+.cp-task-row:hover .cp-task-delete {
+  opacity: 1;
+}
+
+.cp-task-delete:hover {
+  background: rgba(192, 57, 43, 0.1);
+  color: #c0392b;
+}
+
+.cp-task-add-form {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 6px 6px 4px;
+  background: rgba(42, 36, 32, 0.04);
+  border-radius: 5px;
+  border: 1px solid var(--cp-border);
+  margin-top: 2px;
+}
+
+.cp-task-add-input {
+  font-family: var(--cp-font-body);
+  font-size: 13px;
+  color: var(--cp-text);
+  background: transparent;
+  border: none;
+  outline: none;
+  padding: 2px 0;
+  width: 100%;
+}
+
+.cp-task-add-input::placeholder {
+  color: var(--cp-text-muted);
+}
+
+.cp-task-add-actions {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+
+.cp-task-add-save {
+  font-family: var(--cp-font-mono);
+  font-size: 10.5px;
+  padding: 3px 10px;
+  background: var(--cp-terracotta);
+  color: var(--cp-cream);
+  border-radius: 3px;
+  transition: opacity 0.12s;
+}
+
+.cp-task-add-save:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.cp-task-add-cancel {
+  font-family: var(--cp-font-mono);
+  font-size: 10.5px;
+  color: var(--cp-text-muted);
+  padding: 3px 6px;
+  border-radius: 3px;
+  transition: background 0.12s;
+}
+
+.cp-task-add-cancel:hover {
+  background: rgba(42, 36, 32, 0.06);
+}
+
+.cp-add-task-btn {
+  font-family: var(--cp-font-mono);
+  font-size: 10.5px;
+  color: var(--cp-text-muted);
+  padding: 5px 6px;
+  border-radius: 4px;
+  text-align: left;
+  transition: background 0.12s, color 0.12s;
+  margin-top: 2px;
+}
+
+.cp-add-task-btn:hover {
+  background: rgba(42, 36, 32, 0.05);
+  color: var(--cp-text);
+}
+
+.cp-add-task-btn--ghost {
+  border: 1px dashed var(--cp-border);
+  width: 100%;
+  padding: 8px 10px;
 }
 
 /* ─── Vignette dots (replaces blueprint grid on main area) ─── */

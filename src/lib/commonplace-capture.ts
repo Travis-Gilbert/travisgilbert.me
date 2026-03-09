@@ -152,9 +152,14 @@ export async function syncCapture(
 
 export function inferTypeFromFile(file: File): string {
   const mime = file.type;
-  if (mime.startsWith('image/')) return 'note';
+  const ext = file.name.toLowerCase().split('.').pop() || '';
+
   if (mime === 'application/pdf') return 'source';
-  if (mime.includes('text/')) return 'note';
+  if (['docx', 'doc'].includes(ext)) return 'source';
+  if (['xlsx', 'xls', 'csv'].includes(ext)) return 'source';
+  if (['pptx', 'ppt'].includes(ext)) return 'source';
+  if (mime.startsWith('image/')) return 'note';
+  if (['md', 'txt'].includes(ext)) return 'note';
   return 'note';
 }
 
