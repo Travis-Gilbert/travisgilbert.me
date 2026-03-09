@@ -395,7 +395,7 @@ export default function EditorToolbar({
             aria-pressed={cpOpen}
             style={{ color: cpOpen ? '#B45A2D' : undefined }}
           >
-            CP
+            Commonplace
           </button>
         )}
         {onReadingToggle && (

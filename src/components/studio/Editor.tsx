@@ -1045,73 +1045,28 @@ export default function Editor({
                 }
               />
               {isCpPanelOpen && (
-                <div ref={cpPanelRef} className="studio-reading-panel" style={{ padding: '10px 12px' }}>
-                  {/* Search input */}
+                <div ref={cpPanelRef} className="studio-cp-panel">
                   <input
                     type="text"
                     value={cpSearchQuery}
                     onChange={(e) => setCpSearchQuery(e.target.value)}
                     placeholder="Search objects..."
-                    style={{
-                      width: '100%',
-                      padding: '5px 8px',
-                      borderRadius: '4px',
-                      border: '1px solid var(--studio-border)',
-                      backgroundColor: 'var(--studio-surface)',
-                      fontFamily: 'var(--studio-font-body)',
-                      fontSize: '12px',
-                      color: 'var(--studio-text-1)',
-                      outline: 'none',
-                      marginBottom: '8px',
-                      boxSizing: 'border-box',
-                    }}
+                    className="studio-cp-search"
                   />
 
-                  {/* Search results (shown when query is active) */}
                   {cpSearchQuery.trim() ? (
                     <>
-                      <div style={{
-                        fontFamily: 'var(--studio-font-mono)',
-                        fontSize: '9px',
-                        fontWeight: 700,
-                        letterSpacing: '0.08em',
-                        textTransform: 'uppercase',
-                        color: 'var(--studio-text-3)',
-                        marginBottom: '6px',
-                      }}>
+                      <div className="studio-cp-status">
                         {cpSearching ? 'Searching...' : `${cpSearchResults.length} result${cpSearchResults.length === 1 ? '' : 's'}`}
                       </div>
                       {cpSearchResults.length > 0 && (
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                        <div className="studio-cp-items">
                           {cpSearchResults.map((obj) => (
-                            <div
-                              key={`cps-${obj.id}`}
-                              style={{
-                                padding: '6px 8px',
-                                borderRadius: '4px',
-                                border: '1px solid var(--studio-border)',
-                                backgroundColor: 'var(--studio-surface)',
-                                fontFamily: 'var(--studio-font-body)',
-                                fontSize: '12px',
-                                color: 'var(--studio-text-1)',
-                                lineHeight: 1.3,
-                              }}
-                            >
-                              <div style={{
-                                overflow: 'hidden',
-                                textOverflow: 'ellipsis',
-                                whiteSpace: 'nowrap',
-                              }}>
+                            <div key={`cps-${obj.id}`} className="studio-cp-item">
+                              <div className="studio-cp-item-title">
                                 {obj.display_title || obj.title || 'Untitled'}
                               </div>
-                              <div style={{
-                                fontFamily: 'var(--studio-font-mono)',
-                                fontSize: '9px',
-                                color: 'var(--studio-text-3)',
-                                marginTop: '2px',
-                                textTransform: 'uppercase',
-                                letterSpacing: '0.06em',
-                              }}>
+                              <div className="studio-cp-item-type">
                                 {obj.object_type_name || 'note'}
                               </div>
                             </div>
@@ -1121,63 +1076,22 @@ export default function Editor({
                     </>
                   ) : (
                     <>
-                      {/* Recent objects (shown when no search query) */}
-                      <div style={{
-                        fontFamily: 'var(--studio-font-mono)',
-                        fontSize: '9px',
-                        fontWeight: 700,
-                        letterSpacing: '0.08em',
-                        textTransform: 'uppercase',
-                        color: 'var(--studio-text-3)',
-                        marginBottom: '6px',
-                      }}>
-                        Recent Objects
-                      </div>
+                      <div className="studio-cp-section-label">Recent Objects</div>
                       {cpRecentObjects.length > 0 ? (
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                        <div className="studio-cp-items">
                           {cpRecentObjects.map((node) => (
-                            <div
-                              key={`cp-${node.id}`}
-                              style={{
-                                padding: '6px 8px',
-                                borderRadius: '4px',
-                                border: '1px solid var(--studio-border)',
-                                backgroundColor: 'var(--studio-surface)',
-                                fontFamily: 'var(--studio-font-body)',
-                                fontSize: '12px',
-                                color: 'var(--studio-text-1)',
-                                lineHeight: 1.3,
-                              }}
-                            >
-                              <div style={{
-                                overflow: 'hidden',
-                                textOverflow: 'ellipsis',
-                                whiteSpace: 'nowrap',
-                              }}>
+                            <div key={`cp-${node.id}`} className="studio-cp-item">
+                              <div className="studio-cp-item-title">
                                 {node.title || node.summary?.slice(0, 60) || 'Untitled'}
                               </div>
-                              <div style={{
-                                fontFamily: 'var(--studio-font-mono)',
-                                fontSize: '9px',
-                                color: 'var(--studio-text-3)',
-                                marginTop: '2px',
-                                textTransform: 'uppercase',
-                                letterSpacing: '0.06em',
-                              }}>
+                              <div className="studio-cp-item-type">
                                 {node.objectType || 'note'}
                               </div>
                             </div>
                           ))}
                         </div>
                       ) : (
-                        <div style={{
-                          fontFamily: 'var(--studio-font-body)',
-                          fontSize: '12px',
-                          color: 'var(--studio-text-3)',
-                          fontStyle: 'italic',
-                        }}>
-                          No recent objects
-                        </div>
+                        <div className="studio-cp-empty">No recent objects</div>
                       )}
                     </>
                   )}
