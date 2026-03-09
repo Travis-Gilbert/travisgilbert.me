@@ -47,6 +47,39 @@ function formatShortTime(iso: string): string {
   });
 }
 
+function deriveEntityChips(node: MockNode): string[] {
+  const raw = `${node.title} ${node.summary ?? ''}`;
+  const tokens = raw
+    .replace(/[^\w\s'-]/g, ' ')
+    .split(/\s+/)
+    .filter(Boolean);
+
+  const titleText = node.title.toLowerCase();
+  const preferred = tokens.filter((token) => {
+    if (token.length < 3) return false;
+    if (/^[A-Z]{2,}$/.test(token)) return true;
+    if (/^[A-Z][A-Za-z0-9'-]{2,}$/.test(token)) return true;
+    return false;
+  });
+
+  const fallback = tokens.filter((token) => {
+    if (token.length < 4) return false;
+    if (preferred.includes(token)) return false;
+    return titleText.includes(token.toLowerCase());
+  });
+
+  const deduped: string[] = [];
+  const seen = new Set<string>();
+  for (const token of [...preferred, ...fallback]) {
+    const normalized = token.toLowerCase();
+    if (seen.has(normalized)) continue;
+    seen.add(normalized);
+    deduped.push(token);
+    if (deduped.length >= 5) break;
+  }
+  return deduped;
+}
+
 /* ─────────────────────────────────────────────────
    ConnectionPill
    ───────────────────────────────────────────────── */
@@ -156,6 +189,7 @@ function TimelineCard({
   onOpenDrawer: (slug: string) => void;
 }) {
   const typeInfo = getObjectTypeIdentity(node.objectType);
+  const entityChips = useMemo(() => deriveEntityChips(node), [node]);
   const [retroOpen, setRetroOpen] = useState(false);
   const [retroText, setRetroText] = useState('');
   const [retroSaved, setRetroSaved] = useState('');
@@ -191,16 +225,24 @@ function TimelineCard({
 
       {/* Right column: rich card body */}
       <div className="cp-tl-body">
-        {/* Type badge pill */}
-        <span
-          className="cp-tl-type-badge"
-          style={{
-            color: typeInfo.color,
-            borderColor: `${typeInfo.color}40`,
-          }}
-        >
-          {typeInfo.label}
-        </span>
+        <div className="cp-tl-type-row">
+          {/* Type badge pill */}
+          <span
+            className="cp-tl-type-badge"
+            style={{
+              color: typeInfo.color,
+              borderColor: `${typeInfo.color}40`,
+            }}
+          >
+            {typeInfo.label}
+          </span>
+
+          {node.edgeCount > 0 && (
+            <span className="cp-tl-connection-count" title={`${node.edgeCount} connections`}>
+              {node.edgeCount} {node.edgeCount === 1 ? 'CONNECTION' : 'CONNECTIONS'}
+            </span>
+          )}
+        </div>
 
         {/* Title: clickable, opens ObjectDrawer */}
         <div
@@ -218,10 +260,23 @@ function TimelineCard({
         {/* Full body text, not truncated */}
         {node.summary && <div className="cp-tl-summary">{node.summary}</div>}
 
+        {entityChips.length > 0 && (
+          <div className="cp-tl-entities" aria-label="Entity chips">
+            {entityChips.map((entity) => (
+              <span
+                key={`${node.id}-${entity.toLowerCase()}`}
+                className="cp-tl-entity-chip"
+              >
+                {entity}
+              </span>
+            ))}
+          </div>
+        )}
+
         {/* Connections: 2-col grid of connection pills */}
         {node.edgeCount > 0 && (
           <div className="cp-tl-connections">
-            <div className="cp-tl-section-label">CONNECTIONS</div>
+            <div className="cp-tl-section-label">CONNECTIONS ({node.edgeCount})</div>
             <div className="cp-tl-connections-grid">
               {node.edges.map((edge) => (
                 <ConnectionPill

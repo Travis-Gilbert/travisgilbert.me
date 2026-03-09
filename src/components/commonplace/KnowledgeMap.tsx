@@ -342,15 +342,16 @@ export default function KnowledgeMap({
         <g transform={`translate(${transform.x},${transform.y}) scale(${transform.k})`}>
 
           {/* Invisible edge hit areas (rendered before nodes so nodes stay on top) */}
-          {filteredLinks.map((l) => {
+          {filteredLinks.map((l, index) => {
             const src = String(l.source);
             const tgt = String(l.target);
             const from = posMap.get(src);
             const to = posMap.get(tgt);
             if (!from || !to) return null;
+            const edgeKey = `edge-${src}-${tgt}-${l.reason ?? ''}-${index}`;
             return (
               <line
-                key={`edge-${src}-${tgt}`}
+                key={edgeKey}
                 x1={from.x}
                 y1={from.y}
                 x2={to.x}

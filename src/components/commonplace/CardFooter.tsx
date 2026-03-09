@@ -35,17 +35,7 @@ export default function CardFooter({
   };
 
   return (
-    <div
-      className="cp-card-footer"
-      style={{
-        display: 'flex',
-        alignItems: 'center',
-        gap: 6,
-        marginTop: 8,
-        paddingTop: 6,
-        borderTop: '1px solid var(--cp-border-faint)',
-      }}
-    >
+    <div className="cp-card-footer">
       {firstTag && (
         <span
           className="cp-card-tag-pill"
@@ -71,7 +61,7 @@ export default function CardFooter({
 
       {edgeCount > 0 && (
         <span
-          className="cp-card-edge-count"
+          className="cp-card-edge-count cp-card-footer-edges"
           style={{
             ...monoStyle,
             display: 'flex',
@@ -98,6 +88,7 @@ export default function CardFooter({
       )}
 
       <time
+        className="cp-card-footer-time"
         dateTime={capturedAt}
         style={monoStyle}
       >

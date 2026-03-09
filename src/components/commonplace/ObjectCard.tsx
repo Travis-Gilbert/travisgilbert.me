@@ -107,38 +107,62 @@ function HunchHeader({ node, color, sat }: { node: MockNode; color: string; sat:
 }
 
 function PersonHeader({ node, color, sat }: { node: MockNode; color: string; sat: number }) {
-  const initials = node.title
-    .split(' ')
-    .slice(0, 2)
-    .map((w) => w[0]?.toUpperCase() ?? '')
-    .join('');
+  const initial = node.title.charAt(0).toUpperCase();
 
   return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
-      {/* Conic gradient avatar circle */}
+    <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8 }}>
       <div
         style={{
-          width: 22,
-          height: 22,
+          width: 40,
+          height: 40,
           borderRadius: '50%',
-          background: `conic-gradient(${hexAlpha(color, sat * 0.7)} 0deg, ${hexAlpha(color, sat * 0.3)} 360deg)`,
+          background: `conic-gradient(from 0deg, ${hexAlpha(color, sat * 0.3)}, ${hexAlpha(color, sat * 0.6)}, ${hexAlpha(color, sat * 0.3)})`,
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
           flexShrink: 0,
+          position: 'relative',
         }}
       >
-        <span
+        <div
           style={{
-            fontFamily: 'var(--cp-font-mono)',
-            fontSize: 8,
-            color: '#FAF6F1',
-            fontWeight: 600,
-            lineHeight: 1,
+            width: 34,
+            height: 34,
+            borderRadius: '50%',
+            background: `linear-gradient(135deg, ${hexAlpha(color, 0.1)}, ${hexAlpha(color, 0.22)})`,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            fontFamily: 'var(--cp-font-title)',
+            fontSize: 18,
+            fontWeight: 700,
+            color,
           }}
         >
-          {initials}
-        </span>
+          {initial}
+        </div>
+        {node.edgeCount > 0 && (
+          <div
+            style={{
+              position: 'absolute',
+              bottom: -2,
+              right: -2,
+              width: 16,
+              height: 16,
+              borderRadius: '50%',
+              background: color,
+              color: '#F5F0E8',
+              fontFamily: 'var(--cp-font-code)',
+              fontSize: 8,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              border: '2px solid var(--cp-card)',
+            }}
+          >
+            {node.edgeCount}
+          </div>
+        )}
       </div>
       <TypeBadge label="PERSON" color={color} sat={sat} />
     </div>
@@ -147,22 +171,19 @@ function PersonHeader({ node, color, sat }: { node: MockNode; color: string; sat
 
 function QuoteHeader({ color, sat }: { color: string; sat: number }) {
   return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4 }}>
-      {/* Large decorative quotation mark */}
+    <div style={{ marginBottom: 2 }}>
       <span
         style={{
           fontFamily: 'var(--cp-font-title)',
-          fontSize: 28,
-          color: hexAlpha(color, 0.2),
-          lineHeight: 0.8,
-          flexShrink: 0,
+          fontSize: 44,
+          lineHeight: 0.7,
+          color: hexAlpha(color, 0.2 * sat),
           userSelect: 'none',
         }}
         aria-hidden="true"
       >
         &ldquo;
       </span>
-      <TypeBadge label="QUOTE" color={color} sat={sat} />
     </div>
   );
 }
@@ -301,37 +322,70 @@ export default function ObjectCard({
     width: '100%',
     textAlign: 'left',
     background: 'var(--cp-card)',
-    border: `1px solid ${hexAlpha(color, sat * 0.3)}`,
-    borderRadius: 4,
-    padding: '10px 12px 8px',
+    border: '1px solid var(--cp-border-faint)',
+    borderRadius: 10,
+    padding: '14px 16px 10px',
     cursor: 'pointer',
-    transition: 'box-shadow 0.15s ease, transform 0.12s ease',
-    boxShadow: 'var(--cp-shadow-sm)',
+    transition: 'box-shadow 200ms ease, transform 200ms cubic-bezier(0.4, 0, 0.2, 1)',
+    boxShadow: '0 1px 3px rgba(42, 36, 32, 0.05)',
     position: 'relative',
     overflow: 'hidden',
   };
 
-  /* Type-specific border overrides applied via conditional spreads */
   const cardStyle: CSSProperties = {
     ...baseCardStyle,
+
+    // Source: teal top accent
     ...(node.objectType === 'source' && {
       borderTop: `3px solid ${hexAlpha(color, sat)}`,
+      borderTopLeftRadius: 2,
+      borderTopRightRadius: 2,
     }),
+
+    // Hunch: dashed border + warm gradient
     ...(node.objectType === 'hunch' && {
-      border: `1.5px dashed ${hexAlpha(color, sat * 0.65)}`,
-      background: `linear-gradient(135deg, var(--cp-card) 0%, ${hexAlpha(color, 0.04)} 100%)`,
+      border: `1.5px dashed ${hexAlpha(color, sat * 0.5)}`,
+      background: 'linear-gradient(140deg, #FFF8F4 0%, #FEF3EC 100%)',
     }),
-    ...((node.objectType === 'quote' || node.objectType === 'place') && {
+
+    // Quote: gold left border + warm gradient
+    ...(node.objectType === 'quote' && {
       borderLeft: `4px solid ${hexAlpha(color, sat)}`,
+      background: 'linear-gradient(135deg, var(--cp-card) 0%, #FBF8F0 100%)',
+      paddingTop: 18,
     }),
-    ...(node.objectType === 'script' && {
+
+    // Place: gold left border + subtle top gradient
+    ...(node.objectType === 'place' && {
+      borderLeft: `4px solid ${hexAlpha(color, sat)}`,
+      background: `linear-gradient(180deg, ${hexAlpha(color, 0.04)} 0%, var(--cp-card) 40%)`,
+    }),
+
+    // Person: terracotta bottom border
+    ...(node.objectType === 'person' && {
+      borderBottom: `3px solid ${hexAlpha(color, sat * 0.7)}`,
+    }),
+
+    // Task: orange left border
+    ...(node.objectType === 'task' && {
       borderLeft: `3px solid ${hexAlpha(color, sat)}`,
     }),
+
+    // Event: blue top accent + gradient
     ...(node.objectType === 'event' && {
-      background: `linear-gradient(160deg, ${hexAlpha(color, 0.05)} 0%, var(--cp-card) 60%)`,
+      background: `linear-gradient(160deg, ${hexAlpha(color, 0.06)} 0%, var(--cp-card) 50%)`,
+      borderTop: `3px solid ${hexAlpha(color, sat * 0.7)}`,
     }),
-    ...(node.objectType === 'person' && {
-      border: `1px solid ${hexAlpha(color, sat * 0.35)}`,
+
+    // Script: steel left border
+    ...(node.objectType === 'script' && {
+      borderLeft: `3px solid ${hexAlpha(color, sat * 0.6)}`,
+      background: '#FAFAF8',
+    }),
+
+    // Concept: purple border tint
+    ...(node.objectType === 'concept' && {
+      border: `1.5px solid ${hexAlpha(color, sat * 0.25)}`,
     }),
   };
 
@@ -341,15 +395,15 @@ export default function ObjectCard({
       node.objectType === 'script'
         ? 'var(--cp-font-code)'
         : 'var(--cp-font-title)',
-    fontSize: node.objectType === 'script' ? 13 : 15,
-    fontWeight: 500,
+    fontSize: node.objectType === 'script' ? 13 : 15.5,
+    fontWeight: node.objectType === 'concept' ? 700 : 600,
     fontStyle:
       node.objectType === 'hunch' || node.objectType === 'quote'
         ? 'italic'
         : 'normal',
     color: 'var(--cp-text)',
     lineHeight: 1.35,
-    marginBottom: node.summary ? 5 : 0,
+    marginBottom: node.summary ? 6 : 0,
   };
 
   /* Summary: clamp to 2 lines (timeline) or 4 lines (grid) */
