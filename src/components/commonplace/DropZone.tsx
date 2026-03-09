@@ -288,8 +288,8 @@ export default function DropZone({ onCapture }: DropZoneProps) {
                 bounce: PARTICLE_SPRING[1],
                 duration: 0.55,
                 delay: p.delay,
-                exit: { duration: 0.3, ease: 'easeIn', delay: 0 },
               }}
+              exitTransition={{ duration: 0.3, ease: 'easeIn', delay: 0 }}
               style={{
                 position: 'absolute',
                 top: '50%',
