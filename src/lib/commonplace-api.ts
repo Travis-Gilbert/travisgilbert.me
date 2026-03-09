@@ -538,3 +538,34 @@ export function useApiData<T>(
 
   return { data, loading, error, refetch };
 }
+
+/* ─────────────────────────────────────────────────
+   Component CRUD (tasks + general components)
+   ───────────────────────────────────────────────── */
+
+/** PATCH a component's value and/or sort_order */
+export async function patchComponent(
+  componentId: number,
+  updates: { value?: string; sort_order?: number },
+): Promise<void> {
+  await apiFetch(`/components/${componentId}/`, {
+    method: 'PATCH',
+    body: JSON.stringify(updates),
+  });
+}
+
+/** POST a new component on an object */
+export async function createObjectComponent(
+  objectId: number,
+  payload: { component_type_slug: string; key: string; value: string; sort_order?: number },
+): Promise<{ id: number }> {
+  return apiFetch<{ id: number }>(`/objects/${objectId}/components/`, {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  });
+}
+
+/** DELETE a component */
+export async function deleteComponent(componentId: number): Promise<void> {
+  await apiFetch(`/components/${componentId}/`, { method: 'DELETE' });
+}
