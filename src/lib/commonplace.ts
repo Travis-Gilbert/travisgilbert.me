@@ -300,6 +300,7 @@ export interface ApiFeedNode {
   has_retrospective: boolean;
   retrospective: { text: string; written_at: string } | null;
   object_id: string;      // "object:<pk>"
+  object_slug?: string;   // optional slug when provided by feed endpoint
 }
 
 /** Day bucket returned by /feed/ */

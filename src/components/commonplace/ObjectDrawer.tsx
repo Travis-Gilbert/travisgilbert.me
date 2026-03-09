@@ -346,31 +346,32 @@ function DrawerTabBar({
   counts: Record<string, number>;
 }) {
   return (
-    <Reorder.Group
-      as="div"
-      axis="x"
-      values={order}
-      onReorder={onReorder}
-      className="cp-drawer-tab-list"
-      role="tablist"
-    >
-      {order.map((tabId) => (
-        <Reorder.Item
-          key={tabId}
-          value={tabId}
-          as="div"
-          className="cp-drawer-tab-item"
-          whileDrag={{ scale: 1.04, zIndex: 10 }}
-        >
-          <Tabs.Trigger value={tabId} className="cp-drawer-tab">
-            {TAB_LABELS[tabId] ?? tabId}
-            {(counts[tabId] ?? 0) > 0 && (
-              <span className="cp-drawer-tab-count">{counts[tabId]}</span>
-            )}
-          </Tabs.Trigger>
-        </Reorder.Item>
-      ))}
-    </Reorder.Group>
+    <Tabs.List asChild>
+      <Reorder.Group
+        as="div"
+        axis="x"
+        values={order}
+        onReorder={onReorder}
+        className="cp-drawer-tab-list"
+      >
+        {order.map((tabId) => (
+          <Reorder.Item
+            key={tabId}
+            value={tabId}
+            as="div"
+            className="cp-drawer-tab-item"
+            whileDrag={{ scale: 1.04, zIndex: 10 }}
+          >
+            <Tabs.Trigger value={tabId} className="cp-drawer-tab">
+              {TAB_LABELS[tabId] ?? tabId}
+              {(counts[tabId] ?? 0) > 0 && (
+                <span className="cp-drawer-tab-count">{counts[tabId]}</span>
+              )}
+            </Tabs.Trigger>
+          </Reorder.Item>
+        ))}
+      </Reorder.Group>
+    </Tabs.List>
   );
 }
 

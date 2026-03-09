@@ -107,10 +107,12 @@ function extractNumericId(prefixed: string): number {
 }
 
 function mapFeedNodeToMockNode(node: ApiFeedNode): MockNode {
+  const objectRef = extractNumericId(node.object_id ?? '0');
   return {
     id: node.id,
-    objectRef: extractNumericId(node.object_id ?? '0'),
-    objectSlug: '',
+    objectRef,
+    // Feed may omit slug; ObjectDrawer accepts numeric IDs too.
+    objectSlug: node.object_slug || (objectRef > 0 ? String(objectRef) : ''),
     objectType: node.object_type ?? '',
     title: node.title,
     summary: node.body ?? '',

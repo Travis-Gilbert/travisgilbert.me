@@ -3331,6 +3331,14 @@
   background: var(--cp-surface);
   flex-shrink: 0;
   padding: 0 4px;
+  overflow-x: auto;
+  overflow-y: hidden;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+}
+
+.cp-drawer-tab-list::-webkit-scrollbar {
+  display: none;
 }
 
 .cp-drawer-tab-item {
@@ -3913,6 +3921,18 @@
   gap: 12px;
 }
 
+.cp-info-content-link {
+  font-family: var(--cp-font-mono);
+  font-size: 10.5px;
+  color: var(--cp-teal);
+  text-decoration: none;
+  overflow-wrap: anywhere;
+}
+
+.cp-info-content-link:hover {
+  text-decoration: underline;
+}
+
 .cp-info-back {
   display: inline-flex;
   align-items: center;
@@ -3948,6 +3968,49 @@
   line-height: 1.6;
   white-space: pre-wrap;
   word-break: break-word;
+}
+
+.cp-info-editor {
+  border: 1px solid var(--cp-border-faint);
+  border-radius: 8px;
+  background: var(--cp-card);
+  overflow: hidden;
+}
+
+.cp-info-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.cp-info-save-btn {
+  font-family: var(--cp-font-mono);
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  border: 1px solid rgba(180, 90, 45, 0.3);
+  border-radius: 6px;
+  padding: 5px 10px;
+  background: rgba(180, 90, 45, 0.08);
+  color: var(--cp-terracotta);
+  transition: background 0.12s ease, border-color 0.12s ease;
+}
+
+.cp-info-save-btn:hover:not(:disabled) {
+  background: rgba(180, 90, 45, 0.14);
+  border-color: rgba(180, 90, 45, 0.45);
+}
+
+.cp-info-save-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.cp-info-save-error {
+  font-family: var(--cp-font-mono);
+  font-size: 10px;
+  color: #A53C2D;
 }
 
 /* ─── ObjectTasks ─── */
