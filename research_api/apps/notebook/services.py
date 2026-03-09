@@ -3,14 +3,18 @@ Service layer for the CommonPlace knowledge graph.
 
 enrich_url(): Fetch OG metadata and update an Object.
 quick_capture(): Create an Object from raw input (text, URL, or both).
-_run_engine_async(): Background thread wrapper for connection engine.
+store_uploaded_file(): Persist original file to S3 for re-processing.
+
+Background engine execution is handled by django-rq tasks (see tasks.py).
+The old threading.Thread approach has been replaced with durable task queues.
 """
 
 import logging
-import threading
 from urllib.parse import urlparse
 
 import requests
+from django.core.files.storage import default_storage
+from django.core.files.base import ContentFile
 from django.utils import timezone
 
 from .models import Node, Notebook, Object, ObjectType, Project, Timeline
@@ -28,7 +32,7 @@ TIMEOUT = 10  # seconds
 
 
 # ---------------------------------------------------------------------------
-# URL enrichment (Task 18)
+# URL enrichment
 # ---------------------------------------------------------------------------
 
 def enrich_url(obj: Object) -> dict:
@@ -56,18 +60,15 @@ def enrich_url(obj: Object) -> dict:
     html = resp.text
     updated = {}
 
-    # Simple meta tag parsing (no BeautifulSoup dependency needed)
     import re
 
     for og_property, model_field in OG_TAGS.items():
-        # Match <meta property="og:title" content="...">
         pattern = (
             rf'<meta\s+[^>]*property=["\']?{re.escape(og_property)}["\']?'
             rf'\s+[^>]*content=["\']([^"\']*)["\']'
         )
         match = re.search(pattern, html, re.IGNORECASE)
         if not match:
-            # Also match reversed attribute order: content before property
             pattern = (
                 rf'<meta\s+[^>]*content=["\']([^"\']*)["\']'
                 rf'\s+[^>]*property=["\']?{re.escape(og_property)}["\']?'
@@ -84,7 +85,6 @@ def enrich_url(obj: Object) -> dict:
         obj.refresh_from_db()
         logger.info('Enriched Object %s with OG: %s', obj.pk, list(updated.keys()))
 
-        # Update title from OG if Object title is just the URL
         if updated.get('og_title') and obj.title == obj.url:
             Object.objects.filter(pk=obj.pk).update(title=updated['og_title'])
             obj.refresh_from_db()
@@ -93,7 +93,53 @@ def enrich_url(obj: Object) -> dict:
 
 
 # ---------------------------------------------------------------------------
-# QuickCapture (Task 17)
+# File storage (S3 or local)
+# ---------------------------------------------------------------------------
+
+def store_uploaded_file(obj: Object, file_bytes: bytes, filename: str,
+                        content_type: str = '') -> str:
+    """
+    Persist the original uploaded file to storage (S3 in production,
+    local filesystem in development).
+
+    Returns the storage key for later retrieval.
+    Stores file metadata in the Object's properties field.
+    """
+    file_key = f'objects/{obj.sha_hash}/{filename}'
+
+    try:
+        default_storage.save(file_key, ContentFile(file_bytes))
+        logger.info('Stored file %s for Object %s', file_key, obj.pk)
+
+        # Record file metadata on the Object
+        props = obj.properties or {}
+        props['file_key'] = file_key
+        props['file_name'] = filename
+        props['file_size'] = len(file_bytes)
+        props['file_mime'] = content_type
+        Object.objects.filter(pk=obj.pk).update(properties=props)
+
+        return file_key
+    except Exception as exc:
+        logger.warning('File storage failed for %s: %s', filename, exc)
+        return ''
+
+
+def get_file_url(file_key: str) -> str:
+    """
+    Get a URL for a stored file. Returns a signed S3 URL in production,
+    or a local media URL in development.
+    """
+    if not file_key:
+        return ''
+    try:
+        return default_storage.url(file_key)
+    except Exception:
+        return ''
+
+
+# ---------------------------------------------------------------------------
+# QuickCapture
 # ---------------------------------------------------------------------------
 
 def quick_capture(
@@ -103,21 +149,31 @@ def quick_capture(
     object_type_slug: str = '',
     notebook_slug: str = '',
     project_slug: str = '',
+    file_bytes: bytes = b'',
+    filename: str = '',
+    file_content_type: str = '',
 ) -> Object:
     """
     Create an Object from raw input.
 
     Auto-detects type based on input:
       URL provided -> Source
+      File provided -> Source (PDF, DOCX) or Note (image, text)
       Text only    -> Note
 
-    Returns the created Object. Also triggers URL enrichment
-    and the connection engine (synchronous for now).
+    Returns the created Object. Also triggers:
+    1. URL enrichment (synchronous, fast)
+    2. File storage to S3 (synchronous, fast)
+    3. File text extraction (synchronous for Tier 1)
+    4. Connection engine (async via RQ task queue)
+    5. Heavy file processing (async via RQ if needed)
     """
     # Resolve type
     if object_type_slug:
         object_type = ObjectType.objects.filter(slug=object_type_slug).first()
     elif url:
+        object_type = ObjectType.objects.filter(slug='source').first()
+    elif file_bytes and _is_document_file(filename):
         object_type = ObjectType.objects.filter(slug='source').first()
     else:
         object_type = ObjectType.objects.filter(slug='note').first()
@@ -130,6 +186,8 @@ def quick_capture(
         if url:
             parsed = urlparse(url)
             title = parsed.netloc + parsed.path[:50]
+        elif filename:
+            title = filename
         elif body:
             title = body[:80].split('\n')[0]
         else:
@@ -144,6 +202,18 @@ def quick_capture(
 
     if project_slug:
         project = Project.objects.filter(slug=project_slug).first()
+
+    # Extract text from file (Tier 1: synchronous, fast)
+    if file_bytes and not body:
+        from .file_ingestion import extract_file_content
+        extracted = extract_file_content(file_bytes, filename, file_content_type)
+        if extracted.get('body'):
+            body = extracted['body']
+        if extracted.get('title') and title == filename:
+            title = extracted['title']
+        if extracted.get('author'):
+            # Will be stored as a Component after Object creation
+            pass
 
     obj = Object.objects.create(
         title=title,
@@ -160,34 +230,39 @@ def quick_capture(
     if url:
         enrich_url(obj)
 
-    # Run connection engine in background thread
-    _run_engine_async(obj.pk, notebook_slug=notebook_slug)
+    # Store uploaded file to S3 (synchronous: fast upload)
+    file_key = ''
+    if file_bytes:
+        file_key = store_uploaded_file(
+            obj, file_bytes, filename, file_content_type
+        )
+
+    # Run connection engine via RQ task queue (async, durable)
+    from .tasks import run_engine_task
+    run_engine_task.delay(obj.pk, notebook_slug=notebook_slug)
+
+    # Queue heavy file processing if needed (SAM-2 via Modal, etc.)
+    if file_key and _needs_heavy_processing(filename):
+        from .tasks import run_file_ingestion_task
+        run_file_ingestion_task.delay(obj.pk, file_key)
 
     return obj
 
 
 # ---------------------------------------------------------------------------
-# Background engine execution
+# Helpers
 # ---------------------------------------------------------------------------
 
-def _run_engine_async(obj_pk: int, notebook_slug: str = '') -> None:
-    """Spawn a daemon thread to run the connection engine for a single Object.
+def _is_document_file(filename: str) -> bool:
+    """Check if a filename indicates a document (Source-typed)."""
+    doc_extensions = ('.pdf', '.docx', '.doc', '.xlsx', '.xls', '.pptx', '.ppt')
+    return any(filename.lower().endswith(ext) for ext in doc_extensions)
 
-    The daemon=True flag ensures the thread won't prevent server shutdown.
-    """
-    def _worker():
-        try:
-            from .engine import run_engine
-            obj = Object.objects.get(pk=obj_pk)
-            notebook = None
-            if notebook_slug:
-                notebook = Notebook.objects.filter(slug=notebook_slug).first()
-            run_engine(obj, notebook=notebook)
-            logger.info('Background engine completed for Object %s', obj_pk)
-        except Object.DoesNotExist:
-            logger.warning('Object %s not found for background engine run', obj_pk)
-        except Exception as exc:
-            logger.warning('Background engine failed for Object %s: %s', obj_pk, exc)
 
-    thread = threading.Thread(target=_worker, daemon=True)
-    thread.start()
+def _needs_heavy_processing(filename: str) -> bool:
+    """Check if a file needs async Tier 2 processing (SAM-2, etc.)."""
+    from django.conf import settings
+    if not settings.MODAL_ENABLED:
+        return False
+    image_extensions = ('.jpg', '.jpeg', '.png', '.gif', '.webp', '.tiff', '.bmp')
+    return any(filename.lower().endswith(ext) for ext in image_extensions)
