@@ -40,6 +40,8 @@ INSTALLED_APPS = [
     # Third party
     'rest_framework',
     'corsheaders',
+    'django_rq',
+    'storages',
     # Local apps
     'apps.core',
     'apps.research',
@@ -84,7 +86,9 @@ TEMPLATES = [
 
 WSGI_APPLICATION = 'config.wsgi.application'
 
+# -----------------------------------------------------------------------
 # Database: PostgreSQL if DATABASE_URL set (Railway), else SQLite
+# -----------------------------------------------------------------------
 
 DATABASE_URL = os.environ.get('DATABASE_URL')
 
@@ -103,6 +107,93 @@ else:
             'NAME': BASE_DIR / 'db.sqlite3',
         }
     }
+
+# -----------------------------------------------------------------------
+# Redis: task queues, caching, SBERT index sharing
+# Set REDIS_URL on Railway (from the Redis addon)
+# -----------------------------------------------------------------------
+
+REDIS_URL = os.environ.get('REDIS_URL', 'redis://localhost:6379')
+
+CACHES = {
+    'default': {
+        'BACKEND': 'django.core.cache.backends.redis.RedisCache',
+        'LOCATION': REDIS_URL,
+    } if REDIS_URL and not REDIS_URL.startswith('redis://localhost') else {
+        'BACKEND': 'django.core.cache.backends.locmem.LocMemCache',
+    }
+}
+
+# django-rq task queues
+# Three queues: default (general), engine (connection engine runs),
+# ingestion (file processing, SAM-2, heavy OCR)
+RQ_QUEUES = {
+    'default': {
+        'URL': REDIS_URL,
+        'DEFAULT_TIMEOUT': 300,
+    },
+    'engine': {
+        'URL': REDIS_URL,
+        'DEFAULT_TIMEOUT': 600,
+    },
+    'ingestion': {
+        'URL': REDIS_URL,
+        'DEFAULT_TIMEOUT': 120,
+    },
+}
+
+# -----------------------------------------------------------------------
+# AWS S3 file storage (original uploads: PDFs, images, DOCX, etc.)
+# Set these env vars on Railway from your AWS IAM credentials:
+#   AWS_ACCESS_KEY_ID
+#   AWS_SECRET_ACCESS_KEY
+#   AWS_STORAGE_BUCKET_NAME
+#   AWS_S3_REGION_NAME (default: us-east-1)
+# -----------------------------------------------------------------------
+
+AWS_ACCESS_KEY_ID = os.environ.get('AWS_ACCESS_KEY_ID', '')
+AWS_SECRET_ACCESS_KEY = os.environ.get('AWS_SECRET_ACCESS_KEY', '')
+AWS_STORAGE_BUCKET_NAME = os.environ.get('AWS_STORAGE_BUCKET_NAME', '')
+AWS_S3_REGION_NAME = os.environ.get('AWS_S3_REGION_NAME', 'us-east-1')
+
+# Only enable S3 storage if credentials are present
+if AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY and AWS_STORAGE_BUCKET_NAME:
+    STORAGES = {
+        'default': {
+            'BACKEND': 'storages.backends.s3boto3.S3Boto3Storage',
+        },
+        'staticfiles': {
+            'BACKEND': 'whitenoise.storage.CompressedManifestStaticFilesStorage',
+        },
+    }
+    AWS_S3_FILE_OVERWRITE = False
+    AWS_DEFAULT_ACL = 'private'
+    AWS_S3_OBJECT_PARAMETERS = {
+        'CacheControl': 'max-age=86400',
+    }
+    AWS_QUERYSTRING_AUTH = True
+    AWS_QUERYSTRING_EXPIRE = 3600  # signed URLs expire after 1 hour
+else:
+    # Local fallback: store uploads in a local directory
+    STORAGES = {
+        'default': {
+            'BACKEND': 'django.core.files.storage.FileSystemStorage',
+        },
+        'staticfiles': {
+            'BACKEND': 'whitenoise.storage.CompressedManifestStaticFilesStorage',
+        },
+    }
+    MEDIA_ROOT = BASE_DIR / 'media'
+    MEDIA_URL = '/media/'
+
+# -----------------------------------------------------------------------
+# Modal (GPU serverless for SAM-2 image segmentation)
+# Optional. If MODAL_TOKEN_ID is set, heavy image processing is offloaded.
+# -----------------------------------------------------------------------
+
+MODAL_TOKEN_ID = os.environ.get('MODAL_TOKEN_ID', '')
+MODAL_TOKEN_SECRET = os.environ.get('MODAL_TOKEN_SECRET', '')
+MODAL_ENABLED = bool(MODAL_TOKEN_ID and MODAL_TOKEN_SECRET)
 
 # Custom user model
 
@@ -128,11 +219,6 @@ USE_TZ = True
 
 STATIC_URL = 'static/'
 STATIC_ROOT = BASE_DIR / 'staticfiles'
-STORAGES = {
-    'staticfiles': {
-        'BACKEND': 'whitenoise.storage.CompressedManifestStaticFilesStorage',
-    },
-}
 
 # Default primary key field type
 
@@ -158,7 +244,7 @@ REST_FRAMEWORK = {
 # CORS: public API, allow all origins for read + community submissions
 
 CORS_ALLOW_ALL_ORIGINS = True
-CORS_ALLOW_METHODS = ['GET', 'HEAD', 'OPTIONS', 'POST']
+CORS_ALLOW_METHODS = ['GET', 'HEAD', 'OPTIONS', 'POST', 'PATCH', 'DELETE']
 
 # reCAPTCHA v3 (community submissions)
 
@@ -226,6 +312,11 @@ LOGGING = {
             'propagate': False,
         },
         'apps': {
+            'handlers': ['console'],
+            'level': 'INFO',
+            'propagate': False,
+        },
+        'django_rq': {
             'handlers': ['console'],
             'level': 'INFO',
             'propagate': False,
