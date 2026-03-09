@@ -14,12 +14,27 @@ def health_check(request):
     except Exception:
         health['database'] = 'error'
         health['status'] = 'degraded'
+
+    # Check Redis connectivity
+    try:
+        from django.core.cache import cache
+        cache.set('health_check', 'ok', timeout=10)
+        if cache.get('health_check') == 'ok':
+            health['redis'] = 'ok'
+        else:
+            health['redis'] = 'error'
+            health['status'] = 'degraded'
+    except Exception:
+        health['redis'] = 'unavailable'
+
     status_code = 200 if health['status'] == 'ok' else 503
     return JsonResponse(health, status=status_code)
 
 
 urlpatterns = [
     path('admin/', admin.site.urls),
+    # django-rq dashboard (accessible via /admin/rq/)
+    path('admin/rq/', include('django_rq.urls')),
     path('api/v1/', include('apps.api.urls', namespace='api')),
     path('api/v1/notebook/', include('apps.notebook.urls', namespace='notebook')),
     path('api/comments/', include('apps.comments.urls', namespace='comments')),
