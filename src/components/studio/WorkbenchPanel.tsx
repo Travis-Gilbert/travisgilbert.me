@@ -35,6 +35,15 @@ import {
   type CommonplaceSearchResult,
   type TaskGroup,
 } from '@/lib/studio-api';
+import {
+  MagnifyingGlass,
+  ListBullets,
+  Tray,
+  ClockCounterClockwise,
+  SquaresFour,
+  LinkSimple,
+  type Icon as PhosphorIconType,
+} from '@phosphor-icons/react';
 import { relativeTime } from '@/lib/studio-time';
 import { useStudioWorkbench } from './WorkbenchContext';
 import NewContentModal from './NewContentModal';
@@ -108,6 +117,15 @@ type AutosaveState = 'idle' | 'saved';
 
 type WorkbenchMode = 'editor' | 'dashboard';
 type EditorPanelMode = 'research' | 'outline' | 'stash' | 'collage' | 'history' | 'links';
+
+const TAB_CONFIG: Record<EditorPanelMode, { Icon: PhosphorIconType; label: string }> = {
+  research: { Icon: MagnifyingGlass,       label: 'Research' },
+  outline:  { Icon: ListBullets,           label: 'Outline'  },
+  stash:    { Icon: Tray,                  label: 'Stash'    },
+  history:  { Icon: ClockCounterClockwise, label: 'History'  },
+  collage:  { Icon: SquaresFour,           label: 'Collage'  },
+  links:    { Icon: LinkSimple,            label: 'Links'    },
+};
 
 function clampWidth(width: number): number {
   return Math.min(Math.max(width, MIN_WORKBENCH_WIDTH), MAX_WORKBENCH_WIDTH);
@@ -350,22 +368,20 @@ export default function WorkbenchPanel({
             <>
               <div className="studio-workbench-tabs">
                 {(['research', 'outline', 'stash', 'history', 'collage', 'links'] as const).map((tab) => {
-                  const TAB_LABELS: Record<EditorPanelMode, string> = {
-                    research: 'Research',
-                    outline: 'Outline',
-                    stash: 'Stash',
-                    history: 'History',
-                    collage: 'Collage',
-                    links: 'Links',
-                  };
+                  const { Icon, label } = TAB_CONFIG[tab];
+                  const isActive = editorPanelMode === tab;
                   return (
                     <button
                       key={tab}
                       type="button"
                       onClick={() => switchEditorMode(tab)}
-                      className={`studio-workbench-tab ${editorPanelMode === tab ? 'studio-workbench-tab--active' : ''}`}
+                      className={`studio-workbench-tab-v2 ${isActive ? 'studio-workbench-tab-v2--active' : ''}`}
+                      title={label}
                     >
-                      {TAB_LABELS[tab]}
+                      <span className="studio-workbench-tab-icon">
+                        <Icon size={14} weight={isActive ? 'bold' : 'regular'} />
+                      </span>
+                      <span className="studio-workbench-tab-label">{label}</span>
                     </button>
                   );
                 })}

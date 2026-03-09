@@ -7,6 +7,7 @@ import { all, createLowlight } from 'lowlight';
 import CodeBlockNode from './extensions/CodeBlockNode';
 import ImageUpload from './extensions/ImageUpload';
 import ColorHighlighter from './extensions/ColorHighlighter';
+import InlineComment from './extensions/InlineComment';
 import Mention from '@tiptap/extension-mention';
 import { PluginKey } from '@tiptap/pm/state';
 import MentionPopup from './MentionPopup';
@@ -319,6 +320,7 @@ export default function TiptapEditor({
       }),
       ImageUpload,
       ColorHighlighter,
+      InlineComment,
       Mention.configure({
         HTMLAttributes: {
           class: 'studio-mention',
