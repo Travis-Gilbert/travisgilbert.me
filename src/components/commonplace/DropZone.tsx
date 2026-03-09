@@ -289,7 +289,6 @@ export default function DropZone({ onCapture }: DropZoneProps) {
                 duration: 0.55,
                 delay: p.delay,
               }}
-              exitTransition={{ duration: 0.3, ease: 'easeIn', delay: 0 }}
               style={{
                 position: 'absolute',
                 top: '50%',
