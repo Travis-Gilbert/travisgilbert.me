@@ -1,6 +1,7 @@
 'use client';
 
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect, useMemo } from 'react';
+import { AnimatePresence, motion } from 'framer-motion';
 import type { CapturedObject } from '@/lib/commonplace';
 import { getObjectTypeIdentity } from '@/lib/commonplace';
 import {
@@ -15,22 +16,127 @@ import {
  *
  * When the user drags content over the CommonPlace layout, this
  * overlay appears with a dashed border and "digitize" prompt.
- * On drop, the content is captured as a new object with a
- * brief "absorb" animation (dot shrinks into sidebar).
+ * On drop, the content is captured with a framer-motion particle
+ * scatter animation: 14-18 circles burst outward then converge
+ * to the sidebar. Colors sample from the dropped image when
+ * available, otherwise fall back to brand palette.
  *
  * Renders as a portal-style overlay on the layout root.
- * The parent component should place this at the top level of
- * the CommonPlace layout.
  */
 
 interface DropZoneProps {
   onCapture: (object: CapturedObject) => void;
 }
 
+/* ─────────────────────────────────────────────────
+   Mulberry32 PRNG (deterministic seeded random)
+   Same pattern as HeroAccents.tsx (djb2 + LCG)
+   ───────────────────────────────────────────────── */
+
+function djb2(str: string): number {
+  let hash = 5381;
+  for (let i = 0; i < str.length; i++) {
+    hash = ((hash << 5) + hash) ^ str.charCodeAt(i);
+  }
+  return hash >>> 0;
+}
+
+function mulberry32(seed: number) {
+  let s = seed;
+  return () => {
+    s += 0x6d2b79f5;
+    let t = s;
+    t = Math.imul(t ^ (t >>> 15), t | 1);
+    t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+    return ((t ^ (t >>> 14)) >>> 0) / 0x100000000;
+  };
+}
+
+/* ─────────────────────────────────────────────────
+   Particle scatter constants
+   ───────────────────────────────────────────────── */
+
+const PALETTE = ['#B45A2D', '#2D5F6B', '#C49A4A', '#8C7B6E', '#5A7A4A'];
+const PARTICLE_SPRING = [0.34, 1.56, 0.64, 1] as const;
+
+interface Particle {
+  id: number;
+  x: number;
+  y: number;
+  dx: number;
+  dy: number;
+  r: number;
+  color: string;
+  delay: number;
+}
+
+/* Sample up to 4 dominant colors from a dropped image file using canvas. */
+async function sampleImageColors(file: File): Promise<string[]> {
+  return new Promise((resolve) => {
+    const url = URL.createObjectURL(file);
+    const img = new Image();
+    img.onload = () => {
+      try {
+        const canvas = document.createElement('canvas');
+        canvas.width = 32;
+        canvas.height = 32;
+        const ctx = canvas.getContext('2d');
+        if (!ctx) { resolve([]); return; }
+        ctx.drawImage(img, 0, 0, 32, 32);
+        const data = ctx.getImageData(0, 0, 32, 32).data;
+        /* Sample pixels at 4 corners and center */
+        const positions = [0, 7, 15, 23, 31].flatMap((x) =>
+          [0, 7, 15, 23, 31].map((y) => (y * 32 + x) * 4)
+        );
+        const colors: string[] = [];
+        for (const p of positions.slice(0, 4)) {
+          const r = data[p]; const g = data[p + 1]; const b = data[p + 2];
+          if (r !== undefined && g !== undefined && b !== undefined) {
+            colors.push(`rgb(${r},${g},${b})`);
+          }
+        }
+        resolve(colors);
+      } catch {
+        resolve([]);
+      } finally {
+        URL.revokeObjectURL(url);
+      }
+    };
+    img.onerror = () => { URL.revokeObjectURL(url); resolve([]); };
+    img.src = url;
+  });
+}
+
+function buildParticles(seed: string, colors: string[]): Particle[] {
+  const rng = mulberry32(djb2(seed));
+  const palette = colors.length >= 4 ? colors : PALETTE;
+  const count = Math.floor(rng() * 5) + 14; /* 14-18 */
+  return Array.from({ length: count }, (_, i) => {
+    const angle = rng() * Math.PI * 2;
+    const dist = 60 + rng() * 140;
+    return {
+      id: i,
+      x: 0,
+      y: 0,
+      dx: Math.cos(angle) * dist,
+      dy: Math.sin(angle) * dist,
+      r: 4 + rng() * 10,
+      color: palette[Math.floor(rng() * palette.length)] ?? PALETTE[0],
+      delay: i * 0.025,
+    };
+  });
+}
+
+/* ─────────────────────────────────────────────────
+   Main component
+   ───────────────────────────────────────────────── */
+
 export default function DropZone({ onCapture }: DropZoneProps) {
   const [isDragActive, setIsDragActive] = useState(false);
   const [isAbsorbing, setIsAbsorbing] = useState(false);
   const [absorbLabel, setAbsorbLabel] = useState('');
+  const [absorbSeed, setAbsorbSeed] = useState('drop');
+  const [absorbColors, setAbsorbColors] = useState<string[]>([]);
   const [dragCounter, setDragCounter] = useState(0);
 
   /* Track drag enter/leave with a counter because child elements
@@ -70,18 +176,23 @@ export default function DropZone({ onCapture }: DropZoneProps) {
 
       if (!e.dataTransfer) return;
 
-      /* Extract drop info synchronously (DataTransfer only lives during the event).
-         The File reference persists, so we can read it asynchronously below. */
+      /* Extract drop info synchronously (DataTransfer only lives during the event). */
       const dropInfo = inferTypeFromDrop(e.dataTransfer);
 
       const processCapture = async () => {
         let object: CapturedObject;
+        let imageSeed = 'drop';
+        let imageColors: string[] = [];
 
         if (dropInfo.type === 'file' && dropInfo.file) {
           const fileType = inferTypeFromFile(dropInfo.file);
-          /* Read text content for text-based files (.md, .txt, .json, etc.).
-             Returns null for binary files (PDFs, images). */
           const textContent = await readFileAsText(dropInfo.file);
+
+          /* Sample colors from image files for particle palette */
+          if (dropInfo.file.type.startsWith('image/')) {
+            imageColors = await sampleImageColors(dropInfo.file);
+          }
+
           object = createCapturedObject({
             text: textContent ?? dropInfo.file.name,
             objectType: fileType,
@@ -89,25 +200,28 @@ export default function DropZone({ onCapture }: DropZoneProps) {
             file: textContent ? undefined : dropInfo.file,
           });
           object.title = dropInfo.file.name;
+          imageSeed = dropInfo.file.name;
         } else {
           object = createCapturedObject({
             text: dropInfo.content,
             captureMethod: 'dropped',
             sourceUrl: dropInfo.type === 'url' ? dropInfo.content : undefined,
           });
+          imageSeed = dropInfo.content.slice(0, 20);
         }
 
-        /* Show absorb animation */
         const typeInfo = getObjectTypeIdentity(object.objectType);
         setAbsorbLabel(typeInfo.label);
+        setAbsorbSeed(imageSeed);
+        setAbsorbColors(imageColors);
         setIsAbsorbing(true);
 
-        /* Deliver the object after a brief animation delay */
         setTimeout(() => {
           onCapture(object);
           setIsAbsorbing(false);
           setAbsorbLabel('');
-        }, 600);
+          setAbsorbColors([]);
+        }, 800);
       };
 
       processCapture();
@@ -115,8 +229,7 @@ export default function DropZone({ onCapture }: DropZoneProps) {
     [onCapture]
   );
 
-  /* Attach drag listeners to the document so the overlay
-     appears regardless of where the user starts dragging */
+  /* Attach drag listeners to document */
   useEffect(() => {
     document.addEventListener('dragenter', handleDragEnter);
     document.addEventListener('dragleave', handleDragLeave);
@@ -130,22 +243,68 @@ export default function DropZone({ onCapture }: DropZoneProps) {
     };
   }, [handleDragEnter, handleDragLeave, handleDragOver, handleDrop]);
 
+  /* Build particle list deterministically from the seed */
+  const particles = useMemo(
+    () => (isAbsorbing ? buildParticles(absorbSeed, absorbColors) : []),
+    [isAbsorbing, absorbSeed, absorbColors]
+  );
+
   /* Absorb animation overlay */
   if (isAbsorbing) {
     return (
       <div className="cp-dropzone-overlay" data-active="true" aria-hidden="true">
-        <div className="cp-absorb-dot" aria-hidden="true">
-          <span
-            style={{
-              fontFamily: 'var(--cp-font-mono)',
-              fontSize: 11,
-              color: 'var(--cp-text)',
-              letterSpacing: '0.05em',
-            }}
-          >
-            {absorbLabel} captured
-          </span>
-        </div>
+        {/* Center label */}
+        <motion.div
+          initial={{ opacity: 0, scale: 0.8 }}
+          animate={{ opacity: 1, scale: 1 }}
+          exit={{ opacity: 0, scale: 0.6 }}
+          transition={{ duration: 0.25 }}
+          style={{
+            position: 'absolute',
+            top: '50%',
+            left: '50%',
+            transform: 'translate(-50%, -50%)',
+            fontFamily: 'var(--cp-font-mono)',
+            fontSize: 12,
+            letterSpacing: '0.1em',
+            color: 'var(--cp-text)',
+            textTransform: 'uppercase',
+            zIndex: 2,
+          }}
+        >
+          {absorbLabel} captured
+        </motion.div>
+
+        {/* Particle burst */}
+        <AnimatePresence>
+          {particles.map((p) => (
+            <motion.div
+              key={p.id}
+              initial={{ x: 0, y: 0, scale: 0, opacity: 0 }}
+              animate={{ x: p.dx, y: p.dy, scale: 1, opacity: 0.75 }}
+              exit={{ x: 0, y: 0, scale: 0, opacity: 0 }}
+              transition={{
+                type: 'spring',
+                bounce: PARTICLE_SPRING[1],
+                duration: 0.55,
+                delay: p.delay,
+                exit: { duration: 0.3, ease: 'easeIn', delay: 0 },
+              }}
+              style={{
+                position: 'absolute',
+                top: '50%',
+                left: '50%',
+                width: p.r * 2,
+                height: p.r * 2,
+                marginTop: -p.r,
+                marginLeft: -p.r,
+                borderRadius: '50%',
+                backgroundColor: p.color,
+                pointerEvents: 'none',
+              }}
+            />
+          ))}
+        </AnimatePresence>
       </div>
     );
   }
