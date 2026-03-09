@@ -24,6 +24,8 @@ interface FrameManagerProps {
   currentCenterY: number;
   /** Callback to restore a frame */
   onRestoreFrame: (frame: ViewFrame) => void;
+  /** Returns a base64 PNG snapshot of the current canvas for thumbnail storage */
+  getCanvasSnapshot?: () => string | null;
 }
 
 /** Built-in frames that are always available */
@@ -62,6 +64,7 @@ export default function FrameManager({
   currentCenterX,
   currentCenterY,
   onRestoreFrame,
+  getCanvasSnapshot,
 }: FrameManagerProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [userFrames, setUserFrames] = useState<ViewFrame[]>([]);
@@ -89,13 +92,17 @@ export default function FrameManager({
 
   const handleSave = useCallback(() => {
     if (!saveName.trim()) return;
-    const frame = createFrame(saveName.trim(), currentZoom, currentCenterX, currentCenterY);
+    const thumbnail = getCanvasSnapshot?.() ?? undefined;
+    const frame: ViewFrame = {
+      ...createFrame(saveName.trim(), currentZoom, currentCenterX, currentCenterY),
+      thumbnail: thumbnail ?? undefined,
+    };
     const updated = [...userFrames, frame];
     setUserFrames(updated);
     saveFrames(updated);
     setSaveName('');
     setIsSaving(false);
-  }, [saveName, currentZoom, currentCenterX, currentCenterY, userFrames]);
+  }, [saveName, currentZoom, currentCenterX, currentCenterY, userFrames, getCanvasSnapshot]);
 
   const handleDelete = useCallback(
     (frameId: string) => {
@@ -148,8 +155,45 @@ export default function FrameManager({
                   setIsOpen(false);
                 }}
                 className="cp-frame-item-btn"
+                style={{ display: 'flex', alignItems: 'center', gap: 7 }}
               >
-                {frame.name}
+                {/* Thumbnail: 48x48 preview for user frames, placeholder for built-ins */}
+                <div
+                  style={{
+                    width: 48,
+                    height: 48,
+                    borderRadius: 3,
+                    overflow: 'hidden',
+                    flexShrink: 0,
+                    backgroundColor: 'var(--cp-surface)',
+                    border: '1px solid var(--cp-border)',
+                  }}
+                >
+                  {frame.thumbnail ? (
+                    /* eslint-disable-next-line @next/next/no-img-element */
+                    <img
+                      src={frame.thumbnail}
+                      alt=""
+                      aria-hidden="true"
+                      style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                    />
+                  ) : (
+                    /* Blueprint grid placeholder for built-in frames */
+                    <svg width={48} height={48} viewBox="0 0 48 48" aria-hidden="true">
+                      <rect width={48} height={48} fill="var(--cp-surface)" />
+                      {Array.from({ length: 6 }).map((_, i) => (
+                        <line key={`v${i}`} x1={i * 8} y1={0} x2={i * 8} y2={48}
+                          stroke="var(--cp-border)" strokeWidth={0.5} />
+                      ))}
+                      {Array.from({ length: 6 }).map((_, i) => (
+                        <line key={`h${i}`} x1={0} y1={i * 8} x2={48} y2={i * 8}
+                          stroke="var(--cp-border)" strokeWidth={0.5} />
+                      ))}
+                      <circle cx={24} cy={24} r={4} fill="var(--cp-accent)" opacity={0.35} />
+                    </svg>
+                  )}
+                </div>
+                <span>{frame.name}</span>
               </button>
               {/* Only user frames are deletable */}
               {!frame.id.startsWith('builtin-') && (

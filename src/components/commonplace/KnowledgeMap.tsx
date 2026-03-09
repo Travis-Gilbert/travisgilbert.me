@@ -214,16 +214,25 @@ export default function KnowledgeMap({
       const to = posMap.get(tgt);
       if (!from || !to) return;
 
-      let alpha = 0.25;
+      const edgeType = l.edge_type?.toLowerCase() ?? '';
+      const isTension =
+        edgeType.includes('counter') ||
+        edgeType.includes('tension') ||
+        l.reason?.toLowerCase().includes('contradict');
+
+      let alpha = isTension ? 0.45 : 0.25;
       if (hoveredId) {
-        alpha = connectedIds.has(src) && connectedIds.has(tgt) ? 0.55 : 0.05;
+        const connected = connectedIds.has(src) && connectedIds.has(tgt);
+        alpha = connected ? (isTension ? 0.75 : 0.55) : 0.05;
       }
 
       rc.line(from.x, from.y, to.x, to.y, {
-        roughness: 0.8,
-        stroke: `rgba(${EDGE_RGB}, ${alpha})`,
-        strokeWidth: 1.2,
-        bowing: 1.5,
+        roughness: isTension ? 2.0 : 0.8,
+        stroke: isTension
+          ? `rgba(212, 148, 74, ${alpha})`
+          : `rgba(${EDGE_RGB}, ${alpha})`,
+        strokeWidth: isTension ? 1.4 : 1.2,
+        bowing: isTension ? 2.5 : 1.5,
       });
     });
   }, [layout, filteredLinks, hoveredId, connectedIds, containerSize, posMap, transform]);

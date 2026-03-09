@@ -215,6 +215,7 @@ export interface MockEdge {
   sourceId: string;
   targetId: string;
   reason: string;
+  edge_type?: string;
   createdAt: string;
 }
 
@@ -251,6 +252,7 @@ export interface GraphLink {
   source: string | GraphNode;
   target: string | GraphNode;
   reason: string;
+  edge_type?: string;
 }
 
 export interface ViewFrame {
@@ -261,6 +263,8 @@ export interface ViewFrame {
   centerY: number;
   highlightedNodeIds: string[];
   createdAt: string;
+  /** Base64 PNG thumbnail (48x48, quality 0.3) captured at save time */
+  thumbnail?: string;
 }
 
 /* ─────────────────────────────────────────────────

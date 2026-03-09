@@ -6,6 +6,7 @@ import * as Tabs from '@radix-ui/react-tabs';
 import { useCommonPlace } from '@/lib/commonplace-context';
 import { fetchObjectDetail, fetchObjectById } from '@/lib/commonplace-api';
 import type { ApiObjectDetail, ApiEdgeCompact, ApiNodeListItem } from '@/lib/commonplace';
+import HunchSketch from './HunchSketch';
 
 /**
  * ObjectDrawer: Vaul slide-in drawer from the right for object detail.
@@ -429,6 +430,9 @@ export default function ObjectDrawer() {
 
                 {/* ─── Overview ─── */}
                 <Tabs.Content value="overview" className="cp-drawer-tab-content">
+                  {detail.object_type_data?.slug === 'hunch' && (
+                    <HunchSketch objectId={detail.id} components={detail.components} />
+                  )}
                   {detail.body && (
                     <p className="cp-drawer-body-text">{detail.body}</p>
                   )}

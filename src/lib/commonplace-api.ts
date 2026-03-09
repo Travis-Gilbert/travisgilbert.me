@@ -144,6 +144,7 @@ function mapGraphResponseToD3(resp: ApiGraphResponse): {
       source: e.source,
       target: e.target,
       reason: e.reason,
+      edge_type: e.edge_type,
     }));
 
   return { nodes, links };

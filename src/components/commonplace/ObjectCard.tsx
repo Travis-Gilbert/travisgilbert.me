@@ -5,6 +5,7 @@ import type { MockNode } from '@/lib/commonplace';
 import { getObjectTypeIdentity } from '@/lib/commonplace';
 import { useCommonPlace } from '@/lib/commonplace-context';
 import CardFooter from './CardFooter';
+import TensionBadge from './TensionBadge';
 
 /**
  * ObjectCard: polymorphic card dispatcher for all 11 object types.
@@ -372,6 +373,14 @@ export default function ObjectCard({
     }),
   };
 
+  /* Detect tension edges for badge */
+  const tensionEdge = node.edges.find(
+    (e) =>
+      e.edge_type?.toLowerCase().includes('counter') ||
+      e.edge_type?.toLowerCase().includes('tension') ||
+      e.reason?.toLowerCase().includes('contradict'),
+  );
+
   /* Dispatch the type-specific header */
   let header: ReactNode;
   switch (node.objectType) {
@@ -428,6 +437,12 @@ export default function ObjectCard({
           style={summaryStyle}
         >
           {node.summary}
+        </div>
+      )}
+
+      {tensionEdge && (
+        <div style={{ marginTop: 6 }}>
+          <TensionBadge edgeType={tensionEdge.edge_type} />
         </div>
       )}
 
