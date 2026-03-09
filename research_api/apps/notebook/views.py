@@ -947,6 +947,17 @@ def resurface_view(request):
     if exclude_ids:
         qs = qs.exclude(pk__in=exclude_ids)
 
+    # Exclude objects dismissed from resurface within the last 30 days
+    dismissed_ids = set(
+        Node.objects.filter(
+            node_type='retrospective',
+            title__startswith='Dismissed from resurface:',
+            occurred_at__gte=timezone.now() - timedelta(days=30),
+        ).values_list('object_ref_id', flat=True)
+    )
+    if dismissed_ids:
+        qs = qs.exclude(pk__in=dismissed_ids)
+
     candidates = score_candidates(qs[:500], notebook_slug=notebook_slug, project_slug=project_slug)
     top = candidates[:count]
 
@@ -976,10 +987,36 @@ def resurface_view(request):
 
 @api_view(['POST'])
 def resurface_dismiss_view(request):
-    """POST /api/v1/notebook/resurface/dismiss/ - Mark object as dismissed for this cycle."""
-    # For now: no-op (frontend stores dismissals in state/localStorage).
-    # Future: write to a DismissedObject model with expiry.
-    return Response({'detail': 'Dismissed.'})
+    """
+    POST /api/v1/notebook/resurface/dismiss/
+
+    Dismiss a resurface suggestion so it won't re-appear for 30 days.
+    Records the dismissal as a retrospective Node on the master Timeline,
+    which resurface_view queries to suppress dismissed objects.
+
+    Input: {object_id: int}
+    """
+    object_id = request.data.get('object_id')
+    if not object_id:
+        return Response({'detail': 'object_id required.'}, status=400)
+
+    try:
+        obj = Object.objects.get(pk=object_id, is_deleted=False)
+    except Object.DoesNotExist:
+        return Response({'detail': 'Object not found.'}, status=404)
+
+    from .signals import _get_master_timeline
+    timeline = _get_master_timeline()
+
+    Node.objects.create(
+        node_type='retrospective',
+        title=f'Dismissed from resurface: {obj.display_title[:60]}',
+        body='User dismissed this object from the resurface queue.',
+        object_ref=obj,
+        timeline=timeline,
+    )
+
+    return Response({'detail': 'Dismissed.', 'object_id': object_id})
 
 
 @api_view(['GET', 'PATCH'])
@@ -1231,4 +1268,60 @@ def export_notebook_view(request, slug):
             'component_count': len(components_data),
             'edge_count': len(edges_data),
         },
+    })
+
+
+# ---------------------------------------------------------------------------
+# Compose Live Query (Task 1)
+# ---------------------------------------------------------------------------
+
+try:
+    from rest_framework.throttling import AnonRateThrottle
+
+    class ComposeThrottle(AnonRateThrottle):
+        rate = '600/hour'
+        scope = 'compose'
+except ImportError:
+    ComposeThrottle = None
+
+
+@api_view(['POST'])
+def compose_related_view(request):
+    """
+    POST /api/v1/notebook/compose/related/
+
+    Real-time related-object query for the Compose Mode Live Graph.
+    Runs 3-pass lightweight engine on unsaved text. Sub-200ms target.
+
+    Input: {text, notebook_slug?, limit?, min_score?}
+    Output: {query_id, text_length, passes_run, objects}
+    """
+    text = request.data.get('text', '').strip()
+    if len(text) < 20:
+        return Response({
+            'objects': [],
+            'passes_run': [],
+            'text_length': len(text),
+        })
+
+    notebook_slug = request.data.get('notebook_slug', '')
+    limit = min(int(request.data.get('limit', 8)), 15)
+    min_score = float(request.data.get('min_score', 0.25))
+
+    import hashlib
+    query_id = hashlib.md5(text[:200].encode()).hexdigest()[:12]
+
+    from .compose_engine import run_compose_query
+    results = run_compose_query(
+        text=text,
+        notebook_slug=notebook_slug or None,
+        limit=limit,
+        min_score=min_score,
+    )
+
+    return Response({
+        'query_id': query_id,
+        'text_length': len(text),
+        'passes_run': results['passes_run'],
+        'objects': results['objects'],
     })

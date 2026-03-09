@@ -41,4 +41,5 @@ urlpatterns = [
     path('objects/<slug:slug>/connect/', views.object_connect_view, name='object-connect'),
     path('export/object/<slug:slug>/', views.export_object_view, name='export-object'),
     path('export/notebook/<slug:slug>/', views.export_notebook_view, name='export-notebook'),
+    path('compose/related/', views.compose_related_view, name='compose-related'),
 ]

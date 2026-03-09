@@ -16,3 +16,17 @@ class NotebookConfig(AppConfig):
             kge_store.load()
         except Exception:
             pass
+
+        # Pre-warm SBERT FAISS index in background thread (dev only).
+        # On production (no PyTorch), this is a silent no-op.
+        try:
+            from apps.notebook.vector_store import _SBERT_AVAILABLE
+            if _SBERT_AVAILABLE:
+                import threading
+                from apps.notebook.vector_store import _build_sbert_faiss_index
+                t = threading.Thread(
+                    target=_build_sbert_faiss_index, daemon=True,
+                )
+                t.start()
+        except Exception:
+            pass
