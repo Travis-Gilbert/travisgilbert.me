@@ -302,6 +302,15 @@ export default function EditorToolbar({
       tooltip: 'Superscript',
       fontStyle: 'mono',
     },
+    {
+      id: 'inline-comment',
+      label: 'Inline comment',
+      icon: '++',
+      action: () => editor.chain().focus().toggleMark('inlineComment').run(),
+      isActive: editor.isActive('inlineComment'),
+      tooltip: 'Inline comment (Cmd+Shift+C)',
+      fontStyle: 'mono',
+    },
   ];
 
   const renderTool = (

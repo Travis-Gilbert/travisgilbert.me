@@ -1025,6 +1025,7 @@ export default function Editor({
                 spellCheck={false}
                 className="studio-title-input"
               />
+              <hr className="studio-title-divider" />
             </div>
           }
           toolbar={
