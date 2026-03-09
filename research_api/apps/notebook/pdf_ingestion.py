@@ -26,9 +26,18 @@ logger = logging.getLogger(__name__)
 try:
     from spacy_layout import spaCyLayout
     import spacy as _spacy
-    _nlp_layout = _spacy.load('en_core_web_sm')
-    _SPACYLAYOUT_AVAILABLE = True
-except (ImportError, OSError):
+    # Prefer en_core_web_md (available on Railway), fall back to sm for local.
+    _nlp_layout = None
+    for _model_name in ('en_core_web_md', 'en_core_web_sm'):
+        try:
+            _nlp_layout = _spacy.load(_model_name)
+            break
+        except OSError:
+            continue
+    _SPACYLAYOUT_AVAILABLE = _nlp_layout is not None
+    if not _SPACYLAYOUT_AVAILABLE:
+        spaCyLayout = None
+except ImportError:
     _SPACYLAYOUT_AVAILABLE = False
     spaCyLayout = None
     _nlp_layout = None

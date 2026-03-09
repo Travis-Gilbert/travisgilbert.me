@@ -40,12 +40,24 @@ logger = logging.getLogger(__name__)
 
 try:
     import spacy
-    nlp = spacy.load('en_core_web_sm')
-except (OSError, ImportError):
+    # Prefer en_core_web_md (has 20k GloVe word vectors, better NER).
+    # Fall back to en_core_web_sm (no vectors, lighter) for local dev.
+    # Railway downloads en_core_web_md via railway.toml build command.
+    for _model_name in ('en_core_web_md', 'en_core_web_sm'):
+        try:
+            nlp = spacy.load(_model_name)
+            logger.info('Loaded spaCy model: %s', _model_name)
+            break
+        except OSError:
+            continue
+    else:
+        nlp = None
+        logger.warning(
+            'No spaCy model found. Run: python -m spacy download en_core_web_md'
+        )
+except ImportError:
     nlp = None
-    logger.warning(
-        'spaCy model not found. Run: python3 -m spacy download en_core_web_sm'
-    )
+    logger.warning('spaCy not installed.')
 
 # ---------------------------------------------------------------------------
 # SBERT (optional -- dev/local only, requires PyTorch)
