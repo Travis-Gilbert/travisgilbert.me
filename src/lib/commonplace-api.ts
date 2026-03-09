@@ -207,6 +207,37 @@ export async function fetchObjectById(
   return apiFetch<ApiObjectDetail>(`/objects/${id}/`);
 }
 
+/** Search objects by title / search_text via GET /objects/?q=... */
+export interface ObjectSearchResult {
+  id: number;
+  title: string;
+  display_title: string;
+  slug: string;
+  object_type_name: string;
+  object_type_color: string;
+  status: string;
+  captured_at: string;
+}
+
+export async function searchObjects(
+  query: string,
+  limit = 10,
+): Promise<ObjectSearchResult[]> {
+  if (!query.trim()) return [];
+  try {
+    const qs = new URLSearchParams({
+      q: query,
+      page_size: String(limit),
+    });
+    const data = await apiFetch<{ results: ObjectSearchResult[] }>(
+      `/objects/?${qs}`,
+    );
+    return data.results ?? [];
+  } catch {
+    return [];
+  }
+}
+
 /** Capture a new object via POST /capture/ */
 export async function captureToApi(data: {
   content: string;

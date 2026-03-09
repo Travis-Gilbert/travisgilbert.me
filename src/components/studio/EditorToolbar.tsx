@@ -410,7 +410,7 @@ export default function EditorToolbar({
         >
           <button
             type="button"
-            className="studio-tool studio-tool--ghost"
+            className="studio-tool studio-tool--ghost studio-tool--label"
             onClick={() => setIsMoreOpen((open) => !open)}
             onKeyDown={(event) => {
               if (event.key === 'ArrowDown' && !isMoreOpen) {

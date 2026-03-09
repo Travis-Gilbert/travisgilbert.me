@@ -19,7 +19,8 @@ import {
   deleteTask,
   createRevision,
 } from '@/lib/studio-api';
-import { captureToApi, fetchFeed } from '@/lib/commonplace-api';
+import { captureToApi, fetchFeed, searchObjects } from '@/lib/commonplace-api';
+import type { ObjectSearchResult } from '@/lib/commonplace-api';
 import type { MockNode } from '@/lib/commonplace';
 import { useDraftBuffer } from '@/lib/studio-draft-buffer';
 import { useLocalYjs } from '@/lib/useLocalYjs';
@@ -281,6 +282,10 @@ export default function Editor({
   const [isReadingPanelOpen, setIsReadingPanelOpen] = useState(false);
   const [isCpPanelOpen, setIsCpPanelOpen] = useState(false);
   const [cpRecentObjects, setCpRecentObjects] = useState<MockNode[]>([]);
+  const [cpSearchQuery, setCpSearchQuery] = useState('');
+  const [cpSearchResults, setCpSearchResults] = useState<ObjectSearchResult[]>([]);
+  const [cpSearching, setCpSearching] = useState(false);
+  const cpSearchTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [showMarkdownView, setShowMarkdownView] = useState(false);
   const [typewriterMode, setTypewriterMode] = useState(true);
   const focusFade = useFocusFade(editor);
@@ -445,6 +450,31 @@ export default function Editor({
     return () => { cancelled = true; };
   }, [isCpPanelOpen]);
 
+  /* Debounced CP search when query changes */
+  useEffect(() => {
+    if (cpSearchTimerRef.current) clearTimeout(cpSearchTimerRef.current);
+    if (!cpSearchQuery.trim()) {
+      setCpSearchResults([]);
+      setCpSearching(false);
+      return;
+    }
+    setCpSearching(true);
+    cpSearchTimerRef.current = setTimeout(() => {
+      searchObjects(cpSearchQuery, 8)
+        .then((results) => {
+          setCpSearchResults(results);
+          setCpSearching(false);
+        })
+        .catch(() => {
+          setCpSearchResults([]);
+          setCpSearching(false);
+        });
+    }, 250);
+    return () => {
+      if (cpSearchTimerRef.current) clearTimeout(cpSearchTimerRef.current);
+    };
+  }, [cpSearchQuery]);
+
   /* Listen for command palette dispatched events */
   useEffect(() => {
     function handleStudioCommand(e: Event) {
@@ -498,20 +528,26 @@ export default function Editor({
   }, [typewriterMode]);
 
   const handleEditorReady = useCallback((ed: TiptapEditorType) => {
-    const markdown = getEditorMarkdown(ed);
-
     setEditor(ed);
     ed.on('transaction', () => {
       setForceRender((n) => n + 1);
     });
-    if (markdown !== null) {
-      setCurrentBody(markdown);
-      snapshotRef.current = JSON.stringify({
-        title: currentTitleRef.current,
-        body: markdown,
-      });
+
+    /* When Y.js is active, defer setting the baseline snapshot until
+     * after the seeding effect fires (which calls onUpdate -> handleUpdate).
+     * This prevents stale Y.js IndexedDB content from becoming the
+     * baseline and triggering phantom autosaves. */
+    if (!yjsDoc) {
+      const markdown = getEditorMarkdown(ed);
+      if (markdown !== null) {
+        setCurrentBody(markdown);
+        snapshotRef.current = JSON.stringify({
+          title: currentTitleRef.current,
+          body: markdown,
+        });
+      }
     }
-  }, []);
+  }, [yjsDoc]);
 
   const persistChanges = useCallback(
     async (mode: SaveMode) => {
@@ -605,6 +641,16 @@ export default function Editor({
 
   const handleUpdate = useCallback((payload: TiptapUpdatePayload) => {
     setCurrentBody(payload.markdown);
+
+    /* When Y.js is active, the first onUpdate after seeding establishes
+     * the baseline snapshot. Without this, the autosave effect sees a
+     * null snapshot and skips dirty checks, or uses stale pre-seed content. */
+    if (snapshotRef.current === null) {
+      snapshotRef.current = JSON.stringify({
+        title: currentTitleRef.current,
+        body: payload.markdown,
+      });
+    }
   }, []);
 
   const handleSave = useCallback(() => {
@@ -999,62 +1045,140 @@ export default function Editor({
               />
               {isCpPanelOpen && (
                 <div ref={cpPanelRef} className="studio-reading-panel" style={{ padding: '10px 12px' }}>
-                  <div style={{
-                    fontFamily: 'var(--studio-font-mono)',
-                    fontSize: '9px',
-                    fontWeight: 700,
-                    letterSpacing: '0.08em',
-                    textTransform: 'uppercase',
-                    color: 'var(--studio-text-3)',
-                    marginBottom: '8px',
-                  }}>
-                    Recent Objects
-                  </div>
-                  {cpRecentObjects.length > 0 ? (
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                      {cpRecentObjects.map((node) => (
-                        <div
-                          key={`cp-${node.id}`}
-                          style={{
-                            padding: '6px 8px',
-                            borderRadius: '4px',
-                            border: '1px solid var(--studio-border)',
-                            backgroundColor: 'var(--studio-surface)',
-                            fontFamily: 'var(--studio-font-body)',
-                            fontSize: '12px',
-                            color: 'var(--studio-text-1)',
-                            lineHeight: 1.3,
-                          }}
-                        >
-                          <div style={{
-                            overflow: 'hidden',
-                            textOverflow: 'ellipsis',
-                            whiteSpace: 'nowrap',
-                          }}>
-                            {node.title || node.summary?.slice(0, 60) || 'Untitled'}
-                          </div>
-                          <div style={{
-                            fontFamily: 'var(--studio-font-mono)',
-                            fontSize: '9px',
-                            color: 'var(--studio-text-3)',
-                            marginTop: '2px',
-                            textTransform: 'uppercase',
-                            letterSpacing: '0.06em',
-                          }}>
-                            {node.objectType || 'note'}
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  ) : (
-                    <div style={{
+                  {/* Search input */}
+                  <input
+                    type="text"
+                    value={cpSearchQuery}
+                    onChange={(e) => setCpSearchQuery(e.target.value)}
+                    placeholder="Search objects..."
+                    style={{
+                      width: '100%',
+                      padding: '5px 8px',
+                      borderRadius: '4px',
+                      border: '1px solid var(--studio-border)',
+                      backgroundColor: 'var(--studio-surface)',
                       fontFamily: 'var(--studio-font-body)',
                       fontSize: '12px',
-                      color: 'var(--studio-text-3)',
-                      fontStyle: 'italic',
-                    }}>
-                      No recent objects
-                    </div>
+                      color: 'var(--studio-text-1)',
+                      outline: 'none',
+                      marginBottom: '8px',
+                      boxSizing: 'border-box',
+                    }}
+                  />
+
+                  {/* Search results (shown when query is active) */}
+                  {cpSearchQuery.trim() ? (
+                    <>
+                      <div style={{
+                        fontFamily: 'var(--studio-font-mono)',
+                        fontSize: '9px',
+                        fontWeight: 700,
+                        letterSpacing: '0.08em',
+                        textTransform: 'uppercase',
+                        color: 'var(--studio-text-3)',
+                        marginBottom: '6px',
+                      }}>
+                        {cpSearching ? 'Searching...' : `${cpSearchResults.length} result${cpSearchResults.length === 1 ? '' : 's'}`}
+                      </div>
+                      {cpSearchResults.length > 0 && (
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                          {cpSearchResults.map((obj) => (
+                            <div
+                              key={`cps-${obj.id}`}
+                              style={{
+                                padding: '6px 8px',
+                                borderRadius: '4px',
+                                border: '1px solid var(--studio-border)',
+                                backgroundColor: 'var(--studio-surface)',
+                                fontFamily: 'var(--studio-font-body)',
+                                fontSize: '12px',
+                                color: 'var(--studio-text-1)',
+                                lineHeight: 1.3,
+                              }}
+                            >
+                              <div style={{
+                                overflow: 'hidden',
+                                textOverflow: 'ellipsis',
+                                whiteSpace: 'nowrap',
+                              }}>
+                                {obj.display_title || obj.title || 'Untitled'}
+                              </div>
+                              <div style={{
+                                fontFamily: 'var(--studio-font-mono)',
+                                fontSize: '9px',
+                                color: 'var(--studio-text-3)',
+                                marginTop: '2px',
+                                textTransform: 'uppercase',
+                                letterSpacing: '0.06em',
+                              }}>
+                                {obj.object_type_name || 'note'}
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </>
+                  ) : (
+                    <>
+                      {/* Recent objects (shown when no search query) */}
+                      <div style={{
+                        fontFamily: 'var(--studio-font-mono)',
+                        fontSize: '9px',
+                        fontWeight: 700,
+                        letterSpacing: '0.08em',
+                        textTransform: 'uppercase',
+                        color: 'var(--studio-text-3)',
+                        marginBottom: '6px',
+                      }}>
+                        Recent Objects
+                      </div>
+                      {cpRecentObjects.length > 0 ? (
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                          {cpRecentObjects.map((node) => (
+                            <div
+                              key={`cp-${node.id}`}
+                              style={{
+                                padding: '6px 8px',
+                                borderRadius: '4px',
+                                border: '1px solid var(--studio-border)',
+                                backgroundColor: 'var(--studio-surface)',
+                                fontFamily: 'var(--studio-font-body)',
+                                fontSize: '12px',
+                                color: 'var(--studio-text-1)',
+                                lineHeight: 1.3,
+                              }}
+                            >
+                              <div style={{
+                                overflow: 'hidden',
+                                textOverflow: 'ellipsis',
+                                whiteSpace: 'nowrap',
+                              }}>
+                                {node.title || node.summary?.slice(0, 60) || 'Untitled'}
+                              </div>
+                              <div style={{
+                                fontFamily: 'var(--studio-font-mono)',
+                                fontSize: '9px',
+                                color: 'var(--studio-text-3)',
+                                marginTop: '2px',
+                                textTransform: 'uppercase',
+                                letterSpacing: '0.06em',
+                              }}>
+                                {node.objectType || 'note'}
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      ) : (
+                        <div style={{
+                          fontFamily: 'var(--studio-font-body)',
+                          fontSize: '12px',
+                          color: 'var(--studio-text-3)',
+                          fontStyle: 'italic',
+                        }}>
+                          No recent objects
+                        </div>
+                      )}
+                    </>
                   )}
                 </div>
               )}

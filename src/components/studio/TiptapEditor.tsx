@@ -30,6 +30,7 @@ import WikiLinkSuggestion from './extensions/WikiLinkSuggestion';
 import type { WikiSuggestionItem } from './extensions/WikiLinkSuggestion';
 import WikiLinkPopup from './WikiLinkPopup';
 import { searchCommonplace } from '@/lib/studio-api';
+import { searchObjects } from '@/lib/commonplace-api';
 import IframeEmbed from './extensions/IframeEmbed';
 import SlashCommand from './extensions/SlashCommand';
 import type { SlashCommandItem } from './extensions/SlashCommand';
@@ -121,6 +122,10 @@ export default function TiptapEditor({
   const slashPopupRef = useRef<SlashCommandPopupRef | null>(null);
   const mentionPopupRef = useRef<MentionPopupRef | null>(null);
 
+  /* Gate onUpdate until after Y.js seeding to prevent stale IndexedDB
+   * content from propagating to Editor.tsx before server content loads. */
+  const contentReadyRef = useRef(!yjsDoc);
+
   const [mentionPopup, setMentionPopup] = useState<{
     visible: boolean;
     items: ContentSearchResult[];
@@ -160,6 +165,11 @@ export default function TiptapEditor({
 
   const handleUpdate = useCallback(
     ({ editor: ed }: { editor: Editor }) => {
+      /* Suppress updates until Y.js has been seeded with server content.
+       * Without this gate, stale IndexedDB content can briefly propagate
+       * to Editor.tsx and trigger autosave of old content. */
+      if (!contentReadyRef.current) return;
+
       onUpdate?.({
         html: ed.getHTML(),
         markdown:
@@ -232,15 +242,44 @@ export default function TiptapEditor({
             return;
           }
           wikiDebounceRef.current = setTimeout(() => {
-            searchCommonplace(query).then((results) => {
-              setWikiSearchResults(
-                results.map((r) => ({
-                  id: r.id,
-                  title: r.title,
-                  source: r.source,
-                  text: r.text,
-                })),
-              );
+            /* Search both Studio (Django) and Research API (CommonPlace objects),
+             * merge results with Studio items first, deduplicated by title. */
+            Promise.allSettled([
+              searchCommonplace(query),
+              searchObjects(query, 10),
+            ]).then(([studioResult, cpResult]) => {
+              const items: WikiSuggestionItem[] = [];
+              const seenTitles = new Set<string>();
+
+              /* Studio results */
+              if (studioResult.status === 'fulfilled') {
+                for (const r of studioResult.value) {
+                  const key = r.title.toLowerCase();
+                  if (!seenTitles.has(key)) {
+                    seenTitles.add(key);
+                    items.push({ id: r.id, title: r.title, source: r.source, text: r.text });
+                  }
+                }
+              }
+
+              /* CommonPlace object results */
+              if (cpResult.status === 'fulfilled') {
+                for (const obj of cpResult.value) {
+                  const title = obj.display_title || obj.title;
+                  const key = title.toLowerCase();
+                  if (!seenTitles.has(key)) {
+                    seenTitles.add(key);
+                    items.push({
+                      id: String(obj.id),
+                      title,
+                      source: 'commonplace',
+                      text: obj.object_type_name || 'note',
+                    });
+                  }
+                }
+              }
+
+              setWikiSearchResults(items);
             });
           }, 200);
         },
@@ -382,21 +421,52 @@ export default function TiptapEditor({
     }
   }, [editor, onEditorReady]);
 
-  /* Seed yjs doc with initial content when first loaded and empty */
+  /* Seed yjs doc with server content when first loaded.
+   *
+   * On page load, `initialContent` comes from the Django API (the
+   * authoritative source). The Y.js IndexedDB store may hold stale
+   * content from a previous editing session. We always prefer the
+   * server content when it's available, because:
+   *   1. A successful save followed by refresh should show saved content.
+   *   2. A revision restore followed by reload should show restored content.
+   *   3. If there was a save failure, the separate useDraftBuffer hook
+   *      (localStorage) shows a recovery banner for the unsaved draft.
+   */
   const seededRef = useRef(false);
   useEffect(() => {
     if (!yjsDoc || !yjsSynced || !editor || seededRef.current) return;
     seededRef.current = true;
 
     const fragment = yjsDoc.getXmlFragment('prosemirror');
-    if (fragment.length === 0 && initialContent) {
+    if (initialContent) {
+      /* Always seed from server content. If the fragment already has
+       * data it may be stale (e.g. from before a revision restore). */
       editor.commands.setContent(initialContent);
+    } else if (fragment.length === 0) {
+      /* No server content and empty fragment: new document, nothing to do */
     }
-  }, [yjsDoc, yjsSynced, editor, initialContent]);
+    /* If no initialContent but fragment has data: keep Y.js content
+     * (covers offline / new-item editing) */
+
+    /* Open the update gate now that content is authoritative */
+    contentReadyRef.current = true;
+
+    /* Fire an explicit update so Editor.tsx sets the correct baseline
+     * snapshot and currentBody after seeding. */
+    const md =
+      typeof (editor as Editor & { getMarkdown?: () => string }).getMarkdown === 'function'
+        ? (editor as Editor & { getMarkdown: () => string }).getMarkdown()
+        : editor.getText();
+    onUpdate?.({
+      html: editor.getHTML(),
+      markdown: md,
+    });
+  }, [yjsDoc, yjsSynced, editor, initialContent, onUpdate]);
 
   /* Reset seed flag when content item changes */
   useEffect(() => {
     seededRef.current = false;
+    contentReadyRef.current = !yjsDoc;
   }, [yjsDoc]);
 
   const handleWikiSelect = useCallback(
