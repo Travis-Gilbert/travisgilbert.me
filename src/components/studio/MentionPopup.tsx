@@ -1,6 +1,7 @@
 'use client';
 
-import { useState, useEffect, useRef, forwardRef, useImperativeHandle } from 'react';
+import { useState, useEffect, forwardRef, useImperativeHandle } from 'react';
+import { useFloating, flip, shift, offset } from '@floating-ui/react';
 import type { ContentSearchResult } from '@/lib/studio-api';
 import { getContentTypeIdentity } from '@/lib/studio';
 
@@ -10,15 +11,29 @@ export interface MentionPopupRef {
 
 interface MentionPopupProps {
   items: ContentSearchResult[];
-  position: { x: number; y: number };
+  referenceRect: DOMRect | null;
   command: (item: ContentSearchResult) => void;
   onClose: () => void;
 }
 
 const MentionPopup = forwardRef<MentionPopupRef, MentionPopupProps>(
-  ({ items, position, command, onClose }, ref) => {
+  ({ items, referenceRect, command, onClose }, ref) => {
     const [activeIndex, setActiveIndex] = useState(0);
-    const listRef = useRef<HTMLDivElement>(null);
+
+    const { refs, floatingStyles } = useFloating({
+      strategy: 'fixed',
+      placement: 'bottom-start',
+      middleware: [offset(4), flip({ padding: 8 }), shift({ padding: 8 })],
+    });
+
+    // Sync virtual reference from cursor rect
+    useEffect(() => {
+      if (referenceRect) {
+        refs.setReference({
+          getBoundingClientRect: () => referenceRect,
+        });
+      }
+    }, [referenceRect, refs]);
 
     useEffect(() => {
       setActiveIndex(0);
@@ -53,10 +68,8 @@ const MentionPopup = forwardRef<MentionPopupRef, MentionPopupProps>(
       return (
         <div
           className="studio-mention-popup"
-          style={{
-            top: position.y + 24,
-            left: Math.min(position.x, window.innerWidth - 340),
-          }}
+          ref={refs.setFloating}
+          style={floatingStyles}
         >
           <div
             style={{
@@ -75,11 +88,8 @@ const MentionPopup = forwardRef<MentionPopupRef, MentionPopupProps>(
     return (
       <div
         className="studio-mention-popup"
-        ref={listRef}
-        style={{
-          top: position.y + 24,
-          left: Math.min(position.x, window.innerWidth - 340),
-        }}
+        ref={refs.setFloating}
+        style={floatingStyles}
       >
         {items.slice(0, 10).map((item, index) => {
           const identity = getContentTypeIdentity(item.contentType);

@@ -1,12 +1,13 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect } from 'react';
+import { useFloating, flip, shift, offset } from '@floating-ui/react';
 import type { WikiSuggestionItem } from './extensions/WikiLinkSuggestion';
 
 interface WikiLinkPopupProps {
   items: WikiSuggestionItem[];
   query: string;
-  position: { x: number; y: number };
+  referenceRect: DOMRect | null;
   onSelect: (item: WikiSuggestionItem) => void;
   onClose: () => void;
 }
@@ -14,12 +15,26 @@ interface WikiLinkPopupProps {
 export default function WikiLinkPopup({
   items,
   query,
-  position,
+  referenceRect,
   onSelect,
   onClose,
 }: WikiLinkPopupProps) {
   const [activeIndex, setActiveIndex] = useState(0);
-  const listRef = useRef<HTMLDivElement>(null);
+
+  const { refs, floatingStyles } = useFloating({
+    strategy: 'fixed',
+    placement: 'bottom-start',
+    middleware: [offset(4), flip({ padding: 8 }), shift({ padding: 8 })],
+  });
+
+  // Sync virtual reference from cursor rect
+  useEffect(() => {
+    if (referenceRect) {
+      refs.setReference({
+        getBoundingClientRect: () => referenceRect,
+      });
+    }
+  }, [referenceRect, refs]);
 
   const filtered = items.filter(
     (item) =>
@@ -51,11 +66,8 @@ export default function WikiLinkPopup({
   return (
     <div
       className="studio-wiki-popup"
-      style={{
-        top: position.y + 24,
-        left: Math.min(position.x, window.innerWidth - 380),
-      }}
-      ref={listRef}
+      ref={refs.setFloating}
+      style={floatingStyles}
     >
       <div className="studio-wiki-popup-header">
         Link to Commonplace

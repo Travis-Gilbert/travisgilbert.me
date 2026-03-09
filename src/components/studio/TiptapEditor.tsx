@@ -42,12 +42,15 @@ import Subscript from '@tiptap/extension-subscript';
 import Superscript from '@tiptap/extension-superscript';
 import Typography from '@tiptap/extension-typography';
 import { Markdown } from '@tiptap/markdown';
+import Collaboration from '@tiptap/extension-collaboration';
 import DragHandle from './extensions/DragHandle';
 import CustomInputRules from './extensions/CustomInputRules';
+import TabIndent from './extensions/TabIndent';
 import ChartPickerPopup from './ChartPickerPopup';
 import type { ChartEmbed } from '@/lib/studio-charts';
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import type { Editor } from '@tiptap/react';
+import type * as Y from 'yjs';
 
 const lowlight = createLowlight(all);
 
@@ -78,6 +81,8 @@ export default function TiptapEditor({
   toolbar,
   paperOverlay,
   focusFadeActive = false,
+  yjsDoc = null,
+  yjsSynced = false,
 }: {
   initialContent?: string;
   initialContentFormat?: 'html' | 'markdown';
@@ -92,6 +97,10 @@ export default function TiptapEditor({
   toolbar?: React.ReactNode;
   paperOverlay?: React.ReactNode;
   focusFadeActive?: boolean;
+  /** Optional yjs Doc for local-first IndexedDB persistence. */
+  yjsDoc?: Y.Doc | null;
+  /** Whether the yjs doc has finished syncing from IndexedDB. */
+  yjsSynced?: boolean;
 }) {
   const wrapperRef = useRef<HTMLDivElement | null>(null);
   const typewriterFrameRef = useRef<number | null>(null);
@@ -100,8 +109,8 @@ export default function TiptapEditor({
     visible: boolean;
     query: string;
     from: number;
-    position: { x: number; y: number };
-  }>({ visible: false, query: '', from: 0, position: { x: 0, y: 0 } });
+    referenceRect: DOMRect | null;
+  }>({ visible: false, query: '', from: 0, referenceRect: null });
 
   const [wikiSearchResults, setWikiSearchResults] = useState<
     WikiSuggestionItem[]
@@ -115,17 +124,17 @@ export default function TiptapEditor({
   const [mentionPopup, setMentionPopup] = useState<{
     visible: boolean;
     items: ContentSearchResult[];
-    position: { x: number; y: number };
+    referenceRect: DOMRect | null;
     command: ((item: ContentSearchResult) => void) | null;
-  }>({ visible: false, items: [], position: { x: 0, y: 0 }, command: null });
+  }>({ visible: false, items: [], referenceRect: null, command: null });
 
   const [slashPopup, setSlashPopup] = useState<{
     visible: boolean;
     query: string;
     items: SlashCommandItem[];
-    position: { x: number; y: number };
+    referenceRect: DOMRect | null;
     command: ((item: SlashCommandItem) => void) | null;
-  }>({ visible: false, query: '', items: [], position: { x: 0, y: 0 }, command: null });
+  }>({ visible: false, query: '', items: [], referenceRect: null, command: null });
 
   const [chartPickerOpen, setChartPickerOpen] = useState(false);
 
@@ -204,9 +213,9 @@ export default function TiptapEditor({
             visible: true,
             query,
             from,
-            position: coords
-              ? { x: coords.left, y: coords.bottom }
-              : { x: 200, y: 200 },
+            referenceRect: coords
+              ? new DOMRect(coords.left, coords.top, 0, coords.bottom - coords.top)
+              : null,
           });
           setWikiSearchResults([]);
         },
@@ -241,14 +250,11 @@ export default function TiptapEditor({
           items: ({ query }: { query: string }) => filterSlashCommands(query),
           render: () => ({
             onStart: (props: any) => {
-              const coords = props.clientRect?.();
               setSlashPopup({
                 visible: true,
                 query: '',
                 items: props.items,
-                position: coords
-                  ? { x: coords.x, y: coords.y + coords.height }
-                  : { x: 200, y: 200 },
+                referenceRect: props.clientRect?.() ?? null,
                 command: props.command,
               });
             },
@@ -287,13 +293,10 @@ export default function TiptapEditor({
           },
           render: () => ({
             onStart: (props: any) => {
-              const coords = props.clientRect?.();
               setMentionPopup({
                 visible: true,
                 items: props.items,
-                position: coords
-                  ? { x: coords.x, y: coords.y + coords.height }
-                  : { x: 200, y: 200 },
+                referenceRect: props.clientRect?.() ?? null,
                 command: (item: ContentSearchResult) => {
                   props.command({
                     id: item.id,
@@ -304,13 +307,10 @@ export default function TiptapEditor({
               });
             },
             onUpdate: (props: any) => {
-              const coords = props.clientRect?.();
               setMentionPopup((prev) => ({
                 ...prev,
                 items: props.items,
-                position: coords
-                  ? { x: coords.x, y: coords.y + coords.height }
-                  : prev.position,
+                referenceRect: props.clientRect?.() ?? prev.referenceRect,
                 command: (item: ContentSearchResult) => {
                   props.command({
                     id: item.id,
@@ -354,9 +354,19 @@ export default function TiptapEditor({
       Markdown,
       DragHandle,
       CustomInputRules,
+      TabIndent,
+      // Local-first yjs persistence (when doc is provided)
+      ...(yjsDoc
+        ? [
+            Collaboration.configure({
+              document: yjsDoc,
+              field: 'prosemirror',
+            }),
+          ]
+        : []),
     ],
-    content: initialContent ?? '',
-    contentType: initialContentFormat,
+    content: yjsDoc ? undefined : (initialContent ?? ''),
+    contentType: yjsDoc ? undefined : initialContentFormat,
     onUpdate: handleUpdate,
     editorProps: {
       attributes: {
@@ -371,6 +381,23 @@ export default function TiptapEditor({
       onEditorReady?.(editor);
     }
   }, [editor, onEditorReady]);
+
+  /* Seed yjs doc with initial content when first loaded and empty */
+  const seededRef = useRef(false);
+  useEffect(() => {
+    if (!yjsDoc || !yjsSynced || !editor || seededRef.current) return;
+    seededRef.current = true;
+
+    const fragment = yjsDoc.getXmlFragment('prosemirror');
+    if (fragment.length === 0 && initialContent) {
+      editor.commands.setContent(initialContent);
+    }
+  }, [yjsDoc, yjsSynced, editor, initialContent]);
+
+  /* Reset seed flag when content item changes */
+  useEffect(() => {
+    seededRef.current = false;
+  }, [yjsDoc]);
 
   const handleWikiSelect = useCallback(
     (item: WikiSuggestionItem) => {
@@ -520,7 +547,7 @@ export default function TiptapEditor({
         <WikiLinkPopup
           items={wikiSearchResults}
           query={wikiPopup.query}
-          position={wikiPopup.position}
+          referenceRect={wikiPopup.referenceRect}
           onSelect={handleWikiSelect}
           onClose={() =>
             setWikiPopup((prev) => ({ ...prev, visible: false }))
@@ -531,7 +558,7 @@ export default function TiptapEditor({
         <SlashCommandPopup
           ref={slashPopupRef}
           items={slashPopup.items}
-          position={slashPopup.position}
+          referenceRect={slashPopup.referenceRect}
           command={slashPopup.command}
           onClose={() =>
             setSlashPopup((prev) => ({ ...prev, visible: false }))
@@ -549,7 +576,7 @@ export default function TiptapEditor({
         <MentionPopup
           ref={mentionPopupRef}
           items={mentionPopup.items}
-          position={mentionPopup.position}
+          referenceRect={mentionPopup.referenceRect}
           command={mentionPopup.command}
           onClose={() =>
             setMentionPopup((prev) => ({ ...prev, visible: false }))

@@ -799,6 +799,52 @@ export async function deleteStashItem(
   }
 }
 
+export interface AggregatedStashItem extends ApiStashItem {
+  contentType: string;
+  contentSlug: string;
+  contentTitle: string;
+}
+
+/**
+ * Fetch stash items across all content items.
+ *
+ * Loads the content list, then fetches stash for each item in parallel.
+ * Returns a flat array of stash items enriched with content metadata.
+ */
+export async function fetchAllStash(): Promise<AggregatedStashItem[]> {
+  try {
+    const contentItems = await fetchContentList();
+    if (contentItems.length === 0) return [];
+
+    const results = await Promise.allSettled(
+      contentItems.map(async (item) => {
+        const items = await fetchStash(item.contentType, item.slug);
+        return items.map((s) => ({
+          ...s,
+          contentType: item.contentType,
+          contentSlug: item.slug,
+          contentTitle: item.title,
+        }));
+      }),
+    );
+
+    const all: AggregatedStashItem[] = [];
+    for (const result of results) {
+      if (result.status === 'fulfilled') {
+        all.push(...result.value);
+      }
+    }
+
+    all.sort(
+      (a, b) =>
+        new Date(b.created_at).getTime() - new Date(a.created_at).getTime(),
+    );
+    return all;
+  } catch {
+    return [];
+  }
+}
+
 /* ─────────────────────────────────────────────────
    Tasks
    ───────────────────────────────────────────────── */
@@ -1189,6 +1235,201 @@ export async function publishContent(
       commitSha: '',
       commitUrl: '',
       error: err instanceof Error ? err.message : 'Network error',
+    };
+  }
+}
+
+/* ── Settings ─────────────────────────────── */
+
+export interface StudioSettingsLogItem {
+  id: string;
+  contentType: string;
+  contentSlug: string;
+  contentTitle: string;
+  success: boolean;
+  commitSha: string;
+  commitUrl: string;
+  errorMessage: string;
+  createdAt: string;
+}
+
+export interface StudioDesignTokens {
+  colors: Record<string, string>;
+  fonts: Record<string, string>;
+  spacing: Record<string, string>;
+  sectionColors: Record<string, string>;
+}
+
+export interface StudioNavItem {
+  id: string;
+  label: string;
+  path: string;
+  icon: string;
+  visible: boolean;
+  order: number;
+}
+
+export interface StudioSeoSettings {
+  titleTemplate: string;
+  description: string;
+  ogFallback: string;
+}
+
+export interface StudioComposition {
+  id: string;
+  pageKey: string;
+  pageLabel: string;
+  settings: Record<string, unknown>;
+  updatedAt: string;
+}
+
+export interface StudioSettings {
+  connection: {
+    status: 'ok' | 'error';
+    checkedAt: string;
+    message: string;
+  };
+  designTokens: StudioDesignTokens;
+  navigation: StudioNavItem[];
+  seo: StudioSeoSettings;
+  compositions: StudioComposition[];
+  publishing: {
+    lastDeploy: StudioSettingsLogItem | null;
+    publishLog: StudioSettingsLogItem[];
+  };
+}
+
+function mapApiSettingsLog(item: {
+  id: string;
+  content_type: string;
+  content_slug: string;
+  content_title: string;
+  success: boolean;
+  commit_sha: string;
+  commit_url: string;
+  error_message: string;
+  created_at: string;
+}): StudioSettingsLogItem {
+  return {
+    id: item.id,
+    contentType: item.content_type,
+    contentSlug: item.content_slug,
+    contentTitle: item.content_title,
+    success: item.success,
+    commitSha: item.commit_sha,
+    commitUrl: item.commit_url,
+    errorMessage: item.error_message,
+    createdAt: item.created_at,
+  };
+}
+
+export async function fetchSettings(): Promise<StudioSettings | null> {
+  try {
+    const data = await studioFetch<{
+      connection: {
+        status: 'ok' | 'error';
+        checked_at: string;
+        message: string;
+      };
+      design_tokens: {
+        colors: Record<string, string>;
+        fonts: Record<string, string>;
+        spacing: Record<string, string>;
+        section_colors: Record<string, string>;
+      };
+      navigation: StudioNavItem[];
+      seo: {
+        title_template: string;
+        description: string;
+        og_fallback: string;
+      };
+      compositions: Array<{
+        id: string;
+        page_key: string;
+        page_label: string;
+        settings: Record<string, unknown>;
+        updated_at: string;
+      }>;
+      publishing: {
+        last_deploy: {
+          id: string;
+          content_type: string;
+          content_slug: string;
+          content_title: string;
+          success: boolean;
+          commit_sha: string;
+          commit_url: string;
+          error_message: string;
+          created_at: string;
+        } | null;
+        publish_log: Array<{
+          id: string;
+          content_type: string;
+          content_slug: string;
+          content_title: string;
+          success: boolean;
+          commit_sha: string;
+          commit_url: string;
+          error_message: string;
+          created_at: string;
+        }>;
+      };
+    }>('/settings/');
+
+    return {
+      connection: {
+        status: data.connection.status,
+        checkedAt: data.connection.checked_at,
+        message: data.connection.message,
+      },
+      designTokens: {
+        colors: data.design_tokens.colors ?? {},
+        fonts: data.design_tokens.fonts ?? {},
+        spacing: data.design_tokens.spacing ?? {},
+        sectionColors: data.design_tokens.section_colors ?? {},
+      },
+      navigation: data.navigation ?? [],
+      seo: {
+        titleTemplate: data.seo.title_template ?? '',
+        description: data.seo.description ?? '',
+        ogFallback: data.seo.og_fallback ?? '',
+      },
+      compositions: (data.compositions ?? []).map((c) => ({
+        id: c.id,
+        pageKey: c.page_key,
+        pageLabel: c.page_label,
+        settings: c.settings ?? {},
+        updatedAt: c.updated_at ?? '',
+      })),
+      publishing: {
+        lastDeploy: data.publishing.last_deploy
+          ? mapApiSettingsLog(data.publishing.last_deploy)
+          : null,
+        publishLog: (data.publishing.publish_log ?? []).map(mapApiSettingsLog),
+      },
+    };
+  } catch {
+    return null;
+  }
+}
+
+export async function publishSiteConfig(): Promise<{
+  success: boolean;
+  error: string;
+}> {
+  try {
+    const data = await studioFetch<{
+      success: boolean;
+      error?: string;
+    }>('/settings/publish-config/', {
+      method: 'POST',
+      body: JSON.stringify({}),
+    });
+    return { success: data.success, error: data.error ?? '' };
+  } catch (err) {
+    return {
+      success: false,
+      error: err instanceof Error ? err.message : 'Publish failed',
     };
   }
 }

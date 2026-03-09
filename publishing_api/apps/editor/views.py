@@ -3021,6 +3021,7 @@ class StudioApiSettingsView(StudioApiBaseView):
         tokens = DesignTokenSet.load()
         site_settings = SiteSettings.load()
         nav_items = list(NavItem.objects.order_by("order", "id"))
+        compositions = list(PageComposition.objects.order_by("page_key"))
 
         recent_logs = list(
             PublishLog.objects.order_by("-created_at")[:10]
@@ -3039,6 +3040,9 @@ class StudioApiSettingsView(StudioApiBaseView):
                 "error_message": log.error_message,
                 "created_at": log.created_at.isoformat(),
             }
+
+        # Build page_key label lookup from model choices
+        page_key_labels = dict(PageComposition.PAGE_KEY_CHOICES)
 
         payload = {
             "connection": {
@@ -3068,6 +3072,16 @@ class StudioApiSettingsView(StudioApiBaseView):
                 "description": site_settings.seo_description or "",
                 "og_fallback": site_settings.seo_og_image_fallback or "",
             },
+            "compositions": [
+                {
+                    "id": str(comp.pk),
+                    "page_key": comp.page_key,
+                    "page_label": page_key_labels.get(comp.page_key, comp.page_key),
+                    "settings": comp.settings or {},
+                    "updated_at": comp.updated_at.isoformat() if hasattr(comp, "updated_at") else "",
+                }
+                for comp in compositions
+            ],
             "publishing": {
                 "last_deploy": serialize_log(last_deploy) if last_deploy else None,
                 "publish_log": [serialize_log(log) for log in recent_logs],

@@ -27,11 +27,15 @@ export default function EditorToolbar({
   editor,
   onReadingToggle,
   readingOpen,
+  onCpToggle,
+  cpOpen,
   exportSlot,
 }: {
   editor: Editor | null;
   onReadingToggle?: () => void;
   readingOpen?: boolean;
+  onCpToggle?: () => void;
+  cpOpen?: boolean;
   exportSlot?: ReactNode;
 }) {
   const [isMoreOpen, setIsMoreOpen] = useState(false);
@@ -373,6 +377,18 @@ export default function EditorToolbar({
 
         <div className="studio-toolbar-spacer" />
 
+        {onCpToggle && (
+          <button
+            type="button"
+            className={`studio-tool studio-tool--ghost studio-tool--label${cpOpen ? ' studio-tool--active' : ''}`}
+            onClick={onCpToggle}
+            aria-label="CommonPlace"
+            aria-pressed={cpOpen}
+            style={{ color: cpOpen ? '#B45A2D' : undefined }}
+          >
+            CP
+          </button>
+        )}
         {onReadingToggle && (
           <button
             type="button"

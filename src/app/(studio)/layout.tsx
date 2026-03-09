@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import StudioLayout from '@/components/studio/StudioLayout';
 import StudioDotGrid from '@/components/studio/StudioDotGrid';
+import { Toaster } from 'sonner';
 import '@/styles/studio.css';
 
 export const metadata: Metadata = {
@@ -63,6 +64,20 @@ export default function StudioGroupLayout({
       <div className="studio-corner-glow" aria-hidden="true" />
 
       <StudioLayout>{children}</StudioLayout>
+
+      {/* Sonner toast notifications: styled via studio.css */}
+      <Toaster
+        position="bottom-right"
+        toastOptions={{
+          style: {
+            background: 'var(--studio-surface-raised, #201D1A)',
+            color: 'var(--studio-text-1, #F0EAE0)',
+            border: '1px solid var(--studio-border, rgba(237, 231, 220, 0.09))',
+            fontFamily: 'var(--studio-font-body)',
+            fontSize: '13px',
+          },
+        }}
+      />
     </div>
   );
 }

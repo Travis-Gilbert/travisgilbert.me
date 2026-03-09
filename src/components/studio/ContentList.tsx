@@ -1,6 +1,7 @@
 'use client';
 
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo, useEffect, useRef } from 'react';
+import { useVirtualizer } from '@tanstack/react-virtual';
 import { fetchContentList } from '@/lib/studio-api';
 import {
   getContentTypeIdentity,
@@ -235,21 +236,7 @@ export default function ContentList({
         <>
           {heroItem && <HeroZone item={heroItem} />}
           {filtered.length > 0 ? (
-            <div
-              style={{
-                display: 'grid',
-                gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))',
-                gap: '12px',
-              }}
-            >
-              {filtered.map((item) => (
-                <ContentCardStandard
-                  key={item.id}
-                  item={item}
-                  color={color}
-                />
-              ))}
-            </div>
+            <VirtualizedCardList items={filtered} color={color} />
           ) : (
             <EmptyState />
           )}
@@ -265,6 +252,60 @@ export default function ContentList({
           )}
         </>
       )}
+    </div>
+  );
+}
+
+/* ── Virtualized card list ────────────────────── */
+
+function VirtualizedCardList({
+  items,
+  color,
+}: {
+  items: StudioContentItem[];
+  color: string;
+}) {
+  const parentRef = useRef<HTMLDivElement>(null);
+
+  const virtualizer = useVirtualizer({
+    count: items.length,
+    getScrollElement: () => parentRef.current,
+    estimateSize: () => 72,
+    overscan: 8,
+  });
+
+  return (
+    <div
+      ref={parentRef}
+      className="studio-virtual-list-container"
+    >
+      <div
+        style={{
+          height: virtualizer.getTotalSize(),
+          width: '100%',
+          position: 'relative',
+        }}
+      >
+        {virtualizer.getVirtualItems().map((virtualRow) => {
+          const item = items[virtualRow.index];
+          return (
+            <div
+              key={item.id}
+              data-index={virtualRow.index}
+              ref={virtualizer.measureElement}
+              style={{
+                position: 'absolute',
+                top: 0,
+                left: 0,
+                width: '100%',
+                transform: `translateY(${virtualRow.start}px)`,
+              }}
+            >
+              <ContentCardStandard item={item} color={color} />
+            </div>
+          );
+        })}
+      </div>
     </div>
   );
 }

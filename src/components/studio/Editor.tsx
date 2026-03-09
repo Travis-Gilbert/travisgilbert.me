@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useCallback, useEffect, useRef } from 'react';
+import { useHotkeys } from 'react-hotkeys-hook';
 import type { CSSProperties } from 'react';
 import type { Editor as TiptapEditorType } from '@tiptap/react';
 import type { StudioContentItem } from '@/lib/studio';
@@ -18,9 +19,13 @@ import {
   deleteTask,
   createRevision,
 } from '@/lib/studio-api';
+import { captureToApi, fetchFeed } from '@/lib/commonplace-api';
+import type { MockNode } from '@/lib/commonplace';
 import { useDraftBuffer } from '@/lib/studio-draft-buffer';
+import { useLocalYjs } from '@/lib/useLocalYjs';
 import type { ApiStashItem, ApiContentTask } from '@/lib/studio-api';
 import { StudioApiError } from '@/lib/studio-api';
+import { toast } from 'sonner';
 import {
   useStudioWorkbench,
   type WorkbenchAutosaveState,
@@ -274,6 +279,8 @@ export default function Editor({
   const [autosaveState, setAutosaveState] = useState<AutosaveState>('idle');
   const [isWritingFocused, setIsWritingFocused] = useState(false);
   const [isReadingPanelOpen, setIsReadingPanelOpen] = useState(false);
+  const [isCpPanelOpen, setIsCpPanelOpen] = useState(false);
+  const [cpRecentObjects, setCpRecentObjects] = useState<MockNode[]>([]);
   const [showMarkdownView, setShowMarkdownView] = useState(false);
   const [typewriterMode, setTypewriterMode] = useState(true);
   const focusFade = useFocusFade(editor);
@@ -294,6 +301,12 @@ export default function Editor({
     bufferContent,
     clearBuffer,
   } = useDraftBuffer(normalizedContentType, slug, contentItem?.updatedAt);
+
+  /* yjs local-first IndexedDB persistence (supplements useDraftBuffer) */
+  const { doc: yjsDoc, synced: yjsSynced } = useLocalYjs(
+    normalizedContentType,
+    slug,
+  );
 
   /* Fetch persisted stash and tasks from Django on mount / slug change */
   useEffect(() => {
@@ -333,6 +346,7 @@ export default function Editor({
   const currentTitleRef = useRef(currentTitle);
   const contentItemRef = useRef(contentItem);
   const readingPanelRef = useRef<HTMLDivElement>(null);
+  const cpPanelRef = useRef<HTMLDivElement>(null);
   const snapshotRef = useRef<string | null>(null);
   const lastRevisionAtRef = useRef<number>(0);
 
@@ -391,6 +405,45 @@ export default function Editor({
       document.removeEventListener('keydown', handleEscape);
     };
   }, [isReadingPanelOpen]);
+
+  /* Close CP panel on click-outside or Escape */
+  useEffect(() => {
+    if (!isCpPanelOpen) return;
+
+    function handleClickOutside(e: MouseEvent) {
+      const target = e.target as Node;
+      if (
+        cpPanelRef.current?.contains(target) ||
+        (target instanceof Element && target.closest('.studio-toolbar'))
+      ) return;
+      setIsCpPanelOpen(false);
+    }
+
+    function handleEscape(e: KeyboardEvent) {
+      if (e.key === 'Escape') setIsCpPanelOpen(false);
+    }
+
+    document.addEventListener('mousedown', handleClickOutside);
+    document.addEventListener('keydown', handleEscape);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+      document.removeEventListener('keydown', handleEscape);
+    };
+  }, [isCpPanelOpen]);
+
+  /* Fetch recent CP objects when panel opens */
+  useEffect(() => {
+    if (!isCpPanelOpen) return;
+    let cancelled = false;
+    fetchFeed({ per_page: 5 })
+      .then((nodes) => {
+        if (!cancelled) setCpRecentObjects(nodes);
+      })
+      .catch(() => {
+        if (!cancelled) setCpRecentObjects([]);
+      });
+    return () => { cancelled = true; };
+  }, [isCpPanelOpen]);
 
   /* Listen for command palette dispatched events */
   useEffect(() => {
@@ -499,6 +552,8 @@ export default function Editor({
 
           if (mode === 'autosave') {
             setAutosaveState('saved');
+          } else {
+            toast.success('Draft saved');
           }
 
           /* Create revision: manual saves always, autosaves throttled to 10min */
@@ -539,6 +594,7 @@ export default function Editor({
       /* All attempts exhausted */
       setSaveState('error');
       setAutosaveState('idle');
+      toast.error('Save failed. Check your connection.');
 
       saveStateTimerRef.current = setTimeout(() => {
         setSaveState('idle');
@@ -635,8 +691,10 @@ export default function Editor({
     if (result.success) {
       setStage('published');
       setLastSaved(formatSavedTime(new Date().toISOString()));
+      toast.success('Published to site');
     } else {
       console.error('Publish failed:', result.error);
+      toast.error('Publish failed. Try again.');
     }
   }, [currentBody, currentTitle, editor, normalizedContentType, slug]);
 
@@ -650,6 +708,7 @@ export default function Editor({
       });
       /* Optimistic: add immediately */
       setStash((prev) => [{ id: tempId, text, savedAt }, ...prev]);
+      toast('Stashed for later');
       /* Persist to API */
       createStashItem(normalizedContentType, slug, text).then((item) => {
         if (!item) return;
@@ -712,21 +771,35 @@ export default function Editor({
     [normalizedContentType, slug],
   );
 
-  useEffect(() => {
-    const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'S' && event.shiftKey && (event.metaKey || event.ctrlKey)) {
-        event.preventDefault();
-        if (!editor) return;
-        const { from, to } = editor.state.selection;
-        if (from === to) return;
-        const text = editor.state.doc.textBetween(from, to, '\n');
-        editor.chain().focus().deleteSelection().run();
-        handleStash(text);
-      }
-    };
-    document.addEventListener('keydown', handleKeyDown);
-    return () => document.removeEventListener('keydown', handleKeyDown);
-  }, [editor, handleStash]);
+  const handleSendToCommonPlace = useCallback(
+    (text: string) => {
+      toast('Sending to CommonPlace...');
+      captureToApi({ content: text, hint_type: 'note' })
+        .then(() => {
+          toast.success('Captured to CommonPlace');
+        })
+        .catch(() => {
+          toast.error('Could not reach CommonPlace');
+        });
+    },
+    [],
+  );
+
+  useHotkeys('mod+shift+s', (e) => {
+    e.preventDefault();
+    if (!editor) return;
+    const { from, to } = editor.state.selection;
+    if (from === to) return;
+    const text = editor.state.doc.textBetween(from, to, '\n');
+    editor.chain().focus().deleteSelection().run();
+    handleStash(text);
+  }, { enableOnContentEditable: true }, [editor, handleStash]);
+
+  useHotkeys('mod+shift+l', (e) => {
+    e.preventDefault();
+    if (!editor) return;
+    editor.chain().focus().insertContent('[[').run();
+  }, { enableOnContentEditable: true }, [editor]);
 
   useEffect(() => {
     setEditorState({
@@ -885,6 +958,8 @@ export default function Editor({
           typewriterMode={typewriterMode}
           stage={stage}
           stageColor={getStage(stage).color}
+          yjsDoc={yjsDoc}
+          yjsSynced={yjsSynced}
           titleZone={
             <div className="studio-title-zone">
               <div className="studio-title-meta">
@@ -912,6 +987,8 @@ export default function Editor({
                 editor={editor}
                 onReadingToggle={() => setIsReadingPanelOpen((open) => !open)}
                 readingOpen={isReadingPanelOpen}
+                onCpToggle={() => setIsCpPanelOpen((open) => !open)}
+                cpOpen={isCpPanelOpen}
                 exportSlot={
                   <ExportMenu
                     title={currentTitle}
@@ -920,6 +997,67 @@ export default function Editor({
                   />
                 }
               />
+              {isCpPanelOpen && (
+                <div ref={cpPanelRef} className="studio-reading-panel" style={{ padding: '10px 12px' }}>
+                  <div style={{
+                    fontFamily: 'var(--studio-font-mono)',
+                    fontSize: '9px',
+                    fontWeight: 700,
+                    letterSpacing: '0.08em',
+                    textTransform: 'uppercase',
+                    color: 'var(--studio-text-3)',
+                    marginBottom: '8px',
+                  }}>
+                    Recent Objects
+                  </div>
+                  {cpRecentObjects.length > 0 ? (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                      {cpRecentObjects.map((node) => (
+                        <div
+                          key={`cp-${node.id}`}
+                          style={{
+                            padding: '6px 8px',
+                            borderRadius: '4px',
+                            border: '1px solid var(--studio-border)',
+                            backgroundColor: 'var(--studio-surface)',
+                            fontFamily: 'var(--studio-font-body)',
+                            fontSize: '12px',
+                            color: 'var(--studio-text-1)',
+                            lineHeight: 1.3,
+                          }}
+                        >
+                          <div style={{
+                            overflow: 'hidden',
+                            textOverflow: 'ellipsis',
+                            whiteSpace: 'nowrap',
+                          }}>
+                            {node.title || node.summary?.slice(0, 60) || 'Untitled'}
+                          </div>
+                          <div style={{
+                            fontFamily: 'var(--studio-font-mono)',
+                            fontSize: '9px',
+                            color: 'var(--studio-text-3)',
+                            marginTop: '2px',
+                            textTransform: 'uppercase',
+                            letterSpacing: '0.06em',
+                          }}>
+                            {node.objectType || 'note'}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div style={{
+                      fontFamily: 'var(--studio-font-body)',
+                      fontSize: '12px',
+                      color: 'var(--studio-text-3)',
+                      fontStyle: 'italic',
+                    }}>
+                      No recent objects
+                    </div>
+                  )}
+                </div>
+              )}
               {isReadingPanelOpen && (
                 <div ref={readingPanelRef} id="studio-reading-panel" className="studio-reading-panel">
                   <div className="studio-reading-row" role="radiogroup" aria-label="Reading font">
@@ -1104,7 +1242,12 @@ export default function Editor({
         />
 
         {editor && (
-          <EditorContextMenu editor={editor} onStash={handleStash} onAddTask={handleAddTask} />
+          <EditorContextMenu
+            editor={editor}
+            onStash={handleStash}
+            onAddTask={handleAddTask}
+            onSendToCommonPlace={handleSendToCommonPlace}
+          />
         )}
 
         <div className="studio-editor-chrome">

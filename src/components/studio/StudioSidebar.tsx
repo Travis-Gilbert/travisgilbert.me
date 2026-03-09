@@ -14,6 +14,7 @@ import {
   Notebook,
   Sun,
   Toolbox,
+  Tray,
   VideoCamera,
 } from '@phosphor-icons/react';
 import { SIDEBAR_SECTIONS, SIDEBAR_TIMELINE_ITEM } from '@/lib/studio';
@@ -47,6 +48,7 @@ export default function StudioSidebar() {
     wrench: Toolbox,
     briefcase: Briefcase,
     gear: Gear,
+    tray: Tray,
     timeline: ClockCounterClockwise,
   } as const;
 

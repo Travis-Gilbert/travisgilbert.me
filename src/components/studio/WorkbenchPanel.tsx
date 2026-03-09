@@ -44,6 +44,7 @@ import RevisionHistory from './RevisionHistory';
 import CorkboardPanel from './CorkboardPanel';
 import OutlineDragWall from './OutlineDragWall';
 import RelationshipMap from './RelationshipMap';
+import LiveResearchGraph from './LiveResearchGraph';
 
 /* Stage definitions for PipelinePanel per content type */
 const CONTENT_STAGE_MAP: Record<string, Array<{ key: string; label: string }>> = {
@@ -1301,6 +1302,14 @@ function ResearchMode({
           </div>
         )}
       </div>
+
+      {/* 1b. Research graph (d3-zoom) */}
+      <LiveResearchGraph
+        title={contentItem?.title ?? slug}
+        sources={trail.sources}
+        backlinks={trail.backlinks}
+        accentColor={getContentTypeIdentity(contentItem?.contentType ?? 'essay').color}
+      />
 
       {/* 2. Connected Content */}
       <div>

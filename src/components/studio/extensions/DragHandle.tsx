@@ -163,6 +163,7 @@ const DragHandle = Extension.create({
   addProseMirrorPlugins() {
     let dragSourcePos: number | null = null;
     let isDragging = false;
+    let draggingDom: HTMLElement | null = null;
     let handleEl: HTMLElement | null = null;
     let activeBlockPos: number | null = null;
     let currentView: EditorView | null = null;
@@ -265,6 +266,7 @@ const DragHandle = Extension.create({
 
       dragSourcePos = pos;
       isDragging = true;
+      draggingDom = null;
 
       if (e.dataTransfer) {
         e.dataTransfer.effectAllowed = 'move';
@@ -283,22 +285,25 @@ const DragHandle = Extension.create({
         requestAnimationFrame(() => ghost.remove());
       }
 
-      /* Fade the source block */
+      /* Fade the source block and track its DOM element for cleanup */
       const sourceDom = currentView.nodeDOM(pos);
       if (sourceDom instanceof HTMLElement) {
         sourceDom.classList.add('studio-block-dragging');
+        draggingDom = sourceDom;
       }
     }
 
     function onHandleDragend() {
-      /* Fires on the dragged element regardless of drop outcome */
+      /*
+       * Fires on the dragged element regardless of drop outcome.
+       * Uses stored draggingDom reference for cleanup because the
+       * drop handler may have already cleared dragSourcePos.
+       */
       hideDropIndicator();
 
-      if (currentView && dragSourcePos != null) {
-        const sourceDom = currentView.nodeDOM(dragSourcePos);
-        if (sourceDom instanceof HTMLElement) {
-          sourceDom.classList.remove('studio-block-dragging');
-        }
+      if (draggingDom) {
+        draggingDom.classList.remove('studio-block-dragging');
+        draggingDom = null;
       }
 
       dragSourcePos = null;
@@ -307,6 +312,7 @@ const DragHandle = Extension.create({
       /* Hide handle after drag ends */
       if (handleEl) {
         handleEl.style.opacity = '0';
+        handleEl.style.pointerEvents = 'none';
       }
     }
 
@@ -406,12 +412,18 @@ const DragHandle = Extension.create({
               hideDropIndicator();
 
               const sourcePos = dragSourcePos;
-              const sourceNode = view.state.doc.nodeAt(sourcePos);
               dragSourcePos = null;
               isDragging = false;
 
+              /*
+               * Fresh read: verify the source node still exists at
+               * the captured position. Document mutations during the
+               * drag (yjs sync, autosave) could shift positions.
+               */
+              const sourceNode = view.state.doc.nodeAt(sourcePos);
               if (!sourceNode) return true;
 
+              /* Fresh coordinates from the drop event */
               const target = nearestDropTarget(view, event.clientY);
               if (!target) return true;
 
@@ -420,10 +432,6 @@ const DragHandle = Extension.create({
               /* Don't drop onto itself */
               const sourceEnd = sourcePos + sourceNode.nodeSize;
               if (insertPos >= sourcePos && insertPos <= sourceEnd) {
-                const sourceDom = view.nodeDOM(sourcePos);
-                if (sourceDom instanceof HTMLElement) {
-                  sourceDom.classList.remove('studio-block-dragging');
-                }
                 return true;
               }
 
@@ -480,6 +488,7 @@ const DragHandle = Extension.create({
             },
             destroy() {
               currentView = null;
+              draggingDom = null;
 
               if (hideTimer) {
                 clearTimeout(hideTimer);

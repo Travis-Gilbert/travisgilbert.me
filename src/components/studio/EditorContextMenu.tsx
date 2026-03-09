@@ -8,6 +8,7 @@ interface ContextMenuProps {
   editor: Editor;
   onStash: (text: string) => void;
   onAddTask: (text: string) => void;
+  onSendToCommonPlace?: (text: string) => void;
 }
 
 const CONTAIN_META: Record<ContainType, { label: string; color: string }> = {
@@ -20,7 +21,7 @@ const CONTAIN_META: Record<ContainType, { label: string; color: string }> = {
   scene: { label: 'Scene', color: '#B45A2D' },
 };
 
-export default function EditorContextMenu({ editor, onStash, onAddTask }: ContextMenuProps) {
+export default function EditorContextMenu({ editor, onStash, onAddTask, onSendToCommonPlace }: ContextMenuProps) {
   const [visible, setVisible] = useState(false);
   const [position, setPosition] = useState({ x: 0, y: 0 });
   const menuRef = useRef<HTMLDivElement>(null);
@@ -89,6 +90,14 @@ export default function EditorContextMenu({ editor, onStash, onAddTask }: Contex
     handleClose();
   };
 
+  const handleSendToCP = () => {
+    if (!editor || !onSendToCommonPlace) return;
+    const { from, to } = editor.state.selection;
+    const selectedText = editor.state.doc.textBetween(from, to, '\n');
+    onSendToCommonPlace(selectedText);
+    handleClose();
+  };
+
   const handleContain = (containType: ContainType) => {
     if (!editor) return;
     editor.chain().focus().setContainBlock({ containType }).run();
@@ -131,6 +140,22 @@ export default function EditorContextMenu({ editor, onStash, onAddTask }: Contex
           <span className="studio-context-hint">Create task from selection</span>
         </div>
       </button>
+
+      {onSendToCommonPlace && (
+        <button
+          type="button"
+          className="studio-context-item"
+          onClick={handleSendToCP}
+        >
+          <span className="studio-context-icon" style={{ color: '#B45A2D' }}>
+            &#x25C7;
+          </span>
+          <div className="studio-context-label-group">
+            <span className="studio-context-label">Send to CommonPlace</span>
+            <span className="studio-context-hint">Capture as knowledge object</span>
+          </div>
+        </button>
+      )}
 
       <div className="studio-context-divider" />
 

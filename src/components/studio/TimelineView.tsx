@@ -10,7 +10,8 @@
  * CSS: studio.css (.studio-timeline-view, .studio-timeline-*)
  */
 
-import { useMemo, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
+import { useVirtualizer } from '@tanstack/react-virtual';
 import type { Connection } from '@/lib/connectionEngine';
 import { getContentTypeIdentity, CONTENT_TYPES } from '@/lib/studio';
 
@@ -131,16 +132,38 @@ export default function TimelineView({ items }: TimelineViewProps) {
     });
   }, [items, typeFilters, dateRange]);
 
-  /* Group into months, preserving sort order */
-  const groups = useMemo(() => {
+  /* Flatten into a single row array for the virtualizer:
+     each entry is either a month header or a timeline item. */
+  type FlatRow =
+    | { kind: 'header'; monthKey: string }
+    | { kind: 'item'; item: TimelineItem };
+
+  const flatRows = useMemo(() => {
     const map = new Map<string, TimelineItem[]>();
     for (const item of filtered) {
       const key = monthKey(item.date);
       if (!map.has(key)) map.set(key, []);
       map.get(key)!.push(item);
     }
-    return Array.from(map.entries());
+
+    const rows: FlatRow[] = [];
+    for (const [key, groupItems] of map.entries()) {
+      rows.push({ kind: 'header', monthKey: key });
+      for (const item of groupItems) {
+        rows.push({ kind: 'item', item });
+      }
+    }
+    return rows;
   }, [filtered]);
+
+  const parentRef = useRef<HTMLDivElement>(null);
+
+  const virtualizer = useVirtualizer({
+    count: flatRows.length,
+    getScrollElement: () => parentRef.current,
+    estimateSize: (index) => (flatRows[index].kind === 'header' ? 40 : 72),
+    overscan: 8,
+  });
 
   function toggleType(slug: string) {
     setTypeFilters((prev) => {
@@ -188,90 +211,132 @@ export default function TimelineView({ items }: TimelineViewProps) {
       </div>
 
       {/* ── Empty state ─────────────────────── */}
-      {groups.length === 0 && (
+      {flatRows.length === 0 && (
         <p className="studio-timeline-empty">No entries match the current filters.</p>
       )}
 
-      {/* ── Month groups ─────────────────────── */}
-      {groups.map(([key, groupItems]) => (
-        <section key={key} className="studio-timeline-month-group">
-          <h2 className="studio-timeline-month-label">{formatMonth(key)}</h2>
+      {/* ── Virtualized timeline rows ────────── */}
+      {flatRows.length > 0 && (
+        <div ref={parentRef} className="studio-virtual-list-container">
+          <div
+            style={{
+              height: virtualizer.getTotalSize(),
+              width: '100%',
+              position: 'relative',
+            }}
+          >
+            {virtualizer.getVirtualItems().map((virtualRow) => {
+              const row = flatRows[virtualRow.index];
 
-          <div className="studio-timeline-entries">
-            {groupItems.map((item) => {
+              if (row.kind === 'header') {
+                return (
+                  <div
+                    key={`header-${row.monthKey}`}
+                    data-index={virtualRow.index}
+                    ref={virtualizer.measureElement}
+                    style={{
+                      position: 'absolute',
+                      top: 0,
+                      left: 0,
+                      width: '100%',
+                      transform: `translateY(${virtualRow.start}px)`,
+                    }}
+                  >
+                    <h2 className="studio-timeline-month-label">
+                      {formatMonth(row.monthKey)}
+                    </h2>
+                  </div>
+                );
+              }
+
+              const { item } = row;
               const typeId = getContentTypeIdentity(item.contentType);
               const color = typeId?.color ?? 'var(--studio-text-muted)';
 
               return (
-                <div key={item.id} className="studio-timeline-row">
-
-                  {/* Dot + spine rail */}
-                  <div className="studio-timeline-meta-col">
-                    <div
-                      className="studio-timeline-dot"
-                      style={{ backgroundColor: color }}
-                    />
-                    <div className="studio-timeline-spine" />
-                  </div>
-
-                  {/* All text content */}
-                  <div className="studio-timeline-content-col">
-                    <div className="studio-timeline-row-header">
-                      <span
-                        className="studio-timeline-type-label"
-                        style={{ color }}
-                      >
-                        {typeId?.label ?? item.contentType}
-                      </span>
-                      <span className="studio-timeline-entry-date">
-                        {formatDay(item.date)}
-                      </span>
-                      {item.stage && (
-                        <span className="studio-timeline-stage-label">
-                          {STAGE_DISPLAY[item.stage] ?? item.stage}
-                        </span>
-                      )}
+                <div
+                  key={item.id}
+                  data-index={virtualRow.index}
+                  ref={virtualizer.measureElement}
+                  style={{
+                    position: 'absolute',
+                    top: 0,
+                    left: 0,
+                    width: '100%',
+                    transform: `translateY(${virtualRow.start}px)`,
+                  }}
+                >
+                  <div className="studio-timeline-row">
+                    <div className="studio-timeline-meta-col">
+                      <div
+                        className="studio-timeline-dot"
+                        style={{ backgroundColor: color }}
+                      />
+                      <div className="studio-timeline-spine" />
                     </div>
 
-                    <a
-                      href={editorHref(item.contentType, item.slug)}
-                      className="studio-timeline-title"
-                      target="_blank"
-                      rel="noreferrer"
-                    >
-                      {item.title}
-                    </a>
-
-                    {item.summary && (
-                      <p className="studio-timeline-summary">{item.summary}</p>
-                    )}
-
-                    {item.connections.length > 0 && (
-                      <div className="studio-timeline-connections">
-                        {item.connections.slice(0, 4).map((conn) => (
-                          <span
-                            key={conn.id}
-                            className="studio-timeline-conn-pill"
-                            style={{ borderColor: conn.color, color: conn.color }}
-                          >
-                            {conn.title}
-                          </span>
-                        ))}
-                        {item.connections.length > 4 && (
-                          <span className="studio-timeline-conn-more">
-                            +{item.connections.length - 4}
+                    <div className="studio-timeline-content-col">
+                      <div className="studio-timeline-row-header">
+                        <span
+                          className="studio-timeline-type-label"
+                          style={{ color }}
+                        >
+                          {typeId?.label ?? item.contentType}
+                        </span>
+                        <span className="studio-timeline-entry-date">
+                          {formatDay(item.date)}
+                        </span>
+                        {item.stage && (
+                          <span className="studio-timeline-stage-label">
+                            {STAGE_DISPLAY[item.stage] ?? item.stage}
                           </span>
                         )}
                       </div>
-                    )}
-                  </div>
 
+                      <a
+                        href={editorHref(item.contentType, item.slug)}
+                        className="studio-timeline-title"
+                        target="_blank"
+                        rel="noreferrer"
+                      >
+                        {item.title}
+                      </a>
+
+                      {item.summary && (
+                        <p className="studio-timeline-summary">
+                          {item.summary}
+                        </p>
+                      )}
+
+                      {item.connections.length > 0 && (
+                        <div className="studio-timeline-connections">
+                          {item.connections.slice(0, 4).map((conn) => (
+                            <span
+                              key={conn.id}
+                              className="studio-timeline-conn-pill"
+                              style={{
+                                borderColor: conn.color,
+                                color: conn.color,
+                              }}
+                            >
+                              {conn.title}
+                            </span>
+                          ))}
+                          {item.connections.length > 4 && (
+                            <span className="studio-timeline-conn-more">
+                              +{item.connections.length - 4}
+                            </span>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  </div>
                 </div>
               );
             })}
           </div>
-        </section>
-      ))}
+        </div>
+      )}
 
     </div>
   );

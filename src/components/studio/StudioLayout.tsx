@@ -1,6 +1,7 @@
 'use client';
 
 import { useMemo, useState, useCallback, useEffect } from 'react';
+import { useHotkeys } from 'react-hotkeys-hook';
 import { usePathname, useRouter } from 'next/navigation';
 import { normalizeStudioContentType } from '@/lib/studio';
 import { useIsAppShellMobile } from '@/hooks/useIsAppShellMobile';
@@ -128,39 +129,9 @@ function StudioLayoutInner({
     setMobileWorkbenchOpen(false);
   }, [pathname]);
 
-  useEffect(() => {
-    const handleKeyDown = (event: KeyboardEvent) => {
-      if (!(event.metaKey || event.ctrlKey)) return;
-      const key = event.key.toLowerCase();
-
-      /* Cmd+K: command palette */
-      if (key === 'k' && !event.shiftKey) {
-        event.preventDefault();
-        setCommandPaletteOpen((prev) => !prev);
-        return;
-      }
-
-      if (!event.shiftKey) return;
-
-      /* Cmd+Shift+Z: zen mode */
-      if (key === 'z') {
-        event.preventDefault();
-        toggleZenMode();
-        return;
-      }
-
-      /* Cmd+Shift+T: toggle theme */
-      if (key === 't') {
-        event.preventDefault();
-        toggleThemeMode();
-      }
-    };
-
-    window.addEventListener('keydown', handleKeyDown);
-    return () => {
-      window.removeEventListener('keydown', handleKeyDown);
-    };
-  }, [toggleZenMode, toggleThemeMode]);
+  useHotkeys('mod+k', (e) => { e.preventDefault(); setCommandPaletteOpen((prev) => !prev); });
+  useHotkeys('mod+shift+z', (e) => { e.preventDefault(); toggleZenMode(); }, [toggleZenMode]);
+  useHotkeys('mod+shift+t', (e) => { e.preventDefault(); toggleThemeMode(); }, [toggleThemeMode]);
 
   return (
     <StudioViewProvider value={{ zenMode, setZenMode, toggleZenMode, themeMode, setThemeMode, toggleThemeMode }}>
@@ -182,8 +153,7 @@ function StudioLayoutInner({
           open={mobileOpen}
           onClose={() => setMobileOpen(false)}
           ariaLabel="Studio navigation drawer"
-          backdropClassName="studio-mobile-backdrop"
-          panelClassName="studio-sidebar-mobile"
+          panelClassName="studio-vaul-sidebar"
           panelStyle={{
             width: 280,
             background: 'var(--studio-bg-sidebar)',
@@ -269,10 +239,10 @@ function StudioLayoutInner({
         <NewContentModal onClose={() => setShowNewModal(false)} />
       )}
 
-      {commandPaletteOpen && (
-        <CommandPalette
+      <CommandPalette
+          open={commandPaletteOpen}
+          onOpenChange={setCommandPaletteOpen}
           isEditorActive={editorMode}
-          onClose={() => setCommandPaletteOpen(false)}
           onExecute={(commandId) => {
             switch (commandId) {
               /* Editor actions */
@@ -334,7 +304,6 @@ function StudioLayoutInner({
             }
           }}
         />
-      )}
     </StudioViewProvider>
   );
 }

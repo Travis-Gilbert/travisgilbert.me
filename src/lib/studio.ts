@@ -404,6 +404,12 @@ export const SIDEBAR_SECTIONS: SidebarSection[] = [
         icon: 'wrench',
         dotColor: '#B45A2D',
       },
+      {
+        label: 'Stash',
+        href: '/studio/stash',
+        icon: 'tray',
+        dotColor: '#8A6A9A',
+      },
     ],
   },
   {

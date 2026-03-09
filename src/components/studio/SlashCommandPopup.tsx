@@ -1,11 +1,12 @@
 'use client';
 
-import { useState, useEffect, useCallback, useRef, useImperativeHandle, forwardRef } from 'react';
+import { useState, useEffect, useCallback, useImperativeHandle, forwardRef } from 'react';
+import { useFloating, flip, shift, offset } from '@floating-ui/react';
 import type { SlashCommandItem } from './extensions/SlashCommand';
 
 interface SlashCommandPopupProps {
   items: SlashCommandItem[];
-  position: { x: number; y: number };
+  referenceRect: DOMRect | null;
   command: (item: SlashCommandItem) => void;
   onClose: () => void;
 }
@@ -15,9 +16,23 @@ export interface SlashCommandPopupRef {
 }
 
 const SlashCommandPopup = forwardRef<SlashCommandPopupRef, SlashCommandPopupProps>(
-  function SlashCommandPopup({ items, position, command, onClose }, ref) {
+  function SlashCommandPopup({ items, referenceRect, command, onClose }, ref) {
     const [activeIndex, setActiveIndex] = useState(0);
-    const listRef = useRef<HTMLDivElement>(null);
+
+    const { refs, floatingStyles } = useFloating({
+      strategy: 'fixed',
+      placement: 'bottom-start',
+      middleware: [offset(4), flip({ padding: 8 }), shift({ padding: 8 })],
+    });
+
+    // Sync virtual reference from cursor rect
+    useEffect(() => {
+      if (referenceRect) {
+        refs.setReference({
+          getBoundingClientRect: () => referenceRect,
+        });
+      }
+    }, [referenceRect, refs]);
 
     // Reset active index when items change
     useEffect(() => {
@@ -26,9 +41,10 @@ const SlashCommandPopup = forwardRef<SlashCommandPopupRef, SlashCommandPopupProp
 
     // Scroll active item into view
     useEffect(() => {
-      const active = listRef.current?.querySelector('.is-active');
+      const container = refs.floating.current;
+      const active = container?.querySelector('.is-active');
       active?.scrollIntoView({ block: 'nearest' });
-    }, [activeIndex]);
+    }, [activeIndex, refs.floating]);
 
     const selectItem = useCallback(
       (index: number) => {
@@ -79,8 +95,8 @@ const SlashCommandPopup = forwardRef<SlashCommandPopupRef, SlashCommandPopupProp
     return (
       <div
         className="studio-slash-popup"
-        style={{ left: position.x, top: position.y }}
-        ref={listRef}
+        ref={refs.setFloating}
+        style={floatingStyles}
       >
         {sections.map((section) => (
           <div key={section.name}>
