@@ -7,13 +7,17 @@ Covers:
 - resurface_dismiss_view: Node creation, 30-day filter in resurface_view
 """
 
+import json
 from unittest.mock import patch, MagicMock
 
+from django.core.files.uploadedfile import SimpleUploadedFile
 from django.test import TestCase
 from django.utils import timezone
 from rest_framework.test import APIClient
 
 from apps.notebook.models import (
+    Component,
+    ComponentType,
     Edge,
     Node,
     Notebook,
@@ -328,3 +332,91 @@ class ResurfaceDismissTests(TestCase):
         for card in resp.data.get('cards', []):
             obj_data = card.get('object', {})
             self.assertNotEqual(obj_data.get('id'), self.obj.pk)
+
+
+class Pass3RegressionTests(TestCase):
+    """Regression tests for PASS 3 batches 14-17 implementation details."""
+
+    def setUp(self):
+        self.client = APIClient()
+        self.ot_note = _create_object_type('note', 'Note', '#2D5F6B')
+        self.ot_source = _create_object_type('source', 'Source', '#2D5F6B')
+        self.obj = _create_object(
+            title='Pass 3 Object',
+            body='seed body',
+            object_type=self.ot_note,
+        )
+        ComponentType.objects.create(
+            name='Status',
+            slug='status',
+            data_type='status',
+            triggers_node=True,
+            sort_order=1,
+        )
+        ComponentType.objects.create(
+            name='File',
+            slug='file',
+            data_type='file',
+            triggers_node=False,
+            sort_order=2,
+        )
+
+    def test_object_scoped_component_create_supports_component_type_slug(self):
+        """POST /objects/{id}/components/ accepts component_type_slug=task."""
+        resp = self.client.post(
+            f'/api/v1/notebook/objects/{self.obj.pk}/components/',
+            {
+                'component_type_slug': 'task',
+                'key': 'task-1',
+                'value': json.dumps({
+                    'title': 'Review notes',
+                    'completed': False,
+                    'priority': 'medium',
+                }),
+                'sort_order': 0,
+            },
+            format='json',
+        )
+
+        self.assertEqual(resp.status_code, 201)
+        comp = Component.objects.get(object=self.obj, key='task-1')
+        # Fallback maps task -> status when task type is not seeded yet.
+        self.assertEqual(comp.component_type.slug, 'status')
+
+    @patch('apps.notebook.services._run_engine_async')
+    @patch('apps.notebook.file_ingestion.extract_file_content')
+    def test_file_capture_persists_extracted_components(self, mock_extract, _mock_engine):
+        """Capture with a file persists extracted sections/metadata for Info tab."""
+        mock_extract.return_value = {
+            'title': 'Spec Draft',
+            'body': 'Top level body text',
+            'author': 'Travis',
+            'sections': [
+                {'heading': 'Intro', 'body': 'First section'},
+                {'heading': 'Details', 'body': 'Second section'},
+            ],
+            'metadata': {'page_count': 2},
+            'char_count': 32,
+            'method': 'docx',
+            'thumbnails': ['base64thumb'],
+        }
+
+        file = SimpleUploadedFile(
+            'spec.docx',
+            b'placeholder bytes',
+            content_type='application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+        )
+        resp = self.client.post(
+            '/api/v1/notebook/capture/',
+            {'file': file},
+            format='multipart',
+        )
+        self.assertEqual(resp.status_code, 201)
+
+        obj_id = resp.data['object']['id']
+        keys = set(Component.objects.filter(object_id=obj_id).values_list('key', flat=True))
+        self.assertIn('extracted_sections', keys)
+        self.assertIn('file_metadata', keys)
+        self.assertIn('extraction_method', keys)
+        self.assertIn('file_author', keys)
+        self.assertIn('file_thumbnail', keys)

@@ -71,9 +71,61 @@ class ComponentSerializer(serializers.ModelSerializer):
 
 
 class ComponentWriteSerializer(serializers.ModelSerializer):
+    component_type_slug = serializers.SlugField(write_only=True, required=False)
+
     class Meta:
         model = Component
-        fields = ['object', 'component_type', 'key', 'value', 'sort_order']
+        fields = [
+            'object', 'component_type', 'component_type_slug',
+            'key', 'value', 'sort_order',
+        ]
+        validators = []
+        extra_kwargs = {
+            'object': {'required': False},
+            'component_type': {'required': False},
+        }
+
+    def validate(self, attrs):
+        slug = attrs.pop('component_type_slug', None)
+        if slug and 'component_type' not in attrs:
+            component_type = ComponentType.objects.filter(slug=slug).first()
+            # Backward compatibility: treat task as status if task type is not seeded yet.
+            if component_type is None and slug == 'task':
+                component_type = ComponentType.objects.filter(slug='status').first()
+            if component_type is None:
+                raise serializers.ValidationError({
+                    'component_type_slug': f'Unknown component type: {slug}',
+                })
+            attrs['component_type'] = component_type
+
+        if 'component_type' not in attrs:
+            if self.instance is not None:
+                attrs['component_type'] = self.instance.component_type
+            else:
+                raise serializers.ValidationError({
+                    'component_type': 'This field is required.',
+                })
+
+        if 'object' not in attrs and self.instance is not None:
+            attrs['object'] = self.instance.object
+
+        if (
+            self.instance is None and
+            'object' in attrs and
+            'component_type' in attrs and
+            'key' in attrs
+        ):
+            exists = Component.objects.filter(
+                object=attrs['object'],
+                component_type=attrs['component_type'],
+                key=attrs['key'],
+            ).exists()
+            if exists:
+                raise serializers.ValidationError({
+                    'key': 'A component with this key already exists for this object/type.',
+                })
+
+        return attrs
 
 
 # ---------------------------------------------------------------------------

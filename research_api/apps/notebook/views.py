@@ -15,6 +15,7 @@ Custom endpoints:
   GET  /export/notebook/<slug>/  JSON archive export (Task 22)
 """
 
+import json
 from collections import OrderedDict
 from datetime import timedelta
 
@@ -219,6 +220,28 @@ class ObjectViewSet(viewsets.ModelViewSet):
                 object_ref=instance,
                 timeline=timeline,
             )
+
+    @action(detail=True, methods=['post'], url_path='components')
+    def create_component(self, request, slug=None):
+        """
+        POST /api/v1/notebook/objects/<slug_or_id>/components/
+
+        Create a component scoped to this object. Supports either:
+          - component_type (id)
+          - component_type_slug (slug)
+        """
+        obj = self.get_object()
+        payload = request.data.copy()
+        payload['object'] = obj.pk
+
+        serializer = ComponentWriteSerializer(data=payload)
+        serializer.is_valid(raise_exception=True)
+        component = serializer.save(object=obj)
+
+        return Response(
+            ComponentSerializer(component).data,
+            status=status.HTTP_201_CREATED,
+        )
 
     @action(detail=True, methods=['post'], url_path='delete')
     def soft_delete(self, request, slug=None):
@@ -636,6 +659,12 @@ def quick_capture_view(request):
 
     uploaded = data.get('file')
 
+    extracted_sections = []
+    extracted_metadata = {}
+    extracted_author = ''
+    extracted_method = ''
+    extracted_thumbnails = []
+
     if uploaded:
         # File upload path: route through unified multi-format extractor
         from .file_ingestion import extract_file_content
@@ -643,6 +672,12 @@ def quick_capture_view(request):
         file_bytes = uploaded.read()
         mime_type = getattr(uploaded, 'content_type', '') or ''
         extracted = extract_file_content(file_bytes, uploaded.name, mime_type)
+
+        extracted_sections = extracted.get('sections') or []
+        extracted_metadata = extracted.get('metadata') or {}
+        extracted_author = extracted.get('author', '') or ''
+        extracted_method = extracted.get('method', '') or ''
+        extracted_thumbnails = extracted.get('thumbnails') or []
 
         body = extracted.get('body', '') or ''
         title = data['title'] or extracted.get('title', '') or uploaded.name
@@ -670,6 +705,85 @@ def quick_capture_view(request):
         notebook_slug=data['notebook_slug'],
         project_slug=data['project_slug'],
     )
+
+    # Persist file extraction outputs as Components so the Info tab can render rich content.
+    if uploaded:
+        file_component_type = ComponentType.objects.filter(slug='file').first()
+        if file_component_type:
+            sort_base = obj.components.count()
+
+            section_parts = []
+            for section in extracted_sections:
+                if isinstance(section, dict):
+                    heading = str(section.get('heading', '')).strip()
+                    section_body = str(section.get('body', '')).strip()
+                    if heading and section_body:
+                        section_parts.append(f'{heading}\n{section_body}')
+                    elif heading:
+                        section_parts.append(heading)
+                    elif section_body:
+                        section_parts.append(section_body)
+                elif section:
+                    section_parts.append(str(section))
+
+            sections_text = '\n\n'.join(part for part in section_parts if part).strip()
+            if not sections_text:
+                sections_text = body
+
+            if sections_text:
+                Component.objects.update_or_create(
+                    object=obj,
+                    component_type=file_component_type,
+                    key='extracted_sections',
+                    defaults={
+                        'value': sections_text,
+                        'sort_order': sort_base,
+                    },
+                )
+
+            if extracted_author:
+                Component.objects.update_or_create(
+                    object=obj,
+                    component_type=file_component_type,
+                    key='file_author',
+                    defaults={
+                        'value': extracted_author,
+                        'sort_order': sort_base + 1,
+                    },
+                )
+
+            if extracted_method:
+                Component.objects.update_or_create(
+                    object=obj,
+                    component_type=file_component_type,
+                    key='extraction_method',
+                    defaults={
+                        'value': extracted_method,
+                        'sort_order': sort_base + 2,
+                    },
+                )
+
+            if extracted_metadata:
+                Component.objects.update_or_create(
+                    object=obj,
+                    component_type=file_component_type,
+                    key='file_metadata',
+                    defaults={
+                        'value': json.dumps(extracted_metadata),
+                        'sort_order': sort_base + 3,
+                    },
+                )
+
+            if extracted_thumbnails:
+                Component.objects.update_or_create(
+                    object=obj,
+                    component_type=file_component_type,
+                    key='file_thumbnail',
+                    defaults={
+                        'value': extracted_thumbnails[0],
+                        'sort_order': sort_base + 4,
+                    },
+                )
 
     # Return created Object with detail serializer
     detail = ObjectDetailSerializer(obj).data
