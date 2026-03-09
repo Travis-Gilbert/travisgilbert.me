@@ -2,6 +2,9 @@ import type { Metadata } from 'next';
 import { CommonPlaceProvider } from '@/lib/commonplace-context';
 import CommonPlaceSidebar from '@/components/commonplace/CommonPlaceSidebar';
 import SplitPaneContainer from '@/components/commonplace/SplitPaneContainer';
+import CommandPalette from '@/components/commonplace/CommandPalette';
+import ObjectDrawer from '@/components/commonplace/ObjectDrawer';
+import { Toaster } from 'sonner';
 import '@/styles/commonplace.css';
 
 export const metadata: Metadata = {
@@ -32,7 +35,7 @@ export const metadata: Metadata = {
  *
  * Visual layers (back to front):
  *   1. Cream parchment background (#F2EDE5)
- *   2. Blueprint grid (40px terracotta lines at ~5.5% opacity)
+ *   2. Vignette dots (24px grid, terracotta at 4% opacity, radial edge fade)
  *   3. Terracotta upper-right ambient glow (radial-gradient, 4.5%)
  *   4. Paper grain (SVG noise at 3% on main, 5% on sidebar)
  *   5. Sidebar (warm near-black #1A1614) with its own glow
@@ -62,9 +65,9 @@ export default function CommonPlaceLayout({
         {/* Sidebar: 240px fixed, warm dark with paper grain */}
         <CommonPlaceSidebar />
 
-        {/* Main content area: blueprint grid + paper grain + split panes */}
+        {/* Main content area: vignette dots + paper grain + split panes */}
         <main
-          className="cp-blueprint-grid cp-grain"
+          className="cp-vignette-dots cp-grain"
           style={{
             flex: 1,
             minWidth: 0,
@@ -75,6 +78,22 @@ export default function CommonPlaceLayout({
         >
           <SplitPaneContainer />
         </main>
+
+        {/* Global overlays: object drawer, command palette, toast notifications */}
+        <ObjectDrawer />
+        <CommandPalette />
+        <Toaster
+          position="bottom-right"
+          toastOptions={{
+            style: {
+              background: '#FAF6F1',
+              border: '1px solid rgba(58, 54, 50, 0.12)',
+              color: '#3A3632',
+              fontFamily: 'var(--font-metadata, "Courier Prime", monospace)',
+              fontSize: '13px',
+            },
+          }}
+        />
       </CommonPlaceProvider>
     </div>
   );

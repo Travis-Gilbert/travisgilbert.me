@@ -56,6 +56,7 @@ export function getObjectTypeIdentity(slug: string): ObjectTypeIdentity {
    ───────────────────────────────────────────────── */
 
 export type ViewType =
+  | 'grid'
   | 'timeline'
   | 'scoped-timeline'
   | 'network'
@@ -80,6 +81,7 @@ export interface ViewDefinition {
 }
 
 export const VIEW_REGISTRY: Record<ViewType, { label: string; icon: string }> = {
+  grid: { label: 'Grid', icon: 'grid' },
   timeline: { label: 'The Timeline', icon: 'timeline' },
   'scoped-timeline': { label: 'My Timelines', icon: 'filter' },
   network: { label: 'Knowledge Map', icon: 'graph' },

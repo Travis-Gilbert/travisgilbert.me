@@ -3,11 +3,11 @@
 import { useState, useCallback, useEffect } from 'react';
 import { usePathname } from 'next/navigation';
 import Link from 'next/link';
-import { SIDEBAR_SECTIONS, OBJECT_TYPES } from '@/lib/commonplace';
+import { SIDEBAR_SECTIONS } from '@/lib/commonplace';
 import type { CapturedObject } from '@/lib/commonplace';
-import { createCapturedObject, syncCapture } from '@/lib/commonplace-capture';
+import { syncCapture } from '@/lib/commonplace-capture';
 import { useCommonPlace } from '@/lib/commonplace-context';
-import { fetchNotebooks, fetchProjects, useApiData } from '@/lib/commonplace-api';
+import { fetchNotebooks, fetchProjects, fetchPinnedObjects, useApiData } from '@/lib/commonplace-api';
 import { useIsAppShellMobile } from '@/hooks/useIsAppShellMobile';
 import MobileDrawer from '@/components/mobile-shell/MobileDrawer';
 import CaptureButton from './CaptureButton';
@@ -20,15 +20,17 @@ import DropZone from './DropZone';
  * gradient bloom from top-left. Paper grain at 5% opacity (matte
  * card stock feel).
  *
- * Four intent-based sections:
- *   CAPTURE: Capture button, + Object button, Recent captures
- *   VIEW: Timeline, Networks, Calendar, Loose Ends
- *   WORK: Notebooks (expandable), Projects (expandable)
- *   SYSTEM: Connection Engine, Reminders, Resurface, Settings
+ * Width is resizable via a right-edge drag handle (200px to 320px),
+ * persisted to localStorage under 'cp-sidebar-width'.
  *
- * Branding: "CommonPlace" in Vollkorn italic at top.
- * Section titles: Courier Prime uppercase.
+ * Section ordering: Brand, Capture, Objects (pinned 2x3 grid),
+ * Views, Notebooks, Projects, System.
  */
+
+const SIDEBAR_MIN = 200;
+const SIDEBAR_MAX = 320;
+const SIDEBAR_DEFAULT = 256;
+
 export default function CommonPlaceSidebar() {
   const pathname = usePathname();
   const {
@@ -36,17 +38,31 @@ export default function CommonPlaceSidebar() {
     mobileSidebarOpen,
     closeMobileSidebar,
     requestView,
+    openDrawer,
   } = useCommonPlace();
   const [expandedGroups, setExpandedGroups] = useState<Set<string>>(
     new Set(['Notebooks', 'Projects'])
   );
   const [isPaletteOpen, setIsPaletteOpen] = useState(false);
   const [captures, setCaptures] = useState<CapturedObject[]>([]);
+  const [sidebarWidth, setSidebarWidth] = useState(SIDEBAR_DEFAULT);
+  const [isDragging, setIsDragging] = useState(false);
   const isMobile = useIsAppShellMobile();
 
-  /* Fetch notebooks and projects for dynamic sidebar children */
+  /* Load persisted sidebar width on mount */
+  useEffect(() => {
+    const saved = localStorage.getItem('cp-sidebar-width');
+    if (!saved) return;
+    const parsed = parseInt(saved, 10);
+    if (!Number.isNaN(parsed)) {
+      setSidebarWidth(Math.min(SIDEBAR_MAX, Math.max(SIDEBAR_MIN, parsed)));
+    }
+  }, []);
+
+  /* Fetch notebooks, projects, and pinned objects */
   const { data: notebooks } = useApiData(() => fetchNotebooks(), []);
   const { data: projects } = useApiData(() => fetchProjects(), []);
+  const { data: pinnedObjects } = useApiData(() => fetchPinnedObjects(), []);
 
   useEffect(() => {
     if (!isMobile) return;
@@ -103,6 +119,39 @@ export default function CommonPlaceSidebar() {
     });
   }, [notifyCaptured, closeDrawerIfMobile]);
 
+  /* Right-edge drag-to-resize handler.
+   * startX and startWidth are captured at mousedown via closure,
+   * so onMove and onUp never read stale state during the drag. */
+  const handleResizeStart = useCallback((e: React.MouseEvent) => {
+    e.preventDefault();
+    const startX = e.clientX;
+    const startWidth = sidebarWidth;
+
+    function onMove(ev: MouseEvent) {
+      const newWidth = Math.min(
+        SIDEBAR_MAX,
+        Math.max(SIDEBAR_MIN, startWidth + (ev.clientX - startX)),
+      );
+      setSidebarWidth(newWidth);
+    }
+
+    function onUp(ev: MouseEvent) {
+      const finalWidth = Math.min(
+        SIDEBAR_MAX,
+        Math.max(SIDEBAR_MIN, startWidth + (ev.clientX - startX)),
+      );
+      setSidebarWidth(finalWidth);
+      localStorage.setItem('cp-sidebar-width', String(finalWidth));
+      document.removeEventListener('mousemove', onMove);
+      document.removeEventListener('mouseup', onUp);
+      setIsDragging(false);
+    }
+
+    setIsDragging(true);
+    document.addEventListener('mousemove', onMove);
+    document.addEventListener('mouseup', onUp);
+  }, [sidebarWidth]);
+
   const sidebarInner = (
     <>
       {/* Terracotta corner glow */}
@@ -124,6 +173,7 @@ export default function CommonPlaceSidebar() {
         >
           CommonPlace
         </Link>
+        <div className="cp-brand-stats">Knowledge workbench</div>
       </div>
 
       {/* Navigation sections */}
@@ -274,7 +324,7 @@ export default function CommonPlaceSidebar() {
                             fontFamily: 'var(--cp-font-mono)',
                             fontSize: 11,
                             color: 'var(--cp-sidebar-text-faint)',
-                                          }}
+                          }}
                         >
                           None yet
                         </div>
@@ -341,56 +391,36 @@ export default function CommonPlaceSidebar() {
           </div>
         ))}
 
-        {/* Object Types quick-create palette */}
-        <div className="cp-sidebar-divider" />
-        <div className="cp-section-title">Object Types</div>
-        <div
-          style={{
-            display: 'grid',
-            gridTemplateColumns: '1fr 1fr',
-            gap: 2,
-            padding: '0 4px',
-          }}
-        >
-          {OBJECT_TYPES.map((objType) => (
-            <button
-              key={objType.slug}
-              type="button"
-              title={`New ${objType.label}`}
-              className="cp-sidebar-item"
-              onClick={() => {
-                const object = createCapturedObject({
-                  text: '',
-                  objectType: objType.slug,
-                  captureMethod: 'quick-create',
-                });
-                object.title = `New ${objType.label}`;
-                handleCapture(object);
-              }}
-              style={{
-                padding: '4px 8px',
-                fontSize: 11,
-                gap: 6,
-                border: 'none',
-                background: 'transparent',
-              }}
-            >
-              <span
-                className="cp-type-dot"
-                style={{ backgroundColor: objType.color }}
-              />
-              <span
-                style={{
-                  overflow: 'hidden',
-                  textOverflow: 'ellipsis',
-                  whiteSpace: 'nowrap',
-                }}
-              >
-                {objType.label}
-              </span>
-            </button>
-          ))}
-        </div>
+        {/* Pinned objects: 2x3 type-colored grid of starred objects.
+            Each item opens the Vaul drawer via openDrawer(slug). */}
+        {pinnedObjects && pinnedObjects.length > 0 && (
+          <>
+            <div className="cp-sidebar-divider" />
+            <div className="cp-section-title">Objects</div>
+            <div className="cp-pinned-grid">
+              {pinnedObjects.map((obj) => (
+                <button
+                  key={obj.id}
+                  type="button"
+                  className="cp-pinned-item"
+                  onClick={() => openDrawer(obj.slug)}
+                  title={obj.title}
+                >
+                  <div className="cp-pinned-item-header">
+                    <span
+                      className="cp-type-dot"
+                      style={{ backgroundColor: obj.objectTypeColor || 'var(--cp-text-muted)' }}
+                    />
+                    <span className="cp-pinned-item-title">{obj.title}</span>
+                  </div>
+                  {obj.edgeCount > 0 && (
+                    <div className="cp-pinned-item-count">{obj.edgeCount} edges</div>
+                  )}
+                </button>
+              ))}
+            </div>
+          </>
+        )}
 
         {/* Recent captures feed */}
         {captures.length > 0 && (
@@ -460,7 +490,7 @@ export default function CommonPlaceSidebar() {
     <aside
       className="cp-scrollbar cp-grain cp-grain-sidebar cp-sidebar-desktop"
       style={{
-        width: 'var(--cp-sidebar-width)',
+        width: sidebarWidth,
         flexShrink: 0,
         backgroundColor: 'var(--cp-sidebar)',
         display: 'flex',
@@ -471,6 +501,12 @@ export default function CommonPlaceSidebar() {
         top: 0,
       }}
     >
+      {/* Right-edge resize handle (desktop only) */}
+      <div
+        className={`cp-sidebar-resize${isDragging ? ' cp-sidebar-resize--dragging' : ''}`}
+        onMouseDown={handleResizeStart}
+        aria-hidden="true"
+      />
       {sidebarInner}
     </aside>
   );

@@ -106,6 +106,7 @@ export function createSplit(
 
 function viewTypeLabel(viewType: ViewType): string {
   const labels: Record<ViewType, string> = {
+    grid: 'Grid',
     timeline: 'The Timeline',
     'scoped-timeline': 'My Timelines',
     network: 'Knowledge Map',
@@ -132,7 +133,7 @@ export const LAYOUT_PRESETS: SavedLayout[] = [
   {
     name: 'Focus',
     isPreset: true,
-    tree: createLeaf('timeline', 'The Timeline'),
+    tree: createLeaf('grid', 'Grid'),
   },
   {
     name: 'Compare',

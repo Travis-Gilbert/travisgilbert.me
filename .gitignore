@@ -55,3 +55,6 @@ blake-cale-reference/
 Photos/
 Essay collage engine/
 *.textClipping
+
+# Git worktrees
+.worktrees/
