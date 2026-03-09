@@ -1,11 +1,9 @@
 /**
- * SketchIcon: Hand-drawn SVG icons matching the rough.js aesthetic.
- * Pure SVG with slightly imperfect strokes for that "drawn on paper" feel.
- * Server Component (no browser APIs needed).
+ * SketchIcon: Iconoir SVG icons rendered as pure SVG.
+ * Paths sourced from iconoir-icons/iconoir @ icons/regular/*.svg
+ * viewBox: 0 0 24 24 | strokeWidth: 1.5 | multi-path support
  *
- * Icons use a consistent 32x32 viewBox with hand-drawn paths.
- * Strokes use the brand rough color and `stroke-linecap: round`
- * for a felt-tip pen effect.
+ * Server Component (no browser APIs needed).
  */
 
 interface SketchIconProps {
@@ -13,6 +11,7 @@ interface SketchIconProps {
   size?: number;
   color?: string;
   className?: string;
+  strokeWidth?: number;
 }
 
 type IconName =
@@ -27,37 +26,83 @@ type IconName =
   | 'tag'
   | 'info';
 
-export const ICON_PATHS: Record<IconName, string> = {
-  // Magnifying glass: slightly wobbly circle + angled handle
-  'magnifying-glass':
-    'M14.2 6.5c4.2 0.3 7.3 3.6 7.1 7.8s-3.5 7.4-7.7 7.1c-4.2-0.3-7.4-3.7-7.1-7.9 0.3-4.1 3.5-7.3 7.7-7zm6.3 14.8l5.8 5.3',
-  // File with text lines: document page with slightly uneven lines
-  'file-text':
-    'M7.5 4.5h11.5l5.5 5.5v16.5c0 0.8-0.7 1.5-1.5 1.5H7.5c-0.8 0-1.5-0.7-1.5-1.5V6c0-0.8 0.7-1.5 1.5-1.5zM19 4.5v5.5h5.5M10.5 15h11m-11 4h8.5m-8.5 4h10',
-  // Gears: two interlocking cog wheels
-  'gears':
-    'M13.5 7.5a5 5 0 1 1-0.1 10 5 5 0 0 1 0.1-10zm0 3a2 2 0 1 0 0.1 4 2 2 0 0 0-0.1-4zM13.5 4.5v2m0 12v2m-5.5-11.5l1.5 1.3m7.5 6.5l1.5 1.2m-10.5 0l1.5-1.2m7.5-6.5l1.5-1.3M22 18a4 4 0 1 1-0.1 8 4 4 0 0 1 0.1-8zm0 2.2a1.8 1.8 0 1 0 0.1 3.6 1.8 1.8 0 0 0-0.1-3.6zM22 15.8v1.5m0 9.5v1.5m-4.3-9l1.2 1m6 5.2l1.2 1m-8.4 0l1.2-1m6-5.2l1.2-1',
-  // Pencil on paper: folded corner + pencil line
-  'note-pencil':
-    'M6 4.5h15.5c1 0 1.8 0.8 1.8 1.8v19.2c0 1-0.8 1.8-1.8 1.8H8.5c-1 0-1.8-0.8-1.8-1.8V6.2c-0.1-0.9 0.7-1.7 1.7-1.7zm3 9.5h10m-10 4.5h7m7-14l-4.5 4.5',
-  // Briefcase: boxy with handle
-  'briefcase':
-    'M5.5 11.5h21.5c0.8 0 1.5 0.7 1.5 1.5v11c0 0.8-0.7 1.5-1.5 1.5H5c-0.8 0-1.5-0.7-1.5-1.5V13c0-0.8 0.7-1.5 1.5-1.5zm7-4.5v4.5m7-4.5v4.5m-9.5-4.5h12c0.6 0 1-0.4 1-1V5.5c0-0.6-0.4-1-1-1h-12c-0.6 0-1 0.4-1 1V6.5c0 0.6 0.4 1 1 1z',
-  // Wrench: angled with open jaw
-  'wrench':
-    'M8.5 24l12-12.5c-1.5-3.5-0.5-7.5 2.5-9.5 2-1.3 4.5-1.5 6.5-0.5l-4 4.2 0.5 3.8 3.5 0.5 4.2-4c1 2 0.8 4.5-0.5 6.5-2 3-6 4-9.5 2.5L12 27.5c-0.8 0.8-2.2 0.8-3 0l-0.5-0.5c-0.8-0.8-0.8-2.2 0-3z',
-  // Open book: two page spreads
-  'book-open':
-    'M16 7c-2-2-5.5-2.5-10-2.5v19c4.5 0 8 0.5 10 2.5 2-2 5.5-2.5 10-2.5v-19c-4.5 0-8 0.5-10 2.5zm0 0v18.5',
-  // Chat bubble: rounded with tail
-  'chat-circle':
-    'M16 4.5c6.5-0.2 12 5 12.2 11.5 0.1 3.5-1.4 6.7-4 9l1 5.5-5.5-2.5c-1.2 0.3-2.4 0.5-3.7 0.5-6.5 0.2-12-5-12.2-11.5S9.5 4.7 16 4.5z',
-  // Tag: classic tag shape with hole
-  'tag':
-    'M4.5 17.2L15 6.5c0.4-0.4 0.9-0.6 1.4-0.6h9.6c0.8 0 1.5 0.7 1.5 1.5v9.6c0 0.5-0.2 1-0.6 1.4L16.2 29c-0.8 0.8-2 0.8-2.8 0L4.5 20c-0.8-0.8-0.8-2 0-2.8zM23 12.5a1.5 1.5 0 1 1-3 0 1.5 1.5 0 0 1 3 0z',
-  // Info: circle with i
-  'info':
-    'M16 4c6.6 0.1 11.9 5.5 11.8 12.1-0.1 6.5-5.4 11.8-12 11.9-6.6-0.1-11.9-5.5-11.8-12.1C4.1 9.4 9.4 4.1 16 4zm0 8.5v9m0-12.5v0.5',
+// Each entry is an array of SVG path `d` strings.
+// All paths share the same stroke attributes; fill is always "none".
+// Source: iconoir-icons/iconoir/icons/regular/*.svg (24x24 viewBox, stroke-width 1.5)
+export const ICON_PATHS: Record<IconName, string[]> = {
+  // search.svg
+  'magnifying-glass': [
+    'M17 17L21 21',
+    'M3 11C3 15.4183 6.58172 19 11 19C13.213 19 15.2161 18.1015 16.6644 16.6493C18.1077 15.2022 19 13.2053 19 11C19 6.58172 15.4183 3 11 3C6.58172 3 3 6.58172 3 11Z',
+  ],
+
+  // page-edit.svg
+  'file-text': [
+    'M20 12V5.74853C20 5.5894 19.9368 5.43679 19.8243 5.32426L16.6757 2.17574C16.5632 2.06321 16.4106 2 16.2515 2H4.6C4.26863 2 4 2.26863 4 2.6V21.4C4 21.7314 4.26863 22 4.6 22H11',
+    'M8 10H16M8 6H12M8 14H11',
+    'M17.9541 16.9394L18.9541 15.9394C19.392 15.5015 20.102 15.5015 20.5399 15.9394C20.9778 16.3773 20.9778 17.0873 20.5399 17.5252L19.5399 18.5252M17.9541 16.9394L14.963 19.9305C14.8131 20.0804 14.7147 20.2741 14.6821 20.4835L14.4394 22.0399L15.9957 21.7973C16.2052 21.7646 16.3988 21.6662 16.5487 21.5163L19.5399 18.5252M17.9541 16.9394L19.5399 18.5252',
+    'M16 2V5.4C16 5.73137 16.2686 6 16.6 6H20',
+  ],
+
+  // settings.svg
+  'gears': [
+    'M12 15C13.6569 15 15 13.6569 15 12C15 10.3431 13.6569 9 12 9C10.3431 9 9 10.3431 9 12C9 13.6569 10.3431 15 12 15Z',
+    'M19.6224 10.3954L18.5247 7.7448L20 6L18 4L16.2647 5.48295L13.5578 4.36974L12.9353 2H10.981L10.3491 4.40113L7.70441 5.51596L6 4L4 6L5.45337 7.78885L4.3725 10.4463L2 11V13L4.40111 13.6555L5.51575 16.2997L4 18L6 20L7.79116 18.5403L10.397 19.6123L11 22H13L13.6045 19.6132L16.2551 18.5155C16.6969 18.8313 18 20 18 20L20 18L18.5159 16.2494L19.6139 13.598L21.9999 12.9772L22 11L19.6224 10.3954Z',
+  ],
+
+  // notes.svg
+  'note-pencil': [
+    'M8 14L16 14',
+    'M8 10L10 10',
+    'M8 18L12 18',
+    'M10 3H6C4.89543 3 4 3.89543 4 5V20C4 21.1046 4.89543 22 6 22H18C19.1046 22 20 21.1046 20 20V5C20 3.89543 19.1046 3 18 3H14.5M10 3V1M10 3V5',
+  ],
+
+  // kanban-board.svg
+  'briefcase': [
+    'M3 3.6V20.4C3 20.7314 3.26863 21 3.6 21H20.4C20.7314 21 21 20.7314 21 20.4V3.6C21 3.26863 20.7314 3 20.4 3H3.6C3.26863 3 3 3.26863 3 3.6Z',
+    'M6 6L6 16',
+    'M10 6V9',
+    'M14 6V13',
+    'M18 6V11',
+  ],
+
+  // tools.svg
+  'wrench': [
+    'M10.0503 10.6066L2.97923 17.6777C2.19818 18.4587 2.19818 19.7251 2.97923 20.5061C3.76027 21.2872 5.0266 21.2872 5.80765 20.5061L12.8787 13.4351',
+    'M17.1927 13.7994L21.071 17.6777C21.8521 18.4587 21.8521 19.7251 21.071 20.5061C20.29 21.2872 19.0236 21.2872 18.2426 20.5061L12.0341 14.2977',
+    'M6.73267 5.90381L4.61135 6.61092L2.49003 3.07539L3.90424 1.66117L7.43978 3.78249L6.73267 5.90381ZM6.73267 5.90381L9.5629 8.73404',
+    'M10.0503 10.6066C9.2065 8.45359 9.37147 5.62861 11.111 3.8891C12.8505 2.14958 16.0607 1.76778 17.8285 2.82844L14.7878 5.86911L14.5052 8.98015L17.6162 8.69754L20.6569 5.65686C21.7176 7.42463 21.3358 10.6349 19.5963 12.3744C17.8567 14.1139 15.0318 14.2789 12.8788 13.435',
+  ],
+
+  // open-book.svg
+  'book-open': [
+    'M12 21V7C12 5.89543 12.8954 5 14 5H21.4C21.7314 5 22 5.26863 22 5.6V18.7143',
+    'M12 21V7C12 5.89543 11.1046 5 10 5H2.6C2.26863 5 2 5.26863 2 5.6V18.7143',
+    'M14 19L22 19',
+    'M10 19L2 19',
+    'M12 21C12 19.8954 12.8954 19 14 19',
+    'M12 21C12 19.8954 11.1046 19 10 19',
+  ],
+
+  // message-text.svg
+  'chat-circle': [
+    'M7 12L17 12',
+    'M7 8L13 8',
+    'M3 20.2895V5C3 3.89543 3.89543 3 5 3H19C20.1046 3 21 3.89543 21 5V15C21 16.1046 20.1046 17 19 17H7.96125C7.35368 17 6.77906 17.2762 6.39951 17.7506L4.06852 20.6643C3.71421 21.1072 3 20.8567 3 20.2895Z',
+  ],
+
+  // label.svg
+  'tag': [
+    'M3 17.4V6.6C3 6.26863 3.26863 6 3.6 6H16.6789C16.8795 6 17.0668 6.10026 17.1781 6.26718L20.7781 11.6672C20.9125 11.8687 20.9125 12.1313 20.7781 12.3328L17.1781 17.7328C17.0668 17.8997 16.8795 18 16.6789 18H3.6C3.26863 18 3 17.7314 3 17.4Z',
+  ],
+
+  // info-circle.svg
+  'info': [
+    'M12 11.5V16.5',
+    'M12 7.51L12.01 7.49889',
+    'M12 22C17.5228 22 22 17.5228 22 12C22 6.47715 17.5228 2 12 2C6.47715 2 2 6.47715 2 12C2 17.5228 6.47715 22 12 22Z',
+  ],
 };
 
 export default function SketchIcon({
@@ -65,25 +110,30 @@ export default function SketchIcon({
   size = 32,
   color = 'currentColor',
   className = '',
+  strokeWidth = 1.5,
 }: SketchIconProps) {
   return (
     <svg
       width={size}
       height={size}
-      viewBox="0 0 32 32"
+      viewBox="0 0 24 24"
       fill="none"
       overflow="visible"
       xmlns="http://www.w3.org/2000/svg"
       className={`flex-shrink-0 ${className}`}
       aria-hidden="true"
     >
-      <path
-        d={ICON_PATHS[name]}
-        stroke={color}
-        strokeWidth={1.8}
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
+      {ICON_PATHS[name].map((d, i) => (
+        <path
+          key={i}
+          d={d}
+          stroke={color}
+          strokeWidth={strokeWidth}
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          fill="none"
+        />
+      ))}
     </svg>
   );
 }

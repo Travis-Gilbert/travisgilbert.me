@@ -1,16 +1,19 @@
 'use client';
 
 /**
- * DrawOnIcon: Animated variant of SketchIcon that draws its stroke on scroll.
+ * DrawOnIcon: Animated variant of SketchIcon.
  *
- * Uses the pathLength="1" technique to normalize stroke length, then transitions
- * stroke-dashoffset from 1 (hidden) to 0 (fully drawn) when the icon enters
- * the viewport via IntersectionObserver.
+ * Uses the pathLength="1" technique per path to normalize stroke lengths,
+ * then transitions strokeDashoffset from 1 (hidden) to 0 (fully drawn)
+ * when the icon enters the viewport via IntersectionObserver.
  *
- * Designed for section header icons (size=32). Nav icons should continue using
- * SketchIcon (always visible, no animation needed).
+ * Multi-path icons (Iconoir standard) animate each path with a configurable
+ * stagger so the icon draws stroke by stroke.
  *
- * Respects prefers-reduced-motion: shows the icon immediately without animation.
+ * Respects prefers-reduced-motion: shows all paths immediately without animation.
+ *
+ * Designed for section header icons (size=32).
+ * Nav icons use SketchIcon (always visible, no animation).
  */
 
 import { useRef, useEffect, useState } from 'react';
@@ -22,10 +25,13 @@ interface DrawOnIconProps {
   size?: number;
   color?: string;
   className?: string;
-  /** Duration of the stroke draw animation in ms */
+  strokeWidth?: number;
+  /** Duration of each individual path draw animation in ms */
   duration?: number;
-  /** Delay before animation starts in ms (useful for stagger) */
+  /** Delay before the FIRST path starts animating, in ms */
   delay?: number;
+  /** Additional delay between each successive path, in ms */
+  pathStaggerMs?: number;
 }
 
 export default function DrawOnIcon({
@@ -33,8 +39,10 @@ export default function DrawOnIcon({
   size = 32,
   color = 'currentColor',
   className = '',
+  strokeWidth = 1.5,
   duration = 800,
   delay = 0,
+  pathStaggerMs = 60,
 }: DrawOnIconProps) {
   const svgRef = useRef<SVGSVGElement>(null);
   const [drawn, setDrawn] = useState(false);
@@ -44,7 +52,7 @@ export default function DrawOnIcon({
     const el = svgRef.current;
     if (!el) return;
 
-    // Respect reduced motion: show immediately
+    // Respect reduced motion: show all paths immediately
     const prefersReduced = window.matchMedia(
       '(prefers-reduced-motion: reduce)',
     ).matches;
@@ -68,35 +76,45 @@ export default function DrawOnIcon({
     return () => observer.disconnect();
   }, []);
 
+  const paths = ICON_PATHS[name];
+
   return (
     <svg
       ref={svgRef}
       width={size}
       height={size}
-      viewBox="0 0 32 32"
+      viewBox="0 0 24 24"
       fill="none"
       overflow="visible"
       xmlns="http://www.w3.org/2000/svg"
       className={`flex-shrink-0 ${className}`}
       aria-hidden="true"
     >
-      <path
-        d={ICON_PATHS[name]}
-        stroke={color}
-        strokeWidth={1.8}
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        pathLength={1}
-        strokeDasharray={1}
-        strokeDashoffset={drawn ? 0 : 1}
-        style={
-          skipAnimation
-            ? undefined
-            : {
-                transition: `stroke-dashoffset ${duration}ms ease-out ${delay}ms`,
-              }
-        }
-      />
+      {paths.map((d, i) => {
+        const pathDelay = delay + i * pathStaggerMs;
+
+        return (
+          <path
+            key={i}
+            d={d}
+            stroke={color}
+            strokeWidth={strokeWidth}
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            fill="none"
+            pathLength={1}
+            strokeDasharray={1}
+            strokeDashoffset={drawn ? 0 : 1}
+            style={
+              skipAnimation
+                ? undefined
+                : {
+                    transition: `stroke-dashoffset ${duration}ms ease-out ${pathDelay}ms`,
+                  }
+            }
+          />
+        );
+      })}
     </svg>
   );
 }
