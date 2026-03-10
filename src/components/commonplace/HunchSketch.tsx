@@ -285,9 +285,8 @@ export default function HunchSketch({ objectId, components, mode = 'editor' }: H
 
     /* Skip tiny strokes */
     if (stroke.type === 'pencil' && stroke.points.length < 2) return;
-    if ((stroke as ShapeStroke).type !== 'pencil') {
-      const s = stroke as ShapeStroke;
-      if (Math.abs(s.x2 - s.x1) < 3 && Math.abs(s.y2 - s.y1) < 3) return;
+    if (stroke.type === 'circle' || stroke.type === 'rect' || stroke.type === 'arrow') {
+      if (Math.abs(stroke.x2 - stroke.x1) < 3 && Math.abs(stroke.y2 - stroke.y1) < 3) return;
     }
 
     const next = [...strokes, stroke];

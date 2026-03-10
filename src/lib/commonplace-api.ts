@@ -22,6 +22,9 @@ import type {
   ApiGraphObject,
   ApiObjectDetail,
   ApiCaptureResponse,
+  ApiComposeResponse,
+  ApiComposeObject,
+  ComposeSignal,
   ApiResurfaceResponse,
   ApiNotebookListItem,
   ApiNotebookDetail,
@@ -239,6 +242,98 @@ export async function searchObjects(
   } catch {
     return [];
   }
+}
+
+export async function exportNotebookZip(notebookSlug?: string): Promise<Blob> {
+  const search = new URLSearchParams();
+  if (notebookSlug) search.set('notebook', notebookSlug);
+  const qs = search.toString();
+  const url = `${API_BASE}/export/${qs ? `?${qs}` : ''}`;
+
+  const res = await fetch(url, {
+    method: 'GET',
+    headers: getAuthHeaders(),
+    cache: 'no-store',
+  });
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}));
+    throw new ApiError(
+      res.status,
+      body.detail ?? body.error ?? `API error ${res.status}`,
+    );
+  }
+  return res.blob();
+}
+
+export interface ComposeLiveResult {
+  id: string;
+  objectId: number;
+  slug: string;
+  type: string;
+  typeColor: string;
+  title: string;
+  bodyPreview: string;
+  score: number;
+  signal: ComposeSignal;
+  explanation: string;
+}
+
+export interface ComposeLiveResponse {
+  queryId: string;
+  textLength: number;
+  passesRun: string[];
+  results: ComposeLiveResult[];
+  degraded: {
+    degraded: boolean;
+    sbertUnavailable: boolean;
+    kgeUnavailable: boolean;
+    reasons: string[];
+  };
+}
+
+function mapComposeResult(item: ApiComposeObject): ComposeLiveResult {
+  return {
+    id: item.id,
+    objectId: extractNumericId(item.id),
+    slug: item.slug,
+    type: item.type,
+    typeColor: item.type_color,
+    title: item.title,
+    bodyPreview: item.body_preview,
+    score: item.score,
+    signal: item.signal,
+    explanation: item.explanation,
+  };
+}
+
+export async function fetchComposeRelated(data: {
+  text: string;
+  notebook_slug?: string;
+  limit?: number;
+  min_score?: number;
+  enable_nli?: boolean;
+  passes?: ComposeSignal[];
+  signal?: AbortSignal;
+}): Promise<ComposeLiveResponse> {
+  const { signal, ...payload } = data;
+  const resp = await apiFetch<ApiComposeResponse>('/compose/related/', {
+    method: 'POST',
+    signal,
+    body: JSON.stringify(payload),
+  });
+
+  return {
+    queryId: resp.query_id,
+    textLength: resp.text_length,
+    passesRun: resp.passes_run ?? [],
+    results: (resp.objects ?? []).map(mapComposeResult),
+    degraded: {
+      degraded: !!resp.degraded?.degraded,
+      sbertUnavailable: !!resp.degraded?.sbert_unavailable,
+      kgeUnavailable: !!resp.degraded?.kge_unavailable,
+      reasons: resp.degraded?.reasons ?? [],
+    },
+  };
 }
 
 /** Capture a new object via POST /capture/ */

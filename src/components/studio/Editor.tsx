@@ -18,13 +18,20 @@ import {
   updateTask,
   deleteTask,
   createRevision,
+  fetchSheets,
+  createSheet,
+  updateSheet,
+  deleteSheet as deleteSheetApi,
+  reorderSheets,
+  splitSheet,
+  mergeSheetWithNext,
 } from '@/lib/studio-api';
 import { captureToApi, fetchFeed, searchObjects } from '@/lib/commonplace-api';
 import type { ObjectSearchResult } from '@/lib/commonplace-api';
 import type { MockNode } from '@/lib/commonplace';
 import { useDraftBuffer } from '@/lib/studio-draft-buffer';
 import { useLocalYjs } from '@/lib/useLocalYjs';
-import type { ApiStashItem, ApiContentTask } from '@/lib/studio-api';
+import type { ApiStashItem, ApiContentTask, Sheet } from '@/lib/studio-api';
 import { StudioApiError } from '@/lib/studio-api';
 import { toast } from 'sonner';
 import {
@@ -296,6 +303,9 @@ export default function Editor({
   const [, setForceRender] = useState(0);
   const [stash, setStash] = useState<Array<{ id: string; text: string; savedAt: string }>>([]);
   const [tasks, setTasks] = useState<StashTask[]>([]);
+  const [sheets, setSheets] = useState<Sheet[]>([]);
+  const [activeSheetId, setActiveSheetId] = useState<string | null>(null);
+  const isSheetsMode = sheets.length > 0;
 
   /* Draft buffer: localStorage crash recovery */
   const {
@@ -342,6 +352,11 @@ export default function Editor({
           contentType: normalizedContentType,
         })),
       );
+    });
+    fetchSheets(normalizedContentType, slug).then((items) => {
+      if (cancelled) return;
+      setSheets(items);
+      if (items.length > 0) setActiveSheetId((prev) => prev ?? items[0].id);
     });
     return () => { cancelled = true; };
   }, [normalizedContentType, slug]);
@@ -817,6 +832,93 @@ export default function Editor({
     [normalizedContentType, slug],
   );
 
+  /* ── Sheet callbacks (Batch 16) ─────────────────────────────────── */
+
+  const handleSetActiveSheet = useCallback((id: string) => {
+    setActiveSheetId(id);
+  }, []);
+
+  const handleAddSheet = useCallback(() => {
+    createSheet(normalizedContentType, slug).then((sheet) => {
+      if (!sheet) return;
+      setSheets((prev) => [...prev, sheet]);
+      setActiveSheetId(sheet.id);
+    });
+  }, [normalizedContentType, slug]);
+
+  const handleDeleteSheet = useCallback(
+    (id: string) => {
+      setSheets((prev) => {
+        const next = prev.filter((s) => s.id !== id);
+        setActiveSheetId((current) => {
+          if (current !== id) return current;
+          return next.length > 0 ? next[0].id : null;
+        });
+        return next;
+      });
+      deleteSheetApi(normalizedContentType, slug, id);
+    },
+    [normalizedContentType, slug],
+  );
+
+  const handleReorderSheets = useCallback(
+    (ids: string[]) => {
+      setSheets((prev) => {
+        const map = new Map(prev.map((s) => [s.id, s]));
+        return ids.map((id) => map.get(id)).filter(Boolean) as Sheet[];
+      });
+      reorderSheets(normalizedContentType, slug, ids).then((confirmed) => {
+        if (confirmed.length > 0) setSheets(confirmed);
+      });
+    },
+    [normalizedContentType, slug],
+  );
+
+  const handleSplitSheet = useCallback(
+    (id: string, position: number) => {
+      splitSheet(normalizedContentType, slug, id, position).then((data) => {
+        if (!data) return;
+        setSheets((prev) =>
+          prev.flatMap((s) => (s.id === id ? [data.original, data.new] : [s])),
+        );
+        setActiveSheetId(data.new.id);
+      });
+    },
+    [normalizedContentType, slug],
+  );
+
+  const handleMergeWithNext = useCallback(
+    (id: string) => {
+      mergeSheetWithNext(normalizedContentType, slug, id).then((merged) => {
+        if (!merged) return;
+        setSheets((prev) => {
+          const idx = prev.findIndex((s) => s.id === id);
+          if (idx === -1 || idx === prev.length - 1) return prev;
+          const nextId = prev[idx + 1].id;
+          return prev
+            .filter((s) => s.id !== nextId)
+            .map((s) => (s.id === id ? merged : s));
+        });
+      });
+    },
+    [normalizedContentType, slug],
+  );
+
+  const handleToggleMaterial = useCallback(
+    (id: string) => {
+      setSheets((prev) => {
+        const idx = prev.findIndex((s) => s.id === id);
+        if (idx === -1) return prev;
+        const newMaterial = !prev[idx].isMaterial;
+        updateSheet(normalizedContentType, slug, id, { isMaterial: newMaterial });
+        const next = [...prev];
+        next[idx] = { ...prev[idx], isMaterial: newMaterial };
+        return next;
+      });
+    },
+    [normalizedContentType, slug],
+  );
+
   const handleSendToCommonPlace = useCallback(
     (text: string) => {
       toast('Sending to CommonPlace...');
@@ -875,6 +977,16 @@ export default function Editor({
       onAddTask: handleAddTask,
       onToggleTask: handleToggleTask,
       onDeleteTask: handleDeleteTask,
+      sheets,
+      activeSheetId,
+      isSheetsMode,
+      onSetActiveSheet: handleSetActiveSheet,
+      onAddSheet: handleAddSheet,
+      onDeleteSheet: handleDeleteSheet,
+      onReorderSheets: handleReorderSheets,
+      onSplitSheet: handleSplitSheet,
+      onMergeWithNext: handleMergeWithNext,
+      onToggleMaterial: handleToggleMaterial,
     });
   }, [
     autosaveState,
@@ -889,6 +1001,16 @@ export default function Editor({
     handleAddTask,
     handleToggleTask,
     handleDeleteTask,
+    sheets,
+    activeSheetId,
+    isSheetsMode,
+    handleSetActiveSheet,
+    handleAddSheet,
+    handleDeleteSheet,
+    handleReorderSheets,
+    handleSplitSheet,
+    handleMergeWithNext,
+    handleToggleMaterial,
   ]);
 
   useEffect(() => {
@@ -995,7 +1117,7 @@ export default function Editor({
         )}
 
         <TiptapEditor
-          key={slug}
+          key={slug + '-' + (activeSheetId ?? 'main')}
           initialContent={currentBody}
           initialContentFormat={contentFormat}
           onUpdate={handleUpdate}

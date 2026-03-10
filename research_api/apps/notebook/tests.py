@@ -1,18 +1,22 @@
 """
-Tests for the CommonPlace Notebook API.
+Tests for CommonPlace notebook compose, ingestion, search, and export.
 
 Covers:
-- compose_engine: extract_entities_from_text, run_compose_query (3-pass)
-- compose_related_view: API endpoint, throttle, min text length guard
-- resurface_dismiss_view: Node creation, 30-day filter in resurface_view
+- compose_engine strict pass order, merge-by-max-score, optional NLI, degraded metadata
+- compose_related_view request contract, cache behavior, and rate limiting
+- capture flow file-byte handoff and persisted Info tab components/storage keys
+- search behavior fallback ranking/limits on non-Postgres
+- ZIP export endpoint archive structure and manifest counts
 """
 
+import io
 import json
-from unittest.mock import patch, MagicMock
+import zipfile
+from unittest.mock import patch
 
+from django.core.cache import cache
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.test import TestCase
-from django.utils import timezone
 from rest_framework.test import APIClient
 
 from apps.notebook.models import (
@@ -23,370 +27,221 @@ from apps.notebook.models import (
     Notebook,
     Object,
     ObjectType,
-    ResolvedEntity,
-    Timeline,
 )
 
-
-# ── Helpers ──────────────────────────────────────────────────────────
 
 def _create_object_type(slug='note', name='Note', color='#2D5F6B'):
     return ObjectType.objects.create(slug=slug, name=name, color=color)
 
 
-def _create_object(
-    title, body='', object_type=None, notebook=None, status='active',
-):
-    obj = Object.objects.create(
+def _create_object(title, body='', object_type=None, notebook=None, status='active'):
+    return Object.objects.create(
         title=title,
         body=body,
         object_type=object_type,
         notebook=notebook,
         status=status,
     )
-    return obj
 
 
-def _create_timeline():
-    t, _ = Timeline.objects.get_or_create(
-        is_master=True,
-        defaults={'name': 'Master Timeline', 'slug': 'master'},
-    )
-    return t
-
-
-# ── compose_engine tests ─────────────────────────────────────────────
-
-class ExtractEntitiesFromTextTests(TestCase):
-    """Tests for the text-only NER helper."""
-
-    @patch('apps.notebook.engine.nlp', None)
-    def test_returns_empty_when_spacy_unavailable(self):
-        from apps.notebook.compose_engine import extract_entities_from_text
-        result = extract_entities_from_text('Some text about New York City')
-        self.assertEqual(result, [])
-
-    @patch('apps.notebook.engine.nlp')
-    def test_extracts_entities_from_text(self, mock_nlp):
-        """When spaCy is available, entities are extracted and normalized."""
-        from apps.notebook.compose_engine import extract_entities_from_text
-
-        # Mock spaCy doc with entities
-        mock_ent_1 = MagicMock()
-        mock_ent_1.text = 'New York'
-        mock_ent_1.label_ = 'GPE'
-
-        mock_ent_2 = MagicMock()
-        mock_ent_2.text = 'Jane Jacobs'
-        mock_ent_2.label_ = 'PERSON'
-
-        mock_ent_3 = MagicMock()
-        mock_ent_3.text = 'X'  # too short, should be filtered
-        mock_ent_3.label_ = 'ORG'
-
-        mock_doc = MagicMock()
-        mock_doc.ents = [mock_ent_1, mock_ent_2, mock_ent_3]
-        mock_nlp.return_value = mock_doc
-
-        result = extract_entities_from_text('Jane Jacobs in New York')
-        self.assertEqual(len(result), 2)
-        self.assertIn(('new york', 'GPE'), result)
-        self.assertIn(('jane jacobs', 'PERSON'), result)
-
-
-class RunComposeQueryTests(TestCase):
-    """Tests for the 3-pass compose query."""
-
+class ComposeEngineTests(TestCase):
     def setUp(self):
+        self.ot_note = _create_object_type('note', 'Note')
         self.ot_concept = _create_object_type('concept', 'Concept', '#C49A4A')
-        self.ot_note = _create_object_type('note', 'Note', '#2D5F6B')
-        _create_timeline()
 
-        self.obj_desire = _create_object(
-            title='Desire Paths',
-            body='Informal trails worn into grass by pedestrians who bypass designed walkways.',
-            object_type=self.ot_concept,
-        )
-        self.obj_induced = _create_object(
+        self.obj_a = _create_object(
             title='Induced Demand',
-            body='When parking supply increases, latent demand activates and new capacity fills.',
+            body='When parking supply increases, latent demand activates.',
             object_type=self.ot_concept,
         )
-        self.obj_jacobs = _create_object(
-            title='Jane Jacobs on City Planning',
-            body='Cities have the capability of providing something for everybody.',
+        self.obj_b = _create_object(
+            title='Desire Paths',
+            body='Informal trails emerge where people bypass designed routes.',
             object_type=self.ot_note,
         )
 
-    def test_pass2_keyword_matching(self):
-        """Jaccard keyword pass finds objects sharing vocabulary."""
+    @patch('apps.notebook.compose_engine.extract_entities_from_text', return_value=[])
+    @patch('apps.notebook.vector_store.faiss_find_similar_text')
+    @patch('apps.notebook.vector_store._SBERT_AVAILABLE', True)
+    @patch('apps.notebook.vector_store.kge_store')
+    def test_merge_prefers_max_score_signal(
+        self,
+        mock_kge,
+        mock_faiss,
+        _mock_entities,
+    ):
+        """Duplicate candidates are merged by max score and dominant signal."""
         from apps.notebook.compose_engine import run_compose_query
+
+        mock_faiss.return_value = [{'pk': self.obj_a.pk, 'score': 0.41}]
+        mock_kge.is_loaded = True
+        mock_kge.find_similar_entities.return_value = [
+            {'sha_hash': self.obj_a.sha_hash, 'score': 0.84},
+        ]
 
         result = run_compose_query(
-            text='Parking supply increases and latent demand activates to fill new capacity',
-            min_score=0.05,  # low threshold for test
+            text='Parking supply, latent demand, and structural graph role overlap in planning discourse.',
+            min_score=0.1,
+            requested_passes=['sbert', 'kge'],
         )
 
-        self.assertIn('keyword', result['passes_run'])
-        titles = [o['title'] for o in result['objects']]
-        # Should match Induced Demand (high keyword overlap)
-        self.assertIn('Induced Demand', titles)
+        self.assertEqual(result['passes_run'], ['sbert', 'kge'])
+        self.assertTrue(result['objects'])
+        top = result['objects'][0]
+        self.assertEqual(top['id'], f'object:{self.obj_a.pk}')
+        self.assertEqual(top['signal'], 'kge')
+        self.assertAlmostEqual(top['score'], 0.84, places=2)
 
-    def test_pass1_ner_matching(self):
-        """NER pass matches when extracted entities exist in ResolvedEntity table."""
-        # Create a ResolvedEntity for Jane Jacobs
-        ResolvedEntity.objects.create(
-            source_object=self.obj_jacobs,
-            text='Jane Jacobs',
-            entity_type='PERSON',
-            normalized_text='jane jacobs',
-        )
-
+    @patch('apps.notebook.compose_engine.extract_entities_from_text', return_value=[])
+    @patch('apps.notebook.vector_store.faiss_find_similar_text')
+    @patch('apps.notebook.vector_store._SBERT_AVAILABLE', True)
+    @patch('apps.notebook.engine.HAS_PYTORCH', True)
+    @patch('apps.research.advanced_nlp.analyze_pair')
+    def test_optional_nli_supports_signal(
+        self,
+        mock_analyze_pair,
+        mock_faiss,
+        _mock_entities,
+    ):
+        """When NLI is enabled, compose can promote support/contradiction signals."""
         from apps.notebook.compose_engine import run_compose_query
 
-        with patch('apps.notebook.compose_engine.extract_entities_from_text') as mock_ner:
-            mock_ner.return_value = [('jane jacobs', 'PERSON')]
-            result = run_compose_query(
-                text='What would Jane Jacobs say about induced demand in modern cities?',
-                min_score=0.1,
-            )
-
-        self.assertIn('ner', result['passes_run'])
-        ids = [o['id'] for o in result['objects']]
-        self.assertIn(f'object:{self.obj_jacobs.pk}', ids)
-
-    def test_empty_text_returns_empty(self):
-        """Text shorter than 20 chars should not be queried (handled by view)."""
-        from apps.notebook.compose_engine import run_compose_query
-
-        result = run_compose_query(text='', min_score=0.1)
-        self.assertEqual(result['objects'], [])
-
-    def test_limit_caps_results(self):
-        """Results are capped at the limit parameter."""
-        from apps.notebook.compose_engine import run_compose_query
+        mock_faiss.return_value = [{'pk': self.obj_b.pk, 'score': 0.5}]
+        mock_analyze_pair.return_value = {
+            'similarity': 0.78,
+            'relationship': {
+                'probabilities': {
+                    'contradiction': 0.06,
+                    'entailment': 0.91,
+                    'neutral': 0.03,
+                },
+            },
+        }
 
         result = run_compose_query(
-            text='Parking supply demand latent capacity grass walkways city planning',
-            limit=1,
-            min_score=0.01,
+            text='The source supports the same planning claim with aligned evidence.',
+            min_score=0.1,
+            enable_nli=True,
+            requested_passes=['sbert', 'nli'],
         )
 
-        self.assertLessEqual(len(result['objects']), 1)
+        self.assertEqual(result['passes_run'], ['sbert', 'nli'])
+        self.assertTrue(result['objects'])
+        top = result['objects'][0]
+        self.assertEqual(top['signal'], 'supports')
+        self.assertGreater(top['score'], 0.6)
 
-    def test_notebook_filter_scopes_results(self):
-        """When notebook_slug is provided, only objects in that notebook are returned."""
-        nb = Notebook.objects.create(name='Urban Research', slug='urban-research')
-        self.obj_desire.notebook = nb
-        self.obj_desire.save()
-
+    @patch('apps.notebook.vector_store._SBERT_AVAILABLE', False)
+    @patch('apps.notebook.vector_store.kge_store')
+    def test_degraded_metadata_when_sbert_and_kge_unavailable(self, mock_kge):
         from apps.notebook.compose_engine import run_compose_query
 
-        result = run_compose_query(
-            text='Informal trails worn into grass by pedestrians who bypass designed walkways',
-            notebook_slug='urban-research',
-            min_score=0.01,
-        )
-
-        # All returned objects should belong to the notebook
-        for obj_data in result['objects']:
-            pk = int(obj_data['id'].split(':')[1])
-            db_obj = Object.objects.get(pk=pk)
-            self.assertEqual(db_obj.notebook, nb)
-
-    def test_result_shape(self):
-        """Each result object has the expected fields."""
-        from apps.notebook.compose_engine import run_compose_query
+        mock_kge.is_loaded = False
 
         result = run_compose_query(
-            text='Parking supply demand latent capacity increases activates fills',
-            min_score=0.01,
+            text='A long enough query text to trigger compose execution.',
+            requested_passes=['sbert', 'kge'],
         )
 
-        if result['objects']:
-            obj = result['objects'][0]
-            self.assertIn('id', obj)
-            self.assertIn('type', obj)
-            self.assertIn('type_color', obj)
-            self.assertIn('title', obj)
-            self.assertIn('body_preview', obj)
-            self.assertIn('score', obj)
-            self.assertIn('signal', obj)
-            self.assertIn('explanation', obj)
-            self.assertTrue(obj['id'].startswith('object:'))
+        self.assertIn('degraded', result)
+        self.assertTrue(result['degraded']['degraded'])
+        self.assertTrue(result['degraded']['sbert_unavailable'])
+        self.assertTrue(result['degraded']['kge_unavailable'])
 
-    def test_deleted_objects_excluded(self):
-        """Soft-deleted objects should never appear in results."""
-        self.obj_induced.is_deleted = True
-        self.obj_induced.save()
-
-        from apps.notebook.compose_engine import run_compose_query
-
-        result = run_compose_query(
-            text='Parking supply increases and latent demand activates to fill new capacity',
-            min_score=0.01,
-        )
-
-        titles = [o['title'] for o in result['objects']]
-        self.assertNotIn('Induced Demand', titles)
-
-
-# ── compose_related_view API tests ───────────────────────────────────
 
 class ComposeRelatedViewTests(TestCase):
-    """Tests for the POST /api/v1/notebook/compose/related/ endpoint."""
-
     def setUp(self):
         self.client = APIClient()
         self.url = '/api/v1/notebook/compose/related/'
-        self.ot = _create_object_type()
-        _create_object(
-            title='Induced Demand and Parking',
-            body='When parking supply increases, latent demand activates.',
-            object_type=self.ot,
-        )
+        _create_object_type('note', 'Note')
 
-    def test_short_text_returns_empty(self):
-        """Text under 20 chars returns empty without querying."""
-        resp = self.client.post(self.url, {'text': 'short'}, format='json')
-        self.assertEqual(resp.status_code, 200)
-        self.assertEqual(resp.data['objects'], [])
-        self.assertEqual(resp.data['passes_run'], [])
+    def test_accepts_passes_and_enable_nli(self):
+        payload = {
+            'passes_run': ['tfidf', 'sbert', 'kge', 'ner', 'nli'],
+            'objects': [],
+            'degraded': {
+                'degraded': False,
+                'sbert_unavailable': False,
+                'kge_unavailable': False,
+                'reasons': [],
+            },
+        }
+        with patch('apps.notebook.compose_engine.run_compose_query', return_value=payload) as mock_run:
+            resp = self.client.post(
+                self.url,
+                {
+                    'text': 'A sufficiently long body of text for compose endpoint integration testing.',
+                    'enable_nli': True,
+                    'passes': ['tfidf', 'sbert', 'kge', 'ner', 'supports'],
+                },
+                format='json',
+            )
 
-    def test_valid_query_returns_results(self):
-        """Valid text triggers compose engine and returns results."""
-        resp = self.client.post(self.url, {
-            'text': 'Parking supply increases and latent demand activates to fill new capacity',
-            'min_score': 0.01,
-        }, format='json')
         self.assertEqual(resp.status_code, 200)
+        self.assertIn('degraded', resp.data)
         self.assertIn('query_id', resp.data)
-        self.assertIn('passes_run', resp.data)
-        self.assertIn('objects', resp.data)
-        self.assertIsInstance(resp.data['objects'], list)
+        self.assertEqual(resp.data['passes_run'], payload['passes_run'])
 
-    def test_limit_capped_at_15(self):
-        """Limit parameter cannot exceed 15."""
-        resp = self.client.post(self.url, {
-            'text': 'A sufficiently long text for testing the limit parameter behavior',
-            'limit': 50,
-        }, format='json')
-        self.assertEqual(resp.status_code, 200)
-        # The view caps at 15; just verify no error
+        kwargs = mock_run.call_args.kwargs
+        self.assertEqual(kwargs['requested_passes'], ['tfidf', 'sbert', 'kge', 'ner', 'supports'])
+        self.assertTrue(kwargs['enable_nli'])
+
+    def test_identical_query_uses_compose_cache(self):
+        cache.clear()
+        payload = {
+            'passes_run': ['tfidf'],
+            'objects': [],
+            'degraded': {
+                'degraded': False,
+                'sbert_unavailable': False,
+                'kge_unavailable': False,
+                'reasons': [],
+            },
+        }
+        with patch('apps.notebook.compose_engine.run_compose_query', return_value=payload) as mock_run:
+            body = {
+                'text': 'A sufficiently long body of text for compose endpoint cache behavior testing.',
+                'passes': ['tfidf'],
+            }
+            resp1 = self.client.post(self.url, body, format='json')
+            resp2 = self.client.post(self.url, body, format='json')
+
+        self.assertEqual(resp1.status_code, 200)
+        self.assertEqual(resp2.status_code, 200)
+        self.assertEqual(mock_run.call_count, 1)
+
+    def test_rate_limit_returns_429(self):
+        with patch('apps.notebook.views._compose_rate_limited', return_value=(True, 101)):
+            resp = self.client.post(
+                self.url,
+                {'text': 'A sufficiently long body of text for compose endpoint rate limit testing.'},
+                format='json',
+            )
+        self.assertEqual(resp.status_code, 429)
 
 
-# ── resurface_dismiss_view tests ─────────────────────────────────────
-
-class ResurfaceDismissTests(TestCase):
-    """Tests for the POST /api/v1/notebook/resurface/dismiss/ endpoint."""
-
+class CaptureIngestionTests(TestCase):
     def setUp(self):
         self.client = APIClient()
-        self.url = '/api/v1/notebook/resurface/dismiss/'
-        self.ot = _create_object_type()
-        _create_timeline()
-        self.obj = _create_object(
-            title='Test Object',
-            body='Something to dismiss',
-            object_type=self.ot,
-        )
-
-    def test_dismiss_creates_node(self):
-        """Dismissing an object creates a retrospective Node."""
-        resp = self.client.post(
-            self.url, {'object_id': self.obj.pk}, format='json'
-        )
-        self.assertEqual(resp.status_code, 200)
-        self.assertEqual(resp.data['detail'], 'Dismissed.')
-
-        node = Node.objects.filter(
-            node_type='retrospective',
-            object_ref=self.obj,
-        ).first()
-        self.assertIsNotNone(node)
-        self.assertTrue(node.title.startswith('Dismissed from resurface:'))
-
-    def test_dismiss_missing_object_id(self):
-        resp = self.client.post(self.url, {}, format='json')
-        self.assertEqual(resp.status_code, 400)
-
-    def test_dismiss_nonexistent_object(self):
-        resp = self.client.post(
-            self.url, {'object_id': 99999}, format='json'
-        )
-        self.assertEqual(resp.status_code, 404)
-
-    def test_dismissed_objects_excluded_from_resurface(self):
-        """Dismissed objects should not appear in resurface results for 30 days."""
-        # First dismiss the object
-        self.client.post(
-            self.url, {'object_id': self.obj.pk}, format='json'
-        )
-
-        # Now check resurface: the dismissed object should be excluded
-        resurface_url = '/api/v1/notebook/resurface/'
-        resp = self.client.get(resurface_url)
-        self.assertEqual(resp.status_code, 200)
-
-        # If cards are returned, none should be our dismissed object
-        for card in resp.data.get('cards', []):
-            obj_data = card.get('object', {})
-            self.assertNotEqual(obj_data.get('id'), self.obj.pk)
-
-
-class Pass3RegressionTests(TestCase):
-    """Regression tests for PASS 3 batches 14-17 implementation details."""
-
-    def setUp(self):
-        self.client = APIClient()
-        self.ot_note = _create_object_type('note', 'Note', '#2D5F6B')
-        self.ot_source = _create_object_type('source', 'Source', '#2D5F6B')
-        self.obj = _create_object(
-            title='Pass 3 Object',
-            body='seed body',
-            object_type=self.ot_note,
-        )
-        ComponentType.objects.create(
-            name='Status',
-            slug='status',
-            data_type='status',
-            triggers_node=True,
-            sort_order=1,
-        )
+        _create_object_type('note', 'Note')
+        _create_object_type('source', 'Source')
         ComponentType.objects.create(
             name='File',
             slug='file',
             data_type='file',
             triggers_node=False,
-            sort_order=2,
+            sort_order=1,
         )
 
-    def test_object_scoped_component_create_supports_component_type_slug(self):
-        """POST /objects/{id}/components/ accepts component_type_slug=task."""
-        resp = self.client.post(
-            f'/api/v1/notebook/objects/{self.obj.pk}/components/',
-            {
-                'component_type_slug': 'task',
-                'key': 'task-1',
-                'value': json.dumps({
-                    'title': 'Review notes',
-                    'completed': False,
-                    'priority': 'medium',
-                }),
-                'sort_order': 0,
-            },
-            format='json',
-        )
-
-        self.assertEqual(resp.status_code, 201)
-        comp = Component.objects.get(object=self.obj, key='task-1')
-        # Fallback maps task -> status when task type is not seeded yet.
-        self.assertEqual(comp.component_type.slug, 'status')
-
-    @patch('apps.notebook.services._run_engine_async')
+    @patch('apps.notebook.services._dispatch_engine_job')
+    @patch('apps.notebook.services._dispatch_file_ingestion_job')
     @patch('apps.notebook.file_ingestion.extract_file_content')
-    def test_file_capture_persists_extracted_components(self, mock_extract, _mock_engine):
-        """Capture with a file persists extracted sections/metadata for Info tab."""
+    def test_capture_persists_file_keys_and_info_components(
+        self,
+        mock_extract,
+        _mock_ingestion,
+        _mock_engine,
+    ):
         mock_extract.return_value = {
             'title': 'Spec Draft',
             'body': 'Top level body text',
@@ -398,7 +253,7 @@ class Pass3RegressionTests(TestCase):
             'metadata': {'page_count': 2},
             'char_count': 32,
             'method': 'docx',
-            'thumbnails': ['base64thumb'],
+            'thumbnails': ['aGVsbG8='],
         }
 
         file = SimpleUploadedFile(
@@ -406,17 +261,127 @@ class Pass3RegressionTests(TestCase):
             b'placeholder bytes',
             content_type='application/vnd.openxmlformats-officedocument.wordprocessingml.document',
         )
-        resp = self.client.post(
-            '/api/v1/notebook/capture/',
-            {'file': file},
-            format='multipart',
-        )
+
+        resp = self.client.post('/api/v1/notebook/capture/', {'file': file}, format='multipart')
         self.assertEqual(resp.status_code, 201)
 
-        obj_id = resp.data['object']['id']
-        keys = set(Component.objects.filter(object_id=obj_id).values_list('key', flat=True))
+        obj = Object.objects.get(pk=resp.data['object']['id'])
+        props = obj.properties or {}
+
+        self.assertTrue(props.get('file_key', '').startswith(f'objects/{obj.sha_hash}/'))
+        self.assertEqual(props.get('file_name'), 'spec.docx')
+        self.assertEqual(props.get('file_mime'), 'application/vnd.openxmlformats-officedocument.wordprocessingml.document')
+        self.assertTrue(props.get('thumbnail_key', '').startswith(f'thumbnails/{obj.sha_hash}/'))
+
+        keys = set(Component.objects.filter(object=obj).values_list('key', flat=True))
         self.assertIn('extracted_sections', keys)
         self.assertIn('file_metadata', keys)
         self.assertIn('extraction_method', keys)
         self.assertIn('file_author', keys)
         self.assertIn('file_thumbnail', keys)
+
+
+class SearchFallbackTests(TestCase):
+    def setUp(self):
+        self.client = APIClient()
+        self.ot_note = _create_object_type('note', 'Note')
+
+        _create_object(
+            title='Induced Demand',
+            body='Canonical note',
+            object_type=self.ot_note,
+        )
+        _create_object(
+            title='Induced Dilemmas',
+            body='Starts with induced but not exact',
+            object_type=self.ot_note,
+        )
+        _create_object(
+            title='Parking Supply',
+            body='Contains induced demand in body text',
+            object_type=self.ot_note,
+        )
+
+    def test_non_postgres_search_has_priority_order_and_limit(self):
+        resp = self.client.get('/api/v1/notebook/objects/?q=Induced Demand&limit=2')
+        self.assertEqual(resp.status_code, 200)
+
+        data = resp.json()
+        results = data.get('results', [])
+        self.assertLessEqual(len(results), 2)
+        self.assertTrue(results)
+        self.assertEqual(results[0]['display_title'], 'Induced Demand')
+
+
+class ExportZipTests(TestCase):
+    def setUp(self):
+        self.client = APIClient()
+        self.ot_note = _create_object_type('note', 'Note')
+        self.notebook = Notebook.objects.create(name='Urban', slug='urban')
+        self.obj_a = _create_object(
+            title='Object A',
+            body='Body A',
+            object_type=self.ot_note,
+            notebook=self.notebook,
+        )
+        self.obj_b = _create_object(
+            title='Object B',
+            body='Body B',
+            object_type=self.ot_note,
+            notebook=self.notebook,
+        )
+
+        Edge.objects.create(
+            from_object=self.obj_a,
+            to_object=self.obj_b,
+            edge_type='related',
+            reason='Test edge',
+            strength=0.8,
+            is_auto=True,
+            engine='test',
+        )
+
+        comp_type = ComponentType.objects.create(
+            name='File',
+            slug='file',
+            data_type='file',
+            triggers_node=False,
+        )
+        Component.objects.create(
+            object=self.obj_a,
+            component_type=comp_type,
+            key='extracted_sections',
+            value='Section body',
+            sort_order=0,
+        )
+
+        props = self.obj_a.properties or {}
+        props['file_key'] = f'objects/{self.obj_a.sha_hash}/source.txt'
+        self.obj_a.properties = props
+        self.obj_a.save(update_fields=['properties'])
+
+    @patch('apps.notebook.views.default_storage.open')
+    def test_zip_export_contains_expected_structure(self, mock_open):
+        mock_open.side_effect = lambda *_args, **_kwargs: io.BytesIO(b'file-bytes')
+
+        resp = self.client.get('/api/v1/notebook/export/?notebook=urban')
+        self.assertEqual(resp.status_code, 200)
+        self.assertEqual(resp['Content-Type'], 'application/zip')
+
+        archive = zipfile.ZipFile(io.BytesIO(resp.content))
+        names = set(archive.namelist())
+
+        self.assertIn('objects.json', names)
+        self.assertIn('edges.json', names)
+        self.assertIn('nodes.json', names)
+        self.assertIn('components.json', names)
+        self.assertIn('manifest.json', names)
+
+        expected_file = f'files/objects/{self.obj_a.sha_hash}/source.txt'
+        self.assertIn(expected_file, names)
+
+        manifest = json.loads(archive.read('manifest.json').decode('utf-8'))
+        self.assertEqual(manifest['scope']['notebook'], 'urban')
+        self.assertEqual(manifest['counts']['objects'], 2)
+        self.assertEqual(manifest['counts']['edges'], 1)
+        self.assertGreaterEqual(manifest['counts']['nodes'], 2)

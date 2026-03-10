@@ -19,6 +19,7 @@ TF-IDF cache: invalidated whenever the Object corpus changes.
 
 import logging
 
+from django.db import connection
 from django.db.models.signals import post_delete, post_save
 from django.dispatch import receiver
 from django.utils import timezone
@@ -80,12 +81,16 @@ def invalidate_tfidf_on_object_change(sender, instance, created, **kwargs):
     if kwargs.get('raw', False):
         return
 
-    if created:
-        try:
-            from .engine import invalidate_tfidf_cache
-            invalidate_tfidf_cache()
-        except ImportError:
-            pass
+    try:
+        from .engine import invalidate_tfidf_cache
+        invalidate_tfidf_cache()
+    except ImportError:
+        pass
+    try:
+        from .vector_store import invalidate_sbert_index
+        invalidate_sbert_index()
+    except ImportError:
+        pass
 
 
 @receiver(post_delete, sender='notebook.Object')
@@ -94,6 +99,11 @@ def invalidate_tfidf_on_object_delete(sender, instance, **kwargs):
     try:
         from .engine import invalidate_tfidf_cache
         invalidate_tfidf_cache()
+    except ImportError:
+        pass
+    try:
+        from .vector_store import invalidate_sbert_index
+        invalidate_sbert_index()
     except ImportError:
         pass
 
@@ -196,6 +206,75 @@ def component_trigger_node(sender, instance, created, **kwargs):
             component_ref=instance,
             timeline=timeline,
         )
+
+
+# ---------------------------------------------------------------------------
+# PostgreSQL FTS search_vector maintenance
+# ---------------------------------------------------------------------------
+
+def _refresh_object_search_vector(object_id: int) -> None:
+    """
+    Recompute weighted tsvector for one Object (Postgres only).
+
+    search_vector column is managed with SQL so SQLite/local remains functional.
+    """
+    if connection.vendor != 'postgresql':
+        return
+
+    try:
+        with connection.cursor() as cursor:
+            cursor.execute(
+                """
+                UPDATE notebook_object AS o
+                SET search_vector = (
+                    setweight(to_tsvector('english', coalesce(o.title, '')), 'A')
+                    || setweight(to_tsvector('english', coalesce(o.body, '')), 'B')
+                    || setweight(to_tsvector('english', coalesce(o.search_text, '')), 'C')
+                    || setweight(
+                        to_tsvector(
+                            'english',
+                            coalesce(
+                                (
+                                    SELECT string_agg(c.value::text, ' ')
+                                    FROM notebook_component c
+                                    WHERE c.object_id = o.id
+                                ),
+                                ''
+                            )
+                        ),
+                        'D'
+                    )
+                )
+                WHERE o.id = %s
+                """,
+                [object_id],
+            )
+    except Exception:
+        logger.exception('Failed to refresh search_vector for Object %s', object_id)
+
+
+@receiver(post_save, sender='notebook.Object')
+def update_object_search_vector(sender, instance, **kwargs):
+    """Refresh search_vector after object create/update."""
+    if kwargs.get('raw', False):
+        return
+    _refresh_object_search_vector(instance.pk)
+
+
+@receiver(post_save, sender='notebook.Component')
+def update_component_parent_search_vector(sender, instance, **kwargs):
+    """Refresh parent object search_vector when component values change."""
+    if kwargs.get('raw', False):
+        return
+    if instance.object_id:
+        _refresh_object_search_vector(instance.object_id)
+
+
+@receiver(post_delete, sender='notebook.Component')
+def update_component_parent_search_vector_on_delete(sender, instance, **kwargs):
+    """Refresh parent object search_vector after component deletion."""
+    if instance.object_id:
+        _refresh_object_search_vector(instance.object_id)
 
 
 # ---------------------------------------------------------------------------

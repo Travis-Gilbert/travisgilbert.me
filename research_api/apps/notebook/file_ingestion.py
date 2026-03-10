@@ -32,6 +32,8 @@ from .pdf_ingestion import extract_pdf_text
 
 logger = logging.getLogger(__name__)
 
+CODE_EXTENSIONS = {'.py', '.js', '.ts', '.tsx', '.jsx'}
+
 
 def extract_file_content(file_bytes: bytes, filename: str, mime_type: str = '') -> dict[str, Any]:
     """
@@ -43,34 +45,48 @@ def extract_file_content(file_bytes: bytes, filename: str, mime_type: str = '') 
 
     ext = Path(filename).suffix.lower()
 
+    result: dict[str, Any]
+
     # PDF
     if mime_type == 'application/pdf' or ext == '.pdf':
-        return extract_pdf_text(file_bytes)
+        result = extract_pdf_text(file_bytes)
 
     # DOCX
-    if mime_type == 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' or ext in ('.docx', '.doc'):
-        return _extract_docx(file_bytes)
+    elif mime_type == 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' or ext in ('.docx', '.doc'):
+        result = _extract_docx(file_bytes)
 
     # XLSX
-    if mime_type == 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' or ext in ('.xlsx', '.xls'):
-        return _extract_xlsx(file_bytes)
+    elif mime_type == 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' or ext in ('.xlsx', '.xls'):
+        result = _extract_xlsx(file_bytes)
 
     # PPTX
-    if mime_type == 'application/vnd.openxmlformats-officedocument.presentationml.presentation' or ext in ('.pptx', '.ppt'):
-        return _extract_pptx(file_bytes)
+    elif mime_type == 'application/vnd.openxmlformats-officedocument.presentationml.presentation' or ext in ('.pptx', '.ppt'):
+        result = _extract_pptx(file_bytes)
+
+    # Code files
+    elif ext in CODE_EXTENSIONS:
+        result = _extract_code(file_bytes, filename, ext)
 
     # Images
-    if mime_type.startswith('image/') or ext in ('.jpg', '.jpeg', '.png', '.gif', '.webp', '.tiff', '.bmp'):
-        return _extract_image(file_bytes, filename, mime_type)
+    elif mime_type.startswith('image/') or ext in ('.jpg', '.jpeg', '.png', '.gif', '.webp', '.tiff', '.bmp'):
+        result = _extract_image(file_bytes, filename, mime_type)
 
     # Plain text family
-    if mime_type.startswith('text/') or ext in ('.txt', '.md', '.csv', '.json', '.xml', '.yaml', '.yml', '.toml', '.html', '.htm'):
-        return _extract_text(file_bytes, ext)
+    elif mime_type.startswith('text/') or ext in ('.txt', '.md', '.csv', '.json', '.xml', '.yaml', '.yml', '.toml', '.html', '.htm'):
+        result = _extract_text(file_bytes, ext)
 
-    logger.warning('Unsupported file type: %s (%s)', filename, mime_type)
-    result = _empty_result('unsupported')
-    result['title'] = Path(filename).stem
-    return result
+    else:
+        logger.warning('Unsupported file type: %s (%s)', filename, mime_type)
+        result = _empty_result('unsupported')
+        result['title'] = Path(filename).stem
+
+    return _with_common_metadata(
+        result=result,
+        filename=filename,
+        mime_type=mime_type,
+        extension=ext,
+        file_size=len(file_bytes),
+    )
 
 
 def _empty_result(method: str) -> dict[str, Any]:
@@ -84,6 +100,28 @@ def _empty_result(method: str) -> dict[str, Any]:
         'method': method,
         'thumbnails': [],
     }
+
+
+def _with_common_metadata(
+    result: dict[str, Any],
+    filename: str,
+    mime_type: str,
+    extension: str,
+    file_size: int,
+) -> dict[str, Any]:
+    metadata = result.get('metadata')
+    if not isinstance(metadata, dict):
+        metadata = {}
+
+    metadata.setdefault('filename', filename)
+    metadata.setdefault('mime_type', mime_type or 'application/octet-stream')
+    metadata.setdefault('extension', extension)
+    metadata.setdefault('file_size', file_size)
+    metadata.setdefault('parser', result.get('method', 'unknown'))
+
+    result['metadata'] = metadata
+    result['char_count'] = int(result.get('char_count') or len(result.get('body') or ''))
+    return result
 
 
 # ─── DOCX ────────────────────────────────────────────────────────────────────
@@ -390,6 +428,327 @@ def _try_dominant_colors(result: dict[str, Any], img) -> dict[str, Any]:
         logger.debug('Dominant color extraction skipped: %s', exc)
 
     return result
+
+
+# ─── Code files (tree-sitter + fallback) ────────────────────────────────────
+
+
+def _extract_code(file_bytes: bytes, filename: str, ext: str) -> dict[str, Any]:
+    """
+    Structured code extraction for .py/.js/.ts/.tsx/.jsx.
+
+    Priority:
+    1) tree-sitter AST walk (imports/functions/classes/comments)
+    2) safe fallback parser (ast for Python, regex for JS/TS)
+    """
+    source = file_bytes.decode('utf-8', errors='replace')
+    title = Path(filename).stem
+
+    structured = _extract_code_with_tree_sitter(source, ext)
+    method = 'code_tree_sitter'
+    if structured is None:
+        structured = _extract_code_with_fallback(source, ext)
+        method = 'code_fallback'
+
+    imports = structured.get('imports', [])
+    functions = structured.get('functions', [])
+    classes = structured.get('classes', [])
+    comment_summary = structured.get('comment_summary', '')
+    parser_name = structured.get('parser', method)
+    docstrings = structured.get('docstrings', [])
+
+    sections: list[dict[str, str]] = []
+    if imports:
+        sections.append({'heading': 'Imports', 'body': '\n'.join(imports[:80])})
+    if classes:
+        sections.append({'heading': 'Classes', 'body': '\n'.join(classes[:80])})
+    if functions:
+        sections.append({'heading': 'Functions', 'body': '\n'.join(functions[:120])})
+    if docstrings:
+        sections.append({'heading': 'Docstrings', 'body': '\n\n'.join(docstrings[:12])})
+    if comment_summary:
+        sections.append({'heading': 'Comment Summary', 'body': comment_summary})
+
+    body_chunks = [
+        '# Code Overview',
+        f'Language: {_language_label_from_extension(ext)}',
+        f'Imports: {len(imports)}',
+        f'Classes: {len(classes)}',
+        f'Functions: {len(functions)}',
+    ]
+    if comment_summary:
+        body_chunks.append('\n# Notes\n' + comment_summary)
+    body_chunks.append('\n# Source\n' + source[:8000])
+    body = '\n'.join(body_chunks)
+
+    return {
+        'title': title,
+        'body': body,
+        'author': '',
+        'sections': sections,
+        'metadata': {
+            'language': _language_label_from_extension(ext),
+            'import_count': len(imports),
+            'class_count': len(classes),
+            'function_count': len(functions),
+            'docstring_count': len(docstrings),
+            'comment_summary': comment_summary,
+            'parser': parser_name,
+        },
+        'char_count': len(body),
+        'method': method,
+        'thumbnails': [],
+    }
+
+
+def _extract_code_with_tree_sitter(source: str, ext: str) -> dict[str, Any] | None:
+    try:
+        from tree_sitter import Language, Parser
+    except Exception:
+        return None
+
+    language_obj = _load_tree_sitter_language(ext)
+    if language_obj is None:
+        return None
+
+    try:
+        parser = Parser()
+        if hasattr(parser, 'set_language'):
+            parser.set_language(language_obj)
+        else:
+            parser = Parser(language_obj)
+        tree = parser.parse(source.encode('utf-8', errors='ignore'))
+    except Exception as exc:
+        logger.debug('tree-sitter parse failed for %s: %s', ext, exc)
+        return None
+
+    imports: list[str] = []
+    functions: list[str] = []
+    classes: list[str] = []
+    comments: list[str] = []
+
+    import_types = {
+        'import_statement',
+        'import_from_statement',
+        'import_declaration',
+    }
+    function_types = {
+        'function_definition',
+        'function_declaration',
+        'method_definition',
+        'generator_function_declaration',
+        'arrow_function',
+    }
+    class_types = {'class_definition', 'class_declaration'}
+
+    root = tree.root_node
+    stack = [root]
+    seen: set[tuple[str, int, int]] = set()
+
+    while stack:
+        node = stack.pop()
+        for child in node.children:
+            stack.append(child)
+
+        snippet = source[node.start_byte:node.end_byte].strip()
+        if not snippet:
+            continue
+
+        key = (node.type, node.start_byte, node.end_byte)
+        if key in seen:
+            continue
+        seen.add(key)
+
+        if node.type in import_types:
+            imports.append(snippet.splitlines()[0][:220])
+            continue
+
+        if node.type in class_types:
+            classes.append(_ts_named_signature(node, source))
+            continue
+
+        if node.type in function_types:
+            sig = _ts_named_signature(node, source)
+            if sig not in functions:
+                functions.append(sig)
+            continue
+
+        if node.type == 'comment':
+            comments.append(snippet)
+
+    if not any([imports, functions, classes, comments]):
+        return None
+
+    return {
+        'imports': imports,
+        'functions': functions,
+        'classes': classes,
+        'docstrings': [],
+        'comment_summary': _summarize_comments(comments),
+        'parser': 'tree_sitter',
+    }
+
+
+def _load_tree_sitter_language(ext: str):
+    try:
+        from tree_sitter import Language
+    except Exception:
+        return None
+
+    module = None
+    if ext == '.py':
+        try:
+            import tree_sitter_python as module
+        except Exception:
+            return None
+    elif ext in {'.js', '.jsx'}:
+        try:
+            import tree_sitter_javascript as module
+        except Exception:
+            return None
+    elif ext in {'.ts', '.tsx'}:
+        try:
+            import tree_sitter_typescript as module
+        except Exception:
+            return None
+    else:
+        return None
+
+    try:
+        lang_func = getattr(module, 'language')
+        raw_language = lang_func()
+        try:
+            return Language(raw_language)
+        except Exception:
+            return raw_language
+    except Exception:
+        return None
+
+
+def _ts_named_signature(node, source: str) -> str:
+    name_node = None
+    try:
+        name_node = node.child_by_field_name('name')
+    except Exception:
+        name_node = None
+
+    if name_node is not None:
+        name = source[name_node.start_byte:name_node.end_byte].strip()
+        return f'{node.type}: {name}'
+
+    snippet = source[node.start_byte:node.end_byte].strip().splitlines()[0]
+    return f'{node.type}: {snippet[:180]}'
+
+
+def _extract_code_with_fallback(source: str, ext: str) -> dict[str, Any]:
+    if ext == '.py':
+        return _extract_python_fallback(source)
+    return _extract_js_like_fallback(source)
+
+
+def _extract_python_fallback(source: str) -> dict[str, Any]:
+    import ast
+
+    imports: list[str] = []
+    functions: list[str] = []
+    classes: list[str] = []
+    docstrings: list[str] = []
+
+    try:
+        tree = ast.parse(source)
+    except Exception:
+        tree = None
+
+    if tree is not None:
+        for node in ast.walk(tree):
+            if isinstance(node, ast.Import):
+                imports.extend(alias.name for alias in node.names)
+            elif isinstance(node, ast.ImportFrom):
+                mod = node.module or ''
+                imported = ', '.join(alias.name for alias in node.names)
+                imports.append(f'from {mod} import {imported}')
+            elif isinstance(node, ast.FunctionDef):
+                functions.append(node.name)
+                ds = ast.get_docstring(node)
+                if ds:
+                    docstrings.append(f'{node.name}: {ds[:280]}')
+            elif isinstance(node, ast.AsyncFunctionDef):
+                functions.append(f'async {node.name}')
+                ds = ast.get_docstring(node)
+                if ds:
+                    docstrings.append(f'{node.name}: {ds[:280]}')
+            elif isinstance(node, ast.ClassDef):
+                classes.append(node.name)
+                ds = ast.get_docstring(node)
+                if ds:
+                    docstrings.append(f'{node.name}: {ds[:280]}')
+
+    comments = []
+    for line in source.splitlines():
+        stripped = line.strip()
+        if stripped.startswith('#'):
+            comments.append(stripped)
+
+    return {
+        'imports': imports,
+        'functions': functions,
+        'classes': classes,
+        'docstrings': docstrings,
+        'comment_summary': _summarize_comments(comments),
+        'parser': 'python_ast',
+    }
+
+
+def _extract_js_like_fallback(source: str) -> dict[str, Any]:
+    import re
+
+    imports = re.findall(r'^(?:import\\s+.+|const\\s+.+?=\\s*require\\(.+\\))', source, flags=re.MULTILINE)
+    function_defs = re.findall(
+        r'^(?:export\\s+)?(?:async\\s+)?function\\s+([A-Za-z_$][\\w$]*)',
+        source,
+        flags=re.MULTILINE,
+    )
+    class_defs = re.findall(
+        r'^(?:export\\s+)?class\\s+([A-Za-z_$][\\w$]*)',
+        source,
+        flags=re.MULTILINE,
+    )
+    comments = re.findall(r'//.*?$|/\\*[\\s\\S]*?\\*/', source, flags=re.MULTILINE)
+
+    return {
+        'imports': imports,
+        'functions': function_defs,
+        'classes': class_defs,
+        'docstrings': [],
+        'comment_summary': _summarize_comments(comments),
+        'parser': 'regex',
+    }
+
+
+def _language_label_from_extension(ext: str) -> str:
+    mapping = {
+        '.py': 'python',
+        '.js': 'javascript',
+        '.jsx': 'javascript',
+        '.ts': 'typescript',
+        '.tsx': 'typescript',
+    }
+    return mapping.get(ext, ext.lstrip('.') or 'unknown')
+
+
+def _summarize_comments(comments: list[str]) -> str:
+    cleaned: list[str] = []
+    for comment in comments[:12]:
+        line = (
+            comment.replace('/*', '')
+            .replace('*/', '')
+            .replace('//', '')
+            .replace('#', '')
+            .strip()
+        )
+        if line:
+            cleaned.append(line)
+    return '\n'.join(cleaned[:6])
 
 
 # ─── Plain text family ───────────────────────────────────────────────────────

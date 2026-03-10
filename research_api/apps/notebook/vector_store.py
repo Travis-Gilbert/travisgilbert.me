@@ -9,14 +9,15 @@ Two components:
    Used by engine.py _run_kge_engine() as the 5th connection signal.
 
 2. SBERTIndex: FAISS ANN index over SBERT embeddings of all Objects.
-   Built lazily from the current corpus, cached in module memory,
-   invalidated every 2 hours or when corpus drifts by 100+ objects.
+   Built lazily from the current corpus, cached via Django cache
+   (Redis when configured, safe in-memory fallback otherwise),
+   and mirrored in-process for fast reuse.
    Used by engine.py _run_semantic_via_faiss() to replace brute-force
    batch encode with O(log n) approximate nearest-neighbor search.
 
-Both stores are loaded once in apps.py AppConfig.ready() and held in
-module memory. If embeddings are not available, both gracefully return
-empty results -- the engine falls back to Jaccard/TF-IDF automatically.
+Both stores are loaded once in apps.py AppConfig.ready(). If embeddings are
+not available, both gracefully return empty results -- the engine falls back
+to Jaccard/TF-IDF automatically.
 
 Deployment:
   LOCAL: Both stores fully active if PyTorch + FAISS are installed.
@@ -193,51 +194,147 @@ class KGEStore:
 # SBERT FAISS Index
 # ---------------------------------------------------------------------------
 
-_SBERT_INDEX_CACHE: dict = {
+_SBERT_RUNTIME_CACHE: dict[str, Any] = {
     'index': None,
     'object_pks': [],
     'built_at': None,
     'size': 0,
 }
+_SBERT_CACHE_KEY = 'notebook:sbert_faiss_index:v1'
 _SBERT_INDEX_MAX_AGE_SECONDS = 7200  # 2 hours
 _SBERT_INDEX_DRIFT_THRESHOLD = 100   # Objects
 
 
+def _get_django_cache():
+    try:
+        from django.core.cache import cache
+        return cache
+    except Exception:
+        return None
+
+
+def _is_cache_fresh(
+    built_at: float | None,
+    cached_size: int,
+    current_count: int,
+) -> bool:
+    if built_at is None:
+        return False
+    age = time.time() - float(built_at)
+    if age > _SBERT_INDEX_MAX_AGE_SECONDS:
+        return False
+    return abs(int(current_count) - int(cached_size)) <= _SBERT_INDEX_DRIFT_THRESHOLD
+
+
+def _serialize_faiss_index(index) -> bytes:
+    if not _FAISS_AVAILABLE:
+        return b''
+    blob = faiss.serialize_index(index)
+    return blob.tobytes() if hasattr(blob, 'tobytes') else bytes(blob)
+
+
+def _deserialize_faiss_index(payload: bytes):
+    if not _FAISS_AVAILABLE or not _NUMPY_AVAILABLE:
+        return None
+    arr = np.frombuffer(payload, dtype='uint8')
+    return faiss.deserialize_index(arr)
+
+
+def _set_shared_index_cache(index, object_pks: list[int], size: int, built_at: float) -> None:
+    cache = _get_django_cache()
+    if cache is None or index is None:
+        return
+
+    try:
+        cache.set(
+            _SBERT_CACHE_KEY,
+            {
+                'index_bytes': _serialize_faiss_index(index),
+                'object_pks': object_pks,
+                'size': int(size),
+                'built_at': float(built_at),
+            },
+            timeout=_SBERT_INDEX_MAX_AGE_SECONDS,
+        )
+    except Exception as exc:
+        logger.debug('Could not store SBERT index in Django cache: %s', exc)
+
+
+def _load_shared_index_cache() -> dict | None:
+    cache = _get_django_cache()
+    if cache is None:
+        return None
+
+    try:
+        payload = cache.get(_SBERT_CACHE_KEY)
+    except Exception as exc:
+        logger.debug('Could not read SBERT index from Django cache: %s', exc)
+        return None
+
+    if not payload:
+        return None
+    if not isinstance(payload, dict):
+        return None
+    if not payload.get('index_bytes'):
+        return None
+    return payload
+
+
+def _hydrate_runtime_cache(payload: dict) -> dict | None:
+    try:
+        index = _deserialize_faiss_index(payload['index_bytes'])
+        if index is None:
+            return None
+
+        _SBERT_RUNTIME_CACHE['index'] = index
+        _SBERT_RUNTIME_CACHE['object_pks'] = payload.get('object_pks', [])
+        _SBERT_RUNTIME_CACHE['built_at'] = payload.get('built_at')
+        _SBERT_RUNTIME_CACHE['size'] = payload.get('size', 0)
+        return _SBERT_RUNTIME_CACHE
+    except Exception as exc:
+        logger.debug('Failed hydrating runtime SBERT cache: %s', exc)
+        return None
+
+
 def invalidate_sbert_index() -> None:
-    """Force FAISS index rebuild on next engine call."""
-    _SBERT_INDEX_CACHE['built_at'] = None
+    """Force FAISS index rebuild on next engine/compose call."""
+    _SBERT_RUNTIME_CACHE['index'] = None
+    _SBERT_RUNTIME_CACHE['built_at'] = None
+    _SBERT_RUNTIME_CACHE['size'] = 0
+    _SBERT_RUNTIME_CACHE['object_pks'] = []
+
+    cache = _get_django_cache()
+    if cache is not None:
+        try:
+            cache.delete(_SBERT_CACHE_KEY)
+        except Exception:
+            pass
 
 
 def _build_sbert_faiss_index(max_objects: int = 5000) -> dict | None:
     """
-    Build a FAISS IndexFlatIP over SBERT embeddings of all active Objects.
+    Build or load a FAISS IndexFlatIP over SBERT embeddings.
 
-    IndexFlatIP (inner product) on L2-normalized vectors gives cosine similarity.
-    This is an exact index -- no approximation error -- at the cost of O(n) search.
-    For the expected corpus size (<5000 objects per user), exact search is fine.
-    Switch to IndexIVFFlat if search latency becomes a bottleneck at 10k+ objects.
-
-    Returns the cache dict on success, None on failure or unavailability.
+    Source of truth is Django cache (Redis when configured). Runtime cache is a
+    fast mirror so repeated requests in one process avoid deserialize overhead.
     """
     if not _FAISS_AVAILABLE or not _SBERT_AVAILABLE:
         return None
 
-    from apps.notebook.models import Object
     from apps.notebook.engine import _build_full_text
+    from apps.notebook.models import Object
 
-    now = time.time()
-    cache = _SBERT_INDEX_CACHE
     current_count = Object.objects.filter(is_deleted=False).count()
+    runtime = _SBERT_RUNTIME_CACHE
 
-    needs_rebuild = (
-        cache['index'] is None
-        or cache['built_at'] is None
-        or (now - cache['built_at']) > _SBERT_INDEX_MAX_AGE_SECONDS
-        or abs(current_count - cache['size']) > _SBERT_INDEX_DRIFT_THRESHOLD
-    )
+    if runtime['index'] is not None and _is_cache_fresh(runtime['built_at'], runtime['size'], current_count):
+        return runtime
 
-    if not needs_rebuild:
-        return cache
+    shared_payload = _load_shared_index_cache()
+    if shared_payload and _is_cache_fresh(shared_payload.get('built_at'), shared_payload.get('size', 0), current_count):
+        hydrated = _hydrate_runtime_cache(shared_payload)
+        if hydrated is not None:
+            return hydrated
 
     logger.info('Building SBERT FAISS index (%d objects)...', current_count)
 
@@ -260,29 +357,43 @@ def _build_sbert_faiss_index(max_objects: int = 5000) -> dict | None:
         if embeddings is None or len(embeddings) == 0:
             return None
 
-        import numpy as _np
-        vecs = _np.array(embeddings).astype('float32')
+        vecs = np.array(embeddings).astype('float32')
 
-        # L2-normalize for cosine similarity via inner product
-        norms = _np.linalg.norm(vecs, axis=1, keepdims=True)
-        norms = _np.where(norms == 0, 1.0, norms)
+        # L2-normalize for cosine similarity via inner product.
+        norms = np.linalg.norm(vecs, axis=1, keepdims=True)
+        norms = np.where(norms == 0, 1.0, norms)
         vecs = vecs / norms
 
         dim = vecs.shape[1]
         index = faiss.IndexFlatIP(dim)
         index.add(vecs)
 
-        cache['index'] = index
-        cache['object_pks'] = pks
-        cache['built_at'] = now
-        cache['size'] = current_count
+        built_at = time.time()
+        runtime['index'] = index
+        runtime['object_pks'] = pks
+        runtime['built_at'] = built_at
+        runtime['size'] = current_count
+
+        _set_shared_index_cache(index, pks, current_count, built_at)
 
         logger.info('SBERT FAISS index built: %d vectors, dim=%d', len(objects), dim)
-        return cache
+        return runtime
 
     except Exception as exc:
         logger.warning('SBERT FAISS index build failed: %s', exc)
         return None
+
+
+def _encode_query_text(text: str):
+    my_emb = batch_encode([text])
+    if my_emb is None or len(my_emb) == 0:
+        return None
+
+    vec = np.array(my_emb[:1]).astype('float32')
+    norm = np.linalg.norm(vec, axis=1, keepdims=True)
+    if norm[0][0] > 0:
+        vec = vec / norm
+    return vec
 
 
 def faiss_find_similar_objects(
@@ -291,14 +402,9 @@ def faiss_find_similar_objects(
     threshold: float = 0.45,
 ) -> list[dict]:
     """
-    Find the top_n most semantically similar Objects using FAISS ANN search.
-
-    Returns list of {'pk': int, 'score': float} dicts.
-    Falls back to empty list if FAISS or SBERT unavailable.
-
-    Called by engine.py _run_semantic_engine() when the FAISS index is available.
+    Find the top_n most semantically similar Objects using FAISS search.
     """
-    if not _FAISS_AVAILABLE or not _SBERT_AVAILABLE:
+    if not _FAISS_AVAILABLE or not _SBERT_AVAILABLE or not _NUMPY_AVAILABLE:
         return []
 
     from apps.notebook.engine import _build_full_text
@@ -312,17 +418,11 @@ def faiss_find_similar_objects(
         return []
 
     try:
-        import numpy as _np
-        my_emb = batch_encode([my_text])
-        if my_emb is None or len(my_emb) == 0:
+        vec = _encode_query_text(my_text)
+        if vec is None:
             return []
 
-        vec = _np.array(my_emb[:1]).astype('float32')
-        norm = _np.linalg.norm(vec, axis=1, keepdims=True)
-        if norm[0][0] > 0:
-            vec = vec / norm
-
-        k = min(top_n * 3, cache['index'].ntotal)
+        k = min(max(top_n * 3, top_n), cache['index'].ntotal)
         scores, indices = cache['index'].search(vec, k)
 
         pks = cache['object_pks']
@@ -340,9 +440,65 @@ def faiss_find_similar_objects(
                 break
 
         return results
-
     except Exception as exc:
         logger.warning('FAISS similarity search failed: %s', exc)
+        return []
+
+
+def faiss_find_similar_text(
+    text: str,
+    top_n: int = 20,
+    threshold: float = 0.35,
+    notebook_slug: str | None = None,
+) -> list[dict]:
+    """
+    Find Objects semantically similar to raw text (used by compose live query).
+    """
+    if not _FAISS_AVAILABLE or not _SBERT_AVAILABLE or not _NUMPY_AVAILABLE:
+        return []
+
+    if not text or len(text.strip()) < 20:
+        return []
+
+    cache = _build_sbert_faiss_index()
+    if cache is None or cache['index'] is None:
+        return []
+
+    try:
+        vec = _encode_query_text(text)
+        if vec is None:
+            return []
+
+        allowed_pks: set[int] | None = None
+        if notebook_slug:
+            from apps.notebook.models import Object
+            allowed_pks = set(
+                Object.objects.filter(
+                    notebook__slug=notebook_slug,
+                    is_deleted=False,
+                ).values_list('pk', flat=True),
+            )
+
+        k = min(max(top_n * 4, top_n), cache['index'].ntotal)
+        scores, indices = cache['index'].search(vec, k)
+
+        pks = cache['object_pks']
+        results = []
+        for score, idx in zip(scores[0], indices[0]):
+            if idx < 0 or idx >= len(pks):
+                continue
+            pk = pks[idx]
+            if allowed_pks is not None and pk not in allowed_pks:
+                continue
+            if float(score) < threshold:
+                continue
+            results.append({'pk': pk, 'score': float(score)})
+            if len(results) >= top_n:
+                break
+
+        return results
+    except Exception as exc:
+        logger.warning('FAISS text similarity search failed: %s', exc)
         return []
 
 

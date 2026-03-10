@@ -62,6 +62,7 @@ from apps.content.models import (
     PageComposition,
     Project,
     PublishLog,
+    Sheet,
     ShelfEntry,
     SiteSettings,
     StashItem,
@@ -3861,6 +3862,20 @@ class StudioApiContentPublishView(StudioApiBaseView):
         except model_cls.DoesNotExist:
             return self._error(request, "Content item not found", status=404)
 
+        # If sheets exist, concatenate non-material bodies into the body field
+        # before publishing (in-memory only: publish functions never save back).
+        body_field = config.get("body_field", "body")
+        active_sheets = list(
+            Sheet.objects.filter(
+                content_type=normalized,
+                content_slug=slug,
+                is_material=False,
+            ).order_by("order")
+        )
+        if active_sheets:
+            combined = "\n\n".join(s.body for s in active_sheets if s.body)
+            setattr(instance, body_field, combined)
+
         try:
             log = publish_fn(instance)
         except Exception:
@@ -3878,3 +3893,237 @@ class StudioApiContentPublishView(StudioApiBaseView):
             "commit_url": log.commit_url or "",
             "error": log.error_message or "",
         })
+
+
+# ---------------------------------------------------------------------------
+# Sheet CRUD (Batch 16: Ulysses-style sub-documents)
+# ---------------------------------------------------------------------------
+
+
+def _serialize_sheet(sheet: Sheet) -> dict:
+    """Serialize a Sheet instance to the Studio API wire format."""
+    return {
+        "id": str(sheet.id),
+        "contentType": sheet.content_type,
+        "contentSlug": sheet.content_slug,
+        "order": sheet.order,
+        "title": sheet.title,
+        "body": sheet.body,
+        "isMaterial": sheet.is_material,
+        "status": sheet.status,
+        "wordCount": sheet.word_count,
+        "createdAt": sheet.created_at.isoformat(),
+        "updatedAt": sheet.updated_at.isoformat(),
+    }
+
+
+class StudioApiSheetListView(StudioApiBaseView):
+    """
+    GET  /editor/api/content/{type}/{slug}/sheets/   list sheets
+    POST /editor/api/content/{type}/{slug}/sheets/   create a sheet
+    """
+
+    def get(self, request, content_type, slug):
+        sheets = Sheet.objects.filter(
+            content_type=content_type, content_slug=slug,
+        ).order_by("order")
+        return self._json(request, {"sheets": [_serialize_sheet(s) for s in sheets]})
+
+    def post(self, request, content_type, slug):
+        body = self._parse_json_body(request)
+        if body is None:
+            return self._error(request, "Invalid JSON body", 400)
+
+        # Place new sheet at end by default
+        last = Sheet.objects.filter(
+            content_type=content_type, content_slug=slug,
+        ).order_by("-order").values_list("order", flat=True).first()
+        next_order = (last + 1) if last is not None else 0
+
+        sheet = Sheet.objects.create(
+            content_type=content_type,
+            content_slug=slug,
+            order=body.get("order", next_order),
+            title=str(body.get("title") or "").strip(),
+            body=str(body.get("body") or ""),
+            is_material=bool(body.get("isMaterial", False)),
+            status=body.get("status") or None,
+        )
+        return self._json(request, _serialize_sheet(sheet), status=201)
+
+
+class StudioApiSheetDetailView(StudioApiBaseView):
+    """
+    GET  /editor/api/content/{type}/{slug}/sheets/{pk}/   sheet detail
+    POST /editor/api/content/{type}/{slug}/sheets/{pk}/   update sheet
+    """
+
+    def _get_sheet(self, request, content_type, slug, pk):
+        sheet = Sheet.objects.filter(
+            id=pk, content_type=content_type, content_slug=slug,
+        ).first()
+        if not sheet:
+            return None, self._error(request, "Sheet not found", 404)
+        return sheet, None
+
+    def get(self, request, content_type, slug, pk):
+        sheet, err = self._get_sheet(request, content_type, slug, pk)
+        if err:
+            return err
+        return self._json(request, _serialize_sheet(sheet))
+
+    def post(self, request, content_type, slug, pk):
+        body = self._parse_json_body(request)
+        if body is None:
+            return self._error(request, "Invalid JSON body", 400)
+
+        action = body.get("action")
+        if action == "delete":
+            deleted, _ = Sheet.objects.filter(
+                id=pk, content_type=content_type, content_slug=slug,
+            ).delete()
+            if not deleted:
+                return self._error(request, "Sheet not found", 404)
+            return self._json(request, {"ok": True})
+
+        sheet, err = self._get_sheet(request, content_type, slug, pk)
+        if err:
+            return err
+
+        updatable = ("title", "body", "order", "isMaterial", "status")
+        if "title" in body:
+            sheet.title = str(body["title"])
+        if "body" in body:
+            sheet.body = str(body["body"])
+        if "order" in body:
+            sheet.order = int(body["order"])
+        if "isMaterial" in body:
+            sheet.is_material = bool(body["isMaterial"])
+        if "status" in body:
+            sheet.status = body["status"] or None
+        sheet.save()
+        return self._json(request, _serialize_sheet(sheet))
+
+
+class StudioApiSheetReorderView(StudioApiBaseView):
+    """
+    POST /editor/api/content/{type}/{slug}/sheets/reorder/
+
+    Body: {"ids": ["uuid1", "uuid2", ...]}
+    Reassigns order=0,1,2... based on the provided ID sequence.
+    """
+
+    def post(self, request, content_type, slug):
+        body = self._parse_json_body(request)
+        if body is None:
+            return self._error(request, "Invalid JSON body", 400)
+
+        ids = body.get("ids")
+        if not isinstance(ids, list):
+            return self._error(request, "ids must be a list", 400)
+
+        sheets_by_id = {
+            str(s.id): s
+            for s in Sheet.objects.filter(
+                content_type=content_type, content_slug=slug,
+            )
+        }
+
+        to_save = []
+        for idx, sheet_id in enumerate(ids):
+            sheet = sheets_by_id.get(str(sheet_id))
+            if sheet and sheet.order != idx:
+                sheet.order = idx
+                to_save.append(sheet)
+
+        # Bulk update to minimize DB round-trips
+        for sheet in to_save:
+            sheet.save(update_fields=["order", "updated_at"])
+
+        updated = Sheet.objects.filter(
+            content_type=content_type, content_slug=slug,
+        ).order_by("order")
+        return self._json(request, {"sheets": [_serialize_sheet(s) for s in updated]})
+
+
+class StudioApiSheetSplitView(StudioApiBaseView):
+    """
+    POST /editor/api/content/{type}/{slug}/sheets/{pk}/split/
+
+    Body: {"position": <int>}  (character offset in sheet.body)
+    Splits the sheet at the given position, creating a new sheet
+    immediately after with the tail content.
+    """
+
+    def post(self, request, content_type, slug, pk):
+        body = self._parse_json_body(request)
+        if body is None:
+            return self._error(request, "Invalid JSON body", 400)
+
+        sheet = Sheet.objects.filter(
+            id=pk, content_type=content_type, content_slug=slug,
+        ).first()
+        if not sheet:
+            return self._error(request, "Sheet not found", 404)
+
+        position = int(body.get("position", 0))
+        head = sheet.body[:position]
+        tail = sheet.body[position:]
+
+        # Update original with head
+        sheet.body = head
+        sheet.save(update_fields=["body", "updated_at"])
+
+        # Shift all later sheets up by 1
+        Sheet.objects.filter(
+            content_type=content_type,
+            content_slug=slug,
+            order__gt=sheet.order,
+        ).update(order=models.F("order") + 1)
+
+        # Create new sheet with tail immediately after
+        new_sheet = Sheet.objects.create(
+            content_type=content_type,
+            content_slug=slug,
+            order=sheet.order + 1,
+            title="",
+            body=tail,
+            is_material=False,
+            status=None,
+        )
+
+        return self._json(request, {
+            "original": _serialize_sheet(sheet),
+            "new": _serialize_sheet(new_sheet),
+        })
+
+
+class StudioApiSheetMergeView(StudioApiBaseView):
+    """
+    POST /editor/api/content/{type}/{slug}/sheets/{pk}/merge-next/
+
+    Merges the target sheet with the next sheet (by order).
+    The next sheet is deleted; the target's body grows.
+    """
+
+    def post(self, request, content_type, slug, pk):
+        sheet = Sheet.objects.filter(
+            id=pk, content_type=content_type, content_slug=slug,
+        ).first()
+        if not sheet:
+            return self._error(request, "Sheet not found", 404)
+
+        next_sheet = Sheet.objects.filter(
+            content_type=content_type,
+            content_slug=slug,
+            order__gt=sheet.order,
+        ).order_by("order").first()
+
+        if not next_sheet:
+            return self._error(request, "No next sheet to merge", 400)
+
+        sheet.body = sheet.body + "\n\n" + next_sheet.body
+        sheet.save(update_fields=["body", "updated_at"])
+        next_sheet.delete()
+
+        return self._json(request, {"sheet": _serialize_sheet(sheet)})

@@ -39,6 +39,7 @@ urlpatterns = [
     path('resurface/dismiss/', views.resurface_dismiss_view, name='resurface-dismiss'),
     path('notebooks/<slug:slug>/engine-config/', views.notebook_engine_config_view, name='notebook-engine-config'),
     path('objects/<slug:slug>/connect/', views.object_connect_view, name='object-connect'),
+    path('export/', views.export_zip_view, name='export-zip'),
     path('export/object/<slug:slug>/', views.export_object_view, name='export-object'),
     path('export/notebook/<slug:slug>/', views.export_notebook_view, name='export-notebook'),
     path('compose/related/', views.compose_related_view, name='compose-related'),

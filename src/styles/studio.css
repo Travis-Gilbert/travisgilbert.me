@@ -4104,6 +4104,145 @@
   margin-top: 2px;
 }
 
+/* ── Sheet List (Batch 16: Ulysses-style sub-documents) ─────────────── */
+
+.studio-sheet-list-section {
+  border-top: 1px solid var(--studio-border);
+  padding-bottom: 8px;
+}
+
+.studio-sheet-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 14px 5px 12px;
+  cursor: pointer;
+  transition: background 0.1s ease;
+  position: relative;
+  color: var(--studio-text-2);
+  font-family: var(--studio-font-body);
+  font-size: 12.5px;
+  user-select: none;
+}
+
+.studio-sheet-item:hover {
+  background: rgba(180, 90, 45, 0.05);
+  color: var(--studio-text-1);
+}
+
+.studio-sheet-item[data-active='true'] {
+  color: var(--studio-text-bright);
+  background: rgba(180, 90, 45, 0.09);
+}
+
+.studio-sheet-item[data-active='true']::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  background: var(--studio-tc);
+  box-shadow: 0 0 6px rgba(180, 90, 45, 0.5);
+  border-radius: 0 1px 1px 0;
+}
+
+.studio-sheet-item[data-dragging='true'] {
+  background: rgba(180, 90, 45, 0.12);
+  border-radius: 4px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25);
+}
+
+.studio-sheet-drag-handle {
+  display: flex;
+  align-items: center;
+  color: var(--studio-text-3);
+  cursor: grab;
+  padding: 0 2px;
+  flex-shrink: 0;
+}
+
+.studio-sheet-drag-handle:active {
+  cursor: grabbing;
+}
+
+.studio-sheet-status-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.studio-sheet-title {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.studio-sheet-meta {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-left: auto;
+  flex-shrink: 0;
+}
+
+.studio-sheet-material-badge {
+  font-family: var(--studio-font-mono);
+  font-size: 8px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  color: var(--studio-gold);
+  border: 1px solid rgba(196, 154, 74, 0.4);
+  border-radius: 3px;
+  padding: 1px 4px;
+  line-height: 1;
+}
+
+.studio-sheet-wordcount {
+  font-family: var(--studio-font-mono);
+  font-size: 9px;
+  color: var(--studio-text-3);
+  letter-spacing: 0.02em;
+}
+
+.studio-sheet-add-btn {
+  background: none;
+  border: none;
+  color: var(--studio-text-3);
+  font-size: 16px;
+  line-height: 1;
+  cursor: pointer;
+  padding: 0 2px;
+  transition: color 0.1s ease;
+}
+
+.studio-sheet-add-btn:hover {
+  color: var(--studio-tc);
+}
+
+.studio-sheet-delete-btn {
+  background: none;
+  border: none;
+  color: var(--studio-text-3);
+  font-size: 13px;
+  line-height: 1;
+  cursor: pointer;
+  padding: 0 1px;
+  opacity: 0;
+  transition: opacity 0.1s ease, color 0.1s ease;
+}
+
+.studio-sheet-item:hover .studio-sheet-delete-btn {
+  opacity: 1;
+}
+
+.studio-sheet-delete-btn:hover {
+  color: #c05050;
+}
+
 /* ── Video Tab Bar ────────────────────────────── */
 
 .studio-video-tabs {

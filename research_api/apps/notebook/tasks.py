@@ -85,30 +85,19 @@ def run_file_ingestion_task(obj_pk: int, file_key: str):
 @django_rq.job('default', timeout=60)
 def rebuild_sbert_index_task():
     """
-    Rebuild the SBERT FAISS index and cache it in Redis.
+    Rebuild the SBERT FAISS index and push it to Django cache.
 
     Called periodically or when corpus drifts by 100+ objects.
-    Shared across all gunicorn workers via Redis cache.
+    Shared across workers when Redis cache is configured.
     """
-    from django.core.cache import cache
-
     from .vector_store import _build_sbert_faiss_index
 
     logger.info('Rebuilding SBERT FAISS index...')
     try:
         result = _build_sbert_faiss_index()
         if result and result.get('index'):
-            import pickle
-            cache.set(
-                'sbert_faiss_index',
-                pickle.dumps({
-                    'object_pks': result['object_pks'],
-                    'size': result['size'],
-                }),
-                timeout=7200,  # 2 hours
-            )
             logger.info(
-                'SBERT index cached in Redis: %d vectors', result['size']
+                'SBERT index rebuilt and cached: %d vectors', result['size']
             )
     except Exception as exc:
         logger.error('SBERT index rebuild failed: %s', exc)

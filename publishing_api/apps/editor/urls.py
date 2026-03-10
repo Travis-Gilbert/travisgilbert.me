@@ -280,4 +280,33 @@ urlpatterns = [
         views.StudioApiContentPublishView.as_view(),
         name="api-content-publish",
     ),
+
+    # -----------------------------------------------------------------------
+    # Sheets (Batch 16: Ulysses-style sub-documents)
+    # -----------------------------------------------------------------------
+    path(
+        "editor/api/content/<slug:content_type>/<slug:slug>/sheets/",
+        views.StudioApiSheetListView.as_view(),
+        name="api-sheet-list",
+    ),
+    path(
+        "editor/api/content/<slug:content_type>/<slug:slug>/sheets/reorder/",
+        views.StudioApiSheetReorderView.as_view(),
+        name="api-sheet-reorder",
+    ),
+    path(
+        "editor/api/content/<slug:content_type>/<slug:slug>/sheets/<uuid:pk>/",
+        views.StudioApiSheetDetailView.as_view(),
+        name="api-sheet-detail",
+    ),
+    path(
+        "editor/api/content/<slug:content_type>/<slug:slug>/sheets/<uuid:pk>/split/",
+        views.StudioApiSheetSplitView.as_view(),
+        name="api-sheet-split",
+    ),
+    path(
+        "editor/api/content/<slug:content_type>/<slug:slug>/sheets/<uuid:pk>/merge-next/",
+        views.StudioApiSheetMergeView.as_view(),
+        name="api-sheet-merge-next",
+    ),
 ]

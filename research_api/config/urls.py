@@ -33,8 +33,6 @@ def health_check(request):
 
 urlpatterns = [
     path('admin/', admin.site.urls),
-    # django-rq dashboard (accessible via /admin/rq/)
-    path('admin/rq/', include('django_rq.urls')),
     path('api/v1/', include('apps.api.urls', namespace='api')),
     path('api/v1/notebook/', include('apps.notebook.urls', namespace='notebook')),
     path('api/comments/', include('apps.comments.urls', namespace='comments')),
@@ -42,3 +40,12 @@ urlpatterns = [
     path('health/', health_check, name='health-check'),
     path('', include('apps.paper_trail.urls')),
 ]
+
+try:
+    import django_rq  # noqa: F401
+    urlpatterns.insert(
+        1,
+        path('admin/rq/', include('django_rq.urls')),
+    )
+except Exception:
+    pass

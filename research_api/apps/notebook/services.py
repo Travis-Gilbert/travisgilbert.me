@@ -237,14 +237,12 @@ def quick_capture(
             obj, file_bytes, filename, file_content_type
         )
 
-    # Run connection engine via RQ task queue (async, durable)
-    from .tasks import run_engine_task
-    run_engine_task.delay(obj.pk, notebook_slug=notebook_slug)
+    # Run connection engine (queue-backed when available, inline fallback otherwise).
+    _dispatch_engine_job(obj.pk, notebook_slug=notebook_slug)
 
     # Queue heavy file processing if needed (SAM-2 via Modal, etc.)
     if file_key and _needs_heavy_processing(filename):
-        from .tasks import run_file_ingestion_task
-        run_file_ingestion_task.delay(obj.pk, file_key)
+        _dispatch_file_ingestion_job(obj.pk, file_key)
 
     return obj
 
@@ -252,6 +250,36 @@ def quick_capture(
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
+def _dispatch_engine_job(obj_pk: int, notebook_slug: str = '') -> None:
+    """
+    Dispatch engine work to RQ, with synchronous fallback for single-service mode.
+    """
+    try:
+        from .tasks import run_engine_task
+        run_engine_task.delay(obj_pk, notebook_slug=notebook_slug)
+        return
+    except Exception as exc:
+        logger.warning('Engine queue dispatch failed, falling back inline: %s', exc)
+
+    try:
+        from .engine import run_engine
+
+        obj = Object.objects.get(pk=obj_pk)
+        notebook = Notebook.objects.filter(slug=notebook_slug).first() if notebook_slug else None
+        run_engine(obj, notebook=notebook)
+    except Exception as exc:
+        logger.warning('Inline engine fallback failed for Object %s: %s', obj_pk, exc)
+
+
+def _dispatch_file_ingestion_job(obj_pk: int, file_key: str) -> None:
+    """Dispatch heavy ingestion to queue; no-op fallback if queue unavailable."""
+    try:
+        from .tasks import run_file_ingestion_task
+        run_file_ingestion_task.delay(obj_pk, file_key)
+    except Exception as exc:
+        logger.warning('Ingestion queue dispatch failed for Object %s: %s', obj_pk, exc)
+
 
 def _is_document_file(filename: str) -> bool:
     """Check if a filename indicates a document (Source-typed)."""

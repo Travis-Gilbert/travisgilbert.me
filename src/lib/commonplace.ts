@@ -431,6 +431,43 @@ export interface ApiResurfaceResponse {
   meta: { count: number };
 }
 
+/* ── Compose live query types (POST /compose/related/) ── */
+
+export type ComposeSignal =
+  | 'tfidf'
+  | 'sbert'
+  | 'kge'
+  | 'ner'
+  | 'supports'
+  | 'contradicts';
+
+export interface ApiComposeObject {
+  id: string; // "object:<pk>"
+  slug: string;
+  type: string;
+  type_color: string;
+  title: string;
+  body_preview: string;
+  score: number;
+  signal: ComposeSignal;
+  explanation: string;
+}
+
+export interface ApiComposeDegraded {
+  degraded: boolean;
+  sbert_unavailable: boolean;
+  kge_unavailable: boolean;
+  reasons: string[];
+}
+
+export interface ApiComposeResponse {
+  query_id: string;
+  text_length: number;
+  passes_run: string[];
+  objects: ApiComposeObject[];
+  degraded: ApiComposeDegraded;
+}
+
 /* ── Notebook types (NotebookListSerializer / NotebookDetailSerializer) ── */
 
 export interface ApiNotebookListItem {
