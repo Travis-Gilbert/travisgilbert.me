@@ -451,6 +451,8 @@ export interface ApiComposeObject {
   score: number;
   signal: ComposeSignal;
   explanation: string;
+  dominant_signal?: ComposeSignal;
+  dominant_explanation?: string;
 }
 
 export interface ApiComposeDegraded {
