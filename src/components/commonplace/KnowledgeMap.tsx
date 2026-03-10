@@ -77,6 +77,8 @@ interface KnowledgeMapProps {
   mode?: 'live';
   /** Node id -> relevance score (0..1) for live mode */
   scoreMap?: Map<string, number>;
+  /** Exposes a canvas snapshot getter to parent views (FrameManager thumbnails). */
+  registerSnapshotGetter?: (getter: (() => string | null) | null) => void;
 }
 
 interface ActiveEdge {
@@ -95,6 +97,7 @@ export default function KnowledgeMap({
   alwaysShowLabels = false,
   mode,
   scoreMap,
+  registerSnapshotGetter,
 }: KnowledgeMapProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -237,6 +240,20 @@ export default function KnowledgeMap({
     });
   }, [layout, filteredLinks, hoveredId, connectedIds, containerSize, posMap, transform]);
 
+  useEffect(() => {
+    if (!registerSnapshotGetter) return;
+    registerSnapshotGetter(() => {
+      const canvas = canvasRef.current;
+      if (!canvas) return null;
+      try {
+        return canvas.toDataURL('image/png', 0.3);
+      } catch {
+        return null;
+      }
+    });
+    return () => registerSnapshotGetter(null);
+  }, [registerSnapshotGetter, containerSize.width, containerSize.height, layout.length]);
+
   /* ── Click handler for nodes ─────────────────────── */
 
   const handleNodeClick = useCallback(
@@ -308,9 +325,15 @@ export default function KnowledgeMap({
     const tgtEntry = posMap.get(String(activeEdge.link.target));
     const srcType = srcEntry ? getObjectTypeIdentity(srcEntry.node.objectType).label : '';
     const tgtType = tgtEntry ? getObjectTypeIdentity(tgtEntry.node.objectType).label : '';
+    const strength = typeof activeEdge.link.strength === 'number'
+      ? `${Math.round(activeEdge.link.strength * 100)}%`
+      : null;
     return {
-      edgeTypeLabel: srcType && tgtType ? `${srcType} -- ${tgtType}` : 'Connection',
+      edgeTypeLabel: activeEdge.link.edge_type || 'related',
+      nodePair: srcType && tgtType ? `${srcType} -- ${tgtType}` : 'Connection',
       reason: activeEdge.link.reason,
+      strength,
+      engine: activeEdge.link.engine || 'unknown',
       srcNode: srcEntry?.node,
       tgtNode: tgtEntry?.node,
     };
@@ -503,10 +526,23 @@ export default function KnowledgeMap({
                   letterSpacing: '0.1em',
                   textTransform: 'uppercase',
                   color: 'var(--cp-text-faint)',
-                  marginBottom: 6,
+                  marginBottom: 4,
                 }}
               >
                 {edgeTooltipContent.edgeTypeLabel}
+              </div>
+              <div
+                style={{
+                  fontSize: 9,
+                  letterSpacing: '0.08em',
+                  textTransform: 'uppercase',
+                  color: 'var(--cp-text-faint)',
+                  marginBottom: 8,
+                }}
+              >
+                {edgeTooltipContent.nodePair}
+                {edgeTooltipContent.strength ? ` · ${edgeTooltipContent.strength}` : ''}
+                {edgeTooltipContent.engine ? ` · ${edgeTooltipContent.engine}` : ''}
               </div>
 
               {/* Reason */}

@@ -253,6 +253,8 @@ export interface GraphLink {
   target: string | GraphNode;
   reason: string;
   edge_type?: string;
+  strength?: number;
+  engine?: string;
 }
 
 export interface ViewFrame {
@@ -340,6 +342,7 @@ export interface ApiGraphEdge {
   edge_type: string;
   strength: number;
   reason: string;
+  engine?: string;
 }
 
 /** GET /graph/ full response */

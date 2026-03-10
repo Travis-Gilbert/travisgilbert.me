@@ -221,7 +221,7 @@ export default function DropZone({ onCapture }: DropZoneProps) {
           setIsAbsorbing(false);
           setAbsorbLabel('');
           setAbsorbColors([]);
-        }, 800);
+        }, 920);
       };
 
       processCapture();
@@ -248,6 +248,15 @@ export default function DropZone({ onCapture }: DropZoneProps) {
     () => (isAbsorbing ? buildParticles(absorbSeed, absorbColors) : []),
     [isAbsorbing, absorbSeed, absorbColors]
   );
+  const convergeTarget = useMemo(() => {
+    if (typeof window === 'undefined') return { x: -420, y: -260 };
+    const sidebarCaptureX = Math.min(164, window.innerWidth * 0.14);
+    const sidebarCaptureY = Math.min(104, window.innerHeight * 0.16);
+    return {
+      x: sidebarCaptureX - window.innerWidth / 2,
+      y: sidebarCaptureY - window.innerHeight / 2,
+    };
+  }, [isAbsorbing]);
 
   /* Absorb animation overlay */
   if (isAbsorbing) {
@@ -280,14 +289,19 @@ export default function DropZone({ onCapture }: DropZoneProps) {
           {particles.map((p) => (
             <motion.div
               key={p.id}
-              initial={{ x: 0, y: 0, scale: 0, opacity: 0 }}
-              animate={{ x: p.dx, y: p.dy, scale: 1, opacity: 0.75 }}
-              exit={{ x: 0, y: 0, scale: 0, opacity: 0 }}
+              initial={{ x: 0, y: 0, scale: 1.2, opacity: 1 }}
+              animate={{
+                x: [0, p.dx, convergeTarget.x],
+                y: [0, p.dy, convergeTarget.y],
+                scale: [1.2, 0.8, 0.3],
+                opacity: [1, 1, 0],
+              }}
+              exit={{ x: convergeTarget.x, y: convergeTarget.y, scale: 0.25, opacity: 0 }}
               transition={{
-                type: 'spring',
-                bounce: PARTICLE_SPRING[1],
-                duration: 0.55,
-                delay: p.delay,
+                duration: 0.82,
+                delay: p.id * 0.01,
+                ease: PARTICLE_SPRING,
+                times: [0, 0.45, 1],
               }}
               style={{
                 position: 'absolute',

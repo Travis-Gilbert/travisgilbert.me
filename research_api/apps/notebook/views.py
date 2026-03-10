@@ -1094,6 +1094,7 @@ def graph_data_view(request):
             'edge_type': edge.edge_type,
             'strength': float(edge.strength) if edge.strength else 0.0,
             'reason': edge.reason,
+            'engine': edge.engine,
         })
 
     return Response({

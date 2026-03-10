@@ -870,8 +870,12 @@ function PaneViewContent({ viewType, context, paneId, onOpenObject }: PaneViewCo
 
   /* Live view: Network (Map / Entities / Timeline viz) */
   if (viewType === 'network') {
+    const filterTypes = Array.isArray(context?.filterTypes)
+      ? (context?.filterTypes as string[])
+      : undefined;
     return (
       <NetworkView
+        filterTypes={filterTypes}
         onOpenObject={
           paneId && onOpenObject
             ? (objectId) => onOpenObject(paneId, Number(objectId))

@@ -182,7 +182,9 @@ export default function GridView({ onOpenObject }: GridViewProps) {
                   return;
                 }
                 if (mode === 'graph') {
-                  requestView('network', 'Knowledge Map');
+                  requestView('network', 'Knowledge Map', {
+                    filterTypes: Array.from(activeTypes),
+                  });
                 }
               }}
               aria-pressed={mode === 'grid'}

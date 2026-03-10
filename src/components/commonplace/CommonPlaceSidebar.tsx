@@ -3,11 +3,18 @@
 import { useState, useCallback, useEffect } from 'react';
 import { usePathname } from 'next/navigation';
 import Link from 'next/link';
+import { toast } from 'sonner';
 import { SIDEBAR_SECTIONS } from '@/lib/commonplace';
 import type { CapturedObject } from '@/lib/commonplace';
 import { syncCapture } from '@/lib/commonplace-capture';
 import { useCommonPlace } from '@/lib/commonplace-context';
-import { fetchNotebooks, fetchProjects, fetchPinnedObjects, useApiData } from '@/lib/commonplace-api';
+import {
+  fetchNotebooks,
+  fetchProjects,
+  fetchPinnedObjects,
+  fetchObjectDetail,
+  useApiData,
+} from '@/lib/commonplace-api';
 import { useIsAppShellMobile } from '@/hooks/useIsAppShellMobile';
 import MobileDrawer from '@/components/mobile-shell/MobileDrawer';
 import CaptureButton from './CaptureButton';
@@ -98,7 +105,7 @@ export default function CommonPlaceSidebar() {
     closeDrawerIfMobile();
 
     /* Background sync to Django API */
-    syncCapture(object).then((result) => {
+    syncCapture(object).then(async (result) => {
       setCaptures((prev) =>
         prev.map((c) => {
           if (c.id !== object.id) return c;
@@ -116,6 +123,28 @@ export default function CommonPlaceSidebar() {
           return { ...c, status: 'error' as const };
         }),
       );
+
+      if (!result.ok) {
+        toast.error(result.error || 'Capture sync failed');
+        return;
+      }
+
+      const captureLabel = result.enrichedTitle || object.title || 'Object captured';
+      toast.success(`${captureLabel}`);
+
+      if (result.slug) {
+        try {
+          const detail = await fetchObjectDetail(result.slug);
+          const connectionCount = detail.edges.length;
+          if (connectionCount > 0) {
+            toast.success(
+              `${connectionCount} new connection${connectionCount === 1 ? '' : 's'} found`,
+            );
+          }
+        } catch {
+          // Best effort only: capture already succeeded.
+        }
+      }
     });
   }, [notifyCaptured, closeDrawerIfMobile]);
 

@@ -6,7 +6,7 @@ import { Reorder } from 'framer-motion';
 import { Drawer } from 'vaul';
 import * as Tabs from '@radix-ui/react-tabs';
 import { useCommonPlace } from '@/lib/commonplace-context';
-import { fetchObjectDetail, fetchObjectById, patchComponent } from '@/lib/commonplace-api';
+import { fetchObjectDetail, fetchObjectById, patchComponent, searchObjects } from '@/lib/commonplace-api';
 import type { ApiObjectDetail, ApiEdgeCompact, ApiNodeListItem, ApiComponent } from '@/lib/commonplace';
 import type { TiptapUpdatePayload } from '@/components/studio/TiptapEditor';
 import HunchSketch from './HunchSketch';
@@ -466,6 +466,24 @@ export default function ObjectDrawer() {
     openDrawer(String(id));
   }
 
+  async function navigateToEntity(entityValue: string) {
+    const q = entityValue.trim();
+    if (!q) return;
+    try {
+      const results = await searchObjects(q, 6);
+      if (results.length === 0) return;
+      const normalized = q.toLowerCase();
+      const bestMatch = results.find(
+        (result) =>
+          result.title.toLowerCase() === normalized ||
+          result.display_title.toLowerCase() === normalized,
+      ) ?? results[0];
+      if (bestMatch) openDrawer(bestMatch.slug);
+    } catch {
+      // Silent: chip navigation is best effort only.
+    }
+  }
+
   const typeColor = detail?.object_type_data?.color ?? '#8A7A6A';
   const typeName = detail?.object_type_data?.name ?? '';
   const displayTitle = detail?.display_title || detail?.title || '';
@@ -693,15 +711,20 @@ export default function ObjectDrawer() {
                       {entityComponents.map((ec) => {
                         const kind = detectEntityKind(ec.component_type_name);
                         return (
-                          <span
+                          <button
                             key={ec.id}
+                            type="button"
                             className={`cp-drawer-entity-chip cp-drawer-entity-chip--${kind}`}
+                            onClick={() => {
+                              void navigateToEntity(ec.value);
+                            }}
+                            title={`Open ${ec.value}`}
                           >
                             <span className="cp-drawer-entity-kind">
                               {entityChipLabel(kind)}
                             </span>
                             {ec.value}
-                          </span>
+                          </button>
                         );
                       })}
                     </div>

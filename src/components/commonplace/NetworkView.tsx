@@ -11,7 +11,7 @@
  */
 
 import dynamic from 'next/dynamic';
-import { useState, useCallback, useMemo } from 'react';
+import { useState, useCallback, useMemo, useEffect } from 'react';
 import FrameManager from './FrameManager';
 import type { ViewFrame, GraphNode, GraphLink } from '@/lib/commonplace';
 import { fetchGraph, useApiData } from '@/lib/commonplace-api';
@@ -21,6 +21,7 @@ type NetworkSubView = 'list' | 'map' | 'entities' | 'timeline';
 
 interface NetworkViewProps {
   onOpenObject?: (objectId: string) => void;
+  filterTypes?: string[];
 }
 
 const DESKTOP_SUB_VIEWS: { key: NetworkSubView; label: string }[] = [
@@ -51,24 +52,38 @@ const LazyTimelineViz = dynamic(() => import('./TimelineViz'), {
   loading: () => <GraphViewSkeleton />,
 });
 
-export default function NetworkView({ onOpenObject }: NetworkViewProps) {
+export default function NetworkView({ onOpenObject, filterTypes }: NetworkViewProps) {
   const isMobile = useIsMobileViewport();
   const [activeSubView, setActiveSubView] = useState<NetworkSubView>('map');
   const [hasChosenView, setHasChosenView] = useState(false);
+  const [getCanvasSnapshot, setGetCanvasSnapshot] = useState<(() => string | null) | null>(null);
 
   /* Track zoom state for FrameManager (only used with map sub-view) */
   const [currentZoom, setCurrentZoom] = useState(1);
   const [currentCenter, setCurrentCenter] = useState({ x: 0, y: 0 });
+  const handleRegisterSnapshotGetter = useCallback((getter: (() => string | null) | null) => {
+    setGetCanvasSnapshot(() => getter);
+  }, []);
 
   const subViews = useMemo(
     () => (isMobile ? MOBILE_SUB_VIEWS : DESKTOP_SUB_VIEWS),
     [isMobile],
+  );
+  const graphFilter = useMemo(
+    () => (filterTypes && filterTypes.length > 0 ? new Set(filterTypes) : undefined),
+    [filterTypes],
   );
 
   const effectiveSubView =
     isMobile && !hasChosenView && activeSubView === 'map'
       ? 'list'
       : (!isMobile && activeSubView === 'list' ? 'map' : activeSubView);
+
+  useEffect(() => {
+    if (effectiveSubView !== 'map') {
+      setGetCanvasSnapshot(null);
+    }
+  }, [effectiveSubView]);
 
   /* ── Fetch graph data once, shared by all sub-views ── */
   const { data: graphData, loading, error, refetch } = useApiData(() => fetchGraph(), []);
@@ -170,6 +185,7 @@ export default function NetworkView({ onOpenObject }: NetworkViewProps) {
             currentCenterX={currentCenter.x}
             currentCenterY={currentCenter.y}
             onRestoreFrame={handleRestoreFrame}
+            getCanvasSnapshot={getCanvasSnapshot ?? undefined}
           />
         )}
       </div>
@@ -180,7 +196,13 @@ export default function NetworkView({ onOpenObject }: NetworkViewProps) {
           <NetworkListView graphNodes={graphNodes} onOpenObject={onOpenObject} />
         )}
         {effectiveSubView === 'map' && (
-          <LazyKnowledgeMap graphNodes={graphNodes} graphLinks={graphLinks} onOpenObject={onOpenObject} />
+          <LazyKnowledgeMap
+            graphNodes={graphNodes}
+            graphLinks={graphLinks}
+            onOpenObject={onOpenObject}
+            filter={graphFilter}
+            registerSnapshotGetter={handleRegisterSnapshotGetter}
+          />
         )}
         {effectiveSubView === 'entities' && (
           <LazyEntityNetwork graphNodes={graphNodes} graphLinks={graphLinks} onOpenObject={onOpenObject} />

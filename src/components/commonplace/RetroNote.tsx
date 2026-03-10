@@ -104,8 +104,8 @@ export default function RetroNote({
 
   /* Resolve prompt text */
   const displayPrompt: string = (() => {
-    if (trigger) return TRIGGER_PROMPTS[trigger];
     if (prompt) return prompt;
+    if (trigger) return TRIGGER_PROMPTS[trigger];
     if (adjacentNodeId) {
       return GENERIC_PROMPTS[Math.abs(hashCode(adjacentNodeId)) % GENERIC_PROMPTS.length] ?? GENERIC_PROMPTS[0];
     }

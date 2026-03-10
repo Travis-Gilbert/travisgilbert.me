@@ -33,6 +33,8 @@ import type { MockNode } from '@/lib/commonplace';
 import { getObjectTypeIdentity } from '@/lib/commonplace';
 import TimelineSearch from './TimelineSearch';
 import type { TimelineFilters } from './TimelineSearch';
+import RetroNote from './RetroNote';
+import type { RetroTrigger } from './RetroNote';
 
 /* ─────────────────────────────────────────────────
    Utilities
@@ -78,6 +80,84 @@ function deriveEntityChips(node: MockNode): string[] {
     if (deduped.length >= 5) break;
   }
   return deduped;
+}
+
+interface RetroPromptConfig {
+  trigger: RetroTrigger;
+  prompt: string;
+  relatedNodes: string[];
+  dismissKey: string;
+}
+
+function daysSince(iso: string): number {
+  const now = Date.now();
+  const then = new Date(iso).getTime();
+  return Math.floor((now - then) / (24 * 60 * 60 * 1000));
+}
+
+function buildContextualRetroPrompt(node: MockNode, allNodes: MockNode[]): RetroPromptConfig | null {
+  const typeInfo = getObjectTypeIdentity(node.objectType);
+  const connected = node.edges
+    .map((edge) => {
+      const otherId = edge.sourceId === node.id ? edge.targetId : edge.sourceId;
+      const other = allNodes.find((candidate) => candidate.id === otherId);
+      return other ? { other, edge } : null;
+    })
+    .filter((value): value is { other: MockNode; edge: MockNode['edges'][number] } => !!value);
+
+  const tension = connected.find(
+    ({ edge }) =>
+      edge.edge_type?.toLowerCase().includes('counter') ||
+      edge.edge_type?.toLowerCase().includes('tension') ||
+      edge.reason?.toLowerCase().includes('contradict'),
+  );
+  if (tension) {
+    const explanation = tension.edge.reason ? `: ${tension.edge.reason}` : '.';
+    return {
+      trigger: 'tension',
+      prompt: `${node.title} may contradict ${tension.other.title}${explanation} Worth investigating?`,
+      relatedNodes: [node.title, tension.other.title],
+      dismissKey: `tension:${node.objectSlug}:${tension.edge.id}`,
+    };
+  }
+
+  if (node.objectType === 'hunch') {
+    const sourceLinks = connected.filter(({ other }) => other.objectType === 'source');
+    if (sourceLinks.length >= 3) {
+      return {
+        trigger: 'hunch-sources',
+        prompt: `This Hunch now has ${sourceLinks.length} supporting sources. Is it ready to become an essay?`,
+        relatedNodes: sourceLinks.slice(0, 3).map(({ other }) => other.title),
+        dismissKey: `hunch-sources:${node.objectSlug}:${sourceLinks.length}`,
+      };
+    }
+  }
+
+  const staleDays = daysSince(node.capturedAt);
+  if (staleDays >= 30 && node.edgeCount >= 2) {
+    return {
+      trigger: 'dormant',
+      prompt: `This ${typeInfo.label} has connected to ${node.edgeCount} objects while it sat dormant for ${staleDays} days. Has your thinking changed?`,
+      relatedNodes: connected.slice(0, 3).map(({ other }) => other.title),
+      dismissKey: `dormant:${node.objectSlug}:${node.edgeCount}`,
+    };
+  }
+
+  const connectedTypes = new Set(connected.map(({ other }) => other.objectType));
+  if (connected.length >= 2 && connectedTypes.size >= 2) {
+    const first = connected[0];
+    const second = connected[1];
+    if (!first || !second) return null;
+    const reason = first?.edge.reason || second?.edge.reason || 'an inferred bridge';
+    return {
+      trigger: 'bridge',
+      prompt: `${first.other.title} and ${second.other.title} just connected through ${reason}. Did you expect this?`,
+      relatedNodes: [first.other.title, second.other.title],
+      dismissKey: `bridge:${node.objectSlug}:${first.edge.id}:${second.edge.id}`,
+    };
+  }
+
+  return null;
 }
 
 /* ─────────────────────────────────────────────────
@@ -190,6 +270,10 @@ function TimelineCard({
 }) {
   const typeInfo = getObjectTypeIdentity(node.objectType);
   const entityChips = useMemo(() => deriveEntityChips(node), [node]);
+  const contextualRetro = useMemo(
+    () => buildContextualRetroPrompt(node, allNodes),
+    [node, allNodes],
+  );
   const [retroOpen, setRetroOpen] = useState(false);
   const [retroText, setRetroText] = useState('');
   const [retroSaved, setRetroSaved] = useState('');
@@ -289,6 +373,19 @@ function TimelineCard({
               ))}
             </div>
           </div>
+        )}
+
+        {contextualRetro && (
+          <RetroNote
+            trigger={contextualRetro.trigger}
+            prompt={contextualRetro.prompt}
+            relatedNodes={contextualRetro.relatedNodes}
+            dismissKey={contextualRetro.dismissKey}
+            adjacentNodeId={node.id}
+            onSubmit={(text) => {
+              void postRetrospective(String(node.id), text);
+            }}
+          />
         )}
 
         {/* Retrospective notes */}

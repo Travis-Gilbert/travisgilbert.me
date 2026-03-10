@@ -1,12 +1,13 @@
 'use client';
 
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { Command } from 'cmdk';
 import { useHotkeys } from 'react-hotkeys-hook';
 import { toast } from 'sonner';
 import { useCommonPlace } from '@/lib/commonplace-context';
 import { searchObjects } from '@/lib/commonplace-api';
 import type { ObjectSearchResult } from '@/lib/commonplace-api';
+import { OBJECT_TYPES } from '@/lib/commonplace';
 import type { ViewType } from '@/lib/commonplace';
 
 /**
@@ -24,11 +25,40 @@ const ACTION_ITEMS = [
   { key: 'connection-engine' as ViewType, label: 'Open Connection Engine', hint: 'Discover and manage edges' },
 ];
 
+const CREATE_ITEMS = OBJECT_TYPES.map((type) => ({
+  objectType: type.slug,
+  label: `Create new ${type.label}`,
+  hint: `Open Compose as ${type.label}`,
+}));
+
+const RECENT_KEY = 'cp-command-recent';
+const MAX_RECENT = 8;
+
+function loadRecent(): ObjectSearchResult[] {
+  try {
+    const raw = localStorage.getItem(RECENT_KEY);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw) as ObjectSearchResult[];
+    return Array.isArray(parsed) ? parsed.slice(0, MAX_RECENT) : [];
+  } catch {
+    return [];
+  }
+}
+
+function saveRecent(list: ObjectSearchResult[]) {
+  try {
+    localStorage.setItem(RECENT_KEY, JSON.stringify(list.slice(0, MAX_RECENT)));
+  } catch {
+    // non-blocking best effort
+  }
+}
+
 export default function CommandPalette() {
   const { paletteOpen, openPalette, closePalette, requestView } = useCommonPlace();
 
   const [query, setQuery] = useState('');
   const [results, setResults] = useState<ObjectSearchResult[]>([]);
+  const [recentItems, setRecentItems] = useState<ObjectSearchResult[]>([]);
   const [searching, setSearching] = useState(false);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -41,6 +71,16 @@ export default function CommandPalette() {
     if (paletteOpenRef.current) closePalette();
     else openPalette();
   });
+
+  useHotkeys('mod+n', (e) => {
+    e.preventDefault();
+    requestView('compose', 'Compose');
+    closePalette();
+  });
+
+  useEffect(() => {
+    setRecentItems(loadRecent());
+  }, []);
 
   useEffect(() => {
     if (!paletteOpen) {
@@ -74,6 +114,11 @@ export default function CommandPalette() {
       requestView('object-detail', result.display_title || result.title, {
         objectSlug: result.slug,
       });
+      setRecentItems((prev) => {
+        const deduped = [result, ...prev.filter((item) => item.id !== result.id)].slice(0, MAX_RECENT);
+        saveRecent(deduped);
+        return deduped;
+      });
       closePalette();
       toast.success(`Opened: ${result.display_title || result.title}`);
     },
@@ -88,6 +133,14 @@ export default function CommandPalette() {
     [requestView, closePalette],
   );
 
+  const handleCreate = useCallback(
+    (objectType: string, label: string) => {
+      requestView('compose', label, { prefillType: objectType });
+      closePalette();
+    },
+    [requestView, closePalette],
+  );
+
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent) => {
       if (e.key === 'Escape') closePalette();
@@ -95,9 +148,22 @@ export default function CommandPalette() {
     [closePalette],
   );
 
-  if (!paletteOpen) return null;
+  const groupedResults = useMemo(() => {
+    const groups = new Map<string, ObjectSearchResult[]>();
+    for (const result of results) {
+      const key = result.object_type_name || 'Other';
+      const arr = groups.get(key) ?? [];
+      arr.push(result);
+      groups.set(key, arr);
+    }
+    return Array.from(groups.entries()).sort((a, b) => a[0].localeCompare(b[0]));
+  }, [results]);
 
+  const showRecent = !query.trim() && recentItems.length > 0;
+  const showTypedGroups = query.trim() && groupedResults.length > 0;
   const showActions = !query.trim() || results.length === 0;
+
+  if (!paletteOpen) return null;
 
   return (
     <div
@@ -145,11 +211,31 @@ export default function CommandPalette() {
               </Command.Empty>
             )}
 
-            {results.length > 0 && (
-              <Command.Group heading="Objects" className="cp-palette-group">
-                {results.map((r) => (
+            {showRecent && (
+              <Command.Group heading="Recent" className="cp-palette-group">
+                {recentItems.map((r) => (
                   <Command.Item
-                    key={r.id}
+                    key={`recent-${r.id}`}
+                    value={`recent-${r.id}-${r.display_title || r.title}`}
+                    onSelect={() => handleOpenObject(r)}
+                    className="cp-palette-item"
+                  >
+                    <span
+                      className="cp-palette-type-dot"
+                      style={{ background: r.object_type_color || 'var(--cp-text-muted)' }}
+                    />
+                    <span className="cp-palette-item-title">{r.display_title || r.title}</span>
+                    <span className="cp-palette-item-meta">{r.object_type_name}</span>
+                  </Command.Item>
+                ))}
+              </Command.Group>
+            )}
+
+            {showTypedGroups && groupedResults.map(([group, items]) => (
+              <Command.Group key={group} heading={group} className="cp-palette-group">
+                {items.map((r) => (
+                  <Command.Item
+                    key={`result-${r.id}`}
                     value={`${r.id}-${r.display_title || r.title}`}
                     onSelect={() => handleOpenObject(r)}
                     className="cp-palette-item"
@@ -158,12 +244,24 @@ export default function CommandPalette() {
                       className="cp-palette-type-dot"
                       style={{ background: r.object_type_color || 'var(--cp-text-muted)' }}
                     />
-                    <span className="cp-palette-item-title">
-                      {r.display_title || r.title}
-                    </span>
-                    <span className="cp-palette-item-meta">
-                      {r.object_type_name}
-                    </span>
+                    <span className="cp-palette-item-title">{r.display_title || r.title}</span>
+                    <span className="cp-palette-item-meta">{r.object_type_name}</span>
+                  </Command.Item>
+                ))}
+              </Command.Group>
+            ))}
+
+            {showActions && (
+              <Command.Group heading="Create" className="cp-palette-group">
+                {CREATE_ITEMS.map(({ objectType, label, hint }) => (
+                  <Command.Item
+                    key={objectType}
+                    value={label}
+                    onSelect={() => handleCreate(objectType, label)}
+                    className="cp-palette-item cp-palette-item--action"
+                  >
+                    <span className="cp-palette-item-title">{label}</span>
+                    <span className="cp-palette-item-meta">{hint}</span>
                   </Command.Item>
                 ))}
               </Command.Group>

@@ -32,6 +32,7 @@ import type {
   ApiProjectDetail,
   ApiDailyLog,
   CapturedObject,
+  ObjectListItem,
 } from '@/lib/commonplace';
 import { API_BASE } from '@/lib/commonplace';
 
@@ -150,6 +151,8 @@ function mapGraphResponseToD3(resp: ApiGraphResponse): {
       target: e.target,
       reason: e.reason,
       edge_type: e.edge_type,
+      strength: e.strength,
+      engine: e.engine,
     }));
 
   return { nodes, links };
@@ -487,16 +490,35 @@ export interface PinnedObject {
   edgeCount: number;
 }
 
-/** Fetch up to 6 recently resurfaced objects for the sidebar pinned grid. */
+function normalizeObjectListResponse(
+  data: { results: ObjectListItem[] } | ObjectListItem[],
+): ObjectListItem[] {
+  return Array.isArray(data) ? data : data.results;
+}
+
+/** Fetch up to 6 pinned/starred objects for the sidebar pinned grid. */
 export async function fetchPinnedObjects(): Promise<PinnedObject[]> {
-  const data = await fetchResurface({ count: 6 });
-  return data.cards.map((card) => ({
-    id: card.object.id,
-    slug: card.object.slug,
-    title: card.object.display_title ?? card.object.title,
-    objectTypeName: card.object.object_type_data?.name ?? '',
-    objectTypeColor: card.object.object_type_data?.color ?? '',
-    edgeCount: card.object.edges.length,
+  const [pinnedRaw, starredRaw] = await Promise.all([
+    apiFetch<{ results: ObjectListItem[] } | ObjectListItem[]>('/objects/?pinned=true&page_size=6'),
+    apiFetch<{ results: ObjectListItem[] } | ObjectListItem[]>('/objects/?starred=true&page_size=6'),
+  ]);
+
+  const pinned = normalizeObjectListResponse(pinnedRaw);
+  const starred = normalizeObjectListResponse(starredRaw);
+  const deduped = new Map<number, ObjectListItem>();
+
+  for (const item of [...pinned, ...starred]) {
+    if (!deduped.has(item.id)) deduped.set(item.id, item);
+    if (deduped.size >= 6) break;
+  }
+
+  return Array.from(deduped.values()).map((item) => ({
+    id: item.id,
+    slug: item.slug,
+    title: item.display_title || item.title,
+    objectTypeName: item.object_type_name || '',
+    objectTypeColor: item.object_type_color || '',
+    edgeCount: item.edge_count || 0,
   }));
 }
 

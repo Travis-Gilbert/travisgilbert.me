@@ -1,10 +1,13 @@
 'use client';
 
+import { useEffect, useMemo, useState } from 'react';
 import type { CSSProperties, ReactNode } from 'react';
-import type { MockNode } from '@/lib/commonplace';
+import type { MockNode, ApiComponent } from '@/lib/commonplace';
 import { getObjectTypeIdentity } from '@/lib/commonplace';
 import { useCommonPlace } from '@/lib/commonplace-context';
+import { fetchObjectDetail } from '@/lib/commonplace-api';
 import CardFooter from './CardFooter';
+import HunchSketch from './HunchSketch';
 import TensionBadge from './TensionBadge';
 
 /**
@@ -28,6 +31,8 @@ interface ObjectCardProps {
   mode?: 'grid' | 'timeline';
 }
 
+const hunchComponentCache = new Map<string, ApiComponent[]>();
+
 /* ─────────────────────────────────────────────────
    Utility: saturation encoding
    ───────────────────────────────────────────────── */
@@ -45,6 +50,17 @@ function hexAlpha(hex: string, alpha: number): string {
   const g = parseInt(h.slice(2, 4), 16);
   const b = parseInt(h.slice(4, 6), 16);
   return `rgba(${r}, ${g}, ${b}, ${alpha.toFixed(2)})`;
+}
+
+function truncateLine(text: string, max = 116): string {
+  if (text.length <= max) return text;
+  return `${text.slice(0, max - 3)}...`;
+}
+
+function extractFirstTag(node: MockNode): string | undefined {
+  const source = `${node.summary || ''} ${node.title || ''}`;
+  const match = source.match(/#([A-Za-z0-9_-]+)/);
+  return match?.[1];
 }
 
 /* ─────────────────────────────────────────────────
@@ -309,12 +325,40 @@ function DefaultHeader({ color, sat, label }: { color: string; sat: number; labe
 export default function ObjectCard({
   node,
   onSelect,
+  allNodes = [],
   mode = 'timeline',
 }: ObjectCardProps) {
-  const { openDrawer } = useCommonPlace();
+  const { openDrawer, lastViewedObjectSlug } = useCommonPlace();
   const typeInfo = getObjectTypeIdentity(node.objectType);
   const { color, label } = typeInfo;
   const sat = computeSaturation(node);
+  const firstTag = extractFirstTag(node);
+  const [hunchComponents, setHunchComponents] = useState<ApiComponent[] | null>(null);
+
+  useEffect(() => {
+    if (node.objectType !== 'hunch' || mode !== 'grid') return;
+    const cacheKey = node.objectSlug || node.id;
+    const cached = hunchComponentCache.get(cacheKey);
+    if (cached) {
+      setHunchComponents(cached);
+      return;
+    }
+
+    let cancelled = false;
+    fetchObjectDetail(node.objectSlug)
+      .then((detail) => {
+        if (cancelled) return;
+        hunchComponentCache.set(cacheKey, detail.components);
+        setHunchComponents(detail.components);
+      })
+      .catch(() => {
+        if (!cancelled) setHunchComponents([]);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [node.objectType, node.objectSlug, node.id, mode]);
 
   /* Base card styles shared by all types */
   const baseCardStyle: CSSProperties = {
@@ -435,6 +479,29 @@ export default function ObjectCard({
       e.reason?.toLowerCase().includes('contradict'),
   );
 
+  const whyThis = useMemo(() => {
+    if (node.edges.length === 0) return null;
+
+    const recentNode = lastViewedObjectSlug
+      ? allNodes.find(
+        (n) => n.objectSlug === lastViewedObjectSlug || n.id === lastViewedObjectSlug,
+      )
+      : null;
+
+    const preferredEdge = recentNode
+      ? node.edges.find((e) => e.sourceId === recentNode.id || e.targetId === recentNode.id)
+      : null;
+
+    const candidate = preferredEdge ?? node.edges.find((e) => !!e.reason) ?? null;
+    if (!candidate?.reason) return null;
+    return truncateLine(candidate.reason.trim());
+  }, [node.edges, allNodes, lastViewedObjectSlug]);
+
+  const hasSketch = useMemo(
+    () => (hunchComponents ?? []).some((c) => c.component_type_name.toLowerCase().includes('sketch')),
+    [hunchComponents],
+  );
+
   /* Dispatch the type-specific header */
   let header: ReactNode;
   switch (node.objectType) {
@@ -494,6 +561,21 @@ export default function ObjectCard({
         </div>
       )}
 
+      {node.objectType === 'hunch' && mode === 'grid' && hasSketch && (
+        <div style={{ marginTop: 8 }}>
+          <div className="cp-object-card-sketch-label">Sketch</div>
+          <div className="cp-object-card-sketch-thumb" aria-hidden="true">
+            <HunchSketch objectId={node.objectRef} components={hunchComponents ?? []} mode="thumbnail" />
+          </div>
+        </div>
+      )}
+
+      {whyThis && (
+        <div className="cp-object-card-why-this">
+          Connected: {whyThis}
+        </div>
+      )}
+
       {tensionEdge && (
         <div style={{ marginTop: 6 }}>
           <TensionBadge edgeType={tensionEdge.edge_type} />
@@ -503,6 +585,7 @@ export default function ObjectCard({
       <CardFooter
         capturedAt={node.capturedAt}
         edgeCount={node.edgeCount}
+        firstTag={firstTag}
         typeColor={color}
       />
     </button>

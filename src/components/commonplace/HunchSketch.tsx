@@ -34,6 +34,47 @@ type ShapeStroke = {
 type TextStroke = { type: 'text'; x: number; y: number; text: string; color: string };
 type Stroke = PencilStroke | ShapeStroke | TextStroke;
 
+function toSvgPathData(strokes: Stroke[]): string {
+  const commands: string[] = [];
+  for (const stroke of strokes) {
+    if (stroke.type === 'pencil') {
+      if (stroke.points.length < 2) continue;
+      const [start, ...rest] = stroke.points;
+      commands.push(`M${start[0]},${start[1]}`);
+      for (const point of rest) {
+        commands.push(`L${point[0]},${point[1]}`);
+      }
+      continue;
+    }
+    if (stroke.type === 'rect') {
+      const x = Math.min(stroke.x1, stroke.x2);
+      const y = Math.min(stroke.y1, stroke.y2);
+      const w = Math.abs(stroke.x2 - stroke.x1);
+      const h = Math.abs(stroke.y2 - stroke.y1);
+      commands.push(`M${x},${y}h${w}v${h}h${-w}Z`);
+      continue;
+    }
+    if (stroke.type === 'circle') {
+      const cx = (stroke.x1 + stroke.x2) / 2;
+      const cy = (stroke.y1 + stroke.y2) / 2;
+      const rx = Math.abs(stroke.x2 - stroke.x1) / 2;
+      const ry = Math.abs(stroke.y2 - stroke.y1) / 2;
+      if (rx > 0 && ry > 0) {
+        commands.push(
+          `M${cx - rx},${cy}` +
+          `a${rx},${ry} 0 1,0 ${rx * 2},0` +
+          `a${rx},${ry} 0 1,0 ${-rx * 2},0`,
+        );
+      }
+      continue;
+    }
+    if (stroke.type === 'arrow') {
+      commands.push(`M${stroke.x1},${stroke.y1}L${stroke.x2},${stroke.y2}`);
+    }
+  }
+  return commands.join(' ');
+}
+
 interface HunchSketchProps {
   objectId: number;
   components: ApiComponent[];
@@ -133,8 +174,17 @@ export default function HunchSketch({ objectId, components, mode = 'editor' }: H
 
   const parseStoredStrokes = useCallback((): Stroke[] => {
     if (!existingSketch?.value) return [];
-    try { return JSON.parse(existingSketch.value) as Stroke[]; }
-    catch { return []; }
+    try {
+      const parsed = JSON.parse(existingSketch.value) as unknown;
+      if (Array.isArray(parsed)) return parsed as Stroke[];
+      if (parsed && typeof parsed === 'object' && 'strokes' in parsed) {
+        const maybeStrokes = (parsed as { strokes?: unknown }).strokes;
+        if (Array.isArray(maybeStrokes)) return maybeStrokes as Stroke[];
+      }
+      return [];
+    } catch {
+      return [];
+    }
   }, [existingSketch]);
 
   const [strokes, setStrokes] = useState<Stroke[]>(parseStoredStrokes);
@@ -311,7 +361,12 @@ export default function HunchSketch({ objectId, components, mode = 'editor' }: H
   /* ── Save ────────────────────────────────────── */
   const handleSave = useCallback(async () => {
     setSaving(true);
-    const payload = { value: JSON.stringify(strokes) };
+    const payload = {
+      value: JSON.stringify({
+        svgPathData: toSvgPathData(strokes),
+        strokes,
+      }),
+    };
     try {
       if (existingSketch) {
         await apiFetch(`/components/${existingSketch.id}/`, {

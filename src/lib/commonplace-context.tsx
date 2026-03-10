@@ -57,6 +57,8 @@ interface CommonPlaceContextValue {
   closePalette: () => void;
   /** Slug of the object currently open in the Vaul drawer (null when closed) */
   drawerSlug: string | null;
+  /** Most recently viewed object slug/id opened in the drawer */
+  lastViewedObjectSlug: string | null;
   /** Open the object detail drawer for the given slug */
   openDrawer: (slug: string) => void;
   /** Close the object detail drawer */
@@ -79,6 +81,7 @@ const CommonPlaceContext = createContext<CommonPlaceContextValue>({
   openPalette: () => {},
   closePalette: () => {},
   drawerSlug: null,
+  lastViewedObjectSlug: null,
   openDrawer: () => {},
   closeDrawer: () => {},
 });
@@ -90,6 +93,7 @@ export function CommonPlaceProvider({ children }: { children: ReactNode }) {
   const [viewMode, setViewMode] = useState<'grid' | 'timeline' | 'graph'>('grid');
   const [paletteOpen, setPaletteOpen] = useState(false);
   const [drawerSlug, setDrawerSlug] = useState<string | null>(null);
+  const [lastViewedObjectSlug, setLastViewedObjectSlug] = useState<string | null>(null);
 
   const notifyCaptured = useCallback(() => {
     setCaptureVersion((v) => v + 1);
@@ -120,7 +124,10 @@ export function CommonPlaceProvider({ children }: { children: ReactNode }) {
 
   const openPalette = useCallback(() => setPaletteOpen(true), []);
   const closePalette = useCallback(() => setPaletteOpen(false), []);
-  const openDrawer = useCallback((slug: string) => setDrawerSlug(slug), []);
+  const openDrawer = useCallback((slug: string) => {
+    setDrawerSlug(slug);
+    setLastViewedObjectSlug(slug);
+  }, []);
   const closeDrawer = useCallback(() => setDrawerSlug(null), []);
 
   const value = useMemo(
@@ -140,6 +147,7 @@ export function CommonPlaceProvider({ children }: { children: ReactNode }) {
       openPalette,
       closePalette,
       drawerSlug,
+      lastViewedObjectSlug,
       openDrawer,
       closeDrawer,
     }),
@@ -158,6 +166,7 @@ export function CommonPlaceProvider({ children }: { children: ReactNode }) {
       openPalette,
       closePalette,
       drawerSlug,
+      lastViewedObjectSlug,
       openDrawer,
       closeDrawer,
     ],

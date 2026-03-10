@@ -32,11 +32,12 @@ const SIGNAL_COLORS: Record<string, string> = {
   kge: '#6B7A8A',
   tfidf: '#C49A4A',
   ner: '#2D5F6B',
+  keyword: '#B45A2D',
   supports: '#5A8A5A',
-  contradicts: '#B45A2D',
+  contradicts: '#B3443B',
 };
 
-const DASHED_SIGNALS = new Set(['ner']);
+const DASHED_SIGNALS = new Set(['ner', 'keyword']);
 const NLI_SIGNALS = new Set(['supports', 'contradicts']);
 
 const TYPE_ICON_PATHS: Record<string, string> = {
