@@ -1,4 +1,4 @@
-# FIG. INDEX Easter Egg: Terminal Schematic Board
+# FIG. INDEX Easter Egg: Terminal Schematic Board (v2)
 
 > **For Claude Code.** Read this entire document before touching any files.
 > No em dashes anywhere. Use colons, semicolons, commas, or periods instead.
@@ -12,52 +12,155 @@ New component:    src/components/FigIndexEasterEgg.tsx
 Replaced:         src/components/DotGridEasterEgg.tsx (DELETE after Batch 2)
 Layout:           src/app/(main)/layout.tsx
 Hooks:            src/hooks/useThemeColor.ts (read-only, already exists)
+                  src/hooks/usePrefersReducedMotion.ts (read-only, already exists)
 Theme provider:   src/components/ThemeProvider.tsx (read-only)
+Reference:        src/components/DotGrid.tsx (gradient system to replicate)
 Dependencies:     framer-motion (already installed v12.35.0)
-                  roughjs (already installed v4.6.6)
-                  @phosphor-icons/react (already installed)
+```
+
+## IMPORTANT: What NOT to Import
+
+```
+DO NOT import or use:
+  - roughjs               (removed; use clean SVG lines instead)
+  - @phosphor-icons/react (migrated to Iconoir; use inline SVG paths)
+```
+
+The close icon uses the Iconoir Xmark path rendered as inline SVG:
+
+```tsx
+// Iconoir Xmark (24x24 viewBox)
+const XMARK_PATH = 'M6.758 17.243L12.001 12m5.243-5.243L12 12m0 0L6.758 6.757M12.001 12l5.243 5.243';
+
+function CloseIcon({ size = 14, color = 'currentColor' }: { size?: number; color?: string }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <path d={XMARK_PATH} stroke={color} strokeWidth={1.5}
+        strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
 ```
 
 ## Summary
 
 Replace the DotGrid Easter egg with a terminal-styled schematic board. The board is a 3x2 grid
-of miniature hand-drawn schematics representing all six Easter eggs on the site. It lives in the
-same fixed position as the old DotGrid egg (left: 16, lower-left). In its seed state it shows a
-small breathing canvas glyph. On click, it expands into a dark terminal window. Clicking any tile
+of miniature schematics representing all six Easter eggs on the site. It lives in the same fixed
+position as the old DotGrid egg (left: 16, lower-left). In its seed state it shows a small
+breathing canvas glyph. On click, it expands into a dark terminal window. Clicking any tile
 triggers a framer-motion particle burst that digitizes the schematic, then opens a slide-out panel
 from the right edge with the expanded diagram.
 
-The component supports both light and dark mode via CSS custom properties and the existing
-`useThemeVersion` hook. The terminal surface itself is always dark (it is a terminal), but border
-colors, glow intensities, and backdrop colors adapt to the current theme.
+**No rough.js.** All SVG lines use clean strokes (strokeLinecap: round, strokeLinejoin: round).
+The wobblePath generator still adds hand-drawn jitter, but no rough.js canvas rendering. This
+creates visual contrast with the other Easter eggs that do use rough.js borders.
+
+**Gradient-aware seed glyph.** The component sits in the DotGrid gradient transition zone. The
+seed glyph's dot colors must adapt to the gradient beneath it, reading the same CSS variables
+DotGrid uses and replicating its inversion factor calculation.
+
+## Gradient Awareness System
+
+The DotGrid canvas paints a gradient across the top portion of the viewport:
+- Purple band (#1E1620) at the very top (~7% of viewport)
+- Charcoal (--color-hero-ground, ~#2A2824) easing to paper (--color-paper, ~#F0EBE4)
+- Hermite smoothstep easing over INVERSION_DEPTH (35% in light, 25% in dark)
+- A subtle tail zone (8% of viewport) below the main gradient
+
+The Easter egg's seed glyph is fixed-position at `bottom: calc(25vh - 72px)`. Its vertical
+position in the viewport determines what color the gradient is beneath it. The seed dots must
+blend with this gradient, not fight it.
+
+### Implementation: Replicate getInversionFactor from DotGrid.tsx
+
+Copy the inversion factor logic from DotGrid.tsx into FigIndexEasterEgg.tsx:
+
+```tsx
+const INVERSION_DEPTH = 0.35;
+const DARK_INVERSION_DEPTH = 0.25;
+const GRADIENT_TAIL = 0.08;
+
+function getInversionFactor(y: number, viewportH: number, isDark: boolean): number {
+  const depth = isDark ? DARK_INVERSION_DEPTH : INVERSION_DEPTH;
+  const gradEnd = viewportH * depth;
+  const tailEnd = gradEnd + viewportH * GRADIENT_TAIL;
+
+  if (y <= 0) return 1;
+  if (y < gradEnd) {
+    const t = y / gradEnd;
+    return 1 - (t * t * (3 - 2 * t));
+  }
+  if (y < tailEnd) {
+    const t = (y - gradEnd) / (tailEnd - gradEnd);
+    return (1 - (t * t * (3 - 2 * t))) * 0.15;
+  }
+  return 0;
+}
+```
+
+### Seed glyph color calculation
+
+In the rAF loop that draws the seed canvas:
+
+```tsx
+// Resolve once per theme change:
+const heroGroundRgb = hexToRgb(readCssVar('--color-hero-ground') || '#2A2824');
+const heroTextRgb = hexToRgb(readCssVar('--color-hero-text') || '#F0EBE4');
+const roughLightRgb = hexToRgb(readCssVar('--color-rough-light') || '#9A8E82');
+
+// Per dot in the seed glyph, calculate its screen Y from the wrapper's position:
+const wrapperRect = wrapperRef.current.getBoundingClientRect();
+const dotScreenY = wrapperRect.top + dotLocalY;
+const inv = getInversionFactor(dotScreenY, window.innerHeight, isDarkMode);
+
+// Lerp between normal dot color and inverted dot color:
+const invertedRgb = isDarkMode ? heroGroundRgb : heroTextRgb;
+const baseRgb = roughLightRgb;
+const r = Math.round(baseRgb[0] + (invertedRgb[0] - baseRgb[0]) * inv);
+const g = Math.round(baseRgb[1] + (invertedRgb[1] - baseRgb[1]) * inv);
+const b = Math.round(baseRgb[2] + (invertedRgb[2] - baseRgb[2]) * inv);
+const alpha = (0.5 + inv * 0.15) * breathePulse;
+```
+
+This makes the seed dots cream-on-dark when overlapping the charcoal zone, and warm-muted
+when below on the parchment. The transition is seamless with the DotGrid dots behind it.
+
+### Terminal window border adaptation
+
+When the terminal expands, its border and shadow should also respect the gradient:
+
+```tsx
+// When expanded, check top edge of terminal against gradient
+const terminalTopY = wrapperRect.top;
+const topInv = getInversionFactor(terminalTopY, window.innerHeight, isDarkMode);
+
+// If terminal overlaps the dark gradient zone, lighten the border for contrast
+const borderColor = topInv > 0.3
+  ? 'rgba(255, 255, 255, 0.12)'  // subtle light border on dark ground
+  : isDarkMode
+    ? '#3A3632'                    // dark mode, below gradient
+    : readCssVar('--color-border') || '#D4CCC4'; // light mode, below gradient
+```
 
 ## Design Tokens
 
-The terminal interior uses a fixed dark palette. These are NOT CSS variables; they are constants
-within the component (the terminal is always dark regardless of site theme). Border, backdrop,
-and glow effects DO read from CSS vars so they integrate with the surrounding page.
+Terminal interior: fixed dark palette (always dark regardless of theme).
 
 ```
 Terminal constants (always dark):
-  --fig-black:         #1A1816
-  --fig-surface:       #2A2622
-  --fig-surface-light: #3A3632
-  --fig-border:        #4A4642
-  --fig-border-dim:    #3A3632
-  --fig-text-dim:      #6A5E52
-  --fig-text-muted:    #9A8E82
+  FIG_BLACK:         #1A1816
+  FIG_SURFACE:       #2A2622
+  FIG_SURFACE_LIGHT: #3A3632
+  FIG_BORDER:        #4A4642
+  FIG_BORDER_DIM:    #3A3632
+  FIG_TEXT_DIM:      #6A5E52
+  FIG_TEXT_MUTED:    #9A8E82
 
 Brand accent lines (resolved from CSS vars for theme awareness):
   terracotta:  var(--color-terracotta)   fallback #B45A2D
   teal:        var(--color-teal)         fallback #2D5F6B
   gold:        var(--color-gold)         fallback #C49A4A
   purple:      #6B4F7A                   (constant; no CSS var exists yet)
-
-Glow effects (rgba of brand colors at 15% for tile hover bloom):
-  terracottaGlow:  rgba(180, 90, 45, 0.15)
-  tealGlow:        rgba(45, 95, 107, 0.15)
-  goldGlow:        rgba(196, 154, 74, 0.15)
-  purpleGlow:      rgba(107, 79, 122, 0.15)
 ```
 
 ### Light vs Dark Mode Behavior
@@ -65,20 +168,17 @@ Glow effects (rgba of brand colors at 15% for tile hover bloom):
 | Element                | Light mode                                  | Dark mode                                   |
 |------------------------|---------------------------------------------|---------------------------------------------|
 | Terminal interior      | Always #1A1816 (dark)                       | Always #1A1816 (dark)                       |
-| Terminal border        | 1px solid var(--color-border)               | 1px solid var(--color-dark-border)          |
+| Terminal border        | Gradient-aware (see above)                  | Gradient-aware (see above)                  |
 | Terminal box-shadow    | 0 12px 40px rgba(0,0,0,0.15)               | 0 12px 40px rgba(0,0,0,0.4)                |
-| Seed glyph dots        | Read --color-text-light via readCssVar      | Read --color-text-light via readCssVar      |
+| Seed glyph dots        | Gradient-aware color lerp                   | Gradient-aware color lerp                   |
 | Slide-out backdrop     | rgba(240, 235, 228, 0.5) + blur(6px)       | rgba(26, 24, 22, 0.6) + blur(6px)          |
 | Slide-out panel bg     | Always #1A1816                              | Always #1A1816                              |
 | Slide-out left border  | 1px solid var(--color-border)               | 1px solid #3A3632                           |
-| Hover label below seed | color: var(--color-text-light)              | color: var(--color-text-light)              |
-
-Use `readCssVar` + `useThemeVersion` to re-resolve on theme change, matching the exact pattern
-in `ArchitectureEasterEgg.tsx` and `DesignLanguageEasterEgg.tsx`.
+| Hover label below seed | Gradient-aware (cream in dark zone)         | Gradient-aware                              |
 
 ## Easter Egg Tile Definitions
 
-Six tiles in a 3x2 grid. Each tile maps to an existing Easter egg component.
+Six tiles in a 3x2 grid.
 
 | Index | Fig label | ID              | Primary color | Schematic type      |
 |-------|-----------|-----------------|---------------|---------------------|
@@ -89,31 +189,25 @@ Six tiles in a 3x2 grid. Each tile maps to an existing Easter egg component.
 | 4     | FIG. 4    | dot-grid        | teal          | Vignetted dots      |
 | 5     | FIG. 5    | commonplace     | gold          | Pipeline boxes      |
 
-Each tile's miniature schematic is an inline SVG (viewBox 0 0 50 65) drawn with the wobblePath
-generator using a deterministic mulberry32 seed per tile.
+Each tile's miniature schematic is an inline SVG (viewBox 0 0 50 65) drawn with wobblePath
+using a deterministic mulberry32 seed per tile. Clean strokes, no rough.js.
 
 ## Animation System
 
 ### Phase State Machine
 
-Same 5-phase model as the existing Easter eggs:
+Same 5-phase model as existing Easter eggs:
 
 ```
 seed -> connecting -> expanding -> open -> collapsing -> seed
 ```
 
-The seed state shows a 56x72 canvas glyph (a 3x2 miniature dot cluster representing the grid).
-Clicking triggers connecting (dots form bezier lines), then expanding (wrapper grows to terminal
-size), then open (terminal content fades in with stagger).
-
 Touch devices and `prefers-reduced-motion`: skip animation, jump directly to open/seed.
 
 ### Framer Motion Particle Digitize Effect
 
-When a tile is clicked, BEFORE the slide-out panel opens, a particle burst plays. This uses
-`framer-motion`'s `motion.span` with `animate` for each particle.
-
-**Implementation pattern:**
+When a tile is clicked, BEFORE the slide-out panel opens, a particle burst plays using
+framer-motion's `motion.span` with `animate` for each particle.
 
 ```tsx
 import { motion, AnimatePresence } from 'framer-motion';
@@ -173,17 +267,11 @@ function ParticleBurst({
         {particles.map((p) => (
           <motion.span
             key={p.id}
-            initial={{
-              x: p.x,
-              y: p.y,
-              opacity: 0.9,
-              scale: 1,
-            }}
+            initial={{ x: p.x, y: p.y, opacity: 0.9, scale: 1 }}
             animate={{
               x: p.x + Math.cos(p.angle) * p.distance,
               y: p.y + Math.sin(p.angle) * p.distance,
-              opacity: 0,
-              scale: 0.3,
+              opacity: 0, scale: 0.3,
             }}
             exit={{ opacity: 0 }}
             transition={{
@@ -193,7 +281,7 @@ function ParticleBurst({
             }}
             style={{
               position: 'absolute',
-              fontFamily: "'JetBrains Mono', monospace",
+              fontFamily: 'var(--font-code, monospace)',
               fontSize: p.size,
               color: color,
               pointerEvents: 'none',
@@ -209,14 +297,7 @@ function ParticleBurst({
 }
 ```
 
-The particle characters are binary 0s and 1s. They burst outward from the tile center with
-varying angles and distances, using the tile's brand color. Each particle has a text-shadow glow
-in the brand color at 40% opacity. The burst lasts ~600ms, after which `onComplete` fires and the
-slide-out panel opens.
-
-### Slide-Out Panel
-
-The panel slides in from the right edge of the viewport. Uses framer-motion for entrance:
+### Slide-Out Panel (framer-motion)
 
 ```tsx
 <motion.div
@@ -233,12 +314,43 @@ The panel slides in from the right edge of the viewport. Uses framer-motion for 
 >
 ```
 
-The panel contains:
-1. Header bar: FIG. label, egg name, ESC close button
-2. Schematic SVG: larger version using all four brand colors for subsystem outlines
-3. Metadata grid: 2x2 cards showing TYPE, STATUS, SEED (hex), LINES
-4. Description: left-bordered paragraph with egg.color accent
-5. Footer: "CLICK TILE ON LIVE SITE" + "travisgilbert.me"
+Contents: Header (FIG label + CloseIcon), schematic SVG, metadata grid, description, footer.
+
+### Terminal Window Chrome
+
+Title bar: dark surface (#2A2622), three brand-colored dots (terracotta, gold, teal),
+centered "FIG. INDEX", "v1.0" right.
+
+Prompt line: `$ ls schematics/` with teal `$` prompt, terracotta blinking cursor.
+
+Status bar: "6 SCHEMATICS" left, teal dot + "ALL ACTIVE" center, "travisgilbert.me" right.
+
+### No rough.js Borders
+
+The expanded terminal and slide-out panel use clean CSS borders:
+
+```tsx
+// Terminal window (when expanded):
+border: `1px solid ${borderColor}`,
+borderRadius: 6,
+
+// Slide-out panel:
+borderLeft: `1px solid ${isDark ? '#3A3632' : 'var(--color-border)'}`,
+```
+
+No rough.canvas, no borderCanvasRef, no rough.js import. This creates a deliberately clean,
+terminal-native aesthetic that contrasts with the hand-drawn rough.js borders on the other
+Easter eggs (Architecture, Design Language, etc.).
+
+### Tile Hover Effects
+
+1. Border: #3A3632 to brand color
+2. Inset glow: `box-shadow: 0 0 12px ${glow}, inset 0 0 20px ${glow}`
+3. SVG opacity: 0.65 to 1.0 with drop-shadow
+4. Label: #6A5E52 to brand color with text-shadow
+5. Background: #1A1816 to #2A2622
+
+All transitions: 250ms ease.
 
 ### Scanline Texture
 
@@ -252,26 +364,7 @@ background-image: repeating-linear-gradient(
 );
 ```
 
-Applied as a pointer-events-none div on both terminal and slide-out panel.
-
-### Terminal Window Chrome
-
-Title bar: dark surface (#2A2622), three brand-colored dots (terracotta, gold, teal),
-centered "FIG. INDEX" in Courier Prime, "v1.0" right.
-
-Prompt line: `$ ls schematics/` with teal `$` prompt, terracotta blinking cursor.
-
-Status bar: "6 SCHEMATICS" left, teal dot + "ALL ACTIVE" center, "travisgilbert.me" right.
-
-### Tile Hover Effects
-
-1. Border: #3A3632 to brand color
-2. Inset glow: `box-shadow: 0 0 12px ${glow}, inset 0 0 20px ${glow}`
-3. SVG opacity: 0.65 to 1.0 with drop-shadow
-4. Label: #6A5E52 to brand color with text-shadow
-5. Background: #1A1816 to #2A2622
-
-All transitions: 250ms ease.
+Pointer-events-none div on terminal and slide-out panel.
 
 ---
 
@@ -279,6 +372,37 @@ All transitions: 250ms ease.
 
 **New file:** `src/components/FigIndexEasterEgg.tsx`
 **Gate:** `npm run build` passes with no TS errors
+
+### File structure
+
+```
+'use client';
+
+imports:
+  - { useRef, useEffect, useState, useCallback, useLayoutEffect } from 'react'
+  - { motion, AnimatePresence } from 'framer-motion'
+  - { readCssVar, hexToRgb, useThemeVersion } from '@/hooks/useThemeColor'
+  - { usePrefersReducedMotion } from '@/hooks/usePrefersReducedMotion'
+
+  DO NOT IMPORT: roughjs, @phosphor-icons/react
+
+sections (in order):
+  1. XMARK_PATH constant + CloseIcon component (Iconoir inline SVG)
+  2. mulberry32 PRNG (copy from existing eggs)
+  3. Terminal palette constants (FIG_BLACK, FIG_SURFACE, etc.)
+  4. Gradient awareness: INVERSION_DEPTH, DARK_INVERSION_DEPTH, GRADIENT_TAIL,
+     getInversionFactor() (replicated from DotGrid.tsx)
+  5. EGGS array (6 entries)
+  6. wobblePath generator (jitter-based hand-drawn SVG lines, no roughjs)
+  7. Six miniature schematic renderer functions
+  8. ParticleBurst component (framer-motion)
+  9. SlideOutPanel component (framer-motion motion.div)
+  10. EggTile component (hover state, particle trigger)
+  11. TerminalWindow component (chrome, prompt, status bar)
+  12. Seed glyph generation (6 dots in 3x2 formation + scatter)
+  13. Main FigIndexEasterEgg default export (phase state machine, canvas loop,
+      gradient-aware color resolution, wrapper positioning)
+```
 
 ### Positioning
 
@@ -295,32 +419,90 @@ style={{
 }}
 ```
 
-Matches the exact position of the old DotGridEasterEgg.
-
-### Theme-aware color resolution
+### Gradient-aware theme resolution
 
 ```tsx
 const themeVersion = useThemeVersion();
-const canvasColorsRef = useRef({ /* ... */ });
+const canvasColorsRef = useRef({
+  // Base dot color (below gradient)
+  roughLightRgb: [154, 142, 130] as [number, number, number],
+  // Inverted dot color (in gradient zone)
+  invertedDotRgb: [240, 235, 228] as [number, number, number],
+  // Brand accents
+  terracottaRgb: [180, 90, 45] as [number, number, number],
+  tealRgb: [45, 95, 107] as [number, number, number],
+  goldRgb: [196, 154, 74] as [number, number, number],
+  // Theme state
+  isDark: false,
+  borderColor: '#D4CCC4',
+  backdropColor: 'rgba(240, 235, 228, 0.5)',
+});
 
 useEffect(() => {
-  const tc = readCssVar('--color-terracotta');
-  if (tc) canvasColorsRef.current.terracottaRgb = hexToRgb(tc);
-  // ... resolve teal, gold, rough, border
   const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
-  canvasColorsRef.current.borderColor = isDark
+  const c = canvasColorsRef.current;
+  c.isDark = isDark;
+
+  // Dot colors
+  const rl = readCssVar('--color-rough-light');
+  if (rl) c.roughLightRgb = hexToRgb(rl);
+
+  const heroText = readCssVar('--color-hero-text');
+  const heroGround = readCssVar('--color-hero-ground');
+  c.invertedDotRgb = isDark
+    ? (heroGround ? hexToRgb(heroGround) : [42, 40, 36])
+    : (heroText ? hexToRgb(heroText) : [240, 235, 228]);
+
+  // Brand accents
+  const tc = readCssVar('--color-terracotta');
+  if (tc) c.terracottaRgb = hexToRgb(tc);
+  const tl = readCssVar('--color-teal');
+  if (tl) c.tealRgb = hexToRgb(tl);
+  const gl = readCssVar('--color-gold');
+  if (gl) c.goldRgb = hexToRgb(gl);
+
+  // Border + backdrop
+  c.borderColor = isDark
     ? (readCssVar('--color-dark-border') || '#3A3632')
     : (readCssVar('--color-border') || '#D4CCC4');
-  canvasColorsRef.current.backdropColor = isDark
+  c.backdropColor = isDark
     ? 'rgba(26, 24, 22, 0.6)'
     : 'rgba(240, 235, 228, 0.5)';
 }, [themeVersion]);
 ```
 
+### Seed glyph canvas drawing (gradient-aware)
+
+In the rAF loop:
+
+```tsx
+const wrapperRect = wrapperRef.current?.getBoundingClientRect();
+if (!wrapperRect) return;
+
+const { roughLightRgb, invertedDotRgb, isDark } = canvasColorsRef.current;
+const vh = window.innerHeight;
+
+for (const dot of seedDots) {
+  const screenY = wrapperRect.top + dot.y;
+  const inv = getInversionFactor(screenY, vh, isDark);
+
+  const r = Math.round(roughLightRgb[0] + (invertedDotRgb[0] - roughLightRgb[0]) * inv);
+  const g = Math.round(roughLightRgb[1] + (invertedDotRgb[1] - roughLightRgb[1]) * inv);
+  const b = Math.round(roughLightRgb[2] + (invertedDotRgb[2] - roughLightRgb[2]) * inv);
+  const alpha = (0.35 + 0.15 * Math.sin(breathe + dot.phaseOffset) + inv * 0.15);
+
+  ctx.fillStyle = `rgba(${r},${g},${b},${alpha})`;
+  // draw dot or binary char...
+}
+```
+
 ### Verification checklist
 
 - [ ] `npm run build` passes
-- [ ] Component exports default function FigIndexEasterEgg
+- [ ] No roughjs import anywhere in the file
+- [ ] No @phosphor-icons/react import anywhere in the file
+- [ ] CloseIcon renders Iconoir Xmark SVG inline
+- [ ] Seed glyph dots change color across the gradient transition
 - [ ] All six miniature schematic renderers produce visible SVG paths
 - [ ] ParticleBurst renders framer-motion animated spans
 - [ ] SlideOutPanel slides from right edge
@@ -345,10 +527,13 @@ No other changes. All other Easter eggs stay.
 
 - [ ] `npm run build` passes
 - [ ] Lower-left seed glyph visible on homepage
+- [ ] Seed dots are cream/light when overlapping the dark gradient zone at top
+- [ ] Seed dots are warm-muted when below on the parchment
 - [ ] All other Easter eggs still visible and functional
 - [ ] Click seed: expands to terminal window
-- [ ] Click tile: particle burst, then slide-out panel
-- [ ] Toggle theme: border adapts, terminal interior stays dark
+- [ ] Click tile: particle burst in brand color, then slide-out panel
+- [ ] Toggle theme: seed dots adapt, terminal interior stays dark
+- [ ] No rough.js borders visible on this component (clean CSS borders only)
 
 ---
 
@@ -368,7 +553,8 @@ No other changes. All other Easter eggs stay.
 **Depends on:** Batch 0
 **Gate:** CommonPlace slide-out panel shows full data flow
 
-Render the complete CommonPlace pipeline in the slide-out panel when egg.id === 'commonplace':
+Render the complete CommonPlace pipeline in the slide-out panel when egg.id === 'commonplace'.
+Use clean SVG strokes with wobblePath jitter (no rough.js). Each box outlined in its brand color:
 
 ```
 [User types in Compose]                    gold
@@ -383,7 +569,7 @@ Render the complete CommonPlace pipeline in the slide-out panel when egg.id === 
 [New Edges + Nodes + RetroNote]            gold
 ```
 
-All boxes use wobblePath. Flow arrows use wobblePath. Labels in Courier Prime 7-9px.
+Labels in var(--font-code) or monospace at 7-9px. Flow arrows use wobblePath.
 
 ---
 
@@ -417,22 +603,26 @@ Batch 4: fix(a11y): keyboard nav, focus management, reduced motion for FIG. INDE
 
 ## Key Patterns to Follow
 
-### From existing Easter eggs (copy these exactly):
+### From existing components (copy these exactly):
 - mulberry32 PRNG: deterministic, no Math.random()
-- wobblePath: hand-drawn SVG via quadratic bezier with jitter
+- wobblePath: hand-drawn SVG via quadratic bezier with jitter (NOT roughjs)
 - useThemeVersion + readCssVar + canvasColorsRef: theme-aware canvas
+- getInversionFactor: replicate from DotGrid.tsx for gradient awareness
 - phaseRef + setPhase: ref for rAF, state for React renders
-- isTouchDevice + reducedMotion: detected on mount
-- borderCanvasRef + rough.canvas: rough.js rectangle border
+- isTouchDevice + usePrefersReducedMotion: detected on mount
+- Iconoir SVG paths inline (not package import)
 
-### New patterns:
+### New patterns in this component:
 - framer-motion AnimatePresence + motion.span: particle burst
 - framer-motion motion.div: slide-out panel entrance/exit
 - Blinking cursor: setInterval at 530ms
 - Scanline overlay: repeating-linear-gradient
 - Terminal chrome: window dots, prompt, status bar
+- Gradient-aware seed dot coloring (lerp based on screen Y position)
 
 ### Do NOT:
+- Import roughjs
+- Import @phosphor-icons/react
 - Use em dashes anywhere
 - Use white or near-white backgrounds for the terminal
 - Modify any other Easter egg component
