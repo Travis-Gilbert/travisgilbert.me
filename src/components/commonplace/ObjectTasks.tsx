@@ -17,7 +17,29 @@ interface TaskValue {
   notes?: string;
 }
 
+function isTaskComponent(comp: ApiComponent): boolean {
+  const type = comp.component_type_name.toLowerCase();
+  const key = (comp.key || '').toLowerCase();
+  return (
+    type === 'task' ||
+    (type === 'status' && key.startsWith('task')) ||
+    key === 'task' ||
+    key.startsWith('task-')
+  );
+}
+
 function parseTask(comp: ApiComponent): TaskValue {
+  if (typeof comp.value !== 'string') {
+    const raw = comp.value as unknown as Record<string, unknown>;
+    return {
+      title: String(raw.title ?? comp.key ?? ''),
+      completed: Boolean(raw.completed),
+      due: (raw.due as string | null | undefined) ?? null,
+      priority: (raw.priority as TaskValue['priority']) ?? 'medium',
+      notes: (raw.notes as string | undefined) ?? '',
+    };
+  }
+
   try {
     const parsed = JSON.parse(comp.value);
     return {
@@ -169,7 +191,7 @@ export default function ObjectTasks({
   onComponentsChange: (updated: ApiComponent[]) => void;
 }) {
   const taskComponents = components
-    .filter((c) => c.component_type_name.toLowerCase() === 'task' || c.key === 'task')
+    .filter(isTaskComponent)
     .sort((a, b) => a.sort_order - b.sort_order);
 
   const [showAddForm, setShowAddForm] = useState(false);
@@ -212,6 +234,7 @@ export default function ObjectTasks({
     async (title: string) => {
       setShowAddForm(false);
       const value = JSON.stringify({ title, completed: false, priority: 'medium' });
+      const key = `task-${Date.now()}`;
       const sortOrder = taskComponents.length;
 
       // Optimistic: add temp component with a fake ID
@@ -221,7 +244,7 @@ export default function ObjectTasks({
         component_type: 0,
         component_type_name: 'Task',
         data_type: 'status',
-        key: 'task',
+        key,
         value,
         sort_order: sortOrder,
       };
@@ -230,7 +253,7 @@ export default function ObjectTasks({
       try {
         const result = await createObjectComponent(objectId, {
           component_type_slug: 'task',
-          key: 'task',
+          key,
           value,
           sort_order: sortOrder,
         });
@@ -249,9 +272,7 @@ export default function ObjectTasks({
   const handleReorder = useCallback(
     async (reordered: ApiComponent[]) => {
       // Build the new full components array preserving non-task components
-      const nonTasks = components.filter(
-        (c) => c.component_type_name.toLowerCase() !== 'task' && c.key !== 'task',
-      );
+      const nonTasks = components.filter((c) => !isTaskComponent(c));
       const withNewOrder = reordered.map((c, i) => ({ ...c, sort_order: i }));
       onComponentsChange([...nonTasks, ...withNewOrder]);
 

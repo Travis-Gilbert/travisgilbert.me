@@ -20,6 +20,8 @@ import {
 import { SIDEBAR_SECTIONS, SIDEBAR_TIMELINE_ITEM } from '@/lib/studio';
 import { fetchContentList } from '@/lib/studio-api';
 import { useStudioView } from './StudioViewContext';
+import { useStudioWorkbench } from './WorkbenchContext';
+import SheetList from './SheetList';
 import NewContentModal from './NewContentModal';
 
 /**
@@ -36,6 +38,7 @@ import NewContentModal from './NewContentModal';
 export default function StudioSidebar() {
   const pathname = usePathname();
   const { themeMode, toggleThemeMode } = useStudioView();
+  const { editorState } = useStudioWorkbench();
   const [showNewModal, setShowNewModal] = useState(false);
   const [counts, setCounts] = useState<Record<string, number>>({});
 
@@ -172,6 +175,8 @@ export default function StudioSidebar() {
           + New
         </button>
       </div>
+
+      {editorState.isSheetsMode && <SheetList />}
 
       <nav
         style={{

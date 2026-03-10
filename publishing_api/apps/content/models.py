@@ -8,6 +8,8 @@ Site configuration models (DesignTokenSet, NavItem, PageComposition,
 SiteSettings) serialize to a single src/config/site.json file.
 """
 
+import uuid
+
 from django.db import models
 from django.utils.text import slugify
 
@@ -1084,3 +1086,65 @@ class ContentRevision(TimeStampedModel):
     def __str__(self):
         src = self.get_source_display()
         return f"{self.content_type}:{self.content_slug} r{self.revision_number} ({src})"
+
+
+# ---------------------------------------------------------------------------
+# Sheet: Ulysses-style sub-documents (Batch 16)
+# ---------------------------------------------------------------------------
+
+
+class Sheet(TimeStampedModel):
+    """
+    A sub-document within a content item.
+
+    Multiple sheets compose into a single document on publish.
+    Sheets without is_material are concatenated (in order) to form the
+    published body. Material sheets are reference-only and excluded.
+
+    Attachment pattern mirrors StashItem/ContentTask: content_type +
+    content_slug string keys (no FK), works with all content types.
+    """
+
+    class Status(models.TextChoices):
+        IDEA = "idea", "Idea"
+        DRAFTING = "drafting", "Drafting"
+        LOCKED = "locked", "Locked"
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    content_type = models.CharField(max_length=50)
+    content_slug = models.SlugField(max_length=300)
+    order = models.IntegerField(
+        default=0,
+        help_text="Sort position within the content item. Not unique: bulk reorder updates all at once.",
+    )
+    title = models.CharField(max_length=300, blank=True)
+    body = models.TextField(blank=True)
+    is_material = models.BooleanField(
+        default=False,
+        help_text="Reference-only: excluded from publish concatenation.",
+    )
+    status = models.CharField(
+        max_length=20,
+        choices=Status.choices,
+        blank=True,
+        null=True,
+    )
+
+    class Meta:
+        ordering = ["content_type", "content_slug", "order"]
+        indexes = [
+            models.Index(
+                fields=["content_type", "content_slug", "order"],
+                name="idx_sheet_lookup",
+            ),
+        ]
+
+    def __str__(self):
+        label = self.title or "Untitled"
+        return f"{self.content_type}:{self.content_slug} sheet {self.order} ({label})"
+
+    @property
+    def word_count(self):
+        if not self.body:
+            return 0
+        return len(self.body.split())

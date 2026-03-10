@@ -1,7 +1,7 @@
 """
 Public submission endpoints for community contributions.
 
-These are the only write endpoints in the API (everything else is read-only).
+These are the write endpoints.
 Both POST endpoints require reCAPTCHA v3 verification. Low-scoring submissions
 are still accepted but flagged for extra scrutiny in the admin.
 """

@@ -1413,6 +1413,133 @@ export async function fetchSettings(): Promise<StudioSettings | null> {
   }
 }
 
+/* ─────────────────────────────────────────────────────────────────────────
+   Sheets (Batch 16: Ulysses-style sub-documents)
+   ───────────────────────────────────────────────── */
+
+export interface Sheet {
+  id: string;
+  contentType: string;
+  contentSlug: string;
+  order: number;
+  title: string;
+  body: string;
+  isMaterial: boolean;
+  status: 'idea' | 'drafting' | 'locked' | null;
+  wordCount: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export async function fetchSheets(
+  contentType: string,
+  slug: string,
+): Promise<Sheet[]> {
+  try {
+    const data = await studioFetch<{ sheets: Sheet[] }>(
+      `/content/${contentType}/${slug}/sheets/`,
+    );
+    return data.sheets ?? [];
+  } catch {
+    return [];
+  }
+}
+
+export async function createSheet(
+  contentType: string,
+  slug: string,
+  opts: Partial<Pick<Sheet, 'title' | 'body' | 'isMaterial' | 'status'>> = {},
+): Promise<Sheet | null> {
+  try {
+    return await studioFetch<Sheet>(
+      `/content/${contentType}/${slug}/sheets/`,
+      { method: 'POST', body: JSON.stringify(opts) },
+    );
+  } catch {
+    return null;
+  }
+}
+
+export async function updateSheet(
+  contentType: string,
+  slug: string,
+  id: string,
+  payload: Partial<Pick<Sheet, 'title' | 'body' | 'order' | 'isMaterial' | 'status'>>,
+): Promise<Sheet | null> {
+  try {
+    return await studioFetch<Sheet>(
+      `/content/${contentType}/${slug}/sheets/${id}/`,
+      { method: 'POST', body: JSON.stringify(payload) },
+    );
+  } catch {
+    return null;
+  }
+}
+
+export async function deleteSheet(
+  contentType: string,
+  slug: string,
+  id: string,
+): Promise<boolean> {
+  try {
+    await studioFetch<{ ok: boolean }>(
+      `/content/${contentType}/${slug}/sheets/${id}/`,
+      { method: 'POST', body: JSON.stringify({ action: 'delete' }) },
+    );
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+export async function reorderSheets(
+  contentType: string,
+  slug: string,
+  ids: string[],
+): Promise<Sheet[]> {
+  try {
+    const data = await studioFetch<{ sheets: Sheet[] }>(
+      `/content/${contentType}/${slug}/sheets/reorder/`,
+      { method: 'POST', body: JSON.stringify({ ids }) },
+    );
+    return data.sheets ?? [];
+  } catch {
+    return [];
+  }
+}
+
+export async function splitSheet(
+  contentType: string,
+  slug: string,
+  id: string,
+  position: number,
+): Promise<{ original: Sheet; new: Sheet } | null> {
+  try {
+    return await studioFetch<{ original: Sheet; new: Sheet }>(
+      `/content/${contentType}/${slug}/sheets/${id}/split/`,
+      { method: 'POST', body: JSON.stringify({ position }) },
+    );
+  } catch {
+    return null;
+  }
+}
+
+export async function mergeSheetWithNext(
+  contentType: string,
+  slug: string,
+  id: string,
+): Promise<Sheet | null> {
+  try {
+    const data = await studioFetch<{ sheet: Sheet }>(
+      `/content/${contentType}/${slug}/sheets/${id}/merge-next/`,
+      { method: 'POST', body: JSON.stringify({}) },
+    );
+    return data.sheet ?? null;
+  } catch {
+    return null;
+  }
+}
+
 export async function publishSiteConfig(): Promise<{
   success: boolean;
   error: string;

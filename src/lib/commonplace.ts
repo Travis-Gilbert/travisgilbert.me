@@ -300,6 +300,7 @@ export interface ApiFeedNode {
   has_retrospective: boolean;
   retrospective: { text: string; written_at: string } | null;
   object_id: string;      // "object:<pk>"
+  object_slug?: string;   // optional slug when provided by feed endpoint
 }
 
 /** Day bucket returned by /feed/ */
@@ -428,6 +429,45 @@ export interface ApiResurfaceCard {
 export interface ApiResurfaceResponse {
   cards: ApiResurfaceCard[];
   meta: { count: number };
+}
+
+/* ── Compose live query types (POST /compose/related/) ── */
+
+export type ComposeSignal =
+  | 'tfidf'
+  | 'sbert'
+  | 'kge'
+  | 'ner'
+  | 'supports'
+  | 'contradicts';
+
+export interface ApiComposeObject {
+  id: string; // "object:<pk>"
+  slug: string;
+  type: string;
+  type_color: string;
+  title: string;
+  body_preview: string;
+  score: number;
+  signal: ComposeSignal;
+  explanation: string;
+  dominant_signal?: ComposeSignal;
+  dominant_explanation?: string;
+}
+
+export interface ApiComposeDegraded {
+  degraded: boolean;
+  sbert_unavailable: boolean;
+  kge_unavailable: boolean;
+  reasons: string[];
+}
+
+export interface ApiComposeResponse {
+  query_id: string;
+  text_length: number;
+  passes_run: string[];
+  objects: ApiComposeObject[];
+  degraded: ApiComposeDegraded;
 }
 
 /* ── Notebook types (NotebookListSerializer / NotebookDetailSerializer) ── */

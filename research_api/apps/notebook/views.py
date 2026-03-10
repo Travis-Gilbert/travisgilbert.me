@@ -15,10 +15,21 @@ Custom endpoints:
   GET  /export/notebook/<slug>/  JSON archive export (Task 22)
 """
 
+import base64
+import hashlib
+import io
+import json
+import logging
+import zipfile
 from collections import OrderedDict
 from datetime import timedelta
 
-from django.db.models import Count, Q
+from django.core.cache import cache
+from django.core.files.base import ContentFile
+from django.core.files.storage import default_storage
+from django.db import connection
+from django.db.models import Case, Count, IntegerField, Q, Value, When
+from django.http import HttpResponse
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
 from rest_framework import mixins, serializers, status, viewsets
@@ -60,6 +71,8 @@ from .serializers import (
     RetrospectiveNoteSerializer,
     TimelineSerializer,
 )
+
+logger = logging.getLogger(__name__)
 
 
 # ---------------------------------------------------------------------------
@@ -192,9 +205,55 @@ class ObjectViewSet(viewsets.ModelViewSet):
 
         search = self.request.query_params.get('q')
         if search:
-            qs = qs.filter(search_text__icontains=search)
+            search = search.strip()
+            if search:
+                try:
+                    result_limit = int(
+                        self.request.query_params.get(
+                            'limit',
+                            self.request.query_params.get('page_size', 20),
+                        ),
+                    )
+                except (TypeError, ValueError):
+                    result_limit = 20
+                result_limit = max(1, min(result_limit, 50))
 
-        return qs.order_by('-is_pinned', '-captured_at')
+                if connection.vendor == 'postgresql':
+                    ts_query = "websearch_to_tsquery('english', %s)"
+                    qs = (
+                        qs.extra(
+                            select={
+                                'rank': f'ts_rank_cd(search_vector, {ts_query})',
+                            },
+                            select_params=[search],
+                            where=[f'search_vector @@ {ts_query}'],
+                            params=[search],
+                        )
+                        .order_by('-rank', '-is_pinned', '-captured_at', 'id')
+                    )[:result_limit]
+                else:
+                    qs = (
+                        qs.filter(
+                            Q(title__icontains=search)
+                            | Q(body__icontains=search)
+                            | Q(search_text__icontains=search)
+                        )
+                        .annotate(
+                            search_priority=Case(
+                                When(title__iexact=search, then=Value(5)),
+                                When(title__istartswith=search, then=Value(4)),
+                                When(title__icontains=search, then=Value(3)),
+                                When(body__icontains=search, then=Value(2)),
+                                default=Value(1),
+                                output_field=IntegerField(),
+                            ),
+                        )
+                        .order_by('-search_priority', '-is_pinned', '-captured_at', 'id')
+                    )[:result_limit]
+
+                return qs
+
+        return qs.order_by('-is_pinned', '-captured_at', 'id')
 
     def perform_update(self, serializer):
         """Save the Object and create an explicit modification Node."""
@@ -219,6 +278,28 @@ class ObjectViewSet(viewsets.ModelViewSet):
                 object_ref=instance,
                 timeline=timeline,
             )
+
+    @action(detail=True, methods=['post'], url_path='components')
+    def create_component(self, request, slug=None):
+        """
+        POST /api/v1/notebook/objects/<slug_or_id>/components/
+
+        Create a component scoped to this object. Supports either:
+          - component_type (id)
+          - component_type_slug (slug)
+        """
+        obj = self.get_object()
+        payload = request.data.copy()
+        payload['object'] = obj.pk
+
+        serializer = ComponentWriteSerializer(data=payload)
+        serializer.is_valid(raise_exception=True)
+        component = serializer.save(object=obj)
+
+        return Response(
+            ComponentSerializer(component).data,
+            status=status.HTTP_201_CREATED,
+        )
 
     @action(detail=True, methods=['post'], url_path='delete')
     def soft_delete(self, request, slug=None):
@@ -635,17 +716,33 @@ def quick_capture_view(request):
     data = serializer.validated_data
 
     uploaded = data.get('file')
+    uploaded_bytes = b''
+    uploaded_name = ''
+    uploaded_mime = ''
+
+    extracted_sections = []
+    extracted_metadata = {}
+    extracted_author = ''
+    extracted_method = ''
+    extracted_thumbnails = []
 
     if uploaded:
         # File upload path: route through unified multi-format extractor
         from .file_ingestion import extract_file_content
 
-        file_bytes = uploaded.read()
-        mime_type = getattr(uploaded, 'content_type', '') or ''
-        extracted = extract_file_content(file_bytes, uploaded.name, mime_type)
+        uploaded_bytes = uploaded.read()
+        uploaded_name = uploaded.name
+        uploaded_mime = getattr(uploaded, 'content_type', '') or ''
+        extracted = extract_file_content(uploaded_bytes, uploaded_name, uploaded_mime)
+
+        extracted_sections = extracted.get('sections') or []
+        extracted_metadata = extracted.get('metadata') or {}
+        extracted_author = extracted.get('author', '') or ''
+        extracted_method = extracted.get('method', '') or ''
+        extracted_thumbnails = extracted.get('thumbnails') or []
 
         body = extracted.get('body', '') or ''
-        title = data['title'] or extracted.get('title', '') or uploaded.name
+        title = data['title'] or extracted.get('title', '') or uploaded_name
         # Images default to 'note'; documents default to 'source'
         default_type = 'note' if extracted.get('method', '').startswith('image') else 'source'
         inferred_type = data['hint_type'] or default_type
@@ -669,7 +766,101 @@ def quick_capture_view(request):
         object_type_slug=inferred_type,
         notebook_slug=data['notebook_slug'],
         project_slug=data['project_slug'],
+        file_bytes=uploaded_bytes,
+        filename=uploaded_name,
+        file_content_type=uploaded_mime,
     )
+
+    # Persist file extraction outputs as Components so the Info tab can render rich content.
+    if uploaded:
+        file_component_type = ComponentType.objects.filter(slug='file').first()
+        if file_component_type:
+            sort_base = obj.components.count()
+
+            section_parts = []
+            for section in extracted_sections:
+                if isinstance(section, dict):
+                    heading = str(section.get('heading', '')).strip()
+                    section_body = str(section.get('body', '')).strip()
+                    if heading and section_body:
+                        section_parts.append(f'{heading}\n{section_body}')
+                    elif heading:
+                        section_parts.append(heading)
+                    elif section_body:
+                        section_parts.append(section_body)
+                elif section:
+                    section_parts.append(str(section))
+
+            sections_text = '\n\n'.join(part for part in section_parts if part).strip()
+            if not sections_text:
+                sections_text = body
+
+            if sections_text:
+                Component.objects.update_or_create(
+                    object=obj,
+                    component_type=file_component_type,
+                    key='extracted_sections',
+                    defaults={
+                        'value': sections_text,
+                        'sort_order': sort_base,
+                    },
+                )
+
+            if extracted_author:
+                Component.objects.update_or_create(
+                    object=obj,
+                    component_type=file_component_type,
+                    key='file_author',
+                    defaults={
+                        'value': extracted_author,
+                        'sort_order': sort_base + 1,
+                    },
+                )
+
+            if extracted_method:
+                Component.objects.update_or_create(
+                    object=obj,
+                    component_type=file_component_type,
+                    key='extraction_method',
+                    defaults={
+                        'value': extracted_method,
+                        'sort_order': sort_base + 2,
+                    },
+                )
+
+            if extracted_metadata:
+                Component.objects.update_or_create(
+                    object=obj,
+                    component_type=file_component_type,
+                    key='file_metadata',
+                    defaults={
+                        'value': json.dumps(extracted_metadata),
+                        'sort_order': sort_base + 3,
+                    },
+                )
+
+            if extracted_thumbnails:
+                Component.objects.update_or_create(
+                    object=obj,
+                    component_type=file_component_type,
+                    key='file_thumbnail',
+                    defaults={
+                        'value': extracted_thumbnails[0],
+                        'sort_order': sort_base + 4,
+                    },
+                )
+
+                thumb_name_base = (uploaded_name.rsplit('.', 1)[0] or 'thumb').replace('/', '_')
+                thumbnail_key = f'thumbnails/{obj.sha_hash}/{thumb_name_base}.png'
+                try:
+                    thumb_bytes = base64.b64decode(extracted_thumbnails[0], validate=False)
+                    default_storage.save(thumbnail_key, ContentFile(thumb_bytes))
+
+                    props = Object.objects.filter(pk=obj.pk).values_list('properties', flat=True).first() or {}
+                    props['thumbnail_key'] = thumbnail_key
+                    Object.objects.filter(pk=obj.pk).update(properties=props)
+                except Exception as exc:
+                    logger.debug('Thumbnail storage failed for Object %s: %s', obj.pk, exc)
 
     # Return created Object with detail serializer
     detail = ObjectDetailSerializer(obj).data
@@ -1275,17 +1466,221 @@ def export_notebook_view(request, slug):
 
 
 # ---------------------------------------------------------------------------
+# Export ZIP endpoint (infra core)
+# ---------------------------------------------------------------------------
+
+@api_view(['GET'])
+def export_zip_view(request):
+    """
+    GET /api/v1/notebook/export/
+
+    Returns a ZIP archive containing:
+      - objects.json
+      - edges.json
+      - nodes.json
+      - components.json
+      - manifest.json
+      - files/ (stored original uploads + thumbnails)
+
+    Optional scope:
+      ?notebook=<slug>
+    """
+    notebook_slug = (request.query_params.get('notebook') or '').strip()
+
+    objects_qs = Object.objects.filter(is_deleted=False).select_related(
+        'object_type', 'notebook', 'project',
+    )
+    if notebook_slug:
+        objects_qs = objects_qs.filter(notebook__slug=notebook_slug)
+
+    objects = list(objects_qs.order_by('id'))
+    object_ids = [obj.id for obj in objects]
+
+    components = list(
+        Component.objects
+        .filter(object_id__in=object_ids)
+        .select_related('component_type')
+        .order_by('id')
+    )
+    edges = list(
+        Edge.objects
+        .filter(from_object_id__in=object_ids, to_object_id__in=object_ids)
+        .order_by('id')
+    )
+    nodes = list(
+        Node.objects
+        .filter(object_ref_id__in=object_ids)
+        .select_related('timeline')
+        .order_by('id')
+    )
+
+    objects_data = [{
+        'id': obj.id,
+        'sha_hash': obj.sha_hash,
+        'slug': obj.slug,
+        'title': obj.title,
+        'display_title': obj.display_title,
+        'object_type': obj.object_type.slug if obj.object_type else '',
+        'status': obj.status,
+        'body': obj.body,
+        'url': obj.url,
+        'properties': obj.properties or {},
+        'notebook': obj.notebook.slug if obj.notebook else None,
+        'project': obj.project.slug if obj.project else None,
+        'captured_at': obj.captured_at.isoformat() if obj.captured_at else None,
+        'created_at': obj.created_at.isoformat() if obj.created_at else None,
+        'updated_at': obj.updated_at.isoformat() if obj.updated_at else None,
+    } for obj in objects]
+
+    components_data = [{
+        'id': comp.id,
+        'object_id': comp.object_id,
+        'component_type': comp.component_type.slug if comp.component_type else '',
+        'key': comp.key,
+        'value': comp.value,
+        'sort_order': comp.sort_order,
+    } for comp in components]
+
+    edges_data = [{
+        'id': edge.id,
+        'from_object_id': edge.from_object_id,
+        'to_object_id': edge.to_object_id,
+        'edge_type': edge.edge_type,
+        'reason': edge.reason,
+        'strength': float(edge.strength) if edge.strength is not None else 0.0,
+        'is_auto': edge.is_auto,
+        'engine': edge.engine,
+        'created_at': edge.created_at.isoformat() if edge.created_at else None,
+    } for edge in edges]
+
+    nodes_data = [{
+        'id': node.id,
+        'sha_hash': node.sha_hash,
+        'node_type': node.node_type,
+        'title': node.title,
+        'body': node.body,
+        'object_ref_id': node.object_ref_id,
+        'component_ref_id': node.component_ref_id,
+        'timeline': node.timeline.slug if node.timeline else None,
+        'occurred_at': node.occurred_at.isoformat() if node.occurred_at else None,
+        'created_at': node.created_at.isoformat() if node.created_at else None,
+    } for node in nodes]
+
+    file_keys: set[str] = set()
+    for obj in objects:
+        props = obj.properties or {}
+        for key in ('file_key', 'thumbnail_key'):
+            value = props.get(key)
+            if isinstance(value, str) and value.strip():
+                file_keys.add(value.strip())
+
+    for comp in components:
+        if comp.key in {'file_key', 'thumbnail_key'} and isinstance(comp.value, str):
+            if comp.value.strip():
+                file_keys.add(comp.value.strip())
+
+    buffer = io.BytesIO()
+    missing_files: list[str] = []
+    exported_files: list[str] = []
+
+    with zipfile.ZipFile(buffer, mode='w', compression=zipfile.ZIP_DEFLATED) as archive:
+        archive.writestr('objects.json', json.dumps(objects_data, indent=2))
+        archive.writestr('edges.json', json.dumps(edges_data, indent=2))
+        archive.writestr('nodes.json', json.dumps(nodes_data, indent=2))
+        archive.writestr('components.json', json.dumps(components_data, indent=2))
+
+        for file_key in sorted(file_keys):
+            zip_path = f'files/{file_key.lstrip("/")}'
+            try:
+                with default_storage.open(file_key, 'rb') as src:
+                    archive.writestr(zip_path, src.read())
+                exported_files.append(file_key)
+            except Exception:
+                missing_files.append(file_key)
+
+        manifest = {
+            'version': 'commonplace-export-v1',
+            'exported_at': timezone.now().isoformat(),
+            'scope': {
+                'notebook': notebook_slug or None,
+            },
+            'counts': {
+                'objects': len(objects_data),
+                'edges': len(edges_data),
+                'nodes': len(nodes_data),
+                'components': len(components_data),
+                'files_exported': len(exported_files),
+                'files_missing': len(missing_files),
+            },
+            'files': {
+                'exported': exported_files,
+                'missing': missing_files,
+            },
+        }
+        archive.writestr('manifest.json', json.dumps(manifest, indent=2))
+
+    buffer.seek(0)
+
+    scope_label = notebook_slug or 'all'
+    filename = (
+        f'commonplace-export-{scope_label}-{timezone.now().strftime("%Y%m%d-%H%M%S")}.zip'
+    )
+    response = HttpResponse(buffer.read(), content_type='application/zip')
+    response['Content-Disposition'] = f'attachment; filename=\"{filename}\"'
+    return response
+
+
+# ---------------------------------------------------------------------------
 # Compose Live Query (Task 1)
 # ---------------------------------------------------------------------------
 
-try:
-    from rest_framework.throttling import AnonRateThrottle
+COMPOSE_CACHE_TTL_SECONDS = 300
+COMPOSE_RATE_LIMIT_PER_MINUTE = 90
 
-    class ComposeThrottle(AnonRateThrottle):
-        rate = '600/hour'
-        scope = 'compose'
-except ImportError:
-    ComposeThrottle = None
+
+class ComposeRelatedSerializer(serializers.Serializer):
+    text = serializers.CharField(required=True, allow_blank=True)
+    notebook_slug = serializers.SlugField(required=False, allow_blank=True, default='')
+    limit = serializers.IntegerField(required=False, default=8, min_value=1, max_value=15)
+    min_score = serializers.FloatField(required=False, default=0.25, min_value=0.0, max_value=1.0)
+    enable_nli = serializers.BooleanField(required=False, default=False)
+    passes = serializers.ListField(
+        child=serializers.CharField(),
+        required=False,
+        default=list,
+        allow_empty=True,
+    )
+
+
+def _compose_scope_key(request, notebook_slug: str) -> str:
+    if getattr(request, 'user', None) is not None and request.user.is_authenticated:
+        identity = f'user:{request.user.pk}'
+    elif request.auth:
+        auth_hash = hashlib.md5(str(request.auth).encode()).hexdigest()[:12]
+        identity = f'auth:{auth_hash}'
+    else:
+        fwd = (request.META.get('HTTP_X_FORWARDED_FOR') or '').split(',')[0].strip()
+        ip = fwd or request.META.get('REMOTE_ADDR', 'anon')
+        identity = f'ip:{ip}'
+
+    if notebook_slug:
+        identity = f'{identity}:notebook:{notebook_slug}'
+    return identity
+
+
+def _compose_rate_limited(scope_key: str) -> tuple[bool, int]:
+    bucket = timezone.now().strftime('%Y%m%d%H%M')
+    key = f'ratelimit:compose:{scope_key}:{bucket}'
+
+    try:
+        hits = cache.incr(key)
+    except ValueError:
+        cache.set(key, 1, timeout=65)
+        hits = 1
+    except Exception:
+        hits = 1
+
+    return hits > COMPOSE_RATE_LIMIT_PER_MINUTE, hits
 
 
 @api_view(['POST'])
@@ -1294,25 +1689,70 @@ def compose_related_view(request):
     POST /api/v1/notebook/compose/related/
 
     Real-time related-object query for the Compose Mode Live Graph.
-    Runs 3-pass lightweight engine on unsaved text. Sub-200ms target.
+    Strict pass priority:
+      TF-IDF -> SBERT -> KGE -> NER -> NLI(optional)
 
-    Input: {text, notebook_slug?, limit?, min_score?}
-    Output: {query_id, text_length, passes_run, objects}
+    Input:
+      {
+        text,
+        notebook_slug?,
+        limit?,
+        min_score?,
+        enable_nli?,
+        passes?[]  // optional pass selection override
+      }
+
+    Output:
+      {query_id, text_length, passes_run, objects, degraded}
     """
-    text = request.data.get('text', '').strip()
+    serializer = ComposeRelatedSerializer(data=request.data)
+    serializer.is_valid(raise_exception=True)
+    data = serializer.validated_data
+
+    text = data['text'].strip()
     if len(text) < 20:
         return Response({
             'objects': [],
             'passes_run': [],
             'text_length': len(text),
+            'degraded': {
+                'degraded': False,
+                'sbert_unavailable': False,
+                'kge_unavailable': False,
+                'reasons': [],
+            },
         })
 
-    notebook_slug = request.data.get('notebook_slug', '')
-    limit = min(int(request.data.get('limit', 8)), 15)
-    min_score = float(request.data.get('min_score', 0.25))
+    notebook_slug = data.get('notebook_slug', '')
+    limit = data.get('limit', 8)
+    min_score = data.get('min_score', 0.25)
+    enable_nli = data.get('enable_nli', False)
+    requested_passes = data.get('passes') or []
 
-    import hashlib
-    query_id = hashlib.md5(text[:200].encode()).hexdigest()[:12]
+    scope_key = _compose_scope_key(request, notebook_slug)
+    limited, _hits = _compose_rate_limited(scope_key)
+    if limited:
+        return Response(
+            {
+                'detail': 'Compose query rate limit exceeded. Retry shortly.',
+                'retry_after_seconds': 60,
+            },
+            status=status.HTTP_429_TOO_MANY_REQUESTS,
+        )
+
+    cache_payload = {
+        'text': text,
+        'notebook_slug': notebook_slug,
+        'limit': limit,
+        'min_score': min_score,
+        'enable_nli': enable_nli,
+        'passes': requested_passes,
+    }
+    query_id = hashlib.md5(json.dumps(cache_payload, sort_keys=True).encode()).hexdigest()[:12]
+    cache_key = f'compose:{scope_key}:{query_id}'
+    cached = cache.get(cache_key)
+    if cached:
+        return Response(cached)
 
     from .compose_engine import run_compose_query
     results = run_compose_query(
@@ -1320,11 +1760,21 @@ def compose_related_view(request):
         notebook_slug=notebook_slug or None,
         limit=limit,
         min_score=min_score,
+        enable_nli=enable_nli,
+        requested_passes=requested_passes,
     )
 
-    return Response({
+    response_payload = {
         'query_id': query_id,
         'text_length': len(text),
         'passes_run': results['passes_run'],
         'objects': results['objects'],
-    })
+        'degraded': results.get('degraded') or {
+            'degraded': False,
+            'sbert_unavailable': False,
+            'kge_unavailable': False,
+            'reasons': [],
+        },
+    }
+    cache.set(cache_key, response_payload, timeout=COMPOSE_CACHE_TTL_SECONDS)
+    return Response(response_payload)

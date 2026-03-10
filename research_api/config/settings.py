@@ -13,6 +13,12 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
+try:
+    import django_rq  # noqa: F401
+    HAS_DJANGO_RQ = True
+except Exception:
+    HAS_DJANGO_RQ = False
+
 BASE_DIR = Path(__file__).resolve().parent.parent
 
 SECRET_KEY = os.environ.get(
@@ -40,7 +46,6 @@ INSTALLED_APPS = [
     # Third party
     'rest_framework',
     'corsheaders',
-    'django_rq',
     'storages',
     # Local apps
     'apps.core',
@@ -52,6 +57,9 @@ INSTALLED_APPS = [
     'apps.notebook',
     'apps.comments',
 ]
+
+if HAS_DJANGO_RQ:
+    INSTALLED_APPS.append('django_rq')
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',

@@ -55,16 +55,8 @@ const STORAGE_KEY = 'commonplace-layout';
 export default function SplitPaneContainer() {
   const { toggleMobileSidebar, openMobileSidebar, pendingView, clearPendingView } = useCommonPlace();
   const isMobile = useIsAppShellMobile();
-  const [layout, setLayout] = useState<PaneNode>(() => {
-    if (typeof window !== 'undefined') {
-      const saved = localStorage.getItem(STORAGE_KEY);
-      if (saved) {
-        const parsed = deserializeLayout(saved);
-        if (parsed) return parsed;
-      }
-    }
-    return LAYOUT_PRESETS[0].tree;
-  });
+  const [layout, setLayout] = useState<PaneNode>(LAYOUT_PRESETS[0].tree);
+  const [hasLoadedPersistedLayout, setHasLoadedPersistedLayout] = useState(false);
 
   const [focusedPaneId, setFocusedPaneId] = useState<string | null>(null);
   const [mobileLeafIndex, setMobileLeafIndex] = useState(0);
@@ -76,10 +68,24 @@ export default function SplitPaneContainer() {
     LAYOUT_PRESETS[0].name
   );
 
+  /* Load persisted layout after mount to keep server/client first render deterministic */
+  useEffect(() => {
+    const saved = localStorage.getItem(STORAGE_KEY);
+    if (saved) {
+      const parsed = deserializeLayout(saved);
+      if (parsed) {
+        setLayout(parsed);
+        setActivePresetName(null);
+      }
+    }
+    setHasLoadedPersistedLayout(true);
+  }, []);
+
   /* Persist layout changes to localStorage */
   useEffect(() => {
+    if (!hasLoadedPersistedLayout) return;
     localStorage.setItem(STORAGE_KEY, serializeLayout(layout));
-  }, [layout]);
+  }, [layout, hasLoadedPersistedLayout]);
 
   /* ── Layout mutations (all immutable) ── */
 
