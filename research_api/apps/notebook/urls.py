@@ -43,4 +43,5 @@ urlpatterns = [
     path('export/object/<slug:slug>/', views.export_object_view, name='export-object'),
     path('export/notebook/<slug:slug>/', views.export_notebook_view, name='export-notebook'),
     path('compose/related/', views.compose_related_view, name='compose-related'),
+    path('canvas/suggest/', views.canvas_suggest_view, name='canvas-suggest'),
 ]
