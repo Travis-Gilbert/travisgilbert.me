@@ -1779,3 +1779,31 @@ def compose_related_view(request):
     }
     cache.set(cache_key, response_payload, timeout=COMPOSE_CACHE_TTL_SECONDS)
     return Response(response_payload)
+
+
+@api_view(['POST'])
+def canvas_suggest_view(request):
+    """
+    POST /api/v1/notebook/canvas/suggest/
+
+    Accepts:
+      object_ids  - list of Object PKs to visualize (required)
+      hint        - optional template id fragment to prioritize (e.g. "timeline")
+
+    Returns a ranked list of Vega-Lite specs matching the data shape.
+    """
+    class CanvasSuggestSerializer(serializers.Serializer):
+        object_ids = serializers.ListField(
+            child=serializers.IntegerField(min_value=1),
+            allow_empty=False,
+        )
+        hint = serializers.CharField(required=False, default='', allow_blank=True)
+
+    ser = CanvasSuggestSerializer(data=request.data)
+    ser.is_valid(raise_exception=True)
+
+    from .canvas_engine import extract_canvas_data, suggest_visualizations
+    data = extract_canvas_data(ser.validated_data['object_ids'])
+    specs = suggest_visualizations(data, hint=ser.validated_data.get('hint', ''))
+
+    return Response({'specs': specs})
