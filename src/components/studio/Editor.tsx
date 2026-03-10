@@ -326,38 +326,44 @@ export default function Editor({
   /* Fetch persisted stash and tasks from Django on mount / slug change */
   useEffect(() => {
     let cancelled = false;
-    fetchStash(normalizedContentType, slug).then((items) => {
-      if (cancelled) return;
-      setStash(
-        items.map((i) => ({
-          id: String(i.id),
-          text: i.text,
-          savedAt: new Date(i.created_at).toLocaleTimeString('en-US', {
-            hour: 'numeric',
-            minute: '2-digit',
-            hour12: true,
-          }),
-        })),
-      );
-    });
-    fetchTasks(normalizedContentType, slug).then((apiTasks) => {
-      if (cancelled) return;
-      setTasks(
-        apiTasks.map((t) => ({
-          id: String(t.id),
-          text: t.text,
-          done: t.done,
-          createdAt: t.created_at,
-          contentSlug: slug,
-          contentType: normalizedContentType,
-        })),
-      );
-    });
-    fetchSheets(normalizedContentType, slug).then((items) => {
-      if (cancelled) return;
-      setSheets(items);
-      if (items.length > 0) setActiveSheetId((prev) => prev ?? items[0].id);
-    });
+    fetchStash(normalizedContentType, slug)
+      .then((items) => {
+        if (cancelled) return;
+        setStash(
+          items.map((i) => ({
+            id: String(i.id),
+            text: i.text,
+            savedAt: new Date(i.created_at).toLocaleTimeString('en-US', {
+              hour: 'numeric',
+              minute: '2-digit',
+              hour12: true,
+            }),
+          })),
+        );
+      })
+      .catch(() => { /* stash fetch failure is non-critical; sidebar stays empty */ });
+    fetchTasks(normalizedContentType, slug)
+      .then((apiTasks) => {
+        if (cancelled) return;
+        setTasks(
+          apiTasks.map((t) => ({
+            id: String(t.id),
+            text: t.text,
+            done: t.done,
+            createdAt: t.created_at,
+            contentSlug: slug,
+            contentType: normalizedContentType,
+          })),
+        );
+      })
+      .catch(() => { /* task fetch failure is non-critical; task list stays empty */ });
+    fetchSheets(normalizedContentType, slug)
+      .then((items) => {
+        if (cancelled) return;
+        setSheets(items);
+        if (items.length > 0) setActiveSheetId((prev) => prev ?? items[0].id);
+      })
+      .catch(() => { /* sheet fetch failure is non-critical; sheets panel stays empty */ });
     return () => { cancelled = true; };
   }, [normalizedContentType, slug]);
 
@@ -556,6 +562,11 @@ export default function Editor({
       const markdown = getEditorMarkdown(ed);
       if (markdown !== null) {
         setCurrentBody(markdown);
+        // Keep contentFormat in sync: once the editor serialises to markdown
+        // on first ready, the baseline is markdown. Without this, a remount
+        // would pass markdown content with contentFormat='html' and Tiptap
+        // would render raw markdown as plain text.
+        setContentFormat('markdown');
         snapshotRef.current = JSON.stringify({
           title: currentTitleRef.current,
           body: markdown,
@@ -834,9 +845,19 @@ export default function Editor({
 
   /* ── Sheet callbacks (Batch 16) ─────────────────────────────────── */
 
-  const handleSetActiveSheet = useCallback((id: string) => {
-    setActiveSheetId(id);
-  }, []);
+  const handleSetActiveSheet = useCallback(
+    (id: string) => {
+      setActiveSheetId(id);
+      if (!editor) return;
+      const sheet = sheets.find((s) => s.id === id);
+      if (!sheet) return;
+      const format = detectEditorContentFormat(sheet.body);
+      setContentFormat(format);
+      setCurrentBody(sheet.body);
+      editor.commands.setContent(sheet.body, { emitUpdate: false });
+    },
+    [editor, sheets],
+  );
 
   const handleAddSheet = useCallback(() => {
     createSheet(normalizedContentType, slug).then((sheet) => {
@@ -889,19 +910,24 @@ export default function Editor({
 
   const handleMergeWithNext = useCallback(
     (id: string) => {
-      mergeSheetWithNext(normalizedContentType, slug, id).then((merged) => {
-        if (!merged) return;
-        setSheets((prev) => {
-          const idx = prev.findIndex((s) => s.id === id);
-          if (idx === -1 || idx === prev.length - 1) return prev;
-          const nextId = prev[idx + 1].id;
-          return prev
-            .filter((s) => s.id !== nextId)
-            .map((s) => (s.id === id ? merged : s));
-        });
-      });
+      // Capture nextId synchronously so the server and client agree on which
+      // sheet was consumed, even if the user reorders sheets mid-request.
+      const currentIdx = sheets.findIndex((s) => s.id === id);
+      if (currentIdx === -1 || currentIdx === sheets.length - 1) return;
+      const nextId = sheets[currentIdx + 1].id;
+
+      mergeSheetWithNext(normalizedContentType, slug, id)
+        .then((merged) => {
+          if (!merged) return;
+          setSheets((prev) =>
+            prev
+              .filter((s) => s.id !== nextId)
+              .map((s) => (s.id === id ? merged : s)),
+          );
+        })
+        .catch(() => { toast.error('Merge failed. Please try again.'); });
     },
-    [normalizedContentType, slug],
+    [normalizedContentType, slug, sheets],
   );
 
   const handleToggleMaterial = useCallback(
@@ -1117,7 +1143,7 @@ export default function Editor({
         )}
 
         <TiptapEditor
-          key={slug + '-' + (activeSheetId ?? 'main')}
+          key={slug}
           initialContent={currentBody}
           initialContentFormat={contentFormat}
           onUpdate={handleUpdate}
@@ -1128,6 +1154,7 @@ export default function Editor({
           stageColor={getStage(stage).color}
           yjsDoc={yjsDoc}
           yjsSynced={yjsSynced}
+          activeSheetId={activeSheetId}
           titleZone={
             <div className="studio-title-zone">
               <div className="studio-title-meta">

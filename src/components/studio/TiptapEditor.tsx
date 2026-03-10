@@ -85,6 +85,7 @@ export default function TiptapEditor({
   focusFadeActive = false,
   yjsDoc = null,
   yjsSynced = false,
+  activeSheetId = null,
 }: {
   initialContent?: string;
   initialContentFormat?: 'html' | 'markdown';
@@ -99,6 +100,7 @@ export default function TiptapEditor({
   toolbar?: React.ReactNode;
   paperOverlay?: React.ReactNode;
   focusFadeActive?: boolean;
+  activeSheetId?: string | null;
   /** Optional yjs Doc for local-first IndexedDB persistence. */
   yjsDoc?: Y.Doc | null;
   /** Whether the yjs doc has finished syncing from IndexedDB. */
@@ -143,6 +145,16 @@ export default function TiptapEditor({
   }>({ visible: false, query: '', items: [], referenceRect: null, command: null });
 
   const [chartPickerOpen, setChartPickerOpen] = useState(false);
+
+  /* Close all suggestion popups when the active sheet changes. The popup
+   * states live here in TiptapEditor, but the sheet switch decision lives in
+   * Editor.tsx. Without this, a popup opened via [[ while on sheet A would
+   * remain visible after the user clicks to sheet B. */
+  useEffect(() => {
+    setWikiPopup((prev) => (prev.visible ? { ...prev, visible: false } : prev));
+    setSlashPopup((prev) => (prev.visible ? { ...prev, visible: false } : prev));
+    setMentionPopup((prev) => (prev.visible ? { ...prev, visible: false } : prev));
+  }, [activeSheetId]);
 
   useEffect(() => {
     function onOpenChartPicker() {
