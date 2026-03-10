@@ -7,7 +7,7 @@ import StudioShortcut from '@/components/StudioShortcut';
 import ArchitectureEasterEgg from '@/components/ArchitectureEasterEgg';
 import ResearchAPIEasterEgg from '@/components/ResearchAPIEasterEgg';
 import SourceGraphEasterEgg from '@/components/SourceGraphEasterEgg';
-import DotGridEasterEgg from '@/components/DotGridEasterEgg';
+import FigIndexEasterEgg from '@/components/FigIndexEasterEgg';
 import { PersonJsonLd, WebSiteJsonLd } from '@/components/JsonLd';
 import { getCollection } from '@/lib/content';
 import { getVisibleNav } from '@/lib/siteConfig';
@@ -63,7 +63,7 @@ export default function MainLayout({
       <ArchitectureEasterEgg />
       <ResearchAPIEasterEgg />
       <SourceGraphEasterEgg />
-      <DotGridEasterEgg />
+      <FigIndexEasterEgg />
     </>
   );
 }
