@@ -15,11 +15,13 @@ import logging
 
 import django_rq
 
+from .job_status import update_engine_job_status
+
 logger = logging.getLogger(__name__)
 
 
 @django_rq.job('engine', timeout=600)
-def run_engine_task(obj_pk: int, notebook_slug: str = ''):
+def run_engine_task(obj_pk: int, notebook_slug: str = '', engine_job_id: str = ''):
     """
     Run the full 7-pass connection engine for a single Object.
 
@@ -34,6 +36,13 @@ def run_engine_task(obj_pk: int, notebook_slug: str = ''):
         obj = Object.objects.get(pk=obj_pk)
     except Object.DoesNotExist:
         logger.warning('Engine task: Object %s not found', obj_pk)
+        if engine_job_id:
+            update_engine_job_status(
+                engine_job_id,
+                'failed',
+                error=f'Object {obj_pk} not found',
+                object_id=obj_pk,
+            )
         return
 
     notebook = None
@@ -41,10 +50,38 @@ def run_engine_task(obj_pk: int, notebook_slug: str = ''):
         notebook = Notebook.objects.filter(slug=notebook_slug).first()
 
     try:
-        run_engine(obj, notebook=notebook)
+        if engine_job_id:
+            update_engine_job_status(
+                engine_job_id,
+                'running',
+                object_id=obj.pk,
+                object_slug=obj.slug,
+                object_title=obj.display_title,
+            )
+
+        summary = run_engine(obj, notebook=notebook)
+
+        if engine_job_id:
+            update_engine_job_status(
+                engine_job_id,
+                'complete',
+                summary=summary,
+                object_id=obj.pk,
+                object_slug=obj.slug,
+                object_title=obj.display_title,
+            )
         logger.info('Engine task completed for Object %s (%s)', obj_pk, obj.title[:40])
     except Exception as exc:
         logger.error('Engine task failed for Object %s: %s', obj_pk, exc)
+        if engine_job_id:
+            update_engine_job_status(
+                engine_job_id,
+                'failed',
+                error=str(exc),
+                object_id=obj.pk,
+                object_slug=obj.slug,
+                object_title=obj.display_title,
+            )
         raise  # Let RQ handle retry
 
 

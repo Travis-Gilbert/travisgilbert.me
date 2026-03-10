@@ -108,6 +108,12 @@ const ALL_OBJECT_TYPES = [
   'place', 'task', 'event', 'script', 'note',
 ] as const;
 
+const VIEW_LABELS = {
+  grid: 'Library',
+  timeline: 'Timeline',
+  graph: 'Map',
+} as const;
+
 interface GridViewProps {
   onOpenObject?: (objectRef: number) => void;
 }
@@ -178,11 +184,11 @@ export default function GridView({ onOpenObject }: GridViewProps) {
               className={`cp-view-toggle-btn${mode === 'grid' ? ' cp-view-toggle-btn--active' : ''}`}
               onClick={() => {
                 if (mode === 'timeline') {
-                  requestView('timeline', 'The Timeline');
+                  requestView('timeline', 'Timeline');
                   return;
                 }
                 if (mode === 'graph') {
-                  requestView('network', 'Knowledge Map', {
+                  requestView('network', 'Map', {
                     filterTypes: Array.from(activeTypes),
                   });
                 }
@@ -215,7 +221,7 @@ export default function GridView({ onOpenObject }: GridViewProps) {
                   <line x1={6.5} y1={8.5} x2={6.5} y2={9.8} stroke="currentColor" strokeWidth={0.8} />
                 </svg>
               )}
-              <span>{mode.charAt(0).toUpperCase() + mode.slice(1)}</span>
+              <span>{VIEW_LABELS[mode]}</span>
             </button>
           ))}
         </div>

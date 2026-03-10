@@ -24,7 +24,11 @@ import type {
   ApiCaptureResponse,
   ApiComposeResponse,
   ApiComposeObject,
-  ComposeSignal,
+  ApiComposePassState,
+  ApiCanvasSuggestion,
+  ApiEngineJobStatus,
+  ComposePassId,
+  ComposeResultSignal,
   ApiResurfaceResponse,
   ApiNotebookListItem,
   ApiNotebookDetail,
@@ -277,18 +281,21 @@ export interface ComposeLiveResult {
   title: string;
   bodyPreview: string;
   score: number;
-  signal: ComposeSignal;
+  signal: ComposeResultSignal;
   explanation: string;
+  supportingSignals: ComposeResultSignal[];
 }
 
 export interface ComposeLiveResponse {
   queryId: string;
   textLength: number;
   passesRun: string[];
+  passStates: ApiComposePassState[];
   results: ComposeLiveResult[];
   degraded: {
     degraded: boolean;
     sbertUnavailable: boolean;
+    nliUnavailable: boolean;
     kgeUnavailable: boolean;
     reasons: string[];
   };
@@ -306,6 +313,7 @@ function mapComposeResult(item: ApiComposeObject): ComposeLiveResult {
     score: item.score,
     signal: item.signal,
     explanation: item.explanation,
+    supportingSignals: item.supporting_signals ?? [],
   };
 }
 
@@ -315,7 +323,7 @@ export async function fetchComposeRelated(data: {
   limit?: number;
   min_score?: number;
   enable_nli?: boolean;
-  passes?: ComposeSignal[];
+  passes?: ComposePassId[];
   signal?: AbortSignal;
 }): Promise<ComposeLiveResponse> {
   const { signal, ...payload } = data;
@@ -329,10 +337,12 @@ export async function fetchComposeRelated(data: {
     queryId: resp.query_id,
     textLength: resp.text_length,
     passesRun: resp.passes_run ?? [],
+    passStates: resp.pass_states ?? [],
     results: (resp.objects ?? []).map(mapComposeResult),
     degraded: {
       degraded: !!resp.degraded?.degraded,
       sbertUnavailable: !!resp.degraded?.sbert_unavailable,
+      nliUnavailable: !!resp.degraded?.nli_unavailable,
       kgeUnavailable: !!resp.degraded?.kge_unavailable,
       reasons: resp.degraded?.reasons ?? [],
     },
@@ -388,6 +398,26 @@ export async function captureToApi(data: {
     method: 'POST',
     body: JSON.stringify(data),
   });
+}
+
+export async function fetchEngineJobStatus(
+  jobId: string,
+): Promise<ApiEngineJobStatus> {
+  return apiFetch<ApiEngineJobStatus>(`/engine/jobs/${jobId}/`);
+}
+
+export async function fetchCanvasSuggestions(
+  objectIds: number[],
+  hint?: string,
+): Promise<ApiCanvasSuggestion[]> {
+  const payload: { object_ids: number[]; hint?: string } = { object_ids: objectIds };
+  if (hint) payload.hint = hint;
+
+  const resp = await apiFetch<{ specs: ApiCanvasSuggestion[] }>('/canvas/suggest/', {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  });
+  return resp.specs ?? [];
 }
 
 /** Post a retrospective reflection on a node */

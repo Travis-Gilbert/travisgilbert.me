@@ -1,4 +1,5 @@
 import type { Metadata } from 'next';
+import DotGrid from '@/components/DotGrid';
 import { CommonPlaceProvider } from '@/lib/commonplace-context';
 import CommonPlaceSidebar from '@/components/commonplace/CommonPlaceSidebar';
 import SplitPaneContainer from '@/components/commonplace/SplitPaneContainer';
@@ -48,7 +49,7 @@ export default function CommonPlaceLayout({
 }) {
   return (
     <div
-      className="commonplace-theme"
+      className="commonplace-theme cp-shell-root"
       style={{
         display: 'flex',
         minHeight: '100vh',
@@ -57,6 +58,17 @@ export default function CommonPlaceLayout({
         margin: 0,
       }}
     >
+      <DotGrid
+        dotRadius={0.78}
+        spacing={22}
+        dotColor={[212, 196, 170]}
+        dotOpacity={0.22}
+        binaryDensity={0.14}
+        fadeStart={0.78}
+        fadeEnd={0.98}
+        noGradient
+      />
+
       {/* Terracotta upper-right ambient glow */}
       <div className="cp-ambient-glow" aria-hidden="true" />
 
@@ -67,7 +79,7 @@ export default function CommonPlaceLayout({
 
         {/* Main content area: vignette dots + paper grain + split panes */}
         <main
-          className="cp-vignette-dots cp-grain"
+          className="cp-main-surface cp-vignette-dots cp-grain"
           style={{
             flex: 1,
             minWidth: 0,

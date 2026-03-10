@@ -1,25 +1,37 @@
 """
-Compose engine: strict-priority live query for write-time discovery.
+Compose engine: ordered live query for write-time discovery.
 
-Priority order (spec): TF-IDF -> SBERT (FAISS) -> KGE -> NER -> NLI (optional)
+Live pass order:
+  NER -> shared entity -> keyword overlap -> TF-IDF -> SBERT -> NLI
+
+KGE remains available as an optional post-save/deepen signal, but it is not part
+of the default live-writing pass set.
 
 Design goals:
 - Real-time responses with graceful degradation when advanced models are absent.
 - Merge duplicates by maximum score, keeping dominant signal/explanation.
-- Preserve a stable response contract for the Compose live graph.
+- Preserve supporting signals so the UI can show why a match stayed relevant.
+- Expose pass-by-pass execution state for the Compose instrument ribbon.
 """
 
 import logging
-from dataclasses import dataclass
+from dataclasses import dataclass, field
+
+from django.db.models import Q
 
 from .models import Object, ResolvedEntity
 
 logger = logging.getLogger(__name__)
 
-PASS_PRIORITY = ('tfidf', 'sbert', 'kge', 'ner', 'nli')
+PASS_PRIORITY = ('ner', 'shared_entity', 'keyword', 'tfidf', 'sbert', 'nli', 'kge')
 
-DEFAULT_PASS_SET = {'tfidf', 'sbert', 'kge', 'ner'}
+DEFAULT_PASS_SET = {'ner', 'shared_entity', 'keyword', 'tfidf', 'sbert'}
 NLI_PASS_ALIASES = {'nli', 'supports', 'contradicts'}
+PASS_ALIASES = {
+    'entities': 'shared_entity',
+    'entity': 'shared_entity',
+    'keywords': 'keyword',
+}
 
 
 @dataclass
@@ -28,15 +40,16 @@ class Candidate:
     score: float
     signal: str
     explanation: str
+    supporting_signals: list[str] = field(default_factory=list)
 
 
 # ---------------------------------------------------------------------------
 # Text-only NER helper (no DB writes)
 # ---------------------------------------------------------------------------
 
-def extract_entities_from_text(text: str) -> list[tuple[str, str]]:
+def extract_entities_from_text(text: str) -> list[tuple[str, str, str]]:
     """
-    Run spaCy NER on raw text, return (normalized_text, entity_type) pairs.
+    Run spaCy NER on raw text, return (normalized_text, entity_type, raw_text).
     Does NOT write to the database. Safe to call from any context.
     """
     from .engine import ENTITY_TYPES_OF_INTEREST, nlp
@@ -46,7 +59,7 @@ def extract_entities_from_text(text: str) -> list[tuple[str, str]]:
 
     doc = nlp(text)
     return [
-        (ent.text.lower().strip(), ent.label_)
+        (ent.text.lower().strip(), ent.label_, ent.text.strip())
         for ent in doc.ents
         if ent.label_ in ENTITY_TYPES_OF_INTEREST and len(ent.text.strip()) >= 2
     ]
@@ -66,16 +79,18 @@ def _resolve_passes(
             enabled.add('nli')
         return [p for p in PASS_PRIORITY if p in enabled]
 
+    enabled: set[str] = set()
     lowered = {str(p).strip().lower() for p in requested_passes if str(p).strip()}
-    enabled = {
-        'tfidf' if p == 'keyword' else p
-        for p in lowered
-        if p in set(PASS_PRIORITY) | NLI_PASS_ALIASES | {'keyword'}
-    }
-    if enabled & NLI_PASS_ALIASES:
-        enabled.add('nli')
-    enabled.discard('supports')
-    enabled.discard('contradicts')
+    valid = set(PASS_PRIORITY)
+
+    for item in lowered:
+        if item in NLI_PASS_ALIASES:
+            enabled.add('nli')
+            continue
+
+        aliased = PASS_ALIASES.get(item, item)
+        if aliased in valid:
+            enabled.add(aliased)
 
     if enable_nli:
         enabled.add('nli')
@@ -101,8 +116,12 @@ def _merge_candidate(
             score=float(score),
             signal=signal,
             explanation=explanation,
+            supporting_signals=[signal],
         )
         return
+
+    if signal not in current.supporting_signals:
+        current.supporting_signals.append(signal)
 
     # Dominant signal/explanation is kept from the max score contributor.
     if float(score) > current.score:
@@ -114,6 +133,8 @@ def _merge_candidate(
 def _build_degraded(
     sbert_requested: bool,
     sbert_available: bool,
+    nli_requested: bool,
+    nli_available: bool,
     kge_requested: bool,
     kge_available: bool,
 ) -> dict:
@@ -121,15 +142,43 @@ def _build_degraded(
 
     if sbert_requested and not sbert_available:
         reasons.append('sbert_unavailable')
+    if nli_requested and not nli_available:
+        reasons.append('nli_unavailable')
     if kge_requested and not kge_available:
         reasons.append('kge_unavailable')
 
     return {
         'degraded': bool(reasons),
         'sbert_unavailable': sbert_requested and not sbert_available,
+        'nli_unavailable': nli_requested and not nli_available,
         'kge_unavailable': kge_requested and not kge_available,
         'reasons': reasons,
     }
+
+
+def _append_pass_state(
+    pass_states: list[dict],
+    pass_id: str,
+    *,
+    status: str,
+    match_count: int,
+    degraded_reason: str = '',
+) -> None:
+    pass_states.append({
+        'id': pass_id,
+        'status': status,
+        'match_count': match_count,
+        'degraded_reason': degraded_reason,
+    })
+
+
+def _keyword_overlap_explanation(overlap: set[str]) -> str:
+    top = sorted(overlap, key=len, reverse=True)[:4]
+    if not top:
+        return 'Shared keyword overlap.'
+    if len(top) == 1:
+        return f'Shared keyword focus on {top[0]}.'
+    return f'Shared keyword field: {", ".join(top[:-1])} and {top[-1]}.'
 
 
 # ---------------------------------------------------------------------------
@@ -174,7 +223,8 @@ def run_compose_query(
     }
     """
     pass_order = _resolve_passes(requested_passes, enable_nli)
-    passes_run: list[str] = []
+    passes_run = list(pass_order)
+    pass_states: list[dict] = []
 
     results_map: dict[int, Candidate] = {}
 
@@ -201,13 +251,182 @@ def run_compose_query(
         sbert_available = False
         kge_available = False
 
-    # Precompute entities once so NER and KGE can share them.
+    nli_available = bool(_HAS_PYTORCH)
+
+    # Precompute entities once so NER, shared-entity, and KGE can share them.
     extracted_entities = extract_entities_from_text(text)
+    normalized_texts = [e[0] for e in extracted_entities]
 
     # ------------------------------------------------------------------
-    # Pass 1: TF-IDF
+    # Pass 1: direct NER object mentions
+    # ------------------------------------------------------------------
+    if 'ner' in pass_order:
+        matched_ids: set[int] = set()
+        try:
+            ner_matches = (
+                ResolvedEntity.objects
+                .filter(normalized_text__in=normalized_texts)
+                .filter(resolved_object__isnull=False)
+                .filter(resolved_object__is_deleted=False)
+                .filter(resolved_object__status='active')
+                .select_related('resolved_object__object_type')
+            )
+            if notebook_slug:
+                ner_matches = ner_matches.filter(
+                    resolved_object__notebook__slug=notebook_slug,
+                )
+
+            seen_resolved: set[int] = set()
+            for entity in ner_matches:
+                resolved = entity.resolved_object
+                if resolved is None or resolved.pk in seen_resolved:
+                    continue
+                seen_resolved.add(resolved.pk)
+                _merge_candidate(
+                    results_map,
+                    pk=resolved.pk,
+                    score=0.72,
+                    signal='ner',
+                    explanation=f'Directly names {resolved.display_title}.',
+                )
+                matched_ids.add(resolved.pk)
+
+            if not matched_ids:
+                from .engine import ENTITY_TO_OBJECT_TYPE
+
+                for _normalized, entity_type, raw_text in extracted_entities:
+                    target_type = ENTITY_TO_OBJECT_TYPE.get(entity_type)
+                    direct_qs = Object.objects.filter(
+                        is_deleted=False,
+                        status='active',
+                    )
+                    if notebook_slug:
+                        direct_qs = direct_qs.filter(notebook__slug=notebook_slug)
+                    if target_type:
+                        direct_qs = direct_qs.filter(object_type__slug=target_type)
+
+                    direct_qs = direct_qs.filter(
+                        Q(title__iexact=raw_text)
+                        | Q(title__iexact=_normalized)
+                        | Q(title__icontains=raw_text)
+                    )[:3]
+
+                    for obj in direct_qs:
+                        _merge_candidate(
+                            results_map,
+                            pk=obj.pk,
+                            score=0.72,
+                            signal='ner',
+                            explanation=f'Directly names {obj.display_title}.',
+                        )
+                        matched_ids.add(obj.pk)
+        except Exception as exc:
+            logger.debug('Compose NER pass skipped: %s', exc)
+
+        _append_pass_state(
+            pass_states,
+            'ner',
+            status='complete',
+            match_count=len(matched_ids),
+        )
+
+    # ------------------------------------------------------------------
+    # Pass 2: shared entity overlap
+    # ------------------------------------------------------------------
+    if 'shared_entity' in pass_order:
+        matched_ids: set[int] = set()
+        if normalized_texts:
+            try:
+                matches = (
+                    ResolvedEntity.objects
+                    .filter(normalized_text__in=normalized_texts)
+                    .filter(source_object__is_deleted=False)
+                    .filter(source_object__status='active')
+                    .select_related('source_object__object_type')
+                )
+                if notebook_slug:
+                    matches = matches.filter(source_object__notebook__slug=notebook_slug)
+
+                for match in matches:
+                    if not match.source_object_id:
+                        continue
+                    _merge_candidate(
+                        results_map,
+                        pk=match.source_object_id,
+                        score=0.58,
+                        signal='shared_entity',
+                        explanation=f'Shares entity {match.text} ({match.entity_type}).',
+                    )
+                    matched_ids.add(match.source_object_id)
+            except Exception as exc:
+                logger.debug('Compose shared_entity pass skipped: %s', exc)
+
+        _append_pass_state(
+            pass_states,
+            'shared_entity',
+            status='complete',
+            match_count=len(matched_ids),
+        )
+
+    # ------------------------------------------------------------------
+    # Pass 3: keyword overlap
+    # ------------------------------------------------------------------
+    if 'keyword' in pass_order:
+        matched_ids: set[int] = set()
+        try:
+            from .engine import _build_full_text, _extract_keywords
+
+            my_keywords = _extract_keywords(text)
+            if len(my_keywords) >= 2:
+                threshold = max(min_score * 0.5, 0.14)
+                candidates = list(
+                    base_qs
+                    .exclude(search_text='')
+                    .select_related('object_type')
+                    .order_by('-captured_at')[:400]
+                )
+
+                for candidate in candidates:
+                    other_keywords = _extract_keywords(_build_full_text(candidate))
+                    if len(other_keywords) < 2:
+                        continue
+
+                    overlap = my_keywords & other_keywords
+                    if len(overlap) < 2:
+                        continue
+
+                    union = my_keywords | other_keywords
+                    if not union:
+                        continue
+
+                    jaccard = len(overlap) / len(union)
+                    if jaccard < threshold:
+                        continue
+
+                    strength = min(jaccard * 2, 1.0)
+                    _merge_candidate(
+                        results_map,
+                        pk=candidate.pk,
+                        score=float(strength),
+                        signal='keyword',
+                        explanation=_keyword_overlap_explanation(overlap),
+                    )
+                    matched_ids.add(candidate.pk)
+        except Exception as exc:
+            logger.debug('Compose keyword pass skipped: %s', exc)
+
+        _append_pass_state(
+            pass_states,
+            'keyword',
+            status='complete',
+            match_count=len(matched_ids),
+        )
+
+    # ------------------------------------------------------------------
+    # Pass 4: TF-IDF
     # ------------------------------------------------------------------
     if 'tfidf' in pass_order:
+        matched_ids: set[int] = set()
         try:
             from .engine import _get_or_build_tfidf_corpus
             from sklearn.metrics.pairwise import cosine_similarity
@@ -235,16 +454,31 @@ def run_compose_query(
                         signal='tfidf',
                         explanation='Statistical topic similarity via TF-IDF.',
                     )
+                    matched_ids.add(pk)
         except Exception as exc:
             logger.debug('Compose TF-IDF pass skipped: %s', exc)
 
-        passes_run.append('tfidf')
+        _append_pass_state(
+            pass_states,
+            'tfidf',
+            status='complete',
+            match_count=len(matched_ids),
+        )
 
     # ------------------------------------------------------------------
-    # Pass 2: SBERT semantic similarity via FAISS
+    # Pass 5: SBERT semantic similarity via FAISS
     # ------------------------------------------------------------------
     if 'sbert' in pass_order:
-        if sbert_available:
+        matched_ids: set[int] = set()
+        if not sbert_available:
+            _append_pass_state(
+                pass_states,
+                'sbert',
+                status='degraded',
+                match_count=0,
+                degraded_reason='sbert_unavailable',
+            )
+        else:
             try:
                 from .vector_store import faiss_find_similar_text
 
@@ -262,117 +496,31 @@ def run_compose_query(
                         signal='sbert',
                         explanation='Semantic similarity via SBERT embeddings (FAISS).',
                     )
+                    matched_ids.add(match['pk'])
             except Exception as exc:
                 logger.debug('Compose SBERT pass skipped: %s', exc)
 
-            passes_run.append('sbert')
-
-    # ------------------------------------------------------------------
-    # Pass 3: KGE structural similarity
-    # ------------------------------------------------------------------
-    if 'kge' in pass_order:
-        if kge_available:
-            try:
-                seed_shas: set[str] = set()
-
-                if extracted_entities:
-                    normalized_texts = [e[0] for e in extracted_entities]
-                    entity_matches = (
-                        ResolvedEntity.objects
-                        .filter(normalized_text__in=normalized_texts)
-                        .filter(source_object__is_deleted=False)
-                        .select_related('source_object')
-                    )
-                    if notebook_slug:
-                        entity_matches = entity_matches.filter(
-                            source_object__notebook__slug=notebook_slug,
-                        )
-
-                    for match in entity_matches:
-                        if match.source_object and match.source_object.sha_hash:
-                            seed_shas.add(match.source_object.sha_hash)
-
-                # If there are no direct entity seeds, use top scored objects so far.
-                if not seed_shas and results_map:
-                    top_seed_pks = [
-                        c.pk for c in sorted(
-                            results_map.values(),
-                            key=lambda r: r.score,
-                            reverse=True,
-                        )[:3]
-                    ]
-                    for obj in Object.objects.filter(pk__in=top_seed_pks):
-                        if obj.sha_hash:
-                            seed_shas.add(obj.sha_hash)
-
-                if seed_shas:
-                    sha_to_pk = {
-                        o.sha_hash: o.pk
-                        for o in Object.objects.filter(
-                            sha_hash__isnull=False,
-                            is_deleted=False,
-                        ).exclude(sha_hash='')
-                    }
-
-                    for seed_sha in seed_shas:
-                        matches = kge_store.find_similar_entities(
-                            sha_hash=seed_sha,
-                            top_n=max(limit, 8),
-                            threshold=max(min_score, 0.45),
-                        )
-                        for match in matches:
-                            pk = sha_to_pk.get(match['sha_hash'])
-                            if not pk:
-                                continue
-                            if scoped_ids is not None and pk not in scoped_ids:
-                                continue
-                            _merge_candidate(
-                                results_map,
-                                pk=pk,
-                                score=float(match['score']),
-                                signal='kge',
-                                explanation='Structural similarity in the knowledge graph (KGE).',
-                            )
-            except Exception as exc:
-                logger.debug('Compose KGE pass skipped: %s', exc)
-
-            passes_run.append('kge')
-
-    # ------------------------------------------------------------------
-    # Pass 4: NER entity overlap (supplementary)
-    # ------------------------------------------------------------------
-    if 'ner' in pass_order:
-        if extracted_entities:
-            normalized_texts = [e[0] for e in extracted_entities]
-
-            matches = (
-                ResolvedEntity.objects
-                .filter(normalized_text__in=normalized_texts)
-                .filter(source_object__is_deleted=False)
-                .filter(source_object__status='active')
-                .select_related('source_object__object_type')
+            _append_pass_state(
+                pass_states,
+                'sbert',
+                status='complete',
+                match_count=len(matched_ids),
             )
-            if notebook_slug:
-                matches = matches.filter(source_object__notebook__slug=notebook_slug)
-
-            for match in matches:
-                if not match.source_object_id:
-                    continue
-                _merge_candidate(
-                    results_map,
-                    pk=match.source_object_id,
-                    score=0.58,
-                    signal='ner',
-                    explanation=f'Both mention {match.text} ({match.entity_type}).',
-                )
-
-        passes_run.append('ner')
 
     # ------------------------------------------------------------------
-    # Pass 5: Optional NLI signal (support/contradiction)
+    # Pass 6: Optional NLI signal (support/contradiction)
     # ------------------------------------------------------------------
-    if 'nli' in pass_order and enable_nli:
-        if _HAS_PYTORCH:
+    if 'nli' in pass_order:
+        matched_ids: set[int] = set()
+        if not nli_available:
+            _append_pass_state(
+                pass_states,
+                'nli',
+                status='degraded',
+                match_count=0,
+                degraded_reason='nli_unavailable',
+            )
+        else:
             try:
                 from apps.research.advanced_nlp import analyze_pair
                 from .engine import _build_full_text
@@ -420,6 +568,7 @@ def run_compose_query(
                                 f'({contradiction_prob:.0%} contradiction).'
                             ),
                         )
+                        matched_ids.add(obj.pk)
                     elif entailment_prob >= 0.60 and entailment_prob >= contradiction_prob:
                         score = entailment_prob * max(similarity, item.score)
                         _merge_candidate(
@@ -432,10 +581,100 @@ def run_compose_query(
                                 f'({entailment_prob:.0%} entailment).'
                             ),
                         )
+                        matched_ids.add(obj.pk)
             except Exception as exc:
                 logger.debug('Compose NLI pass skipped: %s', exc)
 
-            passes_run.append('nli')
+            _append_pass_state(
+                pass_states,
+                'nli',
+                status='complete',
+                match_count=len(matched_ids),
+            )
+
+    # ------------------------------------------------------------------
+    # Pass 7: optional KGE structural similarity (not in default live set)
+    # ------------------------------------------------------------------
+    if 'kge' in pass_order:
+        matched_ids: set[int] = set()
+        if not kge_available:
+            _append_pass_state(
+                pass_states,
+                'kge',
+                status='degraded',
+                match_count=0,
+                degraded_reason='kge_unavailable',
+            )
+        else:
+            try:
+                seed_shas: set[str] = set()
+
+                if normalized_texts:
+                    entity_matches = (
+                        ResolvedEntity.objects
+                        .filter(normalized_text__in=normalized_texts)
+                        .filter(source_object__is_deleted=False)
+                        .select_related('source_object')
+                    )
+                    if notebook_slug:
+                        entity_matches = entity_matches.filter(
+                            source_object__notebook__slug=notebook_slug,
+                        )
+
+                    for match in entity_matches:
+                        if match.source_object and match.source_object.sha_hash:
+                            seed_shas.add(match.source_object.sha_hash)
+
+                if not seed_shas and results_map:
+                    top_seed_pks = [
+                        c.pk for c in sorted(
+                            results_map.values(),
+                            key=lambda r: r.score,
+                            reverse=True,
+                        )[:3]
+                    ]
+                    for obj in Object.objects.filter(pk__in=top_seed_pks):
+                        if obj.sha_hash:
+                            seed_shas.add(obj.sha_hash)
+
+                if seed_shas:
+                    sha_to_pk = {
+                        o.sha_hash: o.pk
+                        for o in Object.objects.filter(
+                            sha_hash__isnull=False,
+                            is_deleted=False,
+                        ).exclude(sha_hash='')
+                    }
+
+                    for seed_sha in seed_shas:
+                        matches = kge_store.find_similar_entities(
+                            sha_hash=seed_sha,
+                            top_n=max(limit, 8),
+                            threshold=max(min_score, 0.45),
+                        )
+                        for match in matches:
+                            pk = sha_to_pk.get(match['sha_hash'])
+                            if not pk:
+                                continue
+                            if scoped_ids is not None and pk not in scoped_ids:
+                                continue
+                            _merge_candidate(
+                                results_map,
+                                pk=pk,
+                                score=float(match['score']),
+                                signal='kge',
+                                explanation='Structural similarity in the knowledge graph (KGE).',
+                            )
+                            matched_ids.add(pk)
+            except Exception as exc:
+                logger.debug('Compose KGE pass skipped: %s', exc)
+
+            _append_pass_state(
+                pass_states,
+                'kge',
+                status='complete',
+                match_count=len(matched_ids),
+            )
 
     # ------------------------------------------------------------------
     # Merge, sort, limit, and serialize
@@ -449,6 +688,8 @@ def run_compose_query(
     degraded = _build_degraded(
         sbert_requested='sbert' in pass_order,
         sbert_available=sbert_available,
+        nli_requested='nli' in pass_order,
+        nli_available=nli_available,
         kge_requested='kge' in pass_order,
         kge_available=kge_available,
     )
@@ -456,6 +697,7 @@ def run_compose_query(
     if not ranked_results:
         return {
             'passes_run': passes_run,
+            'pass_states': pass_states,
             'objects': [],
             'degraded': degraded,
         }
@@ -490,10 +732,15 @@ def run_compose_query(
             'explanation': result.explanation,
             'dominant_signal': result.signal,
             'dominant_explanation': result.explanation,
+            'supporting_signals': [
+                signal for signal in result.supporting_signals
+                if signal != result.signal
+            ],
         })
 
     return {
         'passes_run': passes_run,
+        'pass_states': pass_states,
         'objects': objects,
         'degraded': degraded,
     }

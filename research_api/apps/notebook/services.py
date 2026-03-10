@@ -17,6 +17,7 @@ from django.core.files.storage import default_storage
 from django.core.files.base import ContentFile
 from django.utils import timezone
 
+from .job_status import create_engine_job_id, update_engine_job_status
 from .models import Node, Notebook, Object, ObjectType, Project, Timeline
 
 logger = logging.getLogger(__name__)
@@ -152,7 +153,7 @@ def quick_capture(
     file_bytes: bytes = b'',
     filename: str = '',
     file_content_type: str = '',
-) -> Object:
+) -> tuple[Object, str]:
     """
     Create an Object from raw input.
 
@@ -161,7 +162,7 @@ def quick_capture(
       File provided -> Source (PDF, DOCX) or Note (image, text)
       Text only    -> Note
 
-    Returns the created Object. Also triggers:
+    Returns the created Object and the public engine job id. Also triggers:
     1. URL enrichment (synchronous, fast)
     2. File storage to S3 (synchronous, fast)
     3. File text extraction (synchronous for Tier 1)
@@ -238,27 +239,34 @@ def quick_capture(
         )
 
     # Run connection engine (queue-backed when available, inline fallback otherwise).
-    _dispatch_engine_job(obj.pk, notebook_slug=notebook_slug)
+    engine_job_id = str(_dispatch_engine_job(obj.pk, notebook_slug=notebook_slug))
 
     # Queue heavy file processing if needed (SAM-2 via Modal, etc.)
     if file_key and _needs_heavy_processing(filename):
         _dispatch_file_ingestion_job(obj.pk, file_key)
 
-    return obj
+    return obj, engine_job_id
 
 
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
 
-def _dispatch_engine_job(obj_pk: int, notebook_slug: str = '') -> None:
+def _dispatch_engine_job(obj_pk: int, notebook_slug: str = '') -> str:
     """
     Dispatch engine work to RQ, with synchronous fallback for single-service mode.
     """
+    engine_job_id = create_engine_job_id()
+    update_engine_job_status(engine_job_id, 'queued', object_id=obj_pk)
+
     try:
         from .tasks import run_engine_task
-        run_engine_task.delay(obj_pk, notebook_slug=notebook_slug)
-        return
+        run_engine_task.delay(
+            obj_pk,
+            notebook_slug=notebook_slug,
+            engine_job_id=engine_job_id,
+        )
+        return engine_job_id
     except Exception as exc:
         logger.warning('Engine queue dispatch failed, falling back inline: %s', exc)
 
@@ -267,9 +275,32 @@ def _dispatch_engine_job(obj_pk: int, notebook_slug: str = '') -> None:
 
         obj = Object.objects.get(pk=obj_pk)
         notebook = Notebook.objects.filter(slug=notebook_slug).first() if notebook_slug else None
-        run_engine(obj, notebook=notebook)
+        update_engine_job_status(
+            engine_job_id,
+            'running',
+            object_id=obj.pk,
+            object_slug=obj.slug,
+            object_title=obj.display_title,
+        )
+        summary = run_engine(obj, notebook=notebook)
+        update_engine_job_status(
+            engine_job_id,
+            'complete',
+            summary=summary,
+            object_id=obj.pk,
+            object_slug=obj.slug,
+            object_title=obj.display_title,
+        )
     except Exception as exc:
         logger.warning('Inline engine fallback failed for Object %s: %s', obj_pk, exc)
+        update_engine_job_status(
+            engine_job_id,
+            'failed',
+            error=str(exc),
+            object_id=obj_pk,
+        )
+
+    return engine_job_id
 
 
 def _dispatch_file_ingestion_job(obj_pk: int, file_key: str) -> None:

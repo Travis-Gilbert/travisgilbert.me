@@ -38,6 +38,16 @@ const SIDEBAR_MIN = 200;
 const SIDEBAR_MAX = 320;
 const SIDEBAR_DEFAULT = 256;
 
+function getInitialSidebarWidth(): number {
+  if (typeof window === 'undefined') return SIDEBAR_DEFAULT;
+  const saved = window.localStorage.getItem('cp-sidebar-width');
+  if (!saved) return SIDEBAR_DEFAULT;
+
+  const parsed = parseInt(saved, 10);
+  if (Number.isNaN(parsed)) return SIDEBAR_DEFAULT;
+  return Math.min(SIDEBAR_MAX, Math.max(SIDEBAR_MIN, parsed));
+}
+
 export default function CommonPlaceSidebar() {
   const pathname = usePathname();
   const {
@@ -52,19 +62,9 @@ export default function CommonPlaceSidebar() {
   );
   const [isPaletteOpen, setIsPaletteOpen] = useState(false);
   const [captures, setCaptures] = useState<CapturedObject[]>([]);
-  const [sidebarWidth, setSidebarWidth] = useState(SIDEBAR_DEFAULT);
+  const [sidebarWidth, setSidebarWidth] = useState(getInitialSidebarWidth);
   const [isDragging, setIsDragging] = useState(false);
   const isMobile = useIsAppShellMobile();
-
-  /* Load persisted sidebar width on mount */
-  useEffect(() => {
-    const saved = localStorage.getItem('cp-sidebar-width');
-    if (!saved) return;
-    const parsed = parseInt(saved, 10);
-    if (!Number.isNaN(parsed)) {
-      setSidebarWidth(Math.min(SIDEBAR_MAX, Math.max(SIDEBAR_MIN, parsed)));
-    }
-  }, []);
 
   /* Fetch notebooks, projects, and pinned objects */
   const { data: notebooks } = useApiData(() => fetchNotebooks(), []);
@@ -202,7 +202,11 @@ export default function CommonPlaceSidebar() {
         >
           CommonPlace
         </Link>
-        <div className="cp-brand-stats">Knowledge workbench</div>
+        <div className="cp-brand-stats">Capture / manipulate / discover</div>
+        <div className="cp-brand-chips">
+          <span className="cp-brand-chip">7-pass notebook engine</span>
+          <span className="cp-brand-chip">research bridge live</span>
+        </div>
       </div>
 
       {/* Navigation sections */}

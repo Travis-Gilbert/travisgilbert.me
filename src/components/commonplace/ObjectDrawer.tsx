@@ -6,8 +6,20 @@ import { Reorder } from 'framer-motion';
 import { Drawer } from 'vaul';
 import * as Tabs from '@radix-ui/react-tabs';
 import { useCommonPlace } from '@/lib/commonplace-context';
-import { fetchObjectDetail, fetchObjectById, patchComponent, searchObjects } from '@/lib/commonplace-api';
-import type { ApiObjectDetail, ApiEdgeCompact, ApiNodeListItem, ApiComponent } from '@/lib/commonplace';
+import {
+  fetchCanvasSuggestions,
+  fetchObjectDetail,
+  fetchObjectById,
+  patchComponent,
+  searchObjects,
+} from '@/lib/commonplace-api';
+import type {
+  ApiObjectDetail,
+  ApiEdgeCompact,
+  ApiNodeListItem,
+  ApiComponent,
+  ApiCanvasSuggestion,
+} from '@/lib/commonplace';
 import type { TiptapUpdatePayload } from '@/components/studio/TiptapEditor';
 import HunchSketch from './HunchSketch';
 import ObjectTasks from './ObjectTasks';
@@ -198,6 +210,11 @@ function ConnectionItem({
           {edge.edge_type && (
             <span className="cp-drawer-connection-type">{edge.edge_type}</span>
           )}
+          <span
+            className={`cp-drawer-connection-engine cp-drawer-connection-engine--${connectionTone(edge)}`}
+          >
+            {connectionLabel(edge)}
+          </span>
           <span className="cp-drawer-connection-strength">
             {Math.round(edge.strength * 100)}%
           </span>
@@ -224,6 +241,35 @@ function ConnectionItem({
       </svg>
     </button>
   );
+}
+
+function connectionTone(edge: ApiEdgeCompact): 'bridge' | 'manual' | 'tension' | 'support' | 'engine' {
+  const engine = (edge.engine || '').toLowerCase();
+  const edgeType = (edge.edge_type || '').toLowerCase();
+  const reason = (edge.reason || '').toLowerCase();
+
+  if (engine.includes('research_bridge')) return 'bridge';
+  if (engine.includes('manual')) return 'manual';
+  if (
+    edgeType.includes('counter') ||
+    edgeType.includes('tension') ||
+    reason.includes('contradict')
+  ) {
+    return 'tension';
+  }
+  if (edgeType.includes('support') || reason.includes('support') || reason.includes('entail')) {
+    return 'support';
+  }
+  return 'engine';
+}
+
+function connectionLabel(edge: ApiEdgeCompact): string {
+  const tone = connectionTone(edge);
+  if (tone === 'bridge') return 'Research bridge';
+  if (tone === 'manual') return 'Manual';
+  if (tone === 'tension') return 'Contradiction';
+  if (tone === 'support') return 'Support';
+  return edge.engine ? edge.engine.replace(/_/g, ' ') : 'Notebook engine';
 }
 
 /* ─────────────────────────────────────────────────
@@ -331,10 +377,35 @@ const TAB_LABELS: Record<string, string> = {
   overview: 'Overview',
   info: 'Info',
   connections: 'Connections',
+  model: 'Model',
   history: 'History',
 };
 
-const DEFAULT_TAB_ORDER = ['overview', 'info', 'connections', 'history'];
+const DEFAULT_TAB_ORDER = ['overview', 'info', 'connections', 'model', 'history'];
+
+function modelHintForType(typeSlug: string | undefined): string | undefined {
+  if (typeSlug === 'event') return 'timeline';
+  if (typeSlug === 'place') return 'map';
+  if (typeSlug === 'person' || typeSlug === 'organization') return 'comparison';
+  return undefined;
+}
+
+function ModelSuggestionCard({ suggestion }: { suggestion: ApiCanvasSuggestion }) {
+  const spec = JSON.stringify(suggestion.vega_lite_spec, null, 2);
+  return (
+    <div className="cp-model-card">
+      <div className="cp-model-card-header">
+        <div>
+          <div className="cp-model-card-kicker">Vega-Lite spec</div>
+          <div className="cp-model-card-title">{suggestion.name}</div>
+        </div>
+        <span className="cp-model-card-badge">backend</span>
+      </div>
+      <div className="cp-model-card-copy">{suggestion.description}</div>
+      <pre className="cp-model-card-spec">{spec}</pre>
+    </div>
+  );
+}
 
 function DrawerTabBar({
   order,
@@ -393,6 +464,9 @@ export default function ObjectDrawer() {
   const [savingInfo, setSavingInfo] = useState(false);
   const [infoSaveError, setInfoSaveError] = useState<string | null>(null);
   const [tabOrder, setTabOrder] = useState<string[]>(DEFAULT_TAB_ORDER);
+  const [modelSuggestions, setModelSuggestions] = useState<ApiCanvasSuggestion[]>([]);
+  const [modelLoading, setModelLoading] = useState(false);
+  const [modelError, setModelError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!drawerSlug) {
@@ -408,6 +482,8 @@ export default function ObjectDrawer() {
     setInfoSaveError(null);
     setLiveComponents([]);
     setConnectedSources([]);
+    setModelSuggestions([]);
+    setModelError(null);
 
     // drawerSlug may be a URL slug or a numeric ID string (from edge navigation)
     const isNumeric = /^\d+$/.test(drawerSlug);
@@ -459,7 +535,35 @@ export default function ObjectDrawer() {
     if (!activeInfoItem) return;
     setInfoDraft(activeInfoItem.body ?? '');
     setInfoSaveError(null);
-  }, [activeInfoItem?.id]);
+  }, [activeInfoItem]);
+
+  useEffect(() => {
+    if (!detail || activeTab !== 'model') return;
+
+    let cancelled = false;
+    setModelLoading(true);
+    setModelError(null);
+
+    fetchCanvasSuggestions(
+      [detail.id],
+      modelHintForType(detail.object_type_data?.slug),
+    )
+      .then((suggestions) => {
+        if (cancelled) return;
+        setModelSuggestions(suggestions);
+      })
+      .catch((err: Error) => {
+        if (cancelled) return;
+        setModelError(err.message || 'Could not load model suggestions.');
+      })
+      .finally(() => {
+        if (!cancelled) setModelLoading(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [detail, activeTab]);
 
   // Navigate to a connected object by its numeric ID
   function navigateToObject(id: number) {
@@ -538,20 +642,11 @@ export default function ObjectDrawer() {
     }
   }
 
-  // Tension edges: counter or contradiction semantics
-  const tensionEdges = detail?.edges.filter(
-    (e) =>
-      e.edge_type?.toLowerCase().includes('counter') ||
-      e.edge_type?.toLowerCase().includes('tension') ||
-      e.reason?.toLowerCase().includes('contradict'),
-  ) ?? [];
-
-  const mainEdges = detail?.edges.filter(
-    (e) =>
-      !e.edge_type?.toLowerCase().includes('counter') &&
-      !e.edge_type?.toLowerCase().includes('tension') &&
-      !e.reason?.toLowerCase().includes('contradict'),
-  ) ?? [];
+  const tensionEdges = detail?.edges.filter((edge) => connectionTone(edge) === 'tension') ?? [];
+  const bridgeEdges = detail?.edges.filter((edge) => connectionTone(edge) === 'bridge') ?? [];
+  const manualEdges = detail?.edges.filter((edge) => connectionTone(edge) === 'manual') ?? [];
+  const supportEdges = detail?.edges.filter((edge) => connectionTone(edge) === 'support') ?? [];
+  const notebookEdges = detail?.edges.filter((edge) => connectionTone(edge) === 'engine') ?? [];
 
   const isOpen = drawerSlug !== null;
 
@@ -639,6 +734,7 @@ export default function ObjectDrawer() {
                   counts={{
                     info: infoItems.length,
                     connections: detail.edges.length,
+                    model: modelSuggestions.length,
                   }}
                 />
 
@@ -836,19 +932,69 @@ export default function ObjectDrawer() {
                         </div>
                       </div>
 
-                      <div className="cp-drawer-connection-list">
-                        {mainEdges.map((edge) => (
-                          <ConnectionItem
-                            key={edge.id}
-                            edge={edge}
-                            onNavigate={navigateToObject}
-                          />
-                        ))}
-                      </div>
+                      {notebookEdges.length > 0 && (
+                        <div className="cp-drawer-connection-group">
+                          <div className="cp-drawer-connection-group-title">Notebook engine</div>
+                          <div className="cp-drawer-connection-list">
+                            {notebookEdges.map((edge) => (
+                              <ConnectionItem
+                                key={`engine-${edge.id}`}
+                                edge={edge}
+                                onNavigate={navigateToObject}
+                              />
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      {supportEdges.length > 0 && (
+                        <div className="cp-drawer-connection-group">
+                          <div className="cp-drawer-connection-group-title">Support</div>
+                          <div className="cp-drawer-connection-list">
+                            {supportEdges.map((edge) => (
+                              <ConnectionItem
+                                key={`support-${edge.id}`}
+                                edge={edge}
+                                onNavigate={navigateToObject}
+                              />
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      {bridgeEdges.length > 0 && (
+                        <div className="cp-drawer-connection-group">
+                          <div className="cp-drawer-connection-group-title">Research bridge</div>
+                          <div className="cp-drawer-connection-list">
+                            {bridgeEdges.map((edge) => (
+                              <ConnectionItem
+                                key={`bridge-${edge.id}`}
+                                edge={edge}
+                                onNavigate={navigateToObject}
+                              />
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      {manualEdges.length > 0 && (
+                        <div className="cp-drawer-connection-group">
+                          <div className="cp-drawer-connection-group-title">Manual links</div>
+                          <div className="cp-drawer-connection-list">
+                            {manualEdges.map((edge) => (
+                              <ConnectionItem
+                                key={`manual-${edge.id}`}
+                                edge={edge}
+                                onNavigate={navigateToObject}
+                              />
+                            ))}
+                          </div>
+                        </div>
+                      )}
 
                       {tensionEdges.length > 0 && (
                         <div className="cp-drawer-tensions">
-                          <div className="cp-drawer-tensions-header">TENSIONS</div>
+                          <div className="cp-drawer-tensions-header">Contradictions</div>
                           <div className="cp-drawer-connection-list">
                             {tensionEdges.map((edge) => (
                               <ConnectionItem
@@ -861,6 +1007,29 @@ export default function ObjectDrawer() {
                         </div>
                       )}
                     </>
+                  )}
+                </Tabs.Content>
+
+                {/* ─── Model ─── */}
+                <Tabs.Content value="model" className="cp-drawer-tab-content">
+                  <div className="cp-model-panel-copy">
+                    Backend visualization suggestions for the selected object.
+                  </div>
+                  {modelLoading ? (
+                    <div className="cp-drawer-empty">Loading model suggestions...</div>
+                  ) : modelError ? (
+                    <div className="cp-drawer-error">
+                      <span className="cp-drawer-error-label">Model unavailable</span>
+                      <span className="cp-drawer-error-detail">{modelError}</span>
+                    </div>
+                  ) : modelSuggestions.length === 0 ? (
+                    <div className="cp-drawer-empty">No model suggestions for this object.</div>
+                  ) : (
+                    <div className="cp-model-grid">
+                      {modelSuggestions.map((suggestion) => (
+                        <ModelSuggestionCard key={suggestion.id} suggestion={suggestion} />
+                      ))}
+                    </div>
                   )}
                 </Tabs.Content>
 

@@ -32,12 +32,24 @@ const SIGNAL_COLORS: Record<string, string> = {
   kge: '#6B7A8A',
   tfidf: '#C49A4A',
   ner: '#2D5F6B',
+  shared_entity: '#4A7A9A',
   keyword: '#B45A2D',
   supports: '#5A8A5A',
   contradicts: '#B3443B',
 };
 
-const DASHED_SIGNALS = new Set(['ner', 'keyword']);
+const SIGNAL_LABELS: Record<string, string> = {
+  ner: 'Direct mention',
+  shared_entity: 'Shared entity',
+  keyword: 'Keyword field',
+  tfidf: 'Topic match',
+  sbert: 'Semantic match',
+  kge: 'Graph deepen',
+  supports: 'Supports',
+  contradicts: 'Contradicts',
+};
+
+const DASHED_SIGNALS = new Set(['ner', 'shared_entity', 'keyword']);
 const NLI_SIGNALS = new Set(['supports', 'contradicts']);
 
 const TYPE_ICON_PATHS: Record<string, string> = {
@@ -67,14 +79,12 @@ export default function LiveResearchGraph({
   const containerRef = useRef<HTMLDivElement>(null);
   const [size, setSize] = useState({ width: 480, height: 360 });
   const [positions, setPositions] = useState<Record<string, { x: number; y: number }>>({});
+  const positionsRef = useRef<Record<string, { x: number; y: number }>>({});
   const [selectedEdge, setSelectedEdge] = useState<{
     x: number;
     y: number;
     node: SimNode;
   } | null>(null);
-
-  const prevScoreRef = useRef<Map<string, number>>(new Map());
-  const pulseIdsRef = useRef<Set<string>>(new Set());
 
   const nodes = useMemo<SimNode[]>(() => {
     return results.slice(0, 14).map((item) => ({
@@ -105,12 +115,16 @@ export default function LiveResearchGraph({
   }, []);
 
   useEffect(() => {
+    positionsRef.current = positions;
+  }, [positions]);
+
+  useEffect(() => {
     if (nodes.length === 0 || paused) return;
 
     const centerX = size.width / 2;
     const centerY = size.height / 2;
     const seededNodes = nodes.map((node) => {
-      const prior = positions[node.id];
+      const prior = positionsRef.current[node.id];
       return {
         ...node,
         x: prior?.x ?? centerX,
@@ -143,18 +157,6 @@ export default function LiveResearchGraph({
     };
   }, [nodes, paused, size.height, size.width]);
 
-  useEffect(() => {
-    const nextPulseIds = new Set<string>();
-    for (const node of nodes) {
-      const prev = prevScoreRef.current.get(node.id);
-      if (typeof prev === 'number' && node.score > prev + 0.01) {
-        nextPulseIds.add(node.id);
-      }
-      prevScoreRef.current.set(node.id, node.score);
-    }
-    pulseIdsRef.current = nextPulseIds;
-  }, [nodes]);
-
   const center = useMemo(
     () => ({ x: size.width / 2, y: size.height / 2 }),
     [size.height, size.width],
@@ -183,7 +185,7 @@ export default function LiveResearchGraph({
         <div className="cp-live-graph-controls">
           {visibleSignals.map((signal) => (
             <span key={signal} className="cp-live-signal-chip">
-              {signal}
+              {SIGNAL_LABELS[signal] ?? signal}
             </span>
           ))}
           <button
@@ -247,7 +249,6 @@ export default function LiveResearchGraph({
             const pos = positions[node.id] ?? center;
             const color = SIGNAL_COLORS[node.signal] ?? '#6B7A8A';
             const icon = TYPE_ICON_PATHS[node.type] ?? TYPE_ICON_PATHS.note;
-            const isPulse = pulseIdsRef.current.has(node.id);
 
             return (
               <motion.g
@@ -257,11 +258,10 @@ export default function LiveResearchGraph({
                   opacity: 1,
                   x: pos.x,
                   y: pos.y,
-                  scale: isPulse ? 1.12 : 1,
+                  scale: 1,
                 }}
                 exit={{ opacity: 0, scale: 0.4 }}
                 transition={{ duration: 0.35, ease: 'easeOut' }}
-                className={isPulse ? 'cp-live-node-pulse' : undefined}
                 onClick={() => onOpenObject?.(node.slug)}
               >
                 <circle
@@ -301,7 +301,7 @@ export default function LiveResearchGraph({
           onClick={() => setSelectedEdge(null)}
         >
           <div className="cp-live-edge-signal">
-            {selectedEdge.node.signal.toUpperCase()}
+            {SIGNAL_LABELS[selectedEdge.node.signal] ?? selectedEdge.node.signal}
           </div>
           <div className="cp-live-edge-title">{selectedEdge.node.title}</div>
           <div className="cp-live-edge-explanation">{selectedEdge.node.explanation}</div>

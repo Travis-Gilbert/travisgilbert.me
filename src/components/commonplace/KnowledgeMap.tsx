@@ -88,6 +88,84 @@ interface ActiveEdge {
   midY: number;
 }
 
+function edgeTone(link: GraphLink): 'bridge' | 'manual' | 'tension' | 'support' | 'engine' {
+  const engine = (link.engine || '').toLowerCase();
+  const edgeType = (link.edge_type || '').toLowerCase();
+  const reason = (link.reason || '').toLowerCase();
+
+  if (engine.includes('research_bridge')) return 'bridge';
+  if (engine.includes('manual')) return 'manual';
+  if (
+    edgeType.includes('counter') ||
+    edgeType.includes('tension') ||
+    reason.includes('contradict')
+  ) {
+    return 'tension';
+  }
+  if (edgeType.includes('support') || reason.includes('support') || reason.includes('entail')) {
+    return 'support';
+  }
+  return 'engine';
+}
+
+function edgeStyle(link: GraphLink): {
+  color: string;
+  alpha: number;
+  width: number;
+  roughness: number;
+  bowing: number;
+  dash?: string;
+} {
+  const tone = edgeTone(link);
+  if (tone === 'bridge') {
+    return {
+      color: '91, 130, 172',
+      alpha: 0.34,
+      width: 1.2,
+      roughness: 0.6,
+      bowing: 0.8,
+      dash: '7 5',
+    };
+  }
+  if (tone === 'manual') {
+    return {
+      color: '180, 90, 45',
+      alpha: 0.44,
+      width: 1.5,
+      roughness: 0.25,
+      bowing: 0.15,
+      dash: '1.5 5',
+    };
+  }
+  if (tone === 'tension') {
+    return {
+      color: '179, 68, 59',
+      alpha: 0.5,
+      width: 1.6,
+      roughness: 1.7,
+      bowing: 2.6,
+      dash: '6 4',
+    };
+  }
+  if (tone === 'support') {
+    return {
+      color: '90, 138, 90',
+      alpha: 0.42,
+      width: 1.45,
+      roughness: 0.55,
+      bowing: 0.9,
+      dash: '10 4',
+    };
+  }
+  return {
+    color: EDGE_RGB,
+    alpha: 0.3,
+    width: 1.2,
+    roughness: 0.8,
+    bowing: 1.5,
+  };
+}
+
 export default function KnowledgeMap({
   onOpenObject,
   graphNodes: rawNodes,
@@ -217,25 +295,19 @@ export default function KnowledgeMap({
       const to = posMap.get(tgt);
       if (!from || !to) return;
 
-      const edgeType = l.edge_type?.toLowerCase() ?? '';
-      const isTension =
-        edgeType.includes('counter') ||
-        edgeType.includes('tension') ||
-        l.reason?.toLowerCase().includes('contradict');
+      const style = edgeStyle(l);
 
-      let alpha = isTension ? 0.45 : 0.25;
+      let alpha = style.alpha;
       if (hoveredId) {
         const connected = connectedIds.has(src) && connectedIds.has(tgt);
-        alpha = connected ? (isTension ? 0.75 : 0.55) : 0.05;
+        alpha = connected ? Math.min(style.alpha + 0.22, 0.82) : 0.05;
       }
 
       rc.line(from.x, from.y, to.x, to.y, {
-        roughness: isTension ? 2.0 : 0.8,
-        stroke: isTension
-          ? `rgba(212, 148, 74, ${alpha})`
-          : `rgba(${EDGE_RGB}, ${alpha})`,
-        strokeWidth: isTension ? 1.4 : 1.2,
-        bowing: isTension ? 2.5 : 1.5,
+        roughness: style.roughness,
+        stroke: `rgba(${style.color}, ${alpha})`,
+        strokeWidth: style.width,
+        bowing: style.bowing,
       });
     });
   }, [layout, filteredLinks, hoveredId, connectedIds, containerSize, posMap, transform]);
@@ -291,6 +363,12 @@ export default function KnowledgeMap({
     middleware: [offset(10), flip(), shift({ padding: 8 })],
     whileElementsMounted: autoUpdate,
   });
+  const setFloatingRef = useCallback(
+    (node: HTMLDivElement | null) => {
+      floatRefs.setFloating(node);
+    },
+    [floatRefs],
+  );
 
   useEffect(() => {
     if (!activeEdge || !containerRef.current) {
@@ -333,7 +411,7 @@ export default function KnowledgeMap({
       nodePair: srcType && tgtType ? `${srcType} -- ${tgtType}` : 'Connection',
       reason: activeEdge.link.reason,
       strength,
-      engine: activeEdge.link.engine || 'unknown',
+      engine: edgeTone(activeEdge.link).replace(/_/g, ' '),
       srcNode: srcEntry?.node,
       tgtNode: tgtEntry?.node,
     };
@@ -372,18 +450,31 @@ export default function KnowledgeMap({
             const to = posMap.get(tgt);
             if (!from || !to) return null;
             const edgeKey = `edge-${src}-${tgt}-${l.reason ?? ''}-${index}`;
+            const style = edgeStyle(l);
             return (
-              <line
-                key={edgeKey}
-                x1={from.x}
-                y1={from.y}
-                x2={to.x}
-                y2={to.y}
-                stroke="transparent"
-                strokeWidth={12}
-                style={{ cursor: 'pointer' }}
-                onClick={(e) => handleEdgeClick(l, e)}
-              />
+              <g key={edgeKey}>
+                <line
+                  x1={from.x}
+                  y1={from.y}
+                  x2={to.x}
+                  y2={to.y}
+                  stroke={`rgba(${style.color}, ${style.alpha + 0.12})`}
+                  strokeWidth={style.width + 0.15}
+                  strokeDasharray={style.dash}
+                  strokeLinecap="round"
+                  pointerEvents="none"
+                />
+                <line
+                  x1={from.x}
+                  y1={from.y}
+                  x2={to.x}
+                  y2={to.y}
+                  stroke="transparent"
+                  strokeWidth={12}
+                  style={{ cursor: 'pointer' }}
+                  onClick={(e) => handleEdgeClick(l, e)}
+                />
+              </g>
             );
           })}
 
@@ -498,7 +589,7 @@ export default function KnowledgeMap({
       <FloatingPortal>
         {activeEdge && edgeTooltipContent && (
           <div
-            ref={floatRefs.setFloating}
+            ref={setFloatingRef}
             style={{
               ...floatingStyles,
               zIndex: 100,

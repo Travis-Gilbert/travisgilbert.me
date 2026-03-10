@@ -81,10 +81,10 @@ export interface ViewDefinition {
 }
 
 export const VIEW_REGISTRY: Record<ViewType, { label: string; icon: string }> = {
-  grid: { label: 'Grid', icon: 'grid' },
-  timeline: { label: 'The Timeline', icon: 'timeline' },
+  grid: { label: 'Library', icon: 'grid' },
+  timeline: { label: 'Timeline', icon: 'timeline' },
   'scoped-timeline': { label: 'My Timelines', icon: 'filter' },
-  network: { label: 'Knowledge Map', icon: 'graph' },
+  network: { label: 'Map', icon: 'graph' },
   notebook: { label: 'Notebook', icon: 'book' },
   project: { label: 'Project', icon: 'briefcase' },
   'object-detail': { label: 'Object', icon: 'note-pencil' },
@@ -133,10 +133,10 @@ export const SIDEBAR_SECTIONS: SidebarSection[] = [
   {
     title: 'View',
     items: [
-      { label: 'The Timeline', href: '#timeline', icon: 'timeline', viewType: 'timeline' as ViewType },
+      { label: 'Timeline', href: '#timeline', icon: 'timeline', viewType: 'timeline' as ViewType },
       { label: 'My Timelines', href: '#scoped-timeline', icon: 'filter', viewType: 'scoped-timeline' as ViewType },
       {
-        label: 'Networks',
+        label: 'Map',
         href: '#networks',
         icon: 'graph',
         viewType: 'network' as ViewType,
@@ -365,6 +365,7 @@ export interface ApiEdgeCompact {
   edge_type: string;
   reason: string;
   strength: number;
+  engine?: string;
 }
 
 /** Object component (ComponentSerializer) */
@@ -416,6 +417,7 @@ export interface ApiCaptureResponse {
   object: ApiObjectDetail;
   inferred_type?: string;
   creation_node: ApiNodeListItem | null;
+  engine_job_id?: string;
 }
 
 /** GET /resurface/ card */
@@ -436,13 +438,26 @@ export interface ApiResurfaceResponse {
 
 /* ── Compose live query types (POST /compose/related/) ── */
 
-export type ComposeSignal =
+export type ComposePassId =
+  | 'ner'
+  | 'shared_entity'
+  | 'keyword'
   | 'tfidf'
   | 'sbert'
-  | 'kge'
-  | 'ner'
+  | 'nli'
+  | 'kge';
+
+export type ComposeResultSignal =
+  | ComposePassId
   | 'supports'
   | 'contradicts';
+
+export interface ApiComposePassState {
+  id: ComposePassId;
+  status: 'complete' | 'degraded';
+  match_count: number;
+  degraded_reason?: string;
+}
 
 export interface ApiComposeObject {
   id: string; // "object:<pk>"
@@ -452,15 +467,17 @@ export interface ApiComposeObject {
   title: string;
   body_preview: string;
   score: number;
-  signal: ComposeSignal;
+  signal: ComposeResultSignal;
   explanation: string;
-  dominant_signal?: ComposeSignal;
+  dominant_signal?: ComposeResultSignal;
   dominant_explanation?: string;
+  supporting_signals?: ComposeResultSignal[];
 }
 
 export interface ApiComposeDegraded {
   degraded: boolean;
   sbert_unavailable: boolean;
+  nli_unavailable?: boolean;
   kge_unavailable: boolean;
   reasons: string[];
 }
@@ -469,8 +486,26 @@ export interface ApiComposeResponse {
   query_id: string;
   text_length: number;
   passes_run: string[];
+  pass_states: ApiComposePassState[];
   objects: ApiComposeObject[];
   degraded: ApiComposeDegraded;
+}
+
+export interface ApiCanvasSuggestion {
+  id: string;
+  name: string;
+  description: string;
+  vega_lite_spec: Record<string, unknown>;
+}
+
+export interface ApiEngineJobStatus {
+  job_id: string;
+  status: 'queued' | 'running' | 'complete' | 'failed';
+  summary: Record<string, number | string | string[]>;
+  error: string;
+  object_id?: number | null;
+  object_slug?: string;
+  object_title?: string;
 }
 
 /* ── Notebook types (NotebookListSerializer / NotebookDetailSerializer) ── */

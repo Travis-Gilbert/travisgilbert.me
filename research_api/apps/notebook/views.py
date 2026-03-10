@@ -759,7 +759,7 @@ def quick_capture_view(request):
 
     from .services import quick_capture
 
-    obj = quick_capture(
+    obj, engine_job_id = quick_capture(
         body=body,
         url=url,
         title=title,
@@ -873,6 +873,7 @@ def quick_capture_view(request):
         'object': detail,
         'inferred_type': inferred_type,
         'creation_node': node_data,
+        'engine_job_id': engine_job_id,
     }, status=status.HTTP_201_CREATED)
 
 
@@ -885,7 +886,7 @@ def quick_capture_legacy_view(request):
 
     from .services import quick_capture
 
-    obj = quick_capture(
+    obj, engine_job_id = quick_capture(
         body=data['body'],
         url=data['url'],
         title=data['title'],
@@ -901,6 +902,7 @@ def quick_capture_legacy_view(request):
     return Response({
         'object': detail,
         'creation_node': node_data,
+        'engine_job_id': engine_job_id,
     }, status=status.HTTP_201_CREATED)
 
 
@@ -1653,6 +1655,25 @@ class ComposeRelatedSerializer(serializers.Serializer):
     )
 
 
+@api_view(['GET'])
+def engine_job_status_view(request, job_id):
+    """
+    GET /api/v1/notebook/engine/jobs/<job_id>/
+
+    Lightweight public status for the async connection-engine capture lifecycle.
+    """
+    from .job_status import get_engine_job_status
+
+    payload = get_engine_job_status(job_id)
+    if not payload:
+        return Response(
+            {'detail': 'Engine job not found.'},
+            status=status.HTTP_404_NOT_FOUND,
+        )
+
+    return Response(payload)
+
+
 def _compose_scope_key(request, notebook_slug: str) -> str:
     if getattr(request, 'user', None) is not None and request.user.is_authenticated:
         identity = f'user:{request.user.pk}'
@@ -1704,7 +1725,7 @@ def compose_related_view(request):
       }
 
     Output:
-      {query_id, text_length, passes_run, objects, degraded}
+      {query_id, text_length, passes_run, pass_states, objects, degraded}
     """
     serializer = ComposeRelatedSerializer(data=request.data)
     serializer.is_valid(raise_exception=True)
@@ -1715,6 +1736,7 @@ def compose_related_view(request):
         return Response({
             'objects': [],
             'passes_run': [],
+            'pass_states': [],
             'text_length': len(text),
             'degraded': {
                 'degraded': False,
@@ -1769,6 +1791,7 @@ def compose_related_view(request):
         'query_id': query_id,
         'text_length': len(text),
         'passes_run': results['passes_run'],
+        'pass_states': results.get('pass_states') or [],
         'objects': results['objects'],
         'degraded': results.get('degraded') or {
             'degraded': False,

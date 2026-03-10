@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import type { ComposeSignal } from '@/lib/commonplace';
+import type { ApiComposePassState, ComposePassId } from '@/lib/commonplace';
 import {
   fetchComposeRelated,
   type ComposeLiveResponse,
@@ -12,7 +12,7 @@ interface UseLiveResearchOptions {
   notebookSlug?: string;
   minScore?: number;
   enableNli?: boolean;
-  passes?: ComposeSignal[];
+  passes?: ComposePassId[];
 }
 
 interface UseLiveResearchReturn {
@@ -21,6 +21,7 @@ interface UseLiveResearchReturn {
   paused: boolean;
   togglePause: () => void;
   activeSignals: string[];
+  passStates: ApiComposePassState[];
   degraded: ComposeLiveResponse['degraded'];
 }
 
@@ -62,9 +63,11 @@ export function useLiveResearch(
   const [loading, setLoading] = useState(false);
   const [paused, setPaused] = useState(false);
   const [activeSignals, setActiveSignals] = useState<string[]>([]);
+  const [passStates, setPassStates] = useState<ApiComposePassState[]>([]);
   const [degraded, setDegraded] = useState<ComposeLiveResponse['degraded']>({
     degraded: false,
     sbertUnavailable: false,
+    nliUnavailable: false,
     kgeUnavailable: false,
     reasons: [],
   });
@@ -73,9 +76,18 @@ export function useLiveResearch(
   const cacheRef = useRef<Map<string, CacheEntry>>(new Map());
 
   const normalizedText = useMemo(() => text.trim(), [text]);
+  const normalizedOptions = useMemo<UseLiveResearchOptions>(
+    () => ({
+      notebookSlug: options.notebookSlug,
+      minScore: options.minScore,
+      enableNli: options.enableNli,
+      passes: options.passes,
+    }),
+    [options.enableNli, options.minScore, options.notebookSlug, options.passes],
+  );
   const cacheKey = useMemo(
-    () => buildCacheKey(normalizedText, options),
-    [normalizedText, options.enableNli, options.minScore, options.notebookSlug, options.passes],
+    () => buildCacheKey(normalizedText, normalizedOptions),
+    [normalizedOptions, normalizedText],
   );
 
   const togglePause = useCallback(() => {
@@ -87,9 +99,11 @@ export function useLiveResearch(
     if (normalizedText.length < 20) {
       setResults([]);
       setActiveSignals([]);
+      setPassStates([]);
       setDegraded({
         degraded: false,
         sbertUnavailable: false,
+        nliUnavailable: false,
         kgeUnavailable: false,
         reasons: [],
       });
@@ -102,6 +116,7 @@ export function useLiveResearch(
       if (cached && now - cached.savedAt < CACHE_TTL_MS) {
         setResults(cached.payload.results);
         setActiveSignals(cached.payload.passesRun);
+        setPassStates(cached.payload.passStates);
         setDegraded(cached.payload.degraded);
         return;
       }
@@ -114,11 +129,11 @@ export function useLiveResearch(
       try {
         const payload = await fetchComposeRelated({
           text: normalizedText,
-          notebook_slug: options.notebookSlug,
+          notebook_slug: normalizedOptions.notebookSlug,
           limit: 8,
-          min_score: options.minScore ?? 0.25,
-          enable_nli: options.enableNli ?? false,
-          passes: options.passes,
+          min_score: normalizedOptions.minScore ?? 0.25,
+          enable_nli: normalizedOptions.enableNli ?? false,
+          passes: normalizedOptions.passes,
           signal: controller.signal,
         });
 
@@ -126,6 +141,7 @@ export function useLiveResearch(
 
         setResults(payload.results);
         setActiveSignals(payload.passesRun);
+        setPassStates(payload.passStates);
         setDegraded(payload.degraded);
 
         cacheRef.current.set(cacheKey, { payload, savedAt: now });
@@ -146,12 +162,19 @@ export function useLiveResearch(
     return () => {
       clearTimeout(timer);
     };
-  }, [cacheKey, normalizedText, options.enableNli, options.minScore, options.notebookSlug, options.passes, paused]);
+  }, [cacheKey, normalizedOptions, normalizedText, paused]);
 
   useEffect(() => {
     return () => abortRef.current?.abort();
   }, []);
 
-  return { results, loading, paused, togglePause, activeSignals, degraded };
+  return {
+    results,
+    loading,
+    paused,
+    togglePause,
+    activeSignals,
+    passStates,
+    degraded,
+  };
 }
-

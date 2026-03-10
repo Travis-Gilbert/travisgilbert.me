@@ -106,10 +106,10 @@ export function createSplit(
 
 function viewTypeLabel(viewType: ViewType): string {
   const labels: Record<ViewType, string> = {
-    grid: 'Grid',
-    timeline: 'The Timeline',
+    grid: 'Library',
+    timeline: 'Timeline',
     'scoped-timeline': 'My Timelines',
-    network: 'Knowledge Map',
+    network: 'Map',
     notebook: 'Notebook',
     project: 'Project',
     'object-detail': 'Object',
@@ -133,14 +133,14 @@ export const LAYOUT_PRESETS: SavedLayout[] = [
   {
     name: 'Focus',
     isPreset: true,
-    tree: createLeaf('grid', 'Grid'),
+    tree: createLeaf('grid', 'Library'),
   },
   {
     name: 'Compare',
     isPreset: true,
     tree: createSplit(
       'horizontal',
-      createLeaf('timeline', 'The Timeline'),
+      createLeaf('timeline', 'Timeline'),
       createLeaf('empty', 'Empty')
     ),
   },
@@ -149,10 +149,10 @@ export const LAYOUT_PRESETS: SavedLayout[] = [
     isPreset: true,
     tree: createSplit(
       'horizontal',
-      createLeaf('timeline', 'The Timeline'),
+      createLeaf('timeline', 'Timeline'),
       createSplit(
         'vertical',
-        createLeaf('network', 'Knowledge Map'),
+        createLeaf('network', 'Map'),
         createLeaf('empty', 'Object Detail'),
         0.55
       ),
@@ -164,7 +164,7 @@ export const LAYOUT_PRESETS: SavedLayout[] = [
     isPreset: true,
     tree: createSplit(
       'horizontal',
-      createLeaf('network', 'Knowledge Map'),
+      createLeaf('network', 'Map'),
       createSplit(
         'vertical',
         createLeaf('empty', 'Object A'),

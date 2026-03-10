@@ -11,7 +11,7 @@
  */
 
 import dynamic from 'next/dynamic';
-import { useState, useCallback, useMemo, useEffect } from 'react';
+import { useState, useCallback, useMemo } from 'react';
 import FrameManager from './FrameManager';
 import type { ViewFrame, GraphNode, GraphLink } from '@/lib/commonplace';
 import { fetchGraph, useApiData } from '@/lib/commonplace-api';
@@ -27,14 +27,14 @@ interface NetworkViewProps {
 const DESKTOP_SUB_VIEWS: { key: NetworkSubView; label: string }[] = [
   { key: 'map', label: 'Map' },
   { key: 'entities', label: 'Entities' },
-  { key: 'timeline', label: 'Time' },
+  { key: 'timeline', label: 'Timeline' },
 ];
 
 const MOBILE_SUB_VIEWS: { key: NetworkSubView; label: string }[] = [
   { key: 'list', label: 'List' },
   { key: 'map', label: 'Map' },
   { key: 'entities', label: 'Entities' },
-  { key: 'timeline', label: 'Time' },
+  { key: 'timeline', label: 'Timeline' },
 ];
 
 const LazyKnowledgeMap = dynamic(() => import('./KnowledgeMap'), {
@@ -78,12 +78,6 @@ export default function NetworkView({ onOpenObject, filterTypes }: NetworkViewPr
     isMobile && !hasChosenView && activeSubView === 'map'
       ? 'list'
       : (!isMobile && activeSubView === 'list' ? 'map' : activeSubView);
-
-  useEffect(() => {
-    if (effectiveSubView !== 'map') {
-      setGetCanvasSnapshot(null);
-    }
-  }, [effectiveSubView]);
 
   /* ── Fetch graph data once, shared by all sub-views ── */
   const { data: graphData, loading, error, refetch } = useApiData(() => fetchGraph(), []);
@@ -201,7 +195,7 @@ export default function NetworkView({ onOpenObject, filterTypes }: NetworkViewPr
             graphLinks={graphLinks}
             onOpenObject={onOpenObject}
             filter={graphFilter}
-            registerSnapshotGetter={handleRegisterSnapshotGetter}
+            registerSnapshotGetter={effectiveSubView === 'map' ? handleRegisterSnapshotGetter : undefined}
           />
         )}
         {effectiveSubView === 'entities' && (

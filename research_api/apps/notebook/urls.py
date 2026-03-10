@@ -37,6 +37,7 @@ urlpatterns = [
     path('graph/', views.graph_data_view, name='graph-data'),
     path('resurface/', views.resurface_view, name='resurface'),
     path('resurface/dismiss/', views.resurface_dismiss_view, name='resurface-dismiss'),
+    path('engine/jobs/<str:job_id>/', views.engine_job_status_view, name='engine-job-status'),
     path('notebooks/<slug:slug>/engine-config/', views.notebook_engine_config_view, name='notebook-engine-config'),
     path('objects/<slug:slug>/connect/', views.object_connect_view, name='object-connect'),
     path('export/', views.export_zip_view, name='export-zip'),
