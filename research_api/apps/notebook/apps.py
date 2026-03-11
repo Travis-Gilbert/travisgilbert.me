@@ -24,8 +24,16 @@ class NotebookConfig(AppConfig):
             if _SBERT_AVAILABLE:
                 import threading
                 from apps.notebook.vector_store import _build_sbert_faiss_index
+
+                def _prewarm_index():
+                    try:
+                        _build_sbert_faiss_index()
+                    except Exception:
+                        # Startup prewarm should never break app boot or test setup.
+                        pass
+
                 t = threading.Thread(
-                    target=_build_sbert_faiss_index, daemon=True,
+                    target=_prewarm_index, daemon=True,
                 )
                 t.start()
         except Exception:

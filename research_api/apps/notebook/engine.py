@@ -128,11 +128,10 @@ DEFAULT_ENGINE_CONFIG = {
 }
 
 HIGH_NOVELTY_CONFIG = {
-    'engines': ['spacy', 'sbert', 'tfidf', 'kge'],
+    'engines': ['spacy', 'sbert', 'kge'],
     'topic_threshold': 0.10,
     'max_candidates': 1000,
     'sbert_threshold': 0.45,
-    'tfidf_threshold': 0.20,
     'kge_threshold': 0.60,
     'nli_enabled': True,
     'entity_types': [

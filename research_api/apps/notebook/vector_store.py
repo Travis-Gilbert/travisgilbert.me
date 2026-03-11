@@ -59,11 +59,16 @@ except ImportError:
 # ---------------------------------------------------------------------------
 
 try:
-    from apps.research.advanced_nlp import HAS_PYTORCH, batch_encode
+    from apps.research.advanced_nlp import (
+        HAS_PYTORCH,
+        batch_encode,
+        get_active_sentence_model_name,
+    )
     _SBERT_AVAILABLE = HAS_PYTORCH
 except ImportError:
     _SBERT_AVAILABLE = False
     batch_encode = None
+    get_active_sentence_model_name = None
 
 # ---------------------------------------------------------------------------
 # Default embeddings directory
@@ -199,6 +204,7 @@ _SBERT_RUNTIME_CACHE: dict[str, Any] = {
     'object_pks': [],
     'built_at': None,
     'size': 0,
+    'model_name': '',
 }
 _SBERT_CACHE_KEY = 'notebook:sbert_faiss_index:v1'
 _SBERT_INDEX_MAX_AGE_SECONDS = 7200  # 2 hours
@@ -240,7 +246,13 @@ def _deserialize_faiss_index(payload: bytes):
     return faiss.deserialize_index(arr)
 
 
-def _set_shared_index_cache(index, object_pks: list[int], size: int, built_at: float) -> None:
+def _set_shared_index_cache(
+    index,
+    object_pks: list[int],
+    size: int,
+    built_at: float,
+    model_name: str,
+) -> None:
     cache = _get_django_cache()
     if cache is None or index is None:
         return
@@ -253,6 +265,7 @@ def _set_shared_index_cache(index, object_pks: list[int], size: int, built_at: f
                 'object_pks': object_pks,
                 'size': int(size),
                 'built_at': float(built_at),
+                'model_name': model_name,
             },
             timeout=_SBERT_INDEX_MAX_AGE_SECONDS,
         )
@@ -290,6 +303,7 @@ def _hydrate_runtime_cache(payload: dict) -> dict | None:
         _SBERT_RUNTIME_CACHE['object_pks'] = payload.get('object_pks', [])
         _SBERT_RUNTIME_CACHE['built_at'] = payload.get('built_at')
         _SBERT_RUNTIME_CACHE['size'] = payload.get('size', 0)
+        _SBERT_RUNTIME_CACHE['model_name'] = payload.get('model_name', '')
         return _SBERT_RUNTIME_CACHE
     except Exception as exc:
         logger.debug('Failed hydrating runtime SBERT cache: %s', exc)
@@ -302,6 +316,7 @@ def invalidate_sbert_index() -> None:
     _SBERT_RUNTIME_CACHE['built_at'] = None
     _SBERT_RUNTIME_CACHE['size'] = 0
     _SBERT_RUNTIME_CACHE['object_pks'] = []
+    _SBERT_RUNTIME_CACHE['model_name'] = ''
 
     cache = _get_django_cache()
     if cache is not None:
@@ -326,12 +341,25 @@ def _build_sbert_faiss_index(max_objects: int = 5000) -> dict | None:
 
     current_count = Object.objects.filter(is_deleted=False).count()
     runtime = _SBERT_RUNTIME_CACHE
+    expected_model_name = (
+        get_active_sentence_model_name()
+        if callable(get_active_sentence_model_name)
+        else ''
+    )
 
-    if runtime['index'] is not None and _is_cache_fresh(runtime['built_at'], runtime['size'], current_count):
+    if (
+        runtime['index'] is not None
+        and runtime.get('model_name', '') == expected_model_name
+        and _is_cache_fresh(runtime['built_at'], runtime['size'], current_count)
+    ):
         return runtime
 
     shared_payload = _load_shared_index_cache()
-    if shared_payload and _is_cache_fresh(shared_payload.get('built_at'), shared_payload.get('size', 0), current_count):
+    if (
+        shared_payload
+        and shared_payload.get('model_name', '') == expected_model_name
+        and _is_cache_fresh(shared_payload.get('built_at'), shared_payload.get('size', 0), current_count)
+    ):
         hydrated = _hydrate_runtime_cache(shared_payload)
         if hydrated is not None:
             return hydrated
@@ -353,7 +381,7 @@ def _build_sbert_faiss_index(max_objects: int = 5000) -> dict | None:
     pks = [obj.pk for obj in objects]
 
     try:
-        embeddings = batch_encode(texts)
+        embeddings = batch_encode(texts, task='similarity', role='document')
         if embeddings is None or len(embeddings) == 0:
             return None
 
@@ -373,8 +401,9 @@ def _build_sbert_faiss_index(max_objects: int = 5000) -> dict | None:
         runtime['object_pks'] = pks
         runtime['built_at'] = built_at
         runtime['size'] = current_count
+        runtime['model_name'] = expected_model_name
 
-        _set_shared_index_cache(index, pks, current_count, built_at)
+        _set_shared_index_cache(index, pks, current_count, built_at, expected_model_name)
 
         logger.info('SBERT FAISS index built: %d vectors, dim=%d', len(objects), dim)
         return runtime
@@ -385,7 +414,7 @@ def _build_sbert_faiss_index(max_objects: int = 5000) -> dict | None:
 
 
 def _encode_query_text(text: str):
-    my_emb = batch_encode([text])
+    my_emb = batch_encode([text], task='similarity', role='query')
     if my_emb is None or len(my_emb) == 0:
         return None
 
