@@ -14,6 +14,7 @@ import json
 import zipfile
 from unittest.mock import patch
 
+import networkx as nx
 from django.core.cache import cache
 from django.core.management import call_command
 from django.core.files.uploadedfile import SimpleUploadedFile
@@ -484,3 +485,43 @@ class CommunityDetectionTests(TestCase):
         self.assertIn('Found 2 communities', output)
         self.assertIn('Communities persisted.', output)
         self.assertEqual(Cluster.objects.filter(notebook=self.notebook).count(), 2)
+
+
+class GapAnalysisTests(TestCase):
+    def test_find_structural_gaps_detects_sparse_cross_cluster_links(self):
+        from apps.notebook.gap_analysis import find_structural_gaps
+
+        graph = nx.Graph()
+        graph.add_edge(1, 4)
+        communities = [
+            {'label': 'alpha', 'member_pks': [1, 2, 3]},
+            {'label': 'beta', 'member_pks': [4, 5, 6]},
+        ]
+
+        gaps = find_structural_gaps(graph, communities)
+
+        self.assertEqual(len(gaps), 1)
+        gap = gaps[0]
+        self.assertEqual(gap['community_a_label'], 'alpha')
+        self.assertEqual(gap['community_b_label'], 'beta')
+        self.assertEqual(gap['inter_edges'], 1)
+        self.assertEqual(gap['potential_edges'], 9)
+        self.assertAlmostEqual(gap['gap_score'], 2.67, places=2)
+
+    def test_find_structural_gaps_sorts_by_gap_score_desc(self):
+        from apps.notebook.gap_analysis import find_structural_gaps
+
+        graph = nx.Graph()
+        graph.add_edge(5, 9)
+        graph.add_edge(6, 10)
+        communities = [
+            {'label': 'a', 'member_pks': [1, 2, 3, 4]},
+            {'label': 'b', 'member_pks': [5, 6, 7, 8]},
+            {'label': 'c', 'member_pks': [9, 10, 11]},
+        ]
+
+        gaps = find_structural_gaps(graph, communities)
+        scores = [gap['gap_score'] for gap in gaps]
+
+        self.assertEqual(scores, sorted(scores, reverse=True))
+        self.assertEqual(scores, [4.0, 3.0, 2.5])

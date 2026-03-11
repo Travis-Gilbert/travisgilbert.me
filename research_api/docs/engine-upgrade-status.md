@@ -12,7 +12,7 @@ Current status is based on code audit, not spec claims.
 | 6. Temporal KGE | Pending | Static RotatE/KGE runtime exists; temporal KGE does not. |
 | 7. Causal inference | Pending | Edge type exists; causal runtime does not. |
 | 8. Community detection | Complete | `apps/notebook/community.py` and `detect_communities` command are live and covered by notebook tests. |
-| 9. Gap analysis | Pending | Depends on Batch 8 output. |
+| 9. Gap analysis | Complete | `apps/notebook/gap_analysis.py` is live and covered by notebook tests. |
 | 10-11. Temporal evolution + synthesis | Pending | No notebook runtime modules yet. |
 
 Known reconciliation notes:
