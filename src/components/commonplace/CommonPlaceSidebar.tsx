@@ -5,7 +5,7 @@ import { usePathname } from 'next/navigation';
 import Link from 'next/link';
 import { toast } from 'sonner';
 import { SIDEBAR_SECTIONS } from '@/lib/commonplace';
-import type { CapturedObject } from '@/lib/commonplace';
+import type { CapturedObject, ViewType } from '@/lib/commonplace';
 import { syncCapture } from '@/lib/commonplace-capture';
 import { useCommonPlace } from '@/lib/commonplace-context';
 import {
@@ -56,6 +56,8 @@ export default function CommonPlaceSidebar() {
     closeMobileSidebar,
     requestView,
     openDrawer,
+    sidebarCollapsed,
+    setSidebarCollapsed,
   } = useCommonPlace();
   const [expandedGroups, setExpandedGroups] = useState<Set<string>>(
     new Set(['Notebooks', 'Projects'])
@@ -497,6 +499,86 @@ export default function CommonPlaceSidebar() {
     </>
   );
 
+  /* ── Collapsed 48px icon rail (desktop, compose mode) ── */
+  if (!isMobile && sidebarCollapsed) {
+    const railItems: Array<{ icon: string; label: string; viewType: ViewType }> = [
+      { icon: 'note-pencil', label: 'Compose', viewType: 'compose' },
+      ...SIDEBAR_SECTIONS.flatMap((section) =>
+        section.items
+          .filter((item): item is typeof item & { viewType: ViewType } => item.viewType != null)
+          .map((item) => ({
+            icon: item.icon,
+            label: item.label,
+            viewType: item.viewType as ViewType,
+          })),
+      ),
+    ];
+    return (
+      <aside
+        style={{
+          width: 48,
+          flexShrink: 0,
+          backgroundColor: 'var(--cp-sidebar)',
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          overflowY: 'auto',
+          height: '100vh',
+          position: 'sticky',
+          top: 0,
+          paddingTop: 8,
+          paddingBottom: 8,
+        }}
+      >
+        <div className="cp-sidebar-glow" aria-hidden="true" />
+        <Link
+          href="/commonplace"
+          title="CommonPlace"
+          style={{
+            fontFamily: 'var(--cp-font-title)',
+            fontSize: 18,
+            fontWeight: 600,
+            color: 'var(--cp-sidebar-text)',
+            textDecoration: 'none',
+            width: 32,
+            height: 32,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            borderRadius: 6,
+            marginBottom: 4,
+            flexShrink: 0,
+            position: 'relative',
+            zIndex: 2,
+          }}
+        >
+          C
+        </Link>
+        {railItems.map((item) => (
+          <RailIconButton
+            key={item.viewType}
+            icon={item.icon}
+            label={item.label}
+            onClick={() => requestView(item.viewType, item.label)}
+          />
+        ))}
+        <div style={{ flex: 1 }} />
+        <button
+          type="button"
+          className="cp-rail-btn"
+          title="Expand sidebar"
+          aria-label="Expand sidebar"
+          onClick={() => setSidebarCollapsed(false)}
+          style={{ position: 'relative', zIndex: 2 }}
+        >
+          <svg width={16} height={16} viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round">
+            <path d="M6 4L10 8L6 12" />
+          </svg>
+        </button>
+      </aside>
+    );
+  }
+
   if (isMobile) {
     return (
       <MobileDrawer
@@ -542,6 +624,42 @@ export default function CommonPlaceSidebar() {
       />
       {sidebarInner}
     </aside>
+  );
+}
+
+/* ─────────────────────────────────────────────────
+   Icon rail button with hover tooltip
+   ───────────────────────────────────────────────── */
+
+function RailIconButton({
+  icon,
+  label,
+  onClick,
+}: {
+  icon: string;
+  label: string;
+  onClick: () => void;
+}) {
+  const [hovered, setHovered] = useState(false);
+  return (
+    <div style={{ position: 'relative', zIndex: 2 }}>
+      <button
+        type="button"
+        className="cp-rail-btn"
+        aria-label={label}
+        title={label}
+        onClick={onClick}
+        onMouseEnter={() => setHovered(true)}
+        onMouseLeave={() => setHovered(false)}
+      >
+        <SidebarIcon name={icon} />
+      </button>
+      {hovered && (
+        <div className="cp-rail-tooltip" role="tooltip">
+          {label}
+        </div>
+      )}
+    </div>
   );
 }
 

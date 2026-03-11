@@ -56,6 +56,7 @@ export function getObjectTypeIdentity(slug: string): ObjectTypeIdentity {
    ───────────────────────────────────────────────── */
 
 export type ViewType =
+  | 'library'
   | 'grid'
   | 'timeline'
   | 'scoped-timeline'
@@ -81,7 +82,8 @@ export interface ViewDefinition {
 }
 
 export const VIEW_REGISTRY: Record<ViewType, { label: string; icon: string }> = {
-  grid: { label: 'Library', icon: 'grid' },
+  library: { label: 'Library', icon: 'grid' },
+  grid: { label: 'All Objects', icon: 'grid' },
   timeline: { label: 'Timeline', icon: 'timeline' },
   'scoped-timeline': { label: 'My Timelines', icon: 'filter' },
   network: { label: 'Map', icon: 'graph' },
@@ -173,7 +175,6 @@ export const SIDEBAR_SECTIONS: SidebarSection[] = [
     items: [
       { label: 'Connection Engine', href: '#engine', icon: 'engine', viewType: 'connection-engine' as ViewType },
       { label: 'Reminders', href: '#reminders', icon: 'bell', viewType: 'reminders' as ViewType },
-      { label: 'Resurface', href: '#resurface', icon: 'sparkle', viewType: 'resurface' as ViewType },
       { label: 'Settings', href: '#settings', icon: 'gear', viewType: 'settings' as ViewType },
     ],
   },

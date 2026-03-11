@@ -29,6 +29,10 @@ export interface ViewRequest {
 interface CommonPlaceContextValue {
   /** Monotonically increasing counter; changes trigger timeline refetch */
   captureVersion: number;
+  /** True when sidebar is collapsed to 48px icon rail */
+  sidebarCollapsed: boolean;
+  /** Set sidebar collapsed state (auto-set by SplitPaneContainer on compose) */
+  setSidebarCollapsed: (collapsed: boolean) => void;
   /** Call after a capture successfully syncs to the API */
   notifyCaptured: () => void;
   /** Mobile drawer state for CommonPlace sidebar */
@@ -67,6 +71,8 @@ interface CommonPlaceContextValue {
 
 const CommonPlaceContext = createContext<CommonPlaceContextValue>({
   captureVersion: 0,
+  sidebarCollapsed: false,
+  setSidebarCollapsed: () => {},
   notifyCaptured: () => {},
   mobileSidebarOpen: false,
   openMobileSidebar: () => {},
@@ -88,6 +94,7 @@ const CommonPlaceContext = createContext<CommonPlaceContextValue>({
 
 export function CommonPlaceProvider({ children }: { children: ReactNode }) {
   const [captureVersion, setCaptureVersion] = useState(0);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
   const [pendingView, setPendingView] = useState<ViewRequest | null>(null);
   const [viewMode, setViewMode] = useState<'grid' | 'timeline' | 'graph'>('grid');
@@ -133,6 +140,8 @@ export function CommonPlaceProvider({ children }: { children: ReactNode }) {
   const value = useMemo(
     () => ({
       captureVersion,
+      sidebarCollapsed,
+      setSidebarCollapsed,
       notifyCaptured,
       mobileSidebarOpen,
       openMobileSidebar,
@@ -153,6 +162,7 @@ export function CommonPlaceProvider({ children }: { children: ReactNode }) {
     }),
     [
       captureVersion,
+      sidebarCollapsed,
       notifyCaptured,
       mobileSidebarOpen,
       openMobileSidebar,

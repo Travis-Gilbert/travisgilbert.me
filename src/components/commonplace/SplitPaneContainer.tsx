@@ -45,6 +45,7 @@ import ProjectListView from './ProjectListView';
 import CalendarView from './CalendarView';
 import LooseEndsView from './LooseEndsView';
 import ComposeView from './ComposeView';
+import LibraryView from './LibraryView';
 
 const STORAGE_KEY = 'commonplace-layout';
 
@@ -53,7 +54,13 @@ const STORAGE_KEY = 'commonplace-layout';
    ───────────────────────────────────────────────── */
 
 export default function SplitPaneContainer() {
-  const { toggleMobileSidebar, openMobileSidebar, pendingView, clearPendingView } = useCommonPlace();
+  const {
+    toggleMobileSidebar,
+    openMobileSidebar,
+    pendingView,
+    clearPendingView,
+    setSidebarCollapsed,
+  } = useCommonPlace();
   const isMobile = useIsAppShellMobile();
   const [layout, setLayout] = useState<PaneNode>(LAYOUT_PRESETS[0].tree);
   const [hasLoadedPersistedLayout, setHasLoadedPersistedLayout] = useState(false);
@@ -265,6 +272,18 @@ export default function SplitPaneContainer() {
     });
     clearPendingView();
   }, [pendingView, clearPendingView, focusedPaneId]);
+
+  /* ── Auto-collapse sidebar when compose view is focused ── */
+
+  const focusedLeaf = focusedPaneId
+    ? (findPane(layout, focusedPaneId) as LeafPane | null)
+    : null;
+  const focusedViewType =
+    focusedLeaf?.tabs[focusedLeaf.activeTabIndex]?.viewType ?? 'empty';
+
+  useEffect(() => {
+    setSidebarCollapsed(focusedViewType === 'compose');
+  }, [focusedViewType, setSidebarCollapsed]);
 
   /* ── Mobile: single pane view ── */
 
@@ -858,6 +877,20 @@ function PaneViewContent({ viewType, context, paneId, onOpenObject }: PaneViewCo
     );
   }
 
+  /* Live view: Library (clustered object browser) */
+  if (viewType === 'library') {
+    return (
+      <LibraryView
+        paneId={paneId}
+        onOpenObject={
+          paneId && onOpenObject
+            ? (objectRef) => onOpenObject(paneId, objectRef)
+            : undefined
+        }
+      />
+    );
+  }
+
   /* Live view: Timeline */
   if (viewType === 'timeline') {
     return <TimelineView />;
@@ -1157,6 +1190,14 @@ function ViewTypeIcon({ viewType, size = 16 }: { viewType: ViewType; size?: numb
           <line x1={5} y1={5} x2={11} y2={5} />
           <line x1={5} y1={8} x2={11} y2={8} />
           <line x1={5} y1={11} x2={8} y2={11} />
+        </svg>
+      );
+    case 'library':
+      return (
+        <svg width={s} height={s} viewBox="0 0 16 16" fill="none" stroke={color} strokeWidth={sw} style={{ display: 'block', margin: '0 auto' }}>
+          <line x1={2} y1={4} x2={14} y2={4} />
+          <line x1={2} y1={8} x2={11} y2={8} />
+          <line x1={2} y1={12} x2={13} y2={12} />
         </svg>
       );
     default:

@@ -116,6 +116,11 @@ export default function ComposeView({
     type: string;
     slug: string;
   } | null>(null);
+  const [terminalOpen, setTerminalOpen] = useState(false);
+  const [terminalHeight, setTerminalHeight] = useState(200);
+  const [terminalTab, setTerminalTab] = useState<'passes' | 'tension' | 'gaps' | 'stash'>('passes');
+  const [stashItems] = useState<string[]>([]);
+  const terminalDragging = useRef<{ startY: number; startHeight: number } | null>(null);
 
   const editorRef = useRef<Editor | null>(null);
   const bodyRef = useRef<{ html: string; markdown: string }>({
@@ -210,6 +215,26 @@ export default function ComposeView({
     }
   }, [title, objectType, onSaved]);
 
+  const handleTerminalDragStart = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
+    terminalDragging.current = { startY: e.clientY, startHeight: terminalHeight };
+    e.currentTarget.setPointerCapture(e.pointerId);
+    document.body.style.cursor = 'row-resize';
+    document.body.style.userSelect = 'none';
+  }, [terminalHeight]);
+
+  const handleTerminalDragMove = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
+    if (!terminalDragging.current) return;
+    const delta = terminalDragging.current.startY - e.clientY;
+    const next = Math.max(120, Math.min(terminalDragging.current.startHeight + delta, 500));
+    setTerminalHeight(next);
+  }, []);
+
+  const handleTerminalDragEnd = useCallback(() => {
+    terminalDragging.current = null;
+    document.body.style.cursor = '';
+    document.body.style.userSelect = '';
+  }, []);
+
   return (
     <div className="cp-compose-pane">
       <div className="cp-compose-instrument-bar">
@@ -239,32 +264,6 @@ export default function ComposeView({
             {item.label}
           </button>
         ))}
-      </div>
-
-      <div className="cp-compose-pass-ribbon">
-        {livePasses.map((passId) => {
-          const state = passStateMap.get(passId);
-          const status =
-            liveCharacters < 20
-              ? 'standby'
-              : state?.status === 'degraded'
-                ? 'degraded'
-                : 'complete';
-          return (
-            <div
-              key={passId}
-              className={`cp-compose-pass-chip cp-compose-pass-chip--${status}`}
-            >
-              <span className="cp-compose-pass-name">{PASS_LABELS[passId]}</span>
-              <span className="cp-compose-pass-count">
-                {liveCharacters < 20 ? 'standby' : `${state?.match_count ?? 0} hits`}
-              </span>
-              {state?.degraded_reason && (
-                <span className="cp-compose-pass-reason">{state.degraded_reason}</span>
-              )}
-            </div>
-          );
-        })}
       </div>
 
       <div className="cp-compose-entity-bar">
@@ -317,6 +316,23 @@ export default function ComposeView({
               onEditorReady={handleEditorReady}
               placeholder="Write into the graph. Direct mentions, shared entities, keyword fields, topic similarity, semantic neighbors, and claim tension surface here as you draft."
             />
+          </div>
+
+          <div className="cp-compose-tension-row">
+            <button
+              type="button"
+              className="cp-compose-check-tension"
+              onClick={() => {
+                setTerminalOpen(true);
+                setTerminalTab('tension');
+                if (!enableNli) setEnableNli(true);
+              }}
+            >
+              Check Tension
+            </button>
+            <span className="cp-compose-tension-hint">
+              NLI contradiction analysis on current draft.
+            </span>
           </div>
         </div>
 
@@ -453,6 +469,152 @@ export default function ComposeView({
             </div>
           )}
         </aside>
+      </div>
+
+      {/* Bottom engine terminal */}
+      <div
+        className={`cp-compose-terminal${terminalOpen ? ' cp-compose-terminal--open' : ''}`}
+        style={{ height: terminalOpen ? terminalHeight : 32 }}
+      >
+        {terminalOpen && (
+          <div
+            className="cp-compose-terminal-resize-handle"
+            onPointerDown={handleTerminalDragStart}
+            onPointerMove={handleTerminalDragMove}
+            onPointerUp={handleTerminalDragEnd}
+            role="separator"
+            aria-orientation="horizontal"
+            aria-label="Resize terminal"
+          />
+        )}
+        <div
+          className="cp-compose-terminal-bar"
+          onClick={() => setTerminalOpen((prev) => !prev)}
+          role="button"
+          tabIndex={0}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' || e.key === ' ') setTerminalOpen((prev) => !prev);
+          }}
+          aria-expanded={terminalOpen}
+        >
+          {terminalOpen ? (
+            <div className="cp-compose-terminal-tabs-row">
+              {(['passes', 'tension', 'gaps', 'stash'] as const).map((tab) => (
+                <button
+                  key={tab}
+                  type="button"
+                  className={`cp-compose-terminal-tab${terminalTab === tab ? ' active' : ''}`}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setTerminalTab(tab);
+                  }}
+                >
+                  {tab === 'passes' ? 'Passes' : tab === 'tension' ? 'Tension' : tab === 'gaps' ? 'Gaps' : 'Stash'}
+                </button>
+              ))}
+            </div>
+          ) : (
+            <div className="cp-compose-terminal-status">
+              <span className="cp-compose-terminal-label">ENGINE</span>
+              <div className="cp-compose-terminal-dots">
+                {livePasses.map((passId) => {
+                  const state = passStateMap.get(passId);
+                  const dotStatus =
+                    liveCharacters < 20
+                      ? 'standby'
+                      : state?.status === 'degraded'
+                        ? 'degraded'
+                        : 'complete';
+                  return (
+                    <span
+                      key={passId}
+                      className={`cp-compose-terminal-dot cp-compose-terminal-dot--${dotStatus}`}
+                      title={PASS_LABELS[passId]}
+                    />
+                  );
+                })}
+              </div>
+            </div>
+          )}
+          <span className="cp-compose-terminal-toggle" aria-hidden="true">
+            {terminalOpen ? '▾' : '▸'}
+          </span>
+        </div>
+
+        {terminalOpen && (
+          <div className="cp-compose-terminal-content">
+            {terminalTab === 'passes' && (
+              <div className="cp-compose-terminal-passes">
+                {livePasses.map((passId) => {
+                  const state = passStateMap.get(passId);
+                  const status =
+                    liveCharacters < 20
+                      ? 'standby'
+                      : state?.status === 'degraded'
+                        ? 'degraded'
+                        : 'complete';
+                  return (
+                    <div key={passId} className={`cp-compose-pass-row cp-compose-pass-row--${status}`}>
+                      <span className={`cp-compose-terminal-dot cp-compose-terminal-dot--${status}`} />
+                      <span className="cp-compose-pass-name">{PASS_LABELS[passId]}</span>
+                      <span className="cp-compose-pass-count">
+                        {liveCharacters < 20 ? 'standby' : `${state?.match_count ?? 0} hits`}
+                      </span>
+                      {state?.degraded_reason && (
+                        <span className="cp-compose-pass-reason">{state.degraded_reason}</span>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+            {terminalTab === 'tension' && (
+              <div className="cp-compose-terminal-tension">
+                {!enableNli ? (
+                  <div className="cp-compose-terminal-empty">
+                    NLI pass inactive. Click "Check Tension" below the editor to enable.
+                  </div>
+                ) : results.filter((r) => r.signal === 'nli').length === 0 ? (
+                  <div className="cp-compose-terminal-empty">
+                    {liveLoading ? 'Running NLI pass...' : 'No contradictions detected in current draft.'}
+                  </div>
+                ) : (
+                  results
+                    .filter((r) => r.signal === 'nli')
+                    .slice(0, 8)
+                    .map((r) => (
+                      <div key={r.id} className="cp-compose-tension-row-item">
+                        <span className="cp-compose-tension-title">{r.title}</span>
+                        <span className="cp-compose-tension-explanation">{r.explanation}</span>
+                      </div>
+                    ))
+                )}
+              </div>
+            )}
+            {terminalTab === 'gaps' && (
+              <div className="cp-compose-terminal-empty">
+                {lastSaved
+                  ? `Gap analysis for "${lastSaved.title}" runs after the background engine completes.`
+                  : 'Save an object to surface research gaps from the engine pass.'}
+              </div>
+            )}
+            {terminalTab === 'stash' && (
+              <div className="cp-compose-terminal-stash">
+                {stashItems.length === 0 ? (
+                  <div className="cp-compose-terminal-empty">
+                    Right-click any object and choose "Stash for Later" to collect fragments here.
+                  </div>
+                ) : (
+                  stashItems.map((item, i) => (
+                    <div key={i} className="cp-compose-stash-item">
+                      {item}
+                    </div>
+                  ))
+                )}
+              </div>
+            )}
+          </div>
+        )}
       </div>
 
       <div className="cp-compose-save-bar">
