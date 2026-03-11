@@ -902,3 +902,109 @@ class CausalEngineTests(TestCase):
         )
         self.assertEqual(edge.engine, 'causal')
         self.assertIn('Influence chain detected', edge.reason)
+
+
+class TemporalEvolutionTests(TestCase):
+    def setUp(self):
+        self.ot_note = _create_object_type('note', 'Note')
+        self.notebook = Notebook.objects.create(name='Evolution')
+        now = timezone.now()
+
+        self.obj_a = _create_object(
+            title='Week one',
+            body='Initial note.',
+            object_type=self.ot_note,
+            notebook=self.notebook,
+        )
+        self.obj_b = _create_object(
+            title='Week two',
+            body='Follow-up note.',
+            object_type=self.ot_note,
+            notebook=self.notebook,
+        )
+        self.obj_c = _create_object(
+            title='Week three',
+            body='Later note.',
+            object_type=self.ot_note,
+            notebook=self.notebook,
+        )
+
+        Object.objects.filter(pk=self.obj_a.pk).update(captured_at=now - timedelta(days=20))
+        Object.objects.filter(pk=self.obj_b.pk).update(captured_at=now - timedelta(days=10))
+        Object.objects.filter(pk=self.obj_c.pk).update(captured_at=now - timedelta(days=3))
+        for obj in [self.obj_a, self.obj_b, self.obj_c]:
+            obj.refresh_from_db()
+
+        Edge.objects.create(
+            from_object=self.obj_a,
+            to_object=self.obj_b,
+            edge_type='related',
+            reason='First connection',
+            strength=0.5,
+            is_auto=True,
+            engine='test',
+        )
+        Edge.objects.create(
+            from_object=self.obj_b,
+            to_object=self.obj_c,
+            edge_type='related',
+            reason='Second connection',
+            strength=0.6,
+            is_auto=True,
+            engine='test',
+        )
+        first_edge, second_edge = Edge.objects.order_by('pk')
+        Edge.objects.filter(pk=first_edge.pk).update(created_at=now - timedelta(days=9))
+        Edge.objects.filter(pk=second_edge.pk).update(created_at=now - timedelta(days=2))
+
+    def test_analyze_temporal_evolution_reports_snapshots_and_growth(self):
+        from apps.notebook.temporal_evolution import analyze_temporal_evolution
+
+        result = analyze_temporal_evolution(
+            notebook=self.notebook,
+            window_days=14,
+            step_days=7,
+            max_windows=4,
+        )
+
+        self.assertGreaterEqual(len(result['snapshots']), 2)
+        self.assertEqual(len(result['trajectory']), len(result['snapshots']))
+        self.assertIn('Latest window contains', result['summary'])
+
+
+class ClusterSynthesisTests(TestCase):
+    def setUp(self):
+        self.ot_note = _create_object_type('note', 'Note')
+        self.notebook = Notebook.objects.create(name='Synthesis')
+        self.cluster = Cluster.objects.create(
+            name='Housing cluster',
+            notebook=self.notebook,
+            member_count=3,
+        )
+        for title, body in [
+            ('Housing supply', 'Supply increases when zoning expands.'),
+            ('Street safety', 'Mixed-use streets support safety and walkability.'),
+            ('Neighborhood change', 'Housing growth reshapes neighborhood life.'),
+        ]:
+            obj = _create_object(
+                title=title,
+                body=body,
+                object_type=self.ot_note,
+                notebook=self.notebook,
+            )
+            obj.cluster = self.cluster
+            obj.save()
+        self.cluster.member_count = self.cluster.members.count()
+        self.cluster.save(update_fields=['member_count'])
+
+    def test_summarize_cluster_uses_heuristic_and_can_persist(self):
+        from apps.notebook.synthesis import summarize_cluster, summarize_clusters
+
+        summary = summarize_cluster(self.cluster, persist=True)
+        self.cluster.refresh_from_db()
+        notebook_summaries = summarize_clusters(notebook=self.notebook, persist=False)
+
+        self.assertIn('cluster centered on', summary)
+        self.assertEqual(self.cluster.summary, summary)
+        self.assertEqual(len(notebook_summaries), 1)
+        self.assertEqual(notebook_summaries[0]['summary'], summary)

@@ -13,7 +13,7 @@ Current status is based on code audit, not spec claims.
 | 7. Causal inference | Complete | `causal_engine.py` builds an influence DAG from forward-in-time support edges, and the notebook engine can persist `edge_type='causal'` lineage edges. |
 | 8. Community detection | Complete | `apps/notebook/community.py` and `detect_communities` command are live and covered by notebook tests. |
 | 9. Gap analysis | Complete | `apps/notebook/gap_analysis.py` is live and covered by notebook tests. |
-| 10-11. Temporal evolution + synthesis | Pending | No notebook runtime modules yet. |
+| 10-11. Temporal evolution + synthesis | Complete | `temporal_evolution.py` adds sliding-window graph snapshots, and `synthesis.py` adds LLM-optional cluster summaries with a deterministic fallback. |
 
 Known reconciliation notes:
 - `apps/notebook/ENGINE-CLAUDE.md` and `apps/notebook/ENGINE-UPGRADE-SPEC.md` describe older intermediate states and should not be treated as current truth.
