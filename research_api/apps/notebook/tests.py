@@ -15,6 +15,7 @@ import zipfile
 from unittest.mock import patch
 
 import networkx as nx
+import numpy as np
 from django.core.cache import cache
 from django.core.management import call_command
 from django.core.files.uploadedfile import SimpleUploadedFile
@@ -682,3 +683,104 @@ class ClaimLevelNliTests(TestCase):
 
         self.assertEqual(edges, [])
         self.assertEqual(Claim.objects.count(), 0)
+
+
+class TemporalKgeTests(TestCase):
+    def setUp(self):
+        self.ot_note = _create_object_type('note', 'Note')
+        self.obj_a = _create_object(
+            title='Anchor',
+            body='Structural anchor in the graph.',
+            object_type=self.ot_note,
+        )
+        self.obj_b = _create_object(
+            title='Emergent peer',
+            body='A structurally similar object with rising overlap.',
+            object_type=self.ot_note,
+        )
+        self.obj_c = _create_object(
+            title='Stable peer',
+            body='A structurally similar object without a trend change.',
+            object_type=self.ot_note,
+        )
+
+    def test_temporal_kge_store_finds_emerging_connections(self):
+        from apps.notebook.vector_store import TemporalKGEStore
+
+        store = TemporalKGEStore()
+        store.is_loaded = True
+        store.entity_embeddings = np.array(
+            [
+                [1.0, 0.0],
+                [0.92, 0.08],
+                [0.85, 0.15],
+            ],
+            dtype='float32',
+        )
+        store.entity_to_idx = {
+            self.obj_a.sha_hash: 0,
+            self.obj_b.sha_hash: 1,
+            self.obj_c.sha_hash: 2,
+        }
+        store.idx_to_entity = {index: sha for sha, index in store.entity_to_idx.items()}
+        store.time_buckets = ['2026-W07', '2026-W08', '2026-W09', '2026-W10']
+        store.temporal_profiles = {
+            self.obj_a.sha_hash: {
+                '2026-W07': {'seed-old': 1.0},
+                '2026-W08': {'seed-old': 1.0},
+                '2026-W09': {'seed-new': 1.0, self.obj_b.sha_hash: 0.4},
+                '2026-W10': {'seed-new': 1.0, self.obj_b.sha_hash: 0.9},
+            },
+            self.obj_b.sha_hash: {
+                '2026-W07': {'other-old': 0.2},
+                '2026-W08': {'other-old': 0.2},
+                '2026-W09': {'seed-new': 1.0, self.obj_a.sha_hash: 0.4},
+                '2026-W10': {'seed-new': 1.0, self.obj_a.sha_hash: 0.9},
+            },
+            self.obj_c.sha_hash: {
+                '2026-W07': {'seed-old': 1.0},
+                '2026-W08': {'seed-old': 1.0},
+                '2026-W09': {'seed-old': 1.0},
+                '2026-W10': {'seed-old': 1.0},
+            },
+        }
+
+        matches = store.find_emerging_connections(
+            self.obj_a.sha_hash,
+            lookback_weeks=2,
+            top_n=5,
+            threshold=0.05,
+        )
+
+        self.assertEqual(len(matches), 1)
+        self.assertEqual(matches[0]['sha_hash'], self.obj_b.sha_hash)
+        self.assertGreater(matches[0]['trend_delta'], 0.05)
+
+    @patch('apps.notebook.engine._llm_explanation', return_value=None)
+    @patch('apps.notebook.vector_store.kge_store')
+    def test_run_kge_engine_emits_temporal_structural_edge(
+        self,
+        mock_kge_store,
+        _mock_llm_explanation,
+    ):
+        from apps.notebook.engine import _run_kge_engine
+
+        mock_kge_store.is_loaded = True
+        mock_kge_store.find_similar_entities.return_value = []
+        mock_kge_store.find_emerging_connections.return_value = [
+            {
+                'sha_hash': self.obj_b.sha_hash,
+                'score': 0.71,
+                'trend_delta': 0.22,
+                'recent_overlap': 0.64,
+                'past_overlap': 0.12,
+            },
+        ]
+
+        edges = _run_kge_engine(self.obj_a, {})
+
+        self.assertEqual(len(edges), 1)
+        edge = Edge.objects.get(from_object=self.obj_a, to_object=self.obj_b)
+        self.assertEqual(edge.edge_type, 'structural')
+        self.assertEqual(edge.engine, 'kge_temporal')
+        self.assertIn('becoming more structurally aligned', edge.reason)

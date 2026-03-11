@@ -62,6 +62,36 @@ def load_triples(input_dir: Path) -> list[tuple[str, str, str]]:
     return triples
 
 
+def load_temporal_triples(
+    input_dir: Path,
+) -> list[tuple[str, str, str, str, float]]:
+    """Load temporal triples if export_kge_triples generated them."""
+    temporal_path = input_dir / 'temporal_triples.tsv'
+    if not temporal_path.exists():
+        logger.info('No temporal_triples.tsv found in %s. Skipping temporal profiles.', input_dir)
+        return []
+
+    temporal_triples = []
+    with open(temporal_path) as f:
+        header = f.readline()
+        if not header.startswith('head'):
+            logger.warning('Unexpected header in temporal_triples.tsv: %s', header.strip())
+        for line in f:
+            parts = line.strip().split('\t')
+            if len(parts) != 5:
+                continue
+            head, relation, tail, time_bucket, weight = parts
+            try:
+                temporal_triples.append(
+                    (head, relation, tail, time_bucket, float(weight)),
+                )
+            except ValueError:
+                continue
+
+    logger.info('Loaded %d temporal triples from %s', len(temporal_triples), temporal_path)
+    return temporal_triples
+
+
 def train_rotate(
     triples: list[tuple[str, str, str]],
     embedding_dim: int = 64,
@@ -213,6 +243,43 @@ def export_embeddings(
     )
 
 
+def export_temporal_profiles(
+    temporal_triples: list[tuple[str, str, str, str, float]],
+    output_dir: Path,
+) -> None:
+    """Build time-bucketed neighborhood profiles for TemporalKGEStore."""
+    if not temporal_triples:
+        return
+
+    profiles: dict[str, dict[str, dict[str, float]]] = {}
+    bucket_order: set[str] = set()
+
+    for head, _relation, tail, time_bucket, weight in temporal_triples:
+        bucket_order.add(time_bucket)
+
+        head_bucket = profiles.setdefault(head, {}).setdefault(time_bucket, {})
+        head_bucket[tail] = max(float(weight), head_bucket.get(tail, 0.0))
+
+        tail_bucket = profiles.setdefault(tail, {}).setdefault(time_bucket, {})
+        tail_bucket[head] = max(float(weight), tail_bucket.get(head, 0.0))
+
+    payload = {
+        'bucket_order': sorted(bucket_order),
+        'entity_profiles': profiles,
+    }
+
+    profile_path = output_dir / 'temporal_profiles.json'
+    with open(profile_path, 'w') as f:
+        json.dump(payload, f, indent=2)
+
+    logger.info(
+        'Saved temporal profiles for %d entities across %d buckets to %s',
+        len(profiles),
+        len(bucket_order),
+        profile_path,
+    )
+
+
 def main():
     parser = argparse.ArgumentParser(
         description='Train RotatE KGE embeddings for CommonPlace knowledge graph.',
@@ -248,6 +315,7 @@ def main():
 
     # Load triples
     triples = load_triples(input_dir)
+    temporal_triples = load_temporal_triples(input_dir)
     if not triples:
         logger.error('No triples found. Nothing to train.')
         sys.exit(1)
@@ -275,6 +343,7 @@ def main():
         num_epochs=args.epochs,
         training_time=elapsed,
     )
+    export_temporal_profiles(temporal_triples, output_dir)
 
     logger.info(
         '\nDone. Restart the Django server to load new embeddings:\n'

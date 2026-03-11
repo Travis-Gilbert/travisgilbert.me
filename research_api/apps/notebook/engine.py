@@ -1116,6 +1116,23 @@ def _synthesize_kge_reason(obj_a: Object, obj_b: Object, score: float) -> str:
     )
 
 
+def _synthesize_temporal_kge_reason(
+    obj_a: Object,
+    obj_b: Object,
+    recent_overlap: float,
+    past_overlap: float,
+    trend_delta: float,
+) -> str:
+    type_a = obj_a.object_type.name.lower() if obj_a.object_type else 'note'
+    type_b = obj_b.object_type.name.lower() if obj_b.object_type else 'note'
+    return (
+        f'This {type_a} and this {type_b} are becoming more structurally aligned '
+        f'in recent graph activity ({recent_overlap:.0%} recent overlap, up from '
+        f'{past_overlap:.0%}; trend delta {trend_delta:.0%}). '
+        f'This suggests an emerging connection worth revisiting.'
+    )
+
+
 def _run_kge_engine(obj: Object, config: dict) -> list[Edge]:
     """
     KGE structural similarity pass. Dev/local only, requires trained embeddings.
@@ -1146,6 +1163,8 @@ def _run_kge_engine(obj: Object, config: dict) -> list[Edge]:
         return []
 
     threshold = config.get('kge_threshold', 0.60)
+    temporal_threshold = config.get('kge_temporal_threshold', 0.05)
+    temporal_lookback_weeks = config.get('kge_temporal_lookback_weeks', 4)
 
     try:
         matches = kge_store.find_similar_entities(
@@ -1157,13 +1176,24 @@ def _run_kge_engine(obj: Object, config: dict) -> list[Edge]:
         logger.warning('KGE find_similar_entities failed: %s', exc)
         return []
 
-    if not matches:
+    try:
+        temporal_matches = kge_store.find_emerging_connections(
+            sha_hash=sha,
+            lookback_weeks=temporal_lookback_weeks,
+            top_n=10,
+            threshold=temporal_threshold,
+        )
+    except Exception as exc:
+        logger.warning('Temporal KGE emerging-connection lookup failed: %s', exc)
+        temporal_matches = []
+
+    if not matches and not temporal_matches:
         return []
 
     sha_map = {
         o.sha_hash: o
         for o in Object.objects.filter(
-            sha_hash__in=[m['sha_hash'] for m in matches],
+            sha_hash__in=[m['sha_hash'] for m in matches + temporal_matches],
             is_deleted=False,
         ).select_related('object_type')
     }
@@ -1181,16 +1211,41 @@ def _run_kge_engine(obj: Object, config: dict) -> list[Edge]:
             or _synthesize_kge_reason(obj, other, score)
         )
 
-        edge, created = Edge.objects.get_or_create(
+        edge, created = _upsert_auto_edge(
             from_object=obj,
             to_object=other,
-            edge_type='shared_topic',
-            defaults={
-                'reason': reason,
-                'strength': round(score, 4),
-                'is_auto': True,
-                'engine': 'kge',
-            },
+            edge_type='structural',
+            reason=reason,
+            strength=round(score, 4),
+            engine_name='kge',
+        )
+        if created:
+            new_edges.append(edge)
+
+    for match in temporal_matches:
+        other = sha_map.get(match['sha_hash'])
+        if not other or other.pk == obj.pk:
+            continue
+
+        score = match['score']
+        reason = (
+            _llm_explanation(obj, other, strength=score)
+            or _synthesize_temporal_kge_reason(
+                obj,
+                other,
+                float(match.get('recent_overlap', 0.0)),
+                float(match.get('past_overlap', 0.0)),
+                float(match.get('trend_delta', 0.0)),
+            )
+        )
+
+        edge, created = _upsert_auto_edge(
+            from_object=obj,
+            to_object=other,
+            edge_type='structural',
+            reason=reason,
+            strength=round(score, 4),
+            engine_name='kge_temporal',
         )
         if created:
             new_edges.append(edge)
