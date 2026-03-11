@@ -1,9 +1,10 @@
 'use client';
 
-import type { MockNode } from '@/lib/commonplace';
+import type { MockNode, LineageResponse } from '@/lib/commonplace';
 
 interface LineageSwimlaneProps {
   nodes: MockNode[];
+  lineageData?: LineageResponse | null;
   onOpenObject?: (objectRef: number) => void;
 }
 
@@ -28,10 +29,37 @@ function ChainArrow() {
   );
 }
 
-export default function LineageSwimlane({ nodes, onOpenObject }: LineageSwimlaneProps) {
-  if (nodes.length === 0) return null;
+export default function LineageSwimlane({ nodes, lineageData, onOpenObject }: LineageSwimlaneProps) {
+  const chain: { id: string; objectRef: number; objectType: string; title: string }[] =
+    lineageData
+      ? [
+          ...lineageData.ancestors.slice(0, 3).map((n) => ({
+            id: `a-${n.id}`,
+            objectRef: n.id,
+            objectType: n.object_type_slug,
+            title: n.title,
+          })),
+          {
+            id: `f-${lineageData.object.id}`,
+            objectRef: lineageData.object.id,
+            objectType: lineageData.object.object_type_slug,
+            title: lineageData.object.title,
+          },
+          ...lineageData.descendants.slice(0, 3).map((n) => ({
+            id: `d-${n.id}`,
+            objectRef: n.id,
+            objectType: n.object_type_slug,
+            title: n.title,
+          })),
+        ]
+      : nodes.slice(0, 7).map((n) => ({
+          id: n.id,
+          objectRef: n.objectRef,
+          objectType: n.objectType,
+          title: n.title,
+        }));
 
-  const chain = nodes.slice(0, 7);
+  if (chain.length === 0) return null;
 
   return (
     <div style={{ marginBottom: 20 }}>

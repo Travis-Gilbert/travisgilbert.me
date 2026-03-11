@@ -1,6 +1,6 @@
 # 004: CommonPlace v5 Dark Chrome Instrument Redesign
 
-**Status:** In progress (Batches 1-6 complete, Batches 7-9 pending)
+**Status:** In progress (Batches 1-6, 9 complete; Batches 7-8 pending)
 **Date started:** 2026-03-11
 
 ## Overview
@@ -67,8 +67,16 @@ Right-click context menu on any object card. Actions: Stash (move to stash pane)
 ### Batch 8: DotGrid canvas migration
 Move the dot field from CSS (`.cp-pane-dots` background-image) to a shared DotGrid canvas layer in `PaneFrame`. Aligns with the main site's DotGrid pattern and enables zone-aware dot color changes.
 
-### Batch 9: Backend cluster/lineage endpoints + frontend hooks
-New Django endpoints for cluster grouping and lineage chains. Wire `ClusterCard` and `LineageSwimlane` to live data instead of placeholder props.
+### Batch 9: Backend cluster/lineage endpoints + frontend hooks (complete)
+Wired `ClusterCard` and `LineageSwimlane` in `LibraryView.tsx` to live Django API data.
+
+- `fetchClusters()` + `fetchLineage(slug)` added as `useApiData` calls
+- `clustersData` replaces old `useMemo`-derived clusters; `types` useMemo updated to read `clustersData`
+- `lineageData` derived from `firstSlug` (the slug of the first node in the feed); passed to `LineageSwimlane`
+- `ClusterMember` inline-mapped to `RenderableObject` at the JSX call site: `id: m.id`, `title: m.title`, `object_type_slug: cluster.type`, `body: m.body_preview || undefined`
+- `ClusterResponse.count` (not `member_count`) used for `memberCount` prop
+- Bug fix in `TimelineView.tsx`: `asRenderable.id` was `node.id` (string) but `RenderableObject.id` is `number`; fixed to `node.objectRef` (matches `mockNodeToRenderable` pattern in LibraryView)
+- Build passes cleanly after both fixes
 
 ## Implementation Notes
 

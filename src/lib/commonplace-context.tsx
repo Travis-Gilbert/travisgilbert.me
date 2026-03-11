@@ -18,6 +18,7 @@
 import { createContext, useContext, useState, useCallback, useMemo } from 'react';
 import type { ReactNode } from 'react';
 import type { ViewType } from '@/lib/commonplace';
+import type { RenderableObject } from '@/components/commonplace/objects/ObjectRenderer';
 
 /** A request from the sidebar (or a list view) to open a pane tab */
 export interface ViewRequest {
@@ -67,6 +68,12 @@ interface CommonPlaceContextValue {
   openDrawer: (slug: string) => void;
   /** Close the object detail drawer */
   closeDrawer: () => void;
+  /** Object currently targeted by a right-click context menu (null when closed) */
+  contextMenuTarget: { x: number; y: number; obj: RenderableObject } | null;
+  /** Open the context menu anchored to screen position with the given object */
+  openContextMenu: (x: number, y: number, obj: RenderableObject) => void;
+  /** Close the context menu */
+  closeContextMenu: () => void;
 }
 
 const CommonPlaceContext = createContext<CommonPlaceContextValue>({
@@ -90,6 +97,9 @@ const CommonPlaceContext = createContext<CommonPlaceContextValue>({
   lastViewedObjectSlug: null,
   openDrawer: () => {},
   closeDrawer: () => {},
+  contextMenuTarget: null,
+  openContextMenu: () => {},
+  closeContextMenu: () => {},
 });
 
 export function CommonPlaceProvider({ children }: { children: ReactNode }) {
@@ -101,6 +111,11 @@ export function CommonPlaceProvider({ children }: { children: ReactNode }) {
   const [paletteOpen, setPaletteOpen] = useState(false);
   const [drawerSlug, setDrawerSlug] = useState<string | null>(null);
   const [lastViewedObjectSlug, setLastViewedObjectSlug] = useState<string | null>(null);
+  const [contextMenuTarget, setContextMenuTarget] = useState<{
+    x: number;
+    y: number;
+    obj: RenderableObject;
+  } | null>(null);
 
   const notifyCaptured = useCallback(() => {
     setCaptureVersion((v) => v + 1);
@@ -131,6 +146,11 @@ export function CommonPlaceProvider({ children }: { children: ReactNode }) {
 
   const openPalette = useCallback(() => setPaletteOpen(true), []);
   const closePalette = useCallback(() => setPaletteOpen(false), []);
+  const openContextMenu = useCallback(
+    (x: number, y: number, obj: RenderableObject) => setContextMenuTarget({ x, y, obj }),
+    [],
+  );
+  const closeContextMenu = useCallback(() => setContextMenuTarget(null), []);
   const openDrawer = useCallback((slug: string) => {
     setDrawerSlug(slug);
     setLastViewedObjectSlug(slug);
@@ -159,6 +179,9 @@ export function CommonPlaceProvider({ children }: { children: ReactNode }) {
       lastViewedObjectSlug,
       openDrawer,
       closeDrawer,
+      contextMenuTarget,
+      openContextMenu,
+      closeContextMenu,
     }),
     [
       captureVersion,
@@ -179,6 +202,9 @@ export function CommonPlaceProvider({ children }: { children: ReactNode }) {
       lastViewedObjectSlug,
       openDrawer,
       closeDrawer,
+      contextMenuTarget,
+      openContextMenu,
+      closeContextMenu,
     ],
   );
 

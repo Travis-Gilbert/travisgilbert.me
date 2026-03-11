@@ -1830,3 +1830,83 @@ def canvas_suggest_view(request):
     specs = suggest_visualizations(data, hint=ser.validated_data.get('hint', ''))
 
     return Response({'specs': specs})
+
+
+@api_view(['GET'])
+def clusters_view(request):
+    """GET /api/v1/notebook/clusters/ - Objects grouped by type."""
+    qs = Object.objects.filter(is_deleted=False).select_related('object_type').annotate(
+        edge_count=Count('edges_out', distinct=True) + Count('edges_in', distinct=True)
+    )
+    notebook_slug = request.query_params.get('notebook')
+    if notebook_slug:
+        qs = qs.filter(notebook__slug=notebook_slug)
+    project_slug = request.query_params.get('project')
+    if project_slug:
+        qs = qs.filter(project__slug=project_slug)
+
+    groups = {}
+    for obj in qs:
+        ot = obj.object_type
+        key = ot.slug if ot else 'unknown'
+        if key not in groups:
+            groups[key] = {
+                'type': key,
+                'label': ot.name if ot else 'Unknown',
+                'color': ot.color if ot else '#9A8E82',
+                'icon': ot.icon if ot else 'note-pencil',
+                'members': [],
+            }
+        groups[key]['members'].append({
+            'id': obj.pk,
+            'title': obj.display_title,
+            'slug': obj.slug,
+            'body_preview': (obj.body or '')[:120],
+            'edge_count': obj.edge_count or 0,
+        })
+    clusters = sorted(groups.values(), key=lambda c: len(c['members']), reverse=True)
+    for c in clusters:
+        c['count'] = len(c['members'])
+    return Response(clusters)
+
+
+@api_view(['GET'])
+def object_lineage_view(request, slug):
+    """GET /api/v1/notebook/objects/<slug>/lineage/ - 1-hop Edge traversal."""
+    obj = get_object_or_404(Object, slug=slug, is_deleted=False)
+
+    def _serialize_neighbor(edge_obj, neighbor):
+        ot = neighbor.object_type
+        return {
+            'id': neighbor.pk,
+            'title': neighbor.display_title,
+            'slug': neighbor.slug,
+            'object_type_slug': ot.slug if ot else '',
+            'object_type_label': ot.name if ot else '',
+            'object_type_color': ot.color if ot else '#9A8E82',
+            'reason': edge_obj.reason or '',
+            'strength': edge_obj.strength,
+        }
+
+    ancestor_edges = (
+        Edge.objects.filter(to_object=obj, is_deleted=False)
+        .select_related('from_object', 'from_object__object_type')
+    )
+    descendant_edges = (
+        Edge.objects.filter(from_object=obj, is_deleted=False)
+        .select_related('to_object', 'to_object__object_type')
+    )
+
+    ot = obj.object_type
+    return Response({
+        'object': {
+            'id': obj.pk,
+            'title': obj.display_title,
+            'slug': obj.slug,
+            'object_type_slug': ot.slug if ot else '',
+            'object_type_label': ot.name if ot else '',
+            'object_type_color': ot.color if ot else '#9A8E82',
+        },
+        'ancestors': [_serialize_neighbor(e, e.from_object) for e in ancestor_edges],
+        'descendants': [_serialize_neighbor(e, e.to_object) for e in descendant_edges],
+    })

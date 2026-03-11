@@ -6183,3 +6183,117 @@
 @keyframes cp-spin {
   to { transform: rotate(360deg); }
 }
+
+/* ─────────────────────────────────────────────────
+   ObjectContextMenu (Batch 7)
+   Dark chrome dropdown for right-click actions.
+   ───────────────────────────────────────────────── */
+
+.cp-context-menu {
+  background: var(--cp-chrome-raise);
+  border: 1px solid var(--cp-chrome-line);
+  border-radius: 6px;
+  padding: 5px 0;
+  min-width: 188px;
+  box-shadow:
+    0 4px 16px rgba(0, 0, 0, 0.35),
+    0 1px 3px rgba(0, 0, 0, 0.2);
+  z-index: 9999;
+  outline: none;
+}
+
+.cp-context-menu__header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px 4px;
+}
+
+.cp-context-menu__type-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.cp-context-menu__type-label {
+  font-family: var(--cp-font-mono);
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--cp-chrome-muted);
+}
+
+.cp-context-menu__title {
+  font-family: var(--cp-font-mono);
+  font-size: 11px;
+  color: var(--cp-chrome-text);
+  padding: 0 12px 6px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 220px;
+}
+
+.cp-context-menu__divider {
+  height: 1px;
+  background: var(--cp-chrome-line);
+  margin: 3px 0;
+}
+
+.cp-context-menu__section-label {
+  font-family: var(--cp-font-mono);
+  font-size: 8px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--cp-chrome-dim);
+  padding: 5px 12px 2px;
+}
+
+.cp-context-menu__item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  padding: 6px 12px;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  color: var(--cp-chrome-text);
+  font-family: var(--cp-font-mono);
+  font-size: 12px;
+  text-align: left;
+  transition: background 80ms ease;
+}
+
+.cp-context-menu__item:hover {
+  background: var(--cp-chrome-mid);
+  color: var(--cp-vellum, var(--cp-chrome-text));
+}
+
+.cp-context-menu__item--sub {
+  font-size: 11px;
+  color: var(--cp-chrome-muted);
+  padding-left: 20px;
+}
+
+.cp-context-menu__item--sub:hover {
+  color: var(--cp-chrome-text);
+}
+
+.cp-context-menu__item-label {
+  flex: 1;
+}
+
+.cp-context-menu__item-shortcut {
+  font-family: var(--cp-font-mono);
+  font-size: 9px;
+  color: var(--cp-chrome-dim);
+  background: var(--cp-chrome);
+  border: 1px solid var(--cp-chrome-line);
+  border-radius: 3px;
+  padding: 1px 5px;
+  letter-spacing: 0;
+}

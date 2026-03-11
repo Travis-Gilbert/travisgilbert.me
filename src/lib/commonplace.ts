@@ -620,6 +620,47 @@ export interface PaginatedResponse<T> {
   results: T[];
 }
 
+export interface ClusterMember {
+  id: number;
+  title: string;
+  slug: string;
+  body_preview: string;
+  edge_count: number;
+}
+
+export interface ClusterResponse {
+  type: string;
+  label: string;
+  color: string;
+  icon: string;
+  count: number;
+  members: ClusterMember[];
+}
+
+export interface LineageNeighbor {
+  id: number;
+  title: string;
+  slug: string;
+  object_type_slug: string;
+  object_type_label: string;
+  object_type_color: string;
+  reason: string;
+  strength: number;
+}
+
+export interface LineageResponse {
+  object: {
+    id: number;
+    title: string;
+    slug: string;
+    object_type_slug: string;
+    object_type_label: string;
+    object_type_color: string;
+  };
+  ancestors: LineageNeighbor[];
+  descendants: LineageNeighbor[];
+}
+
 export async function fetchObjects(params?: {
   status?: string;
   type?: string;

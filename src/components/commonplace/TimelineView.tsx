@@ -31,6 +31,7 @@ import {
 import { useCommonPlace } from '@/lib/commonplace-context';
 import type { MockNode } from '@/lib/commonplace';
 import { getObjectTypeIdentity } from '@/lib/commonplace';
+import type { RenderableObject } from './objects/ObjectRenderer';
 import TimelineSearch from './TimelineSearch';
 import type { TimelineFilters } from './TimelineSearch';
 import RetroNote from './RetroNote';
@@ -263,10 +264,12 @@ function TimelineCard({
   node,
   allNodes,
   onOpenDrawer,
+  onContextMenu,
 }: {
   node: MockNode;
   allNodes: MockNode[];
   onOpenDrawer: (slug: string) => void;
+  onContextMenu?: (e: React.MouseEvent, obj: RenderableObject) => void;
 }) {
   const typeInfo = getObjectTypeIdentity(node.objectType);
   const entityChips = useMemo(() => deriveEntityChips(node), [node]);
@@ -292,8 +295,18 @@ function TimelineCard({
     }
   };
 
+  const asRenderable: RenderableObject = {
+    id: node.objectRef,
+    title: node.title,
+    object_type_slug: node.objectType,
+  };
+
   return (
-    <div className="cp-timeline-card" data-type={node.objectType}>
+    <div
+      className="cp-timeline-card"
+      data-type={node.objectType}
+      onContextMenu={onContextMenu ? (e) => { e.preventDefault(); onContextMenu(e, asRenderable); } : undefined}
+    >
       {/* Left gutter: continuous rail + dot marker + time label */}
       <div className="cp-tl-gutter" aria-hidden="true">
         <div className="cp-tl-rail" />
@@ -448,7 +461,7 @@ export default function TimelineView() {
     activeTypes: new Set<string>(),
   });
   const scrollRef = useRef<HTMLDivElement>(null);
-  const { captureVersion, openDrawer } = useCommonPlace();
+  const { captureVersion, openDrawer, openContextMenu } = useCommonPlace();
 
   const { data: feed, loading, error, refetch } = useApiData(fetchFeed, [captureVersion]);
 
@@ -580,6 +593,7 @@ export default function TimelineView() {
                   node={node}
                   allNodes={allNodes}
                   onOpenDrawer={openDrawer}
+                  onContextMenu={(e, obj) => openContextMenu(e.clientX, e.clientY, obj)}
                 />
               ))}
             </div>

@@ -37,6 +37,8 @@ import type {
   ApiDailyLog,
   CapturedObject,
   ObjectListItem,
+  ClusterResponse,
+  LineageResponse,
 } from '@/lib/commonplace';
 import { API_BASE } from '@/lib/commonplace';
 
@@ -717,4 +719,20 @@ export async function createObjectComponent(
 /** DELETE a component */
 export async function deleteComponent(componentId: number): Promise<void> {
   await apiFetch(`/components/${componentId}/`, { method: 'DELETE' });
+}
+
+/** GET /clusters/ - Objects grouped by object type */
+export function fetchClusters(
+  params?: { notebook?: string; project?: string },
+): Promise<ClusterResponse[]> {
+  const qs =
+    params && Object.keys(params).length
+      ? '?' + new URLSearchParams(params as Record<string, string>).toString()
+      : '';
+  return apiFetch<ClusterResponse[]>(`/clusters/${qs}`);
+}
+
+/** GET /objects/<slug>/lineage/ - 1-hop Edge traversal */
+export function fetchLineage(slug: string): Promise<LineageResponse> {
+  return apiFetch<LineageResponse>(`/objects/${slug}/lineage/`);
 }

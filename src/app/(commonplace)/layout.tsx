@@ -5,6 +5,7 @@ import CommonPlaceSidebar from '@/components/commonplace/CommonPlaceSidebar';
 import SplitPaneContainer from '@/components/commonplace/SplitPaneContainer';
 import CommandPalette from '@/components/commonplace/CommandPalette';
 import ObjectDrawer from '@/components/commonplace/ObjectDrawer';
+import ObjectContextMenu from '@/components/commonplace/ObjectContextMenu';
 import { Toaster } from 'sonner';
 import '@/styles/commonplace.css';
 
@@ -59,13 +60,13 @@ export default function CommonPlaceLayout({
       }}
     >
       <DotGrid
-        dotRadius={0.78}
-        spacing={22}
-        dotColor={[212, 196, 170]}
-        dotOpacity={0.22}
-        binaryDensity={0.14}
-        fadeStart={0.78}
-        fadeEnd={0.98}
+        dotRadius={0.7}
+        spacing={20}
+        dotColor={[80, 80, 92]}
+        dotOpacity={0.12}
+        binaryDensity={0.0}
+        fadeStart={0.72}
+        fadeEnd={0.96}
         noGradient
       />
 
@@ -79,7 +80,7 @@ export default function CommonPlaceLayout({
 
         {/* Main content area: vignette dots + paper grain + split panes */}
         <main
-          className="cp-main-surface cp-vignette-dots cp-grain"
+          className="cp-main-surface cp-grain"
           style={{
             flex: 1,
             minWidth: 0,
@@ -91,9 +92,10 @@ export default function CommonPlaceLayout({
           <SplitPaneContainer />
         </main>
 
-        {/* Global overlays: object drawer, command palette, toast notifications */}
+        {/* Global overlays: object drawer, command palette, context menu, toast notifications */}
         <ObjectDrawer />
         <CommandPalette />
+        <ObjectContextMenu />
         <Toaster
           position="bottom-right"
           toastOptions={{

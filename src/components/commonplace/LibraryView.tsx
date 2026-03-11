@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useMemo } from 'react';
-import { fetchFeed, fetchResurface, useApiData } from '@/lib/commonplace-api';
+import { fetchFeed, fetchResurface, fetchClusters, fetchLineage, useApiData } from '@/lib/commonplace-api';
 import { useCommonPlace } from '@/lib/commonplace-context';
 import type { MockNode } from '@/lib/commonplace';
 import { getObjectTypeIdentity } from '@/lib/commonplace';
@@ -28,7 +28,7 @@ function mockNodeToRenderable(node: MockNode): RenderableObject {
 }
 
 export default function LibraryView({ onOpenObject }: LibraryViewProps) {
-  const { captureVersion } = useCommonPlace();
+  const { captureVersion, openContextMenu } = useCommonPlace();
 
   const { data: nodes, loading, error } = useApiData(
     () => fetchFeed({ per_page: 100 }),
@@ -40,28 +40,24 @@ export default function LibraryView({ onOpenObject }: LibraryViewProps) {
     [],
   );
 
+  const { data: clustersData } = useApiData(
+    () => fetchClusters(),
+    [captureVersion],
+  );
+
+  const firstSlug = nodes?.[0]?.objectSlug ?? '';
+  const { data: lineageData } = useApiData(
+    () => (firstSlug ? fetchLineage(firstSlug) : Promise.resolve(null)),
+    [firstSlug],
+  );
+
   const [searchQuery, setSearchQuery] = useState('');
   const [activeType, setActiveType] = useState<string | null>(null);
 
   const types = useMemo(
-    () => Array.from(new Set((nodes ?? []).map((n) => n.objectType))).filter(Boolean),
-    [nodes],
+    () => (clustersData ?? []).map((c) => c.type),
+    [clustersData],
   );
-
-  const clusters = useMemo(() => {
-    if (!nodes) return [];
-    const grouped = new Map<string, MockNode[]>();
-    for (const node of nodes) {
-      const existing = grouped.get(node.objectType) ?? [];
-      grouped.set(node.objectType, [...existing, node]);
-    }
-    return Array.from(grouped.entries())
-      .sort((a, b) => b[1].length - a[1].length)
-      .map(([type, members]) => ({
-        type,
-        members: members.map(mockNodeToRenderable),
-      }));
-  }, [nodes]);
 
   const filteredNodes = useMemo<RenderableObject[]>(() => {
     if (!nodes) return [];
@@ -103,7 +99,7 @@ export default function LibraryView({ onOpenObject }: LibraryViewProps) {
       )}
 
       {nodes && nodes.length > 0 && (
-        <LineageSwimlane nodes={nodes.slice(0, 6)} onOpenObject={onOpenObject} />
+        <LineageSwimlane nodes={nodes.slice(0, 6)} lineageData={lineageData} onOpenObject={onOpenObject} />
       )}
 
       {/* Search + type filters */}
@@ -233,6 +229,7 @@ export default function LibraryView({ onOpenObject }: LibraryViewProps) {
                   key={obj.id}
                   object={obj}
                   onClick={onOpenObject ? (o) => onOpenObject(o.id) : undefined}
+                  onContextMenu={(e, o) => openContextMenu(e.clientX, e.clientY, o)}
                 />
               ))
             )}
@@ -245,12 +242,17 @@ export default function LibraryView({ onOpenObject }: LibraryViewProps) {
               gap: 10,
             }}
           >
-            {clusters.map(({ type, members }) => (
+            {(clustersData ?? []).map((cluster) => (
               <ClusterCard
-                key={type}
-                label={type}
-                memberCount={members.length}
-                members={members}
+                key={cluster.type}
+                label={cluster.type}
+                memberCount={cluster.count}
+                members={cluster.members.map((m) => ({
+                  id: m.id,
+                  title: m.title,
+                  object_type_slug: cluster.type,
+                  body: m.body_preview || undefined,
+                }))}
                 onOpenObject={onOpenObject}
               />
             ))}
@@ -281,6 +283,7 @@ export default function LibraryView({ onOpenObject }: LibraryViewProps) {
                 object={obj}
                 compact
                 onClick={onOpenObject ? (o) => onOpenObject(o.id) : undefined}
+                onContextMenu={(e, o) => openContextMenu(e.clientX, e.clientY, o)}
               />
             ))}
           </div>
