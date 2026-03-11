@@ -108,6 +108,50 @@ def invalidate_tfidf_on_object_delete(sender, instance, **kwargs):
         pass
 
 
+@receiver(post_save, sender='notebook.Object')
+def invalidate_ner_cache_on_save(sender, instance, created, **kwargs):
+    """Invalidate graph-learned NER matcher cache when a new Object is created."""
+    if created:
+        try:
+            from .adaptive_ner import invalidate_graph_matcher_cache
+            invalidate_graph_matcher_cache()
+        except ImportError:
+            pass
+
+
+@receiver(post_delete, sender='notebook.Object')
+def invalidate_ner_cache_on_delete(sender, instance, **kwargs):
+    """Invalidate graph-learned NER matcher cache when an Object is deleted."""
+    try:
+        from .adaptive_ner import invalidate_graph_matcher_cache
+        invalidate_graph_matcher_cache()
+    except ImportError:
+        pass
+
+
+@receiver(post_save, sender='notebook.Object')
+def invalidate_bm25_on_save(sender, instance, created, **kwargs):
+    """Invalidate BM25 index when a new Object is created."""
+    if kwargs.get('raw', False):
+        return
+    if created:
+        try:
+            from .bm25 import invalidate_bm25_cache
+            invalidate_bm25_cache()
+        except ImportError:
+            pass
+
+
+@receiver(post_delete, sender='notebook.Object')
+def invalidate_bm25_on_delete(sender, instance, **kwargs):
+    """Invalidate BM25 index when an Object is hard-deleted."""
+    try:
+        from .bm25 import invalidate_bm25_cache
+        invalidate_bm25_cache()
+    except ImportError:
+        pass
+
+
 # ---------------------------------------------------------------------------
 # Component trigger signals
 # ---------------------------------------------------------------------------

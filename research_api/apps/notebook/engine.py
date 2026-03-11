@@ -158,8 +158,10 @@ def interpolate_config(novelty: float) -> dict:
             conservative['max_candidates']
             + (aggressive['max_candidates'] - conservative['max_candidates']) * novelty
         ),
+        'bm25_threshold': (
+            1.5 - (1.5 - 0.3) * novelty  # Range: 1.5 (conservative) to 0.3 (aggressive)
+        ),
         'sbert_threshold': aggressive.get('sbert_threshold', 0.45),
-        'tfidf_threshold': aggressive.get('tfidf_threshold', 0.20),
         'kge_threshold': aggressive.get('kge_threshold', 0.60),
         'nli_enabled': novelty > 0.7,
         'entity_types': (
@@ -185,11 +187,11 @@ def get_engine_config(notebook=None) -> dict:
 def _get_active_engines(config: dict, object_count: int) -> set[str]:
     """
     Determine active engines based on config and corpus size.
-    TF-IDF auto-activates at 500+ objects regardless of config.
+    BM25 auto-activates at 2+ objects (replaces Jaccard and TF-IDF).
     """
     engines = set(config.get('engines', ['spacy']))
-    if object_count >= 500:
-        engines.add('tfidf')
+    if object_count >= 2:
+        engines.add('bm25')
     return engines
 
 
@@ -297,6 +299,71 @@ def extract_entities(obj: Object, config: dict | None = None) -> list[ResolvedEn
                     'engine': 'spacy',
                 },
             )
+
+    # Tier 2: Graph-learned entity recognition
+    try:
+        from .adaptive_ner import extract_graph_entities
+        graph_entities = extract_graph_entities(obj, nlp, config)
+
+        for ent_text, type_slug, start, end in graph_entities:
+            normalized = ent_text.lower().strip()
+
+            # Skip if spaCy already found this entity
+            if ResolvedEntity.objects.filter(
+                source_object=obj,
+                normalized_text=normalized,
+            ).exists():
+                continue
+
+            # Find the matching Object
+            resolved_object = (
+                Object.objects
+                .filter(
+                    object_type__slug=type_slug,
+                    is_deleted=False,
+                )
+                .filter(
+                    Q(title__iexact=ent_text)
+                    | Q(search_text__icontains=normalized)
+                )
+                .first()
+            )
+
+            if not resolved_object or resolved_object.id == obj.id:
+                continue
+
+            # Map ObjectType slug to spaCy entity type label
+            SLUG_TO_ENTITY_TYPE = {
+                'person': 'PERSON', 'organization': 'ORG',
+                'place': 'GPE', 'event': 'EVENT',
+                'source': 'WORK_OF_ART', 'concept': 'CONCEPT',
+            }
+            entity_type = SLUG_TO_ENTITY_TYPE.get(type_slug, type_slug.upper())
+
+            entity = ResolvedEntity.objects.create(
+                source_object=obj,
+                text=ent_text,
+                entity_type=entity_type,
+                normalized_text=normalized,
+                resolved_object=resolved_object,
+            )
+            entities.append(entity)
+
+            # Create edge
+            Edge.objects.get_or_create(
+                from_object=obj,
+                to_object=resolved_object,
+                edge_type='mentions',
+                defaults={
+                    'reason': f'Mentions {ent_text} (recognized from knowledge graph).',
+                    'strength': 0.75,
+                    'is_auto': True,
+                    'engine': 'graph_ner',
+                },
+            )
+
+    except Exception as exc:
+        logger.debug('Graph-learned NER failed: %s', exc)
 
     return entities
 
@@ -1155,6 +1222,76 @@ def _create_connection_nodes(edges: list[Edge], engine_name: str) -> int:
 
 
 # ---------------------------------------------------------------------------
+# Pass 3: BM25 unified lexical pass (replaces Jaccard + TF-IDF)
+# ---------------------------------------------------------------------------
+
+def _run_bm25_engine(obj: Object, config: dict) -> list[Edge]:
+    """
+    BM25 unified lexical pass. Replaces Jaccard (Pass 3) and TF-IDF (Pass 4).
+    Production-safe: no PyTorch required.
+
+    The Novelty Dial tunes b (length normalization):
+      b = 0.75 - (novelty * 0.35)  -> range 0.75 (conservative) to 0.40 (aggressive)
+    Lower b means short and long documents are treated more equally, allowing
+    the engine to connect a short hunch to a long essay.
+    """
+    from .bm25 import get_or_build_bm25
+
+    novelty = config.get('novelty', 0.5)
+    b_override = 0.75 - (novelty * 0.35)  # 0.75 at novelty=0, 0.40 at novelty=1
+    threshold = config.get('bm25_threshold', 0.5)
+
+    idx = get_or_build_bm25(_build_full_text, b_override=b_override)
+    if idx is None:
+        return []
+
+    matches = idx.find_similar(obj.pk, top_n=20, min_score=threshold)
+    new_edges = []
+
+    for other_pk, score in matches:
+        try:
+            other = Object.objects.select_related('object_type').get(
+                pk=other_pk, is_deleted=False,
+            )
+        except Object.DoesNotExist:
+            continue
+
+        top_terms = idx.explain_match(obj.pk, other_pk, top_terms=4)
+        if top_terms:
+            if len(top_terms) > 1:
+                term_str = ', '.join(top_terms[:-1]) + f' and {top_terms[-1]}'
+            else:
+                term_str = top_terms[0]
+            reason = f'Both discuss {term_str} (rare terms in your corpus).'
+        else:
+            type_a = obj.object_type.name.lower() if obj.object_type else 'note'
+            type_b = other.object_type.name.lower() if other.object_type else 'note'
+            reason = (
+                f'This {type_a} and this {type_b} share significant '
+                f'vocabulary (BM25: {score:.0%}).'
+            )
+
+        reason = _llm_explanation(obj, other, strength=score) or reason
+
+        strength = min(score / 5.0, 1.0)
+        edge, created = Edge.objects.get_or_create(
+            from_object=obj,
+            to_object=other,
+            edge_type='shared_topic',
+            defaults={
+                'reason': reason,
+                'strength': round(strength, 4),
+                'is_auto': True,
+                'engine': 'bm25',
+            },
+        )
+        if created:
+            new_edges.append(edge)
+
+    return new_edges
+
+
+# ---------------------------------------------------------------------------
 # Main engine runner
 # ---------------------------------------------------------------------------
 
@@ -1165,11 +1302,10 @@ def run_engine(obj: Object, notebook=None) -> dict:
     Pass order:
       1. spaCy NER + auto-objectification (always)
       2. Shared entity edges (always)
-      3. Jaccard topic similarity (always, fast)
-      4. TF-IDF (production-safe, auto at 500+ objects)
-      5. SBERT semantic via FAISS or batch encode (dev only)
-      6. NLI contradiction/support (dev only, config-gated)
-      7. KGE structural similarity (dev only, requires trained embeddings)
+      3. BM25 unified lexical pass (replaces Jaccard + TF-IDF; production-safe)
+      4. SBERT semantic via FAISS or batch encode (dev only)
+      5. NLI contradiction/support (dev only, config-gated)
+      6. KGE structural similarity (dev only, requires trained embeddings)
     """
     config = get_engine_config(notebook or obj.notebook)
     object_count = Object.objects.count()
@@ -1180,8 +1316,7 @@ def run_engine(obj: Object, notebook=None) -> dict:
         'entities_extracted': 0,
         'edges_from_entities': 0,
         'edges_from_shared': 0,
-        'edges_from_topics': 0,
-        'edges_from_tfidf': 0,
+        'edges_from_bm25': 0,
         'edges_from_semantic': 0,
         'edges_from_nli': 0,
         'edges_from_kge': 0,
@@ -1204,17 +1339,11 @@ def run_engine(obj: Object, notebook=None) -> dict:
         results['edges_from_shared'] = len(shared_edges)
         all_new_edges.extend(shared_edges)
 
-    # Pass 3
-    if 'spacy' in active_engines:
-        topic_edges = find_topic_connections(obj, config)
-        results['edges_from_topics'] = len(topic_edges)
-        all_new_edges.extend(topic_edges)
-
-    # Pass 4
-    if 'tfidf' in active_engines:
-        tfidf_edges = _run_tfidf_engine(obj, config)
-        results['edges_from_tfidf'] = len(tfidf_edges)
-        all_new_edges.extend(tfidf_edges)
+    # Pass 3: BM25 (replaces Jaccard topic pass and TF-IDF pass)
+    if 'bm25' in active_engines:
+        bm25_edges = _run_bm25_engine(obj, config)
+        results['edges_from_bm25'] = len(bm25_edges)
+        all_new_edges.extend(bm25_edges)
 
     # Pass 5
     if 'sbert' in active_engines or 'semantic' in active_engines:
