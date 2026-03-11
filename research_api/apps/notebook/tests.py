@@ -15,11 +15,13 @@ import zipfile
 from unittest.mock import patch
 
 from django.core.cache import cache
+from django.core.management import call_command
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.test import TestCase
 from rest_framework.test import APIClient
 
 from apps.notebook.models import (
+    Cluster,
     Component,
     ComponentType,
     Edge,
@@ -385,3 +387,100 @@ class ExportZipTests(TestCase):
         self.assertEqual(manifest['counts']['objects'], 2)
         self.assertEqual(manifest['counts']['edges'], 1)
         self.assertGreaterEqual(manifest['counts']['nodes'], 2)
+
+
+class CommunityDetectionTests(TestCase):
+    def setUp(self):
+        self.ot_note = _create_object_type('note', 'Note')
+        self.ot_concept = _create_object_type('concept', 'Concept', '#C49A4A')
+        self.notebook = Notebook.objects.create(name='Urban', slug='urban')
+        self.other_notebook = Notebook.objects.create(name='Side', slug='side')
+
+        self.a = _create_object('A', 'Cluster one note', self.ot_note, self.notebook)
+        self.b = _create_object('B', 'Cluster one concept', self.ot_concept, self.notebook)
+        self.c = _create_object('C', 'Cluster one concept', self.ot_concept, self.notebook)
+        self.d = _create_object('D', 'Cluster two note', self.ot_note, self.notebook)
+        self.e = _create_object('E', 'Cluster two concept', self.ot_concept, self.notebook)
+        self.f = _create_object('F', 'Cluster two concept', self.ot_concept, self.notebook)
+        self.outside = _create_object('Outside', 'Outside notebook', self.ot_note, self.other_notebook)
+
+        self._connect(self.a, self.b, 0.95)
+        self._connect(self.b, self.c, 0.95)
+        self._connect(self.a, self.c, 0.90)
+        self._connect(self.d, self.e, 0.94)
+        self._connect(self.e, self.f, 0.94)
+        self._connect(self.d, self.f, 0.89)
+        self._connect(self.c, self.d, 0.05)
+        self._connect(self.a, self.b, 0.40, edge_type='manual')
+        self._connect(self.outside, self.a, 0.99)
+
+    def _connect(self, from_obj, to_obj, strength, edge_type='related'):
+        return Edge.objects.create(
+            from_object=from_obj,
+            to_object=to_obj,
+            edge_type=edge_type,
+            reason='Test connection',
+            strength=strength,
+            is_auto=True,
+            engine='test',
+        )
+
+    def test_build_networkx_graph_scopes_and_keeps_max_weight(self):
+        from apps.notebook.community import build_networkx_graph
+
+        graph = build_networkx_graph(notebook=self.notebook)
+
+        self.assertEqual(
+            set(graph.nodes),
+            {self.a.pk, self.b.pk, self.c.pk, self.d.pk, self.e.pk, self.f.pk},
+        )
+        self.assertNotIn(self.outside.pk, graph.nodes)
+        self.assertAlmostEqual(graph[self.a.pk][self.b.pk]['weight'], 0.95, places=2)
+
+    def test_detect_communities_returns_partition_and_modularity(self):
+        from apps.notebook.community import detect_communities
+
+        result = detect_communities(notebook=self.notebook)
+
+        self.assertEqual(result['n_nodes'], 6)
+        self.assertEqual(result['n_communities'], 2)
+        self.assertGreater(result['modularity'], 0.0)
+        self.assertEqual(sorted(c['size'] for c in result['communities']), [3, 3])
+
+    def test_persist_communities_replaces_existing_clusters(self):
+        from apps.notebook.community import detect_communities, persist_communities
+
+        old_cluster = Cluster.objects.create(name='Old', notebook=self.notebook, member_count=1)
+        Object.objects.filter(pk=self.a.pk).update(cluster=old_cluster)
+
+        result = detect_communities(notebook=self.notebook)
+        created_clusters = persist_communities(result, notebook=self.notebook)
+
+        self.assertEqual(len(created_clusters), 2)
+        self.assertFalse(Cluster.objects.filter(pk=old_cluster.pk).exists())
+        assigned = list(
+            Object.objects
+            .filter(notebook=self.notebook)
+            .exclude(cluster__isnull=True)
+            .values_list('pk', flat=True)
+        )
+        self.assertEqual(
+            sorted(assigned),
+            sorted([self.a.pk, self.b.pk, self.c.pk, self.d.pk, self.e.pk, self.f.pk]),
+        )
+        self.assertIsNone(Object.objects.get(pk=self.outside.pk).cluster)
+
+    def test_detect_communities_command_smoke(self):
+        out = io.StringIO()
+        call_command(
+            'detect_communities',
+            '--notebook',
+            self.notebook.slug,
+            '--persist',
+            stdout=out,
+        )
+
+        output = out.getvalue()
+        self.assertIn('Found 2 communities', output)
+        self.assertIn('Communities persisted.', output)
+        self.assertEqual(Cluster.objects.filter(notebook=self.notebook).count(), 2)
