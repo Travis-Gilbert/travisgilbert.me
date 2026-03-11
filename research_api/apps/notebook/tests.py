@@ -22,6 +22,7 @@ from django.test import TestCase
 from rest_framework.test import APIClient
 
 from apps.notebook.models import (
+    Claim,
     Cluster,
     Component,
     ComponentType,
@@ -525,3 +526,159 @@ class GapAnalysisTests(TestCase):
 
         self.assertEqual(scores, sorted(scores, reverse=True))
         self.assertEqual(scores, [4.0, 3.0, 2.5])
+
+
+class ClaimDecompositionTests(TestCase):
+    def test_rule_based_decomposition_extracts_sentence_claims(self):
+        from apps.notebook.claim_decomposition import decompose_claims_rule_based
+
+        claims = decompose_claims_rule_based(
+            (
+                'Short note. Upzoning increases housing supply in constrained cities. '
+                'People walk. Mixed-use blocks make streets feel safer at night.'
+            ),
+            nlp=None,
+        )
+
+        self.assertEqual(
+            claims,
+            [
+                'Upzoning increases housing supply in constrained cities.',
+                'Mixed-use blocks make streets feel safer at night.',
+            ],
+        )
+
+
+class ClaimLevelNliTests(TestCase):
+    def setUp(self):
+        self.ot_note = _create_object_type('note', 'Note')
+        self.obj_a = _create_object(
+            title='Supply case',
+            body='Upzoning increases housing supply. New homes reduce rent pressure.',
+            object_type=self.ot_note,
+        )
+        self.obj_b = _create_object(
+            title='Displacement case',
+            body='Upzoning accelerates displacement in vulnerable neighborhoods.',
+            object_type=self.ot_note,
+        )
+        self.obj_c = _create_object(
+            title='Support case',
+            body='Upzoning adds homes and expands supply.',
+            object_type=self.ot_note,
+        )
+
+    @patch('apps.notebook.engine._SBERT_AVAILABLE', True)
+    @patch('apps.notebook.engine.HAS_PYTORCH', True)
+    @patch('apps.notebook.engine._llm_explanation', return_value=None)
+    @patch('apps.notebook.engine.find_most_similar')
+    @patch('apps.notebook.engine.sentence_similarity')
+    @patch('apps.research.advanced_nlp.classify_relationship')
+    @patch('apps.notebook.claim_decomposition.decompose_claims')
+    def test_claim_level_nli_creates_claim_backed_edges_and_stores_claims(
+        self,
+        mock_decompose_claims,
+        mock_classify_relationship,
+        mock_sentence_similarity,
+        mock_find_most_similar,
+        _mock_llm_explanation,
+    ):
+        from apps.notebook.engine import _run_nli_contradiction_pass
+
+        def claim_map(text, nlp=None, max_claims=20):
+            if 'Supply case' in text or 'reduce rent pressure' in text:
+                return [
+                    'Upzoning increases housing supply.',
+                    'New homes reduce rent pressure.',
+                ]
+            if 'Displacement case' in text or 'vulnerable neighborhoods' in text:
+                return ['Upzoning accelerates displacement in vulnerable neighborhoods.']
+            if 'Support case' in text or 'adds homes' in text:
+                return ['Upzoning adds homes and expands supply.']
+            return []
+
+        def similarity_map(a, b):
+            pair = {a, b}
+            if pair == {
+                'Upzoning increases housing supply.',
+                'Upzoning accelerates displacement in vulnerable neighborhoods.',
+            }:
+                return 0.72
+            if pair == {
+                'Upzoning increases housing supply.',
+                'Upzoning adds homes and expands supply.',
+            }:
+                return 0.83
+            return 0.12
+
+        def relationship_map(a, b):
+            pair = {a, b}
+            if pair == {
+                'Upzoning increases housing supply.',
+                'Upzoning accelerates displacement in vulnerable neighborhoods.',
+            }:
+                return {
+                    'probabilities': {
+                        'contradiction': 0.88,
+                        'entailment': 0.04,
+                        'neutral': 0.08,
+                    },
+                }
+            if pair == {
+                'Upzoning increases housing supply.',
+                'Upzoning adds homes and expands supply.',
+            }:
+                return {
+                    'probabilities': {
+                        'contradiction': 0.03,
+                        'entailment': 0.91,
+                        'neutral': 0.06,
+                    },
+                }
+            return {
+                'probabilities': {
+                    'contradiction': 0.05,
+                    'entailment': 0.05,
+                    'neutral': 0.90,
+                },
+            }
+
+        mock_decompose_claims.side_effect = claim_map
+        mock_find_most_similar.return_value = [
+            {'id': str(self.obj_b.pk), 'similarity': 0.74},
+            {'id': str(self.obj_c.pk), 'similarity': 0.78},
+        ]
+        mock_sentence_similarity.side_effect = similarity_map
+        mock_classify_relationship.side_effect = relationship_map
+
+        edges = _run_nli_contradiction_pass(self.obj_a, {})
+
+        self.assertEqual(Claim.objects.filter(source_object=self.obj_a).count(), 2)
+        self.assertEqual(Claim.objects.filter(source_object=self.obj_b).count(), 1)
+        self.assertEqual(Claim.objects.filter(source_object=self.obj_c).count(), 1)
+        self.assertEqual(len(edges), 2)
+
+        contradiction_edge = Edge.objects.get(
+            from_object=self.obj_a,
+            to_object=self.obj_b,
+            edge_type='contradicts',
+        )
+        support_edge = Edge.objects.get(
+            from_object=self.obj_a,
+            to_object=self.obj_c,
+            edge_type='supports',
+        )
+
+        self.assertIn('Upzoning increases housing supply.', contradiction_edge.reason)
+        self.assertIn('accelerates displacement', contradiction_edge.reason)
+        self.assertIn('aligns with', support_edge.reason)
+        self.assertIn('adds homes and expands supply', support_edge.reason)
+
+    @patch('apps.notebook.engine._SBERT_AVAILABLE', False)
+    def test_claim_level_nli_skips_when_sbert_unavailable(self):
+        from apps.notebook.engine import _run_nli_contradiction_pass
+
+        edges = _run_nli_contradiction_pass(self.obj_a, {})
+
+        self.assertEqual(edges, [])
+        self.assertEqual(Claim.objects.count(), 0)
