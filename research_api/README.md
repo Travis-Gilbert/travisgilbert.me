@@ -374,19 +374,11 @@ Current notebook and research coverage includes:
 
 ## Project Docs
 
-For repo-operating guidance and current engine status:
+For repo-operating guidance and current engi
 
-- `docs/codex-operating-model.md`
-- `docs/engine-upgrade-status.md`
-- `AGENTS.md`
-
-## Historical Note
 
 The following files are useful as historical context but are not the current
 source of truth:
 
-- `apps/notebook/ENGINE-CLAUDE.md`
-- `apps/notebook/ENGINE-UPGRADE-SPEC.md`
-- older plugin/spec documents in the repo root
 
 Current truth lives in the code and in the lightweight docs under `docs/`.
