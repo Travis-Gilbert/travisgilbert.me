@@ -128,7 +128,7 @@ DEFAULT_ENGINE_CONFIG = {
 }
 
 HIGH_NOVELTY_CONFIG = {
-    'engines': ['spacy', 'sbert', 'kge'],
+    'engines': ['spacy', 'sbert', 'kge', 'causal'],
     'topic_threshold': 0.10,
     'max_candidates': 1000,
     'sbert_threshold': 0.45,
@@ -1133,6 +1133,27 @@ def _synthesize_temporal_kge_reason(
     )
 
 
+def _synthesize_causal_reason(
+    source_obj: Object,
+    target_obj: Object,
+    claim_pair: dict | None,
+    strength: float,
+) -> str:
+    if claim_pair:
+        return (
+            f'Influence chain detected. "{_claim_excerpt(claim_pair["from_claim"])}" '
+            f'appears to inform "{_claim_excerpt(claim_pair["to_claim"])}" '
+            f'with temporal precedence from "{source_obj.display_title[:60]}" to '
+            f'"{target_obj.display_title[:60]}" (strength: {strength:.0%}).'
+        )
+
+    return (
+        f'Influence chain detected from "{source_obj.display_title[:60]}" to '
+        f'"{target_obj.display_title[:60]}" with temporal precedence '
+        f'(strength: {strength:.0%}).'
+    )
+
+
 def _run_kge_engine(obj: Object, config: dict) -> list[Edge]:
     """
     KGE structural similarity pass. Dev/local only, requires trained embeddings.
@@ -1246,6 +1267,67 @@ def _run_kge_engine(obj: Object, config: dict) -> list[Edge]:
             reason=reason,
             strength=round(score, 4),
             engine_name='kge_temporal',
+        )
+        if created:
+            new_edges.append(edge)
+
+    return new_edges
+
+
+def _run_causal_engine(obj: Object, config: dict) -> list[Edge]:
+    """Persist forward-in-time influence edges touching this Object."""
+    try:
+        from .causal_engine import build_influence_dag
+    except ImportError:
+        return []
+
+    dag = build_influence_dag(
+        notebook=obj.notebook,
+        min_entailment=config.get('causal_min_entailment', 0.60),
+    )
+    if not dag['edges']:
+        return []
+
+    related_edges = [
+        edge
+        for edge in dag['edges']
+        if edge['from_pk'] == obj.pk or edge['to_pk'] == obj.pk
+    ]
+    if not related_edges:
+        return []
+
+    object_map = {
+        item.pk: item
+        for item in Object.objects.filter(
+            pk__in={
+                pk
+                for edge in related_edges
+                for pk in (edge['from_pk'], edge['to_pk'])
+            },
+            is_deleted=False,
+        ).select_related('object_type')
+    }
+
+    new_edges = []
+    for edge_data in related_edges:
+        source_obj = object_map.get(edge_data['from_pk'])
+        target_obj = object_map.get(edge_data['to_pk'])
+        if source_obj is None or target_obj is None:
+            continue
+
+        reason = _synthesize_causal_reason(
+            source_obj,
+            target_obj,
+            edge_data.get('claim_pair'),
+            float(edge_data['strength']),
+        )
+        edge, created = _upsert_auto_edge(
+            from_object=source_obj,
+            to_object=target_obj,
+            edge_type='causal',
+            reason=reason,
+            strength=round(float(edge_data['strength']), 4),
+            engine_name='causal',
         )
         if created:
             new_edges.append(edge)
@@ -1539,6 +1621,7 @@ def run_engine(obj: Object, notebook=None) -> dict:
         'edges_from_semantic': 0,
         'edges_from_nli': 0,
         'edges_from_kge': 0,
+        'edges_from_causal': 0,
         'objects_auto_created': 0,
         'connection_nodes_created': 0,
     }
@@ -1581,6 +1664,11 @@ def run_engine(obj: Object, notebook=None) -> dict:
         kge_edges = _run_kge_engine(obj, config)
         results['edges_from_kge'] = len(kge_edges)
         all_new_edges.extend(kge_edges)
+
+    if 'causal' in active_engines and config.get('nli_enabled', False):
+        causal_edges = _run_causal_engine(obj, config)
+        results['edges_from_causal'] = len(causal_edges)
+        all_new_edges.extend(causal_edges)
 
     # Entity mention edge count (includes edges from Pass 1)
     results['edges_from_entities'] = (

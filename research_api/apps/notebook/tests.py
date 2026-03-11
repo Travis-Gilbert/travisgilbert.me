@@ -12,6 +12,7 @@ Covers:
 import io
 import json
 import zipfile
+from datetime import timedelta
 from unittest.mock import patch
 
 import networkx as nx
@@ -20,6 +21,7 @@ from django.core.cache import cache
 from django.core.management import call_command
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.test import TestCase
+from django.utils import timezone
 from rest_framework.test import APIClient
 
 from apps.notebook.models import (
@@ -784,3 +786,119 @@ class TemporalKgeTests(TestCase):
         self.assertEqual(edge.edge_type, 'structural')
         self.assertEqual(edge.engine, 'kge_temporal')
         self.assertIn('becoming more structurally aligned', edge.reason)
+
+
+class CausalEngineTests(TestCase):
+    def setUp(self):
+        self.ot_note = _create_object_type('note', 'Note')
+        self.notebook = Notebook.objects.create(name='Lineage')
+        self.root = _create_object(
+            title='Root idea',
+            body='Early framing claim.',
+            object_type=self.ot_note,
+            notebook=self.notebook,
+        )
+        self.mid = _create_object(
+            title='Middle idea',
+            body='Later framing claim.',
+            object_type=self.ot_note,
+            notebook=self.notebook,
+        )
+        self.leaf = _create_object(
+            title='Leaf idea',
+            body='Latest framing claim.',
+            object_type=self.ot_note,
+            notebook=self.notebook,
+        )
+        self.detour = _create_object(
+            title='Detour idea',
+            body='Weaker competing influence.',
+            object_type=self.ot_note,
+            notebook=self.notebook,
+        )
+
+        now = timezone.now()
+        Object.objects.filter(pk=self.root.pk).update(captured_at=now - timedelta(days=10))
+        Object.objects.filter(pk=self.mid.pk).update(captured_at=now - timedelta(days=5))
+        Object.objects.filter(pk=self.leaf.pk).update(captured_at=now - timedelta(days=1))
+        Object.objects.filter(pk=self.detour.pk).update(captured_at=now - timedelta(days=3))
+        for obj in [self.root, self.mid, self.leaf, self.detour]:
+            obj.refresh_from_db()
+
+        Edge.objects.create(
+            from_object=self.root,
+            to_object=self.mid,
+            edge_type='supports',
+            reason=(
+                'Claim alignment detected. '
+                '"Mixed use supports street safety." aligns with '
+                '"Street safety improves when mixed uses cluster." '
+                '(88% entailment, 72% semantic overlap).'
+            ),
+            strength=0.88,
+            is_auto=True,
+            engine='nli',
+        )
+        Edge.objects.create(
+            from_object=self.mid,
+            to_object=self.leaf,
+            edge_type='supports',
+            reason=(
+                'Claim alignment detected. '
+                '"Street safety improves when mixed uses cluster." aligns with '
+                '"Clustered mixed uses improve neighborhood safety." '
+                '(82% entailment, 70% semantic overlap).'
+            ),
+            strength=0.82,
+            is_auto=True,
+            engine='nli',
+        )
+        Edge.objects.create(
+            from_object=self.detour,
+            to_object=self.leaf,
+            edge_type='supports',
+            reason=(
+                'Claim alignment detected. '
+                '"Weak influence claim." aligns with '
+                '"Clustered mixed uses improve neighborhood safety." '
+                '(61% entailment, 61% semantic overlap).'
+            ),
+            strength=0.61,
+            is_auto=True,
+            engine='nli',
+        )
+
+    def test_build_influence_dag_filters_weaker_earlier_confounds(self):
+        from apps.notebook.causal_engine import build_influence_dag
+
+        dag = build_influence_dag(notebook=self.notebook, min_entailment=0.6)
+
+        edge_pairs = {(edge['from_pk'], edge['to_pk']) for edge in dag['edges']}
+        self.assertEqual(edge_pairs, {(self.root.pk, self.mid.pk), (self.mid.pk, self.leaf.pk)})
+        self.assertEqual(dag['roots'], [self.root.pk])
+        self.assertEqual(dag['leaves'], [self.leaf.pk])
+
+    def test_trace_lineage_returns_ancestors(self):
+        from apps.notebook.causal_engine import trace_lineage
+
+        lineage = trace_lineage(
+            self.leaf.pk,
+            direction='ancestors',
+            notebook=self.notebook,
+        )
+
+        self.assertEqual([item[0].pk for item in lineage], [self.mid.pk, self.root.pk])
+
+    def test_run_causal_engine_persists_edges_touching_current_object(self):
+        from apps.notebook.engine import _run_causal_engine
+
+        edges = _run_causal_engine(self.leaf, {'nli_enabled': True})
+
+        self.assertEqual(len(edges), 1)
+        edge = Edge.objects.get(
+            from_object=self.mid,
+            to_object=self.leaf,
+            edge_type='causal',
+        )
+        self.assertEqual(edge.engine, 'causal')
+        self.assertIn('Influence chain detected', edge.reason)
