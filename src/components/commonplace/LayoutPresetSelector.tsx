@@ -13,9 +13,8 @@ interface LayoutPresetSelectorProps {
  *
  * Each icon is a simple SVG showing the split topology:
  *   Focus: single pane
- *   Compare: two columns
- *   Research: left column + right column split top/bottom
- *   Connect: left column + right column split top/bottom (wider right)
+ *   Research: two columns (55/45)
+ *   Studio: three columns (33/37/30)
  */
 export default function LayoutPresetSelector({
   activePresetName,
@@ -56,35 +55,25 @@ function PresetIcon({ name }: { name: string }) {
         </svg>
       );
 
-    case 'Compare':
-      return (
-        <svg width={w} height={h} viewBox={`0 0 ${w} ${h}`}>
-          <rect x={0.5} y={0.5} width={w / 2 - gap} height={h - 1} rx={r} stroke={stroke} fill={fill} strokeWidth={sw} />
-          <rect x={w / 2 + gap / 2} y={0.5} width={w / 2 - gap} height={h - 1} rx={r} stroke={stroke} fill={fill} strokeWidth={sw} />
-        </svg>
-      );
-
     case 'Research':
       return (
         <svg width={w} height={h} viewBox={`0 0 ${w} ${h}`}>
-          {/* Left column: ~45% */}
-          <rect x={0.5} y={0.5} width={w * 0.45 - gap} height={h - 1} rx={r} stroke={stroke} fill={fill} strokeWidth={sw} />
-          {/* Right column top: ~55% of width, ~55% of height */}
-          <rect x={w * 0.45 + gap / 2} y={0.5} width={w * 0.55 - gap} height={h * 0.55 - gap} rx={r} stroke={stroke} fill={fill} strokeWidth={sw} />
-          {/* Right column bottom */}
-          <rect x={w * 0.45 + gap / 2} y={h * 0.55 + gap / 2} width={w * 0.55 - gap} height={h * 0.45 - gap} rx={r} stroke={stroke} fill={fill} strokeWidth={sw} />
+          {/* Left column: 55% */}
+          <rect x={0.5} y={0.5} width={w * 0.55 - gap} height={h - 1} rx={r} stroke={stroke} fill={fill} strokeWidth={sw} />
+          {/* Right column: 45% */}
+          <rect x={w * 0.55 + gap / 2} y={0.5} width={w * 0.45 - gap} height={h - 1} rx={r} stroke={stroke} fill={fill} strokeWidth={sw} />
         </svg>
       );
 
-    case 'Connect':
+    case 'Studio':
       return (
         <svg width={w} height={h} viewBox={`0 0 ${w} ${h}`}>
-          {/* Left column: 50% */}
-          <rect x={0.5} y={0.5} width={w * 0.5 - gap} height={h - 1} rx={r} stroke={stroke} fill={fill} strokeWidth={sw} />
-          {/* Right column top */}
-          <rect x={w * 0.5 + gap / 2} y={0.5} width={w * 0.5 - gap} height={h * 0.5 - gap} rx={r} stroke={stroke} fill={fill} strokeWidth={sw} />
-          {/* Right column bottom */}
-          <rect x={w * 0.5 + gap / 2} y={h * 0.5 + gap / 2} width={w * 0.5 - gap} height={h * 0.5 - gap} rx={r} stroke={stroke} fill={fill} strokeWidth={sw} />
+          {/* Left column: 33% */}
+          <rect x={0.5} y={0.5} width={w * 0.33 - gap} height={h - 1} rx={r} stroke={stroke} fill={fill} strokeWidth={sw} />
+          {/* Center column: ~37% */}
+          <rect x={w * 0.33 + gap / 2} y={0.5} width={w * 0.37 - gap} height={h - 1} rx={r} stroke={stroke} fill={fill} strokeWidth={sw} />
+          {/* Right column: ~30% */}
+          <rect x={w * 0.7 + gap / 2} y={0.5} width={w * 0.3 - gap} height={h - 1} rx={r} stroke={stroke} fill={fill} strokeWidth={sw} />
         </svg>
       );
 

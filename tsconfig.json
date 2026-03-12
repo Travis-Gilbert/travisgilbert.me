@@ -38,6 +38,7 @@
   "exclude": [
     "node_modules",
     "research_api",
-    "publishing_api"
+    "publishing_api",
+    "collage-engine"
   ]
 }

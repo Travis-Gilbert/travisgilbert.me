@@ -4,10 +4,12 @@
  * ObjectContextMenu: fixed-position right-click context menu for object cards.
  *
  * Actions:
+ *   Open Object      - opens the detail drawer
  *   Stash for Later   - marks object as stashed (future pane integration)
  *   Add Connection    - opens connection drawer for the object
- *   Contain as...     - nests the object inside a parent container
+ *   Contain In...     - nests the object inside a parent (edge_type='contains')
  *
+ * Keyboard: single-key shortcuts (O, S, C, N) fire while menu is open.
  * Positioning: @floating-ui/react virtual element anchored to cursor coordinates.
  * Dismiss: click-outside or Escape via useDismiss.
  * Mounted: once inside CommonPlaceProvider, renders as a portal via FloatingPortal.
@@ -39,11 +41,18 @@ interface ContextAction {
   shortcut?: string;
 }
 
-const MAIN_ACTIONS: ContextAction[] = [
+const PRIMARY_ACTIONS: ContextAction[] = [
   { id: 'open', label: 'Open Object', shortcut: 'O' },
+];
+
+const GRAPH_ACTIONS: ContextAction[] = [
   { id: 'stash', label: 'Stash for Later', shortcut: 'S' },
   { id: 'connect', label: 'Add Connection', shortcut: 'C' },
+  { id: 'contain', label: 'Contain In...', shortcut: 'N' },
 ];
+
+/** All actions for shortcut lookup */
+const ALL_ACTIONS = [...PRIMARY_ACTIONS, ...GRAPH_ACTIONS];
 
 /* ─────────────────────────────────────────────────
    Component
@@ -110,12 +119,35 @@ export default function ObjectContextMenu() {
           beginConnection(obj);
           toast.message(`Select another object to connect to "${obj.title}"`);
           break;
+        case 'contain':
+          beginConnection(obj);
+          toast.message(`Select a parent object to contain "${obj.title}"`);
+          break;
         default:
           break;
       }
     },
     [beginConnection, closeContextMenu, openDrawer, stashObject],
   );
+
+  /* Keyboard shortcuts while menu is open */
+  useEffect(() => {
+    if (!isOpen || !contextMenuTarget) return;
+
+    function onKeyDown(e: KeyboardEvent) {
+      if (e.metaKey || e.ctrlKey || e.altKey) return;
+
+      const key = e.key.toUpperCase();
+      const matched = ALL_ACTIONS.find((a) => a.shortcut === key);
+      if (matched && contextMenuTarget) {
+        e.preventDefault();
+        handleAction(matched.id, contextMenuTarget.obj);
+      }
+    }
+
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [isOpen, contextMenuTarget, handleAction]);
 
   if (!isOpen || !contextMenuTarget) return null;
 
@@ -141,7 +173,26 @@ export default function ObjectContextMenu() {
 
         <div className="cp-context-menu__title">{obj.display_title ?? obj.title}</div>
 
-        {MAIN_ACTIONS.map((action) => (
+        {/* Primary action: Open */}
+        {PRIMARY_ACTIONS.map((action) => (
+          <button
+            key={action.id}
+            type="button"
+            className="cp-context-menu__item"
+            onClick={() => handleAction(action.id, obj)}
+          >
+            <span className="cp-context-menu__item-label">{action.label}</span>
+            {action.shortcut && (
+              <span className="cp-context-menu__item-shortcut">{action.shortcut}</span>
+            )}
+          </button>
+        ))}
+
+        {/* Divider between primary and graph actions */}
+        <div className="cp-context-menu__divider" />
+
+        {/* Graph actions: Stash, Connect, Contain */}
+        {GRAPH_ACTIONS.map((action) => (
           <button
             key={action.id}
             type="button"

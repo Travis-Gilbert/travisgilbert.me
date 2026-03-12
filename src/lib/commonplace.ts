@@ -610,6 +610,18 @@ export interface ObjectListItem {
   captured_at: string;
   capture_method: string;
   edge_count: number;
+  pinned_objects?: PinnedBadgeObject[];
+}
+
+/** Object attached to a parent via a pinned edge (Lego composition). */
+export interface PinnedBadgeObject {
+  edge_id: number;
+  object_id: number;
+  slug: string;
+  title: string;
+  object_type: string;
+  position?: 'badge' | 'inline' | 'sidebar';
+  sort_order?: number;
 }
 
 export interface PaginatedResponse<T> {

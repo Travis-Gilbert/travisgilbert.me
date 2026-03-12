@@ -202,14 +202,14 @@ export default function CommonPlaceSidebar() {
       {/* Chrome shell glow */}
       <div className="cp-sidebar-glow" aria-hidden="true" />
 
-      <div style={{ padding: '20px 16px 12px', position: 'relative', zIndex: 2 }}>
+      <div style={{ padding: '18px 14px 10px', position: 'relative', zIndex: 2 }}>
         <Link
           href="/commonplace"
           onClick={closeDrawerIfMobile}
           style={{
             fontFamily: 'var(--cp-font-title)',
-            fontSize: 22,
-            fontWeight: 600,
+            fontSize: 18,
+            fontWeight: 700,
             color: 'var(--cp-sidebar-text)',
             textDecoration: 'none',
             letterSpacing: '-0.01em',
@@ -220,7 +220,7 @@ export default function CommonPlaceSidebar() {
         <div className="cp-brand-stats">Capture / manipulate / discover</div>
       </div>
 
-      <nav style={{ flex: 1, padding: '0 8px', position: 'relative', zIndex: 2 }}>
+      <nav style={{ flex: 1, overflow: 'auto', padding: '8px 6px', position: 'relative', zIndex: 2 }}>
         {SIDEBAR_SECTIONS.map((section, sectionIdx) => (
           <div key={section.title} style={{ position: 'relative' }}>
             {sectionIdx > 0 && <div className="cp-sidebar-divider" />}
@@ -457,7 +457,7 @@ export default function CommonPlaceSidebar() {
       {/* Bottom: back to main site */}
       <div
         style={{
-          padding: '12px 16px',
+          padding: '8px 14px',
           borderTop: '1px solid var(--cp-sidebar-border)',
           position: 'relative',
           zIndex: 2,
@@ -469,7 +469,7 @@ export default function CommonPlaceSidebar() {
           className="cp-sidebar-item"
           style={{
             fontFamily: 'var(--cp-font-mono)',
-            fontSize: 11,
+            fontSize: 10,
             color: 'var(--cp-sidebar-text-faint)',
             textDecoration: 'none',
             letterSpacing: '0.05em',
@@ -515,8 +515,9 @@ export default function CommonPlaceSidebar() {
           height: '100vh',
           position: 'sticky',
           top: 0,
-          paddingTop: 8,
+          paddingTop: 12,
           paddingBottom: 8,
+          gap: 2,
         }}
       >
         <div className="cp-sidebar-glow" aria-hidden="true" />
@@ -525,8 +526,8 @@ export default function CommonPlaceSidebar() {
           title="CommonPlace"
           style={{
             fontFamily: 'var(--cp-font-title)',
-            fontSize: 18,
-            fontWeight: 600,
+            fontSize: 15,
+            fontWeight: 700,
             color: 'var(--cp-sidebar-text)',
             textDecoration: 'none',
             width: 32,
@@ -535,7 +536,7 @@ export default function CommonPlaceSidebar() {
             alignItems: 'center',
             justifyContent: 'center',
             borderRadius: 6,
-            marginBottom: 4,
+            marginBottom: 8,
             flexShrink: 0,
             position: 'relative',
             zIndex: 2,
@@ -551,7 +552,7 @@ export default function CommonPlaceSidebar() {
                 style={{
                   width: 24,
                   height: 1,
-                  margin: '6px 0',
+                  margin: '4px 0',
                   background: 'var(--cp-sidebar-border)',
                   position: 'relative',
                   zIndex: 2,

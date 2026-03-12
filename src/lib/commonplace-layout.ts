@@ -134,45 +134,68 @@ export const LAYOUT_PRESETS: SavedLayout[] = [
   {
     name: 'Focus',
     isPreset: true,
-    tree: createLeaf('library', 'Library'),
-  },
-  {
-    name: 'Compare',
-    isPreset: true,
-    tree: createSplit(
-      'horizontal',
-      createLeaf('timeline', 'Timeline'),
-      createLeaf('empty', 'Empty')
-    ),
+    tree: {
+      type: 'leaf',
+      id: 'focus',
+      tabs: [{ id: 'library-1', viewType: 'library', label: 'Library' }],
+      activeTabIndex: 0,
+    },
   },
   {
     name: 'Research',
     isPreset: true,
-    tree: createSplit(
-      'horizontal',
-      createLeaf('timeline', 'Timeline'),
-      createSplit(
-        'vertical',
-        createLeaf('network', 'Map'),
-        createLeaf('empty', 'Object Detail'),
-        0.55
-      ),
-      0.45
-    ),
+    tree: {
+      type: 'split',
+      id: 'research-split',
+      direction: 'horizontal',
+      ratio: 0.55,
+      first: {
+        type: 'leaf',
+        id: 'research-left',
+        tabs: [{ id: 'library-2', viewType: 'library', label: 'Library' }],
+        activeTabIndex: 0,
+      },
+      second: {
+        type: 'leaf',
+        id: 'research-right',
+        tabs: [{ id: 'timeline-1', viewType: 'timeline', label: 'Timeline' }],
+        activeTabIndex: 0,
+      },
+    },
   },
   {
-    name: 'Connect',
+    name: 'Studio',
     isPreset: true,
-    tree: createSplit(
-      'horizontal',
-      createLeaf('network', 'Map'),
-      createSplit(
-        'vertical',
-        createLeaf('empty', 'Object A'),
-        createLeaf('empty', 'Object B')
-      ),
-      0.5
-    ),
+    tree: {
+      type: 'split',
+      id: 'studio-split',
+      direction: 'horizontal',
+      ratio: 0.33,
+      first: {
+        type: 'leaf',
+        id: 'studio-left',
+        tabs: [{ id: 'timeline-2', viewType: 'timeline', label: 'Timeline' }],
+        activeTabIndex: 0,
+      },
+      second: {
+        type: 'split',
+        id: 'studio-right-split',
+        direction: 'horizontal',
+        ratio: 0.55,
+        first: {
+          type: 'leaf',
+          id: 'studio-center',
+          tabs: [{ id: 'compose-1', viewType: 'compose', label: 'Compose' }],
+          activeTabIndex: 0,
+        },
+        second: {
+          type: 'leaf',
+          id: 'studio-right',
+          tabs: [{ id: 'library-3', viewType: 'library', label: 'Library' }],
+          activeTabIndex: 0,
+        },
+      },
+    },
   },
 ];
 
@@ -428,7 +451,6 @@ export const KEY_BINDINGS: KeyBinding[] = [
   { key: 'Tab', ctrl: true, label: 'Next Tab', action: 'next-tab' },
   { key: 'Tab', ctrl: true, shift: true, label: 'Previous Tab', action: 'prev-tab' },
   { key: '1', ctrl: true, alt: true, label: 'Focus Layout', action: 'preset-focus' },
-  { key: '2', ctrl: true, alt: true, label: 'Compare Layout', action: 'preset-compare' },
-  { key: '3', ctrl: true, alt: true, label: 'Research Layout', action: 'preset-research' },
-  { key: '4', ctrl: true, alt: true, label: 'Connect Layout', action: 'preset-connect' },
+  { key: '2', ctrl: true, alt: true, label: 'Research Layout', action: 'preset-research' },
+  { key: '3', ctrl: true, alt: true, label: 'Studio Layout', action: 'preset-studio' },
 ];

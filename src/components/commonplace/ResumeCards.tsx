@@ -32,17 +32,13 @@ export default function ResumeCards({ lastEdited, recentActivity = [], onOpenObj
             flexDirection: 'column',
             justifyContent: 'space-between',
             textAlign: 'left',
-            minHeight: 112,
-            background: `linear-gradient(180deg, ${
-              lastEditedIdentity ? `${lastEditedIdentity.color}08` : 'rgba(196, 80, 60, 0.05)'
-            }, rgba(255,255,255,0.2))`,
-            border: `1px solid ${
-              lastEditedIdentity ? `${lastEditedIdentity.color}22` : 'rgba(196, 80, 60, 0.14)'
-            }`,
-            borderRadius: 5,
-            padding: '10px 14px',
+            position: 'relative',
+            overflow: 'hidden',
+            background: 'var(--cp-red-soft)',
+            border: '1px solid var(--cp-red-line)',
+            borderRadius: 7,
+            padding: '13px 16px',
             cursor: 'pointer',
-            boxShadow: 'none',
           }}
         >
           <div>

@@ -47,6 +47,7 @@ import CalendarView from './CalendarView';
 import LooseEndsView from './LooseEndsView';
 import ComposeView from './ComposeView';
 import LibraryView from './LibraryView';
+import PaneDotGrid from './PaneDotGrid';
 
 const STORAGE_KEY = 'commonplace-layout';
 const STORAGE_VERSION_KEY = `${STORAGE_KEY}-version`;
@@ -175,6 +176,32 @@ export default function SplitPaneContainer() {
     []
   );
 
+  /** Move a tab from one pane to another (drag and drop between tab bars) */
+  const handleMoveTab = useCallback(
+    (fromPaneId: string, tabIndex: number, toPaneId: string, viewType: ViewType, label: string, context?: Record<string, unknown>) => {
+      if (fromPaneId === toPaneId) return;
+      setLayout((prev) => {
+        // Add tab to receiving pane
+        let tree = addTab(prev, toPaneId, viewType, label, context);
+        // Remove tab from source pane
+        tree = closeTab(tree, fromPaneId, tabIndex);
+        // If source pane is now empty (single "empty" tab), auto-close it
+        const sourcePane = findPane(tree, fromPaneId);
+        if (
+          sourcePane &&
+          sourcePane.type === 'leaf' &&
+          sourcePane.tabs.length === 1 &&
+          sourcePane.tabs[0].viewType === 'empty'
+        ) {
+          tree = closePane(tree, fromPaneId);
+        }
+        return tree;
+      });
+      setActivePresetName(null);
+    },
+    []
+  );
+
   const handlePreset = useCallback((presetIndex: number) => {
     if (presetIndex >= 0 && presetIndex < LAYOUT_PRESETS.length) {
       setLayout(LAYOUT_PRESETS[presetIndex].tree);
@@ -235,14 +262,11 @@ export default function SplitPaneContainer() {
             case 'preset-focus':
               handlePreset(0);
               break;
-            case 'preset-compare':
+            case 'preset-research':
               handlePreset(1);
               break;
-            case 'preset-research':
+            case 'preset-studio':
               handlePreset(2);
-              break;
-            case 'preset-connect':
-              handlePreset(3);
               break;
           }
           return;
@@ -434,6 +458,7 @@ export default function SplitPaneContainer() {
           onCloseTab={handleCloseTab}
           onSetActiveTab={handleSetActiveTab}
           onOpenObject={handleOpenObject}
+          onMoveTab={handleMoveTab}
         />
       </div>
     </div>
@@ -455,6 +480,7 @@ interface NodeProps {
   onCloseTab: (paneId: string, tabIndex: number) => void;
   onSetActiveTab: (paneId: string, tabIndex: number) => void;
   onOpenObject: (fromPaneId: string, objectRef: number, title?: string) => void;
+  onMoveTab: (fromPaneId: string, tabIndex: number, toPaneId: string, viewType: ViewType, label: string, context?: Record<string, unknown>) => void;
 }
 
 function RenderNode(props: NodeProps) {
@@ -501,7 +527,7 @@ function RenderSplit(props: NodeProps & { node: SplitPane }) {
    ───────────────────────────────────────────────── */
 
 function RenderLeaf(props: NodeProps & { node: LeafPane }) {
-  const { node, focusedPaneId, onFocus, onSplit, onClosePane, onAddTab, onCloseTab, onSetActiveTab, onOpenObject } = props;
+  const { node, focusedPaneId, onFocus, onSplit, onClosePane, onAddTab, onCloseTab, onSetActiveTab, onOpenObject, onMoveTab } = props;
   const [showViewPicker, setShowViewPicker] = useState(false);
   const isFocused = focusedPaneId === node.id;
   const activeTab = node.tabs[node.activeTabIndex];
@@ -531,15 +557,19 @@ function RenderLeaf(props: NodeProps & { node: LeafPane }) {
           onAddTab(node.id, viewType);
           setShowViewPicker(false);
         }}
+        onMoveTab={onMoveTab}
       />
 
-      {/* Content */}
-      <PaneViewContent
-        viewType={activeTab?.viewType ?? 'empty'}
-        context={activeTab?.context}
-        paneId={node.id}
-        onOpenObject={onOpenObject}
-      />
+      {/* Content with canvas dot grid */}
+      <div style={{ position: 'relative', flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+        <PaneDotGrid seed={node.id} />
+        <PaneViewContent
+          viewType={activeTab?.viewType ?? 'empty'}
+          context={activeTab?.context}
+          paneId={node.id}
+          onOpenObject={onOpenObject}
+        />
+      </div>
     </div>
   );
 }
@@ -559,7 +589,10 @@ interface TabBarProps {
   showViewPicker: boolean;
   onToggleViewPicker: () => void;
   onAddTab: (viewType: ViewType) => void;
+  onMoveTab: (fromPaneId: string, tabIndex: number, toPaneId: string, viewType: ViewType, label: string, context?: Record<string, unknown>) => void;
 }
+
+const TAB_DND_MIME = 'application/commonplace-tab';
 
 function PaneTabBar({
   tabs,
@@ -572,15 +605,69 @@ function PaneTabBar({
   showViewPicker,
   onToggleViewPicker,
   onAddTab,
+  onMoveTab,
 }: TabBarProps) {
+  const [dragOver, setDragOver] = useState(false);
+
+  const handleBarDragOver = (e: React.DragEvent) => {
+    if (e.dataTransfer.types.includes(TAB_DND_MIME)) {
+      e.preventDefault();
+      e.dataTransfer.dropEffect = 'move';
+      setDragOver(true);
+    }
+  };
+
+  const handleBarDragLeave = () => setDragOver(false);
+
+  const handleBarDrop = (e: React.DragEvent) => {
+    setDragOver(false);
+    const raw = e.dataTransfer.getData(TAB_DND_MIME);
+    if (!raw) return;
+    e.preventDefault();
+    try {
+      const payload = JSON.parse(raw) as {
+        fromPaneId: string;
+        tabIndex: number;
+        viewType: ViewType;
+        label: string;
+        context?: Record<string, unknown>;
+      };
+      if (payload.fromPaneId === paneId) return;
+      onMoveTab(payload.fromPaneId, payload.tabIndex, paneId, payload.viewType as ViewType, payload.label, payload.context);
+    } catch { /* malformed payload, ignore */ }
+  };
+
   return (
-    <div className="cp-tab-bar" style={{ position: 'relative' }}>
+    <div
+      className="cp-tab-bar"
+      style={{
+        position: 'relative',
+        outline: dragOver ? '1px solid rgba(196, 80, 60, 0.4)' : 'none',
+      }}
+      onDragOver={handleBarDragOver}
+      onDragLeave={handleBarDragLeave}
+      onDrop={handleBarDrop}
+    >
       {/* Tabs */}
       {tabs.map((tab, i) => (
         <div
           key={tab.id}
           className="cp-tab"
           data-active={i === activeTabIndex ? 'true' : 'false'}
+          draggable
+          onDragStart={(e) => {
+            e.dataTransfer.setData(
+              TAB_DND_MIME,
+              JSON.stringify({
+                fromPaneId: paneId,
+                tabIndex: i,
+                viewType: tab.viewType,
+                label: tab.label,
+                context: tab.context,
+              })
+            );
+            e.dataTransfer.effectAllowed = 'move';
+          }}
           onClick={(e) => {
             e.stopPropagation();
             onSetActiveTab(paneId, i);

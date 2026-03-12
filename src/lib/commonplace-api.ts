@@ -573,6 +573,61 @@ export async function fetchPinnedObjects(): Promise<PinnedObject[]> {
 }
 
 /* ─────────────────────────────────────────────────
+   Lego composition: pinned edge API (v5.1)
+   ───────────────────────────────────────────────── */
+
+export interface PinEdgePayload {
+  target_slug: string;
+  position?: 'badge' | 'inline' | 'sidebar';
+  sort_order?: number;
+}
+
+export interface PinEdgeResponse {
+  edge_id: number;
+  object_id: number;
+  slug: string;
+  title: string;
+  object_type: string;
+  position: 'badge' | 'inline' | 'sidebar';
+  sort_order: number;
+}
+
+/** Attach (pin) a target object to a parent object. */
+export async function createPin(
+  parentSlug: string,
+  payload: PinEdgePayload,
+): Promise<PinEdgeResponse> {
+  return apiFetch<PinEdgeResponse>(`/objects/${parentSlug}/pin/`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  });
+}
+
+/** Detach (unpin) a pinned edge from a parent object. */
+export async function removePin(
+  parentSlug: string,
+  edgeId: number,
+): Promise<void> {
+  await apiFetch<void>(`/objects/${parentSlug}/pin/${edgeId}/`, {
+    method: 'DELETE',
+  });
+}
+
+/** Update pin position or sort order. */
+export async function updatePin(
+  parentSlug: string,
+  edgeId: number,
+  updates: Partial<Pick<PinEdgePayload, 'position' | 'sort_order'>>,
+): Promise<PinEdgeResponse> {
+  return apiFetch<PinEdgeResponse>(`/objects/${parentSlug}/pin/${edgeId}/`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(updates),
+  });
+}
+
+/* ─────────────────────────────────────────────────
    Sync helper: maps CapturedObject to API payload
    ───────────────────────────────────────────────── */
 

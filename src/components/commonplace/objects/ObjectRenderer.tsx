@@ -1,7 +1,8 @@
 'use client';
 
 import { getObjectTypeIdentity } from '@/lib/commonplace';
-import type { ObjectListItem } from '@/lib/commonplace';
+import type { ObjectListItem, PinnedBadgeObject } from '@/lib/commonplace';
+import PinnedBadge from './PinnedBadge';
 import NoteCard from './NoteCard';
 import SourceCard from './SourceCard';
 import PersonPill from './PersonPill';
@@ -12,7 +13,8 @@ import TaskRow from './TaskRow';
 import EventBadge from './EventBadge';
 import ScriptBlock from './ScriptBlock';
 import PlacePin from './PlacePin';
-import type { ComponentType } from 'react';
+import { useState, useCallback, type ComponentType } from 'react';
+import { createPin } from '@/lib/commonplace-api';
 
 export interface RenderableObject extends Partial<ObjectListItem> {
   id: number;
@@ -35,6 +37,7 @@ export interface RenderableObject extends Partial<ObjectListItem> {
   signal_label?: string;
   explanation?: string;
   supporting_signal_labels?: string[];
+  pinned_objects?: PinnedBadgeObject[];
   [key: string]: unknown;
 }
 
@@ -44,6 +47,8 @@ export interface ObjectCardProps {
   variant?: 'default' | 'timeline' | 'dock' | 'chain' | 'chip' | 'module';
   onClick?: (obj: RenderableObject) => void;
   onContextMenu?: (e: React.MouseEvent, obj: RenderableObject) => void;
+  /** Called after a successful pin drop (parent slug, child slug). */
+  onPinCreated?: (parentSlug: string, childSlug: string) => void;
 }
 
 const RENDERERS: Record<string, ComponentType<ObjectCardProps>> = {
@@ -113,9 +118,9 @@ function ModuleVariantObject({ object, compact, onClick, onContextMenu }: Object
           gap: compact ? 8 : 10,
           width: '100%',
           textAlign: 'left',
-          padding: compact ? '5px 10px 5px 8px' : '6px 12px 6px 10px',
+          padding: compact ? '5px 10px 5px 8px' : '8px 14px',
           borderRadius: 999,
-          border: `1px solid ${line}`,
+          border: `1.5px solid ${line}`,
           background: 'transparent',
           color: 'var(--cp-text)',
         }}
@@ -123,11 +128,11 @@ function ModuleVariantObject({ object, compact, onClick, onContextMenu }: Object
         {object.object_type_slug === 'person' ? (
           <span
             style={{
-              width: compact ? 22 : 26,
-              height: compact ? 22 : 26,
+              width: compact ? 22 : 30,
+              height: compact ? 22 : 30,
               borderRadius: '50%',
               background: `${identity.color}16`,
-              border: `1px solid ${line}`,
+              border: `1.5px solid ${line}`,
               display: 'inline-flex',
               alignItems: 'center',
               justifyContent: 'center',
@@ -136,11 +141,11 @@ function ModuleVariantObject({ object, compact, onClick, onContextMenu }: Object
           >
             <span
               style={{
-                fontFamily: 'var(--cp-font-mono)',
-                fontSize: compact ? 10 : 11,
-                fontWeight: 700,
+                fontFamily: 'var(--cp-font-title)',
+                fontSize: compact ? 11 : 13,
+                fontWeight: 600,
                 color: identity.color,
-                fontFeatureSettings: 'var(--cp-kern-mono)',
+                fontFeatureSettings: 'var(--cp-kern-title)',
               }}
             >
               {personInitial}
@@ -161,7 +166,7 @@ function ModuleVariantObject({ object, compact, onClick, onContextMenu }: Object
           style={{
             fontFamily:
               object.object_type_slug === 'concept' ? 'var(--cp-font-mono)' : 'var(--cp-font-body)',
-            fontSize: compact ? 12 : 13,
+            fontSize: compact ? 12 : 13.5,
             fontWeight: object.object_type_slug === 'concept' ? 500 : 600,
             lineHeight: 1.3,
             color: 'var(--cp-text)',
@@ -181,6 +186,7 @@ function ModuleVariantObject({ object, compact, onClick, onContextMenu }: Object
             style={{
               marginLeft: 'auto',
               fontFamily: 'var(--cp-font-mono)',
+              fontWeight: 500,
               fontSize: 10,
               color: identity.color,
               fontFeatureSettings: 'var(--cp-kern-mono)',
@@ -209,11 +215,13 @@ function ModuleVariantObject({ object, compact, onClick, onContextMenu }: Object
                 : '8px 0 8px 14px'
               : compact
                 ? '8px 10px'
-                : '10px 12px',
+                : '10px 14px',
           border:
             object.object_type_slug === 'quote'
               ? 'none'
-              : `1px dashed ${line}`,
+              : `1.5px dashed ${line}`,
+          transform:
+            object.object_type_slug === 'hunch' ? 'rotate(-0.3deg)' : undefined,
           borderLeft:
             object.object_type_slug === 'quote' ? `3px solid ${identity.color}` : undefined,
           borderRadius: object.object_type_slug === 'quote' ? 0 : 4,
@@ -224,17 +232,17 @@ function ModuleVariantObject({ object, compact, onClick, onContextMenu }: Object
       >
         <div
           style={{
-            fontFamily: 'var(--cp-font-title)',
-            fontSize: compact ? 13 : 14.5,
+            fontFamily: object.object_type_slug === 'quote' ? 'var(--cp-font-title)' : 'var(--cp-font-body)',
+            fontSize: compact ? 12.5 : (object.object_type_slug === 'quote' ? 14.5 : 13.5),
             fontWeight: object.object_type_slug === 'quote' ? 400 : 500,
             fontStyle: 'italic',
             lineHeight: 1.48,
             color: 'var(--cp-text)',
-            fontFeatureSettings: 'var(--cp-kern-title)',
+            fontFeatureSettings: object.object_type_slug === 'quote' ? 'var(--cp-kern-title)' : 'var(--cp-kern-body)',
             marginBottom: summary && !compact && object.object_type_slug === 'hunch' ? 4 : 0,
           }}
         >
-          {object.object_type_slug === 'quote' ? `"${title}"` : title}
+          {object.object_type_slug === 'quote' ? `\u201C${title}\u201D` : title}
         </div>
         {!compact && summary && object.object_type_slug === 'hunch' && (
           <div
@@ -263,6 +271,7 @@ function ModuleVariantObject({ object, compact, onClick, onContextMenu }: Object
             <span
               style={{
                 fontFamily: 'var(--cp-font-mono)',
+                fontWeight: 500,
                 fontSize: 9,
                 color: identity.color,
                 fontFeatureSettings: 'var(--cp-kern-mono)',
@@ -275,6 +284,7 @@ function ModuleVariantObject({ object, compact, onClick, onContextMenu }: Object
             <span
               style={{
                 fontFamily: 'var(--cp-font-mono)',
+                fontWeight: 500,
                 fontSize: 9,
                 color: identity.color,
                 fontFeatureSettings: 'var(--cp-kern-mono)',
@@ -319,7 +329,7 @@ function ModuleVariantObject({ object, compact, onClick, onContextMenu }: Object
         <span
           style={{
             fontFamily: 'var(--cp-font-body)',
-            fontSize: compact ? 13 : 14,
+            fontSize: 13,
             color: 'var(--cp-text)',
             lineHeight: 1.4,
             textDecoration: isDone ? 'line-through' : 'none',
@@ -333,6 +343,7 @@ function ModuleVariantObject({ object, compact, onClick, onContextMenu }: Object
           <span
             style={{
               fontFamily: 'var(--cp-font-mono)',
+              fontWeight: 500,
               fontSize: 9,
               color: 'var(--cp-text-faint)',
               fontFeatureSettings: 'var(--cp-kern-mono)',
@@ -357,7 +368,7 @@ function ModuleVariantObject({ object, compact, onClick, onContextMenu }: Object
           textAlign: 'left',
           padding: compact ? '8px 10px' : '8px 12px',
           borderLeft: `3px solid ${identity.color}`,
-          borderRadius: '0 6px 6px 0',
+          borderRadius: '0 5px 5px 0',
           background: `${identity.color}08`,
           color: 'var(--cp-text)',
         }}
@@ -366,7 +377,7 @@ function ModuleVariantObject({ object, compact, onClick, onContextMenu }: Object
           <div
             style={{
               fontFamily: 'var(--cp-font-body)',
-              fontSize: compact ? 13 : 14,
+              fontSize: compact ? 12.5 : 13,
               fontWeight: 600,
               lineHeight: 1.35,
               color: 'var(--cp-text)',
@@ -394,6 +405,7 @@ function ModuleVariantObject({ object, compact, onClick, onContextMenu }: Object
           <span
             style={{
               fontFamily: 'var(--cp-font-mono)',
+              fontWeight: 500,
               fontSize: 9,
               color: identity.color,
               fontFeatureSettings: 'var(--cp-kern-mono)',
@@ -425,6 +437,7 @@ function ModuleVariantObject({ object, compact, onClick, onContextMenu }: Object
         <div
           style={{
             fontFamily: 'var(--cp-font-mono)',
+            fontWeight: 500,
             fontSize: 9,
             letterSpacing: '0.08em',
             textTransform: 'uppercase',
@@ -438,6 +451,7 @@ function ModuleVariantObject({ object, compact, onClick, onContextMenu }: Object
         <div
           style={{
             fontFamily: 'var(--cp-font-mono)',
+            fontWeight: 500,
             fontSize: 11,
             lineHeight: 1.6,
             color: 'var(--cp-term-text)',
@@ -484,12 +498,12 @@ function ModuleVariantObject({ object, compact, onClick, onContextMenu }: Object
         <div style={{ flex: 1, minWidth: 0 }}>
           <div
             style={{
-              fontFamily: 'var(--cp-font-title)',
-              fontSize: compact ? 13 : 15,
+              fontFamily: 'var(--cp-font-body)',
+              fontSize: compact ? 13 : 14,
               fontWeight: 500,
               lineHeight: 1.3,
               color: 'var(--cp-text)',
-              fontFeatureSettings: 'var(--cp-kern-title)',
+              fontFeatureSettings: 'var(--cp-kern-body)',
               marginBottom: !compact && summary ? 3 : 0,
             }}
           >
@@ -513,6 +527,7 @@ function ModuleVariantObject({ object, compact, onClick, onContextMenu }: Object
           <span
             style={{
               fontFamily: 'var(--cp-font-mono)',
+              fontWeight: 500,
               fontSize: 9,
               color: 'var(--cp-text-faint)',
               fontFeatureSettings: 'var(--cp-kern-mono)',
@@ -534,13 +549,26 @@ function ModuleVariantObject({ object, compact, onClick, onContextMenu }: Object
           display: 'block',
           width: '100%',
           textAlign: 'left',
+          position: 'relative',
           padding: compact ? '8px 10px' : '9px 12px 10px',
           border: `1px solid ${line}`,
           borderRadius: 6,
           background: 'transparent',
+          overflow: 'hidden',
           color: 'var(--cp-text)',
         }}
       >
+        <div
+          style={{
+            position: 'absolute',
+            top: 0,
+            left: 0,
+            right: 0,
+            height: 3,
+            background: `linear-gradient(135deg, ${identity.color}0A, ${identity.color}1A)`,
+            borderRadius: '6px 6px 0 0',
+          }}
+        />
         {(domain || sourceFormat || score) && (
           <div
             style={{
@@ -592,6 +620,7 @@ function ModuleVariantObject({ object, compact, onClick, onContextMenu }: Object
                 style={{
                   marginLeft: 'auto',
                   fontFamily: 'var(--cp-font-mono)',
+                  fontWeight: 500,
                   fontSize: 9,
                   color: identity.color,
                   fontFeatureSettings: 'var(--cp-kern-mono)',
@@ -604,12 +633,12 @@ function ModuleVariantObject({ object, compact, onClick, onContextMenu }: Object
         )}
         <div
           style={{
-            fontFamily: 'var(--cp-font-title)',
-            fontSize: compact ? 14 : 16,
+            fontFamily: 'var(--cp-font-body)',
+            fontSize: compact ? 13.5 : 14.5,
             fontWeight: 600,
             lineHeight: 1.34,
             color: 'var(--cp-text)',
-            fontFeatureSettings: 'var(--cp-kern-title)',
+            fontFeatureSettings: 'var(--cp-kern-body)',
             marginBottom: summary ? 4 : 0,
           }}
         >
@@ -645,6 +674,7 @@ function ModuleVariantObject({ object, compact, onClick, onContextMenu }: Object
               <span
                 style={{
                   fontFamily: 'var(--cp-font-mono)',
+                  fontWeight: 500,
                   fontSize: 9,
                   color: 'var(--cp-text-faint)',
                   fontFeatureSettings: 'var(--cp-kern-mono)',
@@ -657,6 +687,7 @@ function ModuleVariantObject({ object, compact, onClick, onContextMenu }: Object
               <span
                 style={{
                   fontFamily: 'var(--cp-font-mono)',
+                  fontWeight: 500,
                   fontSize: 9,
                   color: 'var(--cp-text-faint)',
                   fontFeatureSettings: 'var(--cp-kern-mono)',
@@ -679,7 +710,7 @@ function ModuleVariantObject({ object, compact, onClick, onContextMenu }: Object
         display: 'block',
         width: '100%',
         textAlign: 'left',
-        padding: compact ? '8px 10px' : '10px 14px',
+        padding: compact ? '8px 10px' : '12px 16px',
         border: '1px solid var(--cp-border-faint)',
         borderRadius: 5,
         background: 'transparent',
@@ -688,12 +719,12 @@ function ModuleVariantObject({ object, compact, onClick, onContextMenu }: Object
     >
       <div
         style={{
-          fontFamily: 'var(--cp-font-title)',
-          fontSize: compact ? 14 : 15,
+          fontFamily: 'var(--cp-font-body)',
+          fontSize: compact ? 13.5 : 14.5,
           fontWeight: 500,
           lineHeight: 1.38,
           color: 'var(--cp-text)',
-          fontFeatureSettings: 'var(--cp-kern-title)',
+          fontFeatureSettings: 'var(--cp-kern-body)',
           marginBottom: summary && !compact ? 4 : 0,
         }}
       >
@@ -726,6 +757,7 @@ function ModuleVariantObject({ object, compact, onClick, onContextMenu }: Object
             <span
               style={{
                 fontFamily: 'var(--cp-font-mono)',
+                fontWeight: 500,
                 fontSize: 9,
                 color: 'var(--cp-text-faint)',
                 fontFeatureSettings: 'var(--cp-kern-mono)',
@@ -738,6 +770,7 @@ function ModuleVariantObject({ object, compact, onClick, onContextMenu }: Object
             <span
               style={{
                 fontFamily: 'var(--cp-font-mono)',
+                fontWeight: 500,
                 fontSize: 9,
                 color: 'var(--cp-text-faint)',
                 fontFeatureSettings: 'var(--cp-kern-mono)',
@@ -1049,7 +1082,13 @@ function formatDate(iso: string): string {
   return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
 }
 
+/** MIME type for inter-card drag data. */
+const DND_MIME = 'application/commonplace-object';
+
 export default function ObjectRenderer(props: ObjectCardProps) {
+  const [dragOver, setDragOver] = useState(false);
+
+  // Compact variants (dock/chain/chip) are too small for DnD interaction
   if (
     props.variant === 'dock' ||
     props.variant === 'chain' ||
@@ -1058,15 +1097,129 @@ export default function ObjectRenderer(props: ObjectCardProps) {
     return <CompactVariantCard {...props} />;
   }
 
+  let card: React.ReactNode;
+
   if (
     props.variant === 'module' ||
     props.variant === 'timeline' ||
     props.variant === 'default' ||
     props.variant == null
   ) {
-    return <ModuleVariantObject {...props} />;
+    card = <ModuleVariantObject {...props} />;
+  } else {
+    const Component = RENDERERS[props.object.object_type_slug] ?? NoteCard;
+    card = <Component {...props} />;
   }
 
-  const Component = RENDERERS[props.object.object_type_slug] ?? NoteCard;
-  return <Component {...props} />;
+  const pins = Array.isArray(props.object.pinned_objects)
+    ? props.object.pinned_objects
+    : [];
+
+  /* ── Drag handlers ── */
+
+  const handleDragStart = useCallback(
+    (e: React.DragEvent) => {
+      e.dataTransfer.setData(
+        DND_MIME,
+        JSON.stringify({
+          id: props.object.id,
+          slug: props.object.slug,
+          title: props.object.title,
+          object_type: props.object.object_type_slug,
+        }),
+      );
+      e.dataTransfer.effectAllowed = 'link';
+
+      // Custom ghost preview
+      const ghost = document.createElement('div');
+      ghost.style.cssText = [
+        'padding:4px 10px',
+        'background:var(--cp-card,#2A2A30)',
+        'border:1px solid var(--cp-border,#35353C)',
+        'border-radius:4px',
+        'font-family:var(--cp-font-body)',
+        'font-size:12px',
+        'color:var(--cp-text,#E8E6E1)',
+        'box-shadow:0 4px 12px rgba(0,0,0,0.15)',
+        'max-width:200px',
+        'white-space:nowrap',
+        'overflow:hidden',
+        'text-overflow:ellipsis',
+        'position:absolute',
+        'top:-9999px',
+      ].join(';');
+      ghost.textContent = props.object.title;
+      document.body.appendChild(ghost);
+      e.dataTransfer.setDragImage(ghost, 10, 10);
+      requestAnimationFrame(() => document.body.removeChild(ghost));
+    },
+    [props.object.id, props.object.slug, props.object.title, props.object.object_type_slug],
+  );
+
+  const handleDragOver = useCallback(
+    (e: React.DragEvent) => {
+      if (!e.dataTransfer.types.includes(DND_MIME)) return;
+      e.preventDefault();
+      e.dataTransfer.dropEffect = 'link';
+      setDragOver(true);
+    },
+    [],
+  );
+
+  const handleDragLeave = useCallback(() => {
+    setDragOver(false);
+  }, []);
+
+  const handleDrop = useCallback(
+    async (e: React.DragEvent) => {
+      e.preventDefault();
+      setDragOver(false);
+      const raw = e.dataTransfer.getData(DND_MIME);
+      if (!raw) return;
+      try {
+        const data = JSON.parse(raw) as { slug: string };
+        // Prevent self-pin
+        if (data.slug === props.object.slug) return;
+        // Optimistic: fire callback, then hit API
+        props.onPinCreated?.(props.object.slug, data.slug);
+        await createPin(props.object.slug, { target_slug: data.slug });
+      } catch {
+        // API error: parent view should refetch to reconcile
+      }
+    },
+    [props.object.slug, props.onPinCreated],
+  );
+
+  const wrapperClass = [
+    'cp-lego-card-wrapper',
+    dragOver ? 'cp-drop-target' : '',
+  ]
+    .filter(Boolean)
+    .join(' ');
+
+  return (
+    <div
+      className={wrapperClass}
+      draggable
+      onDragStart={handleDragStart}
+      onDragOver={handleDragOver}
+      onDragLeave={handleDragLeave}
+      onDrop={handleDrop}
+    >
+      {card}
+      {pins.length > 0 && (
+        <div className="cp-pinned-badges">
+          {pins.map((pin) => (
+            <PinnedBadge
+              key={pin.edge_id}
+              object={pin}
+              edgeId={pin.edge_id}
+              compact
+              onClick={props.onClick ? () => props.onClick?.(props.object) : undefined}
+            />
+          ))}
+        </div>
+      )}
+    </div>
+  );
 }

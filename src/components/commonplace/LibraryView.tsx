@@ -264,8 +264,8 @@ export default function LibraryView({ onOpenObject }: LibraryViewProps) {
   const clusterCount = clustersData?.length ?? 0;
 
   return (
-    <div style={{ padding: '20px 24px 40px', display: 'flex', justifyContent: 'center' }}>
-      <div style={{ width: '100%', maxWidth: 880, display: 'flex', flexDirection: 'column', gap: 22 }}>
+    <div style={{ flex: 1, overflow: 'auto', padding: '20px 24px 40px' }}>
+      <div style={{ maxWidth: 880, margin: '0 auto' }}>
       <div
         style={{
           display: 'flex',
@@ -273,6 +273,7 @@ export default function LibraryView({ onOpenObject }: LibraryViewProps) {
           justifyContent: 'space-between',
           gap: 16,
           flexWrap: 'wrap',
+          marginBottom: 24,
         }}
       >
         <div>
@@ -350,86 +351,13 @@ export default function LibraryView({ onOpenObject }: LibraryViewProps) {
         </div>
       )}
 
-      {reminderProjects.length > 0 && (
-        <div>
-          <div
-            style={{
-              fontFamily: 'var(--cp-font-mono)',
-              fontSize: 9,
-              fontWeight: 700,
-              color: 'var(--cp-chrome-muted)',
-              letterSpacing: '0.1em',
-              textTransform: 'uppercase',
-              marginBottom: 10,
-            }}
-          >
-            Reminders
-          </div>
-          <div
-            style={{
-              display: 'grid',
-              gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
-              gap: 10,
-            }}
-          >
-            {reminderProjects.map((project) => (
-              <button
-                key={project.id}
-                type="button"
-                onClick={() => requestView('project', project.name, { slug: project.slug })}
-                style={{
-                  textAlign: 'left',
-                  border: '1px solid var(--cp-border)',
-                  borderRadius: 8,
-                  background: 'var(--cp-card)',
-                  padding: '12px 14px',
-                  cursor: 'pointer',
-                }}
-              >
-                <div
-                  style={{
-                    fontFamily: 'var(--cp-font-mono)',
-                    fontSize: 9,
-                    color: 'var(--cp-red)',
-                    letterSpacing: '0.08em',
-                    textTransform: 'uppercase',
-                    marginBottom: 6,
-                  }}
-                >
-                  Due {project.reminder_at ? formatReminder(project.reminder_at) : 'Soon'}
-                </div>
-                <div
-                  style={{
-                    fontFamily: 'var(--cp-font-title)',
-                    fontSize: 18,
-                    color: 'var(--cp-text)',
-                    lineHeight: 1.2,
-                  }}
-                >
-                  {project.name}
-                </div>
-                <div
-                  style={{
-                    marginTop: 6,
-                    fontFamily: 'var(--cp-font-body)',
-                    fontSize: 13,
-                    color: 'var(--cp-text-muted)',
-                  }}
-                >
-                  {project.mode} · {project.status}
-                </div>
-              </button>
-            ))}
-          </div>
-        </div>
-      )}
-
       {(lastEdited || recentActivity.length > 0) && (
-        <ResumeCards
+        <div style={{ marginBottom: 24 }}><ResumeCards
           lastEdited={lastEdited}
           recentActivity={recentActivity}
           onOpenObject={onOpenObject}
         />
+        </div>
       )}
 
       {feedNodes.length > 0 && (
@@ -489,7 +417,7 @@ export default function LibraryView({ onOpenObject }: LibraryViewProps) {
         </div>
 
         {types.length > 1 && (
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5 }}>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5, marginBottom: 20 }}>
             {activeCluster && (
               <button
                 type="button"
@@ -604,7 +532,7 @@ export default function LibraryView({ onOpenObject }: LibraryViewProps) {
           </div>
         ) : (
           <>
-            <div>
+            <div style={{ marginBottom: 28 }}>
               <div
                 style={{
                   display: 'flex',
@@ -630,7 +558,7 @@ export default function LibraryView({ onOpenObject }: LibraryViewProps) {
               <div
                 style={{
                   display: 'grid',
-                  gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))',
+                  gridTemplateColumns: '1fr 1fr',
                   gap: 10,
                 }}
               >
@@ -655,6 +583,76 @@ export default function LibraryView({ onOpenObject }: LibraryViewProps) {
                 ))}
               </div>
             </div>
+
+            {reminderProjects.length > 0 && (
+              <div style={{ marginBottom: 28 }}>
+                <div
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 8,
+                    marginBottom: 10,
+                  }}
+                >
+                  <span
+                    style={{
+                      fontFamily: 'var(--cp-font-mono)',
+                      fontSize: 9,
+                      fontWeight: 700,
+                      color: 'var(--cp-type-task, var(--cp-chrome-muted))',
+                      letterSpacing: '0.1em',
+                      textTransform: 'uppercase',
+                    }}
+                  >
+                    Reminders
+                  </span>
+                  <div style={{ flex: 1, height: 1, background: 'var(--cp-border)' }} />
+                </div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                  {reminderProjects.map((project) => (
+                    <button
+                      key={project.id}
+                      type="button"
+                      onClick={() => requestView('project', project.name, { slug: project.slug })}
+                      style={{
+                        textAlign: 'left',
+                        border: '1px solid var(--cp-border)',
+                        borderRadius: 6,
+                        background: 'var(--cp-card)',
+                        padding: '10px 14px',
+                        cursor: 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 10,
+                      }}
+                    >
+                      <span
+                        style={{
+                          fontFamily: 'var(--cp-font-mono)',
+                          fontSize: 9,
+                          color: 'var(--cp-red)',
+                          letterSpacing: '0.08em',
+                          textTransform: 'uppercase',
+                          flexShrink: 0,
+                        }}
+                      >
+                        Due {project.reminder_at ? formatReminder(project.reminder_at) : 'Soon'}
+                      </span>
+                      <span
+                        style={{
+                          fontFamily: 'var(--cp-font-body)',
+                          fontSize: 14,
+                          fontWeight: 600,
+                          color: 'var(--cp-text)',
+                        }}
+                      >
+                        {project.name}
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
 
             <div>
               <div
@@ -691,7 +689,7 @@ export default function LibraryView({ onOpenObject }: LibraryViewProps) {
               <div
                 style={{
                   display: 'grid',
-                  gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))',
+                  gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))',
                   gap: 8,
                 }}
               >
