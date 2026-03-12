@@ -31,11 +31,13 @@ import {
 import { useCommonPlace } from '@/lib/commonplace-context';
 import type { MockNode } from '@/lib/commonplace';
 import { getObjectTypeIdentity } from '@/lib/commonplace';
-import type { RenderableObject } from './objects/ObjectRenderer';
+import ObjectRenderer, { type RenderableObject } from './objects/ObjectRenderer';
+import { renderableFromMockNode } from './objectRenderables';
 import TimelineSearch from './TimelineSearch';
 import type { TimelineFilters } from './TimelineSearch';
 import RetroNote from './RetroNote';
 import type { RetroTrigger } from './RetroNote';
+import { useRenderableObjectAction } from './useRenderableObjectAction';
 
 /* ─────────────────────────────────────────────────
    Utilities
@@ -263,12 +265,12 @@ function ConnectionPill({
 function TimelineCard({
   node,
   allNodes,
-  onOpenDrawer,
+  onOpenObject,
   onContextMenu,
 }: {
   node: MockNode;
   allNodes: MockNode[];
-  onOpenDrawer: (slug: string) => void;
+  onOpenObject: (obj: RenderableObject) => void;
   onContextMenu?: (e: React.MouseEvent, obj: RenderableObject) => void;
 }) {
   const typeInfo = getObjectTypeIdentity(node.objectType);
@@ -295,11 +297,7 @@ function TimelineCard({
     }
   };
 
-  const asRenderable: RenderableObject = {
-    id: node.objectRef,
-    title: node.title,
-    object_type_slug: node.objectType,
-  };
+  const asRenderable = renderableFromMockNode(node);
 
   return (
     <div
@@ -341,21 +339,12 @@ function TimelineCard({
           )}
         </div>
 
-        {/* Title: clickable, opens ObjectDrawer */}
-        <div
-          className="cp-tl-title"
-          role="button"
-          tabIndex={0}
-          onClick={() => onOpenDrawer(node.objectSlug)}
-          onKeyDown={(e) => {
-            if (e.key === 'Enter') onOpenDrawer(node.objectSlug);
-          }}
-        >
-          {node.title}
-        </div>
-
-        {/* Full body text, not truncated */}
-        {node.summary && <div className="cp-tl-summary">{node.summary}</div>}
+        <ObjectRenderer
+          object={asRenderable}
+          variant="timeline"
+          onClick={onOpenObject}
+          onContextMenu={onContextMenu}
+        />
 
         {entityChips.length > 0 && (
           <div className="cp-tl-entities" aria-label="Entity chips">
@@ -381,7 +370,11 @@ function TimelineCard({
                   edge={edge}
                   node={node}
                   allNodes={allNodes}
-                  onOpenDrawer={onOpenDrawer}
+                  onOpenDrawer={(slug) => onOpenObject({
+                    ...asRenderable,
+                    slug,
+                    id: allNodes.find((candidate) => candidate.objectSlug === slug)?.objectRef ?? asRenderable.id,
+                  })}
                 />
               ))}
             </div>
@@ -462,6 +455,7 @@ export default function TimelineView() {
   });
   const scrollRef = useRef<HTMLDivElement>(null);
   const { captureVersion, openDrawer, openContextMenu } = useCommonPlace();
+  const handleObjectClick = useRenderableObjectAction((obj) => openDrawer(obj.slug));
 
   const { data: feed, loading, error, refetch } = useApiData(fetchFeed, [captureVersion]);
 
@@ -592,7 +586,7 @@ export default function TimelineView() {
                   key={`node-${node.id}`}
                   node={node}
                   allNodes={allNodes}
-                  onOpenDrawer={openDrawer}
+                  onOpenObject={handleObjectClick}
                   onContextMenu={(e, obj) => openContextMenu(e.clientX, e.clientY, obj)}
                 />
               ))}

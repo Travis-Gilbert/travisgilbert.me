@@ -10,11 +10,14 @@
  * Used as a sub-tab inside NotebookView and ProjectView.
  */
 
-import { useCallback, useMemo } from 'react';
+import { useMemo } from 'react';
 import { fetchFeed, groupNodesByDate, useApiData } from '@/lib/commonplace-api';
 import type { MockNode } from '@/lib/commonplace';
+import { useCommonPlace } from '@/lib/commonplace-context';
 import DateHeader from './DateHeader';
-import NodeCard from './NodeCard';
+import ObjectRenderer from './objects/ObjectRenderer';
+import { renderableFromMockNode } from './objectRenderables';
+import { useRenderableObjectAction } from './useRenderableObjectAction';
 
 interface ScopedTimelinePanelProps {
   notebook?: string;
@@ -27,6 +30,7 @@ export default function ScopedTimelinePanel({
   project,
   onOpenObject,
 }: ScopedTimelinePanelProps) {
+  const { openContextMenu } = useCommonPlace();
   const { data: nodes, loading, error, refetch } = useApiData(
     () => fetchFeed({ per_page: 50, notebook, project }),
     [notebook, project],
@@ -37,12 +41,8 @@ export default function ScopedTimelinePanel({
     [nodes],
   );
 
-  const handleSelect = useCallback(
-    (nodeId: string) => {
-      const node = (nodes ?? []).find((n) => n.id === nodeId);
-      if (node) onOpenObject?.(node.objectRef);
-    },
-    [onOpenObject, nodes],
+  const handleObjectClick = useRenderableObjectAction(
+    onOpenObject ? (obj) => onOpenObject(obj.id) : undefined,
   );
 
   if (loading) {
@@ -88,12 +88,39 @@ export default function ScopedTimelinePanel({
         <div key={group.dateKey}>
           <DateHeader label={group.dateLabel} />
           {group.nodes.map((node: MockNode) => (
-            <NodeCard
+            <div
               key={node.id}
-              node={node}
-              onSelect={handleSelect}
-              allNodes={nodes ?? []}
-            />
+              style={{
+                display: 'grid',
+                gridTemplateColumns: '88px minmax(0, 1fr)',
+                gap: 12,
+                alignItems: 'start',
+                paddingBottom: 12,
+              }}
+            >
+              <div
+                style={{
+                  fontFamily: 'var(--cp-font-mono)',
+                  fontSize: 10,
+                  color: 'var(--cp-chrome-muted)',
+                  letterSpacing: '0.04em',
+                  textTransform: 'uppercase',
+                  paddingTop: 10,
+                }}
+              >
+                {new Date(node.capturedAt).toLocaleTimeString('en-US', {
+                  hour: 'numeric',
+                  minute: '2-digit',
+                  hour12: true,
+                })}
+              </div>
+              <ObjectRenderer
+                object={renderableFromMockNode(node)}
+                variant="timeline"
+                onClick={handleObjectClick}
+                onContextMenu={(e, obj) => openContextMenu(e.clientX, e.clientY, obj)}
+              />
+            </div>
           ))}
         </div>
       ))}

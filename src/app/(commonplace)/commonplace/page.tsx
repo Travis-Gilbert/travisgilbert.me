@@ -1,15 +1,15 @@
 import type { Metadata } from 'next';
 
 export const metadata: Metadata = {
-  title: 'The Timeline',
-  description: 'The immutable record of everything. Objects exist. Nodes happen.',
+  title: 'Library',
+  description: 'CommonPlace library for capture, resurfacing, and connection work.',
 };
 
 /**
- * CommonPlace home: The Timeline.
+ * CommonPlace home: Library.
  *
  * Renders nothing visible; the (commonplace) layout's SplitPaneContainer
- * manages all pane content. Default layout preset opens a Timeline tab.
+ * manages all pane content. Default layout preset opens the Library tab.
  */
 export default function CommonPlacePage() {
   return <></>;

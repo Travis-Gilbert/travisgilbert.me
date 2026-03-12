@@ -142,9 +142,13 @@ function mapGraphResponseToD3(resp: ApiGraphResponse): {
 } {
   const nodes: GraphNode[] = resp.nodes.map((o: ApiGraphObject) => ({
     id: o.id,
+    objectRef: extractNumericId(o.id),
+    objectSlug: o.slug,
     objectType: o.object_type,
     title: o.title,
     edgeCount: o.edge_count,
+    bodyPreview: o.body_preview,
+    status: o.status,
   }));
 
   const nodeIds = new Set(nodes.map((n) => n.id));
@@ -220,6 +224,20 @@ export async function fetchObjectById(
   id: number,
 ): Promise<ApiObjectDetail> {
   return apiFetch<ApiObjectDetail>(`/objects/${id}/`);
+}
+
+export async function postObjectConnection(
+  slug: string,
+  payload: {
+    target_slug: string;
+    edge_type?: string;
+    reason?: string;
+  },
+) {
+  return apiFetch(`/objects/${slug}/connect/`, {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  });
 }
 
 /** Search objects by title / search_text via GET /objects/?q=... */

@@ -94,7 +94,7 @@ export const VIEW_REGISTRY: Record<ViewType, { label: string; icon: string }> = 
   resurface: { label: 'Resurface', icon: 'sparkle' },
   'loose-ends': { label: 'Loose Ends', icon: 'scatter' },
   compose: { label: 'Compose', icon: 'note-pencil' },
-  'connection-engine': { label: 'Connection Engine', icon: 'engine' },
+  'connection-engine': { label: 'Engine', icon: 'engine' },
   reminders: { label: 'Reminders', icon: 'bell' },
   settings: { label: 'Settings', icon: 'gear' },
   empty: { label: 'Empty', icon: 'plus' },
@@ -129,23 +129,19 @@ export const SIDEBAR_SECTIONS: SidebarSection[] = [
     title: 'Capture',
     items: [
       { label: 'Capture', href: '#capture', icon: 'capture' },
-      { label: '+ Object', href: '#new-object', icon: 'molecule' },
     ],
   },
   {
     title: 'View',
     items: [
+      { label: 'Library', href: '#library', icon: 'grid', viewType: 'library' as ViewType },
       { label: 'Timeline', href: '#timeline', icon: 'timeline', viewType: 'timeline' as ViewType },
-      { label: 'My Timelines', href: '#scoped-timeline', icon: 'filter', viewType: 'scoped-timeline' as ViewType },
+      { label: 'Compose', href: '#compose', icon: 'note-pencil', viewType: 'compose' as ViewType },
       {
         label: 'Map',
         href: '#networks',
         icon: 'graph',
         viewType: 'network' as ViewType,
-        expandable: true,
-        children: [
-          { label: 'Saved Frames', href: '#frames', icon: 'frame', viewType: 'network' as ViewType, viewContext: { showFrames: true } },
-        ],
       },
       { label: 'Calendar', href: '#calendar', icon: 'calendar', viewType: 'calendar' as ViewType },
       { label: 'Loose Ends', href: '#loose-ends', icon: 'scatter', viewType: 'loose-ends' as ViewType },
@@ -173,8 +169,7 @@ export const SIDEBAR_SECTIONS: SidebarSection[] = [
   {
     title: 'System',
     items: [
-      { label: 'Connection Engine', href: '#engine', icon: 'engine', viewType: 'connection-engine' as ViewType },
-      { label: 'Reminders', href: '#reminders', icon: 'bell', viewType: 'reminders' as ViewType },
+      { label: 'Engine', href: '#engine', icon: 'engine', viewType: 'connection-engine' as ViewType },
       { label: 'Settings', href: '#settings', icon: 'gear', viewType: 'settings' as ViewType },
     ],
   },
@@ -240,9 +235,13 @@ export interface MockNode {
 
 export interface GraphNode {
   id: string;
+  objectRef?: number;
+  objectSlug?: string;
   objectType: string;
   title: string;
   edgeCount: number;
+  bodyPreview?: string;
+  status?: string;
   x?: number;
   y?: number;
   fx?: number | null;

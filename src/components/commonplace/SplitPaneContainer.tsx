@@ -23,6 +23,7 @@ import {
   findAdjacentLeaf,
   serializeLayout,
   deserializeLayout,
+  shouldDiscardPersistedLayout,
 } from '@/lib/commonplace-layout';
 import type { ViewType } from '@/lib/commonplace';
 import { VIEW_REGISTRY } from '@/lib/commonplace';
@@ -48,6 +49,8 @@ import ComposeView from './ComposeView';
 import LibraryView from './LibraryView';
 
 const STORAGE_KEY = 'commonplace-layout';
+const STORAGE_VERSION_KEY = `${STORAGE_KEY}-version`;
+const STORAGE_VERSION = 'v5-shell-mockup-reset-4';
 
 /* ─────────────────────────────────────────────────
    Main container: owns the layout tree state
@@ -77,12 +80,20 @@ export default function SplitPaneContainer() {
 
   /* Load persisted layout after mount to keep server/client first render deterministic */
   useEffect(() => {
+    const savedVersion = localStorage.getItem(STORAGE_VERSION_KEY);
+    if (savedVersion !== STORAGE_VERSION) {
+      localStorage.removeItem(STORAGE_KEY);
+      localStorage.setItem(STORAGE_VERSION_KEY, STORAGE_VERSION);
+    }
+
     const saved = localStorage.getItem(STORAGE_KEY);
     if (saved) {
       const parsed = deserializeLayout(saved);
-      if (parsed) {
+      if (parsed && !shouldDiscardPersistedLayout(parsed)) {
         setLayout(parsed);
         setActivePresetName(null);
+      } else {
+        localStorage.removeItem(STORAGE_KEY);
       }
     }
     setHasLoadedPersistedLayout(true);
@@ -278,12 +289,19 @@ export default function SplitPaneContainer() {
   const focusedLeaf = focusedPaneId
     ? (findPane(layout, focusedPaneId) as LeafPane | null)
     : null;
+  const activeLeafViewTypes = collectLeafIds(layout).map((leafId) => {
+    const leaf = findPane(layout, leafId);
+    if (!leaf || leaf.type !== 'leaf') return 'empty';
+    return leaf.tabs[leaf.activeTabIndex]?.viewType ?? 'empty';
+  });
   const focusedViewType =
-    focusedLeaf?.tabs[focusedLeaf.activeTabIndex]?.viewType ?? 'empty';
+    focusedLeaf?.tabs[focusedLeaf.activeTabIndex]?.viewType ??
+    activeLeafViewTypes[0] ??
+    'empty';
 
   useEffect(() => {
-    setSidebarCollapsed(focusedViewType === 'compose');
-  }, [focusedViewType, setSidebarCollapsed]);
+    setSidebarCollapsed(activeLeafViewTypes.includes('compose'));
+  }, [activeLeafViewTypes, setSidebarCollapsed]);
 
   /* ── Mobile: single pane view ── */
 
@@ -404,35 +422,6 @@ export default function SplitPaneContainer() {
         overflow: 'hidden',
       }}
     >
-      {/* Toolbar: layout presets */}
-      <div
-        style={{
-          display: 'flex',
-          alignItems: 'center',
-          borderBottom: '1px solid var(--cp-border-faint)',
-          background: 'var(--cp-surface)',
-          flexShrink: 0,
-        }}
-      >
-        <LayoutPresetSelector
-          activePresetName={activePresetName}
-          onSelect={handlePreset}
-        />
-        <div
-          style={{
-            fontFamily: 'var(--cp-font-mono)',
-            fontSize: 10,
-            color: 'var(--cp-text-faint)',
-            letterSpacing: '0.05em',
-            marginLeft: 'auto',
-            paddingRight: 12,
-          }}
-        >
-          {focusedPaneId ? 'CTRL+\\ SPLIT' : 'CLICK A PANE TO FOCUS'}
-        </div>
-      </div>
-
-      {/* Pane tree */}
       <div style={{ flex: 1, display: 'flex', minWidth: 0, minHeight: 0, overflow: 'hidden' }}>
         <RenderNode
           node={layout}
@@ -522,9 +511,8 @@ function RenderLeaf(props: NodeProps & { node: LeafPane }) {
       className="cp-pane"
       style={{
         flex: 1,
-        outline: isFocused ? '2px solid var(--cp-terracotta)' : '2px solid transparent',
-        outlineOffset: -2,
-        transition: 'outline-color 150ms',
+        boxShadow: isFocused ? 'inset 0 0 0 1px rgba(196, 80, 60, 0.18)' : 'none',
+        transition: 'box-shadow 150ms',
       }}
       onClick={() => onFocus(node.id)}
     >
@@ -598,6 +586,7 @@ function PaneTabBar({
             onSetActiveTab(paneId, i);
           }}
         >
+          <span className="cp-tab-pip" aria-hidden="true" />
           <span>{tab.label}</span>
           <button
             className="cp-tab-close"
@@ -704,16 +693,16 @@ function TabBarAction({
         border: 'none',
         borderRadius: 4,
         background: 'transparent',
-        color: 'var(--cp-text-faint)',
+        color: 'var(--cp-chrome-dim)',
         cursor: 'pointer',
         transition: 'color 150ms, background 150ms',
       }}
       onMouseEnter={(e) => {
-        e.currentTarget.style.color = 'var(--cp-text)';
-        e.currentTarget.style.background = 'var(--cp-surface-hover)';
+        e.currentTarget.style.color = 'var(--cp-chrome-text)';
+        e.currentTarget.style.background = 'var(--cp-chrome-raise)';
       }}
       onMouseLeave={(e) => {
-        e.currentTarget.style.color = 'var(--cp-text-faint)';
+        e.currentTarget.style.color = 'var(--cp-chrome-dim)';
         e.currentTarget.style.background = 'transparent';
       }}
     >

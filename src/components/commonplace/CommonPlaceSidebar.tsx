@@ -1,8 +1,34 @@
 'use client';
 
 import { useState, useCallback, useEffect } from 'react';
+import type { ComponentType } from 'react';
 import { usePathname } from 'next/navigation';
 import Link from 'next/link';
+import {
+  Activity,
+  BellNotification,
+  Book,
+  Calendar,
+  DotsGrid3x3,
+  EditPencil,
+  Flare,
+  Folder,
+  NavArrowRight,
+  Network,
+  Settings,
+  Spark,
+} from 'iconoir-react';
+import {
+  autoUpdate,
+  FloatingPortal,
+  offset,
+  shift,
+  useDismiss,
+  useFloating,
+  useHover,
+  useInteractions,
+  useRole,
+} from '@floating-ui/react';
 import { toast } from 'sonner';
 import { SIDEBAR_SECTIONS } from '@/lib/commonplace';
 import type { CapturedObject, ViewType } from '@/lib/commonplace';
@@ -22,21 +48,9 @@ import ObjectPalette from './ObjectPalette';
 import RecentCaptures from './RecentCaptures';
 import DropZone from './DropZone';
 
-/**
- * CommonPlace sidebar: warm dark panel (#1A1614) with terracotta
- * gradient bloom from top-left. Paper grain at 5% opacity (matte
- * card stock feel).
- *
- * Width is resizable via a right-edge drag handle (200px to 320px),
- * persisted to localStorage under 'cp-sidebar-width'.
- *
- * Section ordering: Brand, Capture, Objects (pinned 2x3 grid),
- * Views, Notebooks, Projects, System.
- */
-
-const SIDEBAR_MIN = 200;
-const SIDEBAR_MAX = 320;
-const SIDEBAR_DEFAULT = 256;
+const SIDEBAR_MIN = 192;
+const SIDEBAR_MAX = 280;
+const SIDEBAR_DEFAULT = 200;
 
 function getInitialSidebarWidth(): number {
   if (typeof window === 'undefined') return SIDEBAR_DEFAULT;
@@ -60,7 +74,7 @@ export default function CommonPlaceSidebar() {
     setSidebarCollapsed,
   } = useCommonPlace();
   const [expandedGroups, setExpandedGroups] = useState<Set<string>>(
-    new Set(['Notebooks', 'Projects'])
+    new Set()
   );
   const [isPaletteOpen, setIsPaletteOpen] = useState(false);
   const [captures, setCaptures] = useState<CapturedObject[]>([]);
@@ -185,10 +199,9 @@ export default function CommonPlaceSidebar() {
 
   const sidebarInner = (
     <>
-      {/* Terracotta corner glow */}
+      {/* Chrome shell glow */}
       <div className="cp-sidebar-glow" aria-hidden="true" />
 
-      {/* Branding: "CommonPlace" in Vollkorn italic */}
       <div style={{ padding: '20px 16px 12px', position: 'relative', zIndex: 2 }}>
         <Link
           href="/commonplace"
@@ -205,59 +218,21 @@ export default function CommonPlaceSidebar() {
           CommonPlace
         </Link>
         <div className="cp-brand-stats">Capture / manipulate / discover</div>
-        <div className="cp-brand-chips">
-          <span className="cp-brand-chip">7-pass notebook engine</span>
-          <span className="cp-brand-chip">research bridge live</span>
-        </div>
       </div>
 
-      {/* Navigation sections */}
       <nav style={{ flex: 1, padding: '0 8px', position: 'relative', zIndex: 2 }}>
         {SIDEBAR_SECTIONS.map((section, sectionIdx) => (
           <div key={section.title} style={{ position: 'relative' }}>
             {sectionIdx > 0 && <div className="cp-sidebar-divider" />}
-            <div className="cp-section-title">{section.title}</div>
 
-            {/* Capture section: replace action buttons with real components */}
             {section.title === 'Capture' ? (
               <div style={{ padding: '0 4px' }}>
                 <CaptureButton onCapture={handleCapture} />
-                <div style={{ marginTop: 4, position: 'relative' }}>
-                  <button
-                    type="button"
-                    className="cp-sidebar-item"
-                    onClick={() => setIsPaletteOpen(!isPaletteOpen)}
-                    style={{
-                      width: '100%',
-                      border: 'none',
-                      background: 'transparent',
-                      textAlign: 'left',
-                    }}
-                  >
-                    <SidebarIcon name="molecule" />
-                    <span>+ Object</span>
-                  </button>
-                  <ObjectPalette
-                    isOpen={isPaletteOpen}
-                    onClose={() => setIsPaletteOpen(false)}
-                    onCapture={handleCapture}
-                  />
-                </div>
-                <button
-                  type="button"
-                  className="cp-sidebar-item"
-                  onClick={() => requestView('compose', 'Compose')}
-                  style={{
-                    width: '100%',
-                    border: 'none',
-                    background: 'transparent',
-                    textAlign: 'left',
-                    marginTop: 2,
-                  }}
-                >
-                  <SidebarIcon name="note-pencil" />
-                  <span>Compose</span>
-                </button>
+                <ObjectPalette
+                  isOpen={isPaletteOpen}
+                  onClose={() => setIsPaletteOpen(false)}
+                  onCapture={handleCapture}
+                />
               </div>
             ) : (
               section.items.map((item) => {
@@ -269,7 +244,6 @@ export default function CommonPlaceSidebar() {
                 if (item.expandable) {
                   const isExpanded = expandedGroups.has(item.label);
 
-                  /* Dynamic children from API for Notebooks and Projects */
                   const dynamicItems =
                     item.label === 'Notebooks'
                       ? (notebooks ?? []).map((nb) => ({
@@ -290,8 +264,9 @@ export default function CommonPlaceSidebar() {
                               requestView('project', pj.name, { slug: pj.slug });
                               closeDrawerIfMobile();
                             },
-                          }))
+                        }))
                         : [];
+                  const childCount = dynamicItems.length;
 
                   return (
                     <div key={item.href}>
@@ -322,6 +297,15 @@ export default function CommonPlaceSidebar() {
                       >
                         <SidebarIcon name={item.icon} />
                         <span style={{ flex: 1 }}>{item.label}</span>
+                        <span
+                          style={{
+                            fontSize: 10,
+                            fontFamily: 'var(--cp-font-mono)',
+                            color: 'var(--cp-sidebar-text-faint)',
+                          }}
+                        >
+                          {childCount}
+                        </span>
                         <ChevronIcon open={isExpanded} />
                       </button>
                       {isExpanded && dynamicItems.length > 0 && (
@@ -501,17 +485,22 @@ export default function CommonPlaceSidebar() {
 
   /* ── Collapsed 48px icon rail (desktop, compose mode) ── */
   if (!isMobile && sidebarCollapsed) {
-    const railItems: Array<{ icon: string; label: string; viewType: ViewType }> = [
-      { icon: 'note-pencil', label: 'Compose', viewType: 'compose' },
-      ...SIDEBAR_SECTIONS.flatMap((section) =>
-        section.items
-          .filter((item): item is typeof item & { viewType: ViewType } => item.viewType != null)
-          .map((item) => ({
-            icon: item.icon,
-            label: item.label,
-            viewType: item.viewType as ViewType,
-          })),
-      ),
+    const railItems: Array<
+      | { key: string; icon: string; label: string; onClick: () => void }
+      | { key: string; divider: true }
+    > = [
+      { key: 'library', icon: 'grid', label: 'Library', onClick: () => requestView('library', 'Library') },
+      { key: 'timeline', icon: 'timeline', label: 'Timeline', onClick: () => requestView('timeline', 'Timeline') },
+      { key: 'compose', icon: 'note-pencil', label: 'Compose', onClick: () => requestView('compose', 'Compose') },
+      { key: 'map', icon: 'graph', label: 'Map', onClick: () => requestView('network', 'Map') },
+      { key: 'calendar', icon: 'calendar', label: 'Calendar', onClick: () => requestView('calendar', 'Calendar') },
+      { key: 'loose-ends', icon: 'scatter', label: 'Loose Ends', onClick: () => requestView('loose-ends', 'Loose Ends') },
+      { key: 'divider-1', divider: true },
+      { key: 'notebooks', icon: 'book', label: 'Notebooks', onClick: () => requestView('notebook', 'Notebooks', { listMode: true }) },
+      { key: 'projects', icon: 'briefcase', label: 'Projects', onClick: () => requestView('project', 'Projects', { listMode: true }) },
+      { key: 'divider-2', divider: true },
+      { key: 'engine', icon: 'engine', label: 'Engine', onClick: () => requestView('connection-engine', 'Engine') },
+      { key: 'settings', icon: 'gear', label: 'Settings', onClick: () => requestView('settings', 'Settings') },
     ];
     return (
       <aside
@@ -554,14 +543,32 @@ export default function CommonPlaceSidebar() {
         >
           C
         </Link>
-        {railItems.map((item) => (
-          <RailIconButton
-            key={item.viewType}
-            icon={item.icon}
-            label={item.label}
-            onClick={() => requestView(item.viewType, item.label)}
-          />
-        ))}
+        {railItems.map((item) => {
+          if ('divider' in item) {
+            return (
+              <div
+                key={item.key}
+                style={{
+                  width: 24,
+                  height: 1,
+                  margin: '6px 0',
+                  background: 'var(--cp-sidebar-border)',
+                  position: 'relative',
+                  zIndex: 2,
+                }}
+              />
+            );
+          }
+
+          return (
+            <RailIconButton
+              key={item.key}
+              icon={item.icon}
+              label={item.label}
+              onClick={item.onClick}
+            />
+          );
+        })}
         <div style={{ flex: 1 }} />
         <button
           type="button"
@@ -571,9 +578,7 @@ export default function CommonPlaceSidebar() {
           onClick={() => setSidebarCollapsed(false)}
           style={{ position: 'relative', zIndex: 2 }}
         >
-          <svg width={16} height={16} viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round">
-            <path d="M6 4L10 8L6 12" />
-          </svg>
+          <NavArrowRight width={16} height={16} />
         </button>
       </aside>
     );
@@ -641,27 +646,61 @@ function RailIconButton({
   onClick: () => void;
 }) {
   const [hovered, setHovered] = useState(false);
+  const { refs, floatingStyles, context } = useFloating({
+    open: hovered,
+    onOpenChange: setHovered,
+    placement: 'right',
+    middleware: [offset(8), shift({ padding: 8 })],
+    whileElementsMounted: autoUpdate,
+  });
+  const hover = useHover(context);
+  const dismiss = useDismiss(context);
+  const role = useRole(context, { role: 'tooltip' });
+  const { getReferenceProps, getFloatingProps } = useInteractions([hover, dismiss, role]);
+  const Icon = RAIL_ICON_COMPONENTS[icon] ?? Activity;
+
   return (
     <div style={{ position: 'relative', zIndex: 2 }}>
       <button
+        ref={refs.setReference}
         type="button"
         className="cp-rail-btn"
         aria-label={label}
         title={label}
         onClick={onClick}
-        onMouseEnter={() => setHovered(true)}
-        onMouseLeave={() => setHovered(false)}
+        {...getReferenceProps()}
       >
-        <SidebarIcon name={icon} />
+        <Icon width={16} height={16} />
       </button>
       {hovered && (
-        <div className="cp-rail-tooltip" role="tooltip">
-          {label}
-        </div>
+        <FloatingPortal>
+          <div
+            ref={refs.setFloating}
+            className="cp-rail-tooltip"
+            style={floatingStyles}
+            {...getFloatingProps()}
+          >
+            {label}
+          </div>
+        </FloatingPortal>
       )}
     </div>
   );
 }
+
+const RAIL_ICON_COMPONENTS: Record<string, ComponentType<{ width?: number; height?: number }>> = {
+  grid: DotsGrid3x3,
+  timeline: Activity,
+  graph: Network,
+  calendar: Calendar,
+  scatter: Spark,
+  engine: Flare,
+  bell: BellNotification,
+  gear: Settings,
+  book: Book,
+  briefcase: Folder,
+  'note-pencil': EditPencil,
+};
 
 /* Sidebar icons: Iconoir 24x24 path data, rendered at 16px display size.
    Stroke-based, felt-tip pen feel. Multi-path icons use string arrays. */
@@ -695,6 +734,12 @@ function SidebarIcon({ name }: { name: string }) {
     'graph': [
       'M6.5 7V10.5C6.5 11.6046 7.39543 12.5 8.5 12.5H15.5C16.6046 12.5 17.5 11.6046 17.5 10.5V7',
       'M12 12.5V17',
+    ],
+    'grid': [
+      'M3 3H9V9H3V3Z',
+      'M15 3H21V9H15V3Z',
+      'M3 15H9V21H3V15Z',
+      'M15 15H21V21H15V15Z',
     ],
     'frame': [
       'M19.4 20H4.6C4.26863 20 4 19.7314 4 19.4V4.6C4 4.26863 4.26863 4 4.6 4H19.4C19.7314 4 20 4.26863 20 4.6V19.4C20 19.7314 19.7314 20 19.4 20Z',

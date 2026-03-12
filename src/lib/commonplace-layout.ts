@@ -371,6 +371,42 @@ export function deserializeLayout(json: string): PaneNode | null {
   }
 }
 
+function leafHasMeaningfulTab(node: LeafPane): boolean {
+  return node.tabs.some((tab) => tab.viewType !== 'empty');
+}
+
+export function summarizeLayout(node: PaneNode): {
+  leafCount: number;
+  emptyLeafCount: number;
+  meaningfulLeafCount: number;
+} {
+  if (node.type === 'leaf') {
+    const meaningful = leafHasMeaningfulTab(node);
+    return {
+      leafCount: 1,
+      emptyLeafCount: meaningful ? 0 : 1,
+      meaningfulLeafCount: meaningful ? 1 : 0,
+    };
+  }
+
+  const first = summarizeLayout(node.first);
+  const second = summarizeLayout(node.second);
+  return {
+    leafCount: first.leafCount + second.leafCount,
+    emptyLeafCount: first.emptyLeafCount + second.emptyLeafCount,
+    meaningfulLeafCount: first.meaningfulLeafCount + second.meaningfulLeafCount,
+  };
+}
+
+export function shouldDiscardPersistedLayout(node: PaneNode): boolean {
+  const summary = summarizeLayout(node);
+
+  if (summary.meaningfulLeafCount === 0) return true;
+  if (summary.emptyLeafCount >= 3) return true;
+
+  return summary.leafCount >= 4 && summary.emptyLeafCount >= summary.meaningfulLeafCount;
+}
+
 /* ─────────────────────────────────────────────────
    Keyboard shortcut definitions
    ───────────────────────────────────────────────── */

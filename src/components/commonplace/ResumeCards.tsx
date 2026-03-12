@@ -1,5 +1,6 @@
 'use client';
 
+import { getObjectTypeIdentity } from '@/lib/commonplace';
 import type { RenderableObject } from './objects/ObjectRenderer';
 
 interface ResumeCardsProps {
@@ -11,126 +12,177 @@ interface ResumeCardsProps {
 export default function ResumeCards({ lastEdited, recentActivity = [], onOpenObject }: ResumeCardsProps) {
   if (!lastEdited && recentActivity.length === 0) return null;
 
+  const lastEditedIdentity = lastEdited
+    ? getObjectTypeIdentity(lastEdited.object_type_slug)
+    : null;
+
   return (
     <div style={{
       display: 'grid',
       gridTemplateColumns: lastEdited && recentActivity.length > 0 ? '1fr 1fr' : '1fr',
       gap: 10,
-      marginBottom: 20,
+      marginBottom: 24,
     }}>
       {lastEdited && (
         <button
           type="button"
           onClick={() => onOpenObject?.(lastEdited.id)}
           style={{
-            display: 'block',
+            display: 'flex',
+            flexDirection: 'column',
+            justifyContent: 'space-between',
             textAlign: 'left',
-            background: 'var(--cp-surface)',
-            border: '1px solid var(--cp-border)',
-            borderLeft: '3px solid var(--cp-accent)',
-            borderRadius: '0 6px 6px 0',
+            minHeight: 112,
+            background: `linear-gradient(180deg, ${
+              lastEditedIdentity ? `${lastEditedIdentity.color}08` : 'rgba(196, 80, 60, 0.05)'
+            }, rgba(255,255,255,0.2))`,
+            border: `1px solid ${
+              lastEditedIdentity ? `${lastEditedIdentity.color}22` : 'rgba(196, 80, 60, 0.14)'
+            }`,
+            borderRadius: 5,
             padding: '10px 14px',
             cursor: 'pointer',
-            transition: 'border-color 120ms ease',
+            boxShadow: 'none',
           }}
         >
-          <div style={{
-            fontFamily: 'var(--cp-font-mono)',
-            fontSize: 9,
-            fontWeight: 700,
-            color: 'var(--cp-accent)',
-            letterSpacing: '0.08em',
-            textTransform: 'uppercase',
-            marginBottom: 5,
-          }}>
-            Pick up where you left off
+          <div>
+            <div style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              gap: 10,
+              marginBottom: 6,
+            }}>
+              <div style={{
+                fontFamily: 'var(--cp-font-mono)',
+                fontSize: 9,
+                fontWeight: 700,
+                color: 'var(--cp-accent)',
+                letterSpacing: '0.1em',
+                textTransform: 'uppercase',
+              }}>
+                Pick up where you left off
+              </div>
+              {lastEditedIdentity && (
+                <div style={{
+                  fontFamily: 'var(--cp-font-mono)',
+                  fontSize: 8.5,
+                  fontWeight: 700,
+                  color: lastEditedIdentity.color,
+                  letterSpacing: '0.06em',
+                  textTransform: 'uppercase',
+                  borderRadius: 3,
+                  padding: '1px 6px',
+                  background: `${lastEditedIdentity.color}0C`,
+                  border: `1px solid ${lastEditedIdentity.color}18`,
+                }}>
+                  {lastEditedIdentity.label}
+                </div>
+              )}
+            </div>
+            <div style={{
+              fontFamily: 'var(--cp-font-title)',
+              fontSize: 14,
+              fontWeight: 600,
+              color: 'var(--cp-text)',
+              lineHeight: 1.22,
+              fontFeatureSettings: 'var(--cp-kern-title)',
+            }}>
+              {lastEdited.display_title ?? lastEdited.title}
+            </div>
+            {lastEdited.body && (
+              <div style={{
+                marginTop: 2,
+                maxWidth: 460,
+                fontFamily: 'var(--cp-font-body)',
+                fontSize: 12,
+                color: 'var(--cp-text-muted)',
+                lineHeight: 1.45,
+                fontFeatureSettings: 'var(--cp-kern-body)',
+              }}>
+                {truncate(lastEdited.body, 108)}
+              </div>
+            )}
           </div>
           <div style={{
-            fontFamily: 'var(--cp-font-title)',
-            fontSize: 14,
-            fontWeight: 500,
-            color: 'var(--cp-text)',
-            lineHeight: 1.3,
-            fontFeatureSettings: 'var(--cp-kern-title)',
-            overflow: 'hidden',
-            textOverflow: 'ellipsis',
-            whiteSpace: 'nowrap',
-          }}>
-            {lastEdited.display_title ?? lastEdited.title}
-          </div>
-          <div style={{
-            fontFamily: 'var(--cp-font-mono)',
-            fontSize: 10,
+            fontFamily: 'var(--cp-font-body)',
+            fontSize: 12,
             color: 'var(--cp-text-faint)',
-            marginTop: 4,
-            fontFeatureSettings: 'var(--cp-kern-mono)',
+            fontFeatureSettings: 'var(--cp-kern-body)',
           }}>
-            {lastEdited.object_type_slug}
-            {lastEdited.captured_at && ` · ${formatRelative(lastEdited.captured_at)}`}
+            {lastEdited.body
+              ? `${countWords(lastEdited.body)} words${lastEdited.captured_at ? `, last edited ${formatRelative(lastEdited.captured_at)}` : ''}`
+              : `${lastEdited.object_type_slug}${lastEdited.captured_at ? `, last edited ${formatRelative(lastEdited.captured_at)}` : ''}`}
           </div>
         </button>
       )}
       {recentActivity.length > 0 && (
         <div style={{
-          background: 'var(--cp-surface)',
-          border: '1px solid var(--cp-border)',
-          borderRadius: 6,
+          minHeight: 112,
+          display: 'flex',
+          flexDirection: 'column',
+          justifyContent: 'space-between',
+          background: 'linear-gradient(180deg, rgba(112, 80, 160, 0.05), rgba(255,255,255,0.2))',
+          border: '1px solid rgba(112, 80, 160, 0.14)',
+          borderRadius: 5,
           padding: '10px 14px',
+          boxShadow: 'none',
         }}>
-          <div style={{
-            fontFamily: 'var(--cp-font-mono)',
-            fontSize: 9,
-            fontWeight: 700,
-            color: 'var(--cp-chrome-muted)',
-            letterSpacing: '0.08em',
-            textTransform: 'uppercase',
-            marginBottom: 8,
-          }}>
-            While you were away
+          <div>
+            <div style={{
+              fontFamily: 'var(--cp-font-mono)',
+              fontSize: 9,
+              fontWeight: 700,
+              color: 'var(--cp-purple)',
+              letterSpacing: '0.1em',
+              textTransform: 'uppercase',
+              marginBottom: 6,
+            }}>
+              While you were away
+            </div>
+            <div style={{
+              fontFamily: 'var(--cp-font-title)',
+              fontSize: 14,
+              fontWeight: 600,
+              color: 'var(--cp-text)',
+              lineHeight: 1.25,
+            }}>
+              {recentActivity.length} new connections formed
+            </div>
+            <div style={{
+              fontFamily: 'var(--cp-font-body)',
+              fontSize: 12,
+              color: 'var(--cp-text-muted)',
+              marginTop: 2,
+              lineHeight: 1.5,
+            }}>
+              {(recentActivity[0]?.display_title ?? recentActivity[0]?.title ?? 'Recent activity')}
+              {recentActivity.length > 1 ? ` linked to ${recentActivity.length - 1} other objects` : ''}
+            </div>
           </div>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
-            {recentActivity.slice(0, 3).map((obj) => (
-              <button
-                key={obj.id}
-                type="button"
-                onClick={() => onOpenObject?.(obj.id)}
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: 8,
-                  textAlign: 'left',
-                  background: 'none',
-                  border: 'none',
-                  padding: '2px 0',
-                  cursor: 'pointer',
-                }}
-              >
-                <span style={{
-                  width: 5,
-                  height: 5,
-                  borderRadius: '50%',
-                  background: 'var(--cp-chrome-dim)',
-                  flexShrink: 0,
-                }} />
-                <span style={{
-                  fontFamily: 'var(--cp-font-body)',
-                  fontSize: 12,
-                  color: 'var(--cp-text)',
-                  fontFeatureSettings: 'var(--cp-kern-body)',
-                  overflow: 'hidden',
-                  textOverflow: 'ellipsis',
-                  whiteSpace: 'nowrap',
-                  flex: 1,
-                }}>
-                  {obj.display_title ?? obj.title}
-                </span>
-              </button>
-            ))}
+          <div style={{
+            fontFamily: 'var(--cp-font-body)',
+            fontSize: 12,
+            color: 'var(--cp-text-faint)',
+            lineHeight: 1.45,
+          }}>
+            Recent activity is being synthesized from the latest objects in the current feed.
           </div>
         </div>
       )}
     </div>
   );
+}
+
+function truncate(text: string, limit: number): string {
+  if (text.length <= limit) return text;
+  return `${text.slice(0, limit - 1).trimEnd()}…`;
+}
+
+function countWords(text: string): number {
+  const normalized = text.trim();
+  if (!normalized) return 0;
+  return normalized.split(/\s+/).length;
 }
 
 function formatRelative(iso: string): string {

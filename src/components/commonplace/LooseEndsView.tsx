@@ -16,7 +16,11 @@ import { useState, useMemo } from 'react';
 import { fetchGraph, useApiData } from '@/lib/commonplace-api';
 import { getObjectTypeIdentity } from '@/lib/commonplace';
 import type { GraphNode } from '@/lib/commonplace';
+import { useCommonPlace } from '@/lib/commonplace-context';
 import ViewSubTabs from './ViewSubTabs';
+import ObjectRenderer from './objects/ObjectRenderer';
+import { renderableFromGraphNode } from './objectRenderables';
+import { useRenderableObjectAction } from './useRenderableObjectAction';
 
 interface LooseEndsViewProps {
   onOpenObject?: (objectRef: number, title?: string) => void;
@@ -28,6 +32,7 @@ const THRESHOLD_TABS = [
 ];
 
 export default function LooseEndsView({ onOpenObject }: LooseEndsViewProps) {
+  const { openContextMenu } = useCommonPlace();
   const [thresholdKey, setThresholdKey] = useState('orphaned');
   const { data: graphData, loading, error, refetch } = useApiData(
     () => fetchGraph(),
@@ -35,6 +40,11 @@ export default function LooseEndsView({ onOpenObject }: LooseEndsViewProps) {
   );
 
   const threshold = thresholdKey === 'orphaned' ? 0 : 1;
+  const handleObjectClick = useRenderableObjectAction(
+    onOpenObject
+      ? (obj) => onOpenObject(obj.id, obj.display_title ?? obj.title)
+      : undefined,
+  );
 
   /* Filter + group nodes by type */
   const { groups, totalCount } = useMemo(() => {
@@ -144,27 +154,19 @@ export default function LooseEndsView({ onOpenObject }: LooseEndsViewProps) {
                 <span className="cp-loose-ends-group-count">({nodes.length})</span>
               </div>
               <div className="cp-loose-ends-grid">
-                {nodes.map((node) => (
-                  <button
-                    key={node.id}
-                    type="button"
-                    className="cp-loose-ends-card"
-                    onClick={() => onOpenObject?.(Number(node.id), node.title)}
-                  >
-                    <span
-                      className="cp-loose-ends-card-dot"
-                      style={{ backgroundColor: typeId.color }}
+                {nodes.map((node) => {
+                  const object = renderableFromGraphNode(node);
+                  return (
+                    <ObjectRenderer
+                      key={node.id}
+                      object={object}
+                      compact
+                      variant="module"
+                      onClick={handleObjectClick}
+                      onContextMenu={(e, obj) => openContextMenu(e.clientX, e.clientY, obj)}
                     />
-                    <div className="cp-loose-ends-card-body">
-                      <span className="cp-loose-ends-card-title">{node.title}</span>
-                      <span className="cp-loose-ends-card-meta">
-                        {node.edgeCount === 0
-                          ? '0 connections'
-                          : `${node.edgeCount} connection${node.edgeCount > 1 ? 's' : ''}`}
-                      </span>
-                    </div>
-                  </button>
-                ))}
+                  );
+                })}
               </div>
             </div>
           );

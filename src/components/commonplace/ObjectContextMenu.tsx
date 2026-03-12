@@ -37,20 +37,11 @@ interface ContextAction {
   id: string;
   label: string;
   shortcut?: string;
-  dividerAfter?: boolean;
 }
 
-const CONTAIN_TYPES = [
-  'Observation',
-  'Argument',
-  'Evidence',
-  'Question',
-  'Aside',
-  'Anchor',
-] as const;
-
 const MAIN_ACTIONS: ContextAction[] = [
-  { id: 'stash', label: 'Stash for Later', shortcut: 'S', dividerAfter: true },
+  { id: 'open', label: 'Open Object', shortcut: 'O' },
+  { id: 'stash', label: 'Stash for Later', shortcut: 'S' },
   { id: 'connect', label: 'Add Connection', shortcut: 'C' },
 ];
 
@@ -59,7 +50,13 @@ const MAIN_ACTIONS: ContextAction[] = [
    ───────────────────────────────────────────────── */
 
 export default function ObjectContextMenu() {
-  const { contextMenuTarget, closeContextMenu, openDrawer, requestView } = useCommonPlace();
+  const {
+    beginConnection,
+    closeContextMenu,
+    contextMenuTarget,
+    openDrawer,
+    stashObject,
+  } = useCommonPlace();
   const isOpen = contextMenuTarget !== null;
 
   /* Virtual element at cursor coordinates */
@@ -98,26 +95,26 @@ export default function ObjectContextMenu() {
   const { getFloatingProps } = useInteractions([dismiss]);
 
   const handleAction = useCallback(
-    (actionId: string, obj: RenderableObject, containType?: string) => {
+    (actionId: string, obj: RenderableObject) => {
       closeContextMenu();
 
       switch (actionId) {
+        case 'open':
+          openDrawer(obj.slug || String(obj.id));
+          break;
         case 'stash':
+          stashObject(obj);
           toast.success(`"${obj.title}" stashed`);
           break;
         case 'connect':
-          if (obj.id) openDrawer(String(obj.id));
-          break;
-        case 'contain':
-          if (containType) {
-            toast.success(`Containing as ${containType}`);
-          }
+          beginConnection(obj);
+          toast.message(`Select another object to connect to "${obj.title}"`);
           break;
         default:
           break;
       }
     },
-    [closeContextMenu, openDrawer, requestView],
+    [beginConnection, closeContextMenu, openDrawer, stashObject],
   );
 
   if (!isOpen || !contextMenuTarget) return null;
@@ -144,9 +141,6 @@ export default function ObjectContextMenu() {
 
         <div className="cp-context-menu__title">{obj.display_title ?? obj.title}</div>
 
-        <div className="cp-context-menu__divider" />
-
-        {/* Main actions */}
         {MAIN_ACTIONS.map((action) => (
           <button
             key={action.id}
@@ -158,21 +152,6 @@ export default function ObjectContextMenu() {
             {action.shortcut && (
               <span className="cp-context-menu__item-shortcut">{action.shortcut}</span>
             )}
-          </button>
-        ))}
-
-        <div className="cp-context-menu__divider" />
-
-        {/* Contain as submenu */}
-        <div className="cp-context-menu__section-label">Contain as</div>
-        {CONTAIN_TYPES.map((type) => (
-          <button
-            key={type}
-            type="button"
-            className="cp-context-menu__item cp-context-menu__item--sub"
-            onClick={() => handleAction('contain', obj, type)}
-          >
-            <span className="cp-context-menu__item-label">{type}</span>
           </button>
         ))}
       </div>
