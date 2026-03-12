@@ -96,7 +96,21 @@ The most important model file is `apps/notebook/models.py`.
 - `/api/v1/notebook/resurface/`
 - `/api/v1/notebook/compose/related/`
 - `/api/v1/notebook/canvas/suggest/`
+- `/api/v1/notebook/self-organize/run/`
+- `/api/v1/notebook/self-organize/jobs/<job_id>/`
+- `/api/v1/notebook/self-organize/latest/`
+- `/api/v1/notebook/self-organize/preview/`
+- `/api/v1/notebook/self-organize/emergent-types/`
+- `/api/v1/notebook/self-organize/emergent-types/apply/`
 - `/api/v1/notebook/export/`
+
+Report endpoint formats:
+- JSON (default): `/api/v1/notebook/report/`
+- Markdown: `/api/v1/notebook/report/?format=markdown`
+
+CLI export:
+- `python manage.py export_organization_report --format json`
+- `python manage.py export_organization_report --format markdown --notebook <slug>`
 
 ## Connection Engine
 
@@ -330,6 +344,40 @@ ensures a superuser, and starts an RQ worker in the same container.
 For higher scale, split the worker into a separate service. The included
 `Procfile` already models separate `web` and `worker` roles.
 
+### Docker-based Railway setup (recommended for deterministic builds)
+
+This repo now includes:
+
+- `Dockerfile.web` -> Django + gunicorn web service
+- `Dockerfile.worker` -> RQ worker service (`default`, `engine`, `ingestion`)
+- `.dockerignore` -> keeps images lean
+
+Suggested Railway service configuration:
+
+1. Web service
+- `RAILWAY_DOCKERFILE_PATH=research_api/Dockerfile.web`
+- Start command:
+  `python manage.py migrate --noinput && python manage.py collectstatic --noinput && gunicorn config.wsgi --bind 0.0.0.0:$PORT --workers 2 --access-logfile - --error-logfile -`
+
+2. Worker service
+- `RAILWAY_DOCKERFILE_PATH=research_api/Dockerfile.worker`
+- Start command:
+  `python manage.py rqworker default engine ingestion --with-scheduler`
+
+3. Enable nightly self-organization (worker env)
+- `ENABLE_SELF_ORGANIZE_SCHEDULER=true`
+- Optional schedule override (UTC):
+  `SELF_ORGANIZE_SCHEDULE_HOUR_UTC=3`
+  `SELF_ORGANIZE_SCHEDULE_MINUTE_UTC=0`
+- Run once:
+  `python manage.py ensure_reorganize_schedule --force`
+
+4. Smoke validation
+- Local/CI runtime smoke script:
+  `./scripts/smoke_deploy.sh`
+- CI Docker + runtime smoke workflow:
+  `.github/workflows/research-api-docker-smoke.yml`
+
 ### Static files and uploads
 
 - Static files use WhiteNoise
@@ -357,6 +405,9 @@ Commonly used variables from `.env.example` and `config/settings.py`:
 - `MODAL_TOKEN_ID`
 - `MODAL_TOKEN_SECRET`
 - `ANTHROPIC_API_KEY`
+- `ENABLE_SELF_ORGANIZE_SCHEDULER`
+- `SELF_ORGANIZE_SCHEDULE_HOUR_UTC`
+- `SELF_ORGANIZE_SCHEDULE_MINUTE_UTC`
 
 ## Testing and Validation
 

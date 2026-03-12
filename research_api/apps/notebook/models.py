@@ -866,6 +866,10 @@ class Notebook(TimeStampedModel):
     color = models.CharField(max_length=7, default='#2D5F6B')
     icon = models.CharField(max_length=50, default='book-open')
     is_active = models.BooleanField(default=True)
+    is_auto_generated = models.BooleanField(
+        default=False,
+        help_text='True when created by self-organization loops.',
+    )
     sort_order = models.IntegerField(default=0)
 
     # If this notebook feeds a specific piece of content

@@ -34,6 +34,8 @@ from apps.notebook.models import (
     Notebook,
     Object,
     ObjectType,
+    ResolvedEntity,
+    Timeline,
 )
 
 
@@ -286,6 +288,106 @@ class CaptureIngestionTests(TestCase):
         self.assertIn('extraction_method', keys)
         self.assertIn('file_author', keys)
         self.assertIn('file_thumbnail', keys)
+
+    def test_ingest_batch_accepts_multipart_files(self):
+        from apps.notebook.tasks import process_batch_ingestion
+
+        file_a = SimpleUploadedFile('alpha.txt', b'alpha body', content_type='text/plain')
+        file_b = SimpleUploadedFile('beta.md', b'# beta', content_type='text/markdown')
+
+        with patch.object(process_batch_ingestion, 'delay') as mock_delay:
+            resp = self.client.post(
+                '/api/v1/notebook/ingest-batch/',
+                {
+                    'notebook_slug': 'urban',
+                    'files': [file_a, file_b],
+                },
+                format='multipart',
+            )
+
+        self.assertEqual(resp.status_code, 202)
+        self.assertEqual(resp.data['file_count'], 2)
+        self.assertTrue(resp.data['task_id'])
+
+        kwargs = mock_delay.call_args.kwargs
+        self.assertEqual(kwargs['notebook_slug'], 'urban')
+        self.assertEqual(len(kwargs['file_data']), 2)
+        self.assertEqual(kwargs['file_data'][0]['filename'], 'alpha.txt')
+
+    def test_ingest_batch_expands_zip_uploads(self):
+        from apps.notebook.tasks import process_batch_ingestion
+
+        archive_bytes = io.BytesIO()
+        with zipfile.ZipFile(archive_bytes, 'w') as archive:
+            archive.writestr('folder/one.txt', 'one')
+            archive.writestr('two.txt', 'two')
+
+        zipped = SimpleUploadedFile(
+            'batch.zip',
+            archive_bytes.getvalue(),
+            content_type='application/zip',
+        )
+
+        with patch.object(process_batch_ingestion, 'delay') as mock_delay:
+            resp = self.client.post(
+                '/api/v1/notebook/ingest-batch/',
+                {'files': [zipped]},
+                format='multipart',
+            )
+
+        self.assertEqual(resp.status_code, 202)
+        kwargs = mock_delay.call_args.kwargs
+        self.assertEqual(len(kwargs['file_data']), 2)
+        self.assertEqual(kwargs['file_data'][0]['filename'], 'folder/one.txt')
+
+    def test_batch_job_status_endpoint_returns_cached_payload(self):
+        from apps.notebook.job_status import create_batch_job_id, update_batch_job_status
+
+        job_id = create_batch_job_id()
+        update_batch_job_status(
+            job_id,
+            'running',
+            batch_id='batch-123',
+            total_files=4,
+            processed_files=2,
+            objects_created=2,
+            failed_files=0,
+        )
+
+        resp = self.client.get(f'/api/v1/notebook/batch/jobs/{job_id}/')
+
+        self.assertEqual(resp.status_code, 200)
+        self.assertEqual(resp.data['batch_id'], 'batch-123')
+        self.assertEqual(resp.data['processed_files'], 2)
+
+    @patch('apps.notebook.self_organize.organize_batch', return_value={'triggered': True, 'clusters_created': 1, 'reason': ''})
+    @patch('apps.notebook.engine.run_engine')
+    @patch('apps.notebook.services._dispatch_file_ingestion_job')
+    def test_process_batch_ingestion_creates_objects_runs_engine_and_organizes(
+        self,
+        _mock_file_ingestion,
+        mock_run_engine,
+        mock_organize_batch,
+    ):
+        notebook = Notebook.objects.create(name='Urban', slug='urban')
+
+        from apps.notebook.tasks import process_batch_ingestion
+
+        result = process_batch_ingestion(
+            batch_job_id='job-123',
+            file_data=[
+                {'filename': 'one.txt', 'content': b'body one', 'content_type': 'text/plain'},
+                {'filename': 'two.txt', 'content': b'body two', 'content_type': 'text/plain'},
+                {'filename': 'three.txt', 'content': b'body three', 'content_type': 'text/plain'},
+            ],
+            notebook_slug=notebook.slug,
+        )
+
+        self.assertEqual(result['status'], 'complete')
+        self.assertEqual(result['objects_created'], 3)
+        self.assertEqual(mock_run_engine.call_count, 3)
+        mock_organize_batch.assert_called_once()
+        self.assertEqual(Object.objects.filter(notebook=notebook).count(), 3)
 
 
 class SearchFallbackTests(TestCase):
@@ -1008,3 +1110,601 @@ class ClusterSynthesisTests(TestCase):
         self.assertEqual(self.cluster.summary, summary)
         self.assertEqual(len(notebook_summaries), 1)
         self.assertEqual(notebook_summaries[0]['summary'], summary)
+
+
+class AutoClassificationTests(TestCase):
+    def setUp(self):
+        self.ot_note = _create_object_type('note', 'Note')
+        _create_object_type('source', 'Source')
+        _create_object_type('script', 'Script')
+        _create_object_type('hunch', 'Hunch')
+        _create_object_type('quote', 'Quote')
+        _create_object_type('event', 'Event')
+        _create_object_type('person', 'Person')
+
+    def test_classify_object_detects_source_from_url(self):
+        from apps.notebook.auto_classify import classify_object
+
+        obj = _create_object(
+            title='Useful reference',
+            body='See https://example.com/report for details.',
+            object_type=self.ot_note,
+        )
+        self.assertEqual(classify_object(obj), 'source')
+
+    def test_auto_classify_batch_retypes_default_note_only(self):
+        from apps.notebook.auto_classify import auto_classify_batch
+
+        obj_note = _create_object(
+            title='Hypothesis',
+            body='What if we redesigned this flow? Maybe this could work.',
+            object_type=self.ot_note,
+        )
+        obj_source = _create_object(
+            title='Pinned Source',
+            body='https://already-typed.example',
+            object_type=ObjectType.objects.get(slug='source'),
+        )
+
+        updated = auto_classify_batch([obj_note, obj_source])
+        obj_note.refresh_from_db()
+        obj_source.refresh_from_db()
+
+        self.assertEqual(updated, 1)
+        self.assertEqual(obj_note.object_type.slug, 'hunch')
+        self.assertEqual(obj_source.object_type.slug, 'source')
+
+
+class SelfOrganizeLoopTests(TestCase):
+    def setUp(self):
+        self.ot_note = _create_object_type('note', 'Note')
+        _create_object_type('person', 'Person')
+        _create_object_type('organization', 'Organization')
+        _create_object_type('place', 'Place')
+        _create_object_type('event', 'Event')
+        _create_object_type('source', 'Source')
+        _create_object_type('concept', 'Concept')
+
+    def _connect(self, from_obj, to_obj, strength=0.9, edge_type='related'):
+        Edge.objects.create(
+            from_object=from_obj,
+            to_object=to_obj,
+            edge_type=edge_type,
+            reason='Community test edge',
+            strength=strength,
+            is_auto=True,
+            engine='test',
+        )
+
+    def test_form_notebooks_from_communities_creates_auto_notebook(self):
+        from apps.notebook.self_organize import form_notebooks_from_communities
+
+        group_a = [
+            _create_object(f'A{i}', 'alpha cluster content', self.ot_note)
+            for i in range(6)
+        ]
+        group_b = [
+            _create_object(f'B{i}', 'beta cluster content', self.ot_note)
+            for i in range(5)
+        ]
+
+        for i, src in enumerate(group_a):
+            for dest in group_a[i + 1:]:
+                self._connect(src, dest, strength=0.95)
+        for i, src in enumerate(group_b):
+            for dest in group_b[i + 1:]:
+                self._connect(src, dest, strength=0.94)
+        self._connect(group_a[0], group_b[0], strength=0.05)
+
+        created = form_notebooks_from_communities()
+
+        self.assertTrue(created)
+        self.assertTrue(Notebook.objects.filter(is_auto_generated=True).exists())
+
+    def test_promote_frequent_entities_creates_object_and_mentions_edges(self):
+        from apps.notebook.self_organize import promote_frequent_entities
+
+        sources = [
+            _create_object(f'Source {idx}', 'Entity mention body', self.ot_note)
+            for idx in range(5)
+        ]
+        for source in sources:
+            ResolvedEntity.objects.create(
+                source_object=source,
+                text='Jane Doe',
+                entity_type='PERSON',
+                normalized_text='jane doe',
+            )
+
+        promoted = promote_frequent_entities()
+
+        self.assertEqual(len(promoted), 1)
+        promoted_obj = promoted[0]
+        self.assertEqual(promoted_obj.object_type.slug, 'person')
+        self.assertEqual(
+            ResolvedEntity.objects.filter(
+                normalized_text='jane doe',
+                resolved_object=promoted_obj,
+            ).count(),
+            5,
+        )
+        self.assertEqual(
+            Edge.objects.filter(edge_type='mentions', to_object=promoted_obj).count(),
+            5,
+        )
+
+    def test_evolve_edges_prunes_stale_auto_edge(self):
+        from apps.notebook.self_organize import evolve_edges
+
+        timeline = Timeline.objects.create(name='Master', slug='master', is_master=True)
+        src = _create_object('Decay A', 'a', self.ot_note)
+        dst = _create_object('Decay B', 'b', self.ot_note)
+        edge = Edge.objects.create(
+            from_object=src,
+            to_object=dst,
+            edge_type='related',
+            reason='old edge',
+            strength=0.10,
+            is_auto=True,
+            engine='test',
+        )
+        Edge.objects.filter(pk=edge.pk).update(updated_at=timezone.now() - timedelta(days=365))
+
+        result = evolve_edges()
+
+        self.assertEqual(result['pruned'], 1)
+        self.assertFalse(Edge.objects.filter(pk=edge.pk).exists())
+        self.assertTrue(Node.objects.filter(timeline=timeline, node_type='modification').exists())
+
+    @patch('apps.notebook.community.detect_communities')
+    def test_detect_emergent_types_suggests_domain_resource(self, mock_detect):
+        from apps.notebook.self_organize import detect_emergent_types
+
+        members = [
+            _create_object(
+                title=f'Note {idx}',
+                body='domain-heavy note',
+                object_type=self.ot_note,
+            )
+            for idx in range(8)
+        ]
+        for member in members:
+            member.url = 'https://example.org/item'
+            member.save(update_fields=['url'])
+
+        mock_detect.return_value = {
+            'communities': [
+                {
+                    'id': 1,
+                    'member_pks': [obj.pk for obj in members],
+                    'size': len(members),
+                },
+            ],
+            'modularity': 0.45,
+        }
+
+        suggestions = detect_emergent_types()
+
+        self.assertTrue(suggestions)
+        self.assertIn('example.org', suggestions[0]['suggested_name'])
+
+
+class ProvenanceAndReportTests(TestCase):
+    def setUp(self):
+        self.client = APIClient()
+        self.ot_note = _create_object_type('note', 'Note')
+        self.notebook = Notebook.objects.create(name='Urban', slug='urban')
+        self.timeline = Timeline.objects.create(name='Master', slug='master', is_master=True)
+
+        self.root = _create_object(
+            title='Root idea',
+            body='Original concept',
+            object_type=self.ot_note,
+            notebook=self.notebook,
+        )
+        self.mid = _create_object(
+            title='Middle idea',
+            body='Intermediate concept',
+            object_type=self.ot_note,
+            notebook=self.notebook,
+        )
+        self.leaf = _create_object(
+            title='Leaf idea',
+            body='Current concept',
+            object_type=self.ot_note,
+            notebook=self.notebook,
+        )
+
+        now = timezone.now()
+        Object.objects.filter(pk=self.root.pk).update(captured_at=now - timedelta(days=10))
+        Object.objects.filter(pk=self.mid.pk).update(captured_at=now - timedelta(days=5))
+        Object.objects.filter(pk=self.leaf.pk).update(captured_at=now - timedelta(days=1))
+        self.root.refresh_from_db()
+        self.mid.refresh_from_db()
+        self.leaf.refresh_from_db()
+
+        Edge.objects.create(
+            from_object=self.root,
+            to_object=self.mid,
+            edge_type='supports',
+            reason='Claim alignment: "A" supports "B".',
+            strength=0.88,
+            is_auto=True,
+            engine='nli',
+        )
+        Edge.objects.create(
+            from_object=self.mid,
+            to_object=self.leaf,
+            edge_type='supports',
+            reason='Claim alignment: "B" supports "C".',
+            strength=0.83,
+            is_auto=True,
+            engine='nli',
+        )
+        Edge.objects.create(
+            from_object=self.leaf,
+            to_object=self.root,
+            edge_type='contradicts',
+            reason='Conflicting claim found.',
+            strength=0.72,
+            is_auto=True,
+            engine='nli',
+        )
+
+        Node.objects.create(
+            node_type='creation',
+            title='Leaf created',
+            object_ref=self.leaf,
+            timeline=self.timeline,
+        )
+        Node.objects.create(
+            node_type='connection',
+            title='Leaf connected',
+            object_ref=self.leaf,
+            timeline=self.timeline,
+        )
+
+        self.cluster = Cluster.objects.create(
+            name='Urban cluster',
+            notebook=self.notebook,
+            member_count=3,
+        )
+        Object.objects.filter(pk__in=[self.root.pk, self.mid.pk, self.leaf.pk]).update(cluster=self.cluster)
+
+    def test_trace_provenance_and_narrative(self):
+        from apps.notebook.provenance import generate_provenance_narrative, trace_provenance
+
+        provenance = trace_provenance(self.leaf.pk)
+        narrative = generate_provenance_narrative(self.leaf.pk)
+
+        self.assertIsNotNone(provenance)
+        self.assertTrue(provenance['ancestors'])
+        self.assertEqual(provenance['belief_revisions'][0]['contradicting_object']['pk'], self.root.pk)
+        self.assertIn('Leaf idea', narrative)
+
+    def test_object_provenance_endpoint(self):
+        resp = self.client.get(f'/api/v1/notebook/objects/{self.leaf.pk}/provenance/')
+        self.assertEqual(resp.status_code, 200)
+        self.assertIn('narrative', resp.data)
+        self.assertEqual(resp.data['object']['pk'], self.leaf.pk)
+
+    def test_generate_report_and_endpoint(self):
+        from apps.notebook.report import generate_organization_report, render_organization_report_markdown
+
+        report = generate_organization_report(notebook=self.notebook)
+        self.assertEqual(report['summary']['total_objects'], 3)
+        self.assertGreaterEqual(report['summary']['total_edges'], 2)
+        self.assertIn('tensions', report)
+        self.assertIn('timeline', report)
+        self.assertGreaterEqual(len(report['timeline']), 2)
+
+        markdown = render_organization_report_markdown(report)
+        self.assertIn('# Organization Report', markdown)
+        self.assertIn('## Timeline (Recent)', markdown)
+
+        resp = self.client.get('/api/v1/notebook/report/?notebook=urban')
+        self.assertEqual(resp.status_code, 200)
+        self.assertIn('summary', resp.data)
+        self.assertEqual(resp.data['summary']['total_objects'], 3)
+
+        markdown_resp = self.client.get('/api/v1/notebook/report/?notebook=urban&format=markdown')
+        self.assertEqual(markdown_resp.status_code, 200)
+        self.assertIn('text/markdown', markdown_resp['Content-Type'])
+        self.assertIn('# Organization Report', markdown_resp.content.decode('utf-8'))
+
+    @patch('apps.notebook.management.commands.reorganize.periodic_reorganize')
+    def test_reorganize_management_command_outputs_counts(self, mock_periodic):
+        mock_periodic.return_value = {
+            'notebooks_created': 1,
+            'entities_promoted': 2,
+            'edges_updated': 3,
+            'edges_pruned': 4,
+            'type_suggestions': 5,
+        }
+
+        out = io.StringIO()
+        call_command('reorganize', stdout=out)
+        output = out.getvalue()
+        self.assertIn('Notebooks created: 1', output)
+        self.assertIn('Type suggestions: 5', output)
+
+    def test_export_organization_report_command_outputs_markdown(self):
+        out = io.StringIO()
+        call_command(
+            'export_organization_report',
+            '--notebook',
+            'urban',
+            '--format',
+            'markdown',
+            '--timeline-limit',
+            '10',
+            stdout=out,
+        )
+        rendered = out.getvalue()
+        self.assertIn('# Organization Report', rendered)
+        self.assertIn('## Timeline (Recent)', rendered)
+
+
+class SchedulingAndCalibrationTests(TestCase):
+    def setUp(self):
+        self.ot_note = _create_object_type('note', 'Note')
+        _create_object_type('source', 'Source')
+        _create_object_type('script', 'Script')
+
+    def test_ensure_periodic_schedule_disabled_by_env(self):
+        from apps.notebook.scheduling import ensure_periodic_reorganize_schedule
+
+        with patch.dict('os.environ', {'ENABLE_SELF_ORGANIZE_SCHEDULER': '0'}):
+            result = ensure_periodic_reorganize_schedule(force=False)
+
+        self.assertFalse(result['created'])
+        self.assertEqual(result['reason'], 'disabled_by_env')
+
+    def test_calibrate_auto_classify_command_outputs_json(self):
+        _create_object(
+            title='Research Source',
+            body='https://example.com/reference',
+            object_type=ObjectType.objects.get(slug='source'),
+        )
+        _create_object(
+            title='Snippet',
+            body='def run():\n    return 1',
+            object_type=ObjectType.objects.get(slug='script'),
+        )
+
+        out = io.StringIO()
+        call_command('calibrate_auto_classify', '--limit', '20', stdout=out)
+        payload = json.loads(out.getvalue())
+
+        self.assertIn('baseline_metrics', payload)
+        self.assertIn('best_metrics', payload)
+        self.assertIn('best_rules', payload)
+        self.assertGreater(payload['baseline_metrics']['total'], 0)
+
+    def test_reclassify_objects_dry_run_does_not_persist(self):
+        note_obj = _create_object(
+            title='Draft source',
+            body='Read https://example.com/reference',
+            object_type=self.ot_note,
+        )
+
+        out = io.StringIO()
+        call_command('reclassify_objects', '--dry-run', stdout=out)
+        payload = json.loads(out.getvalue())
+
+        note_obj.refresh_from_db()
+        self.assertEqual(note_obj.object_type.slug, 'note')
+        self.assertGreaterEqual(payload['changed'], 1)
+
+    def test_reclassify_objects_persists_when_not_dry_run(self):
+        note_obj = _create_object(
+            title='Draft source',
+            body='Read https://example.com/reference',
+            object_type=self.ot_note,
+        )
+
+        out = io.StringIO()
+        call_command('reclassify_objects', stdout=out)
+        payload = json.loads(out.getvalue())
+
+        note_obj.refresh_from_db()
+        self.assertEqual(note_obj.object_type.slug, 'source')
+        self.assertGreaterEqual(payload['changed'], 1)
+
+
+class SelfOrganizeControlPlaneTests(TestCase):
+    def setUp(self):
+        self.client = APIClient()
+        self.ot_note = _create_object_type('note', 'Note')
+        self.ot_source = _create_object_type('source', 'Source')
+
+    def test_self_organize_run_endpoint_queues_task(self):
+        from apps.notebook.tasks import run_periodic_reorganize_task
+
+        with patch.object(run_periodic_reorganize_task, 'delay') as mock_delay:
+            mock_delay.return_value = type('RQJob', (), {'id': 'rq-123'})()
+            resp = self.client.post('/api/v1/notebook/self-organize/run/', {}, format='json')
+
+        self.assertEqual(resp.status_code, 202)
+        self.assertEqual(resp.data['status'], 'queued')
+        self.assertTrue(resp.data['job_id'])
+        self.assertEqual(resp.data['rq_job_id'], 'rq-123')
+
+        kwargs = mock_delay.call_args.kwargs
+        self.assertEqual(kwargs['reorganize_job_id'], resp.data['job_id'])
+
+    def test_self_organize_job_status_endpoint(self):
+        from apps.notebook.job_status import create_reorganize_job_id, update_reorganize_job_status
+
+        job_id = create_reorganize_job_id()
+        update_reorganize_job_status(
+            job_id,
+            'running',
+            summary={'notebooks_created': 2},
+            rq_job_id='rq-xyz',
+        )
+
+        resp = self.client.get(f'/api/v1/notebook/self-organize/jobs/{job_id}/')
+        self.assertEqual(resp.status_code, 200)
+        self.assertEqual(resp.data['status'], 'running')
+        self.assertEqual(resp.data['rq_job_id'], 'rq-xyz')
+        self.assertIn('created_at', resp.data)
+        self.assertIn('updated_at', resp.data)
+
+    def test_self_organize_latest_endpoint(self):
+        from apps.notebook.job_status import create_reorganize_job_id, update_reorganize_job_status
+
+        job_id = create_reorganize_job_id()
+        update_reorganize_job_status(
+            job_id,
+            'complete',
+            summary={'notebooks_created': 3},
+            rq_job_id='rq-latest',
+        )
+
+        resp = self.client.get('/api/v1/notebook/self-organize/latest/')
+        self.assertEqual(resp.status_code, 200)
+        self.assertEqual(resp.data['status'], 'complete')
+        self.assertEqual(resp.data['rq_job_id'], 'rq-latest')
+        self.assertEqual(resp.data['summary']['notebooks_created'], 3)
+
+    @patch('apps.notebook.self_organize.detect_emergent_types')
+    def test_self_organize_emergent_types_endpoint(self, mock_detect):
+        mock_detect.return_value = [
+            {
+                'reason': '8 notes share domain',
+                'suggested_name': 'example.org resource',
+                'suggested_slug': 'example-org-resource',
+                'member_count': 8,
+                'member_pks': [1, 2, 3],
+            },
+        ]
+
+        resp = self.client.get('/api/v1/notebook/self-organize/emergent-types/')
+        self.assertEqual(resp.status_code, 200)
+        self.assertEqual(len(resp.data['suggestions']), 1)
+        self.assertEqual(resp.data['suggestions'][0]['suggested_slug'], 'example-org-resource')
+
+    @patch('apps.notebook.self_organize.preview_periodic_reorganize')
+    def test_self_organize_preview_endpoint(self, mock_preview):
+        mock_preview.return_value = {
+            'notebook_formation': {
+                'modularity': 0.32,
+                'eligible': True,
+                'candidate_count': 1,
+                'candidates': [{'label': 'alpha', 'member_count': 8}],
+            },
+            'entity_promotions': {
+                'threshold': 5,
+                'candidate_count': 1,
+                'candidates': [{'normalized_text': 'foo', 'mention_count': 8}],
+            },
+            'edge_evolution': {
+                'to_prune_count': 2,
+                'to_decay_count': 5,
+                'to_prune_samples': [],
+                'to_decay_samples': [],
+            },
+            'emergent_types': {
+                'candidate_count': 1,
+                'candidates': [{'suggested_slug': 'foo-notes'}],
+            },
+        }
+
+        resp = self.client.get('/api/v1/notebook/self-organize/preview/?max_samples=7')
+        self.assertEqual(resp.status_code, 200)
+        self.assertIn('notebook_formation', resp.data)
+        self.assertEqual(resp.data['entity_promotions']['candidate_count'], 1)
+        mock_preview.assert_called_once_with(max_samples=7)
+
+    @patch('apps.notebook.self_organize.periodic_reorganize')
+    def test_run_periodic_reorganize_task_updates_status(self, mock_periodic):
+        from apps.notebook.job_status import create_reorganize_job_id, get_reorganize_job_status
+        from apps.notebook.tasks import run_periodic_reorganize_task
+
+        mock_periodic.return_value = {
+            'notebooks_created': 1,
+            'entities_promoted': 2,
+            'edges_updated': 3,
+            'edges_pruned': 4,
+            'type_suggestions': 5,
+        }
+        job_id = create_reorganize_job_id()
+        run_periodic_reorganize_task(reorganize_job_id=job_id)
+        payload = get_reorganize_job_status(job_id)
+
+        self.assertIsNotNone(payload)
+        self.assertEqual(payload['status'], 'complete')
+        self.assertEqual(payload['summary']['entities_promoted'], 2)
+
+    def test_apply_emergent_type_endpoint_creates_type_and_updates_notes(self):
+        note_a = _create_object(
+            title='Candidate A',
+            body='alpha',
+            object_type=self.ot_note,
+        )
+        note_b = _create_object(
+            title='Candidate B',
+            body='beta',
+            object_type=self.ot_note,
+        )
+        source = _create_object(
+            title='Pinned source',
+            body='url body',
+            object_type=self.ot_source,
+        )
+
+        resp = self.client.post(
+            '/api/v1/notebook/self-organize/emergent-types/apply/',
+            {
+                'suggested_name': 'Legal Intake Memo',
+                'suggested_slug': 'legal-intake-memo',
+                'member_pks': [note_a.pk, note_b.pk, source.pk],
+                'restrict_to_note': True,
+                'icon': 'file-text',
+                'color': '#4A6A8A',
+            },
+            format='json',
+        )
+
+        self.assertEqual(resp.status_code, 201)
+        self.assertTrue(resp.data['created_type'])
+        self.assertEqual(resp.data['objects_updated'], 2)
+        created_slug = resp.data['object_type']['slug']
+
+        note_a.refresh_from_db()
+        note_b.refresh_from_db()
+        source.refresh_from_db()
+        self.assertEqual(note_a.object_type.slug, created_slug)
+        self.assertEqual(note_b.object_type.slug, created_slug)
+        self.assertEqual(source.object_type.slug, 'source')
+
+    def test_apply_emergent_type_endpoint_reuses_existing_type(self):
+        note_obj = _create_object(
+            title='Candidate C',
+            body='gamma',
+            object_type=self.ot_note,
+        )
+        ObjectType.objects.create(
+            name='Pattern Notes',
+            slug='pattern-notes',
+            icon='sparkle',
+            color='#6A6A8A',
+            is_built_in=False,
+            sort_order=100,
+        )
+
+        resp = self.client.post(
+            '/api/v1/notebook/self-organize/emergent-types/apply/',
+            {
+                'suggested_name': 'Pattern Notes',
+                'suggested_slug': 'pattern-notes',
+                'member_pks': [note_obj.pk],
+            },
+            format='json',
+        )
+
+        self.assertEqual(resp.status_code, 200)
+        self.assertFalse(resp.data['created_type'])
+        note_obj.refresh_from_db()
+        self.assertEqual(note_obj.object_type.slug, 'pattern-notes')

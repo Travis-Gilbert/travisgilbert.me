@@ -1,4 +1,6 @@
 from django.apps import AppConfig
+import os
+import sys
 
 
 class NotebookConfig(AppConfig):
@@ -15,6 +17,21 @@ class NotebookConfig(AppConfig):
             from apps.notebook.vector_store import kge_store
             kge_store.load()
         except Exception:
+            pass
+
+        # Optional bootstrap: schedule nightly self-organization in RQ.
+        # Enabled explicitly via env var to avoid surprising behavior in local/test.
+        try:
+            should_skip = any(
+                arg in {'test', 'makemigrations', 'migrate', 'collectstatic'}
+                for arg in sys.argv
+            )
+            if not should_skip and os.environ.get('ENABLE_SELF_ORGANIZE_SCHEDULER', '').lower() in ('1', 'true', 'yes'):
+                from .scheduling import ensure_periodic_reorganize_schedule
+
+                ensure_periodic_reorganize_schedule(force=False)
+        except Exception:
+            # Scheduling must never block app startup.
             pass
 
         # Pre-warm SBERT FAISS index in background thread (dev only).

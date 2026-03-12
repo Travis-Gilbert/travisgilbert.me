@@ -153,6 +153,7 @@ def quick_capture(
     file_bytes: bytes = b'',
     filename: str = '',
     file_content_type: str = '',
+    dispatch_engine: bool = True,
 ) -> tuple[Object, str]:
     """
     Create an Object from raw input.
@@ -239,7 +240,9 @@ def quick_capture(
         )
 
     # Run connection engine (queue-backed when available, inline fallback otherwise).
-    engine_job_id = str(_dispatch_engine_job(obj.pk, notebook_slug=notebook_slug))
+    engine_job_id = ''
+    if dispatch_engine:
+        engine_job_id = str(_dispatch_engine_job(obj.pk, notebook_slug=notebook_slug))
 
     # Queue heavy file processing if needed (SAM-2 via Modal, etc.)
     if file_key and _needs_heavy_processing(filename):
