@@ -14,6 +14,7 @@ beautifulsoup4>=4.12.0
 
 # Task queue (Redis-backed)
 django-rq>=2.10.0
+rq-scheduler>=0.14.0
 redis>=5.0.0
 
 # S3 file storage

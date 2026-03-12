@@ -12,7 +12,8 @@ python manage.py collectstatic --noinput
 python manage.py ensure_superuser
 
 # Run worker in background while keeping gunicorn as PID 1.
-python manage.py rqworker default engine ingestion &
+# Scheduler support enables recurring periodic_reorganize jobs.
+python manage.py rqworker default engine ingestion --with-scheduler &
 exec gunicorn config.wsgi \
   --bind "0.0.0.0:${PORT}" \
   --workers 2 \
