@@ -1,5 +1,6 @@
 [build]
-builder = "railpack"
+builder = "DOCKERFILE"
+dockerfilePath = "research_api/Dockerfile.web"
 
 [deploy]
 # Startup sequence:
@@ -13,7 +14,4 @@ builder = "railpack"
 # The RQ worker runs in the same container for simplicity.
 # For production scale: create a second Railway service with just the worker.
 #
-# NOTE: Tesseract and related system packages are now installed via Railpack
-# Apt env vars (RAILPACK_BUILD_APT_PACKAGES / RAILPACK_DEPLOY_APT_PACKAGES).
-
 startCommand = "bash scripts/start_railway.sh"
