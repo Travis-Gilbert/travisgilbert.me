@@ -1,5 +1,6 @@
 [build]
-builder = "railpack"
+builder = "DOCKERFILE"
+dockerfilePath = "Dockerfile"
 
 [deploy]
 # Startup sequence:
@@ -13,7 +14,4 @@ builder = "railpack"
 # The RQ worker runs in the same container for simplicity.
 # For production scale: create a second Railway service with just the worker.
 #
-# NOTE: Tesseract and related system packages are now installed via Railpack
-# Apt env vars (RAILPACK_BUILD_APT_PACKAGES / RAILPACK_DEPLOY_APT_PACKAGES).
-
-startCommand = "python -c \"import spacy; spacy.load('en_core_web_md')\" 2>/dev/null || python -m spacy download en_core_web_md && python manage.py migrate --noinput && python manage.py collectstatic --noinput && python manage.py ensure_superuser && python.manage.py rqworker default engine ingestion & gunicorn config.wsgi --bind 0.0.0.0:$PORT --workers 2 --access-logfile - --error-logfile -"
+startCommand = "bash scripts/start_railway.sh"

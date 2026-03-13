@@ -1,10 +1,11 @@
 import type { Metadata } from 'next';
-import DotGrid from '@/components/DotGrid';
 import { CommonPlaceProvider } from '@/lib/commonplace-context';
 import CommonPlaceSidebar from '@/components/commonplace/CommonPlaceSidebar';
 import SplitPaneContainer from '@/components/commonplace/SplitPaneContainer';
 import CommandPalette from '@/components/commonplace/CommandPalette';
 import ObjectDrawer from '@/components/commonplace/ObjectDrawer';
+import ObjectContextMenu from '@/components/commonplace/ObjectContextMenu';
+import ConnectionComposer from '@/components/commonplace/ConnectionComposer';
 import { Toaster } from 'sonner';
 import '@/styles/commonplace.css';
 
@@ -28,19 +29,18 @@ export const metadata: Metadata = {
 };
 
 /**
- * CommonPlace layout: warm studio shell with split pane system.
+ * CommonPlace layout: chrome shell with split pane system.
  *
  * Does NOT render html/body (the root layout handles that).
  * Applies the `commonplace-theme` class to scope all CSS
  * custom properties.
  *
  * Visual layers (back to front):
- *   1. Cream parchment background (#F2EDE5)
- *   2. Vignette dots (24px grid, terracotta at 4% opacity, radial edge fade)
- *   3. Terracotta upper-right ambient glow (radial-gradient, 4.5%)
- *   4. Paper grain (SVG noise at 3% on main, 5% on sidebar)
- *   5. Sidebar (warm near-black #1A1614) with its own glow
- *   6. Split pane system (recursive binary tree layout)
+ *   1. Chrome shell background with construction grid
+ *   2. Ambient red-pencil glow
+ *   3. Paper grain on main and sidebar surfaces
+ *   4. Sidebar
+ *   5. Split pane system
  */
 export default function CommonPlaceLayout({
   children,
@@ -58,18 +58,7 @@ export default function CommonPlaceLayout({
         margin: 0,
       }}
     >
-      <DotGrid
-        dotRadius={0.78}
-        spacing={22}
-        dotColor={[212, 196, 170]}
-        dotOpacity={0.22}
-        binaryDensity={0.14}
-        fadeStart={0.78}
-        fadeEnd={0.98}
-        noGradient
-      />
-
-      {/* Terracotta upper-right ambient glow */}
+      {/* Ambient red-pencil glow */}
       <div className="cp-ambient-glow" aria-hidden="true" />
 
       {/* Provider: lets Sidebar notify Timeline of new captures */}
@@ -79,7 +68,7 @@ export default function CommonPlaceLayout({
 
         {/* Main content area: vignette dots + paper grain + split panes */}
         <main
-          className="cp-main-surface cp-vignette-dots cp-grain"
+          className="cp-main-surface cp-grain"
           style={{
             flex: 1,
             minWidth: 0,
@@ -91,9 +80,11 @@ export default function CommonPlaceLayout({
           <SplitPaneContainer />
         </main>
 
-        {/* Global overlays: object drawer, command palette, toast notifications */}
+        {/* Global overlays: object drawer, command palette, context menu, toast notifications */}
         <ObjectDrawer />
         <CommandPalette />
+        <ObjectContextMenu />
+        <ConnectionComposer />
         <Toaster
           position="bottom-right"
           toastOptions={{

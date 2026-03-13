@@ -18,6 +18,8 @@
 import { createContext, useContext, useState, useCallback, useMemo } from 'react';
 import type { ReactNode } from 'react';
 import type { ViewType } from '@/lib/commonplace';
+import { fetchObjectById, postObjectConnection } from '@/lib/commonplace-api';
+import type { RenderableObject } from '@/components/commonplace/objects/ObjectRenderer';
 
 /** A request from the sidebar (or a list view) to open a pane tab */
 export interface ViewRequest {
@@ -29,6 +31,10 @@ export interface ViewRequest {
 interface CommonPlaceContextValue {
   /** Monotonically increasing counter; changes trigger timeline refetch */
   captureVersion: number;
+  /** True when sidebar is collapsed to 48px icon rail */
+  sidebarCollapsed: boolean;
+  /** Set sidebar collapsed state (auto-set by SplitPaneContainer on compose) */
+  setSidebarCollapsed: (collapsed: boolean) => void;
   /** Call after a capture successfully syncs to the API */
   notifyCaptured: () => void;
   /** Mobile drawer state for CommonPlace sidebar */
@@ -63,10 +69,39 @@ interface CommonPlaceContextValue {
   openDrawer: (slug: string) => void;
   /** Close the object detail drawer */
   closeDrawer: () => void;
+  /** Object currently targeted by a right-click context menu (null when closed) */
+  contextMenuTarget: { x: number; y: number; obj: RenderableObject } | null;
+  /** Open the context menu anchored to screen position with the given object */
+  openContextMenu: (x: number, y: number, obj: RenderableObject) => void;
+  /** Close the context menu */
+  closeContextMenu: () => void;
+  /** Collected objects stashed for later synthesis */
+  stashedObjects: RenderableObject[];
+  /** Add an object to the shared stash */
+  stashObject: (obj: RenderableObject) => void;
+  /** Remove an object from the shared stash */
+  unstashObject: (objectId: number) => void;
+  /** Clear the shared stash */
+  clearStash: () => void;
+  /** Active manual connection draft */
+  connectionDraft: {
+    source: RenderableObject;
+    target: RenderableObject | null;
+  } | null;
+  /** Start a manual connection flow from the given object */
+  beginConnection: (obj: RenderableObject) => void;
+  /** Select the target object for the pending connection */
+  selectConnectionTarget: (obj: RenderableObject) => void;
+  /** Cancel the pending manual connection */
+  cancelConnection: () => void;
+  /** Submit the pending manual connection */
+  submitConnection: (input?: { edgeType?: string; reason?: string }) => Promise<void>;
 }
 
 const CommonPlaceContext = createContext<CommonPlaceContextValue>({
   captureVersion: 0,
+  sidebarCollapsed: false,
+  setSidebarCollapsed: () => {},
   notifyCaptured: () => {},
   mobileSidebarOpen: false,
   openMobileSidebar: () => {},
@@ -84,16 +119,59 @@ const CommonPlaceContext = createContext<CommonPlaceContextValue>({
   lastViewedObjectSlug: null,
   openDrawer: () => {},
   closeDrawer: () => {},
+  contextMenuTarget: null,
+  openContextMenu: () => {},
+  closeContextMenu: () => {},
+  stashedObjects: [],
+  stashObject: () => {},
+  unstashObject: () => {},
+  clearStash: () => {},
+  connectionDraft: null,
+  beginConnection: () => {},
+  selectConnectionTarget: () => {},
+  cancelConnection: () => {},
+  submitConnection: async () => {},
 });
+
+function dedupeRenderableObjects(items: RenderableObject[]): RenderableObject[] {
+  const seen = new Set<string>();
+  const next: RenderableObject[] = [];
+
+  for (const item of items) {
+    const key = item.slug || String(item.id);
+    if (seen.has(key)) continue;
+    seen.add(key);
+    next.push(item);
+  }
+
+  return next;
+}
+
+async function resolveObjectSlug(obj: RenderableObject): Promise<string> {
+  if (obj.slug && obj.slug !== String(obj.id)) return obj.slug;
+  const detail = await fetchObjectById(obj.id);
+  return detail.slug;
+}
 
 export function CommonPlaceProvider({ children }: { children: ReactNode }) {
   const [captureVersion, setCaptureVersion] = useState(0);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
   const [pendingView, setPendingView] = useState<ViewRequest | null>(null);
   const [viewMode, setViewMode] = useState<'grid' | 'timeline' | 'graph'>('grid');
   const [paletteOpen, setPaletteOpen] = useState(false);
   const [drawerSlug, setDrawerSlug] = useState<string | null>(null);
   const [lastViewedObjectSlug, setLastViewedObjectSlug] = useState<string | null>(null);
+  const [contextMenuTarget, setContextMenuTarget] = useState<{
+    x: number;
+    y: number;
+    obj: RenderableObject;
+  } | null>(null);
+  const [stashedObjects, setStashedObjects] = useState<RenderableObject[]>([]);
+  const [connectionDraft, setConnectionDraft] = useState<{
+    source: RenderableObject;
+    target: RenderableObject | null;
+  } | null>(null);
 
   const notifyCaptured = useCallback(() => {
     setCaptureVersion((v) => v + 1);
@@ -124,6 +202,46 @@ export function CommonPlaceProvider({ children }: { children: ReactNode }) {
 
   const openPalette = useCallback(() => setPaletteOpen(true), []);
   const closePalette = useCallback(() => setPaletteOpen(false), []);
+  const openContextMenu = useCallback(
+    (x: number, y: number, obj: RenderableObject) => setContextMenuTarget({ x, y, obj }),
+    [],
+  );
+  const closeContextMenu = useCallback(() => setContextMenuTarget(null), []);
+  const stashObject = useCallback((obj: RenderableObject) => {
+    setStashedObjects((prev) => dedupeRenderableObjects([obj, ...prev]));
+  }, []);
+  const unstashObject = useCallback((objectId: number) => {
+    setStashedObjects((prev) => prev.filter((item) => item.id !== objectId));
+  }, []);
+  const clearStash = useCallback(() => setStashedObjects([]), []);
+  const beginConnection = useCallback((obj: RenderableObject) => {
+    setConnectionDraft({ source: obj, target: null });
+  }, []);
+  const selectConnectionTarget = useCallback((obj: RenderableObject) => {
+    setConnectionDraft((prev) => {
+      if (!prev) return prev;
+      return { ...prev, target: obj };
+    });
+  }, []);
+  const cancelConnection = useCallback(() => setConnectionDraft(null), []);
+  const submitConnection = useCallback(
+    async (input?: { edgeType?: string; reason?: string }) => {
+      if (!connectionDraft?.source || !connectionDraft.target) return;
+
+      const sourceSlug = await resolveObjectSlug(connectionDraft.source);
+      const targetSlug = await resolveObjectSlug(connectionDraft.target);
+
+      await postObjectConnection(sourceSlug, {
+        target_slug: targetSlug,
+        edge_type: input?.edgeType || 'related',
+        reason: input?.reason || '',
+      });
+
+      setConnectionDraft(null);
+      setCaptureVersion((v) => v + 1);
+    },
+    [connectionDraft],
+  );
   const openDrawer = useCallback((slug: string) => {
     setDrawerSlug(slug);
     setLastViewedObjectSlug(slug);
@@ -133,6 +251,8 @@ export function CommonPlaceProvider({ children }: { children: ReactNode }) {
   const value = useMemo(
     () => ({
       captureVersion,
+      sidebarCollapsed,
+      setSidebarCollapsed,
       notifyCaptured,
       mobileSidebarOpen,
       openMobileSidebar,
@@ -150,9 +270,22 @@ export function CommonPlaceProvider({ children }: { children: ReactNode }) {
       lastViewedObjectSlug,
       openDrawer,
       closeDrawer,
+      contextMenuTarget,
+      openContextMenu,
+      closeContextMenu,
+      stashedObjects,
+      stashObject,
+      unstashObject,
+      clearStash,
+      connectionDraft,
+      beginConnection,
+      selectConnectionTarget,
+      cancelConnection,
+      submitConnection,
     }),
     [
       captureVersion,
+      sidebarCollapsed,
       notifyCaptured,
       mobileSidebarOpen,
       openMobileSidebar,
@@ -169,6 +302,18 @@ export function CommonPlaceProvider({ children }: { children: ReactNode }) {
       lastViewedObjectSlug,
       openDrawer,
       closeDrawer,
+      contextMenuTarget,
+      openContextMenu,
+      closeContextMenu,
+      stashedObjects,
+      stashObject,
+      unstashObject,
+      clearStash,
+      connectionDraft,
+      beginConnection,
+      selectConnectionTarget,
+      cancelConnection,
+      submitConnection,
     ],
   );
 

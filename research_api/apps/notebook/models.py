@@ -208,6 +208,13 @@ class Object(TimeStampedModel):
         blank=True,
         related_name='project_objects',
     )
+    cluster = models.ForeignKey(
+        'Cluster',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='members',
+    )
 
     # Connection to published content (by slug, not FK)
     related_essays = models.JSONField(default=list, blank=True)
@@ -648,6 +655,11 @@ class Edge(TimeStampedModel):
             ('inspires', 'Inspires'),
             ('related', 'Related'),
             ('manual', 'Manual'),
+            # Added in engine upgrade
+            ('semantic', 'Semantic'),
+            ('structural', 'Structural (KGE)'),
+            ('causal', 'Causal Influence'),
+            ('entailment', 'Entailment'),
         ],
         default='manual',
         db_index=True,
@@ -671,9 +683,12 @@ class Edge(TimeStampedModel):
         help_text='True if created by the connection engine, False if manual.',
     )
     engine = models.CharField(
-        max_length=20,
+        max_length=30,
         blank=True,
-        help_text='Which engine found this: spacy, js, tfidf, semantic, manual.',
+        help_text=(
+            'Which engine found this: spacy, graph_ner, bm25, sbert, '
+            'sbert_faiss, nli, kge, kge_temporal, causal, manual.'
+        ),
     )
 
     class Meta:
@@ -851,6 +866,10 @@ class Notebook(TimeStampedModel):
     color = models.CharField(max_length=7, default='#2D5F6B')
     icon = models.CharField(max_length=50, default='book-open')
     is_active = models.BooleanField(default=True)
+    is_auto_generated = models.BooleanField(
+        default=False,
+        help_text='True when created by self-organization loops.',
+    )
     sort_order = models.IntegerField(default=0)
 
     # If this notebook feeds a specific piece of content
@@ -1024,3 +1043,62 @@ class Layout(TimeStampedModel):
         if not self.slug:
             self.slug = slugify(self.name)
         super().save(*args, **kwargs)
+
+
+class Cluster(TimeStampedModel):
+    """A detected community in the knowledge graph."""
+
+    name = models.CharField(max_length=200, blank=True)
+    slug = models.SlugField(max_length=200, blank=True)
+    notebook = models.ForeignKey(
+        'Notebook', on_delete=models.CASCADE,
+        null=True, blank=True, related_name='clusters',
+    )
+    label_tags = models.JSONField(
+        default=list, blank=True,
+        help_text='Auto-generated label from top entity/topic tags.',
+    )
+    modularity_score = models.FloatField(
+        default=0.0,
+        help_text='Cluster quality metric from community detection.',
+    )
+    member_count = models.IntegerField(default=0)
+    summary = models.TextField(
+        blank=True,
+        help_text='LLM-generated summary of cluster themes.',
+    )
+    computed_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['-member_count']
+
+    def __str__(self):
+        return self.name or f'Cluster {self.pk}'
+
+
+class Claim(TimeStampedModel):
+    """An atomic propositional claim extracted from an Object."""
+
+    source_object = models.ForeignKey(
+        Object, on_delete=models.CASCADE, related_name='claims',
+    )
+    text = models.TextField(
+        help_text='A single falsifiable assertion extracted from the Object.',
+    )
+    claim_index = models.IntegerField(
+        default=0,
+        help_text='Position of this claim within the source Object.',
+    )
+    embedding = models.BinaryField(
+        null=True, blank=True,
+        help_text='SBERT embedding as bytes (for FAISS indexing).',
+    )
+
+    class Meta:
+        ordering = ['source_object', 'claim_index']
+        indexes = [
+            models.Index(fields=['source_object'], name='idx_claim_source'),
+        ]
+
+    def __str__(self):
+        return f'Claim {self.claim_index} from "{self.source_object.display_title[:30]}"'

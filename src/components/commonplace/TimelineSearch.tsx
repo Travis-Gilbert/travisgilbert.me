@@ -50,7 +50,7 @@ export default function TimelineSearch({
           gap: 8,
           padding: '6px 12px',
           borderRadius: 6,
-          border: `1px solid ${isFocused ? 'var(--cp-terracotta)' : 'var(--cp-border)'}`,
+          border: `1px solid ${isFocused ? 'var(--cp-red-line)' : 'var(--cp-border)'}`,
           backgroundColor: 'var(--cp-surface)',
           transition: 'border-color 200ms',
         }}

@@ -139,7 +139,7 @@ export default function RetroNote({
     ? '1.5px dashed #D4944A'
     : '1px dashed var(--cp-border)';
 
-  const accentColor = isTension ? '#D4944A' : 'var(--cp-terracotta)';
+  const accentColor = isTension ? '#D4944A' : 'var(--cp-red)';
 
   return (
     <div

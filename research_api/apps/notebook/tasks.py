@@ -12,10 +12,28 @@ Usage:
 """
 
 import logging
+import mimetypes
 
-import django_rq
+try:
+    import django_rq
+except ImportError:  # pragma: no cover - exercised in lightweight test envs
+    class _DjangoRQFallback:
+        @staticmethod
+        def job(*_args, **_kwargs):
+            def decorator(func):
+                func.delay = func
+                func.func = func
+                return func
 
-from .job_status import update_engine_job_status
+            return decorator
+
+    django_rq = _DjangoRQFallback()
+
+from .job_status import (
+    update_batch_job_status,
+    update_engine_job_status,
+    update_reorganize_job_status,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -227,3 +245,112 @@ def _run_modal_image_analysis(obj, file_key: str):
 
     except Exception as exc:
         logger.warning('Modal image analysis failed: %s', exc)
+
+
+@django_rq.job('ingestion', timeout=1800)
+def process_batch_ingestion(batch_job_id: str, file_data: list[dict], notebook_slug: str = ''):
+    """
+    Process a batch of uploaded files and run notebook self-organization after.
+    """
+    from .engine import run_engine
+    from .models import Notebook
+    from .self_organize import organize_batch
+    from .services import quick_capture
+
+    notebook = None
+    if notebook_slug:
+        notebook = Notebook.objects.filter(slug=notebook_slug).first()
+
+    total_files = len(file_data)
+    update_batch_job_status(
+        batch_job_id,
+        'running',
+        notebook_slug=notebook_slug,
+        total_files=total_files,
+        processed_files=0,
+        objects_created=0,
+        failed_files=0,
+    )
+
+    created_objects = []
+    failed_files = 0
+
+    for index, file_entry in enumerate(file_data, start=1):
+        filename = file_entry.get('filename', '')
+        content = file_entry.get('content', b'')
+        content_type = file_entry.get('content_type', '') or mimetypes.guess_type(filename)[0] or ''
+        try:
+            obj, _engine_job_id = quick_capture(
+                title=filename,
+                notebook_slug=notebook_slug,
+                file_bytes=content,
+                filename=filename,
+                file_content_type=content_type,
+                dispatch_engine=False,
+            )
+            created_objects.append(obj)
+        except Exception as exc:
+            failed_files += 1
+            logger.warning('Batch ingestion failed for %s: %s', filename, exc)
+        finally:
+            update_batch_job_status(
+                batch_job_id,
+                'running',
+                notebook_slug=notebook_slug,
+                total_files=total_files,
+                processed_files=index,
+                objects_created=len(created_objects),
+                failed_files=failed_files,
+            )
+
+    for obj in created_objects:
+        try:
+            run_engine(obj, notebook=notebook)
+        except Exception as exc:
+            logger.warning('Engine failed for %s: %s', obj.display_title, exc)
+
+    organization = organize_batch(
+        object_pks=[obj.pk for obj in created_objects],
+        notebook=notebook,
+    )
+
+    result = update_batch_job_status(
+        batch_job_id,
+        'complete',
+        notebook_slug=notebook_slug,
+        total_files=total_files,
+        processed_files=total_files,
+        objects_created=len(created_objects),
+        failed_files=failed_files,
+        clusters_created=int(organization.get('clusters_created', 0) or 0),
+    )
+    return result
+
+
+@django_rq.job('default', timeout=1200)
+def run_periodic_reorganize_task(reorganize_job_id: str = ''):
+    """
+    Run periodic self-organization loops and capture status for polling.
+    """
+    from .self_organize import periodic_reorganize
+
+    if reorganize_job_id:
+        update_reorganize_job_status(reorganize_job_id, 'running')
+
+    try:
+        summary = periodic_reorganize()
+        if reorganize_job_id:
+            update_reorganize_job_status(
+                reorganize_job_id,
+                'complete',
+                summary=summary,
+            )
+        return summary
+    except Exception as exc:
+        if reorganize_job_id:
+            update_reorganize_job_status(
+                reorganize_job_id,
+                'failed',
+                error=str(exc),
+            )
+        raise

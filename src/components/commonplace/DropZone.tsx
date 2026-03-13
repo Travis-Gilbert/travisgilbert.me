@@ -333,7 +333,7 @@ export default function DropZone({ onCapture }: DropZoneProps) {
           height={32}
           viewBox="0 0 16 16"
           fill="none"
-          stroke="var(--cp-terracotta)"
+          stroke="var(--cp-red)"
           strokeWidth={1.4}
           strokeLinecap="round"
           strokeLinejoin="round"

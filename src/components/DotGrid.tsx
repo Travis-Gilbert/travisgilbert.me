@@ -50,14 +50,14 @@ export default function DotGrid({
   dotRadius = 0.85,
   spacing = 20,
   dotColor = [160, 154, 144],
-  dotOpacity = 0.5,
+  dotOpacity = 0.65,
   fadeStart = 0.80,
   fadeEnd = 0.98,
   stiffness = 0.35,
   damping = 0.48,
   influenceRadius = 100,
   repulsionStrength = 5,
-  binaryDensity = 0.12,
+  binaryDensity = 0.20,
   noGradient = false,
 }: DotGridProps) {
   const themeVersion = useThemeVersion();

@@ -12,8 +12,11 @@
  */
 
 import { fetchResurface, useApiData } from '@/lib/commonplace-api';
-import { getObjectTypeIdentity } from '@/lib/commonplace';
 import type { ApiResurfaceCard } from '@/lib/commonplace';
+import { useCommonPlace } from '@/lib/commonplace-context';
+import ObjectRenderer from './objects/ObjectRenderer';
+import { renderableFromResurfaceCard } from './objectRenderables';
+import { useRenderableObjectAction } from './useRenderableObjectAction';
 
 interface ResurfaceViewProps {
   onOpenObject?: (objectRef: number, title?: string) => void;
@@ -35,6 +38,7 @@ function relativeTime(isoDate: string): string {
 }
 
 export default function ResurfaceView({ onOpenObject }: ResurfaceViewProps) {
+  const { openContextMenu } = useCommonPlace();
   const {
     data: resurfaceData,
     loading,
@@ -43,6 +47,11 @@ export default function ResurfaceView({ onOpenObject }: ResurfaceViewProps) {
   } = useApiData(() => fetchResurface({ count: 5 }), []);
 
   const cards: ApiResurfaceCard[] = resurfaceData?.cards ?? [];
+  const handleObjectClick = useRenderableObjectAction(
+    onOpenObject
+      ? (obj) => onOpenObject(obj.id, obj.display_title ?? obj.title)
+      : undefined,
+  );
 
   /* ── Loading state ── */
   if (loading) {
@@ -119,29 +128,20 @@ export default function ResurfaceView({ onOpenObject }: ResurfaceViewProps) {
 
       <div className="cp-resurface-list">
         {cards.map((card) => {
-          const obj = card.object;
-          const typeSlug = obj.object_type_data?.slug ?? '';
-          const typeId = getObjectTypeIdentity(typeSlug);
+          const object = renderableFromResurfaceCard(card);
           return (
-            <button
-              key={obj.id}
-              type="button"
-              className="cp-resurface-card"
-              onClick={() => onOpenObject?.(obj.id, obj.title)}
-            >
+            <div key={object.id} className="cp-resurface-card">
               <div className="cp-resurface-card-header">
-                <span
-                  className="cp-resurface-type-dot"
-                  style={{ backgroundColor: typeId.color }}
-                />
-                <span className="cp-resurface-card-type">
-                  {typeId.label}
-                </span>
                 <span className="cp-resurface-card-time">
-                  {relativeTime(obj.captured_at)}
+                  {relativeTime(card.object.captured_at)}
                 </span>
               </div>
-              <h3 className="cp-resurface-card-title">{obj.display_title}</h3>
+              <ObjectRenderer
+                object={object}
+                variant="module"
+                onClick={handleObjectClick}
+                onContextMenu={(e, obj) => openContextMenu(e.clientX, e.clientY, obj)}
+              />
               <p className="cp-resurface-card-signal">{card.signal_label}</p>
               {card.explanation && (
                 <p className="cp-resurface-card-why">{card.explanation}</p>
@@ -152,7 +152,7 @@ export default function ResurfaceView({ onOpenObject }: ResurfaceViewProps) {
                   style={{ width: `${Math.round(card.score * 100)}%` }}
                 />
               </div>
-            </button>
+            </div>
           );
         })}
       </div>

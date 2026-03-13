@@ -48,6 +48,7 @@ CS CONCEPTS
 """
 
 import logging
+import os
 
 import numpy as np
 
@@ -103,7 +104,57 @@ def softmax(logits: np.ndarray) -> np.ndarray:
 # ---------------------------------------------------------------------------
 
 _sentence_model = None
+_sentence_model_name = ''
 _nli_model = None
+
+SBERT_MODEL = os.environ.get(
+    'SBERT_MODEL',
+    'nomic-ai/nomic-embed-text-v1.5',
+)
+SBERT_FALLBACK = os.environ.get(
+    'SBERT_FALLBACK_MODEL',
+    'all-MiniLM-L6-v2',
+)
+INSTRUCTION_PREFIXES = {
+    'similarity': {
+        'query': 'search_query: ',
+        'document': 'search_document: ',
+    },
+    'contradiction': {
+        'query': 'search_query: find claims that contradict: ',
+        'document': 'search_document: ',
+    },
+    'influence': {
+        'query': 'search_query: find documents influenced by: ',
+        'document': 'search_document: ',
+    },
+}
+
+
+def _uses_instruction_prefixes(model_name: str) -> bool:
+    lowered = (model_name or '').lower()
+    return 'nomic' in lowered or 'e5' in lowered
+
+
+def get_active_sentence_model_name() -> str:
+    """Return the currently loaded sentence model name or the configured target."""
+    return _sentence_model_name or SBERT_MODEL
+
+
+def _format_instruction_text(
+    text: str,
+    task: str = 'similarity',
+    role: str = 'document',
+) -> str:
+    cleaned = (text or '').strip()
+    if not cleaned:
+        return ''
+    if not _uses_instruction_prefixes(get_active_sentence_model_name()):
+        return cleaned
+
+    prefixes = INSTRUCTION_PREFIXES.get(task, INSTRUCTION_PREFIXES['similarity'])
+    prefix = prefixes.get(role, '')
+    return f'{prefix}{cleaned}' if prefix else cleaned
 
 
 def get_sentence_model():
@@ -117,6 +168,7 @@ def get_sentence_model():
     - Encodes ~2800 sentences/sec on CPU
     """
     global _sentence_model
+    global _sentence_model_name
     if _sentence_model is not None:
         return _sentence_model
 
@@ -124,11 +176,21 @@ def get_sentence_model():
         return None
 
     try:
-        _sentence_model = SentenceTransformer('all-MiniLM-L6-v2')
-        logger.info('Loaded sentence-transformer: all-MiniLM-L6-v2')
+        _sentence_model = SentenceTransformer(SBERT_MODEL, trust_remote_code=True)
+        _sentence_model_name = SBERT_MODEL
+        logger.info('Loaded sentence-transformer: %s', SBERT_MODEL)
         return _sentence_model
     except Exception as e:
-        logger.error('Failed to load sentence-transformer: %s', e)
+        logger.warning('Primary sentence-transformer failed (%s): %s', SBERT_MODEL, e)
+
+    try:
+        _sentence_model = SentenceTransformer(SBERT_FALLBACK)
+        _sentence_model_name = SBERT_FALLBACK
+        logger.info('Loaded fallback sentence-transformer: %s', SBERT_FALLBACK)
+        return _sentence_model
+    except Exception as e:
+        logger.error('Failed to load any sentence-transformer: %s', e)
+        _sentence_model_name = ''
         return None
 
 
@@ -163,13 +225,18 @@ def get_nli_model():
 # ---------------------------------------------------------------------------
 
 
-def encode_text(text: str) -> np.ndarray | None:
+def encode_text(
+    text: str,
+    task: str = 'similarity',
+    role: str = 'document',
+) -> np.ndarray | None:
     """Encode text into a 384-dimensional sentence embedding."""
     model = get_sentence_model()
     if model is None:
         return None
     try:
-        return model.encode(text, convert_to_numpy=True)
+        formatted = _format_instruction_text(text, task=task, role=role)
+        return model.encode(formatted, convert_to_numpy=True)
     except Exception as e:
         logger.error('Sentence encoding failed: %s', e)
         return None
@@ -184,7 +251,13 @@ def sentence_similarity(text_a: str, text_b: str) -> float | None:
     if model is None:
         return None
     try:
-        embeddings = model.encode([text_a, text_b], convert_to_numpy=True)
+        embeddings = model.encode(
+            [
+                _format_instruction_text(text_a, role='document'),
+                _format_instruction_text(text_b, role='document'),
+            ],
+            convert_to_numpy=True,
+        )
         norm_a = np.linalg.norm(embeddings[0])
         norm_b = np.linalg.norm(embeddings[1])
         if norm_a == 0 or norm_b == 0:
@@ -195,13 +268,18 @@ def sentence_similarity(text_a: str, text_b: str) -> float | None:
         return None
 
 
-def batch_encode(texts: list[str]) -> np.ndarray | None:
+def batch_encode(
+    texts: list[str],
+    task: str = 'similarity',
+    role: str = 'document',
+) -> np.ndarray | None:
     """Encode multiple texts into embeddings in a single batch."""
     model = get_sentence_model()
     if model is None:
         return None
     try:
-        return model.encode(texts, convert_to_numpy=True, show_progress_bar=False)
+        formatted = [_format_instruction_text(text, task=task, role=role) for text in texts]
+        return model.encode(formatted, convert_to_numpy=True, show_progress_bar=False)
     except Exception as e:
         logger.error('Batch encoding failed: %s', e)
         return None
@@ -219,10 +297,14 @@ def find_most_similar(
     if model is None:
         return []
     try:
-        all_texts = [target_text] + candidate_texts
-        embeddings = model.encode(all_texts, convert_to_numpy=True, show_progress_bar=False)
-        target_vec = embeddings[0]
-        candidate_vecs = embeddings[1:]
+        target_vec = encode_text(target_text, task='similarity', role='query')
+        candidate_vecs = batch_encode(
+            candidate_texts,
+            task='similarity',
+            role='document',
+        )
+        if target_vec is None or candidate_vecs is None:
+            return []
         target_norm = target_vec / (np.linalg.norm(target_vec) + 1e-8)
         candidate_norms = candidate_vecs / (
             np.linalg.norm(candidate_vecs, axis=1, keepdims=True) + 1e-8

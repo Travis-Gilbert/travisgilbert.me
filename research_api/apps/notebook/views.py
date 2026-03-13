@@ -700,6 +700,37 @@ def _infer_type(content: str, hint_type: str) -> str:
     return 'note'
 
 
+def _extract_batch_files(request) -> list[dict]:
+    """
+    Normalize multipart files or ZIP archives into queue-safe file payloads.
+    """
+    files = []
+    for uploaded in request.FILES.getlist('files'):
+        if uploaded.name.lower().endswith('.zip'):
+            with zipfile.ZipFile(io.BytesIO(uploaded.read())) as archive:
+                for member in archive.infolist():
+                    if member.is_dir():
+                        continue
+                    files.append(
+                        {
+                            'filename': member.filename,
+                            'content': archive.read(member),
+                            'content_type': '',
+                        }
+                    )
+            continue
+
+        files.append(
+            {
+                'filename': uploaded.name,
+                'content': uploaded.read(),
+                'content_type': getattr(uploaded, 'content_type', '') or '',
+            }
+        )
+
+    return files
+
+
 @api_view(['POST'])
 def quick_capture_view(request):
     """
@@ -875,6 +906,78 @@ def quick_capture_view(request):
         'creation_node': node_data,
         'engine_job_id': engine_job_id,
     }, status=status.HTTP_201_CREATED)
+
+
+@api_view(['POST'])
+def ingest_batch_view(request):
+    """
+    POST /api/v1/notebook/ingest-batch/
+
+    Accept multipart uploads or ZIP archives, enqueue batch ingestion, and
+    expose a public batch job identifier for polling.
+    """
+    files = _extract_batch_files(request)
+    if not files:
+        return Response(
+            {'error': 'No files provided.'},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
+    notebook_slug = (request.data.get('notebook_slug') or request.data.get('notebook') or '').strip()
+
+    from .job_status import create_batch_job_id, update_batch_job_status
+    from .tasks import process_batch_ingestion
+
+    batch_job_id = create_batch_job_id()
+    batch_id = create_batch_job_id()
+    update_batch_job_status(
+        batch_job_id,
+        'queued',
+        batch_id=batch_id,
+        notebook_slug=notebook_slug,
+        total_files=len(files),
+        processed_files=0,
+        objects_created=0,
+        failed_files=0,
+    )
+
+    try:
+        rq_job = process_batch_ingestion.delay(
+            batch_job_id=batch_job_id,
+            file_data=files,
+            notebook_slug=notebook_slug,
+        )
+        rq_job_id = str(getattr(rq_job, 'id', '') or '')
+        update_batch_job_status(
+            batch_job_id,
+            'queued',
+            batch_id=batch_id,
+            notebook_slug=notebook_slug,
+            total_files=len(files),
+            processed_files=0,
+            objects_created=0,
+            failed_files=0,
+            rq_job_id=rq_job_id,
+        )
+    except Exception as exc:
+        logger.warning('Batch queue dispatch failed, falling back inline: %s', exc)
+        process_batch_ingestion(
+            batch_job_id=batch_job_id,
+            file_data=files,
+            notebook_slug=notebook_slug,
+        )
+        rq_job_id = ''
+
+    return Response(
+        {
+            'batch_id': batch_id,
+            'task_id': batch_job_id,
+            'rq_job_id': rq_job_id,
+            'file_count': len(files),
+            'status': 'queued',
+        },
+        status=status.HTTP_202_ACCEPTED,
+    )
 
 
 @api_view(['POST'])
@@ -1674,6 +1777,25 @@ def engine_job_status_view(request, job_id):
     return Response(payload)
 
 
+@api_view(['GET'])
+def batch_job_status_view(request, job_id):
+    """
+    GET /api/v1/notebook/batch/jobs/<job_id>/
+
+    Lightweight public status for async batch ingestion.
+    """
+    from .job_status import get_batch_job_status
+
+    payload = get_batch_job_status(job_id)
+    if not payload:
+        return Response(
+            {'detail': 'Batch job not found.'},
+            status=status.HTTP_404_NOT_FOUND,
+        )
+
+    return Response(payload)
+
+
 def _compose_scope_key(request, notebook_slug: str) -> str:
     if getattr(request, 'user', None) is not None and request.user.is_authenticated:
         identity = f'user:{request.user.pk}'
@@ -1830,3 +1952,260 @@ def canvas_suggest_view(request):
     specs = suggest_visualizations(data, hint=ser.validated_data.get('hint', ''))
 
     return Response({'specs': specs})
+
+
+@api_view(['GET'])
+def clusters_view(request):
+    """GET /api/v1/notebook/clusters/ - Objects grouped by type."""
+    qs = Object.objects.filter(is_deleted=False).select_related('object_type').annotate(
+        edge_count=Count('edges_out', distinct=True) + Count('edges_in', distinct=True)
+    )
+    notebook_slug = request.query_params.get('notebook')
+    if notebook_slug:
+        qs = qs.filter(notebook__slug=notebook_slug)
+    project_slug = request.query_params.get('project')
+    if project_slug:
+        qs = qs.filter(project__slug=project_slug)
+
+    groups = {}
+    for obj in qs:
+        ot = obj.object_type
+        key = ot.slug if ot else 'unknown'
+        if key not in groups:
+            groups[key] = {
+                'type': key,
+                'label': ot.name if ot else 'Unknown',
+                'color': ot.color if ot else '#9A8E82',
+                'icon': ot.icon if ot else 'note-pencil',
+                'members': [],
+            }
+        groups[key]['members'].append({
+            'id': obj.pk,
+            'title': obj.display_title,
+            'slug': obj.slug,
+            'body_preview': (obj.body or '')[:120],
+            'edge_count': obj.edge_count or 0,
+        })
+    clusters = sorted(groups.values(), key=lambda c: len(c['members']), reverse=True)
+    for c in clusters:
+        c['count'] = len(c['members'])
+    return Response(clusters)
+
+
+@api_view(['GET'])
+def object_lineage_view(request, slug):
+    """GET /api/v1/notebook/objects/<slug>/lineage/ - 1-hop Edge traversal."""
+    obj = get_object_or_404(Object, slug=slug, is_deleted=False)
+
+    def _serialize_neighbor(edge_obj, neighbor):
+        ot = neighbor.object_type
+        return {
+            'id': neighbor.pk,
+            'title': neighbor.display_title,
+            'slug': neighbor.slug,
+            'object_type_slug': ot.slug if ot else '',
+            'object_type_label': ot.name if ot else '',
+            'object_type_color': ot.color if ot else '#9A8E82',
+            'reason': edge_obj.reason or '',
+            'strength': edge_obj.strength,
+        }
+
+    ancestor_edges = (
+        Edge.objects.filter(to_object=obj, is_deleted=False)
+        .select_related('from_object', 'from_object__object_type')
+    )
+    descendant_edges = (
+        Edge.objects.filter(from_object=obj, is_deleted=False)
+        .select_related('to_object', 'to_object__object_type')
+    )
+
+    ot = obj.object_type
+    return Response({
+        'object': {
+            'id': obj.pk,
+            'title': obj.display_title,
+            'slug': obj.slug,
+            'object_type_slug': ot.slug if ot else '',
+            'object_type_label': ot.name if ot else '',
+            'object_type_color': ot.color if ot else '#9A8E82',
+        },
+        'ancestors': [_serialize_neighbor(e, e.from_object) for e in ancestor_edges],
+        'descendants': [_serialize_neighbor(e, e.to_object) for e in descendant_edges],
+    })
+
+
+@api_view(['GET'])
+def object_provenance_view(request, pk):
+    """GET /api/v1/notebook/objects/<pk>/provenance/"""
+    from .provenance import generate_provenance_narrative, trace_provenance
+
+    provenance = trace_provenance(pk)
+    if provenance is None:
+        return Response({'error': 'Object not found'}, status=status.HTTP_404_NOT_FOUND)
+
+    provenance['narrative'] = generate_provenance_narrative(pk)
+    return Response(provenance)
+
+
+@api_view(['GET'])
+def organization_report_view(request):
+    """GET /api/v1/notebook/report/"""
+    from .report import generate_organization_report, render_organization_report_markdown
+
+    notebook_slug = (request.query_params.get('notebook') or '').strip()
+    notebook = None
+    if notebook_slug:
+        notebook = Notebook.objects.filter(slug=notebook_slug).first()
+        if notebook is None:
+            return Response(
+                {'error': f'Notebook "{notebook_slug}" not found'},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+    report = generate_organization_report(notebook=notebook)
+    report_format = (request.query_params.get('format') or 'json').strip().lower()
+    if report_format == 'markdown':
+        markdown = render_organization_report_markdown(report)
+        return HttpResponse(markdown, content_type='text/markdown; charset=utf-8')
+
+    return Response(report)
+
+
+@api_view(['POST'])
+def self_organize_run_view(request):
+    """
+    POST /api/v1/notebook/self-organize/run/
+
+    Trigger periodic self-organization loops asynchronously when possible.
+    """
+    from .job_status import create_reorganize_job_id, update_reorganize_job_status
+    from .tasks import run_periodic_reorganize_task
+
+    reorganize_job_id = create_reorganize_job_id()
+    update_reorganize_job_status(reorganize_job_id, 'queued')
+
+    try:
+        rq_job = run_periodic_reorganize_task.delay(
+            reorganize_job_id=reorganize_job_id,
+        )
+        rq_job_id = str(getattr(rq_job, 'id', '') or '')
+        update_reorganize_job_status(
+            reorganize_job_id,
+            'queued',
+            rq_job_id=rq_job_id,
+        )
+    except Exception as exc:
+        logger.warning('Reorganize queue dispatch failed, running inline: %s', exc)
+        run_periodic_reorganize_task(reorganize_job_id=reorganize_job_id)
+        rq_job_id = ''
+
+    return Response(
+        {
+            'job_id': reorganize_job_id,
+            'rq_job_id': rq_job_id,
+            'status': 'queued',
+        },
+        status=status.HTTP_202_ACCEPTED,
+    )
+
+
+@api_view(['GET'])
+def self_organize_job_status_view(request, job_id):
+    """
+    GET /api/v1/notebook/self-organize/jobs/<job_id>/
+    """
+    from .job_status import get_reorganize_job_status
+
+    payload = get_reorganize_job_status(job_id)
+    if not payload:
+        return Response(
+            {'detail': 'Self-organize job not found.'},
+            status=status.HTTP_404_NOT_FOUND,
+        )
+    return Response(payload)
+
+
+@api_view(['GET'])
+def self_organize_latest_view(request):
+    """
+    GET /api/v1/notebook/self-organize/latest/
+    """
+    from .job_status import get_latest_reorganize_status
+
+    payload = get_latest_reorganize_status()
+    if not payload:
+        return Response(
+            {'detail': 'No completed self-organize runs found.'},
+            status=status.HTTP_404_NOT_FOUND,
+        )
+    return Response(payload)
+
+
+@api_view(['GET'])
+def self_organize_emergent_types_view(request):
+    """
+    GET /api/v1/notebook/self-organize/emergent-types/
+    """
+    from .self_organize import detect_emergent_types
+
+    return Response(
+        {
+            'suggestions': detect_emergent_types(),
+        },
+    )
+
+
+@api_view(['GET'])
+def self_organize_preview_view(request):
+    """
+    GET /api/v1/notebook/self-organize/preview/
+    """
+    from .self_organize import preview_periodic_reorganize
+
+    max_samples = request.query_params.get('max_samples', '20')
+    try:
+        max_samples_int = max(1, min(int(max_samples), 100))
+    except Exception:
+        max_samples_int = 20
+
+    return Response(preview_periodic_reorganize(max_samples=max_samples_int))
+
+
+class EmergentTypeApplySerializer(serializers.Serializer):
+    suggested_name = serializers.CharField(required=True, allow_blank=False, max_length=100)
+    suggested_slug = serializers.SlugField(required=False, allow_blank=True, default='')
+    member_pks = serializers.ListField(
+        child=serializers.IntegerField(min_value=1),
+        required=True,
+        allow_empty=False,
+    )
+    restrict_to_note = serializers.BooleanField(required=False, default=True)
+    icon = serializers.CharField(required=False, default='sparkle', allow_blank=True, max_length=50)
+    color = serializers.RegexField(
+        required=False,
+        default='#6A6A8A',
+        regex=r'^#[0-9A-Fa-f]{6}$',
+    )
+
+
+@api_view(['POST'])
+def self_organize_apply_emergent_type_view(request):
+    """
+    POST /api/v1/notebook/self-organize/emergent-types/apply/
+    """
+    serializer = EmergentTypeApplySerializer(data=request.data)
+    serializer.is_valid(raise_exception=True)
+    data = serializer.validated_data
+
+    from .self_organize import apply_emergent_type_suggestion
+
+    payload = apply_emergent_type_suggestion(
+        suggested_name=data['suggested_name'],
+        suggested_slug=data.get('suggested_slug', ''),
+        member_pks=data['member_pks'],
+        restrict_to_note=data.get('restrict_to_note', True),
+        icon=data.get('icon', 'sparkle'),
+        color=data.get('color', '#6A6A8A'),
+    )
+
+    return Response(payload, status=status.HTTP_201_CREATED if payload.get('created_type') else status.HTTP_200_OK)

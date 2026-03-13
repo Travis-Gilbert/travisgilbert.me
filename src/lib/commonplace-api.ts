@@ -37,6 +37,8 @@ import type {
   ApiDailyLog,
   CapturedObject,
   ObjectListItem,
+  ClusterResponse,
+  LineageResponse,
 } from '@/lib/commonplace';
 import { API_BASE } from '@/lib/commonplace';
 
@@ -140,9 +142,13 @@ function mapGraphResponseToD3(resp: ApiGraphResponse): {
 } {
   const nodes: GraphNode[] = resp.nodes.map((o: ApiGraphObject) => ({
     id: o.id,
+    objectRef: extractNumericId(o.id),
+    objectSlug: o.slug,
     objectType: o.object_type,
     title: o.title,
     edgeCount: o.edge_count,
+    bodyPreview: o.body_preview,
+    status: o.status,
   }));
 
   const nodeIds = new Set(nodes.map((n) => n.id));
@@ -218,6 +224,20 @@ export async function fetchObjectById(
   id: number,
 ): Promise<ApiObjectDetail> {
   return apiFetch<ApiObjectDetail>(`/objects/${id}/`);
+}
+
+export async function postObjectConnection(
+  slug: string,
+  payload: {
+    target_slug: string;
+    edge_type?: string;
+    reason?: string;
+  },
+) {
+  return apiFetch(`/objects/${slug}/connect/`, {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  });
 }
 
 /** Search objects by title / search_text via GET /objects/?q=... */
@@ -553,6 +573,61 @@ export async function fetchPinnedObjects(): Promise<PinnedObject[]> {
 }
 
 /* ─────────────────────────────────────────────────
+   Lego composition: pinned edge API (v5.1)
+   ───────────────────────────────────────────────── */
+
+export interface PinEdgePayload {
+  target_slug: string;
+  position?: 'badge' | 'inline' | 'sidebar';
+  sort_order?: number;
+}
+
+export interface PinEdgeResponse {
+  edge_id: number;
+  object_id: number;
+  slug: string;
+  title: string;
+  object_type: string;
+  position: 'badge' | 'inline' | 'sidebar';
+  sort_order: number;
+}
+
+/** Attach (pin) a target object to a parent object. */
+export async function createPin(
+  parentSlug: string,
+  payload: PinEdgePayload,
+): Promise<PinEdgeResponse> {
+  return apiFetch<PinEdgeResponse>(`/objects/${parentSlug}/pin/`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  });
+}
+
+/** Detach (unpin) a pinned edge from a parent object. */
+export async function removePin(
+  parentSlug: string,
+  edgeId: number,
+): Promise<void> {
+  await apiFetch<void>(`/objects/${parentSlug}/pin/${edgeId}/`, {
+    method: 'DELETE',
+  });
+}
+
+/** Update pin position or sort order. */
+export async function updatePin(
+  parentSlug: string,
+  edgeId: number,
+  updates: Partial<Pick<PinEdgePayload, 'position' | 'sort_order'>>,
+): Promise<PinEdgeResponse> {
+  return apiFetch<PinEdgeResponse>(`/objects/${parentSlug}/pin/${edgeId}/`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(updates),
+  });
+}
+
+/* ─────────────────────────────────────────────────
    Sync helper: maps CapturedObject to API payload
    ───────────────────────────────────────────────── */
 
@@ -717,4 +792,20 @@ export async function createObjectComponent(
 /** DELETE a component */
 export async function deleteComponent(componentId: number): Promise<void> {
   await apiFetch(`/components/${componentId}/`, { method: 'DELETE' });
+}
+
+/** GET /clusters/ - Objects grouped by object type */
+export function fetchClusters(
+  params?: { notebook?: string; project?: string },
+): Promise<ClusterResponse[]> {
+  const qs =
+    params && Object.keys(params).length
+      ? '?' + new URLSearchParams(params as Record<string, string>).toString()
+      : '';
+  return apiFetch<ClusterResponse[]>(`/clusters/${qs}`);
+}
+
+/** GET /objects/<slug>/lineage/ - 1-hop Edge traversal */
+export function fetchLineage(slug: string): Promise<LineageResponse> {
+  return apiFetch<LineageResponse>(`/objects/${slug}/lineage/`);
 }

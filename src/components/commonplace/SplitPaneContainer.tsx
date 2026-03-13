@@ -17,12 +17,14 @@ import {
   updateRatio,
   addTab,
   closeTab,
+  closeTabOrPane,
   setActiveTab,
   collectLeafIds,
   findPane,
   findAdjacentLeaf,
   serializeLayout,
   deserializeLayout,
+  shouldDiscardPersistedLayout,
 } from '@/lib/commonplace-layout';
 import type { ViewType } from '@/lib/commonplace';
 import { VIEW_REGISTRY } from '@/lib/commonplace';
@@ -45,15 +47,25 @@ import ProjectListView from './ProjectListView';
 import CalendarView from './CalendarView';
 import LooseEndsView from './LooseEndsView';
 import ComposeView from './ComposeView';
+import LibraryView from './LibraryView';
+import PaneDotGrid from './PaneDotGrid';
 
 const STORAGE_KEY = 'commonplace-layout';
+const STORAGE_VERSION_KEY = `${STORAGE_KEY}-version`;
+const STORAGE_VERSION = 'v5-shell-mockup-reset-4';
 
 /* ─────────────────────────────────────────────────
    Main container: owns the layout tree state
    ───────────────────────────────────────────────── */
 
 export default function SplitPaneContainer() {
-  const { toggleMobileSidebar, openMobileSidebar, pendingView, clearPendingView } = useCommonPlace();
+  const {
+    toggleMobileSidebar,
+    openMobileSidebar,
+    pendingView,
+    clearPendingView,
+    setSidebarCollapsed,
+  } = useCommonPlace();
   const isMobile = useIsAppShellMobile();
   const [layout, setLayout] = useState<PaneNode>(LAYOUT_PRESETS[0].tree);
   const [hasLoadedPersistedLayout, setHasLoadedPersistedLayout] = useState(false);
@@ -70,12 +82,20 @@ export default function SplitPaneContainer() {
 
   /* Load persisted layout after mount to keep server/client first render deterministic */
   useEffect(() => {
+    const savedVersion = localStorage.getItem(STORAGE_VERSION_KEY);
+    if (savedVersion !== STORAGE_VERSION) {
+      localStorage.removeItem(STORAGE_KEY);
+      localStorage.setItem(STORAGE_VERSION_KEY, STORAGE_VERSION);
+    }
+
     const saved = localStorage.getItem(STORAGE_KEY);
     if (saved) {
       const parsed = deserializeLayout(saved);
-      if (parsed) {
+      if (parsed && !shouldDiscardPersistedLayout(parsed)) {
         setLayout(parsed);
         setActivePresetName(null);
+      } else {
+        localStorage.removeItem(STORAGE_KEY);
       }
     }
     setHasLoadedPersistedLayout(true);
@@ -145,7 +165,7 @@ export default function SplitPaneContainer() {
 
   const handleCloseTab = useCallback(
     (paneId: string, tabIndex: number) => {
-      setLayout((prev) => closeTab(prev, paneId, tabIndex));
+      setLayout((prev) => closeTabOrPane(prev, paneId, tabIndex));
     },
     []
   );
@@ -153,6 +173,32 @@ export default function SplitPaneContainer() {
   const handleSetActiveTab = useCallback(
     (paneId: string, tabIndex: number) => {
       setLayout((prev) => setActiveTab(prev, paneId, tabIndex));
+    },
+    []
+  );
+
+  /** Move a tab from one pane to another (drag and drop between tab bars) */
+  const handleMoveTab = useCallback(
+    (fromPaneId: string, tabIndex: number, toPaneId: string, viewType: ViewType, label: string, context?: Record<string, unknown>) => {
+      if (fromPaneId === toPaneId) return;
+      setLayout((prev) => {
+        // Add tab to receiving pane
+        let tree = addTab(prev, toPaneId, viewType, label, context);
+        // Remove tab from source pane
+        tree = closeTab(tree, fromPaneId, tabIndex);
+        // If source pane is now empty (single "empty" tab), auto-close it
+        const sourcePane = findPane(tree, fromPaneId);
+        if (
+          sourcePane &&
+          sourcePane.type === 'leaf' &&
+          sourcePane.tabs.length === 1 &&
+          sourcePane.tabs[0].viewType === 'empty'
+        ) {
+          tree = closePane(tree, fromPaneId);
+        }
+        return tree;
+      });
+      setActivePresetName(null);
     },
     []
   );
@@ -217,14 +263,11 @@ export default function SplitPaneContainer() {
             case 'preset-focus':
               handlePreset(0);
               break;
-            case 'preset-compare':
+            case 'preset-research':
               handlePreset(1);
               break;
-            case 'preset-research':
+            case 'preset-studio':
               handlePreset(2);
-              break;
-            case 'preset-connect':
-              handlePreset(3);
               break;
           }
           return;
@@ -265,6 +308,25 @@ export default function SplitPaneContainer() {
     });
     clearPendingView();
   }, [pendingView, clearPendingView, focusedPaneId]);
+
+  /* ── Auto-collapse sidebar when compose view is focused ── */
+
+  const focusedLeaf = focusedPaneId
+    ? (findPane(layout, focusedPaneId) as LeafPane | null)
+    : null;
+  const activeLeafViewTypes = collectLeafIds(layout).map((leafId) => {
+    const leaf = findPane(layout, leafId);
+    if (!leaf || leaf.type !== 'leaf') return 'empty';
+    return leaf.tabs[leaf.activeTabIndex]?.viewType ?? 'empty';
+  });
+  const focusedViewType =
+    focusedLeaf?.tabs[focusedLeaf.activeTabIndex]?.viewType ??
+    activeLeafViewTypes[0] ??
+    'empty';
+
+  useEffect(() => {
+    setSidebarCollapsed(activeLeafViewTypes.includes('compose'));
+  }, [activeLeafViewTypes, setSidebarCollapsed]);
 
   /* ── Mobile: single pane view ── */
 
@@ -385,35 +447,6 @@ export default function SplitPaneContainer() {
         overflow: 'hidden',
       }}
     >
-      {/* Toolbar: layout presets */}
-      <div
-        style={{
-          display: 'flex',
-          alignItems: 'center',
-          borderBottom: '1px solid var(--cp-border-faint)',
-          background: 'var(--cp-surface)',
-          flexShrink: 0,
-        }}
-      >
-        <LayoutPresetSelector
-          activePresetName={activePresetName}
-          onSelect={handlePreset}
-        />
-        <div
-          style={{
-            fontFamily: 'var(--cp-font-mono)',
-            fontSize: 10,
-            color: 'var(--cp-text-faint)',
-            letterSpacing: '0.05em',
-            marginLeft: 'auto',
-            paddingRight: 12,
-          }}
-        >
-          {focusedPaneId ? 'CTRL+\\ SPLIT' : 'CLICK A PANE TO FOCUS'}
-        </div>
-      </div>
-
-      {/* Pane tree */}
       <div style={{ flex: 1, display: 'flex', minWidth: 0, minHeight: 0, overflow: 'hidden' }}>
         <RenderNode
           node={layout}
@@ -426,6 +459,7 @@ export default function SplitPaneContainer() {
           onCloseTab={handleCloseTab}
           onSetActiveTab={handleSetActiveTab}
           onOpenObject={handleOpenObject}
+          onMoveTab={handleMoveTab}
         />
       </div>
     </div>
@@ -447,6 +481,7 @@ interface NodeProps {
   onCloseTab: (paneId: string, tabIndex: number) => void;
   onSetActiveTab: (paneId: string, tabIndex: number) => void;
   onOpenObject: (fromPaneId: string, objectRef: number, title?: string) => void;
+  onMoveTab: (fromPaneId: string, tabIndex: number, toPaneId: string, viewType: ViewType, label: string, context?: Record<string, unknown>) => void;
 }
 
 function RenderNode(props: NodeProps) {
@@ -493,7 +528,7 @@ function RenderSplit(props: NodeProps & { node: SplitPane }) {
    ───────────────────────────────────────────────── */
 
 function RenderLeaf(props: NodeProps & { node: LeafPane }) {
-  const { node, focusedPaneId, onFocus, onSplit, onClosePane, onAddTab, onCloseTab, onSetActiveTab, onOpenObject } = props;
+  const { node, focusedPaneId, onFocus, onSplit, onClosePane, onAddTab, onCloseTab, onSetActiveTab, onOpenObject, onMoveTab } = props;
   const [showViewPicker, setShowViewPicker] = useState(false);
   const isFocused = focusedPaneId === node.id;
   const activeTab = node.tabs[node.activeTabIndex];
@@ -503,9 +538,8 @@ function RenderLeaf(props: NodeProps & { node: LeafPane }) {
       className="cp-pane"
       style={{
         flex: 1,
-        outline: isFocused ? '2px solid var(--cp-terracotta)' : '2px solid transparent',
-        outlineOffset: -2,
-        transition: 'outline-color 150ms',
+        boxShadow: isFocused ? 'inset 0 0 0 1px rgba(196, 80, 60, 0.18)' : 'none',
+        transition: 'box-shadow 150ms',
       }}
       onClick={() => onFocus(node.id)}
     >
@@ -524,15 +558,19 @@ function RenderLeaf(props: NodeProps & { node: LeafPane }) {
           onAddTab(node.id, viewType);
           setShowViewPicker(false);
         }}
+        onMoveTab={onMoveTab}
       />
 
-      {/* Content */}
-      <PaneViewContent
-        viewType={activeTab?.viewType ?? 'empty'}
-        context={activeTab?.context}
-        paneId={node.id}
-        onOpenObject={onOpenObject}
-      />
+      {/* Content with canvas dot grid */}
+      <div style={{ position: 'relative', flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+        <PaneDotGrid seed={node.id} />
+        <PaneViewContent
+          viewType={activeTab?.viewType ?? 'empty'}
+          context={activeTab?.context}
+          paneId={node.id}
+          onOpenObject={onOpenObject}
+        />
+      </div>
     </div>
   );
 }
@@ -552,7 +590,10 @@ interface TabBarProps {
   showViewPicker: boolean;
   onToggleViewPicker: () => void;
   onAddTab: (viewType: ViewType) => void;
+  onMoveTab: (fromPaneId: string, tabIndex: number, toPaneId: string, viewType: ViewType, label: string, context?: Record<string, unknown>) => void;
 }
+
+const TAB_DND_MIME = 'application/commonplace-tab';
 
 function PaneTabBar({
   tabs,
@@ -565,20 +606,75 @@ function PaneTabBar({
   showViewPicker,
   onToggleViewPicker,
   onAddTab,
+  onMoveTab,
 }: TabBarProps) {
+  const [dragOver, setDragOver] = useState(false);
+
+  const handleBarDragOver = (e: React.DragEvent) => {
+    if (e.dataTransfer.types.includes(TAB_DND_MIME)) {
+      e.preventDefault();
+      e.dataTransfer.dropEffect = 'move';
+      setDragOver(true);
+    }
+  };
+
+  const handleBarDragLeave = () => setDragOver(false);
+
+  const handleBarDrop = (e: React.DragEvent) => {
+    setDragOver(false);
+    const raw = e.dataTransfer.getData(TAB_DND_MIME);
+    if (!raw) return;
+    e.preventDefault();
+    try {
+      const payload = JSON.parse(raw) as {
+        fromPaneId: string;
+        tabIndex: number;
+        viewType: ViewType;
+        label: string;
+        context?: Record<string, unknown>;
+      };
+      if (payload.fromPaneId === paneId) return;
+      onMoveTab(payload.fromPaneId, payload.tabIndex, paneId, payload.viewType as ViewType, payload.label, payload.context);
+    } catch { /* malformed payload, ignore */ }
+  };
+
   return (
-    <div className="cp-tab-bar" style={{ position: 'relative' }}>
+    <div
+      className="cp-tab-bar"
+      style={{
+        position: 'relative',
+        outline: dragOver ? '1px solid rgba(196, 80, 60, 0.4)' : 'none',
+      }}
+      onDragOver={handleBarDragOver}
+      onDragLeave={handleBarDragLeave}
+      onDrop={handleBarDrop}
+    >
       {/* Tabs */}
       {tabs.map((tab, i) => (
         <div
           key={tab.id}
           className="cp-tab"
           data-active={i === activeTabIndex ? 'true' : 'false'}
+          draggable
+          onDragStart={(e) => {
+            e.dataTransfer.setData(
+              TAB_DND_MIME,
+              JSON.stringify({
+                fromPaneId: paneId,
+                tabIndex: i,
+                viewType: tab.viewType,
+                label: tab.label,
+                context: tab.context,
+              })
+            );
+            e.dataTransfer.effectAllowed = 'move';
+          }}
           onClick={(e) => {
             e.stopPropagation();
             onSetActiveTab(paneId, i);
           }}
         >
+          <span className="cp-tab-pip" aria-hidden="true" />
           <span>{tab.label}</span>
           <button
             className="cp-tab-close"
@@ -685,16 +781,16 @@ function TabBarAction({
         border: 'none',
         borderRadius: 4,
         background: 'transparent',
-        color: 'var(--cp-text-faint)',
+        color: 'var(--cp-chrome-dim)',
         cursor: 'pointer',
         transition: 'color 150ms, background 150ms',
       }}
       onMouseEnter={(e) => {
-        e.currentTarget.style.color = 'var(--cp-text)';
-        e.currentTarget.style.background = 'var(--cp-surface-hover)';
+        e.currentTarget.style.color = 'var(--cp-chrome-text)';
+        e.currentTarget.style.background = 'var(--cp-chrome-raise)';
       }}
       onMouseLeave={(e) => {
-        e.currentTarget.style.color = 'var(--cp-text-faint)';
+        e.currentTarget.style.color = 'var(--cp-chrome-dim)';
         e.currentTarget.style.background = 'transparent';
       }}
     >
@@ -849,6 +945,20 @@ function PaneViewContent({ viewType, context, paneId, onOpenObject }: PaneViewCo
   if (viewType === 'grid') {
     return (
       <GridView
+        onOpenObject={
+          paneId && onOpenObject
+            ? (objectRef) => onOpenObject(paneId, objectRef)
+            : undefined
+        }
+      />
+    );
+  }
+
+  /* Live view: Library (clustered object browser) */
+  if (viewType === 'library') {
+    return (
+      <LibraryView
+        paneId={paneId}
         onOpenObject={
           paneId && onOpenObject
             ? (objectRef) => onOpenObject(paneId, objectRef)
@@ -1157,6 +1267,14 @@ function ViewTypeIcon({ viewType, size = 16 }: { viewType: ViewType; size?: numb
           <line x1={5} y1={5} x2={11} y2={5} />
           <line x1={5} y1={8} x2={11} y2={8} />
           <line x1={5} y1={11} x2={8} y2={11} />
+        </svg>
+      );
+    case 'library':
+      return (
+        <svg width={s} height={s} viewBox="0 0 16 16" fill="none" stroke={color} strokeWidth={sw} style={{ display: 'block', margin: '0 auto' }}>
+          <line x1={2} y1={4} x2={14} y2={4} />
+          <line x1={2} y1={8} x2={11} y2={8} />
+          <line x1={2} y1={12} x2={13} y2={12} />
         </svg>
       );
     default:

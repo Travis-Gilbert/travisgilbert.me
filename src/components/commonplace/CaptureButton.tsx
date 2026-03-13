@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { CAPTURE_PLACEHOLDERS, OBJECT_TYPES } from '@/lib/commonplace';
+import { OBJECT_TYPES } from '@/lib/commonplace';
 import type { CapturedObject } from '@/lib/commonplace';
 import {
   createCapturedObject,
@@ -30,50 +30,8 @@ export default function CaptureButton({ onCapture }: CaptureButtonProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [text, setText] = useState('');
   const [selectedType, setSelectedType] = useState<string | null>(null);
-  const [placeholderIndex, setPlaceholderIndex] = useState(0);
-  const [placeholderText, setPlaceholderText] = useState('');
-  const [isTyping, setIsTyping] = useState(true);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
-
-  /* ── Cycling placeholder (typewriter pattern) ── */
-  useEffect(() => {
-    if (isOpen) return;
-
-    const fullText = CAPTURE_PLACEHOLDERS[placeholderIndex];
-    let charIndex = 0;
-    let phase: 'typing' | 'pause' | 'erasing' = 'typing';
-    let timer: ReturnType<typeof setTimeout>;
-
-    function tick() {
-      if (phase === 'typing') {
-        charIndex++;
-        setPlaceholderText(fullText.slice(0, charIndex));
-        setIsTyping(true);
-        if (charIndex >= fullText.length) {
-          phase = 'pause';
-          timer = setTimeout(tick, 2400);
-          return;
-        }
-        timer = setTimeout(tick, 35 + Math.random() * 25);
-      } else if (phase === 'pause') {
-        phase = 'erasing';
-        timer = setTimeout(tick, 30);
-      } else {
-        charIndex--;
-        setPlaceholderText(fullText.slice(0, charIndex));
-        setIsTyping(false);
-        if (charIndex <= 0) {
-          setPlaceholderIndex((i) => (i + 1) % CAPTURE_PLACEHOLDERS.length);
-          return;
-        }
-        timer = setTimeout(tick, 18);
-      }
-    }
-
-    timer = setTimeout(tick, 600);
-    return () => clearTimeout(timer);
-  }, [placeholderIndex, isOpen]);
 
   /* ── Focus textarea on open ── */
   useEffect(() => {
@@ -143,10 +101,10 @@ export default function CaptureButton({ onCapture }: CaptureButtonProps) {
           display: 'flex',
           alignItems: 'center',
           gap: 8,
-          padding: '8px 12px',
+          padding: '10px 12px',
           border: '1px solid var(--cp-sidebar-border)',
-          borderRadius: 8,
-          background: 'var(--cp-sidebar-surface)',
+          borderRadius: 4,
+          background: 'rgba(255,255,255,0.03)',
           color: 'var(--cp-sidebar-text-faint)',
           fontFamily: 'var(--cp-font-body)',
           fontSize: 12,
@@ -155,19 +113,19 @@ export default function CaptureButton({ onCapture }: CaptureButtonProps) {
           transition: 'border-color 200ms, background-color 200ms',
           minHeight: 40,
         }}
-      >
-        <svg
-          width={14}
-          height={14}
-          viewBox="0 0 16 16"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth={1.6}
-          strokeLinecap="round"
-          style={{ opacity: 0.5, flexShrink: 0 }}
         >
-          <path d="M8 2v12M2 8h12" />
-        </svg>
+        <span
+          aria-hidden="true"
+          style={{
+            color: 'var(--cp-sidebar-text-faint)',
+            fontSize: 14,
+            lineHeight: 1,
+            flexShrink: 0,
+            opacity: 0.8,
+          }}
+        >
+          +
+        </span>
         <span
           style={{
             overflow: 'hidden',
@@ -175,12 +133,7 @@ export default function CaptureButton({ onCapture }: CaptureButtonProps) {
             textOverflow: 'ellipsis',
           }}
         >
-          {placeholderText}
-          {isTyping && (
-            <span className="cp-capture-cursor" aria-hidden="true">
-              |
-            </span>
-          )}
+          Capture...
         </span>
       </button>
     );
@@ -192,9 +145,9 @@ export default function CaptureButton({ onCapture }: CaptureButtonProps) {
       ref={containerRef}
       className="cp-capture-expanded"
       style={{
-        border: '1px solid var(--cp-terracotta)',
-        borderRadius: 8,
-        background: 'var(--cp-sidebar-surface)',
+        border: '1px solid var(--cp-sidebar-border-strong)',
+        borderRadius: 6,
+        background: 'rgba(255,255,255,0.03)',
         overflow: 'hidden',
         animation: 'cp-spring-open 350ms cubic-bezier(0.34, 1.56, 0.64, 1) both',
       }}
@@ -213,10 +166,10 @@ export default function CaptureButton({ onCapture }: CaptureButtonProps) {
           background: 'transparent',
           color: 'var(--cp-sidebar-text)',
           fontFamily: 'var(--cp-font-body)',
-          fontSize: 13,
+          fontSize: 14,
           resize: 'none',
           outline: 'none',
-          lineHeight: 1.5,
+          lineHeight: 1.6,
         }}
       />
 
@@ -246,12 +199,12 @@ export default function CaptureButton({ onCapture }: CaptureButtonProps) {
               borderRadius: 4,
               border:
                 detectedType === t.slug
-                  ? `1px solid ${t.color}`
-                  : '1px solid transparent',
+                  ? `1px solid ${t.color}55`
+                  : '1px solid rgba(255,255,255,0.04)',
               background:
                 detectedType === t.slug
-                  ? `${t.color}20`
-                  : 'transparent',
+                  ? `${t.color}18`
+                  : 'rgba(255,255,255,0.02)',
               color: 'var(--cp-sidebar-text-muted)',
               fontFamily: 'var(--cp-font-mono)',
               fontSize: 10,
@@ -332,12 +285,12 @@ export default function CaptureButton({ onCapture }: CaptureButtonProps) {
           style={{
             padding: '4px 14px',
             borderRadius: 4,
-            border: 'none',
+            border: '1px solid var(--cp-sidebar-border-strong)',
             background: text.trim()
-              ? 'var(--cp-terracotta)'
-              : 'var(--cp-sidebar-surface-hover)',
+              ? 'rgba(255,255,255,0.06)'
+              : 'rgba(255,255,255,0.02)',
             color: text.trim()
-              ? '#FAF6F1'
+              ? 'var(--cp-sidebar-text)'
               : 'var(--cp-sidebar-text-faint)',
             fontFamily: 'var(--cp-font-mono)',
             fontSize: 10,

@@ -71,7 +71,8 @@ Next.js 16 (App Router, Turbopack, React Compiler), React 19, Tailwind CSS v4 (`
 | `src/lib/videos.ts` | Video fetch utility: `fetchAllVideos()`, `fetchVideoBySlug()`, `StudioVideo` type; reads from Studio API at build time |
 | `src/app/(commonplace)/layout.tsx` | CommonPlace route group layout: warm studio shell with sidebar, blueprint grid, split pane system, scoped CSS tokens |
 | `src/app/(commonplace)/commonplace/page.tsx` | CommonPlace home page: timeline landing with stat cards |
-| `src/components/commonplace/` | CommonPlace Client Components: capture, timeline, network, split pane, sidebar |
+| `src/components/commonplace/` | CommonPlace Client Components: capture, timeline, network, split pane, sidebar, ComposeView, TerminalBlock, LibraryView |
+| `src/components/commonplace/objects/` | Polymorphic object renderers (v5): NoteCard, SourceCard, QuoteBlock, ConceptNode, EventBadge, HunchSticky, PersonPill, PlacePin, ScriptBlock, TaskRow + ObjectRenderer dispatcher |
 | `src/styles/commonplace.css` | CommonPlace theme tokens: cream/parchment surfaces, warm dark sidebar, blueprint grid, paper grain, terracotta glow |
 | `src/lib/commonplace.ts` | Shared constants, types, sidebar structure, object type visual identity, view registry |
 | `src/lib/commonplace-layout.ts` | Split pane layout: recursive binary tree types, presets, serialization, key bindings |
@@ -86,7 +87,7 @@ Next.js 16 (App Router, Turbopack, React Compiler), React 19, Tailwind CSS v4 (`
 | `src/components/studio/` | Studio preview components (live content rendering from Django Studio API) |
 | `src/components/research/` | Research display components (backlinks, source cards) |
 | `src/components/charts/` | D3 chart components (PublicationGraph, connection visualizations) |
-| `src/lib/commonplace-context.tsx` | React context provider: object detail, resurface, sidebar state, click chain navigation |
+| `src/lib/commonplace-context.tsx` | React context provider: object detail, resurface, sidebar state (`sidebarCollapsed`/`setSidebarCollapsed`), click chain navigation |
 | `src/lib/networks.ts` | Networks data fetching: research JSON loader, trail builder, thread mapper |
 | `src/lib/research.ts` | Research data types and utilities for backlinks, sources, threads |
 | `src/lib/studio.ts` | Studio types, route mapping, content preview utilities |
@@ -348,9 +349,9 @@ Phases 1 through 4 (Foundation, Micro-interactions, Animations, Polish) are **al
 
 **Hero Redesign:** Complete, merged to `main`. CollageHero rewritten as unified above-the-fold zone (identity + featured essay + artifact). EruptingCollage and secondary essay grid removed from homepage. HeroArtifact and HeroAccents created. Reading guide line added to ArticleBody (hover-gated, transparent, gradient-edged). Schema extended with `heroColor` and `heroImage` fields.
 
-**CommonPlace Frontend:** Sessions 5 through 9 complete. Full Next.js frontend at `/commonplace` route group with warm studio theme (cream parchment + dark sidebar), wired to live Django API. Session 5: split pane system (SplitPaneContainer, DragHandle, LayoutPresetSelector, CommonPlaceSidebar) with recursive binary tree layout, keyboard shortcuts, 4 layout presets. Session 6 (Capture): CaptureButton with spring animation, ObjectPalette type grid, DropZone drag-and-drop, RecentCaptures sidebar list, local-first capture with optimistic IDs. Session 7 (Timeline): TimelineView with NodeCard, DateHeader, RetroNote reflection prompts, ConnectionLabel edge badges, TimelineSearch with type filters. Session 8 (Network): KnowledgeMap (D3 force graph + rough.js canvas edges), EntityNetwork (Person/Org filtered view), TimelineViz (chronological dot plot with arcs), FrameManager (save/restore view configs), NetworkView (toggle toolbar wrapper). Session 9 (API Integration): created `commonplace-api.ts` anti-corruption layer mapping Django serializer responses to frontend types; replaced all mock data with live API calls to `/api/v1/notebook/` endpoints (feed, graph, capture, retrospective, resurface); `useApiData<T>()` hook for loading/error/refetch; NetworkView lifted to single fetch parent; loading skeleton, error banner, empty state styles added. All components use CommonPlace scoped CSS tokens from `commonplace.css`.
+**CommonPlace Frontend:** Sessions 5 through 9 complete (Django + initial frontend). Full Next.js frontend at `/commonplace` route group with warm studio theme (cream parchment + dark sidebar), wired to live Django API. Session 5: split pane system (SplitPaneContainer, DragHandle, LayoutPresetSelector, CommonPlaceSidebar) with recursive binary tree layout, keyboard shortcuts, 4 layout presets. Session 6 (Capture): CaptureButton with spring animation, ObjectPalette type grid, DropZone drag-and-drop, RecentCaptures sidebar list, local-first capture with optimistic IDs. Session 7 (Timeline): TimelineView with NodeCard, DateHeader, RetroNote reflection prompts, ConnectionLabel edge badges, TimelineSearch with type filters. Session 8 (Network): KnowledgeMap (D3 force graph + rough.js canvas edges), EntityNetwork (Person/Org filtered view), TimelineViz (chronological dot plot with arcs), FrameManager (save/restore view configs), NetworkView (toggle toolbar wrapper). Session 9 (API Integration): created `commonplace-api.ts` anti-corruption layer mapping Django serializer responses to frontend types; replaced all mock data with live API calls to `/api/v1/notebook/` endpoints (feed, graph, capture, retrospective, resurface); `useApiData<T>()` hook for loading/error/refetch; NetworkView lifted to single fetch parent; loading skeleton, error banner, empty state styles added. All components use CommonPlace scoped CSS tokens from `commonplace.css`. Dark Chrome Instrument redesign (v5) all 9 batches complete: color tokens, object renderers, TerminalBlock, LibraryView, ComposeView, sidebar collapse to 48px icon rail (1 through 6), ObjectContextMenu with right-click Stash/Connect/Contain actions and keyboard shortcuts (7), PaneDotGrid canvas migration replacing CSS dot field (8), cluster + lineage API endpoints with frontend hooks in LibraryView (9). Dead CSS cleaned (blueprint grid, vignette dots removed). v5.1 Lego Composition all 5 batches complete: PinnedBadge renderer, drag and drop pin creation, 3 layout presets with keyboard shortcuts, TerminalCanvas background, tab drag between panes. See `docs/records/004-commonplace-v5-dark-chrome.md`.
 
-**Next step:** Train KGE embeddings for production (`export_kge_triples` + `train_kge.py`). Verify production API connectivity end-to-end (env vars are set: `NEXT_PUBLIC_RESEARCH_API_URL`, `NEXT_PUBLIC_STUDIO_URL`, `INTERNAL_API_KEY`, `RESEARCH_API_URL`/`RESEARCH_API_KEY`). Test source promotion pipeline across both Railway services. Production NLP stack fully active: spaCy md, SBERT FAISS (11 vectors), PyTorch CPU.
+**Next step:** Verify production deploy with live API, then optimistic capture sync. Also pending: train KGE embeddings for production (`export_kge_triples` + `train_kge.py`), verify production API connectivity end to end (env vars set: `NEXT_PUBLIC_RESEARCH_API_URL`, `NEXT_PUBLIC_STUDIO_URL`, `INTERNAL_API_KEY`, `RESEARCH_API_URL`/`RESEARCH_API_KEY`).
 
 **Remaining backlog:**
 - CommonPlace: verify production deploy with live API
@@ -377,6 +378,7 @@ Phases 1 through 4 (Foundation, Micro-interactions, Animations, Polish) are **al
 | CommonPlace: split pane system | Recursive binary tree (not fixed panels) | Arbitrary nesting; JSON-serializable; 4 presets |
 | CommonPlace: API anti-corruption layer | Mapping functions in `commonplace-api.ts` | Components unchanged; only data source changes from mock to live |
 | CommonPlace: NetworkView lifts graph fetch | Single fetch in parent, passes to children as props | Avoids three independent fetches for same data |
+| CommonPlace: sidebar collapse | Reactive via context (not user toggle) | `SplitPaneContainer` is the single writer; sidebar is a pure reader |
 
 ## Gotchas
 
@@ -427,6 +429,7 @@ Phases 1 through 4 (Foundation, Micro-interactions, Animations, Polish) are **al
 - **Feed Node vs Object identity**: Use `node-${node.id}` (Node ID) as React key, not `String(node.object_ref)` (Object ID, may duplicate)
 - **`commonplace-api.ts` is the single source for all API calls**: All fetches to `/api/v1/notebook/` go through `apiFetch()`. No raw fetch in components
 - **`useApiData` hook deps**: Passing unstable references (objects, arrays) as deps causes infinite re-fetch loops
+- **`sidebarCollapsed` is reactive, not a toggle**: `SplitPaneContainer` is the sole writer via `setSidebarCollapsed(focusedViewType === 'compose')`; `CommonPlaceSidebar` only reads it. Rail icon clicks call `requestView()` which changes the active tab, which auto-re-expands the sidebar. No explicit `setSidebarCollapsed(false)` needed in click handlers.
 
 ### Deployment
 - **Vercel Output Directory**: Must be blank/default. `dist` setting from old Astro config breaks Next.js builds

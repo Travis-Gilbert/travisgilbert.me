@@ -1,11 +1,13 @@
 'use client';
 
-import { useState, useMemo, useCallback } from 'react';
+import { useState, useMemo } from 'react';
 import { fetchFeed, fetchResurface, useApiData } from '@/lib/commonplace-api';
 import { useCommonPlace } from '@/lib/commonplace-context';
 import type { MockEdge, MockNode } from '@/lib/commonplace';
 import { getObjectTypeIdentity } from '@/lib/commonplace';
-import ObjectCard from './ObjectCard';
+import ObjectRenderer, { type RenderableObject } from './objects/ObjectRenderer';
+import { renderableFromMockNode, renderableFromResurfaceCard } from './objectRenderables';
+import { useRenderableObjectAction } from './useRenderableObjectAction';
 
 /**
  * GridView: masonry card grid as the default CommonPlace view.
@@ -119,7 +121,7 @@ interface GridViewProps {
 }
 
 export default function GridView({ onOpenObject }: GridViewProps) {
-  const { captureVersion, requestView } = useCommonPlace();
+  const { captureVersion, openContextMenu, requestView } = useCommonPlace();
 
   const { data: nodes, loading, error, refetch } = useApiData(
     () => fetchFeed({ per_page: 100 }),
@@ -139,37 +141,28 @@ export default function GridView({ onOpenObject }: GridViewProps) {
     return clusterByAdjacency(base);
   }, [nodes, activeTypes]);
 
-  const handleSelect = useCallback(
-    (nodeId: string) => {
-      const node = (nodes ?? []).find((n) => n.id === nodeId);
-      if (node) onOpenObject?.(node.objectRef);
-    },
-    [onOpenObject, nodes],
+  const handleObjectClick = useRenderableObjectAction(
+    onOpenObject ? (obj) => onOpenObject(obj.id) : undefined,
   );
 
-  const toggleType = useCallback((type: string) => {
+  const toggleType = (type: string) => {
     setActiveTypes((prev) => {
       const next = new Set(prev);
       if (next.has(type)) next.delete(type);
       else next.add(type);
       return next;
     });
-  }, []);
+  };
 
-  const resurfaceNodes: MockNode[] = useMemo(() => {
+  const resurfaceNodes: RenderableObject[] = useMemo(() => {
     if (!resurfaceData) return [];
-    return resurfaceData.cards.map((card) => ({
-      id: String(card.object.id),
-      objectRef: card.object.id,
-      objectSlug: card.object.slug,
-      objectType: card.object.object_type_data?.slug ?? '',
-      title: card.object.display_title ?? card.object.title,
-      summary: card.object.og_description ?? card.object.body.slice(0, 200),
-      capturedAt: card.object.captured_at,
-      edgeCount: card.object.edges.length,
-      edges: [] as MockEdge[],
-    }));
+    return resurfaceData.cards.map(renderableFromResurfaceCard);
   }, [resurfaceData]);
+
+  const gridObjects = useMemo(
+    () => filteredNodes.map(renderableFromMockNode),
+    [filteredNodes],
+  );
 
   return (
     <div className="cp-grid-view">
@@ -252,13 +245,14 @@ export default function GridView({ onOpenObject }: GridViewProps) {
         <div className="cp-resurface-strip">
           <div className="cp-resurface-label">RESURFACE</div>
           <div className="cp-resurface-cards">
-            {resurfaceNodes.map((node) => (
-              <ObjectCard
-                key={node.id}
-                node={node}
-                onSelect={handleSelect}
-                allNodes={nodes ?? []}
-                mode="timeline"
+            {resurfaceNodes.map((obj) => (
+              <ObjectRenderer
+                key={obj.id}
+                object={obj}
+                compact
+                variant="module"
+                onClick={handleObjectClick}
+                onContextMenu={(e, object) => openContextMenu(e.clientX, e.clientY, object)}
               />
             ))}
           </div>
@@ -296,13 +290,13 @@ export default function GridView({ onOpenObject }: GridViewProps) {
 
         {!loading && !error && filteredNodes.length > 0 && (
           <div className="cp-masonry">
-            {filteredNodes.map((node) => (
-              <div key={node.id} className="cp-masonry-item">
-                <ObjectCard
-                  node={node}
-                  onSelect={handleSelect}
-                  allNodes={nodes ?? []}
-                  mode="grid"
+            {gridObjects.map((obj) => (
+              <div key={obj.id} className="cp-masonry-item">
+                <ObjectRenderer
+                  object={obj}
+                  variant="module"
+                  onClick={handleObjectClick}
+                  onContextMenu={(e, object) => openContextMenu(e.clientX, e.clientY, object)}
                 />
               </div>
             ))}

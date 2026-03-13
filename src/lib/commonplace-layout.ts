@@ -106,7 +106,8 @@ export function createSplit(
 
 function viewTypeLabel(viewType: ViewType): string {
   const labels: Record<ViewType, string> = {
-    grid: 'Library',
+    library: 'Library',
+    grid: 'All Objects',
     timeline: 'Timeline',
     'scoped-timeline': 'My Timelines',
     network: 'Map',
@@ -133,45 +134,68 @@ export const LAYOUT_PRESETS: SavedLayout[] = [
   {
     name: 'Focus',
     isPreset: true,
-    tree: createLeaf('grid', 'Library'),
-  },
-  {
-    name: 'Compare',
-    isPreset: true,
-    tree: createSplit(
-      'horizontal',
-      createLeaf('timeline', 'Timeline'),
-      createLeaf('empty', 'Empty')
-    ),
+    tree: {
+      type: 'leaf',
+      id: 'focus',
+      tabs: [{ id: 'library-1', viewType: 'library', label: 'Library' }],
+      activeTabIndex: 0,
+    },
   },
   {
     name: 'Research',
     isPreset: true,
-    tree: createSplit(
-      'horizontal',
-      createLeaf('timeline', 'Timeline'),
-      createSplit(
-        'vertical',
-        createLeaf('network', 'Map'),
-        createLeaf('empty', 'Object Detail'),
-        0.55
-      ),
-      0.45
-    ),
+    tree: {
+      type: 'split',
+      id: 'research-split',
+      direction: 'horizontal',
+      ratio: 0.55,
+      first: {
+        type: 'leaf',
+        id: 'research-left',
+        tabs: [{ id: 'library-2', viewType: 'library', label: 'Library' }],
+        activeTabIndex: 0,
+      },
+      second: {
+        type: 'leaf',
+        id: 'research-right',
+        tabs: [{ id: 'timeline-1', viewType: 'timeline', label: 'Timeline' }],
+        activeTabIndex: 0,
+      },
+    },
   },
   {
-    name: 'Connect',
+    name: 'Studio',
     isPreset: true,
-    tree: createSplit(
-      'horizontal',
-      createLeaf('network', 'Map'),
-      createSplit(
-        'vertical',
-        createLeaf('empty', 'Object A'),
-        createLeaf('empty', 'Object B')
-      ),
-      0.5
-    ),
+    tree: {
+      type: 'split',
+      id: 'studio-split',
+      direction: 'horizontal',
+      ratio: 0.33,
+      first: {
+        type: 'leaf',
+        id: 'studio-left',
+        tabs: [{ id: 'timeline-2', viewType: 'timeline', label: 'Timeline' }],
+        activeTabIndex: 0,
+      },
+      second: {
+        type: 'split',
+        id: 'studio-right-split',
+        direction: 'horizontal',
+        ratio: 0.55,
+        first: {
+          type: 'leaf',
+          id: 'studio-center',
+          tabs: [{ id: 'compose-1', viewType: 'compose', label: 'Compose' }],
+          activeTabIndex: 0,
+        },
+        second: {
+          type: 'leaf',
+          id: 'studio-right',
+          tabs: [{ id: 'library-3', viewType: 'library', label: 'Library' }],
+          activeTabIndex: 0,
+        },
+      },
+    },
   },
 ];
 
@@ -296,7 +320,7 @@ export function closeTab(
 ): PaneNode {
   if (tree.id === paneId && tree.type === 'leaf') {
     if (tree.tabs.length <= 1) {
-      // Last tab: replace with empty
+      // Last tab: replace with empty (closeTabOrPane handles pane removal)
       return {
         ...tree,
         tabs: [{ id: generateTabId(), viewType: 'empty', label: 'Empty' }],
@@ -315,6 +339,22 @@ export function closeTab(
     };
   }
   return tree;
+}
+
+/** Close a tab; if it was the last tab in a non-root pane, close the pane too */
+export function closeTabOrPane(
+  tree: PaneNode,
+  paneId: string,
+  tabIndex: number
+): PaneNode {
+  const target = findPane(tree, paneId);
+  if (!target || target.type !== 'leaf') return tree;
+
+  if (target.tabs.length <= 1) {
+    // Last tab: close the entire pane (root falls back to empty leaf)
+    return closePane(tree, paneId);
+  }
+  return closeTab(tree, paneId, tabIndex);
 }
 
 /** Set active tab in a leaf pane */
@@ -370,6 +410,42 @@ export function deserializeLayout(json: string): PaneNode | null {
   }
 }
 
+function leafHasMeaningfulTab(node: LeafPane): boolean {
+  return node.tabs.some((tab) => tab.viewType !== 'empty');
+}
+
+export function summarizeLayout(node: PaneNode): {
+  leafCount: number;
+  emptyLeafCount: number;
+  meaningfulLeafCount: number;
+} {
+  if (node.type === 'leaf') {
+    const meaningful = leafHasMeaningfulTab(node);
+    return {
+      leafCount: 1,
+      emptyLeafCount: meaningful ? 0 : 1,
+      meaningfulLeafCount: meaningful ? 1 : 0,
+    };
+  }
+
+  const first = summarizeLayout(node.first);
+  const second = summarizeLayout(node.second);
+  return {
+    leafCount: first.leafCount + second.leafCount,
+    emptyLeafCount: first.emptyLeafCount + second.emptyLeafCount,
+    meaningfulLeafCount: first.meaningfulLeafCount + second.meaningfulLeafCount,
+  };
+}
+
+export function shouldDiscardPersistedLayout(node: PaneNode): boolean {
+  const summary = summarizeLayout(node);
+
+  if (summary.meaningfulLeafCount === 0) return true;
+  if (summary.emptyLeafCount >= 3) return true;
+
+  return summary.leafCount >= 4 && summary.emptyLeafCount >= summary.meaningfulLeafCount;
+}
+
 /* ─────────────────────────────────────────────────
    Keyboard shortcut definitions
    ───────────────────────────────────────────────── */
@@ -391,7 +467,6 @@ export const KEY_BINDINGS: KeyBinding[] = [
   { key: 'Tab', ctrl: true, label: 'Next Tab', action: 'next-tab' },
   { key: 'Tab', ctrl: true, shift: true, label: 'Previous Tab', action: 'prev-tab' },
   { key: '1', ctrl: true, alt: true, label: 'Focus Layout', action: 'preset-focus' },
-  { key: '2', ctrl: true, alt: true, label: 'Compare Layout', action: 'preset-compare' },
-  { key: '3', ctrl: true, alt: true, label: 'Research Layout', action: 'preset-research' },
-  { key: '4', ctrl: true, alt: true, label: 'Connect Layout', action: 'preset-connect' },
+  { key: '2', ctrl: true, alt: true, label: 'Research Layout', action: 'preset-research' },
+  { key: '3', ctrl: true, alt: true, label: 'Studio Layout', action: 'preset-studio' },
 ];

@@ -59,11 +59,16 @@ except ImportError:
 # ---------------------------------------------------------------------------
 
 try:
-    from apps.research.advanced_nlp import HAS_PYTORCH, batch_encode
+    from apps.research.advanced_nlp import (
+        HAS_PYTORCH,
+        batch_encode,
+        get_active_sentence_model_name,
+    )
     _SBERT_AVAILABLE = HAS_PYTORCH
 except ImportError:
     _SBERT_AVAILABLE = False
     batch_encode = None
+    get_active_sentence_model_name = None
 
 # ---------------------------------------------------------------------------
 # Default embeddings directory
@@ -190,6 +195,161 @@ class KGEStore:
         return results
 
 
+class TemporalKGEStore(KGEStore):
+    """
+    KGE store with optional time-bucketed neighborhood profiles.
+
+    Static embeddings still drive the base structural similarity. Temporal
+    profiles add a second signal that measures whether two entities are
+    becoming more structurally aligned in recent graph history.
+    """
+
+    def __init__(self, embeddings_dir: Path | None = None):
+        super().__init__(embeddings_dir=embeddings_dir)
+        self.temporal_profiles: dict[str, dict[str, dict[str, float]]] = {}
+        self.time_buckets: list[str] = []
+
+    def load(self) -> bool:
+        loaded = super().load()
+
+        profiles_path = self.embeddings_dir / 'temporal_profiles.json'
+        if profiles_path.exists():
+            try:
+                with open(profiles_path) as f:
+                    payload = json.load(f)
+                self.temporal_profiles = payload.get('entity_profiles', {}) or {}
+                self.time_buckets = sorted(payload.get('bucket_order', []) or [])
+                logger.info(
+                    'Temporal KGE profiles loaded: %d entities across %d buckets',
+                    len(self.temporal_profiles),
+                    len(self.time_buckets),
+                )
+            except Exception as exc:
+                logger.warning('Temporal KGE profile load failed: %s', exc)
+
+        return loaded
+
+    def _bucket_windows(self, lookback_weeks: int) -> tuple[list[str], list[str]]:
+        if not self.time_buckets:
+            return [], []
+        window = max(int(lookback_weeks), 1)
+        recent = self.time_buckets[-window:]
+        past = self.time_buckets[-(window * 2):-window]
+        return past, recent
+
+    def _aggregate_neighbors(self, sha_hash: str, buckets: list[str]) -> dict[str, float]:
+        profiles = self.temporal_profiles.get(sha_hash, {})
+        totals: dict[str, float] = {}
+
+        for bucket in buckets:
+            for neighbor_sha, weight in profiles.get(bucket, {}).items():
+                totals[neighbor_sha] = totals.get(neighbor_sha, 0.0) + float(weight)
+
+        return totals
+
+    def _direct_strength(
+        self,
+        source_sha: str,
+        target_sha: str,
+        buckets: list[str],
+    ) -> float:
+        profile = self.temporal_profiles.get(source_sha, {})
+        if not profile or not buckets:
+            return 0.0
+        return max(float(profile.get(bucket, {}).get(target_sha, 0.0)) for bucket in buckets)
+
+    def _weighted_overlap(
+        self,
+        left: dict[str, float],
+        right: dict[str, float],
+    ) -> float:
+        if not left or not right:
+            return 0.0
+
+        keys = set(left) | set(right)
+        dot = sum(left.get(key, 0.0) * right.get(key, 0.0) for key in keys)
+        left_norm = sum(value * value for value in left.values()) ** 0.5
+        right_norm = sum(value * value for value in right.values()) ** 0.5
+
+        if left_norm == 0.0 or right_norm == 0.0:
+            return 0.0
+        return float(dot / (left_norm * right_norm))
+
+    def find_emerging_connections(
+        self,
+        sha_hash: str,
+        lookback_weeks: int = 4,
+        top_n: int = 10,
+        threshold: float = 0.05,
+    ) -> list[dict]:
+        """
+        Find structurally similar entities whose overlap is increasing.
+
+        This compares neighborhood overlap in the recent window against the
+        preceding window and combines that trend with the static KGE score.
+        """
+        if not self.is_loaded or self.entity_embeddings is None or not self.temporal_profiles:
+            return []
+
+        past_buckets, recent_buckets = self._bucket_windows(lookback_weeks)
+        if not recent_buckets:
+            return []
+
+        recent_profile = self._aggregate_neighbors(sha_hash, recent_buckets)
+        past_profile = self._aggregate_neighbors(sha_hash, past_buckets)
+
+        candidates = self.find_similar_entities(
+            sha_hash=sha_hash,
+            top_n=max(top_n * 4, top_n),
+            threshold=0.0,
+        )
+        if not candidates:
+            return []
+
+        results = []
+        for candidate in candidates:
+            candidate_sha = candidate['sha_hash']
+            candidate_recent = self._aggregate_neighbors(candidate_sha, recent_buckets)
+            candidate_past = self._aggregate_neighbors(candidate_sha, past_buckets)
+
+            recent_overlap = self._weighted_overlap(recent_profile, candidate_recent)
+            past_overlap = self._weighted_overlap(past_profile, candidate_past)
+            overlap_delta = max(recent_overlap - past_overlap, 0.0)
+
+            direct_recent = self._direct_strength(sha_hash, candidate_sha, recent_buckets)
+            direct_past = self._direct_strength(sha_hash, candidate_sha, past_buckets)
+            direct_delta = max(direct_recent - direct_past, 0.0)
+
+            trend_delta = max(overlap_delta, direct_delta)
+            if trend_delta < threshold:
+                continue
+
+            score = round(
+                (float(candidate['score']) * 0.6)
+                + (overlap_delta * 0.25)
+                + (direct_delta * 0.15),
+                4,
+            )
+            results.append(
+                {
+                    'sha_hash': candidate_sha,
+                    'score': score,
+                    'static_score': round(float(candidate['score']), 4),
+                    'trend_delta': round(trend_delta, 4),
+                    'recent_overlap': round(recent_overlap, 4),
+                    'past_overlap': round(past_overlap, 4),
+                    'recent_direct': round(direct_recent, 4),
+                    'past_direct': round(direct_past, 4),
+                },
+            )
+
+        results.sort(
+            key=lambda item: (item['trend_delta'], item['score']),
+            reverse=True,
+        )
+        return results[:top_n]
+
+
 # ---------------------------------------------------------------------------
 # SBERT FAISS Index
 # ---------------------------------------------------------------------------
@@ -199,6 +359,7 @@ _SBERT_RUNTIME_CACHE: dict[str, Any] = {
     'object_pks': [],
     'built_at': None,
     'size': 0,
+    'model_name': '',
 }
 _SBERT_CACHE_KEY = 'notebook:sbert_faiss_index:v1'
 _SBERT_INDEX_MAX_AGE_SECONDS = 7200  # 2 hours
@@ -240,7 +401,13 @@ def _deserialize_faiss_index(payload: bytes):
     return faiss.deserialize_index(arr)
 
 
-def _set_shared_index_cache(index, object_pks: list[int], size: int, built_at: float) -> None:
+def _set_shared_index_cache(
+    index,
+    object_pks: list[int],
+    size: int,
+    built_at: float,
+    model_name: str,
+) -> None:
     cache = _get_django_cache()
     if cache is None or index is None:
         return
@@ -253,6 +420,7 @@ def _set_shared_index_cache(index, object_pks: list[int], size: int, built_at: f
                 'object_pks': object_pks,
                 'size': int(size),
                 'built_at': float(built_at),
+                'model_name': model_name,
             },
             timeout=_SBERT_INDEX_MAX_AGE_SECONDS,
         )
@@ -290,6 +458,7 @@ def _hydrate_runtime_cache(payload: dict) -> dict | None:
         _SBERT_RUNTIME_CACHE['object_pks'] = payload.get('object_pks', [])
         _SBERT_RUNTIME_CACHE['built_at'] = payload.get('built_at')
         _SBERT_RUNTIME_CACHE['size'] = payload.get('size', 0)
+        _SBERT_RUNTIME_CACHE['model_name'] = payload.get('model_name', '')
         return _SBERT_RUNTIME_CACHE
     except Exception as exc:
         logger.debug('Failed hydrating runtime SBERT cache: %s', exc)
@@ -302,6 +471,7 @@ def invalidate_sbert_index() -> None:
     _SBERT_RUNTIME_CACHE['built_at'] = None
     _SBERT_RUNTIME_CACHE['size'] = 0
     _SBERT_RUNTIME_CACHE['object_pks'] = []
+    _SBERT_RUNTIME_CACHE['model_name'] = ''
 
     cache = _get_django_cache()
     if cache is not None:
@@ -326,12 +496,25 @@ def _build_sbert_faiss_index(max_objects: int = 5000) -> dict | None:
 
     current_count = Object.objects.filter(is_deleted=False).count()
     runtime = _SBERT_RUNTIME_CACHE
+    expected_model_name = (
+        get_active_sentence_model_name()
+        if callable(get_active_sentence_model_name)
+        else ''
+    )
 
-    if runtime['index'] is not None and _is_cache_fresh(runtime['built_at'], runtime['size'], current_count):
+    if (
+        runtime['index'] is not None
+        and runtime.get('model_name', '') == expected_model_name
+        and _is_cache_fresh(runtime['built_at'], runtime['size'], current_count)
+    ):
         return runtime
 
     shared_payload = _load_shared_index_cache()
-    if shared_payload and _is_cache_fresh(shared_payload.get('built_at'), shared_payload.get('size', 0), current_count):
+    if (
+        shared_payload
+        and shared_payload.get('model_name', '') == expected_model_name
+        and _is_cache_fresh(shared_payload.get('built_at'), shared_payload.get('size', 0), current_count)
+    ):
         hydrated = _hydrate_runtime_cache(shared_payload)
         if hydrated is not None:
             return hydrated
@@ -353,7 +536,7 @@ def _build_sbert_faiss_index(max_objects: int = 5000) -> dict | None:
     pks = [obj.pk for obj in objects]
 
     try:
-        embeddings = batch_encode(texts)
+        embeddings = batch_encode(texts, task='similarity', role='document')
         if embeddings is None or len(embeddings) == 0:
             return None
 
@@ -373,8 +556,9 @@ def _build_sbert_faiss_index(max_objects: int = 5000) -> dict | None:
         runtime['object_pks'] = pks
         runtime['built_at'] = built_at
         runtime['size'] = current_count
+        runtime['model_name'] = expected_model_name
 
-        _set_shared_index_cache(index, pks, current_count, built_at)
+        _set_shared_index_cache(index, pks, current_count, built_at, expected_model_name)
 
         logger.info('SBERT FAISS index built: %d vectors, dim=%d', len(objects), dim)
         return runtime
@@ -385,7 +569,7 @@ def _build_sbert_faiss_index(max_objects: int = 5000) -> dict | None:
 
 
 def _encode_query_text(text: str):
-    my_emb = batch_encode([text])
+    my_emb = batch_encode([text], task='similarity', role='query')
     if my_emb is None or len(my_emb) == 0:
         return None
 
@@ -506,4 +690,4 @@ def faiss_find_similar_text(
 # Module-level singletons (populated in AppConfig.ready())
 # ---------------------------------------------------------------------------
 
-kge_store = KGEStore()
+kge_store = TemporalKGEStore()

@@ -30,7 +30,7 @@ import time
 
 from django.db.models import Q
 
-from .models import Edge, Node, Object, ObjectType, ResolvedEntity, Timeline
+from .models import Claim, Edge, Node, Object, ObjectType, ResolvedEntity, Timeline
 
 logger = logging.getLogger(__name__)
 
@@ -119,20 +119,34 @@ STOP_WORDS = {
     'all', 'each', 'every', 'both', 'few', 'most', 'other', 'into',
     'over', 'such', 'only', 'own', 'same', 'here', 'there', 'they',
     'them', 'their', 'my', 'your', 'our',
+    # Common verbs and filler
+    'use', 'used', 'using', 'make', 'made', 'way', 'get', 'got', 'new',
+    # Web artifacts and code noise
+    'http', 'https', 'www', 'com', 'org', 'net', 'edu', 'gov',
+    'html', 'htm', 'php', 'asp', 'jsp', 'css', 'pdf', 'png', 'jpg',
+    'svg', 'gif', 'xml', 'json', 'api', 'url', 'src', 'img', 'div', 'app',
+    'npm', 'npx', 'tsx', 'jsx', 'vue',
+    'javascript', 'webpack', 'github', 'stackoverflow',
+    'readme', 'changelog', 'license', 'node_modules', 'package',
+    'yaml', 'config', 'undefined', 'null', 'nan', 'true', 'false',
+    'localhost', 'endpoint', 'param', 'query', 'string',
+    # Code keywords
+    'var', 'let', 'const', 'function', 'return', 'import', 'export',
+    'class', 'type', 'interface', 'number', 'boolean',
+    'async', 'await',
 }
 
 DEFAULT_ENGINE_CONFIG = {
     'engines': ['spacy'],
-    'topic_threshold': 0.3,
+    'topic_threshold': 0.4,
     'max_candidates': 500,
 }
 
 HIGH_NOVELTY_CONFIG = {
-    'engines': ['spacy', 'sbert', 'tfidf', 'kge'],
+    'engines': ['spacy', 'sbert', 'kge', 'causal'],
     'topic_threshold': 0.10,
     'max_candidates': 1000,
     'sbert_threshold': 0.45,
-    'tfidf_threshold': 0.20,
     'kge_threshold': 0.60,
     'nli_enabled': True,
     'entity_types': [
@@ -158,8 +172,10 @@ def interpolate_config(novelty: float) -> dict:
             conservative['max_candidates']
             + (aggressive['max_candidates'] - conservative['max_candidates']) * novelty
         ),
+        'bm25_threshold': (
+            1.5 - (1.5 - 0.3) * novelty  # Range: 1.5 (conservative) to 0.3 (aggressive)
+        ),
         'sbert_threshold': aggressive.get('sbert_threshold', 0.45),
-        'tfidf_threshold': aggressive.get('tfidf_threshold', 0.20),
         'kge_threshold': aggressive.get('kge_threshold', 0.60),
         'nli_enabled': novelty > 0.7,
         'entity_types': (
@@ -185,11 +201,11 @@ def get_engine_config(notebook=None) -> dict:
 def _get_active_engines(config: dict, object_count: int) -> set[str]:
     """
     Determine active engines based on config and corpus size.
-    TF-IDF auto-activates at 500+ objects regardless of config.
+    BM25 auto-activates at 2+ objects (replaces Jaccard and TF-IDF).
     """
     engines = set(config.get('engines', ['spacy']))
-    if object_count >= 500:
-        engines.add('tfidf')
+    if object_count >= 2:
+        engines.add('bm25')
     return engines
 
 
@@ -225,7 +241,10 @@ def _build_full_text(obj: Object) -> str:
         else:
             parts.append(str(val))
 
-    return ' '.join(p for p in parts if p)
+    text = ' '.join(p for p in parts if p)
+    text = re.sub(r'https?://[^\s]+', '', text)
+    text = re.sub(r'[a-zA-Z0-9.-]+\.(com|org|net|edu|gov|io)\b', '', text)
+    return text
 
 
 # ---------------------------------------------------------------------------
@@ -298,6 +317,71 @@ def extract_entities(obj: Object, config: dict | None = None) -> list[ResolvedEn
                 },
             )
 
+    # Tier 2: Graph-learned entity recognition
+    try:
+        from .adaptive_ner import extract_graph_entities
+        graph_entities = extract_graph_entities(obj, nlp, config)
+
+        for ent_text, type_slug, start, end in graph_entities:
+            normalized = ent_text.lower().strip()
+
+            # Skip if spaCy already found this entity
+            if ResolvedEntity.objects.filter(
+                source_object=obj,
+                normalized_text=normalized,
+            ).exists():
+                continue
+
+            # Find the matching Object
+            resolved_object = (
+                Object.objects
+                .filter(
+                    object_type__slug=type_slug,
+                    is_deleted=False,
+                )
+                .filter(
+                    Q(title__iexact=ent_text)
+                    | Q(search_text__icontains=normalized)
+                )
+                .first()
+            )
+
+            if not resolved_object or resolved_object.id == obj.id:
+                continue
+
+            # Map ObjectType slug to spaCy entity type label
+            SLUG_TO_ENTITY_TYPE = {
+                'person': 'PERSON', 'organization': 'ORG',
+                'place': 'GPE', 'event': 'EVENT',
+                'source': 'WORK_OF_ART', 'concept': 'CONCEPT',
+            }
+            entity_type = SLUG_TO_ENTITY_TYPE.get(type_slug, type_slug.upper())
+
+            entity = ResolvedEntity.objects.create(
+                source_object=obj,
+                text=ent_text,
+                entity_type=entity_type,
+                normalized_text=normalized,
+                resolved_object=resolved_object,
+            )
+            entities.append(entity)
+
+            # Create edge
+            Edge.objects.get_or_create(
+                from_object=obj,
+                to_object=resolved_object,
+                edge_type='mentions',
+                defaults={
+                    'reason': f'Mentions {ent_text} (recognized from knowledge graph).',
+                    'strength': 0.75,
+                    'is_auto': True,
+                    'engine': 'graph_ner',
+                },
+            )
+
+    except Exception as exc:
+        logger.debug('Graph-learned NER failed: %s', exc)
+
     return entities
 
 
@@ -352,6 +436,7 @@ def find_shared_entity_connections(obj: Object, config: dict | None = None) -> l
 
 def _synthesize_topic_reason(my_keywords: set, other_keywords: set, obj_a, obj_b) -> str:
     overlap = my_keywords & other_keywords
+    overlap = {t for t in overlap if len(t) >= 5}
     top = sorted(overlap, key=len, reverse=True)[:4]
     type_a = obj_a.object_type.name if obj_a.object_type else 'note'
 
@@ -369,7 +454,7 @@ def find_topic_connections(obj: Object, config: dict | None = None) -> list[Edge
     if config is None:
         config = DEFAULT_ENGINE_CONFIG
 
-    threshold = config.get('topic_threshold', 0.3)
+    threshold = config.get('topic_threshold', 0.4)
     max_candidates = config.get('max_candidates', 500)
 
     my_text = _build_full_text(obj)
@@ -401,7 +486,7 @@ def find_topic_connections(obj: Object, config: dict | None = None) -> list[Edge
         jaccard = len(overlap) / len(union)
         strength = min(jaccard * 2, 1.0)
 
-        if jaccard >= threshold and len(overlap) >= 3:
+        if jaccard >= threshold and len(overlap) >= 5:
             reason = (
                 _llm_explanation(obj, other, strength=strength)
                 or _synthesize_topic_reason(my_keywords, other_keywords, obj, other)
@@ -747,28 +832,152 @@ def _synthesize_entailment_reason(obj_a, obj_b, similarity, prob) -> str:
     )
 
 
+def _claim_excerpt(text: str, max_length: int = 90) -> str:
+    cleaned = ' '.join((text or '').split()).strip()
+    if len(cleaned) <= max_length:
+        return cleaned
+    return f'{cleaned[:max_length - 3].rstrip()}...'
+
+
+def _replace_claims_for_object(obj: Object, claim_texts: list[str]) -> list[str]:
+    cleaned_claims = []
+    seen: set[str] = set()
+
+    for claim_text in claim_texts:
+        cleaned = ' '.join((claim_text or '').split()).strip()
+        normalized = cleaned.lower()
+        if len(cleaned) < 20 or normalized in seen:
+            continue
+        seen.add(normalized)
+        cleaned_claims.append(cleaned)
+
+    Claim.objects.filter(source_object=obj).delete()
+    if not cleaned_claims:
+        return []
+
+    Claim.objects.bulk_create(
+        [
+            Claim(
+                source_object=obj,
+                text=claim_text,
+                claim_index=index,
+            )
+            for index, claim_text in enumerate(cleaned_claims)
+        ],
+    )
+    return cleaned_claims
+
+
+def _get_or_build_claims(obj: Object) -> list[str]:
+    existing = list(
+        obj.claims.order_by('claim_index').values_list('text', flat=True),
+    )
+    if existing:
+        return existing
+
+    from .claim_decomposition import decompose_claims
+
+    full_text = _build_full_text(obj)
+    if not full_text or len(full_text) < 20:
+        return []
+
+    return _replace_claims_for_object(
+        obj,
+        decompose_claims(full_text, nlp=nlp),
+    )
+
+
+def _synthesize_claim_conflict_reason(
+    my_claim: str,
+    their_claim: str,
+    contradiction_prob: float,
+    similarity: float,
+) -> str:
+    return (
+        f'Claim conflict detected. "{_claim_excerpt(my_claim)}" conflicts with '
+        f'"{_claim_excerpt(their_claim)}" '
+        f'({contradiction_prob:.0%} contradiction, {similarity:.0%} semantic overlap).'
+    )
+
+
+def _synthesize_claim_support_reason(
+    my_claim: str,
+    their_claim: str,
+    entailment_prob: float,
+    similarity: float,
+) -> str:
+    return (
+        f'Claim alignment detected. "{_claim_excerpt(my_claim)}" aligns with '
+        f'"{_claim_excerpt(their_claim)}" '
+        f'({entailment_prob:.0%} entailment, {similarity:.0%} semantic overlap).'
+    )
+
+
+def _upsert_auto_edge(
+    *,
+    from_object: Object,
+    to_object: Object,
+    edge_type: str,
+    reason: str,
+    strength: float,
+    engine_name: str,
+) -> tuple[Edge, bool]:
+    edge, created = Edge.objects.get_or_create(
+        from_object=from_object,
+        to_object=to_object,
+        edge_type=edge_type,
+        defaults={
+            'reason': reason,
+            'strength': strength,
+            'is_auto': True,
+            'engine': engine_name,
+        },
+    )
+    if created:
+        return edge, True
+
+    if edge.is_auto or edge.engine in {'', engine_name}:
+        edge.reason = reason
+        edge.strength = strength
+        edge.is_auto = True
+        edge.engine = engine_name
+        edge.save()
+
+    return edge, False
+
+
 def _run_nli_contradiction_pass(obj: Object, config: dict) -> list[Edge]:
     """
-    NLI contradiction/support detection. Dev/local only.
-    SBERT pre-screens candidates before NLI to avoid O(n^2) inference cost.
+    Claim-level NLI contradiction/support detection.
+
+    The pass stores sentence-sized claims for the source object, screens
+    candidate objects with SBERT, then runs NLI on the most similar claim pairs
+    so edge reasons can cite the specific supporting or conflicting claims.
     """
-    if not _SBERT_AVAILABLE:
+    if not _SBERT_AVAILABLE or not HAS_PYTORCH:
         return []
 
     try:
-        from apps.research.advanced_nlp import analyze_pair
-        if not HAS_PYTORCH:
-            return []
+        from apps.research.advanced_nlp import classify_relationship
+        from .claim_decomposition import decompose_claims
     except ImportError:
         return []
 
     contradiction_threshold = config.get('contradiction_threshold', 0.60)
-    entailment_threshold = config.get('entailment_threshold', 0.65)
+    entailment_threshold = config.get('entailment_threshold', 0.70)
     similarity_gate = config.get('nli_similarity_gate', 0.40)
+    claim_similarity_gate = config.get('claim_similarity_gate', 0.30)
     max_nli_candidates = config.get('max_nli_candidates', 30)
 
     my_text = _build_full_text(obj)
     if not my_text or len(my_text) < 30:
+        return []
+
+    my_claims = _replace_claims_for_object(
+        obj,
+        decompose_claims(my_text, nlp=nlp),
+    )
+    if not my_claims:
         return []
 
     candidates = list(
@@ -803,61 +1012,102 @@ def _run_nli_contradiction_pass(obj: Object, config: dict) -> list[Edge]:
         if not other:
             continue
 
-        other_text = _build_full_text(other)
-        if not other_text or len(other_text) < 30:
+        other_claims = _get_or_build_claims(other)
+        if not other_claims:
             continue
 
-        try:
-            analysis = analyze_pair(my_text, other_text)
-        except Exception as exc:
-            logger.warning('analyze_pair failed: %s', exc)
-            continue
+        best_contradiction = None
+        best_entailment = None
 
-        relationship = analysis.get('relationship')
-        if not relationship:
-            continue
+        for my_claim in my_claims:
+            for their_claim in other_claims:
+                try:
+                    similarity = sentence_similarity(my_claim, their_claim)
+                except Exception as exc:
+                    logger.warning('Claim similarity failed: %s', exc)
+                    continue
 
-        probs = relationship.get('probabilities', {})
-        contradiction_prob = probs.get('contradiction', 0.0)
-        entailment_prob = probs.get('entailment', 0.0)
-        similarity = analysis.get('similarity') or match['similarity']
+                if similarity is None or similarity < claim_similarity_gate:
+                    continue
 
-        if contradiction_prob >= contradiction_threshold:
-            strength = round(contradiction_prob * float(similarity), 4)
+                try:
+                    result = classify_relationship(my_claim, their_claim)
+                except Exception as exc:
+                    logger.warning('Claim-level NLI failed: %s', exc)
+                    continue
+
+                if not result:
+                    continue
+
+                probs = result.get('probabilities', {})
+                contradiction_prob = float(probs.get('contradiction', 0.0) or 0.0)
+                entailment_prob = float(probs.get('entailment', 0.0) or 0.0)
+                strength = float(similarity) * max(contradiction_prob, entailment_prob)
+
+                if contradiction_prob >= contradiction_threshold and (
+                    best_contradiction is None
+                    or strength > best_contradiction['strength']
+                ):
+                    best_contradiction = {
+                        'my_claim': my_claim,
+                        'their_claim': their_claim,
+                        'similarity': float(similarity),
+                        'probability': contradiction_prob,
+                        'strength': strength,
+                    }
+
+                if entailment_prob >= entailment_threshold and (
+                    best_entailment is None
+                    or strength > best_entailment['strength']
+                ):
+                    best_entailment = {
+                        'my_claim': my_claim,
+                        'their_claim': their_claim,
+                        'similarity': float(similarity),
+                        'probability': entailment_prob,
+                        'strength': strength,
+                    }
+
+        if best_contradiction:
+            strength = round(best_contradiction['strength'], 4)
             reason = (
                 _llm_explanation(obj, other, strength=strength)
-                or _synthesize_contradiction_reason(obj, other, float(similarity), contradiction_prob)
+                or _synthesize_claim_conflict_reason(
+                    best_contradiction['my_claim'],
+                    best_contradiction['their_claim'],
+                    best_contradiction['probability'],
+                    best_contradiction['similarity'],
+                )
             )
-            edge, created = Edge.objects.get_or_create(
+            edge, created = _upsert_auto_edge(
                 from_object=obj,
                 to_object=other,
                 edge_type='contradicts',
-                defaults={
-                    'reason': reason,
-                    'strength': strength,
-                    'is_auto': True,
-                    'engine': 'nli',
-                },
+                reason=reason,
+                strength=strength,
+                engine_name='nli',
             )
             if created:
                 new_edges.append(edge)
 
-        elif entailment_prob >= entailment_threshold:
-            strength = round(entailment_prob * float(similarity), 4)
+        if best_entailment:
+            strength = round(best_entailment['strength'], 4)
             reason = (
                 _llm_explanation(obj, other, strength=strength)
-                or _synthesize_entailment_reason(obj, other, float(similarity), entailment_prob)
+                or _synthesize_claim_support_reason(
+                    best_entailment['my_claim'],
+                    best_entailment['their_claim'],
+                    best_entailment['probability'],
+                    best_entailment['similarity'],
+                )
             )
-            edge, created = Edge.objects.get_or_create(
+            edge, created = _upsert_auto_edge(
                 from_object=obj,
                 to_object=other,
                 edge_type='supports',
-                defaults={
-                    'reason': reason,
-                    'strength': strength,
-                    'is_auto': True,
-                    'engine': 'nli',
-                },
+                reason=reason,
+                strength=strength,
+                engine_name='nli',
             )
             if created:
                 new_edges.append(edge)
@@ -882,6 +1132,44 @@ def _synthesize_kge_reason(obj_a: Object, obj_b: Object, score: float) -> str:
         f'in the knowledge graph -- they are cited by, or cite, similar things '
         f'(graph similarity: {score:.0%}). '
         f'They may play the same conceptual role in different contexts.'
+    )
+
+
+def _synthesize_temporal_kge_reason(
+    obj_a: Object,
+    obj_b: Object,
+    recent_overlap: float,
+    past_overlap: float,
+    trend_delta: float,
+) -> str:
+    type_a = obj_a.object_type.name.lower() if obj_a.object_type else 'note'
+    type_b = obj_b.object_type.name.lower() if obj_b.object_type else 'note'
+    return (
+        f'This {type_a} and this {type_b} are becoming more structurally aligned '
+        f'in recent graph activity ({recent_overlap:.0%} recent overlap, up from '
+        f'{past_overlap:.0%}; trend delta {trend_delta:.0%}). '
+        f'This suggests an emerging connection worth revisiting.'
+    )
+
+
+def _synthesize_causal_reason(
+    source_obj: Object,
+    target_obj: Object,
+    claim_pair: dict | None,
+    strength: float,
+) -> str:
+    if claim_pair:
+        return (
+            f'Influence chain detected. "{_claim_excerpt(claim_pair["from_claim"])}" '
+            f'appears to inform "{_claim_excerpt(claim_pair["to_claim"])}" '
+            f'with temporal precedence from "{source_obj.display_title[:60]}" to '
+            f'"{target_obj.display_title[:60]}" (strength: {strength:.0%}).'
+        )
+
+    return (
+        f'Influence chain detected from "{source_obj.display_title[:60]}" to '
+        f'"{target_obj.display_title[:60]}" with temporal precedence '
+        f'(strength: {strength:.0%}).'
     )
 
 
@@ -915,6 +1203,8 @@ def _run_kge_engine(obj: Object, config: dict) -> list[Edge]:
         return []
 
     threshold = config.get('kge_threshold', 0.60)
+    temporal_threshold = config.get('kge_temporal_threshold', 0.05)
+    temporal_lookback_weeks = config.get('kge_temporal_lookback_weeks', 4)
 
     try:
         matches = kge_store.find_similar_entities(
@@ -926,13 +1216,24 @@ def _run_kge_engine(obj: Object, config: dict) -> list[Edge]:
         logger.warning('KGE find_similar_entities failed: %s', exc)
         return []
 
-    if not matches:
+    try:
+        temporal_matches = kge_store.find_emerging_connections(
+            sha_hash=sha,
+            lookback_weeks=temporal_lookback_weeks,
+            top_n=10,
+            threshold=temporal_threshold,
+        )
+    except Exception as exc:
+        logger.warning('Temporal KGE emerging-connection lookup failed: %s', exc)
+        temporal_matches = []
+
+    if not matches and not temporal_matches:
         return []
 
     sha_map = {
         o.sha_hash: o
         for o in Object.objects.filter(
-            sha_hash__in=[m['sha_hash'] for m in matches],
+            sha_hash__in=[m['sha_hash'] for m in matches + temporal_matches],
             is_deleted=False,
         ).select_related('object_type')
     }
@@ -950,16 +1251,102 @@ def _run_kge_engine(obj: Object, config: dict) -> list[Edge]:
             or _synthesize_kge_reason(obj, other, score)
         )
 
-        edge, created = Edge.objects.get_or_create(
+        edge, created = _upsert_auto_edge(
             from_object=obj,
             to_object=other,
-            edge_type='shared_topic',
-            defaults={
-                'reason': reason,
-                'strength': round(score, 4),
-                'is_auto': True,
-                'engine': 'kge',
+            edge_type='structural',
+            reason=reason,
+            strength=round(score, 4),
+            engine_name='kge',
+        )
+        if created:
+            new_edges.append(edge)
+
+    for match in temporal_matches:
+        other = sha_map.get(match['sha_hash'])
+        if not other or other.pk == obj.pk:
+            continue
+
+        score = match['score']
+        reason = (
+            _llm_explanation(obj, other, strength=score)
+            or _synthesize_temporal_kge_reason(
+                obj,
+                other,
+                float(match.get('recent_overlap', 0.0)),
+                float(match.get('past_overlap', 0.0)),
+                float(match.get('trend_delta', 0.0)),
+            )
+        )
+
+        edge, created = _upsert_auto_edge(
+            from_object=obj,
+            to_object=other,
+            edge_type='structural',
+            reason=reason,
+            strength=round(score, 4),
+            engine_name='kge_temporal',
+        )
+        if created:
+            new_edges.append(edge)
+
+    return new_edges
+
+
+def _run_causal_engine(obj: Object, config: dict) -> list[Edge]:
+    """Persist forward-in-time influence edges touching this Object."""
+    try:
+        from .causal_engine import build_influence_dag
+    except ImportError:
+        return []
+
+    dag = build_influence_dag(
+        notebook=obj.notebook,
+        min_entailment=config.get('causal_min_entailment', 0.60),
+    )
+    if not dag['edges']:
+        return []
+
+    related_edges = [
+        edge
+        for edge in dag['edges']
+        if edge['from_pk'] == obj.pk or edge['to_pk'] == obj.pk
+    ]
+    if not related_edges:
+        return []
+
+    object_map = {
+        item.pk: item
+        for item in Object.objects.filter(
+            pk__in={
+                pk
+                for edge in related_edges
+                for pk in (edge['from_pk'], edge['to_pk'])
             },
+            is_deleted=False,
+        ).select_related('object_type')
+    }
+
+    new_edges = []
+    for edge_data in related_edges:
+        source_obj = object_map.get(edge_data['from_pk'])
+        target_obj = object_map.get(edge_data['to_pk'])
+        if source_obj is None or target_obj is None:
+            continue
+
+        reason = _synthesize_causal_reason(
+            source_obj,
+            target_obj,
+            edge_data.get('claim_pair'),
+            float(edge_data['strength']),
+        )
+        edge, created = _upsert_auto_edge(
+            from_object=source_obj,
+            to_object=target_obj,
+            edge_type='causal',
+            reason=reason,
+            strength=round(float(edge_data['strength']), 4),
+            engine_name='causal',
         )
         if created:
             new_edges.append(edge)
@@ -1155,6 +1542,76 @@ def _create_connection_nodes(edges: list[Edge], engine_name: str) -> int:
 
 
 # ---------------------------------------------------------------------------
+# Pass 3: BM25 unified lexical pass (replaces Jaccard + TF-IDF)
+# ---------------------------------------------------------------------------
+
+def _run_bm25_engine(obj: Object, config: dict) -> list[Edge]:
+    """
+    BM25 unified lexical pass. Replaces Jaccard (Pass 3) and TF-IDF (Pass 4).
+    Production-safe: no PyTorch required.
+
+    The Novelty Dial tunes b (length normalization):
+      b = 0.75 - (novelty * 0.35)  -> range 0.75 (conservative) to 0.40 (aggressive)
+    Lower b means short and long documents are treated more equally, allowing
+    the engine to connect a short hunch to a long essay.
+    """
+    from .bm25 import get_or_build_bm25
+
+    novelty = config.get('novelty', 0.5)
+    b_override = 0.75 - (novelty * 0.35)  # 0.75 at novelty=0, 0.40 at novelty=1
+    threshold = config.get('bm25_threshold', 0.5)
+
+    idx = get_or_build_bm25(_build_full_text, b_override=b_override)
+    if idx is None:
+        return []
+
+    matches = idx.find_similar(obj.pk, top_n=20, min_score=threshold)
+    new_edges = []
+
+    for other_pk, score in matches:
+        try:
+            other = Object.objects.select_related('object_type').get(
+                pk=other_pk, is_deleted=False,
+            )
+        except Object.DoesNotExist:
+            continue
+
+        top_terms = idx.explain_match(obj.pk, other_pk, top_terms=4)
+        if top_terms:
+            if len(top_terms) > 1:
+                term_str = ', '.join(top_terms[:-1]) + f' and {top_terms[-1]}'
+            else:
+                term_str = top_terms[0]
+            reason = f'Both discuss {term_str} (rare terms in your corpus).'
+        else:
+            type_a = obj.object_type.name.lower() if obj.object_type else 'note'
+            type_b = other.object_type.name.lower() if other.object_type else 'note'
+            reason = (
+                f'This {type_a} and this {type_b} share significant '
+                f'vocabulary (BM25: {score:.0%}).'
+            )
+
+        reason = _llm_explanation(obj, other, strength=score) or reason
+
+        strength = min(score / 5.0, 1.0)
+        edge, created = Edge.objects.get_or_create(
+            from_object=obj,
+            to_object=other,
+            edge_type='shared_topic',
+            defaults={
+                'reason': reason,
+                'strength': round(strength, 4),
+                'is_auto': True,
+                'engine': 'bm25',
+            },
+        )
+        if created:
+            new_edges.append(edge)
+
+    return new_edges
+
+
+# ---------------------------------------------------------------------------
 # Main engine runner
 # ---------------------------------------------------------------------------
 
@@ -1165,11 +1622,10 @@ def run_engine(obj: Object, notebook=None) -> dict:
     Pass order:
       1. spaCy NER + auto-objectification (always)
       2. Shared entity edges (always)
-      3. Jaccard topic similarity (always, fast)
-      4. TF-IDF (production-safe, auto at 500+ objects)
-      5. SBERT semantic via FAISS or batch encode (dev only)
-      6. NLI contradiction/support (dev only, config-gated)
-      7. KGE structural similarity (dev only, requires trained embeddings)
+      3. BM25 unified lexical pass (replaces Jaccard + TF-IDF; production-safe)
+      4. SBERT semantic via FAISS or batch encode (dev only)
+      5. NLI contradiction/support (dev only, config-gated)
+      6. KGE structural similarity (dev only, requires trained embeddings)
     """
     config = get_engine_config(notebook or obj.notebook)
     object_count = Object.objects.count()
@@ -1180,11 +1636,11 @@ def run_engine(obj: Object, notebook=None) -> dict:
         'entities_extracted': 0,
         'edges_from_entities': 0,
         'edges_from_shared': 0,
-        'edges_from_topics': 0,
-        'edges_from_tfidf': 0,
+        'edges_from_bm25': 0,
         'edges_from_semantic': 0,
         'edges_from_nli': 0,
         'edges_from_kge': 0,
+        'edges_from_causal': 0,
         'objects_auto_created': 0,
         'connection_nodes_created': 0,
     }
@@ -1204,17 +1660,11 @@ def run_engine(obj: Object, notebook=None) -> dict:
         results['edges_from_shared'] = len(shared_edges)
         all_new_edges.extend(shared_edges)
 
-    # Pass 3
-    if 'spacy' in active_engines:
-        topic_edges = find_topic_connections(obj, config)
-        results['edges_from_topics'] = len(topic_edges)
-        all_new_edges.extend(topic_edges)
-
-    # Pass 4
-    if 'tfidf' in active_engines:
-        tfidf_edges = _run_tfidf_engine(obj, config)
-        results['edges_from_tfidf'] = len(tfidf_edges)
-        all_new_edges.extend(tfidf_edges)
+    # Pass 3: BM25 (replaces Jaccard topic pass and TF-IDF pass)
+    if 'bm25' in active_engines:
+        bm25_edges = _run_bm25_engine(obj, config)
+        results['edges_from_bm25'] = len(bm25_edges)
+        all_new_edges.extend(bm25_edges)
 
     # Pass 5
     if 'sbert' in active_engines or 'semantic' in active_engines:
@@ -1233,6 +1683,11 @@ def run_engine(obj: Object, notebook=None) -> dict:
         kge_edges = _run_kge_engine(obj, config)
         results['edges_from_kge'] = len(kge_edges)
         all_new_edges.extend(kge_edges)
+
+    if 'causal' in active_engines and config.get('nli_enabled', False):
+        causal_edges = _run_causal_engine(obj, config)
+        results['edges_from_causal'] = len(causal_edges)
+        all_new_edges.extend(causal_edges)
 
     # Entity mention edge count (includes edges from Pass 1)
     results['edges_from_entities'] = (
