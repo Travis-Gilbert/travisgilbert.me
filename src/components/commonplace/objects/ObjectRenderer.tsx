@@ -536,7 +536,7 @@ function ModuleVariantObject({ object, compact, onClick, onContextMenu }: Object
             maxHeight: compact ? 'none' : 90,
           }}
         >
-          {summary ?? body}
+          {summary ?? object.body}
         </pre>
         {!compact && edgeCount > 0 && (
           <div
