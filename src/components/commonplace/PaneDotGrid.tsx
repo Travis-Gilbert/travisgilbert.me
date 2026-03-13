@@ -9,10 +9,13 @@ import { useEffect, useRef } from 'react';
  * absolute positioning, pointer-events: none) but uses the warm vellum
  * aesthetic from DotGrid.tsx (seeded PRNG, binary scatter, subtle opacity).
  *
- * Uses a radial inverted vignette: dots are most visible at the corners
- * and edges of the pane, fading to near-transparent toward the center.
- * This keeps the texture present without competing with pane content.
- * The vignette uses Hermite smoothstep easing for a soft transition.
+ * Two-layer composite rendering (same technique as main site DotGrid.tsx):
+ *   Layer 1: uniform dot field at consistent opacity
+ *   Layer 2: radial gradient overlay from center (opaque pane bg) to
+ *            transparent at corners, creating an inverted vignette
+ *
+ * This keeps dots visible at corners/edges while the center stays clear,
+ * avoiding competition with pane content.
  *
  * No mouse interactivity (pane content is scrollable and interactive).
  * Each pane gets a unique seed so patterns are visually distinct.
@@ -38,36 +41,21 @@ function mulberry32(seed: number): () => number {
   };
 }
 
-// Hermite smoothstep: same easing as DotGrid.tsx drawInversionGradient
-function smoothstep(t: number): number {
-  const c = Math.max(0, Math.min(1, t));
-  return c * c * (3 - 2 * c);
-}
-
-/**
- * Radial vignette tuning constants.
- * VIGNETTE_INNER: normalized radius where dots begin to appear (0 = center).
- * Below this radius, dots are fully suppressed. A higher value creates a
- * larger clear zone in the center of the pane.
- * VIGNETTE_POWER: controls how aggressively opacity ramps from inner edge
- * to corners. Higher values push more opacity toward the very edges.
- */
-const VIGNETTE_INNER = 0.45;
-const VIGNETTE_POWER = 1.8;
-
 interface PaneDotGridProps {
   /** Unique seed for this pane (string IDs are hashed via djb2) */
   seed?: number | string;
   /** Dot color as [r, g, b]; defaults to warm graphite */
   dotColor?: [number, number, number];
-  /** Base dot opacity; defaults to 0.30 for visible coverage */
+  /** Base dot opacity; defaults to 0.22 */
   dotOpacity?: number;
   /** Grid spacing in CSS px; defaults to 20 (matches main site DotGrid) */
   spacing?: number;
   /** Dot radius in CSS px; defaults to 0.75 */
   dotRadius?: number;
-  /** Fraction of dots replaced with binary characters; defaults to 0.15 */
+  /** Fraction of dots replaced with binary characters; defaults to 0.10 */
   binaryDensity?: number;
+  /** Pane background color as [r, g, b] for the vignette overlay; defaults to #F4F3F0 */
+  bgColor?: [number, number, number];
   /** Enable radial inverted vignette (dots at corners, transparent center); defaults to true */
   vignette?: boolean;
   className?: string;
@@ -81,6 +69,7 @@ export default function PaneDotGrid({
   spacing = 20,
   dotRadius = 0.75,
   binaryDensity = 0.10,
+  bgColor = [244, 243, 240],
   vignette = true,
   className,
   style,
@@ -110,6 +99,7 @@ export default function PaneDotGrid({
       // Transparent background (let CSS bg-color show through)
       ctx!.clearRect(0, 0, w, h);
 
+      // ── Layer 1: uniform dot field ──
       const cols = Math.ceil(w / spacing) + 1;
       const rows = Math.ceil(h / spacing) + 1;
       const numericSeed = typeof seed === 'string' ? djb2(seed) : seed;
@@ -117,51 +107,19 @@ export default function PaneDotGrid({
 
       const [r, g, b] = dotColor;
 
-      // Radial vignette geometry: center point and corner distance
-      const cx = w / 2;
-      const cy = h / 2;
-      const cornerDist = Math.sqrt(cx * cx + cy * cy);
-
       for (let row = 0; row < rows; row++) {
         for (let col = 0; col < cols; col++) {
           const rand = rng();
 
-          // Render ~60% of grid positions (sparser than before)
+          // Render ~60% of grid positions
           if (rand > 0.60) continue;
 
           const x = col * spacing;
           const y = row * spacing;
 
-          // Radial inverted vignette: 0.0 at center, 1.0 at corners
-          let vignetteFactor = 1.0;
-          if (vignette && cornerDist > 0) {
-            const dx = x - cx;
-            const dy = y - cy;
-            const dist = Math.sqrt(dx * dx + dy * dy);
-            const normalizedDist = dist / cornerDist;
-
-            if (normalizedDist < VIGNETTE_INNER) {
-              // Inside the clear zone: dots nearly invisible
-              vignetteFactor = 0.04;
-            } else {
-              // Ramp from inner edge to corners with power curve
-              const t = (normalizedDist - VIGNETTE_INNER) / (1.0 - VIGNETTE_INNER);
-              vignetteFactor = smoothstep(t);
-              vignetteFactor = Math.pow(vignetteFactor, 1.0 / VIGNETTE_POWER);
-            }
-          }
-
-          // Per-dot opacity variation + vignette multiplier
-          const baseOpacity = dotOpacity + rng() * 0.04;
-          const opacity = baseOpacity * vignetteFactor;
+          // Per-dot opacity variation for organic feel
+          const opacity = dotOpacity + rng() * 0.04;
           const isBinary = rng() < binaryDensity;
-
-          // Skip dots that would be imperceptible
-          if (opacity < 0.012) {
-            // Still consume RNG to keep deterministic sequence
-            if (isBinary) rng();
-            continue;
-          }
 
           if (isBinary) {
             ctx!.fillStyle = `rgba(${r}, ${g}, ${b}, ${opacity * 1.2})`;
@@ -177,6 +135,32 @@ export default function PaneDotGrid({
           }
         }
       }
+
+      // ── Layer 2: radial gradient overlay (inverted vignette) ──
+      // Opaque at center (covers dots), transparent at corners (reveals dots).
+      // Same composite technique as DotGrid.tsx drawInversionGradient().
+      if (vignette) {
+        const cx = w / 2;
+        const cy = h / 2;
+        const cornerDist = Math.sqrt(cx * cx + cy * cy);
+
+        const [br, bg, bb] = bgColor;
+
+        const grad = ctx!.createRadialGradient(cx, cy, 0, cx, cy, cornerDist);
+        // Center: fully opaque (hides dots)
+        grad.addColorStop(0, `rgba(${br}, ${bg}, ${bb}, 1)`);
+        // 40% radius: still mostly opaque
+        grad.addColorStop(0.4, `rgba(${br}, ${bg}, ${bb}, 0.92)`);
+        // 60% radius: starting to reveal
+        grad.addColorStop(0.6, `rgba(${br}, ${bg}, ${bb}, 0.7)`);
+        // 80% radius: mostly transparent
+        grad.addColorStop(0.8, `rgba(${br}, ${bg}, ${bb}, 0.3)`);
+        // Corners: fully transparent (dots fully visible)
+        grad.addColorStop(1, `rgba(${br}, ${bg}, ${bb}, 0)`);
+
+        ctx!.fillStyle = grad;
+        ctx!.fillRect(0, 0, w, h);
+      }
     }
 
     draw();
@@ -185,7 +169,7 @@ export default function PaneDotGrid({
     observer.observe(parent);
 
     return () => observer.disconnect();
-  }, [seed, dotColor, dotOpacity, spacing, dotRadius, binaryDensity, vignette]);
+  }, [seed, dotColor, dotOpacity, spacing, dotRadius, binaryDensity, bgColor, vignette]);
 
   return (
     <canvas
