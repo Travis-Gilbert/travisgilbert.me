@@ -9,13 +9,17 @@ import { useEffect, useRef } from 'react';
  * absolute positioning, pointer-events: none) but uses the warm vellum
  * aesthetic from DotGrid.tsx (seeded PRNG, binary scatter, subtle opacity).
  *
- * Two-layer composite rendering (same technique as main site DotGrid.tsx):
+ * Three-layer composite rendering:
+ *   Layer 0: subtle radial bloom from bottom-left corner (same technique
+ *            as TerminalCanvas.tsx) using the dot color at low opacity,
+ *            adding warmth and depth so the surface doesn't feel flat
  *   Layer 1: uniform dot field at consistent opacity
  *   Layer 2: radial gradient overlay from center (opaque pane bg) to
- *            transparent at corners, creating an inverted vignette
+ *            semi-transparent at corners, creating an inverted vignette
+ *            that never fully exposes dots (min alpha ~0.18 at edges)
  *
  * This keeps dots visible at corners/edges while the center stays clear,
- * avoiding competition with pane content.
+ * and the bloom adds a sense of light source so panes feel dimensional.
  *
  * No mouse interactivity (pane content is scrollable and interactive).
  * Each pane gets a unique seed so patterns are visually distinct.
@@ -99,13 +103,25 @@ export default function PaneDotGrid({
       // Transparent background (let CSS bg-color show through)
       ctx!.clearRect(0, 0, w, h);
 
+      // ── Layer 0: warm bloom gradient from bottom-left ──
+      // Same technique as TerminalCanvas.tsx teal bloom, but using the
+      // dot color at very low opacity for a subtle warmth/depth cue.
+      const [r, g, b] = dotColor;
+      const bloom = ctx!.createRadialGradient(
+        0, h, 0,
+        0, h, Math.max(w, h) * 0.7
+      );
+      bloom.addColorStop(0, `rgba(${r}, ${g}, ${b}, 0.06)`);
+      bloom.addColorStop(0.4, `rgba(${r}, ${g}, ${b}, 0.025)`);
+      bloom.addColorStop(1, 'transparent');
+      ctx!.fillStyle = bloom;
+      ctx!.fillRect(0, 0, w, h);
+
       // ── Layer 1: uniform dot field ──
       const cols = Math.ceil(w / spacing) + 1;
       const rows = Math.ceil(h / spacing) + 1;
       const numericSeed = typeof seed === 'string' ? djb2(seed) : seed;
       const rng = mulberry32(numericSeed);
-
-      const [r, g, b] = dotColor;
 
       for (let row = 0; row < rows; row++) {
         for (let col = 0; col < cols; col++) {
@@ -147,16 +163,14 @@ export default function PaneDotGrid({
         const [br, bg, bb] = bgColor;
 
         const grad = ctx!.createRadialGradient(cx, cy, 0, cx, cy, cornerDist);
-        // Center: fully opaque (hides dots)
-        grad.addColorStop(0, `rgba(${br}, ${bg}, ${bb}, 1)`);
-        // 40% radius: still mostly opaque
-        grad.addColorStop(0.4, `rgba(${br}, ${bg}, ${bb}, 0.92)`);
-        // 60% radius: starting to reveal
-        grad.addColorStop(0.6, `rgba(${br}, ${bg}, ${bb}, 0.7)`);
-        // 80% radius: mostly transparent
-        grad.addColorStop(0.8, `rgba(${br}, ${bg}, ${bb}, 0.3)`);
-        // Corners: fully transparent (dots fully visible)
-        grad.addColorStop(1, `rgba(${br}, ${bg}, ${bb}, 0)`);
+        // Center: mostly opaque (hides dots in content zone)
+        grad.addColorStop(0, `rgba(${br}, ${bg}, ${bb}, 0.85)`);
+        // 50% radius: gentle fade begins
+        grad.addColorStop(0.5, `rgba(${br}, ${bg}, ${bb}, 0.55)`);
+        // 75% radius: dots becoming visible
+        grad.addColorStop(0.75, `rgba(${br}, ${bg}, ${bb}, 0.25)`);
+        // Corners: thin wash so dots stay softened near UI elements
+        grad.addColorStop(1, `rgba(${br}, ${bg}, ${bb}, 0.1)`);
 
         ctx!.fillStyle = grad;
         ctx!.fillRect(0, 0, w, h);
