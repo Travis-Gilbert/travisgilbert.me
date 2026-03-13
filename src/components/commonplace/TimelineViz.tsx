@@ -160,6 +160,10 @@ export default function TimelineViz({
     if (!canvas) return;
 
     const dpr = window.devicePixelRatio || 1;
+
+    // Guard: never set canvas to 0x0 (browsers render a broken-image icon)
+    if (size.width < 1 || size.height < 1) return;
+
     canvas.width = size.width * dpr;
     canvas.height = size.height * dpr;
     canvas.style.width = `${size.width}px`;
@@ -235,6 +239,8 @@ export default function TimelineViz({
       {/* Canvas: arc edges */}
       <canvas
         ref={canvasRef}
+        width={1}
+        height={1}
         aria-hidden="true"
         style={{ position: 'absolute', top: 0, left: 0, pointerEvents: 'none' }}
       />

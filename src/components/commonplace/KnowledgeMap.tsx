@@ -272,6 +272,10 @@ export default function KnowledgeMap({
 
     const { width, height } = containerSize;
     const dpr = window.devicePixelRatio || 1;
+
+    // Guard: never set canvas to 0x0 (browsers render a broken-image icon)
+    if (width < 1 || height < 1) return;
+
     canvas.width = width * dpr;
     canvas.height = height * dpr;
     canvas.style.width = `${width}px`;
@@ -427,6 +431,8 @@ export default function KnowledgeMap({
       {/* Canvas layer: rough.js edges */}
       <canvas
         ref={canvasRef}
+        width={1}
+        height={1}
         aria-hidden="true"
         style={{ position: 'absolute', top: 0, left: 0, pointerEvents: 'none' }}
       />

@@ -50,6 +50,10 @@ export default function TerminalCanvas({
       const dpr = window.devicePixelRatio || 1;
       const w = parent!.clientWidth;
       const h = parent!.clientHeight;
+
+      // Guard: never set canvas to 0x0 (browsers render a broken-image icon)
+      if (w < 1 || h < 1) return;
+
       canvas!.width = w * dpr;
       canvas!.height = h * dpr;
       canvas!.style.width = `${w}px`;
@@ -117,6 +121,8 @@ export default function TerminalCanvas({
   return (
     <canvas
       ref={canvasRef}
+      width={1}
+      height={1}
       className={className}
       aria-hidden="true"
       style={{
