@@ -1,3 +1,2 @@
-COPY requirements/base.txt requirements/base.txt
-COPY requirements/production.txt requirements/production.txt
-RUN pip install --extra-index-url https://download.pytorch.org/whl/cpu --no-cache-dir -r requirements/production.txt
+--extra-index-url https://download.pytorch.org/whl/cpu
+-r requirements/production.txt
