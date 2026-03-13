@@ -8,13 +8,13 @@ import {
   Activity,
   BellNotification,
   Book,
+  Box3dCenter,
   Calendar,
+  CurveArray,
   DotsGrid3x3,
   EditPencil,
-  Flare,
   Folder,
   NavArrowRight,
-  Network,
   Settings,
   Spark,
 } from 'iconoir-react';
@@ -238,8 +238,10 @@ export default function CommonPlaceSidebar() {
               section.items.map((item) => {
                 const isActive =
                   pathname === item.href ||
-                  (pathname?.startsWith(item.href + '/') && item.href !== '/commonplace') ||
-                  (item.href === '/commonplace' && pathname === '/commonplace');
+                  (pathname?.startsWith(item.href + '/') &&
+                    item.href !== '/commonplace') ||
+                  (item.href === '/commonplace' &&
+                    pathname === '/commonplace');
 
                 if (item.expandable) {
                   const isExpanded = expandedGroups.has(item.label);
@@ -692,10 +694,10 @@ function RailIconButton({
 const RAIL_ICON_COMPONENTS: Record<string, ComponentType<{ width?: number; height?: number }>> = {
   grid: DotsGrid3x3,
   timeline: Activity,
-  graph: Network,
+  graph: CurveArray,
   calendar: Calendar,
   scatter: Spark,
-  engine: Flare,
+  engine: Box3dCenter,
   bell: BellNotification,
   gear: Settings,
   book: Book,
@@ -703,10 +705,24 @@ const RAIL_ICON_COMPONENTS: Record<string, ComponentType<{ width?: number; heigh
   'note-pencil': EditPencil,
 };
 
+/* Per-section accent colors: shown on the icon when the item is active. */
+const LABEL_ACCENT: Record<string, string> = {
+  'Library':            'var(--cp-chrome-text)',
+  'Timeline':           '#3858B8',
+  'Compose':            '#2E8A3E',
+  'Map':                '#7050A0',
+  'Calendar':           '#3858B8',
+  'Loose Ends':         '#7050A0',
+  'Connection Engine':  '#C4503C',
+  'Notebooks':          'var(--cp-chrome-muted)',
+  'Projects':           'var(--cp-chrome-muted)',
+  'Settings':           'var(--cp-chrome-dim)',
+};
+
 /* Sidebar icons: Iconoir 24x24 path data, rendered at 16px display size.
    Stroke-based, felt-tip pen feel. Multi-path icons use string arrays. */
 
-function SidebarIcon({ name }: { name: string }) {
+function SidebarIcon({ name, color }: { name: string; color?: string }) {
   const size = 16;
   const style = {
     width: size,
@@ -733,8 +749,10 @@ function SidebarIcon({ name }: { name: string }) {
     ],
     'filter': 'M3.99961 3H19.9997C20.552 3 20.9997 3.44764 20.9997 3.99987L20.9999 5.58569C21 5.85097 20.8946 6.10538 20.707 6.29295L14.2925 12.7071C14.105 12.8946 13.9996 13.149 13.9996 13.4142L13.9996 19.7192C13.9996 20.3698 13.3882 20.8472 12.7571 20.6894L10.7571 20.1894C10.3119 20.0781 9.99961 19.6781 9.99961 19.2192L9.99961 13.4142C9.99961 13.149 9.89425 12.8946 9.70672 12.7071L3.2925 6.29289C3.10496 6.10536 2.99961 5.851 2.99961 5.58579V4C2.99961 3.44772 3.44732 3 3.99961 3Z',
     'graph': [
-      'M6.5 7V10.5C6.5 11.6046 7.39543 12.5 8.5 12.5H15.5C16.6046 12.5 17.5 11.6046 17.5 10.5V7',
-      'M12 12.5V17',
+      'M5.164 17C5.453 15.951 5.833 14.949 6.296 14M11.5 7.794C12.282 7.228 13.118 6.726 14 6.296',
+      'M4.5 22C3.119 22 2 20.881 2 19.5C2 18.119 3.119 17 4.5 17C5.881 17 7 18.119 7 19.5C7 20.881 5.881 22 4.5 22Z',
+      'M9.5 12C8.119 12 7 10.881 7 9.5C7 8.119 8.119 7 9.5 7C10.881 7 12 8.119 12 9.5C12 10.881 10.881 12 9.5 12Z',
+      'M19.5 7C18.119 7 17 5.881 17 4.5C17 3.119 18.119 2 19.5 2C20.881 2 22 3.119 22 4.5C22 5.881 20.881 7 19.5 7Z',
     ],
     'grid': [
       'M3 3H9V9H3V3Z',
@@ -775,8 +793,12 @@ function SidebarIcon({ name }: { name: string }) {
 
     /* System section */
     'engine': [
-      'M12 15C13.6569 15 15 13.6569 15 12C15 10.3431 13.6569 9 12 9C10.3431 9 9 10.3431 9 12C9 13.6569 10.3431 15 12 15Z',
-      'M19.6224 10.3954L18.5247 7.7448L20 6L18 4L16.2647 5.48295L13.5578 4.36974L12.9353 2H10.981L10.3491 4.40113L7.70441 5.51596L6 4L4 6L5.45337 7.78885L4.3725 10.4463L2 11V13L4.40111 13.6555L5.51575 16.2997L4 18L6 20L7.79116 18.5403L10.397 19.6123L11 22H13L13.6045 19.6132L16.2551 18.5155C16.6969 18.8313 18 20 18 20L20 18L18.5159 16.2494L19.6139 13.598L21.9999 12.9772L22 11L19.6224 10.3954Z',
+      'M12 17C12.5523 17 13 16.5523 13 16C13 15.4477 12.5523 15 12 15C11.4477 15 11 15.4477 11 16C11 16.5523 11.4477 17 12 17Z',
+      'M21 7.353V16.647C21 16.865 20.882 17.066 20.691 17.172L12.291 21.838C12.11 21.939 11.89 21.939 11.709 21.838L3.309 17.172C3.118 17.066 3 16.865 3 16.647V7.353C3 7.135 3.118 6.934 3.309 6.829L11.709 2.162C11.89 2.061 12.11 2.061 12.291 2.162L20.691 6.829C20.882 6.934 21 7.135 21 7.353Z',
+      'M20.5 16.722L12.291 12.162C12.11 12.061 11.89 12.061 11.709 12.162L3.5 16.722',
+      'M3.528 7.294L11.709 11.838C11.89 11.939 12.11 11.939 12.291 11.838L20.5 7.278',
+      'M12 3V12',
+      'M12 19.5V22',
     ],
     'bell': [
       'M18 8.4C18 6.70261 17.3679 5.07475 16.2426 3.87452C15.1174 2.67428 13.5913 2 12 2C10.4087 2 8.88258 2.67428 7.75736 3.87452C6.63214 5.07475 6 6.70261 6 8.4C6 15.8667 3 18 3 18H21C21 18 18 15.8667 18 8.4Z',
@@ -856,7 +878,7 @@ function SidebarIcon({ name }: { name: string }) {
       height={size}
       viewBox="0 0 24 24"
       fill="none"
-      stroke="currentColor"
+      stroke={color || 'currentColor'}
       strokeWidth={1.5}
       strokeLinecap="round"
       strokeLinejoin="round"
