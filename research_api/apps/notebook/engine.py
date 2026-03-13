@@ -119,11 +119,26 @@ STOP_WORDS = {
     'all', 'each', 'every', 'both', 'few', 'most', 'other', 'into',
     'over', 'such', 'only', 'own', 'same', 'here', 'there', 'they',
     'them', 'their', 'my', 'your', 'our',
+    # Common verbs and filler
+    'use', 'used', 'using', 'make', 'made', 'way', 'get', 'got', 'new',
+    # Web artifacts and code noise
+    'http', 'https', 'www', 'com', 'org', 'net', 'edu', 'gov',
+    'html', 'htm', 'php', 'asp', 'jsp', 'css', 'pdf', 'png', 'jpg',
+    'svg', 'gif', 'xml', 'json', 'api', 'url', 'src', 'img', 'div', 'app',
+    'npm', 'npx', 'tsx', 'jsx', 'vue',
+    'javascript', 'webpack', 'github', 'stackoverflow',
+    'readme', 'changelog', 'license', 'node_modules', 'package',
+    'yaml', 'config', 'undefined', 'null', 'nan', 'true', 'false',
+    'localhost', 'endpoint', 'param', 'query', 'string',
+    # Code keywords
+    'var', 'let', 'const', 'function', 'return', 'import', 'export',
+    'class', 'type', 'interface', 'number', 'boolean',
+    'async', 'await',
 }
 
 DEFAULT_ENGINE_CONFIG = {
     'engines': ['spacy'],
-    'topic_threshold': 0.3,
+    'topic_threshold': 0.4,
     'max_candidates': 500,
 }
 
@@ -226,7 +241,10 @@ def _build_full_text(obj: Object) -> str:
         else:
             parts.append(str(val))
 
-    return ' '.join(p for p in parts if p)
+    text = ' '.join(p for p in parts if p)
+    text = re.sub(r'https?://[^\s]+', '', text)
+    text = re.sub(r'[a-zA-Z0-9.-]+\.(com|org|net|edu|gov|io)\b', '', text)
+    return text
 
 
 # ---------------------------------------------------------------------------
@@ -418,6 +436,7 @@ def find_shared_entity_connections(obj: Object, config: dict | None = None) -> l
 
 def _synthesize_topic_reason(my_keywords: set, other_keywords: set, obj_a, obj_b) -> str:
     overlap = my_keywords & other_keywords
+    overlap = {t for t in overlap if len(t) >= 5}
     top = sorted(overlap, key=len, reverse=True)[:4]
     type_a = obj_a.object_type.name if obj_a.object_type else 'note'
 
@@ -435,7 +454,7 @@ def find_topic_connections(obj: Object, config: dict | None = None) -> list[Edge
     if config is None:
         config = DEFAULT_ENGINE_CONFIG
 
-    threshold = config.get('topic_threshold', 0.3)
+    threshold = config.get('topic_threshold', 0.4)
     max_candidates = config.get('max_candidates', 500)
 
     my_text = _build_full_text(obj)
@@ -467,7 +486,7 @@ def find_topic_connections(obj: Object, config: dict | None = None) -> list[Edge
         jaccard = len(overlap) / len(union)
         strength = min(jaccard * 2, 1.0)
 
-        if jaccard >= threshold and len(overlap) >= 3:
+        if jaccard >= threshold and len(overlap) >= 5:
             reason = (
                 _llm_explanation(obj, other, strength=strength)
                 or _synthesize_topic_reason(my_keywords, other_keywords, obj, other)

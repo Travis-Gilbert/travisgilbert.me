@@ -44,6 +44,19 @@ STOP_WORDS = frozenset({
     'like', 'time', 'see', 'need', 'take', 'know', 'think', 'look',
     'want', 'give', 'find', 'tell', 'work', 'call', 'keep', 'let',
     'put', 'set', 'run', 'go', 'say', 'said', 'says', 'still',
+    # Web artifacts and code noise
+    'http', 'https', 'www', 'com', 'org', 'net', 'edu', 'gov',
+    'html', 'htm', 'php', 'asp', 'jsp', 'css', 'pdf', 'png', 'jpg',
+    'svg', 'gif', 'xml', 'json', 'api', 'url', 'src', 'img', 'div', 'app',
+    'npm', 'npx', 'tsx', 'jsx', 'vue',
+    'javascript', 'webpack', 'github', 'stackoverflow',
+    'readme', 'changelog', 'license', 'node_modules', 'package',
+    'yaml', 'config', 'undefined', 'null', 'nan', 'true', 'false',
+    'localhost', 'endpoint', 'param', 'query', 'string',
+    # Code keywords
+    'var', 'let', 'const', 'function', 'return', 'import', 'export',
+    'class', 'type', 'interface', 'number', 'boolean',
+    'async', 'await',
 })
 
 
@@ -157,6 +170,7 @@ class BM25Index:
         terms_a = set(self._doc_terms.get(pk_a, {}).keys())
         terms_b = set(self._doc_terms.get(pk_b, {}).keys())
         shared = terms_a & terms_b
+        shared = {t for t in shared if len(t) >= 5}
         if not shared:
             return []
         ranked = sorted(shared, key=lambda t: self._idf.get(t, 0.0), reverse=True)

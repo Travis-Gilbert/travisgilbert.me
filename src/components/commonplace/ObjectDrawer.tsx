@@ -198,7 +198,7 @@ function ConnectionItem({
     >
       <div
         className="cp-drawer-strength-bar"
-        style={{ backgroundColor: strengthColor(edge.strength) }}
+        style={{ backgroundColor: strengthColor(edge.strength), opacity: Math.max(0.35, edge.strength) }}
         title={`Strength: ${Math.round(edge.strength * 100)}%`}
       />
       <div className="cp-drawer-connection-body">

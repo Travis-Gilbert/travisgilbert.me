@@ -897,16 +897,19 @@
   50% { opacity: 0.4; }
 }
 
-/* Drop zone overlay */
+/* Drop zone overlay: scoped to content area (sidebar excluded) */
 .cp-dropzone-overlay {
   position: fixed;
-  inset: 0;
+  left: var(--cp-sidebar-width, 200px);
+  top: 0;
+  right: 0;
+  bottom: 0;
   z-index: 200;
   display: flex;
   align-items: center;
   justify-content: center;
-  background: rgba(242, 237, 229, 0.85);
-  backdrop-filter: blur(4px);
+  background: rgba(244, 243, 240, 0.92);
+  backdrop-filter: blur(6px);
   animation: cp-dropzone-fade-in 200ms ease-out both;
 }
 
@@ -917,15 +920,28 @@
 
 /* Drop zone inner dashed border area */
 .cp-dropzone-inner {
+  position: relative;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  width: calc(100% - 48px);
-  height: calc(100% - 48px);
-  border: 2px dashed var(--cp-terracotta);
+  width: calc(100% - 64px);
+  height: calc(100% - 64px);
+  border: 2px dashed var(--cp-red);
   border-radius: 16px;
-  opacity: 0.7;
+  background: rgba(196, 80, 60, 0.03);
+  transition: background 200ms, border-color 200ms;
+}
+
+/* Terracotta radial glow in center */
+.cp-dropzone-inner::before {
+  content: '';
+  position: absolute;
+  width: 200px;
+  height: 200px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(196, 80, 60, 0.08) 0%, transparent 70%);
+  pointer-events: none;
 }
 
 /* Absorb dot: the captured content shrinks to a dot */
@@ -4651,33 +4667,33 @@
 }
 
 .cp-drawer-connection-engine--engine {
-  color: var(--cp-steel);
-  background: rgba(107, 122, 138, 0.08);
-  border-color: rgba(107, 122, 138, 0.18);
+  color: var(--cp-red);
+  background: var(--cp-red-soft);
+  border-color: var(--cp-red-line);
 }
 
 .cp-drawer-connection-engine--bridge {
-  color: var(--cp-blue);
-  background: rgba(74, 122, 154, 0.08);
-  border-color: rgba(74, 122, 154, 0.18);
+  color: var(--cp-type-source);
+  background: rgba(26, 122, 138, 0.07);
+  border-color: rgba(26, 122, 138, 0.18);
 }
 
 .cp-drawer-connection-engine--manual {
-  color: var(--cp-terracotta);
-  background: rgba(180, 90, 45, 0.08);
-  border-color: rgba(180, 90, 45, 0.18);
+  color: var(--cp-chrome-muted);
+  background: rgba(136, 134, 142, 0.07);
+  border-color: rgba(136, 134, 142, 0.18);
 }
 
 .cp-drawer-connection-engine--tension {
-  color: #b3443b;
-  background: rgba(179, 68, 59, 0.08);
-  border-color: rgba(179, 68, 59, 0.18);
+  color: var(--cp-term-red);
+  background: rgba(204, 102, 68, 0.07);
+  border-color: rgba(204, 102, 68, 0.18);
 }
 
 .cp-drawer-connection-engine--support {
-  color: var(--cp-green);
-  background: rgba(90, 122, 74, 0.08);
-  border-color: rgba(90, 122, 74, 0.18);
+  color: var(--cp-term-green);
+  background: rgba(106, 170, 106, 0.07);
+  border-color: rgba(106, 170, 106, 0.18);
 }
 
 .cp-model-panel-copy {
@@ -4877,8 +4893,9 @@
   position: fixed;
   inset: 0;
   z-index: 600;
-  background: rgba(42, 36, 32, 0.35);
-  backdrop-filter: blur(1px);
+  background: rgba(26, 28, 32, 0.25);
+  backdrop-filter: blur(2px);
+  transition: opacity 200ms ease;
 }
 
 /* Panel shell: Vaul applies the transform; we set position + size */
@@ -4890,8 +4907,8 @@
   z-index: 601;
   width: min(580px, 92vw);
   background: var(--cp-card);
-  border-left: 1px solid var(--cp-border);
-  box-shadow: -8px 0 32px rgba(42, 36, 32, 0.14);
+  border-left: 1px solid var(--cp-chrome-line);
+  box-shadow: -8px 0 32px rgba(0, 0, 0, 0.15), -2px 0 8px rgba(0, 0, 0, 0.08);
   display: flex;
   flex-direction: column;
   overflow: hidden;
@@ -5063,9 +5080,11 @@
 
 .cp-drawer-body-text {
   font-family: var(--cp-font-body);
-  font-size: 14.5px;
-  line-height: 1.65;
+  font-size: 15px;
+  line-height: 1.75;
   color: var(--cp-text);
+  letter-spacing: 0.005em;
+  max-width: 520px;
   margin: 0;
 }
 
@@ -5298,7 +5317,8 @@
 
 /* 4px left strength-colored bar */
 .cp-drawer-strength-bar {
-  width: 4px;
+  width: 3px;
+  min-height: 32px;
   flex-shrink: 0;
   border-radius: 0;
 }
@@ -6782,7 +6802,7 @@
 }
 
 .cp-drawer-overlay {
-  background: rgba(12, 14, 20, 0.34);
+  background: rgba(26, 28, 32, 0.25);
   backdrop-filter: blur(2px);
 }
 
@@ -6800,7 +6820,12 @@
   color: var(--cp-red);
 }
 
-.cp-drawer-connection-engine--manual,
+.cp-drawer-connection-engine--manual {
+  color: var(--cp-chrome-muted);
+  background: rgba(136, 134, 142, 0.07);
+  border-color: rgba(136, 134, 142, 0.18);
+}
+
 .cp-drawer-entity-chip--person {
   color: var(--cp-red);
   background: color-mix(in srgb, var(--cp-red) 7%, white);
