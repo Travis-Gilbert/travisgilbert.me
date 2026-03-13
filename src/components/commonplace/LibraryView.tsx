@@ -264,7 +264,7 @@ export default function LibraryView({ onOpenObject }: LibraryViewProps) {
   const clusterCount = clustersData?.length ?? 0;
 
   return (
-    <div style={{ flex: 1, overflow: 'auto', padding: '20px 24px 40px' }}>
+    <div style={{ flex: 1, overflow: 'auto', padding: '24px 28px 48px' }}>
       <div style={{ maxWidth: 880, margin: '0 auto' }}>
       <div
         style={{
@@ -281,7 +281,7 @@ export default function LibraryView({ onOpenObject }: LibraryViewProps) {
             style={{
               margin: 0,
               fontFamily: 'var(--cp-font-title)',
-              fontSize: 26,
+              fontSize: 28,
               lineHeight: 1.08,
               color: 'var(--cp-text)',
               letterSpacing: '-0.02em',
@@ -311,7 +311,7 @@ export default function LibraryView({ onOpenObject }: LibraryViewProps) {
             border: '1px solid var(--cp-red-line)',
             background: 'var(--cp-red-soft)',
             color: 'var(--cp-red)',
-            borderRadius: 4,
+            borderRadius: 5,
             padding: '6px 14px',
             display: 'inline-flex',
             alignItems: 'center',
@@ -694,13 +694,27 @@ export default function LibraryView({ onOpenObject }: LibraryViewProps) {
                 }}
               >
                 {allObjects.map((obj) => (
-                  <ObjectRenderer
-                    key={obj.slug}
-                    object={obj}
-                    variant="module"
-                    onClick={handleObjectClick}
-                    onContextMenu={(e, object) => openContextMenu(e.clientX, e.clientY, object)}
-                  />
+                  <div key={obj.slug}>
+                    <ObjectRenderer
+                      object={obj}
+                      variant="module"
+                      onClick={handleObjectClick}
+                      onContextMenu={(e, object) => openContextMenu(e.clientX, e.clientY, object)}
+                    />
+                    {obj.explanation && (
+                      <div style={{
+                        fontFamily: 'var(--cp-font-mono)',
+                        fontSize: 10,
+                        color: 'var(--cp-red)',
+                        padding: '4px 0',
+                        borderTop: '1px dashed var(--cp-red-line)',
+                        marginTop: 3,
+                        lineHeight: 1.5,
+                      }}>
+                        {obj.explanation}
+                      </div>
+                    )}
+                  </div>
                 ))}
               </div>
             </div>
@@ -708,19 +722,28 @@ export default function LibraryView({ onOpenObject }: LibraryViewProps) {
         )}
 
       {resurfaceRenderables.length > 0 && !isFiltering && (
-        <div>
+        <div style={{ marginTop: 28 }}>
           <div
             style={{
-              fontFamily: 'var(--cp-font-mono)',
-              fontSize: 9,
-              fontWeight: 700,
-              color: 'var(--cp-chrome-muted)',
-              letterSpacing: '0.1em',
-              textTransform: 'uppercase',
-              marginBottom: 8,
+              display: 'flex',
+              alignItems: 'center',
+              gap: 8,
+              marginBottom: 10,
             }}
           >
-            Resurface
+            <span
+              style={{
+                fontFamily: 'var(--cp-font-mono)',
+                fontSize: 9,
+                fontWeight: 700,
+                color: 'var(--cp-chrome-muted)',
+                letterSpacing: '0.1em',
+                textTransform: 'uppercase',
+              }}
+            >
+              Resurface
+            </span>
+            <div style={{ flex: 1, height: 1, background: 'var(--cp-border)' }} />
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
             {resurfaceRenderables.map((obj) => (

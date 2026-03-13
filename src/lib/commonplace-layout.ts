@@ -320,7 +320,7 @@ export function closeTab(
 ): PaneNode {
   if (tree.id === paneId && tree.type === 'leaf') {
     if (tree.tabs.length <= 1) {
-      // Last tab: replace with empty
+      // Last tab: replace with empty (closeTabOrPane handles pane removal)
       return {
         ...tree,
         tabs: [{ id: generateTabId(), viewType: 'empty', label: 'Empty' }],
@@ -339,6 +339,22 @@ export function closeTab(
     };
   }
   return tree;
+}
+
+/** Close a tab; if it was the last tab in a non-root pane, close the pane too */
+export function closeTabOrPane(
+  tree: PaneNode,
+  paneId: string,
+  tabIndex: number
+): PaneNode {
+  const target = findPane(tree, paneId);
+  if (!target || target.type !== 'leaf') return tree;
+
+  if (target.tabs.length <= 1) {
+    // Last tab: close the entire pane (root falls back to empty leaf)
+    return closePane(tree, paneId);
+  }
+  return closeTab(tree, paneId, tabIndex);
 }
 
 /** Set active tab in a leaf pane */

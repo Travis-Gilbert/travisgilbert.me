@@ -115,10 +115,10 @@ function ModuleVariantObject({ object, compact, onClick, onContextMenu }: Object
         style={{
           display: 'inline-flex',
           alignItems: 'center',
-          gap: compact ? 8 : 10,
+          gap: compact ? 8 : 11,
           width: '100%',
           textAlign: 'left',
-          padding: compact ? '5px 10px 5px 8px' : '8px 14px',
+          padding: compact ? '5px 10px 5px 8px' : '9px 15px',
           borderRadius: 999,
           border: `1.5px solid ${line}`,
           background: 'transparent',
@@ -128,11 +128,11 @@ function ModuleVariantObject({ object, compact, onClick, onContextMenu }: Object
         {object.object_type_slug === 'person' ? (
           <span
             style={{
-              width: compact ? 22 : 30,
-              height: compact ? 22 : 30,
+              width: compact ? 22 : 32,
+              height: compact ? 22 : 32,
               borderRadius: '50%',
-              background: `${identity.color}16`,
-              border: `1.5px solid ${line}`,
+              background: compact ? `${identity.color}16` : `linear-gradient(135deg, ${identity.color}15, ${identity.color}25)`,
+              border: `1.5px solid ${identity.color}40`,
               display: 'inline-flex',
               alignItems: 'center',
               justifyContent: 'center',
@@ -142,8 +142,8 @@ function ModuleVariantObject({ object, compact, onClick, onContextMenu }: Object
             <span
               style={{
                 fontFamily: 'var(--cp-font-title)',
-                fontSize: compact ? 11 : 13,
-                fontWeight: 600,
+                fontSize: compact ? 11 : 14,
+                fontWeight: 700,
                 color: identity.color,
                 fontFeatureSettings: 'var(--cp-kern-title)',
               }}
@@ -166,7 +166,7 @@ function ModuleVariantObject({ object, compact, onClick, onContextMenu }: Object
           style={{
             fontFamily:
               object.object_type_slug === 'concept' ? 'var(--cp-font-mono)' : 'var(--cp-font-body)',
-            fontSize: compact ? 12 : 13.5,
+            fontSize: compact ? 12 : (object.object_type_slug === 'concept' ? 13 : 14),
             fontWeight: object.object_type_slug === 'concept' ? 500 : 600,
             lineHeight: 1.3,
             color: 'var(--cp-text)',
@@ -186,8 +186,8 @@ function ModuleVariantObject({ object, compact, onClick, onContextMenu }: Object
             style={{
               marginLeft: 'auto',
               fontFamily: 'var(--cp-font-mono)',
-              fontWeight: 500,
-              fontSize: 10,
+              fontWeight: 600,
+              fontSize: 9,
               color: identity.color,
               fontFeatureSettings: 'var(--cp-kern-mono)',
               flexShrink: 0,
@@ -233,7 +233,7 @@ function ModuleVariantObject({ object, compact, onClick, onContextMenu }: Object
         <div
           style={{
             fontFamily: object.object_type_slug === 'quote' ? 'var(--cp-font-title)' : 'var(--cp-font-body)',
-            fontSize: compact ? 12.5 : (object.object_type_slug === 'quote' ? 14.5 : 13.5),
+            fontSize: compact ? 12.5 : (object.object_type_slug === 'quote' ? 15 : 13.5),
             fontWeight: object.object_type_slug === 'quote' ? 400 : 500,
             fontStyle: 'italic',
             lineHeight: 1.48,
@@ -357,13 +357,19 @@ function ModuleVariantObject({ object, compact, onClick, onContextMenu }: Object
   }
 
   if (object.object_type_slug === 'event') {
+    const eventDate = object.captured_at ? new Date(object.captured_at) : null;
+    const eventMonth = eventDate
+      ? eventDate.toLocaleString('en', { month: 'short' }).toUpperCase()
+      : null;
+    const eventDay = eventDate ? eventDate.getDate() : null;
+
     return (
       <button
         {...baseButtonProps}
         style={{
           display: 'flex',
           alignItems: 'flex-start',
-          gap: 10,
+          gap: compact ? 8 : 12,
           width: '100%',
           textAlign: 'left',
           padding: compact ? '8px 10px' : '8px 12px',
@@ -373,6 +379,43 @@ function ModuleVariantObject({ object, compact, onClick, onContextMenu }: Object
           color: 'var(--cp-text)',
         }}
       >
+        {/* Split date column */}
+        {!compact && eventDate && (
+          <div
+            style={{
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              flexShrink: 0,
+              minWidth: 32,
+            }}
+          >
+            <span
+              style={{
+                fontFamily: 'var(--cp-font-mono)',
+                fontSize: 10,
+                fontWeight: 600,
+                color: identity.color,
+                letterSpacing: '0.06em',
+                fontFeatureSettings: 'var(--cp-kern-mono)',
+              }}
+            >
+              {eventMonth}
+            </span>
+            <span
+              style={{
+                fontFamily: 'var(--cp-font-body)',
+                fontSize: 17,
+                fontWeight: 700,
+                lineHeight: 1.1,
+                color: 'var(--cp-text)',
+                fontFeatureSettings: 'var(--cp-kern-body)',
+              }}
+            >
+              {eventDay}
+            </span>
+          </div>
+        )}
         <div style={{ flex: 1, minWidth: 0 }}>
           <div
             style={{
@@ -401,7 +444,7 @@ function ModuleVariantObject({ object, compact, onClick, onContextMenu }: Object
             </div>
           )}
         </div>
-        {timestamp && (
+        {compact && timestamp && (
           <span
             style={{
               fontFamily: 'var(--cp-font-mono)',
@@ -424,45 +467,91 @@ function ModuleVariantObject({ object, compact, onClick, onContextMenu }: Object
       <button
         {...baseButtonProps}
         style={{
+          position: 'relative',
           display: 'block',
           width: '100%',
           textAlign: 'left',
-          padding: compact ? '8px 10px' : '10px 12px',
-          border: '1px solid var(--cp-term-border)',
+          padding: compact ? '8px 10px' : '10px 14px',
+          border: '1px solid #2A2C32',
           borderRadius: 4,
-          background: 'var(--cp-term)',
-          color: 'var(--cp-term-text)',
+          background: '#1A1C22',
+          color: '#C0C8D8',
+          overflow: 'hidden',
         }}
       >
+        {/* Radial gradient glow overlay */}
+        {!compact && (
+          <div
+            style={{
+              position: 'absolute',
+              inset: 0,
+              background: 'radial-gradient(ellipse at 0% 100%, rgba(45,95,107,0.07) 0%, transparent 50%)',
+              pointerEvents: 'none',
+            }}
+          />
+        )}
         <div
           style={{
-            fontFamily: 'var(--cp-font-mono)',
-            fontWeight: 500,
-            fontSize: 9,
-            letterSpacing: '0.08em',
-            textTransform: 'uppercase',
-            color: 'var(--cp-term-muted)',
+            display: 'flex',
+            alignItems: 'center',
+            gap: 6,
             marginBottom: 6,
-            fontFeatureSettings: 'var(--cp-kern-mono)',
           }}
         >
-          Script
+          {/* Green dot with glow */}
+          <span
+            style={{
+              width: 6,
+              height: 6,
+              borderRadius: '50%',
+              background: '#6AAA6A',
+              boxShadow: '0 0 4px rgba(106,170,106,0.5)',
+              flexShrink: 0,
+            }}
+          />
+          <span
+            style={{
+              fontFamily: 'var(--cp-font-mono)',
+              fontWeight: 500,
+              fontSize: 10,
+              color: '#808898',
+              fontFeatureSettings: 'var(--cp-kern-mono)',
+            }}
+          >
+            {title}
+          </span>
         </div>
-        <div
+        <pre
           style={{
+            margin: 0,
             fontFamily: 'var(--cp-font-mono)',
-            fontWeight: 500,
+            fontWeight: 400,
             fontSize: 11,
-            lineHeight: 1.6,
-            color: 'var(--cp-term-text)',
+            lineHeight: 1.65,
+            color: '#C0C8D8',
             fontFeatureSettings: 'var(--cp-kern-mono)',
             whiteSpace: compact ? 'nowrap' : 'pre-wrap',
             overflow: 'hidden',
             textOverflow: 'ellipsis',
+            maxHeight: compact ? 'none' : 90,
           }}
         >
-          {summary ?? title}
-        </div>
+          {summary ?? body}
+        </pre>
+        {!compact && edgeCount > 0 && (
+          <div
+            style={{
+              marginTop: 8,
+              fontFamily: 'var(--cp-font-mono)',
+              fontSize: 9,
+              fontWeight: 500,
+              color: '#606878',
+              fontFeatureSettings: 'var(--cp-kern-mono)',
+            }}
+          >
+            {edgeCount} connections
+          </div>
+        )}
       </button>
     );
   }
@@ -558,24 +647,28 @@ function ModuleVariantObject({ object, compact, onClick, onContextMenu }: Object
           color: 'var(--cp-text)',
         }}
       >
+        {/* OG gradient header band */}
         <div
           style={{
             position: 'absolute',
             top: 0,
             left: 0,
             right: 0,
-            height: 3,
-            background: `linear-gradient(135deg, ${identity.color}0A, ${identity.color}1A)`,
+            height: compact ? 3 : 46,
+            background: `linear-gradient(135deg, ${identity.color}08, ${identity.color}18)`,
             borderRadius: '6px 6px 0 0',
           }}
         />
+        {/* Site name + metadata row (sits inside gradient band on non-compact) */}
         {(domain || sourceFormat || score) && (
           <div
             style={{
+              position: 'relative',
               display: 'flex',
               alignItems: 'center',
               gap: 6,
               marginBottom: 6,
+              paddingTop: compact ? 0 : 24,
               flexWrap: 'wrap',
             }}
           >
@@ -583,14 +676,11 @@ function ModuleVariantObject({ object, compact, onClick, onContextMenu }: Object
               <span
                 style={{
                   fontFamily: 'var(--cp-font-mono)',
-                  fontSize: 8.5,
-                  fontWeight: 700,
+                  fontSize: 9,
+                  fontWeight: 600,
                   letterSpacing: '0.08em',
                   textTransform: 'uppercase',
                   color: identity.color,
-                  background: tone,
-                  borderRadius: 4,
-                  padding: '2px 6px',
                   fontFeatureSettings: 'var(--cp-kern-mono)',
                 }}
               >
@@ -602,13 +692,10 @@ function ModuleVariantObject({ object, compact, onClick, onContextMenu }: Object
                 style={{
                   fontFamily: 'var(--cp-font-mono)',
                   fontSize: 8.5,
-                  fontWeight: 700,
+                  fontWeight: 600,
                   letterSpacing: '0.08em',
                   textTransform: 'uppercase',
                   color: 'var(--cp-text-faint)',
-                  background: 'rgba(24,24,27,0.035)',
-                  borderRadius: 4,
-                  padding: '2px 6px',
                   fontFeatureSettings: 'var(--cp-kern-mono)',
                 }}
               >
@@ -652,10 +739,10 @@ function ModuleVariantObject({ object, compact, onClick, onContextMenu }: Object
               lineHeight: 1.55,
               color: 'var(--cp-text-muted)',
               fontFeatureSettings: 'var(--cp-kern-body)',
-              display: compact ? '-webkit-box' : 'block',
-              WebkitLineClamp: compact ? 2 : undefined,
-              WebkitBoxOrient: compact ? 'vertical' : undefined,
-              overflow: compact ? 'hidden' : 'visible',
+              display: '-webkit-box',
+              WebkitLineClamp: 2,
+              WebkitBoxOrient: 'vertical',
+              overflow: 'hidden',
             }}
           >
             {summary}

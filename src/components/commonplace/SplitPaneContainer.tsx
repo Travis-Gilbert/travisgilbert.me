@@ -17,6 +17,7 @@ import {
   updateRatio,
   addTab,
   closeTab,
+  closeTabOrPane,
   setActiveTab,
   collectLeafIds,
   findPane,
@@ -164,7 +165,7 @@ export default function SplitPaneContainer() {
 
   const handleCloseTab = useCallback(
     (paneId: string, tabIndex: number) => {
-      setLayout((prev) => closeTab(prev, paneId, tabIndex));
+      setLayout((prev) => closeTabOrPane(prev, paneId, tabIndex));
     },
     []
   );

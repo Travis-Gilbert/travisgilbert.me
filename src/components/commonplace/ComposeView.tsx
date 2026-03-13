@@ -208,7 +208,7 @@ export default function ComposeView({
     type: string;
     slug: string;
   } | null>(null);
-  const [terminalOpen, setTerminalOpen] = useState(true);
+  const [terminalOpen, setTerminalOpen] = useState(false);
   const [terminalHeight, setTerminalHeight] = useState(184);
   const [terminalTab, setTerminalTab] = useState<'passes' | 'tension' | 'gaps' | 'stash'>('passes');
   const terminalDragging = useRef<{ startY: number; startHeight: number } | null>(null);
@@ -505,22 +505,17 @@ export default function ComposeView({
                     <span>{saving ? 'Saving…' : 'Cmd/Ctrl+Enter saves'}</span>
                     {error && <span className="cp-compose-error-inline">{error}</span>}
                   </div>
-                  <div className="cp-compose-footer-actions">
-                    <span className="cp-compose-tension-hint">
-                      NLI contradiction analysis on current draft.
-                    </span>
-                    <button
-                      type="button"
-                      className="cp-compose-check-tension"
-                      onClick={() => {
-                        setTerminalOpen(true);
-                        setTerminalTab('tension');
-                        if (!enableNli) setEnableNli(true);
-                      }}
-                    >
-                      Check Tension
-                    </button>
-                  </div>
+                  <button
+                    type="button"
+                    className="cp-compose-check-tension"
+                    onClick={() => {
+                      setTerminalOpen(true);
+                      setTerminalTab('tension');
+                      if (!enableNli) setEnableNli(true);
+                    }}
+                  >
+                    Check Tension
+                  </button>
                 </div>
               </div>
             </div>

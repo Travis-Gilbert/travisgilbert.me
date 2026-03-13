@@ -41,6 +41,15 @@ export default function ResumeCards({ lastEdited, recentActivity = [], onOpenObj
             cursor: 'pointer',
           }}
         >
+          {/* Accent stripe */}
+          <div style={{
+            position: 'absolute',
+            top: 0,
+            left: 0,
+            right: 0,
+            height: 2,
+            background: 'linear-gradient(90deg, var(--cp-red), rgba(196, 80, 60, 0.25), transparent)',
+          }} />
           <div>
             <div style={{
               display: 'flex',
@@ -78,8 +87,8 @@ export default function ResumeCards({ lastEdited, recentActivity = [], onOpenObj
             </div>
             <div style={{
               fontFamily: 'var(--cp-font-title)',
-              fontSize: 14,
-              fontWeight: 600,
+              fontSize: 15,
+              fontWeight: 700,
               color: 'var(--cp-text)',
               lineHeight: 1.22,
               fontFeatureSettings: 'var(--cp-kern-title)',
@@ -115,21 +124,31 @@ export default function ResumeCards({ lastEdited, recentActivity = [], onOpenObj
       {recentActivity.length > 0 && (
         <div style={{
           minHeight: 112,
+          position: 'relative',
+          overflow: 'hidden',
           display: 'flex',
           flexDirection: 'column',
           justifyContent: 'space-between',
-          background: 'linear-gradient(180deg, rgba(112, 80, 160, 0.05), rgba(255,255,255,0.2))',
-          border: '1px solid rgba(112, 80, 160, 0.14)',
-          borderRadius: 5,
-          padding: '10px 14px',
-          boxShadow: 'none',
+          background: 'rgba(90, 170, 186, 0.07)',
+          border: '1px solid rgba(90, 170, 186, 0.22)',
+          borderRadius: 7,
+          padding: '13px 16px',
         }}>
+          {/* Accent stripe */}
+          <div style={{
+            position: 'absolute',
+            top: 0,
+            left: 0,
+            right: 0,
+            height: 2,
+            background: 'linear-gradient(90deg, #5AAABA, rgba(90, 170, 186, 0.25), transparent)',
+          }} />
           <div>
             <div style={{
               fontFamily: 'var(--cp-font-mono)',
               fontSize: 9,
               fontWeight: 700,
-              color: 'var(--cp-purple)',
+              color: '#5AAABA',
               letterSpacing: '0.1em',
               textTransform: 'uppercase',
               marginBottom: 6,
@@ -138,8 +157,8 @@ export default function ResumeCards({ lastEdited, recentActivity = [], onOpenObj
             </div>
             <div style={{
               fontFamily: 'var(--cp-font-title)',
-              fontSize: 14,
-              fontWeight: 600,
+              fontSize: 15,
+              fontWeight: 700,
               color: 'var(--cp-text)',
               lineHeight: 1.25,
             }}>

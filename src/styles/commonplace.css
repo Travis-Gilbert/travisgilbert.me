@@ -99,7 +99,6 @@
   --cp-shadow-lg: 0 8px 24px rgba(24, 24, 27, 0.12);
 
   /* Dot field */
-  --cp-dot-color: rgba(26, 26, 29, 0.05);
 
   /* Construction grid (chrome shell only) */
   --cp-grid-color: rgba(255, 255, 255, 0.012);
@@ -183,32 +182,6 @@
 
 .cp-grain-card::after {
   opacity: 0.02;
-}
-
-/* ─────────────────────────────────────────────────
-   Blueprint grid: 40px engineering paper lines.
-   Only on the main content area.
-   ───────────────────────────────────────────────── */
-
-.cp-blueprint-grid {
-  background-image:
-    linear-gradient(
-      to right,
-      rgba(var(--cp-red-rgb), var(--cp-grid-opacity)) 1px,
-      transparent 1px
-    ),
-    linear-gradient(
-      to bottom,
-      rgba(var(--cp-red-rgb), var(--cp-grid-opacity)) 1px,
-      transparent 1px
-    );
-  background-size: var(--cp-grid-size) var(--cp-grid-size);
-}
-
-/* Brighten grid on drag-over (capture drop zone feedback) */
-.cp-blueprint-grid[data-drag-active="true"] {
-  --cp-grid-opacity: 0.15;
-  transition: --cp-grid-opacity 300ms;
 }
 
 /* ─────────────────────────────────────────────────
@@ -3506,7 +3479,6 @@
   align-items: center;
   justify-content: space-between;
   gap: 14px;
-  flex-wrap: wrap;
   width: min(100%, 880px);
   margin: 0 auto;
   padding: 18px 32px 24px;
@@ -3615,14 +3587,6 @@
     grid-template-columns: minmax(0, 1fr);
     grid-template-rows: minmax(0, 1fr) minmax(260px, 44vh);
   }
-}
-
-/* ─────────────────────────────────────────────────
-   Vignette dots background (replaces blueprint grid)
-   ───────────────────────────────────────────────── */
-
-.cp-vignette-dots {
-  background-image: none;
 }
 
 /* ─────────────────────────────────────────────────
@@ -4027,10 +3991,6 @@
 .cp-main-surface {
   background: var(--cp-chrome);
   backdrop-filter: none;
-}
-
-.cp-vignette-dots {
-  background-image: none;
 }
 
 .cp-pane-container {
@@ -5964,23 +5924,6 @@
   padding: 8px 10px;
 }
 
-/* ─── Vignette dots (replaces blueprint grid on main area) ─── */
-
-.cp-vignette-dots {
-  background-image:
-    radial-gradient(
-      ellipse at center,
-      transparent 30%,
-      rgba(180, 90, 45, 0.03) 70%,
-      rgba(180, 90, 45, 0.05) 100%
-    ),
-    radial-gradient(
-      circle at center,
-      rgba(180, 90, 45, 0.045) 1px,
-      transparent 1px
-    );
-  background-size: 100% 100%, 24px 24px;
-}
 
 /* ═══════════════════════════════════════════════════════════════
    TimelineView: rich two-column timeline layout (Batch 5)
@@ -7033,8 +6976,10 @@
 }
 
 .cp-compose-editor-shell .cp-editor-wrapper {
-  flex: 0 0 auto;
+  flex: 1 1 0;
   width: 100%;
+  display: flex;
+  flex-direction: column;
 }
 
 .cp-compose-editor-shell .cp-editor-wrapper .studio-tiptap-wrapper,
@@ -7044,22 +6989,26 @@
 
 .cp-compose-editor-shell .cp-editor-wrapper .studio-tiptap-wrapper {
   overflow-y: visible !important;
-  flex: 0 0 auto;
+  flex: 1 1 0;
   width: 100%;
   padding: 0;
   scroll-padding-top: 0;
   scroll-padding-bottom: 0;
+  display: flex;
+  flex-direction: column;
 }
 
 .cp-compose-editor-shell .cp-editor-wrapper .studio-page {
   width: 100%;
   max-width: 640px;
-  min-height: 0;
+  min-height: 200px;
   margin: 0;
   padding: 0 0 22px;
-  flex: 0 0 auto;
+  flex: 1 1 0;
   box-shadow: none;
   overflow: visible;
+  display: flex;
+  flex-direction: column;
 }
 
 .cp-compose-editor-shell .cp-editor-wrapper .studio-page::before,
@@ -7070,8 +7019,9 @@
 
 .cp-compose-editor-shell .cp-editor-wrapper .studio-page > div {
   width: 100%;
-  flex: 0 0 auto;
-  display: block;
+  flex: 1 1 0;
+  display: flex;
+  flex-direction: column;
 }
 
 .cp-compose-editor-shell .cp-editor-wrapper .ProseMirror,
@@ -7079,7 +7029,8 @@
   width: 100%;
   max-width: 100%;
   min-width: 100%;
-  flex: 0 0 auto;
+  flex: 1 1 0;
+  min-height: 200px;
 }
 
 .cp-compose-editor-shell .cp-editor-wrapper .studio-prose {
@@ -7087,7 +7038,7 @@
   line-height: 1.74;
   letter-spacing: 0.005em;
   color: var(--cp-text-muted);
-  min-height: 0;
+  min-height: 200px;
   padding: 0;
   background-image: none;
 }
@@ -7119,8 +7070,8 @@
 }
 
 .cp-compose-tension-row {
-  margin: 16px 0 0;
-  padding: 12px 0 18px;
+  margin: 12px 0 0;
+  padding: 8px 0 10px;
   border-top: 1px solid var(--cp-border-faint);
 }
 
@@ -7637,7 +7588,7 @@
   }
 
   .cp-compose-tension-row {
-    padding: 14px 0 18px;
+    padding: 10px 0 10px;
   }
 
   .cp-compose-footer-actions {
