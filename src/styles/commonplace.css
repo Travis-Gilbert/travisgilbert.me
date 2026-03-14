@@ -490,6 +490,60 @@
   color: var(--cp-red);
 }
 
+/* Tab drag-and-drop feedback */
+.cp-tab[data-dragging="true"] {
+  opacity: 0.4;
+  transition: opacity 100ms;
+}
+
+.cp-tab-bar[data-drag-over="true"] {
+  background: color-mix(in srgb, var(--cp-red) 6%, var(--cp-chrome));
+  box-shadow: inset 0 -2px 0 0 rgba(196, 80, 60, 0.35);
+  transition: background 120ms ease-out, box-shadow 120ms ease-out;
+}
+
+/* Tab land: spring bounce on drop completion */
+.cp-tab[data-landed="true"] {
+  animation: cp-tab-land 450ms cubic-bezier(0.34, 1.56, 0.64, 1) both;
+}
+
+@keyframes cp-tab-land {
+  0%   { transform: scale(0.92); opacity: 0.5; }
+  50%  { transform: scale(1.04); opacity: 1; }
+  100% { transform: scale(1); opacity: 1; }
+}
+
+/* Pip absorb pulse: grows as particles converge */
+.cp-tab[data-landed="true"] .cp-tab-pip {
+  animation: cp-pip-absorb 500ms cubic-bezier(0.34, 1.56, 0.64, 1) 200ms both;
+}
+
+@keyframes cp-pip-absorb {
+  0%   { transform: scale(0.5); background: var(--cp-chrome-dim); box-shadow: none; }
+  50%  { transform: scale(1.8); background: var(--cp-red); box-shadow: 0 0 8px rgba(180, 90, 45, 0.4); }
+  100% { transform: scale(1); background: var(--cp-red); box-shadow: none; }
+}
+
+/* Reduced motion: keep opacity transitions but remove spatial movement */
+@media (prefers-reduced-motion: reduce) {
+  .cp-tab[data-landed="true"] {
+    animation: cp-tab-land-reduced 200ms ease both;
+  }
+  .cp-tab[data-landed="true"] .cp-tab-pip {
+    animation: cp-pip-absorb-reduced 200ms ease 100ms both;
+  }
+}
+
+@keyframes cp-tab-land-reduced {
+  0%   { opacity: 0.5; }
+  100% { opacity: 1; }
+}
+
+@keyframes cp-pip-absorb-reduced {
+  0%   { background: var(--cp-chrome-dim); }
+  100% { background: var(--cp-red); }
+}
+
 /* ─────────────────────────────────────────────────
    Drag handle for resizing panes
    ───────────────────────────────────────────────── */

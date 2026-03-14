@@ -158,28 +158,32 @@ export default function PaneDotGrid({
         }
       }
 
-      // ── Layer 2: radial gradient overlay (inverted vignette) ──
-      // Opaque at center (covers dots), transparent at corners (reveals dots).
-      // Same composite technique as DotGrid.tsx drawInversionGradient().
+      // ── Layer 2: erase dots from center (inverted vignette) ──
+      // Use destination-out compositing to remove dots from the content
+      // zone while keeping them visible at corners/edges. This avoids
+      // painting any overlay on top of content.
       if (vignette) {
         const cx = cw / 2;
         const cy = ch / 2;
         const cornerDist = Math.sqrt(cx * cx + cy * cy);
 
-        const [br, bg, bb] = bgColor;
+        ctx!.globalCompositeOperation = 'destination-out';
 
         const grad = ctx!.createRadialGradient(cx, cy, 0, cx, cy, cornerDist);
-        // Center: mostly opaque (hides dots in content zone)
-        grad.addColorStop(0, `rgba(${br}, ${bg}, ${bb}, 0.85)`);
-        // 50% radius: gentle fade begins
-        grad.addColorStop(0.5, `rgba(${br}, ${bg}, ${bb}, 0.55)`);
-        // 75% radius: dots becoming visible
-        grad.addColorStop(0.75, `rgba(${br}, ${bg}, ${bb}, 0.25)`);
-        // Corners: thin wash so dots stay softened near UI elements
-        grad.addColorStop(1, `rgba(${br}, ${bg}, ${bb}, 0.1)`);
+        // Center: fully erase (opaque mask removes dots)
+        grad.addColorStop(0, 'rgba(0, 0, 0, 1)');
+        // 45%: still mostly erasing
+        grad.addColorStop(0.45, 'rgba(0, 0, 0, 0.85)');
+        // 70%: dots becoming visible
+        grad.addColorStop(0.7, 'rgba(0, 0, 0, 0.3)');
+        // Corners: keep most dots visible (only slight erase)
+        grad.addColorStop(1, 'rgba(0, 0, 0, 0.05)');
 
         ctx!.fillStyle = grad;
         ctx!.fillRect(0, 0, cw, ch);
+
+        // Reset composite mode for any future draws
+        ctx!.globalCompositeOperation = 'source-over';
       }
     }
 

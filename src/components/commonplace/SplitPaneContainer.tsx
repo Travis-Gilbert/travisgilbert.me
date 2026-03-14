@@ -1,7 +1,8 @@
 'use client';
 
-import { useState, useCallback, useEffect, useRef } from 'react';
+import { useState, useCallback, useEffect, useRef, useMemo } from 'react';
 import type { ReactNode } from 'react';
+import { motion, useReducedMotion } from 'framer-motion';
 import type {
   PaneNode,
   PaneTab,
@@ -49,6 +50,33 @@ import LooseEndsView from './LooseEndsView';
 import ComposeView from './ComposeView';
 import LibraryView from './LibraryView';
 import PaneDotGrid from './PaneDotGrid';
+
+/* ─────────────────────────────────────────────────
+   PRNG helpers for tab drop particle effect
+   (same pattern as DropZone.tsx / PaneDotGrid.tsx)
+   ───────────────────────────────────────────────── */
+
+function djb2(str: string): number {
+  let hash = 5381;
+  for (let i = 0; i < str.length; i++) {
+    hash = ((hash << 5) + hash) ^ str.charCodeAt(i);
+  }
+  return hash >>> 0;
+}
+
+function mulberry32(seed: number) {
+  let s = seed;
+  return () => {
+    s += 0x6d2b79f5;
+    let t = s;
+    t = Math.imul(t ^ (t >>> 15), t | 1);
+    t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+    return ((t ^ (t >>> 14)) >>> 0) / 0x100000000;
+  };
+}
+
+const TAB_DROP_PALETTE = ['#B45A2D', '#2D5F6B', '#C49A4A', '#8C7B6E', '#5A7A4A'];
+const TAB_DROP_SPRING = [0.34, 1.56, 0.64, 1] as const;
 
 const STORAGE_KEY = 'commonplace-layout';
 const STORAGE_VERSION_KEY = `${STORAGE_KEY}-version`;
@@ -608,7 +636,16 @@ function PaneTabBar({
   onAddTab,
   onMoveTab,
 }: TabBarProps) {
+  const shouldReduceMotion = useReducedMotion();
   const [dragOver, setDragOver] = useState(false);
+  const [landedTabId, setLandedTabId] = useState<string | null>(null);
+  const [dropEffect, setDropEffect] = useState<{
+    originX: number;
+    originY: number;
+    barWidth: number;
+    barHeight: number;
+  } | null>(null);
+  const barRef = useRef<HTMLDivElement>(null);
 
   const handleBarDragOver = (e: React.DragEvent) => {
     if (e.dataTransfer.types.includes(TAB_DND_MIME)) {
@@ -635,16 +672,52 @@ function PaneTabBar({
       };
       if (payload.fromPaneId === paneId) return;
       onMoveTab(payload.fromPaneId, payload.tabIndex, paneId, payload.viewType as ViewType, payload.label, payload.context);
+
+      // Trigger digitize-and-absorb particle burst (skip if reduced motion)
+      if (!shouldReduceMotion) {
+        const barRect = barRef.current?.getBoundingClientRect();
+        if (barRect) {
+          setDropEffect({
+            originX: e.clientX - barRect.left,
+            originY: e.clientY - barRect.top,
+            barWidth: barRect.width,
+            barHeight: barRect.height,
+          });
+          setTimeout(() => setDropEffect(null), 750);
+        }
+      }
+
+      // Mark the landed tab for pip absorb animation
+      setLandedTabId(payload.label);
+      setTimeout(() => setLandedTabId(null), 700);
     } catch { /* malformed payload, ignore */ }
   };
 
+  // Build particle data deterministically (only when dropEffect is active)
+  const dropParticles = useMemo(() => {
+    if (!dropEffect) return [];
+    return Array.from({ length: 12 }, (_, i) => {
+      const rng = mulberry32(djb2(`tab-drop-${paneId}-${i}`));
+      const angle = rng() * Math.PI * 2;
+      const dist = 30 + rng() * 50;
+      const char = rng() < 0.5 ? '0' : '1';
+      const color = TAB_DROP_PALETTE[Math.floor(rng() * TAB_DROP_PALETTE.length)];
+      const dx = Math.cos(angle) * dist;
+      const dy = Math.sin(angle) * dist;
+      const fontSize = 9 + rng() * 3;
+      // Converge target: rightmost area (where new tab lands)
+      const convergeDx = (dropEffect.barWidth - 20) - dropEffect.originX;
+      const convergeDy = (dropEffect.barHeight / 2) - dropEffect.originY;
+      return { i, char, color, dx, dy, convergeDx, convergeDy, fontSize };
+    });
+  }, [dropEffect, paneId]);
+
   return (
     <div
+      ref={barRef}
       className="cp-tab-bar"
-      style={{
-        position: 'relative',
-        outline: dragOver ? '1px solid rgba(196, 80, 60, 0.4)' : 'none',
-      }}
+      data-drag-over={dragOver ? 'true' : undefined}
+      style={{ position: 'relative' }}
       onDragOver={handleBarDragOver}
       onDragLeave={handleBarDragLeave}
       onDrop={handleBarDrop}
@@ -655,8 +728,10 @@ function PaneTabBar({
           key={tab.id}
           className="cp-tab"
           data-active={i === activeTabIndex ? 'true' : 'false'}
+          data-landed={tab.label === landedTabId ? 'true' : undefined}
           draggable
           onDragStart={(e) => {
+            e.currentTarget.setAttribute('data-dragging', 'true');
             e.dataTransfer.setData(
               TAB_DND_MIME,
               JSON.stringify({
@@ -668,6 +743,9 @@ function PaneTabBar({
               })
             );
             e.dataTransfer.effectAllowed = 'move';
+          }}
+          onDragEnd={(e) => {
+            e.currentTarget.removeAttribute('data-dragging');
           }}
           onClick={(e) => {
             e.stopPropagation();
@@ -688,6 +766,57 @@ function PaneTabBar({
           </button>
         </div>
       ))}
+
+      {/* Digitize-and-absorb particle burst on tab drop */}
+      {dropEffect && (
+        <div
+          style={{
+            position: 'absolute',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            pointerEvents: 'none',
+            overflow: 'visible',
+            zIndex: 20,
+          }}
+          aria-hidden="true"
+        >
+          {dropParticles.map((p) => (
+            <motion.span
+              key={p.i}
+              initial={{
+                x: dropEffect.originX,
+                y: dropEffect.originY,
+                scale: 1.2,
+                opacity: 0.9,
+              }}
+              animate={{
+                x: [dropEffect.originX, dropEffect.originX + p.dx, dropEffect.originX + p.convergeDx],
+                y: [dropEffect.originY, dropEffect.originY + p.dy, dropEffect.originY + p.convergeDy],
+                scale: [1.2, 0.9, 0.3],
+                opacity: [0.9, 0.8, 0],
+              }}
+              transition={{
+                duration: 0.65,
+                delay: p.i * 0.015,
+                ease: TAB_DROP_SPRING,
+                times: [0, 0.4, 1],
+              }}
+              style={{
+                position: 'absolute',
+                fontFamily: 'var(--cp-font-mono)',
+                fontSize: p.fontSize,
+                color: p.color,
+                fontWeight: 600,
+                pointerEvents: 'none',
+              }}
+            >
+              {p.char}
+            </motion.span>
+          ))}
+        </div>
+      )}
 
       {/* Add tab button */}
       <button
