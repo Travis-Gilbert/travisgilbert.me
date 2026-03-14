@@ -604,6 +604,14 @@ export default function ObjectDrawer() {
       .then((data) => {
         setDetail(data);
         setLiveComponents(data.components);
+        // Smart tab: open to Info for URL-based objects with no body text
+        const hasBody = Boolean(data.body?.trim());
+        const hasInfoContent = Boolean(data.url) || data.components.some(
+          (c: ApiComponent) => c.data_type === 'file' || c.key === 'extracted_sections',
+        );
+        if (!hasBody && hasInfoContent) {
+          setActiveTab('info');
+        }
         setLoading(false);
       })
       .catch((err: Error) => {
