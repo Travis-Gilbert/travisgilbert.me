@@ -108,6 +108,16 @@ export default function SplitPaneContainer() {
     LAYOUT_PRESETS[0].name
   );
 
+  /* Drop animation state (lifted here so it survives tree restructuring) */
+  const [tabDropAnim, setTabDropAnim] = useState<{
+    paneId: string;
+    originX: number;
+    originY: number;
+    barWidth: number;
+    barHeight: number;
+    landedLabel: string;
+  } | null>(null);
+
   /* Load persisted layout after mount to keep server/client first render deterministic */
   useEffect(() => {
     const savedVersion = localStorage.getItem(STORAGE_VERSION_KEY);
@@ -488,6 +498,8 @@ export default function SplitPaneContainer() {
           onSetActiveTab={handleSetActiveTab}
           onOpenObject={handleOpenObject}
           onMoveTab={handleMoveTab}
+          tabDropAnim={tabDropAnim}
+          onTabDropAnim={setTabDropAnim}
         />
       </div>
     </div>
@@ -510,6 +522,8 @@ interface NodeProps {
   onSetActiveTab: (paneId: string, tabIndex: number) => void;
   onOpenObject: (fromPaneId: string, objectRef: number, title?: string) => void;
   onMoveTab: (fromPaneId: string, tabIndex: number, toPaneId: string, viewType: ViewType, label: string, context?: Record<string, unknown>) => void;
+  tabDropAnim: { paneId: string; originX: number; originY: number; barWidth: number; barHeight: number; landedLabel: string } | null;
+  onTabDropAnim: (anim: { paneId: string; originX: number; originY: number; barWidth: number; barHeight: number; landedLabel: string } | null) => void;
 }
 
 function RenderNode(props: NodeProps) {
@@ -556,7 +570,7 @@ function RenderSplit(props: NodeProps & { node: SplitPane }) {
    ───────────────────────────────────────────────── */
 
 function RenderLeaf(props: NodeProps & { node: LeafPane }) {
-  const { node, focusedPaneId, onFocus, onSplit, onClosePane, onAddTab, onCloseTab, onSetActiveTab, onOpenObject, onMoveTab } = props;
+  const { node, focusedPaneId, onFocus, onSplit, onClosePane, onAddTab, onCloseTab, onSetActiveTab, onOpenObject, onMoveTab, tabDropAnim, onTabDropAnim } = props;
   const [showViewPicker, setShowViewPicker] = useState(false);
   const isFocused = focusedPaneId === node.id;
   const activeTab = node.tabs[node.activeTabIndex];
@@ -587,6 +601,8 @@ function RenderLeaf(props: NodeProps & { node: LeafPane }) {
           setShowViewPicker(false);
         }}
         onMoveTab={onMoveTab}
+        tabDropAnim={tabDropAnim}
+        onTabDropAnim={onTabDropAnim}
       />
 
       {/* Content with canvas dot grid */}
@@ -619,6 +635,8 @@ interface TabBarProps {
   onToggleViewPicker: () => void;
   onAddTab: (viewType: ViewType) => void;
   onMoveTab: (fromPaneId: string, tabIndex: number, toPaneId: string, viewType: ViewType, label: string, context?: Record<string, unknown>) => void;
+  tabDropAnim: { paneId: string; originX: number; originY: number; barWidth: number; barHeight: number; landedLabel: string } | null;
+  onTabDropAnim: (anim: { paneId: string; originX: number; originY: number; barWidth: number; barHeight: number; landedLabel: string } | null) => void;
 }
 
 const TAB_DND_MIME = 'application/commonplace-tab';
@@ -635,17 +653,16 @@ function PaneTabBar({
   onToggleViewPicker,
   onAddTab,
   onMoveTab,
+  tabDropAnim,
+  onTabDropAnim,
 }: TabBarProps) {
   const shouldReduceMotion = useReducedMotion();
   const [dragOver, setDragOver] = useState(false);
-  const [landedTabId, setLandedTabId] = useState<string | null>(null);
-  const [dropEffect, setDropEffect] = useState<{
-    originX: number;
-    originY: number;
-    barWidth: number;
-    barHeight: number;
-  } | null>(null);
   const barRef = useRef<HTMLDivElement>(null);
+
+  // This pane's drop animation (from lifted parent state)
+  const dropEffect = tabDropAnim?.paneId === paneId ? tabDropAnim : null;
+  const landedLabel = tabDropAnim?.paneId === paneId ? tabDropAnim.landedLabel : null;
 
   const handleBarDragOver = (e: React.DragEvent) => {
     if (e.dataTransfer.types.includes(TAB_DND_MIME)) {
@@ -671,46 +688,56 @@ function PaneTabBar({
         context?: Record<string, unknown>;
       };
       if (payload.fromPaneId === paneId) return;
+
+      // Capture drop coordinates BEFORE the tree mutates
+      const barRect = barRef.current?.getBoundingClientRect();
+
       onMoveTab(payload.fromPaneId, payload.tabIndex, paneId, payload.viewType as ViewType, payload.label, payload.context);
 
-      // Trigger digitize-and-absorb particle burst (skip if reduced motion)
-      if (!shouldReduceMotion) {
-        const barRect = barRef.current?.getBoundingClientRect();
-        if (barRect) {
-          setDropEffect({
-            originX: e.clientX - barRect.left,
-            originY: e.clientY - barRect.top,
-            barWidth: barRect.width,
-            barHeight: barRect.height,
-          });
-          setTimeout(() => setDropEffect(null), 750);
-        }
+      // Trigger digitize-and-absorb particle burst (lifted to parent for tree survival)
+      if (!shouldReduceMotion && barRect) {
+        onTabDropAnim({
+          paneId,
+          originX: e.clientX - barRect.left,
+          originY: e.clientY - barRect.top,
+          barWidth: barRect.width,
+          barHeight: barRect.height,
+          landedLabel: payload.label,
+        });
+        setTimeout(() => onTabDropAnim(null), 900);
+      } else {
+        // Even with reduced motion, set landed label for CSS pip color change
+        onTabDropAnim({
+          paneId,
+          originX: 0,
+          originY: 0,
+          barWidth: 0,
+          barHeight: 0,
+          landedLabel: payload.label,
+        });
+        setTimeout(() => onTabDropAnim(null), 700);
       }
-
-      // Mark the landed tab for pip absorb animation
-      setLandedTabId(payload.label);
-      setTimeout(() => setLandedTabId(null), 700);
     } catch { /* malformed payload, ignore */ }
   };
 
-  // Build particle data deterministically (only when dropEffect is active)
+  // Build particle data deterministically (showier: 18 particles, larger burst radius)
   const dropParticles = useMemo(() => {
-    if (!dropEffect) return [];
-    return Array.from({ length: 12 }, (_, i) => {
+    if (!dropEffect || shouldReduceMotion) return [];
+    return Array.from({ length: 18 }, (_, i) => {
       const rng = mulberry32(djb2(`tab-drop-${paneId}-${i}`));
       const angle = rng() * Math.PI * 2;
-      const dist = 30 + rng() * 50;
+      const dist = 40 + rng() * 80;
       const char = rng() < 0.5 ? '0' : '1';
       const color = TAB_DROP_PALETTE[Math.floor(rng() * TAB_DROP_PALETTE.length)];
       const dx = Math.cos(angle) * dist;
       const dy = Math.sin(angle) * dist;
-      const fontSize = 9 + rng() * 3;
+      const fontSize = 10 + rng() * 5;
       // Converge target: rightmost area (where new tab lands)
       const convergeDx = (dropEffect.barWidth - 20) - dropEffect.originX;
       const convergeDy = (dropEffect.barHeight / 2) - dropEffect.originY;
       return { i, char, color, dx, dy, convergeDx, convergeDy, fontSize };
     });
-  }, [dropEffect, paneId]);
+  }, [dropEffect, paneId, shouldReduceMotion]);
 
   return (
     <div
@@ -728,7 +755,7 @@ function PaneTabBar({
           key={tab.id}
           className="cp-tab"
           data-active={i === activeTabIndex ? 'true' : 'false'}
-          data-landed={tab.label === landedTabId ? 'true' : undefined}
+          data-landed={tab.label === landedLabel ? 'true' : undefined}
           draggable
           onDragStart={(e) => {
             e.currentTarget.setAttribute('data-dragging', 'true');
@@ -798,8 +825,8 @@ function PaneTabBar({
                 opacity: [0.9, 0.8, 0],
               }}
               transition={{
-                duration: 0.65,
-                delay: p.i * 0.015,
+                duration: 0.8,
+                delay: p.i * 0.02,
                 ease: TAB_DROP_SPRING,
                 times: [0, 0.4, 1],
               }}
