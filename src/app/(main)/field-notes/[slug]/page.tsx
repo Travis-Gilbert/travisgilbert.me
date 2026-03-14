@@ -92,11 +92,11 @@ export default async function FieldNoteDetailPage({ params }: Props) {
           {entry.data.title}
         </h1>
         <TagList tags={entry.data.tags} />
-        {entry.data.connectedTo && (() => {
-          const parentEssay = getEntry<Essay>('essays', entry.data.connectedTo);
-          if (!parentEssay) return null;
-          return (
-            <div className="mt-4 flex items-center gap-3">
+        <div className="mt-4 flex items-center gap-3">
+          {entry.data.connectedTo && (() => {
+            const parentEssay = getEntry<Essay>('essays', entry.data.connectedTo);
+            if (!parentEssay) return null;
+            return (
               <span
                 className="font-mono shrink-0"
                 style={{ fontSize: 10, textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--color-teal)' }}
@@ -110,10 +110,10 @@ export default async function FieldNoteDetailPage({ params }: Props) {
                   {parentEssay.data.title}
                 </Link>
               </span>
-            </div>
-          );
-        })()}
-        <RoughLine className="mt-4" />
+            );
+          })()}
+          <RoughLine className="flex-1 !my-0" />
+        </div>
       </header>
 
       <ArticleBody
