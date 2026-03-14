@@ -861,6 +861,11 @@ export default function ObjectDrawer() {
             </Drawer.Close>
           </div>
 
+          {/* Rough.js divider between header and body */}
+          <div className="cp-drawer-header-rule">
+            <ManuscriptRule />
+          </div>
+
           {/* Content area */}
           <div className="cp-drawer-body-area">
             {loading && <DrawerSkeleton />}
@@ -893,7 +898,7 @@ export default function ObjectDrawer() {
                   {detail.object_type_data?.slug === 'hunch' && (
                     <HunchSketch objectId={detail.id} components={detail.components} />
                   )}
-                  {manuscriptParagraphs.length > 0 && (
+                  {(manuscriptParagraphs.length > 0 || detail.url) && (
                     <div className="cp-drawer-manuscript">
                       {manuscriptParagraphs.map((para, pIdx) => (
                         <Fragment key={pIdx}>
@@ -906,31 +911,31 @@ export default function ObjectDrawer() {
                           )}
                         </Fragment>
                       ))}
-                      <ManuscriptRule />
-                    </div>
-                  )}
-
-                  {detail.url && (
-                    <div className="cp-drawer-url-card">
-                      <div className="cp-drawer-url-label">SOURCE</div>
-                      <a
-                        href={detail.url}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="cp-drawer-url-link"
-                      >
-                        {detail.url}
-                      </a>
-                      {(detail.og_title || detail.og_description) && (
-                        <div className="cp-drawer-og-preview">
-                          {detail.og_title && (
-                            <div className="cp-drawer-og-title">{detail.og_title}</div>
-                          )}
-                          {detail.og_description && (
-                            <div className="cp-drawer-og-desc">{detail.og_description}</div>
+                      {manuscriptParagraphs.length > 0 && detail.url && <ManuscriptRule />}
+                      {detail.url && (
+                        <div className="cp-drawer-url-card">
+                          <div className="cp-drawer-url-label">SOURCE</div>
+                          <a
+                            href={detail.url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="cp-drawer-url-link"
+                          >
+                            {detail.url}
+                          </a>
+                          {(detail.og_title || detail.og_description) && (
+                            <div className="cp-drawer-og-preview">
+                              {detail.og_title && (
+                                <div className="cp-drawer-og-title">{detail.og_title}</div>
+                              )}
+                              {detail.og_description && (
+                                <div className="cp-drawer-og-desc">{detail.og_description}</div>
+                              )}
+                            </div>
                           )}
                         </div>
                       )}
+                      <ManuscriptRule />
                     </div>
                   )}
 
