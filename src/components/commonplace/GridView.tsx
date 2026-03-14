@@ -243,7 +243,10 @@ export default function GridView({ onOpenObject }: GridViewProps) {
       {/* Resurface strip */}
       {resurfaceNodes.length > 0 && (
         <div className="cp-resurface-strip">
-          <div className="cp-resurface-label">RESURFACE</div>
+          <div className="cp-drawer-section-head">
+            <span className="cp-drawer-section-head-label">Resurface</span>
+            <span className="cp-drawer-section-head-rule" />
+          </div>
           <div className="cp-resurface-cards">
             {resurfaceNodes.map((obj) => (
               <ObjectRenderer
@@ -291,7 +294,11 @@ export default function GridView({ onOpenObject }: GridViewProps) {
         {!loading && !error && filteredNodes.length > 0 && (
           <div className="cp-masonry">
             {gridObjects.map((obj) => (
-              <div key={obj.id} className="cp-masonry-item">
+              <div
+                key={obj.id}
+                className="cp-masonry-item"
+                data-priority={(obj.edge_count ?? 0) >= 5 ? 'featured' : undefined}
+              >
                 <ObjectRenderer
                   object={obj}
                   variant="module"

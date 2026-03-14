@@ -47,6 +47,13 @@ export default function TerminalCanvas({
     if (!ctx) return;
 
     function draw() {
+      // Skip canvas decoration on mobile (saves GPU/battery, CSS bg-color is sufficient)
+      if (window.innerWidth < 768) {
+        canvas!.style.display = 'none';
+        return;
+      }
+      canvas!.style.display = '';
+
       const dpr = window.devicePixelRatio || 1;
       const w = parent!.clientWidth;
       const h = parent!.clientHeight;

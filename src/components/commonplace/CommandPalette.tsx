@@ -25,11 +25,23 @@ const ACTION_ITEMS = [
   { key: 'connection-engine' as ViewType, label: 'Open Connection Engine', hint: 'Discover and manage edges' },
 ];
 
-const CREATE_ITEMS = OBJECT_TYPES.map((type) => ({
-  objectType: type.slug,
-  label: `Create new ${type.label}`,
-  hint: `Open Compose as ${type.label}`,
-}));
+const CORE_CREATE_SLUGS = new Set(['note', 'source', 'quote', 'hunch', 'person', 'concept']);
+
+const CREATE_ITEMS_PRIMARY = OBJECT_TYPES
+  .filter((type) => CORE_CREATE_SLUGS.has(type.slug))
+  .map((type) => ({
+    objectType: type.slug,
+    label: `Create new ${type.label}`,
+    hint: `Open Compose as ${type.label}`,
+  }));
+
+const CREATE_ITEMS_SECONDARY = OBJECT_TYPES
+  .filter((type) => !CORE_CREATE_SLUGS.has(type.slug))
+  .map((type) => ({
+    objectType: type.slug,
+    label: `Create new ${type.label}`,
+    hint: `Open Compose as ${type.label}`,
+  }));
 
 const RECENT_KEY = 'cp-command-recent';
 const MAX_RECENT = 8;
@@ -60,6 +72,7 @@ export default function CommandPalette() {
   const [results, setResults] = useState<ObjectSearchResult[]>([]);
   const [recentItems, setRecentItems] = useState<ObjectSearchResult[]>([]);
   const [searching, setSearching] = useState(false);
+  const [showMoreTypes, setShowMoreTypes] = useState(false);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Track paletteOpen in a ref so the hotkey handler never goes stale
@@ -86,6 +99,7 @@ export default function CommandPalette() {
     if (!paletteOpen) {
       setQuery('');
       setResults([]);
+      setShowMoreTypes(false);
     }
   }, [paletteOpen]);
 
@@ -253,7 +267,7 @@ export default function CommandPalette() {
 
             {showActions && (
               <Command.Group heading="Create" className="cp-palette-group">
-                {CREATE_ITEMS.map(({ objectType, label, hint }) => (
+                {CREATE_ITEMS_PRIMARY.map(({ objectType, label, hint }) => (
                   <Command.Item
                     key={objectType}
                     value={label}
@@ -264,6 +278,30 @@ export default function CommandPalette() {
                     <span className="cp-palette-item-meta">{hint}</span>
                   </Command.Item>
                 ))}
+                {!showMoreTypes ? (
+                  <Command.Item
+                    key="more-types"
+                    value="More types..."
+                    onSelect={() => setShowMoreTypes(true)}
+                    className="cp-palette-item cp-palette-item--action"
+                  >
+                    <span className="cp-palette-item-title" style={{ opacity: 0.6 }}>
+                      More types...
+                    </span>
+                  </Command.Item>
+                ) : (
+                  CREATE_ITEMS_SECONDARY.map(({ objectType, label, hint }) => (
+                    <Command.Item
+                      key={objectType}
+                      value={label}
+                      onSelect={() => handleCreate(objectType, label)}
+                      className="cp-palette-item cp-palette-item--action"
+                    >
+                      <span className="cp-palette-item-title">{label}</span>
+                      <span className="cp-palette-item-meta">{hint}</span>
+                    </Command.Item>
+                  ))
+                )}
               </Command.Group>
             )}
 

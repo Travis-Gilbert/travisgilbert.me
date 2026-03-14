@@ -51,6 +51,9 @@ export default function DailyLogPanel({ date, onOpenObject }: DailyLogPanelProps
       <div className="cp-daily-log-panel">
         <div className="cp-empty-state" style={{ padding: '24px 0' }}>
           No activity recorded for this date.
+          <span className="cp-empty-state-hint">
+            Capture or connect objects to see them on the calendar.
+          </span>
         </div>
       </div>
     );
@@ -168,6 +171,9 @@ export default function DailyLogPanel({ date, onOpenObject }: DailyLogPanelProps
       {!hasCreated && !hasUpdated && !hasEdges && !hasEntities && !hasSummary && (
         <div className="cp-empty-state" style={{ padding: '24px 0' }}>
           No activity recorded for this date.
+          <span className="cp-empty-state-hint">
+            Capture or connect objects to see them on the calendar.
+          </span>
         </div>
       )}
     </div>

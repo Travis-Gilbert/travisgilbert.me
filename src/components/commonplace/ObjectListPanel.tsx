@@ -26,6 +26,9 @@ export default function ObjectListPanel({ objects, onOpenObject }: ObjectListPan
     return (
       <div className="cp-empty-state">
         No objects in this collection yet.
+        <span className="cp-empty-state-hint">
+          Drag objects here or capture with this project selected.
+        </span>
       </div>
     );
   }
