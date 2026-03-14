@@ -112,7 +112,7 @@ export default async function FieldNoteDetailPage({ params }: Props) {
               </span>
             );
           })()}
-          <RoughLine className="flex-1 !my-0" />
+          <RoughLine className="!my-0 w-24 sm:w-32 shrink-0" />
         </div>
       </header>
 
