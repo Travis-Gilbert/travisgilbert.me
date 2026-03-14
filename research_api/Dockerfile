@@ -15,8 +15,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 WORKDIR /app
 
 COPY requirements/base.txt requirements/base.txt
+COPY requirements/production.txt requirements/production.txt
 RUN pip install --extra-index-url https://download.pytorch.org/whl/cpu --no-cache-dir -r requirements/production.txt
-RUN pip install --no-cache-dir -r requirements/production.txt
 
 # Cache spaCy model in the image to avoid runtime downloads.
 RUN python -m spacy download en_core_web_md
