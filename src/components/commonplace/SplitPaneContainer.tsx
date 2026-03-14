@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useCallback, useEffect, useRef, useMemo } from 'react';
+import { createPortal } from 'react-dom';
 import type { ReactNode } from 'react';
 import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
 import type {
@@ -527,15 +528,16 @@ export default function SplitPaneContainer() {
         />
       </div>
 
-      {/* Viewport-level digitize stream overlay */}
-      {tabDropAnim && !shouldReduceMotion && (
+      {/* Viewport-level digitize stream overlay (portal to escape stacking contexts) */}
+      {tabDropAnim && !shouldReduceMotion && createPortal(
         <TabDigitizeOverlay
           sourceX={tabDropAnim.sourceX}
           sourceY={tabDropAnim.sourceY}
           targetX={tabDropAnim.targetX}
           targetY={tabDropAnim.targetY}
           label={tabDropAnim.landedLabel}
-        />
+        />,
+        document.body
       )}
     </div>
   );

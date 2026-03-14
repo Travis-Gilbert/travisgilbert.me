@@ -587,6 +587,9 @@ export default function CommonPlaceSidebar() {
         >
           <NavArrowRight width={16} height={16} />
         </button>
+
+        {/* DropZone must be mounted even when sidebar is collapsed (fixed overlay) */}
+        <DropZone onCapture={handleCapture} />
       </aside>
     );
   }

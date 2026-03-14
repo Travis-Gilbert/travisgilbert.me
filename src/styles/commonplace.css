@@ -953,13 +953,10 @@
   50% { opacity: 0.4; }
 }
 
-/* Drop zone overlay: scoped to content area (sidebar excluded) */
+/* Drop zone overlay: covers full viewport (sidebar uses fixed position too) */
 .cp-dropzone-overlay {
   position: fixed;
-  left: var(--cp-sidebar-width, 200px);
-  top: 0;
-  right: 0;
-  bottom: 0;
+  inset: 0;
   z-index: 200;
   display: flex;
   align-items: center;

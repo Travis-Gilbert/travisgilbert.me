@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useCallback, useEffect, useMemo } from 'react';
+import { createPortal } from 'react-dom';
 import { AnimatePresence, motion } from 'framer-motion';
 import type { CapturedObject } from '@/lib/commonplace';
 import { getObjectTypeIdentity } from '@/lib/commonplace';
@@ -144,6 +145,8 @@ export default function DropZone({ onCapture }: DropZoneProps) {
      workaround for the "flickering overlay" problem. */
 
   const handleDragEnter = useCallback((e: DragEvent) => {
+    // Ignore internal tab drags (they use a custom MIME type)
+    if (e.dataTransfer?.types.includes('application/commonplace-tab')) return;
     e.preventDefault();
     setDragCounter((c) => {
       if (c === 0) setIsDragActive(true);
@@ -152,6 +155,7 @@ export default function DropZone({ onCapture }: DropZoneProps) {
   }, []);
 
   const handleDragLeave = useCallback((e: DragEvent) => {
+    if (e.dataTransfer?.types.includes('application/commonplace-tab')) return;
     e.preventDefault();
     setDragCounter((c) => {
       const next = c - 1;
@@ -164,12 +168,15 @@ export default function DropZone({ onCapture }: DropZoneProps) {
   }, []);
 
   const handleDragOver = useCallback((e: DragEvent) => {
+    if (e.dataTransfer?.types.includes('application/commonplace-tab')) return;
     e.preventDefault();
     if (e.dataTransfer) e.dataTransfer.dropEffect = 'copy';
   }, []);
 
   const handleDrop = useCallback(
     (e: DragEvent) => {
+      // Ignore internal tab drags
+      if (e.dataTransfer?.types.includes('application/commonplace-tab')) return;
       e.preventDefault();
       setIsDragActive(false);
       setDragCounter(0);
@@ -258,9 +265,11 @@ export default function DropZone({ onCapture }: DropZoneProps) {
     };
   }, [isAbsorbing]);
 
+  /* ── Portal target: render overlays at document.body to escape stacking contexts ── */
+
   /* Absorb animation overlay */
   if (isAbsorbing) {
-    return (
+    return createPortal(
       <div className="cp-dropzone-overlay" data-active="true" aria-hidden="true">
         {/* Center label */}
         <motion.div
@@ -318,14 +327,15 @@ export default function DropZone({ onCapture }: DropZoneProps) {
             />
           ))}
         </AnimatePresence>
-      </div>
+      </div>,
+      document.body
     );
   }
 
   /* Drag active overlay */
   if (!isDragActive) return null;
 
-  return (
+  return createPortal(
     <div className="cp-dropzone-overlay" data-active="true">
       <div className="cp-dropzone-inner">
         <svg
@@ -363,6 +373,7 @@ export default function DropZone({ onCapture }: DropZoneProps) {
           URLs, text, or files
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }
