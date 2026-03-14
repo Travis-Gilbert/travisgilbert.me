@@ -5176,7 +5176,7 @@
   gap: 16px;
 }
 
-/* ─── Overview: body text ─── */
+/* ─── Overview: body text (fallback, kept for compat) ─── */
 
 .cp-drawer-body-text {
   font-family: var(--cp-font-body);
@@ -5186,6 +5186,79 @@
   letter-spacing: 0.005em;
   max-width: 520px;
   margin: 0;
+}
+
+/* ─── Overview: manuscript reading surface ─── */
+
+.cp-drawer-manuscript {
+  background: var(--cp-bg);
+  border-left: 3px solid color-mix(in srgb, var(--cp-red-line) 35%, transparent);
+  border-radius: 0 6px 6px 0;
+  box-shadow: inset 1px 1px 4px rgba(0, 0, 0, 0.03);
+  padding: 20px 20px 20px 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+
+.cp-drawer-manuscript p {
+  font-family: var(--cp-font-body);
+  font-size: 15px;
+  line-height: 1.75;
+  color: var(--cp-text);
+  letter-spacing: 0.005em;
+  max-width: 520px;
+  margin: 0 0 1em;
+  text-wrap: pretty;
+  hanging-punctuation: first last;
+  font-variant-numeric: oldstyle-nums;
+  hyphens: auto;
+  -webkit-hyphens: auto;
+}
+
+.cp-drawer-manuscript p:last-child {
+  margin-bottom: 0;
+}
+
+/* Manuscript rule: label left + rough canvas right */
+.cp-manuscript-rule {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 12px 0 14px;
+  min-height: 16px;
+}
+
+.cp-manuscript-rule-label {
+  font-family: var(--cp-font-mono);
+  font-weight: 500;
+  font-size: 8.5px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: color-mix(in srgb, var(--cp-red) 60%, transparent);
+  white-space: nowrap;
+  user-select: none;
+  cursor: pointer;
+  border: none;
+  background: none;
+  padding: 0;
+  transition: color 150ms;
+}
+
+.cp-manuscript-rule-label:hover {
+  color: var(--cp-red);
+}
+
+.cp-manuscript-rule-line {
+  flex: 1;
+  height: 8px;
+  display: block;
+}
+
+/* End-of-manuscript rule (no label, just the line) */
+.cp-manuscript-rule--end {
+  margin-top: 16px;
+  margin-bottom: 0;
 }
 
 /* ─── Overview: source URL card (teal tint) ─── */
@@ -6903,6 +6976,20 @@
 .cp-drawer-overlay {
   background: rgba(26, 28, 32, 0.25);
   backdrop-filter: blur(2px);
+}
+
+.cp-drawer-manuscript {
+  background: color-mix(in srgb, var(--cp-card) 92%, var(--cp-surface));
+  border-left-color: color-mix(in srgb, var(--cp-red-line) 25%, transparent);
+  box-shadow: inset 1px 1px 6px rgba(0, 0, 0, 0.06);
+}
+
+.cp-manuscript-rule-label {
+  color: color-mix(in srgb, var(--cp-red) 50%, transparent);
+}
+
+.cp-manuscript-rule-label:hover {
+  color: var(--cp-red);
 }
 
 .cp-drawer-close:hover {

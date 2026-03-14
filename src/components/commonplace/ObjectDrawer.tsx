@@ -1,7 +1,8 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { Fragment, useEffect, useMemo, useRef, useState } from 'react';
 import dynamic from 'next/dynamic';
+import rough from 'roughjs';
 import { Reorder } from 'framer-motion';
 import { Drawer } from 'vaul';
 import * as Tabs from '@radix-ui/react-tabs';
@@ -88,6 +89,95 @@ function strengthStyle(strength: number): { color: string; width: number; dashed
   if (strength > 0.6) return { color: '#2D5F6B', width: 4, dashed: false };
   if (strength > 0.35) return { color: '#C49A4A', width: 3, dashed: false };
   return { color: '#8A6A3A', width: 2, dashed: true };
+}
+
+/* ─────────────────────────────────────────────────
+   Manuscript rule: label left + rough.js line right
+   ───────────────────────────────────────────────── */
+
+function djb2Seed(str: string): number {
+  let hash = 5381;
+  for (let i = 0; i < str.length; i++) {
+    hash = ((hash << 5) + hash + str.charCodeAt(i)) | 0;
+  }
+  return Math.abs(hash);
+}
+
+function ManuscriptRule({
+  label,
+  onNavigate,
+}: {
+  label?: string;
+  onNavigate?: () => void;
+}) {
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const wrapperRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    const wrapper = wrapperRef.current;
+    if (!canvas || !wrapper) return;
+
+    let raf: number;
+
+    function draw() {
+      const rect = wrapper!.getBoundingClientRect();
+      const dpr = window.devicePixelRatio || 1;
+      const w = rect.width;
+      const h = 8;
+      if (w < 1) return;
+
+      canvas!.width = Math.min(w * dpr, 8192);
+      canvas!.height = h * dpr;
+      canvas!.style.width = `${w}px`;
+      canvas!.style.height = `${h}px`;
+
+      const ctx = canvas!.getContext('2d');
+      if (!ctx) return;
+      ctx.scale(dpr, dpr);
+      ctx.clearRect(0, 0, w, h);
+
+      const rc = rough.canvas(canvas!);
+      rc.line(0, h / 2, w, h / 2, {
+        roughness: 0.8,
+        strokeWidth: 0.5,
+        stroke: 'rgba(196, 80, 60, 0.22)',
+        bowing: 0.8,
+        seed: djb2Seed(label || 'end-rule'),
+      });
+    }
+
+    raf = requestAnimationFrame(draw);
+
+    const observer = new ResizeObserver(() => {
+      cancelAnimationFrame(raf);
+      raf = requestAnimationFrame(draw);
+    });
+    observer.observe(wrapper);
+
+    return () => {
+      observer.disconnect();
+      cancelAnimationFrame(raf);
+    };
+  }, [label]);
+
+  return (
+    <div className={`cp-manuscript-rule${label ? '' : ' cp-manuscript-rule--end'}`}>
+      {label && (
+        <button
+          type="button"
+          className="cp-manuscript-rule-label"
+          onClick={onNavigate}
+          title={`Open ${label}`}
+        >
+          {label}
+        </button>
+      )}
+      <div ref={wrapperRef} style={{ flex: 1 }}>
+        <canvas ref={canvasRef} aria-hidden="true" style={{ display: 'block' }} />
+      </div>
+    </div>
+  );
 }
 
 /* ─────────────────────────────────────────────────
@@ -642,6 +732,39 @@ export default function ObjectDrawer() {
     [detail, liveComponents, connectedSources],
   );
 
+  /* ── Manuscript: split body into paragraphs, match connections ── */
+  const manuscriptParagraphs = useMemo(() => {
+    if (!detail?.body) return [];
+    return detail.body
+      .split(/\n\n+/)
+      .map((text) => text.trim())
+      .filter((text) => text.length > 0);
+  }, [detail?.body]);
+
+  const manuscriptRules = useMemo(() => {
+    if (!detail?.edges || manuscriptParagraphs.length === 0) return new Map<number, ApiEdgeCompact>();
+
+    // Map: paragraph index -> first matched edge (each edge placed once)
+    const placed = new Map<number, ApiEdgeCompact>();
+    const usedEdgeIds = new Set<number>();
+
+    for (let pIdx = 0; pIdx < manuscriptParagraphs.length; pIdx++) {
+      const paraLower = manuscriptParagraphs[pIdx].toLowerCase();
+      for (const edge of detail.edges) {
+        if (usedEdgeIds.has(edge.id)) continue;
+        const titleWords = edge.other_title.toLowerCase().split(/\s+/).filter((w) => w.length > 3);
+        const hasMatch = titleWords.some((word) => paraLower.includes(word));
+        if (hasMatch) {
+          placed.set(pIdx, edge);
+          usedEdgeIds.add(edge.id);
+          break;
+        }
+      }
+    }
+
+    return placed;
+  }, [detail?.edges, manuscriptParagraphs]);
+
   async function saveInfoItemEdits() {
     if (!activeInfoItem?.componentId) return;
     setSavingInfo(true);
@@ -762,8 +885,21 @@ export default function ObjectDrawer() {
                   {detail.object_type_data?.slug === 'hunch' && (
                     <HunchSketch objectId={detail.id} components={detail.components} />
                   )}
-                  {detail.body && (
-                    <p className="cp-drawer-body-text">{detail.body}</p>
+                  {manuscriptParagraphs.length > 0 && (
+                    <div className="cp-drawer-manuscript">
+                      {manuscriptParagraphs.map((para, pIdx) => (
+                        <Fragment key={pIdx}>
+                          <p>{para}</p>
+                          {manuscriptRules.has(pIdx) && (
+                            <ManuscriptRule
+                              label={manuscriptRules.get(pIdx)!.other_title}
+                              onNavigate={() => navigateToObject(manuscriptRules.get(pIdx)!.other_id)}
+                            />
+                          )}
+                        </Fragment>
+                      ))}
+                      <ManuscriptRule />
+                    </div>
                   )}
 
                   {detail.url && (
