@@ -4739,8 +4739,6 @@
 
 .cp-drawer-content {
   width: min(660px, 94vw);
-  background: var(--cp-card);
-  border-left-color: var(--cp-border);
 }
 
 .cp-drawer-header,
@@ -4993,8 +4991,8 @@
   position: fixed;
   inset: 0;
   z-index: 600;
-  background: rgba(26, 28, 32, 0.25);
-  backdrop-filter: blur(2px);
+  background: rgba(26, 28, 32, 0.35);
+  backdrop-filter: blur(3px);
   transition: opacity 200ms ease;
 }
 
@@ -5006,9 +5004,9 @@
   bottom: 0;
   z-index: 601;
   width: min(580px, 92vw);
-  background: var(--cp-card);
-  border-left: 1px solid var(--cp-chrome-line);
-  box-shadow: -8px 0 32px rgba(0, 0, 0, 0.15), -2px 0 8px rgba(0, 0, 0, 0.08);
+  background: #FFFFFF;
+  border-left: 2px solid var(--cp-chrome-line);
+  box-shadow: -12px 0 40px rgba(0, 0, 0, 0.18), -3px 0 12px rgba(0, 0, 0, 0.1);
   display: flex;
   flex-direction: column;
   overflow: hidden;
