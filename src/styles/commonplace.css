@@ -12,7 +12,7 @@
   --cp-chrome-line: #35353C;
   --cp-chrome-text: #D8D6DC;
   --cp-chrome-muted: #88868E;
-  --cp-chrome-dim: #58565E;
+  --cp-chrome-dim: #807E86;          /* AA 4.5:1 on #1C1C20 */
 
   /* Sidebar (chrome shell, not warm dark) */
   --cp-sidebar: var(--cp-chrome);
@@ -34,7 +34,7 @@
   /* Text (cooler ink) */
   --cp-text: #18181B;
   --cp-text-muted: #48464E;
-  --cp-text-faint: #78767E;
+  --cp-text-faint: #68666E;          /* AA 4.6:1 on #F4F3F0 */
 
   /* Accent: Red Pencil (engine/machine signal) */
   --cp-red: #C4503C;
@@ -1543,6 +1543,14 @@
   opacity: 0.6;
 }
 
+.cp-empty-state-hint {
+  display: block;
+  margin-top: 6px;
+  font-size: 10px;
+  opacity: 0.7;
+  max-width: 280px;
+}
+
 .cp-empty-state p {
   margin: 0;
   max-width: 280px;
@@ -1682,6 +1690,36 @@
   text-transform: uppercase;
   color: var(--cp-color-text-muted);
   margin: 0 0 12px;
+}
+
+/* ── Section head: mono label + thin rule ── */
+
+.cp-drawer-section-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 16px 0 10px;
+}
+
+.cp-drawer-section-head:first-child {
+  margin-top: 0;
+}
+
+.cp-drawer-section-head-label {
+  font-family: var(--cp-font-mono);
+  font-weight: 500;
+  font-size: 9px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--cp-text-faint);
+  white-space: nowrap;
+  user-select: none;
+}
+
+.cp-drawer-section-head-rule {
+  flex: 1;
+  height: 1px;
+  background: var(--cp-border-faint);
 }
 
 /* ── Component List ── */
@@ -3937,6 +3975,12 @@
   display: block;
 }
 
+/* Featured cards: well-connected objects get more visual weight */
+.cp-masonry-item[data-priority="featured"] .cp-object-card {
+  border-color: var(--cp-border);
+  box-shadow: var(--cp-shadow-sm);
+}
+
 /* Responsive column counts */
 @media (max-width: 1200px) {
   .cp-masonry {
@@ -5371,9 +5415,8 @@
   border-color: var(--cp-border);
 }
 
-/* 4px left strength-colored bar */
+/* Left strength-colored bar: width + dash encode tier */
 .cp-drawer-strength-bar {
-  width: 3px;
   min-height: 32px;
   flex-shrink: 0;
   border-radius: 0;

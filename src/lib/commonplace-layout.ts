@@ -212,6 +212,33 @@ export function findPane(node: PaneNode, id: string): PaneNode | null {
   return null;
 }
 
+/** Find the nearest ancestor SplitPane containing the given pane ID */
+export function findParentSplit(node: PaneNode, childId: string): (PaneNode & { type: 'split' }) | null {
+  if (node.type !== 'split') return null;
+  if (node.first.id === childId || node.second.id === childId) return node as PaneNode & { type: 'split' };
+  return findParentSplit(node.first, childId) ?? findParentSplit(node.second, childId);
+}
+
+/** Move a tab within a leaf pane by delta positions (immutable) */
+export function moveTab(node: PaneNode, paneId: string, delta: number): PaneNode {
+  if (node.id === paneId && node.type === 'leaf') {
+    const tabs = [...node.tabs];
+    const idx = node.activeTabIndex;
+    const newIdx = idx + delta;
+    if (newIdx < 0 || newIdx >= tabs.length) return node;
+    [tabs[idx], tabs[newIdx]] = [tabs[newIdx], tabs[idx]];
+    return { ...node, tabs, activeTabIndex: newIdx };
+  }
+  if (node.type === 'split') {
+    return {
+      ...node,
+      first: moveTab(node.first, paneId, delta),
+      second: moveTab(node.second, paneId, delta),
+    };
+  }
+  return node;
+}
+
 /** Replace a pane by ID, returning a new tree (immutable) */
 export function replacePane(
   node: PaneNode,
@@ -469,4 +496,8 @@ export const KEY_BINDINGS: KeyBinding[] = [
   { key: '1', ctrl: true, alt: true, label: 'Focus Layout', action: 'preset-focus' },
   { key: '2', ctrl: true, alt: true, label: 'Research Layout', action: 'preset-research' },
   { key: '3', ctrl: true, alt: true, label: 'Studio Layout', action: 'preset-studio' },
+  { key: '[', alt: true, label: 'Shrink Split', action: 'ratio-shrink' },
+  { key: ']', alt: true, label: 'Grow Split', action: 'ratio-grow' },
+  { key: 'ArrowLeft', alt: true, shift: true, label: 'Move Tab Left', action: 'move-tab-left' },
+  { key: 'ArrowRight', alt: true, shift: true, label: 'Move Tab Right', action: 'move-tab-right' },
 ];

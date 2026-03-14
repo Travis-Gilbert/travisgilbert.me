@@ -102,7 +102,9 @@ export default function ResurfaceView({ onOpenObject }: ResurfaceViewProps) {
           <h2 className="cp-resurface-title">Resurface</h2>
         </div>
         <div className="cp-empty-state">
-          No suggestions yet. Capture more objects so the system can find connections.
+          <span className="cp-empty-state-hint">
+            No suggestions yet. Capture more objects so the engine can find patterns.
+          </span>
         </div>
       </div>
     );

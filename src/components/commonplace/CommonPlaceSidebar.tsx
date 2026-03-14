@@ -222,11 +222,15 @@ export default function CommonPlaceSidebar() {
 
       <nav style={{ flex: 1, overflow: 'auto', padding: '8px 6px', position: 'relative', zIndex: 2 }}>
         {SIDEBAR_SECTIONS.map((section, sectionIdx) => (
-          <div key={section.title} style={{ position: 'relative' }}>
+          <div key={section.title || `section-${sectionIdx}`} style={{ position: 'relative' }}>
             {sectionIdx > 0 && <div className="cp-sidebar-divider" />}
+            {section.title && section.title !== 'Capture' && (
+              <div className="cp-section-title">{section.title}</div>
+            )}
 
             {section.title === 'Capture' ? (
               <div style={{ padding: '0 4px' }}>
+                <div className="cp-section-title">Capture</div>
                 <CaptureButton onCapture={handleCapture} />
                 <ObjectPalette
                   isOpen={isPaletteOpen}

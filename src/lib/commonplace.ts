@@ -102,7 +102,7 @@ export const VIEW_REGISTRY: Record<ViewType, { label: string; icon: string }> = 
 
 /* ─────────────────────────────────────────────────
    Sidebar navigation structure
-   Four sections: CAPTURE, VIEW, WORK, SYSTEM
+   Five sections: CAPTURE, primary views, secondary VIEWS, WORK, SYSTEM
    ───────────────────────────────────────────────── */
 
 export interface SidebarSection {
@@ -132,11 +132,16 @@ export const SIDEBAR_SECTIONS: SidebarSection[] = [
     ],
   },
   {
-    title: 'View',
+    title: '',
     items: [
       { label: 'Library', href: '#library', icon: 'grid', viewType: 'library' as ViewType },
       { label: 'Timeline', href: '#timeline', icon: 'timeline', viewType: 'timeline' as ViewType },
       { label: 'Compose', href: '#compose', icon: 'note-pencil', viewType: 'compose' as ViewType },
+    ],
+  },
+  {
+    title: 'Views',
+    items: [
       {
         label: 'Map',
         href: '#networks',

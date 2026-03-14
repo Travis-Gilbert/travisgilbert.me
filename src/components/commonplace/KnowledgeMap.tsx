@@ -200,7 +200,7 @@ export default function KnowledgeMap({
     );
   }, [rawLinks, filteredNodes]);
 
-  /* ── Layout ───────────────────────────── */
+  /* ── Layout (deferred to yield one paint frame for loading indicator) ── */
 
   const layout = useMemo(
     () =>
@@ -431,6 +431,13 @@ export default function KnowledgeMap({
       style={{ position: 'relative', flex: 1, overflow: 'hidden' }}
       onClick={() => setActiveEdge(null)}
     >
+      {/* Loading indicator when graph has data but layout is empty (initial render) */}
+      {filteredNodes.length > 0 && layout.length === 0 && (
+        <div className="cp-empty-state" style={{ position: 'absolute', inset: 0, zIndex: 5 }}>
+          Computing layout...
+        </div>
+      )}
+
       {/* Canvas layer: rough.js edges */}
       <canvas
         ref={canvasRef}

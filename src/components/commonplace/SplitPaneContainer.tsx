@@ -23,6 +23,8 @@ import {
   collectLeafIds,
   findPane,
   findAdjacentLeaf,
+  findParentSplit,
+  moveTab,
   serializeLayout,
   deserializeLayout,
   shouldDiscardPersistedLayout,
@@ -307,6 +309,24 @@ export default function SplitPaneContainer() {
             case 'preset-studio':
               handlePreset(2);
               break;
+            case 'ratio-shrink':
+            case 'ratio-grow': {
+              if (!focusedPaneId) break;
+              const parent = findParentSplit(layout, focusedPaneId);
+              if (parent) {
+                const delta = binding.action === 'ratio-grow' ? 0.05 : -0.05;
+                const newRatio = Math.min(0.85, Math.max(0.15, parent.ratio + delta));
+                handleResize(parent.id, newRatio);
+              }
+              break;
+            }
+            case 'move-tab-left':
+            case 'move-tab-right': {
+              if (!focusedPaneId) break;
+              const dir = binding.action === 'move-tab-right' ? 1 : -1;
+              setLayout((prev) => moveTab(prev, focusedPaneId, dir));
+              break;
+            }
           }
           return;
         }
@@ -720,13 +740,13 @@ function PaneTabBar({
     } catch { /* malformed payload, ignore */ }
   };
 
-  // Build particle data deterministically (showier: 18 particles, larger burst radius)
+  // Subtle micro-burst: 5 particles, smaller radius (tab reorder is routine, not a capture moment)
   const dropParticles = useMemo(() => {
     if (!dropEffect || shouldReduceMotion) return [];
-    return Array.from({ length: 18 }, (_, i) => {
+    return Array.from({ length: 5 }, (_, i) => {
       const rng = mulberry32(djb2(`tab-drop-${paneId}-${i}`));
       const angle = rng() * Math.PI * 2;
-      const dist = 40 + rng() * 80;
+      const dist = 16 + rng() * 30;
       const char = rng() < 0.5 ? '0' : '1';
       const color = TAB_DROP_PALETTE[Math.floor(rng() * TAB_DROP_PALETTE.length)];
       const dx = Math.cos(angle) * dist;
@@ -825,8 +845,8 @@ function PaneTabBar({
                 opacity: [0.9, 0.8, 0],
               }}
               transition={{
-                duration: 0.8,
-                delay: p.i * 0.02,
+                duration: 0.4,
+                delay: p.i * 0.01,
                 ease: TAB_DROP_SPRING,
                 times: [0, 0.4, 1],
               }}

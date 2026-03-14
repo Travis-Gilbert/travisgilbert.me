@@ -81,13 +81,26 @@ function MiniRadialSvg({ edgeCount, color }: { edgeCount: number; color: string 
 }
 
 /* ─────────────────────────────────────────────────
-   Edge strength: color encodes low/mid/high
+   Edge strength: color + width + dash encode tier
    ───────────────────────────────────────────────── */
 
-function strengthColor(strength: number): string {
-  if (strength > 0.6) return '#2D5F6B';
-  if (strength > 0.35) return '#C49A4A';
-  return '#8A6A3A';
+function strengthStyle(strength: number): { color: string; width: number; dashed: boolean } {
+  if (strength > 0.6) return { color: '#2D5F6B', width: 4, dashed: false };
+  if (strength > 0.35) return { color: '#C49A4A', width: 3, dashed: false };
+  return { color: '#8A6A3A', width: 2, dashed: true };
+}
+
+/* ─────────────────────────────────────────────────
+   Section head: mono label + thin rule separator
+   ───────────────────────────────────────────────── */
+
+function SectionHead({ label }: { label: string }) {
+  return (
+    <div className="cp-drawer-section-head">
+      <span className="cp-drawer-section-head-label">{label}</span>
+      <span className="cp-drawer-section-head-rule" />
+    </div>
+  );
 }
 
 /* ─────────────────────────────────────────────────
@@ -190,6 +203,7 @@ function ConnectionItem({
   edge: ApiEdgeCompact;
   onNavigate: (id: number) => void;
 }) {
+  const ss = strengthStyle(edge.strength);
   return (
     <button
       type="button"
@@ -198,7 +212,12 @@ function ConnectionItem({
     >
       <div
         className="cp-drawer-strength-bar"
-        style={{ backgroundColor: strengthColor(edge.strength), opacity: Math.max(0.35, edge.strength) }}
+        style={{
+          backgroundColor: ss.dashed ? 'transparent' : ss.color,
+          borderLeft: ss.dashed ? `${ss.width}px dashed ${ss.color}` : 'none',
+          width: ss.dashed ? 0 : `${ss.width}px`,
+          opacity: Math.max(0.35, edge.strength),
+        }}
         title={`Strength: ${Math.round(edge.strength * 100)}%`}
       />
       <div className="cp-drawer-connection-body">
@@ -773,6 +792,7 @@ export default function ObjectDrawer() {
 
                   {regularComponents.length > 0 && (
                     <div className="cp-drawer-components-grid">
+                      <SectionHead label="Components" />
                       {regularComponents.map((comp) => (
                         <div key={comp.id} className="cp-drawer-component-row">
                           <span className="cp-drawer-component-key">
@@ -792,6 +812,7 @@ export default function ObjectDrawer() {
 
                   {tagComponents.length > 0 && (
                     <div className="cp-drawer-tags-row">
+                      <SectionHead label="Tags" />
                       {tagComponents
                         .flatMap((tc) => parseTags(tc.value))
                         .map((tag, i) => (
@@ -804,6 +825,7 @@ export default function ObjectDrawer() {
 
                   {entityComponents.length > 0 && (
                     <div className="cp-drawer-entity-row">
+                      <SectionHead label="Entities" />
                       {entityComponents.map((ec) => {
                         const kind = detectEntityKind(ec.component_type_name);
                         return (
@@ -934,7 +956,7 @@ export default function ObjectDrawer() {
 
                       {notebookEdges.length > 0 && (
                         <div className="cp-drawer-connection-group">
-                          <div className="cp-drawer-connection-group-title">Notebook engine</div>
+                          <SectionHead label="Engine" />
                           <div className="cp-drawer-connection-list">
                             {notebookEdges.map((edge) => (
                               <ConnectionItem
@@ -949,7 +971,7 @@ export default function ObjectDrawer() {
 
                       {supportEdges.length > 0 && (
                         <div className="cp-drawer-connection-group">
-                          <div className="cp-drawer-connection-group-title">Support</div>
+                          <SectionHead label="Support" />
                           <div className="cp-drawer-connection-list">
                             {supportEdges.map((edge) => (
                               <ConnectionItem
@@ -964,7 +986,7 @@ export default function ObjectDrawer() {
 
                       {bridgeEdges.length > 0 && (
                         <div className="cp-drawer-connection-group">
-                          <div className="cp-drawer-connection-group-title">Research bridge</div>
+                          <SectionHead label="Bridge" />
                           <div className="cp-drawer-connection-list">
                             {bridgeEdges.map((edge) => (
                               <ConnectionItem
@@ -979,7 +1001,7 @@ export default function ObjectDrawer() {
 
                       {manualEdges.length > 0 && (
                         <div className="cp-drawer-connection-group">
-                          <div className="cp-drawer-connection-group-title">Manual links</div>
+                          <SectionHead label="Manual" />
                           <div className="cp-drawer-connection-list">
                             {manualEdges.map((edge) => (
                               <ConnectionItem
@@ -994,7 +1016,7 @@ export default function ObjectDrawer() {
 
                       {tensionEdges.length > 0 && (
                         <div className="cp-drawer-tensions">
-                          <div className="cp-drawer-tensions-header">Contradictions</div>
+                          <SectionHead label="Tensions" />
                           <div className="cp-drawer-connection-list">
                             {tensionEdges.map((edge) => (
                               <ConnectionItem
