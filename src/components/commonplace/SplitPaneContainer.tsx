@@ -2,7 +2,7 @@
 
 import { useState, useCallback, useEffect, useRef, useMemo } from 'react';
 import type { ReactNode } from 'react';
-import { motion, useReducedMotion } from 'framer-motion';
+import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
 import type {
   PaneNode,
   PaneTab,
@@ -97,6 +97,7 @@ export default function SplitPaneContainer() {
     setSidebarCollapsed,
   } = useCommonPlace();
   const isMobile = useIsAppShellMobile();
+  const shouldReduceMotion = useReducedMotion();
   const [layout, setLayout] = useState<PaneNode>(LAYOUT_PRESETS[0].tree);
   const [hasLoadedPersistedLayout, setHasLoadedPersistedLayout] = useState(false);
 
@@ -110,15 +111,17 @@ export default function SplitPaneContainer() {
     LAYOUT_PRESETS[0].name
   );
 
-  /* Drop animation state (lifted here so it survives tree restructuring) */
+  /* Tab drop "digitize" animation state (viewport coordinates, rendered as overlay) */
   const [tabDropAnim, setTabDropAnim] = useState<{
     paneId: string;
-    originX: number;
-    originY: number;
-    barWidth: number;
-    barHeight: number;
     landedLabel: string;
+    sourceX: number;
+    sourceY: number;
+    targetX: number;
+    targetY: number;
   } | null>(null);
+  /* Track the dragged tab's viewport position so we know where the stream starts */
+  const dragSourceRef = useRef<{ x: number; y: number } | null>(null);
 
   /* Load persisted layout after mount to keep server/client first render deterministic */
   useEffect(() => {
@@ -520,8 +523,20 @@ export default function SplitPaneContainer() {
           onMoveTab={handleMoveTab}
           tabDropAnim={tabDropAnim}
           onTabDropAnim={setTabDropAnim}
+          dragSourceRef={dragSourceRef}
         />
       </div>
+
+      {/* Viewport-level digitize stream overlay */}
+      {tabDropAnim && !shouldReduceMotion && (
+        <TabDigitizeOverlay
+          sourceX={tabDropAnim.sourceX}
+          sourceY={tabDropAnim.sourceY}
+          targetX={tabDropAnim.targetX}
+          targetY={tabDropAnim.targetY}
+          label={tabDropAnim.landedLabel}
+        />
+      )}
     </div>
   );
 }
@@ -542,8 +557,9 @@ interface NodeProps {
   onSetActiveTab: (paneId: string, tabIndex: number) => void;
   onOpenObject: (fromPaneId: string, objectRef: number, title?: string) => void;
   onMoveTab: (fromPaneId: string, tabIndex: number, toPaneId: string, viewType: ViewType, label: string, context?: Record<string, unknown>) => void;
-  tabDropAnim: { paneId: string; originX: number; originY: number; barWidth: number; barHeight: number; landedLabel: string } | null;
-  onTabDropAnim: (anim: { paneId: string; originX: number; originY: number; barWidth: number; barHeight: number; landedLabel: string } | null) => void;
+  tabDropAnim: { paneId: string; landedLabel: string; sourceX: number; sourceY: number; targetX: number; targetY: number } | null;
+  onTabDropAnim: (anim: { paneId: string; landedLabel: string; sourceX: number; sourceY: number; targetX: number; targetY: number } | null) => void;
+  dragSourceRef: React.MutableRefObject<{ x: number; y: number } | null>;
 }
 
 function RenderNode(props: NodeProps) {
@@ -590,7 +606,7 @@ function RenderSplit(props: NodeProps & { node: SplitPane }) {
    ───────────────────────────────────────────────── */
 
 function RenderLeaf(props: NodeProps & { node: LeafPane }) {
-  const { node, focusedPaneId, onFocus, onSplit, onClosePane, onAddTab, onCloseTab, onSetActiveTab, onOpenObject, onMoveTab, tabDropAnim, onTabDropAnim } = props;
+  const { node, focusedPaneId, onFocus, onSplit, onClosePane, onAddTab, onCloseTab, onSetActiveTab, onOpenObject, onMoveTab, tabDropAnim, onTabDropAnim, dragSourceRef } = props;
   const [showViewPicker, setShowViewPicker] = useState(false);
   const isFocused = focusedPaneId === node.id;
   const activeTab = node.tabs[node.activeTabIndex];
@@ -623,6 +639,7 @@ function RenderLeaf(props: NodeProps & { node: LeafPane }) {
         onMoveTab={onMoveTab}
         tabDropAnim={tabDropAnim}
         onTabDropAnim={onTabDropAnim}
+        dragSourceRef={dragSourceRef}
       />
 
       {/* Content with canvas dot grid */}
@@ -635,6 +652,146 @@ function RenderLeaf(props: NodeProps & { node: LeafPane }) {
           onOpenObject={onOpenObject}
         />
       </div>
+    </div>
+  );
+}
+
+/* ─────────────────────────────────────────────────
+   Tab digitize overlay: machine code stream from source to target
+   Fixed-position overlay renders above the entire split pane layout.
+   Characters (hex + binary) burst from the source tab position,
+   arc through space, and converge on the target tab bar.
+   ───────────────────────────────────────────────── */
+
+const MACHINE_CHARS = ['0', '1', '0x', 'FF', 'A0', '00', '01', '10', '11', 'EF', 'CA', 'FE', 'DE', 'AD', 'BE', 'F0'];
+
+function TabDigitizeOverlay({
+  sourceX,
+  sourceY,
+  targetX,
+  targetY,
+  label,
+}: {
+  sourceX: number;
+  sourceY: number;
+  targetX: number;
+  targetY: number;
+  label: string;
+}) {
+  const particles = useMemo(() => {
+    const rng = mulberry32(djb2(`digitize-${label}-${sourceX}`));
+    const count = 30;
+    const dx = targetX - sourceX;
+    const dy = targetY - sourceY;
+    const dist = Math.sqrt(dx * dx + dy * dy) || 200;
+
+    // When source/target are on the same horizontal line (both in tab bars),
+    // force the arc downward into the content area for dramatic effect
+    const isHorizontal = Math.abs(dy) < 60;
+    const arcBase = isHorizontal ? 200 + dist * 0.35 : dist * 0.4;
+
+    return Array.from({ length: count }, (_, i) => {
+      const t = 0.1 + rng() * 0.8; // position along the path
+      const arcAmount = (rng() - 0.3) * arcBase; // biased downward
+      const char = MACHINE_CHARS[Math.floor(rng() * MACHINE_CHARS.length)];
+      const color = TAB_DROP_PALETTE[Math.floor(rng() * TAB_DROP_PALETTE.length)];
+      const fontSize = 13 + rng() * 10;
+      const delay = i * 0.035;
+      const duration = 0.8 + rng() * 0.4;
+
+      // Arc midpoint: lerp along source-target line, then push perpendicular (downward)
+      const midX = sourceX + dx * t + (isHorizontal ? 0 : (-dy / dist) * arcAmount);
+      const midY = sourceY + dy * t + (isHorizontal ? Math.abs(arcAmount) : (dx / dist) * arcAmount);
+
+      return { i, char, color, fontSize, delay, duration, midX, midY };
+    });
+  }, [sourceX, sourceY, targetX, targetY, label]);
+
+  return (
+    <div
+      style={{
+        position: 'fixed',
+        inset: 0,
+        pointerEvents: 'none',
+        zIndex: 50,
+      }}
+      aria-hidden="true"
+    >
+      {/* "DIGITIZING" label flashes below the source tab */}
+      <motion.div
+        initial={{ opacity: 0, y: -8 }}
+        animate={{ opacity: [0, 1, 1, 0], y: [-8, 0, 0, 4] }}
+        transition={{ duration: 1.0, times: [0, 0.1, 0.7, 1] }}
+        style={{
+          position: 'absolute',
+          left: sourceX,
+          top: sourceY + 28,
+          transform: 'translateX(-50%)',
+          fontFamily: 'var(--cp-font-mono)',
+          fontSize: 12,
+          letterSpacing: '0.15em',
+          color: 'var(--cp-red)',
+          textTransform: 'uppercase',
+          whiteSpace: 'nowrap',
+          textShadow: '0 0 12px rgba(180, 90, 45, 0.6)',
+        }}
+      >
+        DIGITIZING
+      </motion.div>
+
+      {/* Machine code characters arc from source to target */}
+      {particles.map((p) => (
+        <motion.span
+          key={p.i}
+          initial={{
+            left: sourceX,
+            top: sourceY,
+            opacity: 0,
+            scale: 0.2,
+          }}
+          animate={{
+            left: [sourceX, p.midX, targetX],
+            top: [sourceY, p.midY, targetY],
+            opacity: [0, 1, 1, 0],
+            scale: [0.2, 1.2, 0.5],
+          }}
+          transition={{
+            duration: p.duration,
+            delay: p.delay,
+            ease: TAB_DROP_SPRING,
+            times: [0, 0.35, 1],
+          }}
+          style={{
+            position: 'absolute',
+            fontFamily: 'var(--cp-font-mono)',
+            fontSize: p.fontSize,
+            color: p.color,
+            fontWeight: 700,
+            pointerEvents: 'none',
+            textShadow: `0 0 12px ${p.color}, 0 0 4px ${p.color}`,
+          }}
+        >
+          {p.char}
+        </motion.span>
+      ))}
+
+      {/* Convergence glow at target */}
+      <motion.div
+        initial={{ opacity: 0, scale: 0.3 }}
+        animate={{ opacity: [0, 0, 1, 0], scale: [0.3, 0.3, 1.8, 2.5] }}
+        transition={{ duration: 1.1, times: [0, 0.45, 0.7, 1] }}
+        style={{
+          position: 'absolute',
+          left: targetX,
+          top: targetY,
+          width: 60,
+          height: 60,
+          marginLeft: -30,
+          marginTop: -30,
+          borderRadius: '50%',
+          background: 'radial-gradient(circle, rgba(180, 90, 45, 0.5) 0%, rgba(180, 90, 45, 0.15) 40%, transparent 70%)',
+        }}
+      />
     </div>
   );
 }
@@ -655,8 +812,9 @@ interface TabBarProps {
   onToggleViewPicker: () => void;
   onAddTab: (viewType: ViewType) => void;
   onMoveTab: (fromPaneId: string, tabIndex: number, toPaneId: string, viewType: ViewType, label: string, context?: Record<string, unknown>) => void;
-  tabDropAnim: { paneId: string; originX: number; originY: number; barWidth: number; barHeight: number; landedLabel: string } | null;
-  onTabDropAnim: (anim: { paneId: string; originX: number; originY: number; barWidth: number; barHeight: number; landedLabel: string } | null) => void;
+  tabDropAnim: { paneId: string; landedLabel: string; sourceX: number; sourceY: number; targetX: number; targetY: number } | null;
+  onTabDropAnim: (anim: { paneId: string; landedLabel: string; sourceX: number; sourceY: number; targetX: number; targetY: number } | null) => void;
+  dragSourceRef: React.MutableRefObject<{ x: number; y: number } | null>;
 }
 
 const TAB_DND_MIME = 'application/commonplace-tab';
@@ -675,13 +833,12 @@ function PaneTabBar({
   onMoveTab,
   tabDropAnim,
   onTabDropAnim,
+  dragSourceRef,
 }: TabBarProps) {
   const shouldReduceMotion = useReducedMotion();
   const [dragOver, setDragOver] = useState(false);
   const barRef = useRef<HTMLDivElement>(null);
 
-  // This pane's drop animation (from lifted parent state)
-  const dropEffect = tabDropAnim?.paneId === paneId ? tabDropAnim : null;
   const landedLabel = tabDropAnim?.paneId === paneId ? tabDropAnim.landedLabel : null;
 
   const handleBarDragOver = (e: React.DragEvent) => {
@@ -709,55 +866,26 @@ function PaneTabBar({
       };
       if (payload.fromPaneId === paneId) return;
 
-      // Capture drop coordinates BEFORE the tree mutates
+      // Capture coordinates BEFORE the tree mutates
       const barRect = barRef.current?.getBoundingClientRect();
+      const source = dragSourceRef.current ?? { x: e.clientX - 200, y: e.clientY };
+      const targetX = barRect ? barRect.left + barRect.width - 60 : e.clientX;
+      const targetY = barRect ? barRect.top + barRect.height / 2 : e.clientY;
 
       onMoveTab(payload.fromPaneId, payload.tabIndex, paneId, payload.viewType as ViewType, payload.label, payload.context);
 
-      // Trigger digitize-and-absorb particle burst (lifted to parent for tree survival)
-      if (!shouldReduceMotion && barRect) {
-        onTabDropAnim({
-          paneId,
-          originX: e.clientX - barRect.left,
-          originY: e.clientY - barRect.top,
-          barWidth: barRect.width,
-          barHeight: barRect.height,
-          landedLabel: payload.label,
-        });
-        setTimeout(() => onTabDropAnim(null), 900);
-      } else {
-        // Even with reduced motion, set landed label for CSS pip color change
-        onTabDropAnim({
-          paneId,
-          originX: 0,
-          originY: 0,
-          barWidth: 0,
-          barHeight: 0,
-          landedLabel: payload.label,
-        });
-        setTimeout(() => onTabDropAnim(null), 700);
-      }
+      // Fire viewport-level digitize animation
+      onTabDropAnim({
+        paneId,
+        landedLabel: payload.label,
+        sourceX: source.x,
+        sourceY: source.y,
+        targetX,
+        targetY,
+      });
+      setTimeout(() => onTabDropAnim(null), 1200);
     } catch { /* malformed payload, ignore */ }
   };
-
-  // Subtle micro-burst: 5 particles, smaller radius (tab reorder is routine, not a capture moment)
-  const dropParticles = useMemo(() => {
-    if (!dropEffect || shouldReduceMotion) return [];
-    return Array.from({ length: 5 }, (_, i) => {
-      const rng = mulberry32(djb2(`tab-drop-${paneId}-${i}`));
-      const angle = rng() * Math.PI * 2;
-      const dist = 16 + rng() * 30;
-      const char = rng() < 0.5 ? '0' : '1';
-      const color = TAB_DROP_PALETTE[Math.floor(rng() * TAB_DROP_PALETTE.length)];
-      const dx = Math.cos(angle) * dist;
-      const dy = Math.sin(angle) * dist;
-      const fontSize = 10 + rng() * 5;
-      // Converge target: rightmost area (where new tab lands)
-      const convergeDx = (dropEffect.barWidth - 20) - dropEffect.originX;
-      const convergeDy = (dropEffect.barHeight / 2) - dropEffect.originY;
-      return { i, char, color, dx, dy, convergeDx, convergeDy, fontSize };
-    });
-  }, [dropEffect, paneId, shouldReduceMotion]);
 
   return (
     <div
@@ -779,6 +907,9 @@ function PaneTabBar({
           draggable
           onDragStart={(e) => {
             e.currentTarget.setAttribute('data-dragging', 'true');
+            // Store the source tab's viewport position for the digitize stream
+            const rect = e.currentTarget.getBoundingClientRect();
+            dragSourceRef.current = { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 };
             e.dataTransfer.setData(
               TAB_DND_MIME,
               JSON.stringify({
@@ -793,6 +924,7 @@ function PaneTabBar({
           }}
           onDragEnd={(e) => {
             e.currentTarget.removeAttribute('data-dragging');
+            dragSourceRef.current = null;
           }}
           onClick={(e) => {
             e.stopPropagation();
@@ -813,57 +945,6 @@ function PaneTabBar({
           </button>
         </div>
       ))}
-
-      {/* Digitize-and-absorb particle burst on tab drop */}
-      {dropEffect && (
-        <div
-          style={{
-            position: 'absolute',
-            top: 0,
-            left: 0,
-            right: 0,
-            bottom: 0,
-            pointerEvents: 'none',
-            overflow: 'visible',
-            zIndex: 20,
-          }}
-          aria-hidden="true"
-        >
-          {dropParticles.map((p) => (
-            <motion.span
-              key={p.i}
-              initial={{
-                x: dropEffect.originX,
-                y: dropEffect.originY,
-                scale: 1.2,
-                opacity: 0.9,
-              }}
-              animate={{
-                x: [dropEffect.originX, dropEffect.originX + p.dx, dropEffect.originX + p.convergeDx],
-                y: [dropEffect.originY, dropEffect.originY + p.dy, dropEffect.originY + p.convergeDy],
-                scale: [1.2, 0.9, 0.3],
-                opacity: [0.9, 0.8, 0],
-              }}
-              transition={{
-                duration: 0.4,
-                delay: p.i * 0.01,
-                ease: TAB_DROP_SPRING,
-                times: [0, 0.4, 1],
-              }}
-              style={{
-                position: 'absolute',
-                fontFamily: 'var(--cp-font-mono)',
-                fontSize: p.fontSize,
-                color: p.color,
-                fontWeight: 600,
-                pointerEvents: 'none',
-              }}
-            >
-              {p.char}
-            </motion.span>
-          ))}
-        </div>
-      )}
 
       {/* Add tab button */}
       <button
