@@ -4739,7 +4739,7 @@
 
 .cp-drawer-content {
   width: min(660px, 94vw);
-  background: var(--cp-bg);
+  background: var(--cp-card);
   border-left-color: var(--cp-border);
 }
 
