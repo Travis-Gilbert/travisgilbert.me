@@ -1,3 +1,4 @@
+import Link from 'next/link';
 import { ArrowSquareOut } from '@phosphor-icons/react/dist/ssr';
 import TagList from './TagList';
 import RoughBox from './rough/RoughBox';
@@ -14,6 +15,7 @@ interface ProjectCardProps {
   year: number;
   urls: ProjectUrl[];
   tags: string[];
+  slug?: string;
 }
 
 export default function ProjectCard({
@@ -23,10 +25,24 @@ export default function ProjectCard({
   year,
   urls,
   tags,
+  slug,
 }: ProjectCardProps) {
+  const primaryUrl = urls[0]?.url;
+
   return (
     <RoughBox padding={20} hover tint="gold">
-      <div className="flex flex-col gap-2">
+      <div className="flex flex-col gap-2 card-link-stretch">
+        {primaryUrl && (
+          <a
+            href={primaryUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="card-link-main"
+            aria-label={title}
+          >
+            <span className="sr-only">{title}</span>
+          </a>
+        )}
         <div>
           <h3 className="text-lg font-title font-bold m-0">{title}</h3>
           <p className="text-sm text-ink-secondary m-0 font-mono">
@@ -35,7 +51,7 @@ export default function ProjectCard({
         </div>
         <p className="text-sm text-ink-secondary m-0">{description}</p>
         {urls.length > 0 && (
-          <div className="flex flex-wrap gap-3 mt-1">
+          <div className="card-tags flex flex-wrap gap-3 mt-1">
             {urls.map((link) => (
               <a
                 key={link.url}
@@ -50,7 +66,7 @@ export default function ProjectCard({
             ))}
           </div>
         )}
-        <div className="pt-1">
+        <div className="card-tags pt-1">
           <TagList tags={tags} tint="gold" />
         </div>
       </div>

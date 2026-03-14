@@ -88,31 +88,32 @@ export default async function FieldNoteDetailPage({ params }: Props) {
             />
           )}
         </div>
-        {entry.data.connectedTo && (() => {
-          const parentEssay = getEntry<Essay>('essays', entry.data.connectedTo);
-          if (!parentEssay) return null;
-          return (
-            <div className="mb-2">
-              <span
-                className="font-mono"
-                style={{ fontSize: 10, textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--color-teal)' }}
-              >
-                Connected to:{' '}
-              </span>
-              <Link
-                href={`/essays/${parentEssay.slug}`}
-                className="font-mono no-underline"
-                style={{ fontSize: 10, textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--color-terracotta)' }}
-              >
-                {parentEssay.data.title}
-              </Link>
-            </div>
-          );
-        })()}
         <h1 className="font-title text-3xl md:text-4xl font-bold mt-4 mb-4">
           {entry.data.title}
         </h1>
         <TagList tags={entry.data.tags} />
+        {entry.data.connectedTo && (() => {
+          const parentEssay = getEntry<Essay>('essays', entry.data.connectedTo);
+          if (!parentEssay) return null;
+          return (
+            <div className="mt-4 flex items-center gap-3">
+              <span
+                className="font-mono shrink-0"
+                style={{ fontSize: 10, textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--color-teal)' }}
+              >
+                Connected to:{' '}
+                <Link
+                  href={`/essays/${parentEssay.slug}`}
+                  className="font-mono no-underline hover:opacity-80 transition-opacity"
+                  style={{ fontSize: 10, textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--color-terracotta)' }}
+                >
+                  {parentEssay.data.title}
+                </Link>
+              </span>
+            </div>
+          );
+        })()}
+        <RoughLine className="mt-4" />
       </header>
 
       <ArticleBody

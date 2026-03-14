@@ -144,10 +144,14 @@ export default function TopNav({ navItems }: TopNavProps) {
                 <Link
                   href={link.href}
                   aria-current={active ? 'page' : undefined}
-                  className={`font-mono text-xs uppercase tracking-widest no-underline transition-colors inline-flex items-center gap-1.5 ${
-                    active ? 'font-bold' : ''
-                  }`}
-                  style={{ color: NAV_COLORS[link.href] || 'var(--color-ink-muted)' }}
+                  className="uppercase tracking-widest no-underline transition-colors inline-flex items-center gap-1.5"
+                  style={{
+                    fontFamily: 'var(--font-code)',
+                    fontSize: 11,
+                    fontWeight: active ? 700 : 600,
+                    letterSpacing: '0.1em',
+                    color: NAV_COLORS[link.href] || 'var(--color-ink-muted)',
+                  }}
                 >
                   <SketchIcon name={link.icon} size={16} />
                   {link.label}
@@ -222,12 +226,16 @@ export default function TopNav({ navItems }: TopNavProps) {
               return (
                 <li key={link.href}>
                   <Link
-                  href={link.href}
-                  aria-current={active ? 'page' : undefined}
-                  className={`font-mono text-sm uppercase tracking-widest no-underline py-2 inline-flex items-center gap-2 min-h-[44px] ${
-                    active ? 'font-bold' : ''
-                  }`}
-                    style={{ color: NAV_COLORS[link.href] || 'var(--color-ink-muted)' }}
+                    href={link.href}
+                    aria-current={active ? 'page' : undefined}
+                    className="uppercase tracking-widest no-underline py-2 inline-flex items-center gap-2 min-h-[44px]"
+                    style={{
+                      fontFamily: 'var(--font-code)',
+                      fontSize: 13,
+                      fontWeight: active ? 700 : 600,
+                      letterSpacing: '0.1em',
+                      color: NAV_COLORS[link.href] || 'var(--color-ink-muted)',
+                    }}
                     onClick={closeMobile}
                   >
                     <SketchIcon name={link.icon} size={16} />
