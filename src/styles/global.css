@@ -81,7 +81,7 @@
      Variables set by next/font on <html> → aliased here for design tokens */
   --font-title: var(--font-vollkorn), Georgia, serif;
   --font-title-alt: var(--font-ysabeau), sans-serif;
-  --font-body: var(--font-cabin), sans-serif;
+  --font-body: var(--font-ibm-plex), sans-serif;
   --font-body-alt: var(--font-ibm-plex), sans-serif;
   /* Monospace: two faces, two roles
      --font-mono  (Courier Prime):   labels, metadata, nav, tags, DateStamp
@@ -89,6 +89,7 @@
   --font-mono: var(--font-courier-prime), 'Courier New', monospace;
   --font-mono-alt: var(--font-jetbrains-mono), monospace;
   --font-code: var(--font-jetbrains-mono), var(--font-courier-prime), monospace;
+  --font-metadata: var(--font-courier-prime), 'Courier New', monospace;
   --font-name: var(--font-amarna), serif;
   --font-archivist: var(--font-caudex), 'Palatino Linotype', 'Book Antiqua', serif;
   /* Caveat: only used for margin annotations, candidate for font-display:swap deferred loading */
@@ -237,10 +238,10 @@ html[data-theme="dark"] {
    brand color wash remains perceptible.
    ───────────────────────────────────────────────── */
 
-html[data-theme="dark"] .surface-tint-terracotta { background-color: rgba(212, 135, 90, 0.08); }
-html[data-theme="dark"] .surface-tint-teal       { background-color: rgba(58, 136, 152, 0.07); }
-html[data-theme="dark"] .surface-tint-gold       { background-color: rgba(212, 170, 90, 0.08); }
-html[data-theme="dark"] .surface-tint-neutral    { background-color: rgba(232, 224, 214, 0.03); }
+html[data-theme="dark"] .surface-tint-terracotta { background-color: rgba(212, 135, 90, 0.12); }
+html[data-theme="dark"] .surface-tint-teal       { background-color: rgba(58, 136, 152, 0.11); }
+html[data-theme="dark"] .surface-tint-gold       { background-color: rgba(212, 170, 90, 0.12); }
+html[data-theme="dark"] .surface-tint-neutral    { background-color: rgba(232, 224, 214, 0.05); }
 
 /* ─────────────────────────────────────────────────
    Dark Mode: Paper Grain Overlay
@@ -408,10 +409,10 @@ body::after {
 }
 
 /* Card tint washes:transparent brand-color fills */
-.surface-tint-terracotta { background-color: rgba(180, 90, 45, 0.045); }
-.surface-tint-teal       { background-color: rgba(45, 95, 107, 0.04); }
-.surface-tint-gold       { background-color: rgba(196, 154, 74, 0.05); }
-.surface-tint-neutral    { background-color: rgba(42, 36, 32, 0.025); }
+.surface-tint-terracotta { background-color: rgba(180, 90, 45, 0.08); }
+.surface-tint-teal       { background-color: rgba(45, 95, 107, 0.08); }
+.surface-tint-gold       { background-color: rgba(196, 154, 74, 0.08); }
+.surface-tint-neutral    { background-color: rgba(42, 36, 32, 0.05); }
 
 /* Card hover lift:shadow deepens, subtle Y translate */
 .surface-hover {
@@ -427,6 +428,22 @@ body::after {
   .surface-hover:hover {
     transform: none;
   }
+}
+
+/* Stretched-link card pattern: entire card is clickable,
+   tag links remain independently interactive */
+.card-link-stretch {
+  position: relative;
+}
+.card-link-stretch .card-link-main::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+}
+.card-link-stretch .card-tags {
+  position: relative;
+  z-index: 1;
 }
 
 /* Nav atmospheric fade: dark spill below sticky nav into parchment.
@@ -1067,7 +1084,7 @@ blockquote {
 .reader-note-author {
   font-family: var(--font-code);
   font-size: 11px;
-  font-weight: 500;
+  font-weight: 600;
   color: var(--color-ink);
   opacity: 0.75;
 }
@@ -1084,7 +1101,7 @@ blockquote {
 .reader-note-body {
   font-family: var(--font-code);
   font-size: 12.5px;
-  font-weight: 400;
+  font-weight: 600;
   line-height: 1.55;
   color: var(--color-ink);
   margin: 0 0 0.25rem;
@@ -1199,7 +1216,7 @@ blockquote {
   padding: 0.35rem 0;
   font-family: var(--font-code);
   font-size: 12px;
-  font-weight: 400;
+  font-weight: 600;
   color: var(--color-ink);
   margin-bottom: 0.25rem;
   resize: none;
@@ -1218,7 +1235,7 @@ blockquote {
 .comment-form-textarea::placeholder {
   color: var(--color-ink-faint);
   opacity: 0.5;
-  font-weight: 400;
+  font-weight: 600;
 }
 
 .comment-form-input:focus,
@@ -1345,7 +1362,7 @@ blockquote {
 .mobile-comment-author {
   font-family: var(--font-code);
   font-size: 11px;
-  font-weight: 500;
+  font-weight: 600;
   color: var(--color-ink);
   opacity: 0.75;
 }
@@ -1367,7 +1384,7 @@ blockquote {
 .mobile-comment-body {
   font-family: var(--font-code);
   font-size: 13px;
-  font-weight: 400;
+  font-weight: 600;
   line-height: 1.55;
   letter-spacing: -0.01em;
   color: var(--color-ink);

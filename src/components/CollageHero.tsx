@@ -66,8 +66,8 @@ export default function CollageHero({
         }}
       >
         {/* Content layer */}
-        <div className="relative z-10 max-w-6xl mx-auto px-3 sm:px-6">
-          <div className="flex flex-col lg:grid lg:items-start pt-8 pb-4 md:pt-16 md:pb-8 lg:pt-20 lg:pb-10 gap-4 sm:gap-8 lg:gap-12"
+        <div className="relative z-10 max-w-6xl mx-auto px-4 sm:px-6">
+          <div className="flex flex-col-reverse lg:grid lg:items-start pt-8 pb-4 md:pt-16 md:pb-8 lg:pt-20 lg:pb-10 gap-4 sm:gap-8 lg:gap-12"
             style={{ gridTemplateColumns: '55% 1fr' }}
           >
             {/* Left column: featured essay + studio status */}

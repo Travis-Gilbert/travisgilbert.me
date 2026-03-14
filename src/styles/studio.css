@@ -52,7 +52,7 @@
 
   /* Typography: map existing font vars to studio usage */
   --studio-font-title: var(--font-vollkorn), Georgia, serif;
-  --studio-font-body: var(--font-cabin), system-ui, sans-serif;
+  --studio-font-body: var(--font-ibm-plex), system-ui, sans-serif;
   --studio-font-mono: var(--font-jetbrains-mono), monospace;
   --studio-font-metadata: var(--font-courier-prime), 'Courier New', monospace;
   --studio-font-writing: var(--font-amarna), Georgia, serif;

@@ -33,7 +33,7 @@ const STACK_CATEGORIES: StackCategory[] = [
     items: [
       { key: 'Styling', value: 'Tailwind CSS v4', note: 'CSS custom properties' },
       { key: 'Hand-drawn', value: 'rough.js + rough-notation' },
-      { key: 'Typography', value: '7 fonts via next/font', note: 'Vollkorn, Cabin, IBM Plex Sans, Ysabeau, Courier Prime, JetBrains Mono, Amarna' },
+      { key: 'Typography', value: '6 fonts via next/font', note: 'Vollkorn, IBM Plex Sans, Ysabeau, Courier Prime, JetBrains Mono, Amarna' },
       { key: 'Primitives', value: 'Radix UI', note: 'Accordion, Collapsible, Tooltip' },
       { key: 'Icons', value: 'Phosphor + SketchIcon system' },
     ],
@@ -141,14 +141,13 @@ export default function ColophonPage() {
             The site uses three typography systems that shift by context.{' '}
             <strong className="font-title">Vollkorn</strong> carries editorial
             weight in headings: a sturdy, old-style serif that grounds
-            every page title. <strong>Cabin</strong> handles most body text as a
-            humanist sans that shows the calligrapher&apos;s hand without
-            shouting about it.
+            every page title. <strong>IBM Plex Sans</strong> handles all body text:
+            a neo-grotesque with enough personality to feel intentional
+            while staying clean at paragraph length.
           </p>
           <p className="leading-relaxed">
-            For essays and technical pages,{' '}
-            <strong>IBM Plex Sans</strong> steps in as the body face,
-            more clinical, more precise. Labels and metadata are always set in{' '}
+            Its weight range (300 through 700) supports visual hierarchy
+            across contexts, from light captions to bold callouts. Labels and metadata are always set in{' '}
             <span className="font-mono text-sm">Courier Prime</span>:
             uppercase, tracked, monospaced, evoking typewritten case
             files and document stamps.

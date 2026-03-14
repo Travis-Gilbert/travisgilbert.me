@@ -132,8 +132,13 @@ export default function RoughLine({
           </div>
           {/* Center label */}
           <span
-            className="px-3 font-mono text-[10px] uppercase tracking-[0.12em] whitespace-nowrap select-none"
-            style={{ color: labelColor || 'var(--color-ink-light)' }}
+            className="px-3 py-1 font-mono text-[11px] uppercase tracking-[0.12em] whitespace-nowrap select-none rounded-full"
+            style={{
+              color: labelColor || 'var(--color-ink-light)',
+              backgroundColor: labelColor
+                ? `color-mix(in srgb, ${labelColor} 8%, transparent)`
+                : 'rgba(42, 36, 32, 0.04)',
+            }}
           >
             {label}
           </span>

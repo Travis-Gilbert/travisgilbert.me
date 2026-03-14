@@ -15,6 +15,7 @@ import NowPreviewCompact from '@/components/NowPreviewCompact';
 import CollageHero from '@/components/CollageHero';
 import HeroArtifact from '@/components/HeroArtifact';
 import ActiveThreads from '@/components/research/ActiveThreads';
+import FeaturedFieldNote from '@/components/FeaturedFieldNote';
 
 export const metadata: Metadata = {
   title: 'Travis Gilbert | Essays, Projects, and Field Notes',
@@ -27,10 +28,14 @@ export default function HomePage() {
     .filter((i) => !i.data.draft)
     .sort((a, b) => b.data.date.valueOf() - a.data.date.valueOf());
 
-  const fieldNotes = getCollection<FieldNote>('field-notes')
+  const allFieldNotes = getCollection<FieldNote>('field-notes')
     .filter((n) => !n.data.draft)
-    .sort((a, b) => b.data.date.valueOf() - a.data.date.valueOf())
-    .slice(0, 4);
+    .sort((a, b) => b.data.date.valueOf() - a.data.date.valueOf());
+
+  const featuredNote = allFieldNotes.find((n) => n.data.featured);
+  const fieldNotes = allFieldNotes
+    .filter((n) => n !== featuredNote)
+    .slice(0, 3);
 
   const projects = getCollection<Project>('projects')
     .filter((p) => !p.data.draft && p.data.featured)
@@ -79,9 +84,25 @@ export default function HomePage() {
       {/* ═══════════════════════════════════════════════
           Field Notes: Asymmetric grid with compact tracker + callouts
           ═══════════════════════════════════════════════ */}
-      {fieldNotes.length > 0 && (
+      {(featuredNote || fieldNotes.length > 0) && (
         <section className="py-3 sm:py-6">
           <RoughLine label="Field Notes" labelColor="var(--color-teal)" />
+
+          {featuredNote && (
+            <div className="mb-4 sm:mb-6">
+              <ScrollReveal>
+                <FeaturedFieldNote
+                  title={featuredNote.data.title}
+                  date={featuredNote.data.date}
+                  excerpt={featuredNote.data.excerpt}
+                  tags={featuredNote.data.tags}
+                  href={`/field-notes/${featuredNote.slug}`}
+                  status={featuredNote.data.status}
+                  callout={featuredNote.data.callouts?.[0] ?? featuredNote.data.callout}
+                />
+              </ScrollReveal>
+            </div>
+          )}
 
           <div className="grid grid-cols-1 md:grid-cols-[3fr_2fr] gap-3 sm:gap-5 items-start">
             {fieldNotes.map((note, i) => (
@@ -91,10 +112,10 @@ export default function HomePage() {
                 className={i % 2 === 1 ? 'md:mt-10' : ''}
               >
                 <RoughBox padding={20} hover tint="teal">
-                  <div className="group">
+                  <div className="group card-link-stretch">
                     <Link
                       href={`/field-notes/${note.slug}`}
-                      className="block no-underline text-ink hover:text-ink"
+                      className="card-link-main block no-underline text-ink hover:text-ink"
                     >
                       <div className="flex justify-between items-center">
                         <DateStamp date={note.data.date} />
@@ -129,7 +150,7 @@ export default function HomePage() {
                       ) : null;
                     })()}
                     {note.data.tags.length > 0 && (
-                      <div className="pt-3 relative z-10">
+                      <div className="card-tags pt-3">
                         <TagList tags={note.data.tags} tint="teal" />
                       </div>
                     )}

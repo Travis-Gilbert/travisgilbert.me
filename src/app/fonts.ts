@@ -1,17 +1,9 @@
-import { Vollkorn, Cabin, IBM_Plex_Sans, Courier_Prime, JetBrains_Mono, Ysabeau, Caveat, Caudex } from 'next/font/google';
+import { Vollkorn, IBM_Plex_Sans, Courier_Prime, JetBrains_Mono, Ysabeau, Caveat, Caudex } from 'next/font/google';
 import localFont from 'next/font/local';
 
 export const vollkorn = Vollkorn({
   subsets: ['latin'],
   variable: '--font-vollkorn',
-  display: 'swap',
-  weight: ['400', '500', '600', '700'],
-  style: ['normal', 'italic'],
-});
-
-export const cabin = Cabin({
-  subsets: ['latin'],
-  variable: '--font-cabin',
   display: 'swap',
   weight: ['400', '500', '600', '700'],
   style: ['normal', 'italic'],
@@ -42,7 +34,7 @@ export const jetBrainsMono = JetBrains_Mono({
   subsets: ['latin'],
   variable: '--font-jetbrains-mono',
   display: 'swap',
-  weight: ['400', '700'],
+  weight: ['600', '700'],
 });
 
 export const caveat = Caveat({
@@ -68,7 +60,6 @@ export const amarna = localFont({
 
 export const fontVariableClasses = [
   vollkorn.variable,
-  cabin.variable,
   ibmPlexSans.variable,
   ysabeau.variable,
   courierPrime.variable,

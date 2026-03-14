@@ -47,7 +47,7 @@ export default function MainLayout({
       <TopNav navItems={visibleNav} />
       <main
         id="main-content"
-        className="main-content flex-1 max-w-4xl mx-auto w-full px-3 sm:px-6 py-4 sm:py-8"
+        className="main-content flex-1 max-w-4xl mx-auto w-full px-4 sm:px-6 py-4 sm:py-8"
       >
         {children}
       </main>

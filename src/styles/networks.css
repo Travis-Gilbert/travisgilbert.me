@@ -47,7 +47,7 @@
 
   /* Typography */
   --nw-font-title: var(--font-vollkorn), Georgia, serif;
-  --nw-font-body: var(--font-cabin), sans-serif;
+  --nw-font-body: var(--font-ibm-plex), sans-serif;
   --nw-font-mono: var(--font-courier-prime), 'Courier New', monospace;
   --nw-font-code: var(--font-jetbrains-mono), monospace;
 

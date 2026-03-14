@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import { getCollection } from '@/lib/content';
 import type { FieldNote } from '@/lib/content';
 import FieldNoteEntry from '@/components/FieldNoteEntry';
+import FeaturedFieldNote from '@/components/FeaturedFieldNote';
 import SectionLabel from '@/components/SectionLabel';
 import DrawOnIcon from '@/components/rough/DrawOnIcon';
 
@@ -16,6 +17,9 @@ export default function FieldNotesPage() {
     .filter((n) => !n.data.draft)
     .sort((a, b) => b.data.date.valueOf() - a.data.date.valueOf());
 
+  const featuredNote = allNotes.find((n) => n.data.featured);
+  const remainingNotes = allNotes.filter((n) => n !== featuredNote);
+
   return (
     <>
       <section className="py-4 sm:py-8">
@@ -29,8 +33,22 @@ export default function FieldNotesPage() {
         </p>
       </section>
 
+      {featuredNote && (
+        <div className="mb-4 sm:mb-6">
+          <FeaturedFieldNote
+            title={featuredNote.data.title}
+            date={featuredNote.data.date}
+            excerpt={featuredNote.data.excerpt}
+            tags={featuredNote.data.tags}
+            href={`/field-notes/${featuredNote.slug}`}
+            status={featuredNote.data.status}
+            callout={featuredNote.data.callouts?.[0] ?? featuredNote.data.callout}
+          />
+        </div>
+      )}
+
       <div className="space-y-3 sm:space-y-6">
-        {allNotes.map((note) => (
+        {remainingNotes.map((note) => (
           <FieldNoteEntry
             key={note.slug}
             title={note.data.title}
