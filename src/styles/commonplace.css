@@ -4986,8 +4986,7 @@
   position: fixed;
   inset: 0;
   z-index: 600;
-  background: rgba(26, 28, 32, 0.35);
-  backdrop-filter: blur(3px);
+  background: #0E0E10;
   transition: opacity 200ms ease;
 }
 
@@ -5001,7 +5000,7 @@
   width: min(580px, 92vw);
   background: var(--cp-chrome);
   border-left: 2px solid var(--cp-chrome-line);
-  box-shadow: -12px 0 40px rgba(0, 0, 0, 0.28), -3px 0 12px rgba(0, 0, 0, 0.15);
+  box-shadow: -16px 0 48px rgba(0, 0, 0, 0.35), -4px 0 16px rgba(0, 0, 0, 0.2);
   display: flex;
   flex-direction: column;
   overflow: hidden;
@@ -6962,11 +6961,6 @@
 
 .cp-compose-graph-empty {
   background: color-mix(in srgb, var(--cp-surface) 88%, white);
-}
-
-.cp-drawer-overlay {
-  background: rgba(26, 28, 32, 0.25);
-  backdrop-filter: blur(2px);
 }
 
 .cp-drawer-close:hover {
