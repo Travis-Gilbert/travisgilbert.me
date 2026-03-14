@@ -52,7 +52,8 @@ export default function CommonPlaceLayout({
       className="commonplace-theme cp-shell-root"
       style={{
         display: 'flex',
-        minHeight: '100vh',
+        height: '100vh',
+        overflow: 'hidden',
         backgroundColor: 'var(--cp-bg)',
         color: 'var(--cp-text)',
         margin: 0,

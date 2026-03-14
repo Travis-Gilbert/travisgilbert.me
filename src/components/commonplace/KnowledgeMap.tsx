@@ -274,12 +274,15 @@ export default function KnowledgeMap({
     const dpr = window.devicePixelRatio || 1;
 
     // Guard: never set canvas to 0x0 (browsers render a broken-image icon)
+    // Also cap to 8192 to stay within browser canvas size limits
     if (width < 1 || height < 1) return;
+    const cw = Math.min(width, 8192);
+    const ch = Math.min(height, 8192);
 
-    canvas.width = width * dpr;
-    canvas.height = height * dpr;
-    canvas.style.width = `${width}px`;
-    canvas.style.height = `${height}px`;
+    canvas.width = cw * dpr;
+    canvas.height = ch * dpr;
+    canvas.style.width = `${cw}px`;
+    canvas.style.height = `${ch}px`;
 
     const ctx = canvas.getContext('2d');
     if (!ctx) return;

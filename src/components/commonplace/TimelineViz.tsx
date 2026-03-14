@@ -162,17 +162,20 @@ export default function TimelineViz({
     const dpr = window.devicePixelRatio || 1;
 
     // Guard: never set canvas to 0x0 (browsers render a broken-image icon)
+    // Also cap to 8192 to stay within browser canvas size limits
     if (size.width < 1 || size.height < 1) return;
+    const cw = Math.min(size.width, 8192);
+    const ch = Math.min(size.height, 8192);
 
-    canvas.width = size.width * dpr;
-    canvas.height = size.height * dpr;
-    canvas.style.width = `${size.width}px`;
-    canvas.style.height = `${size.height}px`;
+    canvas.width = cw * dpr;
+    canvas.height = ch * dpr;
+    canvas.style.width = `${cw}px`;
+    canvas.style.height = `${ch}px`;
 
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-    ctx.clearRect(0, 0, size.width, size.height);
+    ctx.clearRect(0, 0, cw, ch);
 
     links.forEach((l) => {
       const src = String(l.source);

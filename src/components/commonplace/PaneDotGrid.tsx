@@ -95,34 +95,37 @@ export default function PaneDotGrid({
       const h = parent!.clientHeight;
 
       // Guard: never set canvas to 0x0 (browsers render a broken-image icon)
+      // Also cap to 8192 to stay within browser canvas size limits
       if (w < 1 || h < 1) return;
+      const cw = Math.min(w, 8192);
+      const ch = Math.min(h, 8192);
 
-      canvas!.width = w * dpr;
-      canvas!.height = h * dpr;
-      canvas!.style.width = `${w}px`;
-      canvas!.style.height = `${h}px`;
+      canvas!.width = cw * dpr;
+      canvas!.height = ch * dpr;
+      canvas!.style.width = `${cw}px`;
+      canvas!.style.height = `${ch}px`;
       ctx!.setTransform(dpr, 0, 0, dpr, 0, 0);
 
       // Transparent background (let CSS bg-color show through)
-      ctx!.clearRect(0, 0, w, h);
+      ctx!.clearRect(0, 0, cw, ch);
 
       // ── Layer 0: warm bloom gradient from bottom-left ──
       // Same technique as TerminalCanvas.tsx teal bloom, but using the
       // dot color at very low opacity for a subtle warmth/depth cue.
       const [r, g, b] = dotColor;
       const bloom = ctx!.createRadialGradient(
-        0, h, 0,
-        0, h, Math.max(w, h) * 0.7
+        0, ch, 0,
+        0, ch, Math.max(cw, ch) * 0.7
       );
       bloom.addColorStop(0, `rgba(${r}, ${g}, ${b}, 0.06)`);
       bloom.addColorStop(0.4, `rgba(${r}, ${g}, ${b}, 0.025)`);
       bloom.addColorStop(1, 'transparent');
       ctx!.fillStyle = bloom;
-      ctx!.fillRect(0, 0, w, h);
+      ctx!.fillRect(0, 0, cw, ch);
 
       // ── Layer 1: uniform dot field ──
-      const cols = Math.ceil(w / spacing) + 1;
-      const rows = Math.ceil(h / spacing) + 1;
+      const cols = Math.ceil(cw / spacing) + 1;
+      const rows = Math.ceil(ch / spacing) + 1;
       const numericSeed = typeof seed === 'string' ? djb2(seed) : seed;
       const rng = mulberry32(numericSeed);
 
@@ -159,8 +162,8 @@ export default function PaneDotGrid({
       // Opaque at center (covers dots), transparent at corners (reveals dots).
       // Same composite technique as DotGrid.tsx drawInversionGradient().
       if (vignette) {
-        const cx = w / 2;
-        const cy = h / 2;
+        const cx = cw / 2;
+        const cy = ch / 2;
         const cornerDist = Math.sqrt(cx * cx + cy * cy);
 
         const [br, bg, bb] = bgColor;
@@ -176,7 +179,7 @@ export default function PaneDotGrid({
         grad.addColorStop(1, `rgba(${br}, ${bg}, ${bb}, 0.1)`);
 
         ctx!.fillStyle = grad;
-        ctx!.fillRect(0, 0, w, h);
+        ctx!.fillRect(0, 0, cw, ch);
       }
     }
 

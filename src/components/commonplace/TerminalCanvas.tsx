@@ -52,33 +52,36 @@ export default function TerminalCanvas({
       const h = parent!.clientHeight;
 
       // Guard: never set canvas to 0x0 (browsers render a broken-image icon)
+      // Also cap to 8192 to stay within browser canvas size limits
       if (w < 1 || h < 1) return;
+      const cw = Math.min(w, 8192);
+      const ch = Math.min(h, 8192);
 
-      canvas!.width = w * dpr;
-      canvas!.height = h * dpr;
-      canvas!.style.width = `${w}px`;
-      canvas!.style.height = `${h}px`;
+      canvas!.width = cw * dpr;
+      canvas!.height = ch * dpr;
+      canvas!.style.width = `${cw}px`;
+      canvas!.style.height = `${ch}px`;
       ctx!.setTransform(dpr, 0, 0, dpr, 0, 0);
 
       // Base fill
       ctx!.fillStyle = '#1A1C22';
-      ctx!.fillRect(0, 0, w, h);
+      ctx!.fillRect(0, 0, cw, ch);
 
       // Teal gradient bloom from bottom left corner
       const grad = ctx!.createRadialGradient(
-        0, h, 0,
-        0, h, Math.max(w, h) * 0.6
+        0, ch, 0,
+        0, ch, Math.max(cw, ch) * 0.6
       );
       grad.addColorStop(0, 'rgba(45, 95, 107, 0.14)');
       grad.addColorStop(0.4, 'rgba(45, 95, 107, 0.06)');
       grad.addColorStop(1, 'transparent');
       ctx!.fillStyle = grad;
-      ctx!.fillRect(0, 0, w, h);
+      ctx!.fillRect(0, 0, cw, ch);
 
       // Seeded dot pattern
       const spacing = 12;
-      const cols = Math.ceil(w / spacing) + 1;
-      const rows = Math.ceil(h / spacing) + 1;
+      const cols = Math.ceil(cw / spacing) + 1;
+      const rows = Math.ceil(ch / spacing) + 1;
       const rng = mulberry32(seed);
 
       for (let row = 0; row < rows; row++) {
