@@ -117,6 +117,10 @@ CollageHero (homepage) and EssayHero (essay pages) share: dark ground, `--hero-h
 
 Scoped route group `(commonplace)` with own layout.tsx (warm studio theme, not main site DotGrid/TopNav/Footer). Split pane system uses recursive binary tree. API calls go through `commonplace-api.ts` anti-corruption layer. Sidebar collapse is reactive via context (`SplitPaneContainer` is sole writer). See `docs/records/004-commonplace-v5-dark-chrome.md`.
 
+**Evidence rendering is polymorphic**: `EvidenceItem.tsx` dispatches to sub-components per object type (source=gradient bar, hunch=dashed italic, quote=blockquote, concept=pill, note=card). Visual constants (`EVIDENCE_TYPE_COLOR`, `EVIDENCE_RELATION_COLOR`, `AGREEMENT_STYLE`) live in `commonplace-models.ts`.
+
+**Icon system**: CommonPlace uses `iconoir-react` (not Phosphor). Phosphor is used on the main site only.
+
 ### Canvas Components
 
 All canvas components (PaneDotGrid, TerminalCanvas, KnowledgeMap, TimelineViz) must guard against zero dimensions (browsers show broken-image icon) and cap to 8192px (browser canvas size limit). Pattern: `if (w < 1 || h < 1) return; const cw = Math.min(w, 8192);`
@@ -141,6 +145,7 @@ Vercel with native Next.js builder. Auto-deploys on push to `main`. **Important:
 | CommonPlace frontend (Sessions 5-9) | Complete | API integration, split pane, capture, timeline, network |
 | CommonPlace v5 Dark Chrome (9 batches) | Complete | `docs/records/004-commonplace-v5-dark-chrome.md` |
 | CommonPlace v5.1 Lego Composition (5 batches) | Complete | PinnedBadge, drag/drop, layout presets, tab drag |
+| Model View v6 redesign | Complete | Polymorphic evidence, two-column workspace, timeline-style assumptions |
 
 **Next step:** Verify production deploy with live API, then optimistic capture sync. Also pending: train KGE embeddings for production (`export_kge_triples` + `train_kge.py`), verify production API connectivity end to end.
 
@@ -164,6 +169,8 @@ Vercel with native Next.js builder. Auto-deploys on push to `main`. **Important:
 | CommonPlace: API anti-corruption layer | Mapping functions in `commonplace-api.ts` | Components unchanged when data source changes |
 | CommonPlace: sidebar collapse | Reactive via context (not user toggle) | `SplitPaneContainer` is single writer; sidebar is pure reader |
 | Canvas dimension guards | Min 1px, max 8192px on all canvas components | Prevents broken-image icons (0px) and browser crashes (>16384px) |
+| CommonPlace: Models placement | Under Library (not Views) | Models are a creation surface, not a view |
+| CommonPlace: Model View v6 | Two-column layout, no drag reorder, polymorphic evidence | White card repetition was poor UI; timeline rows + type-specific rendering is more information-dense |
 
 ## Gotchas
 
@@ -178,6 +185,7 @@ Vercel with native Next.js builder. Auto-deploys on push to `main`. **Important:
 - **Satori CSS limitations**: Only flexbox layout, no grid. Every element needs `display: 'flex'`
 - **Webpack `.next/` cache corruption**: After major file deletions or renames, fix with `rm -rf .next` and rebuild
 - **`NEXT_PUBLIC_*` env vars**: Inlined at build time, not runtime. Changing values requires Vercel redeploy
+- **Default array/object props cause infinite loops**: `dotColor = [26, 26, 29]` in function signature creates a new ref each render. Use `useMemo` or module-level constant
 
 ### Styling / Design System
 - **Font variable bridging**: `next/font` vars (e.g., `--font-vollkorn`) are distinct from Tailwind theme aliases (e.g., `--font-title`). Bridge in `global.css` `@theme inline`
@@ -208,6 +216,8 @@ Vercel with native Next.js builder. Auto-deploys on push to `main`. **Important:
 - **`commonplace-api.ts` is the single source for all API calls**: No raw fetch in components
 - **`useApiData` hook deps**: Passing unstable references (objects, arrays) causes infinite re-fetch loops
 - **`sidebarCollapsed` is reactive, not a toggle**: `SplitPaneContainer` writes; sidebar only reads
+- **Portal theme escaping**: `createPortal` to `document.body` exits `.commonplace-theme`. Wrap portal content in `<div className="commonplace-theme">` for `--cp-*` token resolution
+- **Sidebar dual data sources**: Expanded sidebar reads `SIDEBAR_SECTIONS` from `commonplace.ts`; collapsed rail has a hardcoded array in `CommonPlaceSidebar.tsx`. Both must stay in sync when reordering
 
 ### Deployment
 - **Vercel Output Directory**: Must be blank/default. `dist` setting from old Astro config breaks Next.js builds
