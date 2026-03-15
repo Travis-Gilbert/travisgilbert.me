@@ -1,2 +1,0 @@
--r local.txt
-django-debug-toolbar>=4.0
