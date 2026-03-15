@@ -137,20 +137,20 @@ export const SIDEBAR_SECTIONS: SidebarSection[] = [
     title: '',
     items: [
       { label: 'Library', href: '#library', icon: 'grid', viewType: 'library' as ViewType },
-      { label: 'Timeline', href: '#timeline', icon: 'timeline', viewType: 'timeline' as ViewType },
+      { label: 'Models', href: '#models', icon: 'model', viewType: 'model-view' as ViewType },
       { label: 'Compose', href: '#compose', icon: 'note-pencil', viewType: 'compose' as ViewType },
     ],
   },
   {
     title: 'Views',
     items: [
+      { label: 'Timeline', href: '#timeline', icon: 'timeline', viewType: 'timeline' as ViewType },
       {
         label: 'Map',
         href: '#networks',
         icon: 'graph',
         viewType: 'network' as ViewType,
       },
-      { label: 'Models', href: '#models', icon: 'model', viewType: 'model-view' as ViewType },
       { label: 'Calendar', href: '#calendar', icon: 'calendar', viewType: 'calendar' as ViewType },
       { label: 'Loose Ends', href: '#loose-ends', icon: 'scatter', viewType: 'loose-ends' as ViewType },
     ],

@@ -497,10 +497,10 @@ export default function CommonPlaceSidebar() {
       | { key: string; divider: true }
     > = [
       { key: 'library', icon: 'grid', label: 'Library', onClick: () => requestView('library', 'Library') },
-      { key: 'timeline', icon: 'timeline', label: 'Timeline', onClick: () => requestView('timeline', 'Timeline') },
-      { key: 'compose', icon: 'note-pencil', label: 'Compose', onClick: () => requestView('compose', 'Compose') },
-      { key: 'map', icon: 'graph', label: 'Map', onClick: () => requestView('network', 'Map') },
       { key: 'models', icon: 'model', label: 'Models', onClick: () => requestView('model-view', 'Models') },
+      { key: 'compose', icon: 'note-pencil', label: 'Compose', onClick: () => requestView('compose', 'Compose') },
+      { key: 'timeline', icon: 'timeline', label: 'Timeline', onClick: () => requestView('timeline', 'Timeline') },
+      { key: 'map', icon: 'graph', label: 'Map', onClick: () => requestView('network', 'Map') },
       { key: 'calendar', icon: 'calendar', label: 'Calendar', onClick: () => requestView('calendar', 'Calendar') },
       { key: 'loose-ends', icon: 'scatter', label: 'Loose Ends', onClick: () => requestView('loose-ends', 'Loose Ends') },
       { key: 'divider-1', divider: true },
