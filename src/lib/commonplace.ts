@@ -69,6 +69,7 @@ export type ViewType =
   | 'loose-ends'
   | 'compose'
   | 'connection-engine'
+  | 'model-view'
   | 'reminders'
   | 'settings'
   | 'empty';
@@ -95,6 +96,7 @@ export const VIEW_REGISTRY: Record<ViewType, { label: string; icon: string }> = 
   'loose-ends': { label: 'Loose Ends', icon: 'scatter' },
   compose: { label: 'Compose', icon: 'note-pencil' },
   'connection-engine': { label: 'Engine', icon: 'engine' },
+  'model-view': { label: 'Models', icon: 'model' },
   reminders: { label: 'Reminders', icon: 'bell' },
   settings: { label: 'Settings', icon: 'gear' },
   empty: { label: 'Empty', icon: 'plus' },
@@ -148,6 +150,7 @@ export const SIDEBAR_SECTIONS: SidebarSection[] = [
         icon: 'graph',
         viewType: 'network' as ViewType,
       },
+      { label: 'Models', href: '#models', icon: 'model', viewType: 'model-view' as ViewType },
       { label: 'Calendar', href: '#calendar', icon: 'calendar', viewType: 'calendar' as ViewType },
       { label: 'Loose Ends', href: '#loose-ends', icon: 'scatter', viewType: 'loose-ends' as ViewType },
     ],

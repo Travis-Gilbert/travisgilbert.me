@@ -119,6 +119,7 @@ function viewTypeLabel(viewType: ViewType): string {
     'loose-ends': 'Loose Ends',
     compose: 'Compose',
     'connection-engine': 'Connection Engine',
+    'model-view': 'Models',
     reminders: 'Reminders',
     settings: 'Settings',
     empty: 'Empty',

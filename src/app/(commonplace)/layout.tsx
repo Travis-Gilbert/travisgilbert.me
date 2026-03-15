@@ -6,6 +6,7 @@ import CommandPalette from '@/components/commonplace/CommandPalette';
 import ObjectDrawer from '@/components/commonplace/ObjectDrawer';
 import ObjectContextMenu from '@/components/commonplace/ObjectContextMenu';
 import ConnectionComposer from '@/components/commonplace/ConnectionComposer';
+import EngineTerminal from '@/components/commonplace/EngineTerminal';
 import { Toaster } from 'sonner';
 import '@/styles/commonplace.css';
 
@@ -41,6 +42,7 @@ export const metadata: Metadata = {
  *   3. Paper grain on main and sidebar surfaces
  *   4. Sidebar
  *   5. Split pane system
+ *   6. Engine terminal (fixed bottom, portal to body)
  */
 export default function CommonPlaceLayout({
   children,
@@ -81,11 +83,12 @@ export default function CommonPlaceLayout({
           <SplitPaneContainer />
         </main>
 
-        {/* Global overlays: object drawer, command palette, context menu, toast notifications */}
+        {/* Global overlays: object drawer, command palette, context menu, engine terminal, toast notifications */}
         <ObjectDrawer />
         <CommandPalette />
         <ObjectContextMenu />
         <ConnectionComposer />
+        <EngineTerminal />
         <Toaster
           position="bottom-right"
           toastOptions={{

@@ -52,6 +52,7 @@ import CalendarView from './CalendarView';
 import LooseEndsView from './LooseEndsView';
 import ComposeView from './ComposeView';
 import LibraryView from './LibraryView';
+import ModelView from './ModelView';
 import PaneDotGrid from './PaneDotGrid';
 
 /* ─────────────────────────────────────────────────
@@ -1350,6 +1351,20 @@ function PaneViewContent({ viewType, context, paneId, onOpenObject }: PaneViewCo
         onSaved={
           paneId && onOpenObject
             ? (objectId) => onOpenObject(paneId, objectId)
+            : undefined
+        }
+      />
+    );
+  }
+
+  /* Live view: Model (epistemic argument workbench) */
+  if (viewType === 'model-view') {
+    return (
+      <ModelView
+        paneId={paneId}
+        onOpenObject={
+          paneId && onOpenObject
+            ? (pid, ref, title) => onOpenObject(pid, ref, title)
             : undefined
         }
       />
