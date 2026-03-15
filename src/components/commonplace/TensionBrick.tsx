@@ -1,34 +1,28 @@
 'use client';
 
-import type { Tension, Assumption } from '@/lib/commonplace-models';
-
-/**
- * TensionBrick: content for the Tensions module.
- *
- * Renders each tension with severity indicator (shape + color),
- * description text, and linked assumption labels (A1, A2...).
- * Tensions surface contradictions and unresolved questions
- * between assumptions in the model.
- */
+import type { Tension } from '@/lib/commonplace-models';
 
 interface TensionBrickProps {
   tensions: Tension[];
-  assumptions: Assumption[];
 }
 
-const SEVERITY_STYLE: Record<
-  string,
-  { icon: string; color: string }
-> = {
-  high: { icon: '\u25A0', color: '#C4503C' },
-  medium: { icon: '\u25C6', color: '#D4944A' },
-  low: { icon: '\u25CB', color: 'var(--cp-text-faint, #68666E)' },
+const SEVERITY_COLOR: Record<string, string> = {
+  high: '#C4503C',
+  medium: '#D4944A',
+  low: '#68666E',
 };
+
+function DiamondIcon({ color }: { color: string }): React.JSX.Element {
+  return (
+    <svg width={5} height={5} viewBox="0 0 5 5" style={{ flexShrink: 0 }}>
+      <polygon points="2.5,0 5,2.5 2.5,5 0,2.5" fill={color} />
+    </svg>
+  );
+}
 
 export default function TensionBrick({
   tensions,
-  assumptions,
-}: TensionBrickProps) {
+}: TensionBrickProps): React.JSX.Element {
   if (tensions.length === 0) {
     return (
       <div
@@ -45,70 +39,70 @@ export default function TensionBrick({
   }
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
       {tensions.map((tension) => {
-        const sev = SEVERITY_STYLE[tension.severity];
+        const color = SEVERITY_COLOR[tension.severity] ?? '#68666E';
         return (
           <div
             key={tension.id}
             style={{
-              display: 'flex',
-              gap: 8,
-              alignItems: 'flex-start',
+              border: '1px solid var(--cp-border-faint, #ECEAE6)',
+              borderRadius: 4,
+              padding: '4px 6px',
             }}
           >
-            {/* Severity shape */}
-            <span
+            {/* Severity + linked assumptions */}
+            <div
               style={{
-                color: sev.color,
-                fontSize: 10,
-                flexShrink: 0,
-                marginTop: 3,
+                display: 'flex',
+                alignItems: 'center',
+                gap: 6,
+                marginBottom: 2,
               }}
-              title={`${tension.severity} severity`}
             >
-              {sev.icon}
-            </span>
-
-            <div style={{ flex: 1 }}>
-              {/* Text */}
-              <div
+              <DiamondIcon color={color} />
+              <span
                 style={{
-                  fontFamily: 'var(--cp-font-body)',
-                  fontSize: 12,
-                  color: 'var(--cp-text, #18181B)',
-                  lineHeight: 1.5,
-                  marginBottom: 4,
+                  fontFamily: 'var(--cp-font-mono)',
+                  fontSize: 8,
+                  fontWeight: 600,
+                  letterSpacing: '0.06em',
+                  textTransform: 'uppercase',
+                  color,
                 }}
               >
-                {tension.text}
-              </div>
+                {tension.severity}
+              </span>
+              {tension.linkedAssumptionIds.map((aId) => (
+                <span
+                  key={aId}
+                  style={{
+                    fontFamily: 'var(--cp-font-mono)',
+                    fontSize: 8,
+                    fontWeight: 500,
+                    letterSpacing: '0.04em',
+                    padding: '0px 4px',
+                    borderRadius: 2,
+                    background: 'var(--cp-surface, #F8F7F4)',
+                    color: 'var(--cp-text-faint, #68666E)',
+                  }}
+                >
+                  A{aId}
+                </span>
+              ))}
+            </div>
 
-              {/* Linked assumptions */}
-              <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
-                {tension.linkedAssumptionIds.map((aId) => {
-                  const idx = assumptions.findIndex((a) => a.id === aId);
-                  const label = idx >= 0 ? `A${idx + 1}` : `A?`;
-                  return (
-                    <span
-                      key={aId}
-                      style={{
-                        fontFamily: 'var(--cp-font-mono)',
-                        fontSize: 9,
-                        fontWeight: 500,
-                        letterSpacing: '0.04em',
-                        padding: '1px 6px',
-                        borderRadius: 2,
-                        background: 'var(--cp-surface, #F8F7F4)',
-                        color: 'var(--cp-text-muted, #48464E)',
-                        border: '1px solid var(--cp-border-faint, #ECEAE6)',
-                      }}
-                    >
-                      {label}
-                    </span>
-                  );
-                })}
-              </div>
+            {/* Title */}
+            <div
+              style={{
+                fontFamily: 'var(--cp-font-body)',
+                fontSize: 11,
+                fontWeight: 500,
+                color: 'var(--cp-text, #18181B)',
+                lineHeight: 1.4,
+              }}
+            >
+              {tension.text}
             </div>
           </div>
         );

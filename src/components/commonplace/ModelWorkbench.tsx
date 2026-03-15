@@ -1,12 +1,6 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import {
-  DragDropContext,
-  Droppable,
-  Draggable,
-} from '@hello-pangea/dnd';
-import type { DropResult } from '@hello-pangea/dnd';
 import type {
   EpistemicModelDetail,
   ModuleId,
@@ -27,19 +21,15 @@ import FalsifyBrick from './FalsifyBrick';
 import NarrativeBrick from './NarrativeBrick';
 
 /**
- * ModelWorkbench: full model workspace with argument register,
- * module bricks, and drag reordering.
+ * ModelWorkbench: two-column workspace for model analysis.
  *
- * Layout (top to bottom):
+ * Layout (scrollable, not sticky):
  *   1. DotField canvas behind everything
- *   2. ModelHeader (sticky)
+ *   2. ModelHeader
  *   3. ModuleToggleBar
- *   4. AssumptionRegister (always visible)
- *   5. CompareBrick (always visible, not draggable)
- *   6. Draggable module bricks (tensions, methods, falsify, narratives)
- *
- * The draggable modules use @hello-pangea/dnd (already installed).
- * Module visibility is toggled via ModuleToggleBar.
+ *   4. Two-column body:
+ *      Left: working summary, assumption register, falsify, narratives
+ *      Right: tensions, methods, compare
  */
 
 interface ModelWorkbenchProps {
@@ -48,24 +38,14 @@ interface ModelWorkbenchProps {
   paneId?: string;
 }
 
-type DraggableModuleId = Exclude<ModuleId, 'compare'>;
-
-const INITIAL_MODULE_ORDER: DraggableModuleId[] = [
-  'tensions',
-  'methods',
-  'falsify',
-  'narratives',
-];
-
 export default function ModelWorkbench({
   modelId,
   onOpenObject,
   paneId,
-}: ModelWorkbenchProps) {
+}: ModelWorkbenchProps): React.ReactElement {
   const [model, setModel] = useState<EpistemicModelDetail | null>(null);
   const [loading, setLoading] = useState(true);
-  const [moduleOrder, setModuleOrder] =
-    useState<DraggableModuleId[]>(INITIAL_MODULE_ORDER);
+  const [expandedAssumptions, setExpandedAssumptions] = useState<Set<number>>(new Set());
   const [visibility, setVisibility] = useState<Record<ModuleId, boolean>>({
     tensions: true,
     methods: true,
@@ -77,31 +57,23 @@ export default function ModelWorkbench({
   useEffect(() => {
     setLoading(true);
     fetchModelDetail(modelId)
-      .then(setModel)
+      .then((detail) => {
+        setModel(detail);
+        if (detail.assumptions.length > 0) {
+          const sorted = [...detail.assumptions].sort(
+            (a, b) => a.positionIndex - b.positionIndex,
+          );
+          setExpandedAssumptions(new Set([sorted[0].id]));
+        }
+      })
       .finally(() => setLoading(false));
   }, [modelId]);
 
   const handleToggle = useCallback((id: ModuleId) => {
-    if (id === 'compare') return;
     setVisibility((prev) => ({ ...prev, [id]: !prev[id] }));
   }, []);
 
-  const handleDragEnd = useCallback((result: DropResult) => {
-    if (!result.destination) return;
-    const from = result.source.index;
-    const to = result.destination.index;
-    if (from === to) return;
-
-    setModuleOrder((prev) => {
-      const next = [...prev];
-      const [moved] = next.splice(from, 1);
-      next.splice(to, 0, moved);
-      return next;
-    });
-  }, []);
-
   const handleCloseModule = useCallback((id: ModuleId) => {
-    if (id === 'compare') return;
     setVisibility((prev) => ({ ...prev, [id]: false }));
   }, []);
 
@@ -148,9 +120,10 @@ export default function ModelWorkbench({
     narratives: model.narratives.length,
   };
 
-  const visibleDraggableModules = moduleOrder.filter(
-    (id) => visibility[id],
-  );
+  const hasRightColumn =
+    (visibility.tensions && moduleCounts.tensions > 0) ||
+    (visibility.methods && moduleCounts.methods > 0) ||
+    (visibility.compare && moduleCounts.compare > 0);
 
   return (
     <div
@@ -171,117 +144,140 @@ export default function ModelWorkbench({
           onToggle={handleToggle}
         />
 
-        {/* Assumption register (always visible) */}
-        <AssumptionRegister
-          assumptions={model.assumptions}
-          onOpenObject={handleOpenObject}
-        />
-
-        {/* Module bricks area */}
-        <div style={{ padding: '0 20px 28px' }}>
-          {/* Compare: always visible, not draggable */}
-          {visibility.compare && (
-            <div style={{ marginBottom: 12 }}>
-              <ModuleBrick
-                title={MODULE_META.compare.label}
-                accentColor={MODULE_META.compare.accentColor}
-                count={moduleCounts.compare}
+        {/* Two-column workspace */}
+        <div
+          style={{
+            display: 'flex',
+            gap: 20,
+            padding: '16px 24px 48px',
+          }}
+        >
+          {/* Left column: summary, assumptions, falsify, narratives */}
+          <div
+            style={{
+              flex: 1,
+              minWidth: 0,
+              maxWidth: 600,
+              display: 'flex',
+              flexDirection: 'column',
+              gap: 12,
+            }}
+          >
+            {/* Working summary card */}
+            {model.summary && (
+              <div
+                style={{
+                  background: '#1A7A8A0F',
+                  border: '1px solid #1A7A8A40',
+                  borderRadius: 4,
+                  padding: '8px 12px',
+                }}
               >
-                <CompareBrick
-                  references={model.canonicalReferences}
+                <div
+                  style={{
+                    fontFamily: 'var(--cp-font-mono)',
+                    fontSize: 8,
+                    fontWeight: 600,
+                    letterSpacing: '0.06em',
+                    textTransform: 'uppercase',
+                    color: '#1A7A8A',
+                    marginBottom: 4,
+                  }}
+                >
+                  WORKING SUMMARY
+                </div>
+                <div
+                  style={{
+                    fontFamily: 'var(--cp-font-body)',
+                    fontSize: 12,
+                    color: 'var(--cp-text, #18181B)',
+                    lineHeight: 1.5,
+                  }}
+                >
+                  {model.summary}
+                </div>
+              </div>
+            )}
+
+            {/* Assumption register (no ModuleBrick wrapper) */}
+            <AssumptionRegister
+              assumptions={model.assumptions}
+              onOpenObject={handleOpenObject}
+            />
+
+            {/* Falsify brick */}
+            {visibility.falsify && moduleCounts.falsify > 0 && (
+              <ModuleBrick
+                title={MODULE_META.falsify.label}
+                accentColor={MODULE_META.falsify.accentColor}
+                onClose={() => handleCloseModule('falsify')}
+              >
+                <FalsifyBrick criteria={model.falsificationCriteria} />
+              </ModuleBrick>
+            )}
+
+            {/* Narratives brick */}
+            {visibility.narratives && moduleCounts.narratives > 0 && (
+              <ModuleBrick
+                title={MODULE_META.narratives.label}
+                accentColor={MODULE_META.narratives.accentColor}
+                onClose={() => handleCloseModule('narratives')}
+              >
+                <NarrativeBrick
+                  narratives={model.narratives}
                   onOpenObject={handleOpenObject}
                 />
               </ModuleBrick>
+            )}
+          </div>
+
+          {/* Right column: tensions, methods, compare */}
+          {hasRightColumn && (
+            <div
+              style={{
+                width: 240,
+                flexShrink: 0,
+                display: 'flex',
+                flexDirection: 'column',
+                gap: 12,
+              }}
+            >
+              {visibility.tensions && moduleCounts.tensions > 0 && (
+                <ModuleBrick
+                  title={MODULE_META.tensions.label}
+                  accentColor={MODULE_META.tensions.accentColor}
+                  onClose={() => handleCloseModule('tensions')}
+                >
+                  <TensionBrick tensions={model.tensions} />
+                </ModuleBrick>
+              )}
+
+              {visibility.methods && moduleCounts.methods > 0 && (
+                <ModuleBrick
+                  title={MODULE_META.methods.label}
+                  accentColor={MODULE_META.methods.accentColor}
+                  onClose={() => handleCloseModule('methods')}
+                >
+                  <MethodBrick methods={model.methods} />
+                </ModuleBrick>
+              )}
+
+              {visibility.compare && moduleCounts.compare > 0 && (
+                <ModuleBrick
+                  title={MODULE_META.compare.label}
+                  accentColor={MODULE_META.compare.accentColor}
+                  onClose={() => handleCloseModule('compare')}
+                >
+                  <CompareBrick
+                    references={model.canonicalReferences}
+                    onOpenObject={handleOpenObject}
+                  />
+                </ModuleBrick>
+              )}
             </div>
           )}
-
-          {/* Draggable module bricks */}
-          <DragDropContext onDragEnd={handleDragEnd}>
-            <Droppable droppableId="model-modules">
-              {(provided) => (
-                <div
-                  ref={provided.innerRef}
-                  {...provided.droppableProps}
-                  style={{
-                    display: 'flex',
-                    flexDirection: 'column',
-                    gap: 12,
-                  }}
-                >
-                  {visibleDraggableModules.map((moduleId, index) => (
-                    <Draggable
-                      key={moduleId}
-                      draggableId={moduleId}
-                      index={index}
-                    >
-                      {(dragProvided) => (
-                        <div
-                          ref={dragProvided.innerRef}
-                          {...dragProvided.draggableProps}
-                        >
-                          <ModuleBrick
-                            title={MODULE_META[moduleId].label}
-                            accentColor={
-                              MODULE_META[moduleId].accentColor
-                            }
-                            count={moduleCounts[moduleId]}
-                            onClose={() => handleCloseModule(moduleId)}
-                            dragHandleProps={
-                              dragProvided.dragHandleProps
-                            }
-                          >
-                            <ModuleContent
-                              moduleId={moduleId}
-                              model={model}
-                              onOpenObject={handleOpenObject}
-                            />
-                          </ModuleBrick>
-                        </div>
-                      )}
-                    </Draggable>
-                  ))}
-                  {provided.placeholder}
-                </div>
-              )}
-            </Droppable>
-          </DragDropContext>
         </div>
       </div>
     </div>
   );
-}
-
-/* ─────────────────────────────────────────────────
-   Module content dispatch
-   ───────────────────────────────────────────────── */
-
-function ModuleContent({
-  moduleId,
-  model,
-  onOpenObject,
-}: {
-  moduleId: DraggableModuleId;
-  model: EpistemicModelDetail;
-  onOpenObject?: (objectRef: number) => void;
-}) {
-  switch (moduleId) {
-    case 'tensions':
-      return (
-        <TensionBrick
-          tensions={model.tensions}
-          assumptions={model.assumptions}
-        />
-      );
-    case 'methods':
-      return <MethodBrick methods={model.methods} />;
-    case 'falsify':
-      return <FalsifyBrick criteria={model.falsificationCriteria} />;
-    case 'narratives':
-      return (
-        <NarrativeBrick
-          narratives={model.narratives}
-          onOpenObject={onOpenObject}
-        />
-      );
-  }
 }

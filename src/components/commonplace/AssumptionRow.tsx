@@ -1,24 +1,32 @@
 'use client';
 
 import { useState } from 'react';
-import type { Assumption } from '@/lib/commonplace-models';
+import type { Assumption, EvidenceLink } from '@/lib/commonplace-models';
 import { ASSUMPTION_STATUS_META } from '@/lib/commonplace-models';
 import EvidenceItem from './EvidenceItem';
-
-/**
- * AssumptionRow: single expandable assumption within the register.
- *
- * Collapsed: shows index label (A1, A2...), status pip, text, confidence.
- * Expanded: groups evidence by relation (supports / contradicts), shows
- * each via EvidenceItem with polymorphic rendering.
- *
- * The confidence bar uses the status color and fills proportionally.
- */
 
 interface AssumptionRowProps {
   assumption: Assumption;
   index: number;
   onOpenObject?: (objectRef: number) => void;
+}
+
+function confidenceBarColor(value: number): string {
+  if (value > 0.7) return '#2E8A3E';
+  if (value > 0.45) return '#D4944A';
+  return '#C4503C';
+}
+
+function countByRelation(
+  evidence: EvidenceLink[],
+  relation: 'supports' | 'contradicts',
+): number {
+  return evidence.filter((e) => e.relation === relation && !e.isCandidate)
+    .length;
+}
+
+function countCandidates(evidence: EvidenceLink[]): number {
+  return evidence.filter((e) => e.isCandidate).length;
 }
 
 export default function AssumptionRow({
@@ -28,6 +36,8 @@ export default function AssumptionRow({
 }: AssumptionRowProps) {
   const [expanded, setExpanded] = useState(false);
   const statusMeta = ASSUMPTION_STATUS_META[assumption.status];
+  const statusColor = statusMeta.color;
+
   const supporting = assumption.evidence.filter(
     (e) => e.relation === 'supports',
   );
@@ -35,28 +45,61 @@ export default function AssumptionRow({
     (e) => e.relation === 'contradicts',
   );
 
+  const supportCount = countByRelation(assumption.evidence, 'supports');
+  const contradictCount = countByRelation(assumption.evidence, 'contradicts');
+  const candidateCount = countCandidates(assumption.evidence);
+
   return (
     <div
       style={{
-        border: '1px solid var(--cp-border-faint, #ECEAE6)',
-        borderRadius: 4,
-        background: '#FFFFFF',
-        overflow: 'hidden',
+        position: 'relative',
+        paddingLeft: 16,
       }}
     >
+      {/* Left colored border */}
+      <div
+        style={{
+          position: 'absolute',
+          left: 0,
+          top: 0,
+          bottom: 0,
+          width: 3,
+          background: statusColor,
+          borderRadius: 2,
+        }}
+      />
+
+      {/* Dot node at top of border */}
+      <div
+        style={{
+          position: 'absolute',
+          left: -2,
+          top: 8,
+          width: 7,
+          height: 7,
+          borderRadius: '50%',
+          background: 'var(--cp-surface, #F8F7F4)',
+          border: `2px solid ${statusColor}`,
+        }}
+      />
+
       {/* Collapsed header (always visible) */}
-      <button
+      <div
+        role="button"
+        tabIndex={0}
         onClick={() => setExpanded(!expanded)}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault();
+            setExpanded(!expanded);
+          }
+        }}
         style={{
           display: 'flex',
-          alignItems: 'center',
-          gap: 10,
-          width: '100%',
-          padding: '10px 14px',
-          background: 'none',
-          border: 'none',
+          alignItems: 'flex-start',
+          gap: 8,
+          padding: '6px 0 4px',
           cursor: 'pointer',
-          textAlign: 'left',
         }}
       >
         {/* Index label */}
@@ -64,27 +107,16 @@ export default function AssumptionRow({
           style={{
             fontFamily: 'var(--cp-font-mono)',
             fontSize: 10,
-            fontWeight: 600,
+            fontWeight: 700,
             letterSpacing: '0.04em',
-            color: 'var(--cp-text-faint, #68666E)',
+            color: statusColor,
             flexShrink: 0,
-            minWidth: 20,
+            minWidth: 22,
+            paddingTop: 2,
           }}
         >
           A{index + 1}
         </span>
-
-        {/* Status pip */}
-        <span
-          style={{
-            width: 7,
-            height: 7,
-            borderRadius: '50%',
-            background: statusMeta.color,
-            flexShrink: 0,
-          }}
-          title={statusMeta.label}
-        />
 
         {/* Claim text */}
         <span
@@ -99,107 +131,132 @@ export default function AssumptionRow({
           {assumption.text}
         </span>
 
-        {/* Evidence count */}
-        <span
-          style={{
-            fontFamily: 'var(--cp-font-mono)',
-            fontSize: 10,
-            color: 'var(--cp-text-faint, #68666E)',
-            flexShrink: 0,
-          }}
-        >
-          {assumption.evidence.length > 0
-            ? `${assumption.evidence.length} evidence`
-            : 'no evidence'}
-        </span>
-
         {/* Expand chevron */}
         <span
           style={{
             fontSize: 10,
             color: 'var(--cp-text-faint, #68666E)',
-            transform: expanded ? 'rotate(90deg)' : 'rotate(0deg)',
+            transform: expanded ? 'rotate(0deg)' : 'rotate(-90deg)',
             transition: 'transform 0.12s ease',
+            flexShrink: 0,
+            paddingTop: 3,
+          }}
+        >
+          &#x25BE;
+        </span>
+      </div>
+
+      {/* Status row: label + confidence bar + evidence counts */}
+      <div
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: 8,
+          paddingBottom: 8,
+          fontSize: 10,
+          fontFamily: 'var(--cp-font-mono)',
+        }}
+      >
+        {/* Status label */}
+        <span
+          style={{
+            fontWeight: 600,
+            letterSpacing: '0.05em',
+            textTransform: 'uppercase',
+            color: statusColor,
             flexShrink: 0,
           }}
         >
-          &#x25B6;
+          {statusMeta.label}
         </span>
-      </button>
 
-      {/* Confidence bar */}
-      <div
-        style={{
-          height: 2,
-          background: 'var(--cp-border-faint, #ECEAE6)',
-        }}
-      >
+        {/* Confidence bar */}
         <div
           style={{
-            height: '100%',
-            width: `${assumption.confidence * 100}%`,
-            background: statusMeta.color,
-            transition: 'width 0.2s ease',
-          }}
-        />
-      </div>
-
-      {/* Expanded: evidence grouped by relation */}
-      {expanded && (
-        <div
-          style={{
-            padding: '8px 14px 12px',
-            background: 'var(--cp-surface, #F8F7F4)',
-            borderTop: '1px solid var(--cp-border-faint, #ECEAE6)',
+            flex: 1,
+            maxWidth: 80,
+            height: 3,
+            background: 'var(--cp-border-faint, #ECEAE6)',
+            borderRadius: 2,
+            overflow: 'hidden',
           }}
         >
-          {/* Status label + confidence */}
           <div
             style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: 8,
-              marginBottom: 8,
-              fontFamily: 'var(--cp-font-mono)',
-              fontSize: 10,
+              height: '100%',
+              width: `${assumption.confidence * 100}%`,
+              background: confidenceBarColor(assumption.confidence),
+              borderRadius: 2,
+              transition: 'width 0.2s ease',
             }}
-          >
-            <span
-              style={{
-                color: statusMeta.color,
-                fontWeight: 600,
-                letterSpacing: '0.05em',
-                textTransform: 'uppercase',
-              }}
-            >
-              {statusMeta.label}
-            </span>
-            <span style={{ color: 'var(--cp-text-faint, #68666E)' }}>
-              {Math.round(assumption.confidence * 100)}% confidence
-            </span>
-          </div>
+          />
+        </div>
 
+        {/* Evidence counts */}
+        <span
+          style={{
+            color: 'var(--cp-text-faint, #68666E)',
+            flexShrink: 0,
+          }}
+        >
+          {supportCount > 0 && (
+            <span style={{ color: '#1A7A8A' }}>
+              {supportCount}s{' '}
+            </span>
+          )}
+          {contradictCount > 0 && (
+            <span style={{ color: '#C4503C' }}>
+              {contradictCount}c{' '}
+            </span>
+          )}
+          {candidateCount > 0 && (
+            <span style={{ color: 'var(--cp-gold, #C49A4A)' }}>
+              {candidateCount} cand.
+            </span>
+          )}
+        </span>
+      </div>
+
+      {/* Expanded content */}
+      {expanded && (
+        <div style={{ paddingLeft: 6, paddingBottom: 12 }}>
           {/* Supporting evidence */}
           {supporting.length > 0 && (
-            <div style={{ marginBottom: 8 }}>
+            <div style={{ marginBottom: 10 }}>
               <div
                 style={{
-                  fontFamily: 'var(--cp-font-mono)',
-                  fontSize: 9,
-                  fontWeight: 500,
-                  letterSpacing: '0.06em',
-                  textTransform: 'uppercase',
-                  color: '#1A7A8A',
-                  marginBottom: 4,
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 6,
+                  marginBottom: 6,
                 }}
               >
-                supports
+                <div
+                  style={{
+                    width: 16,
+                    height: 1,
+                    background: '#1A7A8A',
+                    flexShrink: 0,
+                  }}
+                />
+                <span
+                  style={{
+                    fontFamily: 'var(--cp-font-mono)',
+                    fontSize: 9,
+                    fontWeight: 600,
+                    letterSpacing: '0.06em',
+                    textTransform: 'uppercase',
+                    color: '#1A7A8A',
+                  }}
+                >
+                  SUPPORTS
+                </span>
               </div>
               <div
                 style={{
                   display: 'flex',
                   flexDirection: 'column',
-                  gap: 2,
+                  gap: 6,
                 }}
               >
                 {supporting.map((e) => (
@@ -215,25 +272,41 @@ export default function AssumptionRow({
 
           {/* Contradicting evidence */}
           {contradicting.length > 0 && (
-            <div>
+            <div style={{ marginBottom: 10 }}>
               <div
                 style={{
-                  fontFamily: 'var(--cp-font-mono)',
-                  fontSize: 9,
-                  fontWeight: 500,
-                  letterSpacing: '0.06em',
-                  textTransform: 'uppercase',
-                  color: '#C4503C',
-                  marginBottom: 4,
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 6,
+                  marginBottom: 6,
                 }}
               >
-                contradicts
+                <div
+                  style={{
+                    width: 16,
+                    height: 1,
+                    background: '#C4503C',
+                    flexShrink: 0,
+                  }}
+                />
+                <span
+                  style={{
+                    fontFamily: 'var(--cp-font-mono)',
+                    fontSize: 9,
+                    fontWeight: 600,
+                    letterSpacing: '0.06em',
+                    textTransform: 'uppercase',
+                    color: '#C4503C',
+                  }}
+                >
+                  CONTRADICTS
+                </span>
               </div>
               <div
                 style={{
                   display: 'flex',
                   flexDirection: 'column',
-                  gap: 2,
+                  gap: 6,
                 }}
               >
                 {contradicting.map((e) => (
@@ -247,20 +320,42 @@ export default function AssumptionRow({
             </div>
           )}
 
-          {/* Empty evidence state */}
+          {/* Empty state */}
           {assumption.evidence.length === 0 && (
             <div
               style={{
+                border: '1.5px dashed #D4944A',
+                borderRadius: 4,
+                padding: '8px 10px',
                 fontFamily: 'var(--cp-font-mono)',
                 fontSize: 11,
-                color: 'var(--cp-text-faint, #68666E)',
-                fontStyle: 'italic',
-                padding: '4px 0',
+                color: '#D4944A',
+                lineHeight: 1.4,
               }}
             >
-              No evidence linked. This assumption is a gap.
+              No evidence. Engine cannot evaluate.
             </div>
           )}
+
+          {/* Add evidence button */}
+          <div style={{ marginTop: 8 }}>
+            <button
+              type="button"
+              style={{
+                background: 'none',
+                border: '1px solid #1A7A8A44',
+                borderRadius: 3,
+                padding: '3px 10px',
+                cursor: 'pointer',
+                fontFamily: 'var(--cp-font-mono)',
+                fontSize: 10,
+                color: '#1A7A8A',
+                letterSpacing: '0.03em',
+              }}
+            >
+              + evidence
+            </button>
+          </div>
         </div>
       )}
     </div>

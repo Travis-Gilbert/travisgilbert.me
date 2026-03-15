@@ -25,22 +25,22 @@ export const MODEL_TYPE_META: Record<
   explanatory: {
     label: 'Explanatory',
     color: '#1A7A8A',
-    description: 'Why something is the way it is',
+    description: 'Why something is the case',
   },
   causal: {
     label: 'Causal',
     color: '#B85C28',
-    description: 'What causes what',
+    description: 'What caused what',
   },
   comparative: {
     label: 'Comparative',
     color: '#7050A0',
-    description: 'How things differ or relate',
+    description: 'How things differ',
   },
   predictive: {
     label: 'Predictive',
     color: '#3858B8',
-    description: 'What will happen given conditions',
+    description: 'What will happen if',
   },
   normative: {
     label: 'Normative',
@@ -96,6 +96,15 @@ export type EvidenceObjectType =
   | 'concept'
   | 'note';
 
+/** Color per evidence object type (for domain labels, pips, borders) */
+export const EVIDENCE_TYPE_COLOR: Record<EvidenceObjectType, string> = {
+  source: '#1A7A8A',
+  hunch: '#C07040',
+  quote: '#A08020',
+  concept: '#7050A0',
+  note: '#68666E',
+};
+
 export interface EvidenceLink {
   id: number;
   objectRef: number;
@@ -104,6 +113,14 @@ export interface EvidenceLink {
   relation: EvidenceRelation;
   confidence: number;
   isCandidate?: boolean;
+  /** The finding or content text (what the evidence says) */
+  contentText?: string;
+  /** Source domain (e.g. "city.gov", "arxiv.org") */
+  domain?: string;
+  /** Date string (e.g. "Feb 28", "engine") */
+  date?: string;
+  /** Attribution for quotes */
+  attribution?: string;
 }
 
 /* ─────────────────────────────────────────────────
@@ -141,14 +158,31 @@ export interface Method {
   id: number;
   title: string;
   description: string;
-  status: 'active' | 'completed' | 'planned';
+  status: 'active' | 'completed' | 'planned' | 'draft' | 'reviewed';
+  runs?: number;
 }
 
 /* ─────────────────────────────────────────────────
    Canonical comparison
    ───────────────────────────────────────────────── */
 
-export type AgreementLevel = 'agrees' | 'partial' | 'disagrees';
+export type AgreementLevel =
+  | 'agrees'
+  | 'partial'
+  | 'disagrees'
+  | 'supportive'
+  | 'mixed';
+
+export const AGREEMENT_STYLE: Record<
+  AgreementLevel,
+  { label: string; color: string }
+> = {
+  agrees: { label: 'agrees', color: '#2E8A3E' },
+  supportive: { label: 'supportive', color: '#2E8A3E' },
+  partial: { label: 'partial', color: '#D4944A' },
+  mixed: { label: 'mixed', color: '#D4944A' },
+  disagrees: { label: 'disagrees', color: '#C4503C' },
+};
 
 export interface CanonicalReference {
   id: number;
@@ -157,6 +191,8 @@ export interface CanonicalReference {
   objectType: string;
   agreement: AgreementLevel;
   summary: string;
+  /** Publication info (e.g. "Brookings, 2023") */
+  source?: string;
 }
 
 /* ─────────────────────────────────────────────────
@@ -177,6 +213,8 @@ export interface Narrative {
   id: number;
   title: string;
   objectRef: number;
+  narrativeType?: string;
+  narrativeStatus?: string;
 }
 
 /* ─────────────────────────────────────────────────
@@ -247,10 +285,15 @@ export interface EpistemicModelSummary {
   questionCount: number;
   createdAt: string;
   updatedAt: string;
+  modelStatus?: string;
+  modelConfidence?: number;
 }
 
 export interface EpistemicModelDetail extends EpistemicModelSummary {
-  question: string;
+  question: string | null;
+  scope?: string;
+  domains?: string[];
+  summary?: string;
   assumptions: Assumption[];
   tensions: Tension[];
   methods: Method[];
@@ -276,8 +319,8 @@ export const MODULE_META: Record<
 > = {
   tensions: { label: 'Tensions', accentColor: '#D4944A' },
   methods: { label: 'Methods', accentColor: '#1A7A8A' },
-  compare: { label: 'Compare', accentColor: '#7050A0' },
-  falsify: { label: 'Falsify', accentColor: '#C4503C' },
+  compare: { label: 'Canonical Compare', accentColor: '#7050A0' },
+  falsify: { label: 'Falsification Criteria', accentColor: '#C4503C' },
   narratives: { label: 'Narratives', accentColor: '#2E8A3E' },
 };
 
@@ -287,184 +330,87 @@ export const MODULE_META: Record<
 
 const DEMO_ASSUMPTIONS: Assumption[] = [
   {
-    id: 1,
-    claimId: 101,
-    text: 'Upzoning in high-demand areas leads to measurable increases in housing unit construction within 3 years.',
-    status: 'supported',
-    confidence: 0.78,
-    positionIndex: 0,
+    id: 1, claimId: 101, positionIndex: 0,
+    text: 'Disinvestment is measurable through permit activity, vacancy rates, and assessed value trends',
+    status: 'supported', confidence: 0.85,
     evidence: [
-      {
-        id: 1,
-        objectRef: 201,
-        objectTitle: 'Minneapolis 2040 Plan Impact Study',
-        objectType: 'source',
-        relation: 'supports',
-        confidence: 0.85,
-      },
-      {
-        id: 2,
-        objectRef: 202,
-        objectTitle: 'Jane Jacobs on incremental density',
-        objectType: 'quote',
-        relation: 'supports',
-        confidence: 0.62,
-      },
-      {
-        id: 3,
-        objectRef: 203,
-        objectTitle: 'SB 9 California permit data',
-        objectType: 'source',
-        relation: 'contradicts',
-        confidence: 0.71,
-      },
+      { id: 1, objectRef: 201, objectTitle: 'Building Dept. FOIA response', objectType: 'source', relation: 'supports', confidence: 0.85, domain: 'city.gov', contentText: 'Permit filings dropped 68% between 2010 and 2016', date: 'Feb 28' },
+      { id: 2, objectRef: 202, objectTitle: 'County Assessor data extract', objectType: 'source', relation: 'supports', confidence: 0.82, domain: 'county.gov', contentText: 'Assessed values fell 34% relative to citywide average', date: 'Mar 1' },
+      { id: 3, objectRef: 203, objectTitle: 'Strategic land banking', objectType: 'hunch', relation: 'contradicts', confidence: 0.55, contentText: 'Some vacancy is strategic land banking, not disinvestment', date: 'Mar 3' },
     ],
   },
   {
-    id: 2,
-    claimId: 102,
-    text: 'New construction at market rate eventually filters down to reduce rents at lower price points.',
-    status: 'contested',
-    confidence: 0.45,
-    positionIndex: 1,
+    id: 2, claimId: 102, positionIndex: 1,
+    text: 'The infrastructure plan was reactive to already-established decline, not proactive',
+    status: 'contested', confidence: 0.48,
     evidence: [
-      {
-        id: 4,
-        objectRef: 204,
-        objectTitle: 'Filtering in U.S. Housing Markets (Rosenthal, 2014)',
-        objectType: 'source',
-        relation: 'supports',
-        confidence: 0.73,
-      },
-      {
-        id: 5,
-        objectRef: 205,
-        objectTitle: 'Luxury construction displaces before it filters',
-        objectType: 'hunch',
-        relation: 'contradicts',
-        confidence: 0.55,
-      },
+      { id: 4, objectRef: 204, objectTitle: '2017 Corridor Plan, p.12', objectType: 'source', relation: 'supports', confidence: 0.75, domain: 'planning.city.gov', contentText: "Plan document references 'reversing decline' as primary goal", date: 'Feb 26' },
+      { id: 5, objectRef: 205, objectTitle: 'Council member statement', objectType: 'quote', relation: 'contradicts', confidence: 0.68, contentText: 'This plan was years in the making before we saw the downturn', attribution: 'Council minutes, 2016-11-14', date: 'Mar 4' },
+      { id: 6, objectRef: 206, objectTitle: 'Municipal budget archives', objectType: 'source', relation: 'contradicts', confidence: 0.72, domain: 'finance.city.gov', contentText: 'Capital budget allocation appears in 2014, two years before peak vacancy', date: 'Mar 5' },
     ],
   },
   {
-    id: 3,
-    claimId: 103,
-    text: 'Community opposition is the primary barrier to zoning reform, not technical or legal constraints.',
-    status: 'proposed',
-    confidence: 0.6,
-    positionIndex: 2,
+    id: 3, claimId: 103, positionIndex: 2,
+    text: 'Infrastructure spending alone cannot reverse corridor decline once anchor tenants have left',
+    status: 'accepted', confidence: 0.78,
     evidence: [
-      {
-        id: 6,
-        objectRef: 206,
-        objectTitle: 'Einstein & Glick (2017) on NIMBY politics',
-        objectType: 'source',
-        relation: 'supports',
-        confidence: 0.8,
-      },
+      { id: 7, objectRef: 207, objectTitle: 'Field survey, Q3 2024', objectType: 'note', relation: 'supports', confidence: 0.7, contentText: 'Post-improvement vacancy remained above 40% for 3 years after streetscape completion', date: 'Mar 1' },
+      { id: 8, objectRef: 208, objectTitle: 'Infrastructure in declining corridors', objectType: 'source', relation: 'supports', confidence: 0.82, domain: 'brookings.edu', contentText: 'Diminishing returns in corridors that lost more than 50% of anchor tenants', date: 'Feb 20' },
+      { id: 9, objectRef: 209, objectTitle: 'Comparison case study', objectType: 'note', relation: 'supports', confidence: 0.65, contentText: 'Adjacent corridor with similar improvements but retained anchors recovered in 18 months', date: 'Mar 6' },
     ],
   },
   {
-    id: 4,
-    claimId: 104,
-    text: 'Environmental review requirements (CEQA/NEPA) create delay costs that reduce housing production more than density limits.',
-    status: 'gap',
-    confidence: 0.3,
-    positionIndex: 3,
-    evidence: [],
+    id: 4, claimId: 104, positionIndex: 3,
+    text: 'Traffic pattern changes actively accelerated pedestrian decline',
+    status: 'proposed', confidence: 0,
+    evidence: [
+      { id: 10, objectRef: 210, objectTitle: 'IDOT traffic count data', objectType: 'source', relation: 'supports', confidence: 0.72, domain: 'idot.illinois.gov', contentText: 'Vehicle speeds up 22% after one-way conversion; pedestrian counts down 41%', date: 'engine', isCandidate: true },
+      { id: 11, objectRef: 211, objectTitle: 'Induced demand', objectType: 'concept', relation: 'supports', confidence: 0.6, contentText: 'Road widening generates additional vehicle traffic rather than reducing congestion', date: 'engine', isCandidate: true },
+    ],
   },
 ];
 
 const DEMO_TENSIONS: Tension[] = [
-  {
-    id: 1,
-    text: 'A1 claims upzoning increases construction, but A2 questions whether new units actually reduce rents. If filtering fails, more units may not solve affordability.',
-    severity: 'high',
-    linkedAssumptionIds: [1, 2],
-  },
-  {
-    id: 2,
-    text: 'A3 and A4 both concern barriers, but they point to different root causes (political vs. regulatory). Different interventions follow from each.',
-    severity: 'medium',
-    linkedAssumptionIds: [3, 4],
-  },
+  { id: 1, text: 'Timeline contradiction on plan origin', severity: 'high', linkedAssumptionIds: [2] },
+  { id: 2, text: 'Land banking vs. disinvestment', severity: 'medium', linkedAssumptionIds: [1] },
+  { id: 3, text: 'Infrastructure timing ambiguity', severity: 'medium', linkedAssumptionIds: [2] },
 ];
 
 const DEMO_METHODS: Method[] = [
-  {
-    id: 1,
-    title: 'Difference-in-differences analysis of upzoning policy changes',
-    description:
-      'Compare permit issuance rates in upzoned vs. control areas before and after policy change. Requires at least 3 years post-intervention data.',
-    status: 'active',
-  },
-  {
-    id: 2,
-    title: 'Hedonic rent model with new construction proximity',
-    description:
-      'Estimate the price effect of new market-rate construction on existing nearby units at various price points.',
-    status: 'planned',
-  },
+  { id: 1, title: 'corridor-decline-scoring', description: 'Composite scoring method for corridor health indicators', status: 'draft', runs: 0 },
+  { id: 2, title: 'anchor-vacancy-threshold', description: 'Determine the anchor tenant vacancy tipping point', status: 'reviewed', runs: 3 },
 ];
 
 const DEMO_REFERENCES: CanonicalReference[] = [
-  {
-    id: 1,
-    objectRef: 301,
-    objectTitle: 'Glaeser & Gyourko: The Impact of Zoning on Housing Affordability',
-    objectType: 'source',
-    agreement: 'agrees',
-    summary: 'Core argument aligns: zoning restrictions are the primary driver of housing cost differentials across metros.',
-  },
-  {
-    id: 2,
-    objectRef: 302,
-    objectTitle: 'Fischel: The Homevoter Hypothesis',
-    objectType: 'source',
-    agreement: 'partial',
-    summary: 'Agrees on the political economy diagnosis but emphasizes homeowner risk aversion rather than pure NIMBY opposition.',
-  },
+  { id: 1, objectRef: 301, objectTitle: 'Retail Corridor Recovery Framework', objectType: 'source', agreement: 'partial', summary: 'Agrees on anchor-loss threshold but not traffic-pattern effects', source: 'Brookings, 2023' },
+  { id: 2, objectRef: 302, objectTitle: 'Infrastructure Investment and Neighborhood Change', objectType: 'source', agreement: 'mixed', summary: 'Claims infrastructure CAN reverse decline with tenant retention programs', source: 'J. Urban Economics, 2022' },
 ];
 
 const DEMO_FALSIFICATION: FalsificationCriterion[] = [
-  {
-    id: 1,
-    text: 'If upzoned areas show no statistically significant increase in permits over 5 years, A1 is falsified.',
-    status: 'untested',
-  },
-  {
-    id: 2,
-    text: 'If rents in neighborhoods near new construction increase rather than decrease, filtering (A2) is falsified.',
-    status: 'untested',
-  },
+  { id: 1, text: 'If permit activity was already declining before 2010, the timeline thesis fails', status: 'untested' },
+  { id: 2, text: 'If a corridor with similar anchor loss recovered through infrastructure alone, A3 is weakened', status: 'untested' },
 ];
 
 const DEMO_NARRATIVES: Narrative[] = [
-  {
-    id: 1,
-    title: 'The Supply-Side Urbanism Narrative',
-    objectRef: 401,
-  },
-  {
-    id: 2,
-    title: 'Progressive NIMBY: When Good Intentions Block Housing',
-    objectRef: 402,
-  },
+  { id: 1, title: 'Corridor North: An Autopsy of Good Intentions', objectRef: 401, narrativeType: 'memo', narrativeStatus: 'draft' },
 ];
 
 const DEMO_MODEL_DETAIL: EpistemicModelDetail = {
   id: 1,
-  title: 'Zoning Reform and Housing Affordability',
-  thesis:
-    'Relaxing single-family zoning in high-demand metropolitan areas will increase housing supply sufficiently to stabilize or reduce real rents within a decade.',
+  title: 'Corridor decline persists because disinvestment preceded the infrastructure plan, not the other way around',
+  thesis: 'The corridor was already failing before the city intervened.',
   modelType: 'explanatory',
-  question:
-    'Does upzoning actually increase housing production, and does new construction reduce rents through filtering?',
+  question: 'Why is this corridor failing despite multiple improvement plans?',
+  scope: 'Downtown north corridor, 2008-present',
+  domains: ['built_environment', 'civic_policy'],
+  summary: 'The corridor was already failing before the city intervened. The infrastructure plan addressed symptoms rather than causes. Spending alone cannot reverse decline once the commercial ecosystem has collapsed past a threshold.',
+  modelStatus: 'active',
+  modelConfidence: 0.62,
   assumptionCount: 4,
   methodCount: 2,
   questionCount: 1,
   createdAt: '2026-02-15T10:00:00Z',
-  updatedAt: '2026-03-10T14:30:00Z',
+  updatedAt: '2026-03-13T14:30:00Z',
   assumptions: DEMO_ASSUMPTIONS,
   tensions: DEMO_TENSIONS,
   methods: DEMO_METHODS,
@@ -476,124 +422,99 @@ const DEMO_MODEL_DETAIL: EpistemicModelDetail = {
 const DEMO_MODELS: EpistemicModelSummary[] = [
   {
     id: 1,
-    title: 'Zoning Reform and Housing Affordability',
-    thesis:
-      'Relaxing single-family zoning in high-demand metropolitan areas will increase housing supply sufficiently to stabilize or reduce real rents within a decade.',
-    modelType: 'explanatory',
-    assumptionCount: 4,
-    methodCount: 2,
-    questionCount: 1,
-    createdAt: '2026-02-15T10:00:00Z',
-    updatedAt: '2026-03-10T14:30:00Z',
+    title: 'Corridor decline persists because disinvestment preceded the infrastructure plan, not the other way around',
+    thesis: 'The corridor was already failing before the city intervened.',
+    modelType: 'explanatory', modelStatus: 'active', modelConfidence: 0.62,
+    assumptionCount: 4, methodCount: 2, questionCount: 1,
+    createdAt: '2026-02-15T10:00:00Z', updatedAt: '2026-03-13T14:30:00Z',
   },
   {
     id: 2,
-    title: 'Network Effects in Knowledge Management',
-    thesis:
-      'Personal knowledge graphs become exponentially more useful after crossing a threshold of approximately 200 interconnected objects.',
-    modelType: 'predictive',
-    assumptionCount: 2,
-    methodCount: 1,
-    questionCount: 2,
-    createdAt: '2026-01-20T08:00:00Z',
-    updatedAt: '2026-03-01T11:00:00Z',
+    title: 'Stigmergy explains why the connection engine improves with use without explicit training',
+    thesis: 'The engine behaves like a stigmergic system.',
+    modelType: 'explanatory', modelStatus: 'active', modelConfidence: 0.55,
+    assumptionCount: 3, methodCount: 1, questionCount: 1,
+    createdAt: '2026-01-20T08:00:00Z', updatedAt: '2026-03-14T11:00:00Z',
   },
   {
     id: 3,
-    title: 'Documentary Storytelling Structure',
-    thesis:
-      'The most compelling investigative documentaries use a three-act structure where the middle act systematically eliminates alternative explanations.',
-    modelType: 'process',
-    assumptionCount: 3,
-    methodCount: 0,
-    questionCount: 1,
-    createdAt: '2026-03-05T16:00:00Z',
-    updatedAt: '2026-03-12T09:00:00Z',
+    title: 'The Tiptap save bug is a state management race condition, not a backend issue',
+    thesis: 'Race condition between state update and serialization.',
+    modelType: 'causal', modelStatus: 'draft', modelConfidence: 0.71,
+    assumptionCount: 1, methodCount: 0, questionCount: 0,
+    createdAt: '2026-03-05T16:00:00Z', updatedAt: '2026-03-12T09:00:00Z',
   },
 ];
 
+const STIGMERGY_DETAIL: EpistemicModelDetail = {
+  id: 2,
+  title: 'Stigmergy explains why the connection engine improves with use without explicit training',
+  thesis: 'The engine behaves like a stigmergic system.',
+  modelType: 'explanatory', modelStatus: 'active', modelConfidence: 0.55,
+  question: 'How does CommonPlace improve without explicit learning?',
+  scope: 'CommonPlace, engine behavior', domains: ['computer_science'],
+  summary: 'The engine behaves like a stigmergic system. Each note creates edges that influence future results. The graph gets denser and more traversable with use.',
+  assumptionCount: 3, methodCount: 1, questionCount: 1,
+  createdAt: '2026-01-20T08:00:00Z', updatedAt: '2026-03-14T11:00:00Z',
+  assumptions: [
+    { id: 5, claimId: 201, positionIndex: 0, text: 'Graph density correlates with compose-mode result quality', status: 'supported', confidence: 0.72, evidence: [
+      { id: 20, objectRef: 220, objectTitle: 'Compose quality log', objectType: 'note', relation: 'supports', confidence: 0.7, contentText: 'Relevance scores improved from 0.34 to 0.61 over 200 objects', date: 'Mar 2' },
+      { id: 21, objectRef: 221, objectTitle: 'Stigmergy in software systems', objectType: 'source', relation: 'supports', confidence: 0.78, domain: 'arxiv.org', contentText: 'Indirect coordination through environment modification well-documented in multi-agent systems', date: 'Feb 15' },
+    ]},
+    { id: 6, claimId: 202, positionIndex: 1, text: 'Edge creation during compose acts as pheromone deposit analog', status: 'proposed', confidence: 0.45, evidence: [
+      { id: 22, objectRef: 222, objectTitle: 'Stigmergy', objectType: 'concept', relation: 'supports', confidence: 0.5, contentText: 'Coordination through shared environment modification', date: 'engine', isCandidate: true },
+    ]},
+    { id: 7, claimId: 203, positionIndex: 2, text: 'Seven-pass architecture creates multiple reinforcing signals per action', status: 'accepted', confidence: 0.8, evidence: [
+      { id: 23, objectRef: 223, objectTitle: 'engine.py pass docs', objectType: 'source', relation: 'supports', confidence: 0.9, domain: 'github.com', contentText: 'NER, shared entity, keyword, TF-IDF, SBERT, NLI, KGE passes each create distinct edge types', date: 'Mar 1' },
+    ]},
+  ],
+  tensions: [{ id: 10, text: 'Density vs. noise threshold', severity: 'medium', linkedAssumptionIds: [5] }],
+  methods: [{ id: 10, title: 'compose-quality-benchmark', description: 'Benchmark compose quality vs graph density', status: 'draft', runs: 0 }],
+  canonicalReferences: [{ id: 10, objectRef: 310, objectTitle: 'Stigmergy as Universal Coordination Mechanism', objectType: 'source', agreement: 'supportive', summary: 'Framework aligns; no direct software-system validation', source: 'Cognitive Systems Research, 2016' }],
+  falsificationCriteria: [{ id: 10, text: 'If engine quality degrades with graph density past a threshold', status: 'untested' }],
+  narratives: [],
+};
+
+const TIPTAP_DETAIL: EpistemicModelDetail = {
+  id: 3,
+  title: 'The Tiptap save bug is a state management race condition, not a backend issue',
+  thesis: 'Race condition between state update and serialization.',
+  modelType: 'causal', modelStatus: 'draft', modelConfidence: 0.71,
+  question: null, scope: 'Studio, save pipeline',
+  summary: 'The save button sets a local timestamp but the persist call either never fires or fires before editor content is serialized.',
+  assumptionCount: 1, methodCount: 0, questionCount: 0,
+  createdAt: '2026-03-05T16:00:00Z', updatedAt: '2026-03-12T09:00:00Z',
+  assumptions: [
+    { id: 8, claimId: 301, positionIndex: 0, text: 'The save handler reads stale editor state because getJSON fires before the transaction settles', status: 'proposed', confidence: 0.71, evidence: [
+      { id: 30, objectRef: 230, objectTitle: 'Console log investigation', objectType: 'note', relation: 'supports', confidence: 0.75, contentText: 'editor.getJSON() output was one keystroke behind at save time', date: 'Mar 8' },
+      { id: 31, objectRef: 231, objectTitle: 'React 19 batching', objectType: 'hunch', relation: 'supports', confidence: 0.5, contentText: 'Automatic batching may delay the state update that triggers save', date: 'Mar 9' },
+    ]},
+  ],
+  tensions: [], methods: [], canonicalReferences: [], falsificationCriteria: [], narratives: [],
+};
+
 const DEMO_ENGINE_LOG: EngineLogEntry[] = [
-  {
-    id: 'e1',
-    timestamp: '2026-03-15T09:12:04Z',
-    pass: 'sbert',
-    message: 'Embedding 12 new claims, similarity threshold 0.72',
-    modelId: 1,
-  },
-  {
-    id: 'e2',
-    timestamp: '2026-03-15T09:12:08Z',
-    pass: 'nli',
-    message: 'NLI scored 8 claim pairs: 3 support, 1 contradict, 4 neutral',
-    modelId: 1,
-  },
-  {
-    id: 'e3',
-    timestamp: '2026-03-15T09:12:15Z',
-    pass: 'stress',
-    message: 'Stress test complete: drift 0.12, 2 unlinked assumptions',
-    modelId: 1,
-  },
-  {
-    id: 'e4',
-    timestamp: '2026-03-15T09:12:18Z',
-    pass: 'promote',
-    message: 'Promoting 1 candidate: "Auckland Unitary Plan outcomes" → A1',
-    modelId: 1,
-  },
-  {
-    id: 'e5',
-    timestamp: '2026-03-15T09:15:00Z',
-    pass: 'kge',
-    message: 'KGE embedding update: 340 triples, RotatE loss 0.023',
-  },
+  { id: 'e1', timestamp: '2026-03-15T14:23:01Z', pass: 'sbert', message: 'Computed 9 evidence embeddings. 2 new high-similarity pairs.', modelId: 1 },
+  { id: 'e2', timestamp: '2026-03-15T14:23:03Z', pass: 'nli', message: 'NLI stance: e-5 vs A2 = CONTRADICTION (0.91). e-6 vs A2 = CONTRADICTION (0.84).', modelId: 1 },
+  { id: 'e3', timestamp: '2026-03-15T14:23:04Z', pass: 'kge', message: "KGE: 'induced demand' linked to 4 existing transport objects.", modelId: 1 },
+  { id: 'e4', timestamp: '2026-03-15T14:23:05Z', pass: 'stress', message: 'Stress test complete. Drift: -4.0%. 2 high-severity findings.', modelId: 1 },
+  { id: 'e5', timestamp: '2026-03-15T14:23:06Z', pass: 'promote', message: '2 candidates queued (IDOT data, induced demand).', modelId: 1 },
 ];
 
 const DEMO_STRESS_RESULT: StressResult = {
-  drift: 0.12,
-  unlinkedCount: 2,
+  drift: -0.04, unlinkedCount: 7,
   findings: [
-    {
-      id: 1,
-      severity: 'high',
-      text: 'A2 (filtering) has no direct empirical evidence from the last 5 years. Consider recent data.',
-      linkedAssumptionId: 2,
-    },
-    {
-      id: 2,
-      severity: 'medium',
-      text: 'A4 (environmental review) has only one evidence link. Gap risk if that source is retracted.',
-      linkedAssumptionId: 4,
-    },
-    {
-      id: 3,
-      severity: 'low',
-      text: 'Narrative coverage is complete. All assumptions appear in at least one narrative.',
-    },
+    { id: 1, severity: 'high', text: 'A4 has zero accepted evidence. Only engine candidates.', linkedAssumptionId: 4 },
+    { id: 2, severity: 'high', text: 'e-5 directly contradicts reactive-plan thesis. A2 confidence dropping.', linkedAssumptionId: 2 },
+    { id: 3, severity: 'medium', text: '3 unlinked claims mention corridor traffic counts. May bear on A4.' },
+    { id: 4, severity: 'low', text: 'e-8 (Brookings) is from 2021. Check for newer work.' },
+    { id: 5, severity: 'medium', text: "Method 'anchor-vacancy-threshold' not yet run on this corridor." },
   ],
 };
 
 const DEMO_CANDIDATES: EngineCandidate[] = [
-  {
-    id: 1,
-    objectRef: 501,
-    objectTitle: 'Auckland Unitary Plan: 5-Year Housing Outcomes',
-    objectType: 'source',
-    suggestedAssumptionId: 1,
-    relation: 'supports',
-    confidence: 0.82,
-    status: 'pending',
-  },
-  {
-    id: 2,
-    objectRef: 502,
-    objectTitle: 'Gentrification accelerates before filtering in tight markets',
-    objectType: 'hunch',
-    suggestedAssumptionId: 2,
-    relation: 'contradicts',
-    confidence: 0.61,
-    status: 'pending',
-  },
+  { id: 1, objectRef: 501, objectTitle: 'IDOT traffic count data', objectType: 'source', suggestedAssumptionId: 4, relation: 'supports', confidence: 0.72, status: 'pending' },
+  { id: 2, objectRef: 502, objectTitle: 'Induced demand', objectType: 'concept', suggestedAssumptionId: 4, relation: 'supports', confidence: 0.6, status: 'pending' },
 ];
 
 /* ─────────────────────────────────────────────────
@@ -604,45 +525,24 @@ export async function fetchModels(): Promise<EpistemicModelSummary[]> {
   return DEMO_MODELS;
 }
 
-export async function fetchModelDetail(
-  id: number,
-): Promise<EpistemicModelDetail> {
+export async function fetchModelDetail(id: number): Promise<EpistemicModelDetail> {
   if (id === 1) return DEMO_MODEL_DETAIL;
+  if (id === 2) return STIGMERGY_DETAIL;
+  if (id === 3) return TIPTAP_DETAIL;
   const summary = DEMO_MODELS.find((m) => m.id === id);
-  if (!summary) {
-    throw new Error(`Model ${id} not found`);
-  }
-  return {
-    ...summary,
-    question: 'What is the central question?',
-    assumptions: DEMO_ASSUMPTIONS.slice(0, 2),
-    tensions: [],
-    methods: [],
-    canonicalReferences: [],
-    falsificationCriteria: [],
-    narratives: [],
-  };
+  if (!summary) throw new Error(`Model ${id} not found`);
+  return { ...summary, question: null, assumptions: [], tensions: [], methods: [], canonicalReferences: [], falsificationCriteria: [], narratives: [] };
 }
 
-export async function fetchEngineLog(
-  modelId?: number,
-): Promise<EngineLogEntry[]> {
-  if (modelId) {
-    return DEMO_ENGINE_LOG.filter(
-      (e) => e.modelId === modelId || !e.modelId,
-    );
-  }
+export async function fetchEngineLog(modelId?: number): Promise<EngineLogEntry[]> {
+  if (modelId) return DEMO_ENGINE_LOG.filter((e) => e.modelId === modelId || !e.modelId);
   return DEMO_ENGINE_LOG;
 }
 
-export async function fetchStressResult(
-  _modelId: number,
-): Promise<StressResult> {
+export async function fetchStressResult(_modelId: number): Promise<StressResult> {
   return DEMO_STRESS_RESULT;
 }
 
-export async function fetchCandidates(
-  _modelId: number,
-): Promise<EngineCandidate[]> {
+export async function fetchCandidates(_modelId: number): Promise<EngineCandidate[]> {
   return DEMO_CANDIDATES;
 }

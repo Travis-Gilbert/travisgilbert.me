@@ -2,17 +2,6 @@
 
 import type { Narrative } from '@/lib/commonplace-models';
 
-/**
- * NarrativeBrick: content for the Narratives module.
- *
- * Narratives are Objects (type: note or concept) that synthesize
- * the model's argument into a readable form. They link back to
- * the Object system via objectRef for opening in the drawer.
- *
- * Rendered as a compact list: title is the primary element,
- * clickable to open the full Object.
- */
-
 interface NarrativeBrickProps {
   narratives: Narrative[];
   onOpenObject?: (objectRef: number) => void;
@@ -21,7 +10,7 @@ interface NarrativeBrickProps {
 export default function NarrativeBrick({
   narratives,
   onOpenObject,
-}: NarrativeBrickProps) {
+}: NarrativeBrickProps): React.JSX.Element {
   if (narratives.length === 0) {
     return (
       <div
@@ -32,55 +21,42 @@ export default function NarrativeBrick({
           fontStyle: 'italic',
         }}
       >
-        No narratives written. Synthesize your argument into a
-        readable form.
+        No narratives written.
       </div>
     );
   }
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+    <div style={{ display: 'flex', flexDirection: 'column' }}>
       {narratives.map((narrative) => (
-        <button
+        <div
           key={narrative.id}
           onClick={() => onOpenObject?.(narrative.objectRef)}
           style={{
             display: 'flex',
             alignItems: 'center',
-            gap: 8,
-            padding: '6px 8px',
-            borderRadius: 3,
-            border: '1px solid var(--cp-border-faint, #ECEAE6)',
+            gap: 6,
+            padding: '2px 0',
             cursor: onOpenObject ? 'pointer' : 'default',
-            background: '#FFFFFF',
-            transition: 'background 0.1s ease',
-            width: '100%',
-            textAlign: 'left',
-          }}
-          onMouseEnter={(e) => {
-            e.currentTarget.style.background =
-              'var(--cp-surface, #F8F7F4)';
-          }}
-          onMouseLeave={(e) => {
-            e.currentTarget.style.background = '#FFFFFF';
           }}
         >
-          {/* Document icon (simple line art) */}
+          {/* Green pip */}
           <span
             style={{
-              fontSize: 13,
-              color: 'var(--cp-text-faint, #68666E)',
+              width: 4,
+              height: 4,
+              borderRadius: '50%',
+              background: '#2E8A3E',
               flexShrink: 0,
             }}
-          >
-            &#x2261;
-          </span>
+          />
 
           {/* Title */}
           <span
             style={{
               fontFamily: 'var(--cp-font-body)',
-              fontSize: 12,
+              fontSize: 11.5,
+              fontWeight: 500,
               color: 'var(--cp-text, #18181B)',
               flex: 1,
               lineHeight: 1.4,
@@ -89,17 +65,20 @@ export default function NarrativeBrick({
             {narrative.title}
           </span>
 
-          {/* Arrow */}
-          <span
-            style={{
-              fontSize: 10,
-              color: 'var(--cp-text-faint, #68666E)',
-              flexShrink: 0,
-            }}
-          >
-            &#x2192;
-          </span>
-        </button>
+          {/* Type label */}
+          {narrative.narrativeType && (
+            <span
+              style={{
+                fontFamily: 'var(--cp-font-mono)',
+                fontSize: 7,
+                color: 'var(--cp-text-faint, #68666E)',
+                flexShrink: 0,
+              }}
+            >
+              {narrative.narrativeType}
+            </span>
+          )}
+        </div>
       ))}
     </div>
   );

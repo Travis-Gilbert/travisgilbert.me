@@ -2,40 +2,21 @@
 
 import type { Method } from '@/lib/commonplace-models';
 
-/**
- * MethodBrick: content for the Methods module.
- *
- * Methods are the investigative procedures attached to a model:
- * how you would test or validate the assumptions. Each method
- * has a title, description, and status (active/completed/planned).
- */
-
 interface MethodBrickProps {
   methods: Method[];
 }
 
-const STATUS_STYLE: Record<
-  string,
-  { label: string; color: string; bg: string }
-> = {
-  active: {
-    label: 'Active',
-    color: '#1A7A8A',
-    bg: 'rgba(26, 122, 138, 0.08)',
-  },
-  completed: {
-    label: 'Done',
-    color: '#2E8A3E',
-    bg: 'rgba(46, 138, 62, 0.08)',
-  },
-  planned: {
-    label: 'Planned',
-    color: 'var(--cp-text-faint, #68666E)',
-    bg: 'var(--cp-surface, #F8F7F4)',
-  },
+const STATUS_COLOR: Record<string, string> = {
+  reviewed: 'var(--cp-term-green, #6AAA6A)',
+  active: 'var(--cp-term-green, #6AAA6A)',
+  draft: 'var(--cp-term-amber, #CCAA44)',
+  planned: 'var(--cp-term-muted, #68666E)',
+  completed: 'var(--cp-term-green, #6AAA6A)',
 };
 
-export default function MethodBrick({ methods }: MethodBrickProps) {
+export default function MethodBrick({
+  methods,
+}: MethodBrickProps): React.JSX.Element {
   if (methods.length === 0) {
     return (
       <div
@@ -46,67 +27,45 @@ export default function MethodBrick({ methods }: MethodBrickProps) {
           fontStyle: 'italic',
         }}
       >
-        No methods defined. Add investigative procedures to test
-        assumptions.
+        No methods defined.
       </div>
     );
   }
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
       {methods.map((method) => {
-        const status = STATUS_STYLE[method.status];
+        const statusColor = STATUS_COLOR[method.status] ?? '#68666E';
         return (
-          <div key={method.id}>
-            {/* Title row + status */}
+          <div
+            key={method.id}
+            style={{
+              background: 'var(--cp-term, #1A1C22)',
+              border: '1px solid var(--cp-term-border, #2A2C32)',
+              borderRadius: 4,
+              padding: '4px 6px',
+            }}
+          >
             <div
               style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: 8,
-                marginBottom: 4,
+                fontFamily: 'var(--cp-font-mono)',
+                fontSize: 11,
+                color: 'var(--cp-term-text, #D4D4D8)',
+                lineHeight: 1.4,
               }}
             >
-              <span
-                style={{
-                  fontFamily: 'var(--cp-font-body)',
-                  fontSize: 13,
-                  fontWeight: 600,
-                  color: 'var(--cp-text, #18181B)',
-                  flex: 1,
-                  lineHeight: 1.4,
-                }}
-              >
-                {method.title}
-              </span>
-              <span
-                style={{
-                  fontFamily: 'var(--cp-font-mono)',
-                  fontSize: 9,
-                  fontWeight: 500,
-                  letterSpacing: '0.05em',
-                  textTransform: 'uppercase',
-                  color: status.color,
-                  background: status.bg,
-                  padding: '2px 6px',
-                  borderRadius: 2,
-                  flexShrink: 0,
-                }}
-              >
-                {status.label}
-              </span>
+              {method.title}
             </div>
-
-            {/* Description */}
             <div
               style={{
-                fontFamily: 'var(--cp-font-body)',
-                fontSize: 12,
-                color: 'var(--cp-text-muted, #48464E)',
-                lineHeight: 1.5,
+                fontFamily: 'var(--cp-font-mono)',
+                fontSize: 9,
+                color: statusColor,
+                marginTop: 2,
               }}
             >
-              {method.description}
+              {method.status}
+              {method.runs != null ? ` \u00B7 ${method.runs} runs` : ''}
             </div>
           </div>
         );

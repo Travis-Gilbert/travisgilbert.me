@@ -1,36 +1,42 @@
 'use client';
 
-/**
- * CandidateActions: accept/reject controls for engine-proposed evidence.
- *
- * Renders as compact buttons next to an EvidenceItem when that item
- * is an engine candidate (isCandidate=true). After action, the button
- * set is replaced with a status indicator.
- */
+import { useState } from 'react';
 
 interface CandidateActionsProps {
   onAccept: () => void;
   onReject: () => void;
   status?: 'pending' | 'accepted' | 'rejected';
+  inline?: boolean;
 }
+
+const STATUS_COLOR = {
+  accepted: '#2E8A3E',
+  rejected: '#68666E',
+} as const;
 
 export default function CandidateActions({
   onAccept,
   onReject,
   status = 'pending',
+  inline = false,
 }: CandidateActionsProps) {
+  const [hoverTarget, setHoverTarget] = useState<'accept' | 'reject' | null>(
+    null,
+  );
+
   if (status === 'accepted') {
     return (
       <span
         style={{
           fontFamily: 'var(--cp-font-mono)',
           fontSize: 9,
-          color: '#2E8A3E',
-          letterSpacing: '0.05em',
+          fontWeight: 600,
+          color: STATUS_COLOR.accepted,
+          letterSpacing: '0.06em',
           textTransform: 'uppercase',
         }}
       >
-        accepted
+        ACCEPTED
       </span>
     );
   }
@@ -41,52 +47,73 @@ export default function CandidateActions({
         style={{
           fontFamily: 'var(--cp-font-mono)',
           fontSize: 9,
-          color: 'var(--cp-text-faint, #68666E)',
-          letterSpacing: '0.05em',
+          fontWeight: 600,
+          color: STATUS_COLOR.rejected,
+          letterSpacing: '0.06em',
           textTransform: 'uppercase',
           textDecoration: 'line-through',
         }}
       >
-        rejected
+        REJECTED
       </span>
     );
   }
 
+  const buttonBase: React.CSSProperties = {
+    background: 'none',
+    border: 'none',
+    padding: inline ? '1px 6px' : '2px 8px',
+    cursor: 'pointer',
+    fontFamily: 'var(--cp-font-mono)',
+    fontSize: inline ? 9 : 10,
+    letterSpacing: '0.04em',
+    lineHeight: 1,
+    borderRadius: 2,
+    transition: 'opacity 0.1s ease',
+  };
+
   return (
-    <span style={{ display: 'inline-flex', gap: 4 }}>
+    <span
+      style={{
+        display: 'inline-flex',
+        gap: inline ? 4 : 6,
+        alignItems: 'center',
+        flexShrink: 0,
+      }}
+    >
       <button
-        onClick={onAccept}
-        title="Accept evidence"
+        type="button"
+        onClick={(e) => {
+          e.stopPropagation();
+          onAccept();
+        }}
+        onMouseEnter={() => setHoverTarget('accept')}
+        onMouseLeave={() => setHoverTarget(null)}
         style={{
-          background: 'none',
-          border: '1px solid #2E8A3E',
-          borderRadius: 2,
-          padding: '1px 5px',
-          cursor: 'pointer',
-          fontFamily: 'var(--cp-font-mono)',
-          fontSize: 10,
-          color: '#2E8A3E',
-          lineHeight: 1,
+          ...buttonBase,
+          color: STATUS_COLOR.accepted,
+          border: `1px solid ${STATUS_COLOR.accepted}`,
+          opacity: hoverTarget === 'accept' ? 1 : 0.75,
         }}
       >
-        &#x2713;
+        accept
       </button>
       <button
-        onClick={onReject}
-        title="Reject evidence"
+        type="button"
+        onClick={(e) => {
+          e.stopPropagation();
+          onReject();
+        }}
+        onMouseEnter={() => setHoverTarget('reject')}
+        onMouseLeave={() => setHoverTarget(null)}
         style={{
-          background: 'none',
-          border: '1px solid var(--cp-text-faint, #68666E)',
-          borderRadius: 2,
-          padding: '1px 5px',
-          cursor: 'pointer',
-          fontFamily: 'var(--cp-font-mono)',
-          fontSize: 10,
-          color: 'var(--cp-text-faint, #68666E)',
-          lineHeight: 1,
+          ...buttonBase,
+          color: STATUS_COLOR.rejected,
+          border: `1px solid var(--cp-border, #E2E0DC)`,
+          opacity: hoverTarget === 'reject' ? 1 : 0.75,
         }}
       >
-        &#x2717;
+        reject
       </button>
     </span>
   );

@@ -2,26 +2,72 @@
 
 import { useState, useEffect } from 'react';
 import type { EpistemicModelSummary } from '@/lib/commonplace-models';
-import { fetchModels } from '@/lib/commonplace-models';
-import ModelTypeBadge from './ModelTypeBadge';
-
-/**
- * ModelListPane: vertical card list for browsing models.
- *
- * Shows each model as a card with type badge, title, thesis excerpt,
- * and stats. The selected model gets a left-border accent. Clicking
- * a card calls onSelectModel with the model ID.
- */
+import {
+  fetchModels,
+  MODEL_TYPE_META,
+  ASSUMPTION_STATUS_META,
+} from '@/lib/commonplace-models';
 
 interface ModelListPaneProps {
   selectedModelId?: number;
   onSelectModel: (modelId: number) => void;
 }
 
+function CardCBar({
+  value,
+  color,
+}: {
+  value: number;
+  color: string;
+}): React.ReactElement {
+  const pct = Math.round(value * 100);
+  return (
+    <span
+      style={{
+        display: 'inline-flex',
+        alignItems: 'center',
+        gap: 3,
+      }}
+    >
+      <span
+        style={{
+          width: 28,
+          height: 2,
+          borderRadius: 1,
+          background: 'var(--cp-border-faint, #ECEAE6)',
+          position: 'relative',
+          overflow: 'hidden',
+        }}
+      >
+        <span
+          style={{
+            position: 'absolute',
+            top: 0,
+            left: 0,
+            height: '100%',
+            width: `${pct}%`,
+            background: color,
+            borderRadius: 1,
+          }}
+        />
+      </span>
+      <span
+        style={{
+          fontFamily: 'var(--cp-font-mono)',
+          fontSize: 7,
+          color: 'var(--cp-text-faint, #68666E)',
+        }}
+      >
+        {pct}%
+      </span>
+    </span>
+  );
+}
+
 export default function ModelListPane({
   selectedModelId,
   onSelectModel,
-}: ModelListPaneProps) {
+}: ModelListPaneProps): React.ReactElement {
   const [models, setModels] = useState<EpistemicModelSummary[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -48,12 +94,7 @@ export default function ModelListPane({
 
   if (models.length === 0) {
     return (
-      <div
-        style={{
-          padding: 20,
-          textAlign: 'center',
-        }}
-      >
+      <div style={{ padding: 20, textAlign: 'center' }}>
         <div
           style={{
             fontFamily: 'var(--cp-font-mono)',
@@ -132,6 +173,11 @@ export default function ModelListPane({
       >
         {models.map((model) => {
           const isSelected = model.id === selectedModelId;
+          const typeMeta = MODEL_TYPE_META[model.modelType];
+          const statusKey = (model.modelStatus ?? 'proposed') as keyof typeof ASSUMPTION_STATUS_META;
+          const statusMeta = ASSUMPTION_STATUS_META[statusKey] ?? ASSUMPTION_STATUS_META.proposed;
+          const confidence = model.modelConfidence ?? 0;
+
           return (
             <button
               key={model.id}
@@ -139,17 +185,15 @@ export default function ModelListPane({
               style={{
                 display: 'flex',
                 flexDirection: 'column',
-                gap: 6,
-                padding: '10px 12px',
+                gap: 4,
+                padding: 0,
                 borderRadius: 4,
+                overflow: 'hidden',
                 border: isSelected
-                  ? '1px solid var(--cp-border, #E2E0DC)'
+                  ? `1px solid ${typeMeta.color}66`
                   : '1px solid var(--cp-border-faint, #ECEAE6)',
-                borderLeft: isSelected
-                  ? '3px solid var(--cp-red, #C4503C)'
-                  : '3px solid transparent',
                 background: isSelected
-                  ? '#FFFFFF'
+                  ? `${typeMeta.color}08`
                   : 'var(--cp-surface, #F8F7F4)',
                 cursor: 'pointer',
                 textAlign: 'left',
@@ -157,52 +201,66 @@ export default function ModelListPane({
                 transition: 'all 0.1s ease',
               }}
             >
-              {/* Type badge */}
-              <ModelTypeBadge modelType={model.modelType} />
-
-              {/* Title */}
+              {/* Gradient top bar */}
               <div
                 style={{
-                  fontFamily: 'var(--cp-font-body)',
-                  fontSize: 13,
-                  fontWeight: 600,
-                  color: 'var(--cp-text, #18181B)',
-                  lineHeight: 1.35,
+                  height: 2,
+                  background: `linear-gradient(to right, ${typeMeta.color}33, ${typeMeta.color}80)`,
                 }}
-              >
-                {model.title}
-              </div>
+              />
 
-              {/* Thesis excerpt */}
-              <div
-                style={{
-                  fontFamily: 'var(--cp-font-body)',
-                  fontSize: 11,
-                  color: 'var(--cp-text-muted, #48464E)',
-                  lineHeight: 1.45,
-                  display: '-webkit-box',
-                  WebkitLineClamp: 2,
-                  WebkitBoxOrient: 'vertical',
-                  overflow: 'hidden',
-                }}
-              >
-                {model.thesis}
-              </div>
+              <div style={{ padding: '6px 10px 8px' }}>
+                {/* Title */}
+                <div
+                  style={{
+                    fontFamily: 'var(--cp-font-body)',
+                    fontSize: 12,
+                    fontWeight: 500,
+                    color: 'var(--cp-text, #18181B)',
+                    lineHeight: 1.35,
+                    marginBottom: 4,
+                  }}
+                >
+                  {model.title}
+                </div>
 
-              {/* Stats row */}
-              <div
-                style={{
-                  display: 'flex',
-                  gap: 10,
-                  fontFamily: 'var(--cp-font-mono)',
-                  fontSize: 9,
-                  color: 'var(--cp-text-faint, #68666E)',
-                  letterSpacing: '0.04em',
-                }}
-              >
-                <span>{model.assumptionCount}A</span>
-                <span>{model.methodCount}M</span>
-                <span>{model.questionCount}Q</span>
+                {/* Type + status + confidence */}
+                <div
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 6,
+                    flexWrap: 'wrap',
+                  }}
+                >
+                  <span
+                    style={{
+                      fontFamily: 'var(--cp-font-mono)',
+                      fontSize: 7,
+                      fontWeight: 600,
+                      letterSpacing: '0.04em',
+                      textTransform: 'uppercase',
+                      color: typeMeta.color,
+                    }}
+                  >
+                    {typeMeta.label}
+                  </span>
+
+                  <span
+                    style={{
+                      fontFamily: 'var(--cp-font-mono)',
+                      fontSize: 7,
+                      fontWeight: 500,
+                      letterSpacing: '0.04em',
+                      textTransform: 'uppercase',
+                      color: statusMeta.color,
+                    }}
+                  >
+                    {statusMeta.label}
+                  </span>
+
+                  <CardCBar value={confidence} color={statusMeta.color} />
+                </div>
               </div>
             </button>
           );

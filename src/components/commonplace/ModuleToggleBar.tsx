@@ -3,84 +3,69 @@
 import type { ModuleId } from '@/lib/commonplace-models';
 import { MODULE_META } from '@/lib/commonplace-models';
 
-/**
- * ModuleToggleBar: horizontal row of toggle buttons for module visibility.
- *
- * Each module (tensions, methods, compare, falsify, narratives) gets
- * a toggle button with its accent color pip and count. Active modules
- * have a filled background; inactive are dimmed with a dashed border.
- *
- * Compare is always visible (per spec: "Compare is always available"),
- * so its toggle is disabled but shown for visual consistency.
- */
-
 interface ModuleToggleBarProps {
   visibility: Record<ModuleId, boolean>;
   counts: Record<ModuleId, number>;
   onToggle: (moduleId: ModuleId) => void;
+  onAddAssumption?: () => void;
+  onStressTest?: () => void;
 }
 
 export default function ModuleToggleBar({
   visibility,
   counts,
   onToggle,
-}: ModuleToggleBarProps) {
+  onAddAssumption,
+  onStressTest,
+}: ModuleToggleBarProps): React.ReactElement {
   const modules = Object.keys(MODULE_META) as ModuleId[];
 
   return (
     <div
       style={{
         display: 'flex',
-        gap: 6,
-        padding: '8px 20px',
-        borderBottom: '1px solid var(--cp-border-faint, #ECEAE6)',
-        background: 'var(--cp-surface, #F8F7F4)',
+        alignItems: 'center',
+        gap: 3,
+        padding: '3px 20px 5px',
         flexWrap: 'wrap',
       }}
     >
       {modules.map((id) => {
         const meta = MODULE_META[id];
         const active = visibility[id];
-        const isCompare = id === 'compare';
 
         return (
           <button
             key={id}
-            onClick={() => !isCompare && onToggle(id)}
-            disabled={isCompare}
-            title={
-              isCompare
-                ? 'Compare is always visible'
-                : `${active ? 'Hide' : 'Show'} ${meta.label}`
-            }
+            onClick={() => onToggle(id)}
             style={{
               display: 'inline-flex',
               alignItems: 'center',
-              gap: 5,
-              padding: '3px 10px',
-              borderRadius: 3,
+              gap: 4,
+              padding: '2px 7px',
+              borderRadius: 9,
               border: active
-                ? `1px solid ${meta.accentColor}33`
-                : '1px dashed var(--cp-border, #E2E0DC)',
+                ? `1px solid ${meta.accentColor}40`
+                : '1px solid transparent',
               background: active ? `${meta.accentColor}0D` : 'transparent',
-              cursor: isCompare ? 'default' : 'pointer',
+              cursor: 'pointer',
               fontFamily: 'var(--cp-font-mono)',
-              fontSize: 10,
+              fontSize: 7,
               fontWeight: 500,
-              letterSpacing: '0.05em',
+              letterSpacing: '0.04em',
               textTransform: 'uppercase',
               color: active
                 ? meta.accentColor
                 : 'var(--cp-text-faint, #68666E)',
-              opacity: isCompare ? 0.7 : 1,
               transition: 'all 0.12s ease',
+              lineHeight: '14px',
             }}
           >
-            {/* Accent pip */}
+            {/* Accent dot */}
             <span
               style={{
-                width: 5,
-                height: 5,
+                width: 4,
+                height: 4,
                 borderRadius: '50%',
                 background: active
                   ? meta.accentColor
@@ -95,6 +80,61 @@ export default function ModuleToggleBar({
           </button>
         );
       })}
+
+      <span style={{ flex: 1 }} />
+
+      {/* Action buttons */}
+      {onAddAssumption && (
+        <button
+          onClick={onAddAssumption}
+          style={{
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: 3,
+            padding: '2px 7px',
+            borderRadius: 9,
+            border: '1px solid var(--cp-border-faint, #ECEAE6)',
+            background: 'transparent',
+            cursor: 'pointer',
+            fontFamily: 'var(--cp-font-mono)',
+            fontSize: 7,
+            fontWeight: 500,
+            letterSpacing: '0.04em',
+            textTransform: 'uppercase',
+            color: 'var(--cp-text-faint, #68666E)',
+            lineHeight: '14px',
+            transition: 'all 0.12s ease',
+          }}
+        >
+          + assumption
+        </button>
+      )}
+
+      {onStressTest && (
+        <button
+          onClick={onStressTest}
+          style={{
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: 3,
+            padding: '2px 7px',
+            borderRadius: 9,
+            border: '1px solid #C4503C30',
+            background: '#C4503C08',
+            cursor: 'pointer',
+            fontFamily: 'var(--cp-font-mono)',
+            fontSize: 7,
+            fontWeight: 500,
+            letterSpacing: '0.04em',
+            textTransform: 'uppercase',
+            color: '#C4503C',
+            lineHeight: '14px',
+            transition: 'all 0.12s ease',
+          }}
+        >
+          stress test
+        </button>
+      )}
     </div>
   );
 }
