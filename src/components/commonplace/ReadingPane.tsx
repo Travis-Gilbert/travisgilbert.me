@@ -15,9 +15,6 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { ApiObjectDetail, ApiComponent } from '@/lib/commonplace';
-import { remark } from 'remark';
-import remarkGfm from 'remark-gfm';
-import remarkHtml from 'remark-html';
 
 /* ─────────────────────────────────────────────────
    Props
@@ -32,10 +29,38 @@ interface ReadingPaneProps {
    Helpers
    ───────────────────────────────────────────────── */
 
-/** Parse markdown body to HTML string via remark pipeline. */
-function markdownToHtml(md: string): string {
-  const file = remark().use(remarkGfm).use(remarkHtml).processSync(md);
-  return String(file);
+/** Lazy-loaded remark processor (ESM-only packages need dynamic import). */
+let _remarkProcessor: ((md: string) => Promise<string>) | null = null;
+
+async function getRemarkProcessor(): Promise<(md: string) => Promise<string>> {
+  if (_remarkProcessor) return _remarkProcessor;
+  try {
+    const { remark } = await import('remark');
+    const remarkGfm = (await import('remark-gfm')).default;
+    const remarkHtml = (await import('remark-html')).default;
+    const processor = remark().use(remarkGfm).use(remarkHtml);
+    _remarkProcessor = async (md: string) => {
+      const file = await processor.process(md);
+      return String(file);
+    };
+    return _remarkProcessor;
+  } catch {
+    // Fallback if remark fails to load
+    _remarkProcessor = async (md: string) =>
+      md
+        .split(/\n\n+/)
+        .map((p) => `<p>${p.replace(/\n/g, '<br>')}</p>`)
+        .join('');
+    return _remarkProcessor;
+  }
+}
+
+/** Simple paragraph fallback (no markdown, just line breaks). */
+function plainTextToHtml(text: string): string {
+  return text
+    .split(/\n\n+/)
+    .map((p) => `<p>${p.replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/\n/g, '<br>')}</p>`)
+    .join('');
 }
 
 /** Count words in a plain text string (strip markdown roughly). */
@@ -130,8 +155,24 @@ export default function ReadingPane({ detail, onEntityClick }: ReadingPaneProps)
   const slug = detail.object_type_data.slug;
   const features = useMemo(() => typeFeatures(slug, detail), [slug, detail]);
 
-  /* ── Markdown body ── */
-  const bodyHtml = useMemo(() => markdownToHtml(detail.body || ''), [detail.body]);
+  /* ── Markdown body (async to handle ESM-only remark) ── */
+  const [bodyHtml, setBodyHtml] = useState<string>(() => plainTextToHtml(detail.body || ''));
+
+  useEffect(() => {
+    if (!detail.body) {
+      setBodyHtml('');
+      return;
+    }
+    let cancelled = false;
+    getRemarkProcessor().then((parse) => {
+      if (cancelled) return;
+      parse(detail.body || '').then((html) => {
+        if (!cancelled) setBodyHtml(html);
+      });
+    });
+    return () => { cancelled = true; };
+  }, [detail.body]);
+
   const words = useMemo(() => wordCount(detail.body || ''), [detail.body]);
   const showProgress = words > 100;
 
