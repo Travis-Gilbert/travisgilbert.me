@@ -20,15 +20,16 @@
   position: sticky;
   top: 0;
   z-index: 10;
-  height: 2px;
+  height: 3px;
   background: var(--cp-border-faint);
 }
 
 .rp-progress-fill {
   height: 100%;
   background: var(--cp-red);
+  box-shadow: 0 0 6px rgba(196, 80, 60, 0.3);
   width: 0%;
-  transition: width 120ms ease-out;
+  transition: width 150ms ease-out;
   will-change: width;
 }
 
@@ -161,31 +162,51 @@
   font-variant-numeric: oldstyle-nums;
   hyphens: auto;
   font-feature-settings: var(--cp-kern-body);
+  animation: rp-fade-in 300ms ease-out both;
+}
+
+@keyframes rp-fade-in {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Respect reduced-motion preferences */
+@media (prefers-reduced-motion: reduce) {
+  .rp-body {
+    animation: none;
+  }
 }
 
 .rp-body h1 {
-  font-size: 20px;
+  font-size: 24px;
   font-weight: 600;
-  line-height: 1.3;
-  margin: 24px 0 12px;
+  line-height: 1.2;
+  letter-spacing: -0.01em;
+  margin: 28px 0 14px;
   color: var(--cp-text);
 }
 
 .rp-body h2 {
-  font-size: 17px;
+  font-size: 19px;
   font-weight: 600;
-  line-height: 1.35;
-  margin: 20px 0 10px;
+  line-height: 1.3;
+  margin: 28px 0 12px;
   color: var(--cp-text);
 }
 
 .rp-body h3 {
-  font-size: 15px;
+  font-size: 16px;
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.05em;
-  line-height: 1.4;
-  margin: 18px 0 8px;
+  line-height: 1.35;
+  margin: 24px 0 10px;
   color: var(--cp-text);
 }
 
@@ -193,24 +214,34 @@
   font-size: 14px;
   font-weight: 600;
   line-height: 1.4;
-  margin: 16px 0 8px;
-  color: var(--cp-text-muted);
+  margin: 20px 0 8px;
+  color: var(--cp-text-secondary, var(--cp-text-muted));
 }
 
 .rp-body p {
-  margin: 0 0 14px;
+  margin: 0 0 16px;
 }
 
 .rp-body p:last-child {
   margin-bottom: 0;
 }
 
+/* Lead paragraph: slightly larger for a clear reading entry point */
+.rp-body > p:first-child {
+  font-size: 16px;
+  line-height: 1.7;
+  color: var(--cp-text);
+}
+
 .rp-body blockquote {
   border-left: 3px solid var(--cp-red-line);
-  padding-left: 16px;
-  margin: 14px 0;
+  padding: 2px 0 2px 20px;
+  margin: 20px 0;
   font-style: italic;
-  color: var(--cp-text-muted);
+  color: var(--cp-text-secondary, var(--cp-text-muted));
+  font-size: 14.5px;
+  line-height: 1.7;
+  position: relative;
 }
 
 .rp-body code {
@@ -233,7 +264,7 @@
   border-radius: 6px;
   padding: 14px 16px;
   overflow-x: auto;
-  margin: 14px 0;
+  margin: 16px 0;
 }
 
 .rp-body pre code {
@@ -246,7 +277,7 @@
 
 .rp-body ul,
 .rp-body ol {
-  margin: 12px 0;
+  margin: 16px 0;
   padding-left: 24px;
 }
 
@@ -288,7 +319,7 @@
 .rp-body hr {
   border: none;
   border-top: 1px solid var(--cp-border-faint);
-  margin: 20px 0;
+  margin: 28px 0;
 }
 
 /* GFM tables */
@@ -296,7 +327,7 @@
 .rp-body table {
   border-collapse: collapse;
   width: 100%;
-  margin: 14px 0;
+  margin: 16px 0;
   font-size: 13px;
 }
 
@@ -384,22 +415,29 @@
 
 .rp-footer {
   border-top: 1px solid var(--cp-border-faint);
-  padding: 12px 0;
+  padding: 14px 0;
   display: flex;
   flex-wrap: wrap;
-  gap: 16px;
+  align-items: baseline;
+  gap: 18px;
   font-family: var(--cp-font-mono);
   font-weight: 500;
   font-size: 11px;
   color: var(--cp-text-faint);
   letter-spacing: 0.02em;
-  margin-top: 20px;
+  margin-top: 24px;
 }
 
 .rp-stat {
   display: inline-flex;
-  align-items: center;
+  align-items: baseline;
   gap: 4px;
+}
+
+/* First two stats (words, read time) are reader-facing: stronger weight */
+.rp-stat:nth-child(-n+2) .rp-stat-value {
+  color: var(--cp-text);
+  font-size: 12px;
 }
 
 .rp-stat-label {
@@ -408,6 +446,17 @@
 
 .rp-stat-value {
   color: var(--cp-text-muted);
+}
+
+/* Visual separator between reader stats and metadata stats */
+.rp-stat:nth-child(2)::after {
+  content: '';
+  display: inline-block;
+  width: 1px;
+  height: 10px;
+  background: var(--cp-border);
+  margin-left: 14px;
+  vertical-align: middle;
 }
 
 /* ── Responsive: narrow / mobile ── */
