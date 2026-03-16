@@ -809,3 +809,126 @@ export function fetchClusters(
 export function fetchLineage(slug: string): Promise<LineageResponse> {
   return apiFetch<LineageResponse>(`/objects/${slug}/lineage/`);
 }
+
+/* ─────────────────────────────────────────────────
+   Inquiry endpoints
+   ───────────────────────────────────────────────── */
+
+export interface InquirySuggestionData {
+  unanswered_questions: Array<{
+    id: number;
+    title: string;
+    claim_count: number;
+    gap_count: number;
+  }>;
+  evidence_gaps: Array<{
+    description: string;
+    related_question_id?: number;
+  }>;
+  stale_topics: Array<{
+    description: string;
+    entity: string;
+  }>;
+  unresolved_tensions: Array<{
+    id: number;
+    title: string;
+    severity: string;
+  }>;
+}
+
+export async function fetchInquirySuggestions(): Promise<InquirySuggestionData> {
+  return apiFetch<InquirySuggestionData>('/inquiry-suggestions/');
+}
+
+export interface InquiryPlanResult {
+  subqueries: Array<{
+    query: string;
+    purpose: string;
+    notes: string;
+  }>;
+  internal_context: {
+    related_object_count: number;
+    existing_claim_count: number;
+    known_entity_count: number;
+    evidence_gaps: Array<{ description: string; priority: number }>;
+  };
+}
+
+export async function fetchInquiryPlan(
+  query: string,
+  notebookSlug?: string,
+): Promise<InquiryPlanResult> {
+  return apiFetch<InquiryPlanResult>('/inquiry-plan/', {
+    method: 'POST',
+    body: JSON.stringify({ query, notebook_slug: notebookSlug }),
+  });
+}
+
+export interface InquiryStartResponse {
+  inquiry_id: number;
+  status: string;
+  mode: string;
+}
+
+export async function startInquiry(params: {
+  query: string;
+  question_id?: number;
+  external_search?: boolean;
+}): Promise<InquiryStartResponse> {
+  return apiFetch<InquiryStartResponse>('/inquiries/', {
+    method: 'POST',
+    body: JSON.stringify(params),
+  });
+}
+
+export interface InquiryProgress {
+  id: number;
+  status: string;
+  phase: string;
+  progress: {
+    subqueries: number;
+    subqueries_completed: number;
+    hits_total: number;
+    hits_captured: number;
+  };
+}
+
+export async function fetchInquiryProgress(
+  id: number,
+): Promise<InquiryProgress> {
+  return apiFetch<InquiryProgress>(`/inquiries/${id}/`);
+}
+
+export interface InquiryResultData {
+  inquiry: { id: number; status: string; degraded_mode: boolean };
+  answer: {
+    answer_text: string;
+    answer_status: string;
+    confidence: number;
+  };
+  supporting_evidence: Array<{
+    candidate_text?: string;
+    text?: string;
+    confidence: number;
+    review_state: string;
+  }>;
+  contradicting_evidence: Array<{
+    candidate_text?: string;
+    text?: string;
+    confidence: number;
+    review_state: string;
+  }>;
+  new_artifacts: number[];
+  new_candidate_items: number[];
+  open_gaps: Array<{ description: string }>;
+  what_changed: {
+    new_artifacts_captured: number;
+    new_candidate_claims: number;
+  };
+}
+
+export async function fetchInquiryResult(
+  id: number,
+): Promise<InquiryResultData> {
+  return apiFetch<InquiryResultData>(`/inquiries/${id}/result/`);
+}

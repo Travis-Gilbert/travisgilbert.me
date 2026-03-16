@@ -16,6 +16,8 @@ import ObjectRenderer, { type RenderableObject } from './objects/ObjectRenderer'
 import ResumeCards from './ResumeCards';
 import LineageSwimlane from './LineageSwimlane';
 import ClusterCard from './ClusterCard';
+import InquiryBar from './InquiryBar';
+import InquirySuggestions from './InquirySuggestions';
 import {
   renderableFromClusterMember,
   renderableFromMockNode,
@@ -157,9 +159,10 @@ const DEMO_CLUSTERS: ClusterResponse[] = [
 ];
 
 export default function LibraryView({ onOpenObject }: LibraryViewProps) {
-  const { captureVersion, openContextMenu, requestView, openPalette } = useCommonPlace();
+  const { captureVersion, openContextMenu, requestView } = useCommonPlace();
   const [activeType, setActiveType] = useState<string | null>(null);
   const [activeClusterKey, setActiveClusterKey] = useState<string | null>(null);
+  const [inquiryQuery, setInquiryQuery] = useState('');
 
   const { data: nodes, error } = useApiData(
     () => fetchFeed({ per_page: 100 }),
@@ -314,22 +317,21 @@ export default function LibraryView({ onOpenObject }: LibraryViewProps) {
   return (
     <div style={{ flex: 1, overflow: 'auto', padding: '24px 28px 48px' }}>
       <div style={{ maxWidth: 880, margin: '0 auto' }}>
-      <div
-        style={{
-          display: 'flex',
-          alignItems: 'flex-end',
-          justifyContent: 'space-between',
-          gap: 16,
-          flexWrap: 'wrap',
-          marginBottom: 24,
-        }}
-      >
-        <div>
+      {/* Combined header + inquiry bar */}
+      <div style={{ marginBottom: 20 }}>
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            marginBottom: 10,
+          }}
+        >
           <h2
             style={{
               margin: 0,
               fontFamily: 'var(--cp-font-title)',
-              fontSize: 28,
+              fontSize: 22,
               lineHeight: 1.08,
               color: 'var(--cp-text)',
               letterSpacing: '-0.02em',
@@ -338,21 +340,6 @@ export default function LibraryView({ onOpenObject }: LibraryViewProps) {
           >
             Library
           </h2>
-          <p
-            style={{
-              margin: '2px 0 0',
-              maxWidth: 680,
-              fontFamily: 'var(--cp-font-body)',
-              fontSize: 13,
-              lineHeight: 1.5,
-              color: 'var(--cp-text-muted)',
-            }}
-          >
-            {allObjects.length} objects across {(clusterItems?.length ?? clusterCount)} clusters. Engine last ran a few minutes ago.
-          </p>
-        </div>
-
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
           <button
             type="button"
             onClick={() => requestView('resurface', 'Resurface')}
@@ -361,7 +348,7 @@ export default function LibraryView({ onOpenObject }: LibraryViewProps) {
               background: 'var(--cp-red-soft)',
               color: 'var(--cp-red)',
               borderRadius: 5,
-              padding: '6px 14px',
+              padding: '5px 12px',
               display: 'inline-flex',
               alignItems: 'center',
               gap: 5,
@@ -385,54 +372,16 @@ export default function LibraryView({ onOpenObject }: LibraryViewProps) {
             Resurface
           </button>
         </div>
+        <InquiryBar
+          gapCount={0}
+          onOpenObject={onOpenObject}
+          externalQuery={inquiryQuery}
+          onExternalQueryConsumed={() => setInquiryQuery('')}
+        />
+        <InquirySuggestions
+          onSelectQuery={setInquiryQuery}
+        />
       </div>
-
-      {/* Search bar */}
-      <button
-        type="button"
-        onClick={() => openPalette()}
-        style={{
-          display: 'flex',
-          alignItems: 'center',
-          gap: 10,
-          width: '100%',
-          padding: '8px 12px',
-          marginBottom: 20,
-          borderRadius: 6,
-          border: '1px solid var(--cp-chrome-line)',
-          background: 'var(--cp-chrome-raise)',
-          cursor: 'pointer',
-          textAlign: 'left',
-        }}
-      >
-        <svg width={14} height={14} viewBox="0 0 24 24" fill="none" aria-hidden="true" style={{ flexShrink: 0 }}>
-          <circle cx={11} cy={11} r={7} stroke="var(--cp-chrome-muted)" strokeWidth={1.5} />
-          <path d="M20 20l-3-3" stroke="var(--cp-chrome-muted)" strokeWidth={1.5} strokeLinecap="round" />
-        </svg>
-        <span style={{
-          flex: 1,
-          fontFamily: 'var(--cp-font-body)',
-          fontSize: 13,
-          color: 'var(--cp-chrome-muted)',
-        }}>
-          Search objects, types, clusters…
-        </span>
-        <span style={{
-          display: 'inline-flex',
-          alignItems: 'center',
-          gap: 2,
-          padding: '3px 6px',
-          borderRadius: 4,
-          background: 'var(--cp-card)',
-          border: '1px solid var(--cp-chrome-line)',
-          fontFamily: 'var(--cp-font-mono)',
-          fontSize: 10,
-          fontWeight: 500,
-          color: 'var(--cp-chrome-muted)',
-        }}>
-          {'\u2318'}K
-        </span>
-      </button>
 
       {usingOfflinePreview && (
         <div
