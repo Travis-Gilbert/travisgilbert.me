@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useMemo, useRef, useState } from 'react';
 import { getObjectTypeIdentity } from '@/lib/commonplace';
 import { type RenderableObject } from './objects/ObjectRenderer';
 
@@ -24,6 +24,10 @@ export default function ClusterGraphWindow({
 }: ClusterGraphWindowProps) {
   const height = heightOverride ?? Math.max(80, members.length * 22);
   const [zoom, setZoom] = useState(1.1);
+  const [pan, setPan] = useState({ x: 0, y: 0 });
+  const [dragging, setDragging] = useState(false);
+  const dragStart = useRef<{ x: number; y: number; panX: number; panY: number } | null>(null);
+  const pinchStart = useRef<{ dist: number; zoom: number } | null>(null);
 
   const handleWheel = useCallback((e: React.WheelEvent) => {
     e.preventDefault();
@@ -31,6 +35,48 @@ export default function ClusterGraphWindow({
       const next = prev + (e.deltaY < 0 ? 0.15 : -0.15);
       return Math.max(0.5, Math.min(next, 3));
     });
+  }, []);
+
+  const handlePointerDown = useCallback((e: React.PointerEvent) => {
+    if (e.pointerType === 'touch' && e.isPrimary === false) return;
+    setDragging(true);
+    dragStart.current = { x: e.clientX, y: e.clientY, panX: pan.x, panY: pan.y };
+    (e.target as HTMLElement).setPointerCapture?.(e.pointerId);
+  }, [pan]);
+
+  const handlePointerMove = useCallback((e: React.PointerEvent) => {
+    if (!dragging || !dragStart.current) return;
+    const dx = (e.clientX - dragStart.current.x) * 0.003 / zoom;
+    const dy = (e.clientY - dragStart.current.y) * 0.003 / zoom;
+    setPan({ x: dragStart.current.panX + dx, y: dragStart.current.panY + dy });
+  }, [dragging, zoom]);
+
+  const handlePointerUp = useCallback(() => {
+    setDragging(false);
+    dragStart.current = null;
+  }, []);
+
+  const handleTouchStart = useCallback((e: React.TouchEvent) => {
+    if (e.touches.length === 2) {
+      const dx = e.touches[0].clientX - e.touches[1].clientX;
+      const dy = e.touches[0].clientY - e.touches[1].clientY;
+      pinchStart.current = { dist: Math.hypot(dx, dy), zoom };
+    }
+  }, [zoom]);
+
+  const handleTouchMove = useCallback((e: React.TouchEvent) => {
+    if (e.touches.length === 2 && pinchStart.current) {
+      e.preventDefault();
+      const dx = e.touches[0].clientX - e.touches[1].clientX;
+      const dy = e.touches[0].clientY - e.touches[1].clientY;
+      const dist = Math.hypot(dx, dy);
+      const scale = dist / pinchStart.current.dist;
+      setZoom(Math.max(0.5, Math.min(pinchStart.current.zoom * scale, 3)));
+    }
+  }, []);
+
+  const handleTouchEnd = useCallback(() => {
+    pinchStart.current = null;
   }, []);
 
   const layout = useMemo(() => {
@@ -46,7 +92,7 @@ export default function ClusterGraphWindow({
     // Tight circular layout: nodes close together, short edges
     const cx = 1.25;
     const cy = 0.5;
-    const radiusFactor = members.length <= 2 ? 0.14 : members.length <= 4 ? 0.2 : 0.25;
+    const radiusFactor = members.length <= 2 ? 0.17 : members.length <= 4 ? 0.24 : 0.3;
 
     const nodes = members.map((member, i) => {
       const angle = (2 * Math.PI * i) / Math.max(members.length, 1) - Math.PI / 2;
@@ -123,20 +169,30 @@ export default function ClusterGraphWindow({
     WebkitMaskImage: 'radial-gradient(ellipse at center, transparent 0%, black 50%)',
   };
 
-  // Zoom adjusts the viewBox: smaller viewBox = zoomed in, centered on graph center
+  // Zoom + pan adjusts the viewBox
   const vbW = 2.5 / zoom;
   const vbH = 1 / zoom;
-  const vbX = 1.25 - vbW / 2;
-  const vbY = 0.5 - vbH / 2;
+  const vbX = 1.25 - vbW / 2 - pan.x;
+  const vbY = 0.5 - vbH / 2 - pan.y;
 
   return (
-    <div style={bgStyle} onWheel={handleWheel}>
+    <div
+      style={{ ...bgStyle, touchAction: 'none' }}
+      onWheel={handleWheel}
+      onPointerDown={handlePointerDown}
+      onPointerMove={handlePointerMove}
+      onPointerUp={handlePointerUp}
+      onPointerCancel={handlePointerUp}
+      onTouchStart={handleTouchStart}
+      onTouchMove={handleTouchMove}
+      onTouchEnd={handleTouchEnd}
+    >
       <svg
         width="100%"
         height="100%"
         viewBox={`${vbX} ${vbY} ${vbW} ${vbH}`}
         preserveAspectRatio="xMidYMid meet"
-        style={{ position: 'absolute', inset: 0, cursor: zoom > 1 ? 'zoom-out' : 'zoom-in' }}
+        style={{ position: 'absolute', inset: 0, cursor: dragging ? 'grabbing' : 'grab' }}
       >
         {/* Edges */}
         {layout.lines.map((line, i) => (

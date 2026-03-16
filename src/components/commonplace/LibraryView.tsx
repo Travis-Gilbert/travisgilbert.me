@@ -355,40 +355,6 @@ export default function LibraryView({ onOpenObject }: LibraryViewProps) {
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
           <button
             type="button"
-            onClick={() => openPalette()}
-            style={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: 8,
-              padding: '4px 8px',
-              cursor: 'pointer',
-              background: 'transparent',
-              border: 'none',
-            }}
-          >
-            <svg width={16} height={16} viewBox="0 0 24 24" fill="none" aria-hidden="true">
-              <circle cx={11} cy={11} r={7} stroke="var(--cp-chrome-muted)" strokeWidth={1.5} />
-              <path d="M20 20l-3-3" stroke="var(--cp-chrome-muted)" strokeWidth={1.5} strokeLinecap="round" />
-            </svg>
-            <span style={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: 2,
-              padding: '3px 6px',
-              borderRadius: 4,
-              background: 'var(--cp-chrome-raise)',
-              border: '1px solid var(--cp-chrome-line)',
-              fontFamily: 'var(--cp-font-mono)',
-              fontSize: 10,
-              fontWeight: 500,
-              color: 'var(--cp-chrome-muted)',
-            }}>
-              {'\u2318'}K
-            </span>
-          </button>
-
-          <button
-            type="button"
             onClick={() => requestView('resurface', 'Resurface')}
             style={{
               border: '1px solid var(--cp-red-line)',
@@ -420,6 +386,53 @@ export default function LibraryView({ onOpenObject }: LibraryViewProps) {
           </button>
         </div>
       </div>
+
+      {/* Search bar */}
+      <button
+        type="button"
+        onClick={() => openPalette()}
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: 10,
+          width: '100%',
+          padding: '8px 12px',
+          marginBottom: 20,
+          borderRadius: 6,
+          border: '1px solid var(--cp-chrome-line)',
+          background: 'var(--cp-chrome-raise)',
+          cursor: 'pointer',
+          textAlign: 'left',
+        }}
+      >
+        <svg width={14} height={14} viewBox="0 0 24 24" fill="none" aria-hidden="true" style={{ flexShrink: 0 }}>
+          <circle cx={11} cy={11} r={7} stroke="var(--cp-chrome-muted)" strokeWidth={1.5} />
+          <path d="M20 20l-3-3" stroke="var(--cp-chrome-muted)" strokeWidth={1.5} strokeLinecap="round" />
+        </svg>
+        <span style={{
+          flex: 1,
+          fontFamily: 'var(--cp-font-body)',
+          fontSize: 13,
+          color: 'var(--cp-chrome-muted)',
+        }}>
+          Search objects, types, clusters…
+        </span>
+        <span style={{
+          display: 'inline-flex',
+          alignItems: 'center',
+          gap: 2,
+          padding: '3px 6px',
+          borderRadius: 4,
+          background: 'var(--cp-card)',
+          border: '1px solid var(--cp-chrome-line)',
+          fontFamily: 'var(--cp-font-mono)',
+          fontSize: 10,
+          fontWeight: 500,
+          color: 'var(--cp-chrome-muted)',
+        }}>
+          {'\u2318'}K
+        </span>
+      </button>
 
       {usingOfflinePreview && (
         <div
