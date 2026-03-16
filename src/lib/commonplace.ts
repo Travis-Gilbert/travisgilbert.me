@@ -90,7 +90,7 @@ export const VIEW_REGISTRY: Record<ViewType, { label: string; icon: string }> = 
   'scoped-timeline': { label: 'My Timelines', icon: 'filter' },
   network: { label: 'Map', icon: 'graph' },
   notebook: { label: 'Notebook', icon: 'book' },
-  project: { label: 'Project', icon: 'Project' },
+  project: { label: 'Project', icon: 'briefcase' },
   'object-detail': { label: 'Object', icon: 'note-pencil' },
   calendar: { label: 'Calendar', icon: 'calendar' },
   resurface: { label: 'Resurface', icon: 'sparkle' },
@@ -207,18 +207,6 @@ export interface CapturedObject {
   enrichedTitle?: string;
   /** Binary file attachment (PDF, image) for server-side extraction */
   file?: File;
-  /**
-   * Scraped page title from Firecrawl (populated by CaptureButton URL preview).
-   * When present, syncCapturedObject sends this as the Object title so the
-   * API-level async enrichment is skipped for that field.
-   */
-  scrapedTitle?: string;
-  /**
-   * Full page body as Markdown from Firecrawl (populated by CaptureButton URL preview).
-   * When present, syncCapturedObject sends this as the Object body so the
-   * resulting Object is immediately rich without waiting for backend enrichment.
-   */
-  scrapedBody?: string;
 }
 
 /* ─────────────────────────────────────────────────
