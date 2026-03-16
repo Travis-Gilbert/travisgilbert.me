@@ -1,0 +1,180 @@
+/* ─────────────────────────────────────────────────
+   ReadingPane: type-aware reading surface styles
+   
+   Import in layout or commonplace.css:
+     @import './reading-pane.css';
+   
+   These styles scope to .cp-reading-body (the markdown
+   rendered body) and .cp-reading-entity-margin (the
+   floating entity chip column).
+   ───────────────────────────────────────────────── */
+
+/* ── Markdown body typography ── */
+
+.cp-reading-body {
+  font-family: var(--cp-font-body, 'Outfit', system-ui, sans-serif);
+  font-size: 15px;
+  color: var(--cp-text, #18181B);
+  line-height: 1.75;
+}
+
+.cp-reading-body p {
+  margin: 0 0 1.25rem;
+}
+
+.cp-reading-body h1 {
+  font-size: 20px;
+  font-weight: 600;
+  color: var(--cp-text, #18181B);
+  margin: 2rem 0 0.75rem;
+  line-height: 1.3;
+}
+
+.cp-reading-body h2 {
+  font-size: 17px;
+  font-weight: 600;
+  color: var(--cp-text, #18181B);
+  margin: 1.75rem 0 0.75rem;
+  line-height: 1.3;
+}
+
+.cp-reading-body h3 {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--cp-text, #18181B);
+  margin: 1.5rem 0 0.5rem;
+  line-height: 1.4;
+}
+
+.cp-reading-body strong {
+  font-weight: 600;
+}
+
+.cp-reading-body em {
+  font-style: italic;
+  color: var(--cp-text-secondary, #48464E);
+}
+
+.cp-reading-body a {
+  color: var(--cp-source, #1A7A8A);
+  text-decoration: none;
+  border-bottom: 1px solid rgba(26, 122, 138, 0.25);
+  transition: border-color 150ms;
+}
+
+.cp-reading-body a:hover {
+  border-bottom-color: var(--cp-source, #1A7A8A);
+}
+
+.cp-reading-body ul,
+.cp-reading-body ol {
+  margin: 0 0 1.25rem 1.25rem;
+  padding: 0;
+}
+
+.cp-reading-body li {
+  font-size: 15px;
+  line-height: 1.75;
+  margin-bottom: 0.25rem;
+}
+
+.cp-reading-body li::marker {
+  color: var(--cp-text-faint, #A8A6AE);
+}
+
+.cp-reading-body blockquote {
+  margin: 0 0 1.25rem;
+  padding: 8px 16px;
+  border-left: 3px solid var(--cp-red-line, rgba(196, 80, 60, 0.22));
+  color: var(--cp-text-secondary, #48464E);
+  font-style: italic;
+}
+
+.cp-reading-body blockquote p {
+  margin-bottom: 0;
+}
+
+.cp-reading-body code {
+  font-family: var(--cp-font-mono, 'JetBrains Mono', monospace);
+  font-size: 0.88em;
+  background: var(--cp-bg-secondary, #F4F3F0);
+  padding: 1px 5px;
+  border-radius: 3px;
+  color: var(--cp-text-secondary, #48464E);
+}
+
+.cp-reading-body pre {
+  margin: 0 0 1.25rem;
+  padding: 12px 14px;
+  background: var(--cp-term, #1A1C22);
+  border: 1px solid var(--cp-term-border, #2A2C32);
+  border-radius: 4px;
+  overflow-x: auto;
+}
+
+.cp-reading-body pre code {
+  background: transparent;
+  padding: 0;
+  border-radius: 0;
+  color: var(--cp-term-text, #C0C8D8);
+  font-size: 11px;
+  line-height: 1.6;
+}
+
+.cp-reading-body hr {
+  border: none;
+  height: 1px;
+  background: var(--cp-border-faint, #F0EEEA);
+  margin: 1.5rem 0;
+}
+
+.cp-reading-body table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 0 0 1.25rem;
+  font-size: 13px;
+}
+
+.cp-reading-body th {
+  text-align: left;
+  font-weight: 600;
+  font-family: var(--cp-font-mono, 'JetBrains Mono', monospace);
+  font-size: 9px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--cp-text-faint, #A8A6AE);
+  padding: 6px 8px;
+  border-bottom: 1px solid var(--cp-border, #E6E4E0);
+}
+
+.cp-reading-body td {
+  padding: 6px 8px;
+  color: var(--cp-text, #18181B);
+  border-bottom: 1px solid var(--cp-border-faint, #F0EEEA);
+}
+
+.cp-reading-body img {
+  max-width: 100%;
+  height: auto;
+  border-radius: 4px;
+  margin: 0.5rem 0 1rem;
+}
+
+/* ── Entity margin: responsive ── */
+
+.cp-reading-entity-margin {
+  pointer-events: auto;
+}
+
+/* Hide margin entities on narrow screens */
+@media (max-width: 720px) {
+  .cp-reading-entity-margin {
+    display: none;
+  }
+}
+
+/* ── Reading progress bar transition ── */
+
+.cp-reading-progress-fill {
+  transition: width 200ms ease-out;
+}
