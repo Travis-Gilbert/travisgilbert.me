@@ -390,6 +390,12 @@ export async function captureToApi(data: {
   content: string;
   hint_type?: string;
   title?: string;
+  /**
+   * Pre-scraped page body as Markdown (from Firecrawl URL preview).
+   * When present Django uses this as the Object body and skips its own
+   * async URL enrichment pass for body content.
+   */
+  body?: string;
   notebook_slug?: string;
   project_slug?: string;
   file?: File;
@@ -403,6 +409,7 @@ export async function captureToApi(data: {
     if (data.content) form.append('content', data.content);
     if (data.hint_type) form.append('hint_type', data.hint_type);
     if (data.title) form.append('title', data.title);
+    if (data.body) form.append('body', data.body);
     if (data.notebook_slug) form.append('notebook_slug', data.notebook_slug);
     if (data.project_slug) form.append('project_slug', data.project_slug);
 
@@ -650,12 +657,17 @@ export async function updatePin(
 export async function syncCapturedObject(
   obj: CapturedObject,
 ): Promise<ApiCaptureResponse> {
-  // New capture endpoint accepts `content` (body or URL) + `hint_type`
+  // content = the URL (or body text for non-URL captures)
   const content = obj.sourceUrl || obj.body || '';
   return captureToApi({
     content,
     hint_type: obj.objectType,
-    title: obj.title,
+    // When a scraped title is available, send it so Django skips
+    // its own OG title enrichment for this field.
+    title: obj.scrapedTitle || obj.title,
+    // When scraped body is available, send it so the Object is
+    // immediately populated without backend polling.
+    body: obj.scrapedBody || undefined,
     file: obj.file,
   });
 }
