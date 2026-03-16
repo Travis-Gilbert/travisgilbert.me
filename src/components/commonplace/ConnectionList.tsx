@@ -13,8 +13,10 @@
  * the target object in the same detail pane (replaces current detail).
  */
 
+import { useState } from 'react';
 import type { ApiEdgeCompact } from '@/lib/commonplace';
-import { getObjectTypeIdentity } from '@/lib/commonplace';
+
+const MAX_VISIBLE = 3;
 
 interface ConnectionListProps {
   edges: ApiEdgeCompact[];
@@ -22,7 +24,11 @@ interface ConnectionListProps {
 }
 
 export default function ConnectionList({ edges, onOpenObject }: ConnectionListProps) {
+  const [expanded, setExpanded] = useState(false);
   if (edges.length === 0) return null;
+
+  const hasOverflow = edges.length > MAX_VISIBLE;
+  const visible = expanded ? edges : edges.slice(0, MAX_VISIBLE);
 
   return (
     <div className="cp-detail-section">
@@ -30,7 +36,7 @@ export default function ConnectionList({ edges, onOpenObject }: ConnectionListPr
         Connections ({edges.length})
       </h3>
       <div className="cp-connection-list">
-        {edges.map((edge) => (
+        {visible.map((edge) => (
           <button
             key={edge.id}
             type="button"
@@ -61,6 +67,17 @@ export default function ConnectionList({ edges, onOpenObject }: ConnectionListPr
           </button>
         ))}
       </div>
+      {hasOverflow && (
+        <button
+          type="button"
+          className="cp-connection-expand"
+          onClick={() => setExpanded((prev) => !prev)}
+        >
+          {expanded
+            ? 'Show fewer'
+            : `Show all ${edges.length} connections`}
+        </button>
+      )}
     </div>
   );
 }

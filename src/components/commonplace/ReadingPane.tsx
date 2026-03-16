@@ -63,6 +63,23 @@ function plainTextToHtml(text: string): string {
     .join('');
 }
 
+/**
+ * Detect "raw" body text: no markdown formatting, likely PDF/OCR extraction.
+ * Raw text = no headings, no lists, no links, and very few paragraph breaks
+ * relative to total length. Returns true for wall-of-text content.
+ */
+function isRawText(text: string): boolean {
+  if (!text || text.length < 200) return false;
+  const hasHeadings = /^#{1,6}\s/m.test(text);
+  const hasLists = /^[\s]*[-*]\s/m.test(text);
+  const hasLinks = /\[.+?\]\(.+?\)/.test(text);
+  if (hasHeadings || hasLists || hasLinks) return false;
+  // If the text has very few paragraph breaks relative to length, it's raw
+  const paragraphs = text.split(/\n\n+/).filter(Boolean);
+  const avgParaLen = text.length / Math.max(paragraphs.length, 1);
+  return avgParaLen > 600;
+}
+
 /** Count words in a plain text string (strip markdown roughly). */
 function wordCount(text: string): number {
   const stripped = text
@@ -174,6 +191,7 @@ export default function ReadingPane({ detail, onEntityClick }: ReadingPaneProps)
   }, [detail.body]);
 
   const words = useMemo(() => wordCount(detail.body || ''), [detail.body]);
+  const rawText = useMemo(() => isRawText(detail.body || ''), [detail.body]);
   const showProgress = words > 100;
 
   /* ── Components breakdown ── */
@@ -284,18 +302,27 @@ export default function ReadingPane({ detail, onEntityClick }: ReadingPaneProps)
             </div>
           )}
 
+          {/* Section rule: labeled divider before body */}
+          {detail.body && (
+            <div className="rp-section-rule">
+              <span className="rp-section-rule-label">
+                {features.terminal ? 'Code' : 'Body'}
+              </span>
+              <span className="rp-section-rule-line" />
+            </div>
+          )}
+
           {/* Terminal block (scripts) */}
           {features.terminal ? (
             <div className="rp-terminal">
               <code>{detail.body}</code>
             </div>
           ) : (
-            /* Markdown body */
+            /* Markdown body: rendered from user-owned markdown via remark
+               (remarkHtml strips raw HTML by default; content is self-authored) */
             detail.body && (
               <div
-                className="rp-body"
-                // Content is user-owned markdown processed through remark
-                // (remarkHtml does not pass through raw HTML by default)
+                className={`rp-body${rawText ? ' rp-body--raw' : ''}`}
                 dangerouslySetInnerHTML={{ __html: bodyHtml }}
               />
             )
