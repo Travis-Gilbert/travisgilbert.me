@@ -13,6 +13,7 @@ const RESEARCH_API =
   process.env.NEXT_PUBLIC_RESEARCH_API_URL ?? 'http://localhost:8001';
 
 export const API_BASE = `${RESEARCH_API}/api/v1/notebook`;
+export const EPISTEMIC_BASE = `${RESEARCH_API}/api/v1`;
 
 /* ─────────────────────────────────────────────────
    Object type visual identity

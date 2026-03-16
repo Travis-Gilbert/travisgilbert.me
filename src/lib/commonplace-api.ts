@@ -40,7 +40,7 @@ import type {
   ClusterResponse,
   LineageResponse,
 } from '@/lib/commonplace';
-import { API_BASE } from '@/lib/commonplace';
+import { API_BASE, EPISTEMIC_BASE } from '@/lib/commonplace';
 
 /* ─────────────────────────────────────────────────
    Error class
@@ -82,6 +82,22 @@ export async function apiFetch<T>(
   options?: RequestInit,
 ): Promise<T> {
   const url = `${API_BASE}${path}`;
+  return _doFetch<T>(url, options);
+}
+
+/** Fetch from the top-level epistemic API (/api/v1/) instead of /api/v1/notebook/. */
+export async function epistemicFetch<T>(
+  path: string,
+  options?: RequestInit,
+): Promise<T> {
+  const url = `${EPISTEMIC_BASE}${path}`;
+  return _doFetch<T>(url, options);
+}
+
+async function _doFetch<T>(
+  url: string,
+  options?: RequestInit,
+): Promise<T> {
   try {
     const res = await fetch(url, {
       ...options,
@@ -844,7 +860,7 @@ export interface InquiryPlanResult {
   subqueries: Array<{
     query: string;
     purpose: string;
-    notes: string;
+    notes: { reason: string } | string;
   }>;
   internal_context: {
     related_object_count: number;
@@ -875,7 +891,7 @@ export async function startInquiry(params: {
   question_id?: number;
   external_search?: boolean;
 }): Promise<InquiryStartResponse> {
-  return apiFetch<InquiryStartResponse>('/inquiries/', {
+  return epistemicFetch<InquiryStartResponse>('/inquiries/', {
     method: 'POST',
     body: JSON.stringify(params),
   });
@@ -896,11 +912,21 @@ export interface InquiryProgress {
 export async function fetchInquiryProgress(
   id: number,
 ): Promise<InquiryProgress> {
-  return apiFetch<InquiryProgress>(`/inquiries/${id}/`);
+  return epistemicFetch<InquiryProgress>(`/inquiries/${id}/`);
 }
 
 export interface InquiryResultData {
-  inquiry: { id: number; status: string; degraded_mode: boolean };
+  inquiry: {
+    id: number;
+    status: string;
+    mode: string;
+    phase: string;
+    query_text: string;
+    question_id: number | null;
+    degraded_mode: boolean;
+    started_at: string | null;
+    finished_at: string | null;
+  };
   answer: {
     answer_text: string;
     answer_status: string;
@@ -924,11 +950,12 @@ export interface InquiryResultData {
   what_changed: {
     new_artifacts_captured: number;
     new_candidate_claims: number;
+    new_proposed_contradictions?: number;
   };
 }
 
 export async function fetchInquiryResult(
   id: number,
 ): Promise<InquiryResultData> {
-  return apiFetch<InquiryResultData>(`/inquiries/${id}/result/`);
+  return epistemicFetch<InquiryResultData>(`/inquiries/${id}/result/`);
 }
