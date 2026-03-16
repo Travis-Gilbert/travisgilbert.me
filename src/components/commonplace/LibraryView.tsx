@@ -4,6 +4,7 @@ import { useMemo, useState } from 'react';
 import {
   fetchClusters,
   fetchFeed,
+  fetchGraph,
   fetchLineage,
   fetchProjects,
   fetchResurface,
@@ -156,8 +157,7 @@ const DEMO_CLUSTERS: ClusterResponse[] = [
 ];
 
 export default function LibraryView({ onOpenObject }: LibraryViewProps) {
-  const { captureVersion, openContextMenu, requestView } = useCommonPlace();
-  const [searchQuery, setSearchQuery] = useState('');
+  const { captureVersion, openContextMenu, requestView, openPalette } = useCommonPlace();
   const [activeType, setActiveType] = useState<string | null>(null);
   const [activeClusterKey, setActiveClusterKey] = useState<string | null>(null);
 
@@ -167,6 +167,7 @@ export default function LibraryView({ onOpenObject }: LibraryViewProps) {
   );
   const { data: resurfaceData } = useApiData(() => fetchResurface({ count: 3 }), []);
   const { data: clustersData } = useApiData(() => fetchClusters(), [captureVersion]);
+  const { data: graphData } = useApiData(() => fetchGraph(), [captureVersion]);
   const { data: projects } = useApiData(() => fetchProjects(), []);
 
   const firstSlug = nodes?.[0]?.objectSlug ?? '';
@@ -219,23 +220,10 @@ export default function LibraryView({ onOpenObject }: LibraryViewProps) {
       base = base.filter((node) => node.object_type_slug === activeType);
     }
 
-    if (searchQuery) {
-      const q = searchQuery.toLowerCase();
-      base = base.filter((node) => {
-        const typeLabel = getObjectTypeIdentity(node.object_type_slug).label.toLowerCase();
-        return [
-          node.title,
-          node.display_title ?? '',
-          node.body ?? '',
-          typeLabel,
-        ].some((field) => field.toLowerCase().includes(q));
-      });
-    }
-
     return base;
-  }, [activeCluster, activeType, allObjects, searchQuery]);
+  }, [activeCluster, activeType, allObjects]);
 
-  const isFiltering = searchQuery.trim().length > 0 || activeType !== null || activeCluster !== null;
+  const isFiltering = activeType !== null || activeCluster !== null;
   const lastEdited = allObjects[0] ?? null;
   const recentActivity = allObjects.slice(1, 4);
 
@@ -262,6 +250,44 @@ export default function LibraryView({ onOpenObject }: LibraryViewProps) {
     [projects],
   );
   const clusterCount = clustersData?.length ?? 0;
+
+  // Compute edges per cluster from graph data for ClusterGraphWindow
+  const clusterEdgesMap = useMemo(() => {
+    const map = new Map<string, Array<{ from: number; to: number }>>();
+    if (!graphData?.links) return map;
+
+    for (const cluster of clusterItems) {
+      const key = clusterKeyFor(cluster);
+      const memberIds = new Set(cluster.members.map((m) => m.id));
+
+      const clusterEdges = graphData.links
+        .map((link) => {
+          const sourceId = typeof link.source === 'string'
+            ? parseInt(link.source.replace('object:', ''), 10)
+            : (link.source as { objectRef?: number }).objectRef ?? 0;
+          const targetId = typeof link.target === 'string'
+            ? parseInt(link.target.replace('object:', ''), 10)
+            : (link.target as { objectRef?: number }).objectRef ?? 0;
+          return { from: sourceId, to: targetId };
+        })
+        .filter((e) => memberIds.has(e.from) && memberIds.has(e.to));
+
+      map.set(key, clusterEdges);
+    }
+    return map;
+  }, [graphData, clusterItems]);
+
+  // Map objectId -> cluster color for chain node indicators
+  const objectClusterColorMap = useMemo(() => {
+    const map = new Map<number, string>();
+    for (const cluster of clusterItems) {
+      const color = cluster.color || getObjectTypeIdentity(cluster.type).color;
+      for (const member of cluster.members) {
+        map.set(member.id, color);
+      }
+    }
+    return map;
+  }, [clusterItems]);
 
   return (
     <div style={{ flex: 1, overflow: 'auto', padding: '24px 28px 48px' }}>
@@ -304,37 +330,73 @@ export default function LibraryView({ onOpenObject }: LibraryViewProps) {
           </p>
         </div>
 
-        <button
-          type="button"
-          onClick={() => requestView('resurface', 'Resurface')}
-          style={{
-            border: '1px solid var(--cp-red-line)',
-            background: 'var(--cp-red-soft)',
-            color: 'var(--cp-red)',
-            borderRadius: 5,
-            padding: '6px 14px',
-            display: 'inline-flex',
-            alignItems: 'center',
-            gap: 5,
-            fontFamily: 'var(--cp-font-mono)',
-            fontSize: 10,
-            fontWeight: 700,
-            letterSpacing: '0.04em',
-            textTransform: 'uppercase',
-            cursor: 'pointer',
-          }}
-        >
-          <span
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <button
+            type="button"
+            onClick={() => openPalette()}
             style={{
-              width: 6,
-              height: 6,
-              borderRadius: '50%',
-              background: 'var(--cp-red)',
-              flexShrink: 0,
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: 8,
+              padding: '4px 8px',
+              cursor: 'pointer',
+              background: 'transparent',
+              border: 'none',
             }}
-          />
-          Resurface
-        </button>
+          >
+            <svg width={16} height={16} viewBox="0 0 24 24" fill="none" aria-hidden="true">
+              <circle cx={11} cy={11} r={7} stroke="var(--cp-chrome-muted)" strokeWidth={1.5} />
+              <path d="M20 20l-3-3" stroke="var(--cp-chrome-muted)" strokeWidth={1.5} strokeLinecap="round" />
+            </svg>
+            <span style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: 2,
+              padding: '3px 6px',
+              borderRadius: 4,
+              background: 'var(--cp-chrome-raise)',
+              border: '1px solid var(--cp-chrome-line)',
+              fontFamily: 'var(--cp-font-mono)',
+              fontSize: 10,
+              fontWeight: 500,
+              color: 'var(--cp-chrome-muted)',
+            }}>
+              {'\u2318'}K
+            </span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => requestView('resurface', 'Resurface')}
+            style={{
+              border: '1px solid var(--cp-red-line)',
+              background: 'var(--cp-red-soft)',
+              color: 'var(--cp-red)',
+              borderRadius: 5,
+              padding: '6px 14px',
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: 5,
+              fontFamily: 'var(--cp-font-mono)',
+              fontSize: 10,
+              fontWeight: 700,
+              letterSpacing: '0.04em',
+              textTransform: 'uppercase',
+              cursor: 'pointer',
+            }}
+          >
+            <span
+              style={{
+                width: 6,
+                height: 6,
+                borderRadius: '50%',
+                background: 'var(--cp-red)',
+                flexShrink: 0,
+              }}
+            />
+            Resurface
+          </button>
+        </div>
       </div>
 
       {usingOfflinePreview && (
@@ -364,58 +426,13 @@ export default function LibraryView({ onOpenObject }: LibraryViewProps) {
         <LineageSwimlane
           nodes={feedNodes.slice(0, 6)}
           lineageData={lineageData}
+          clusterColorMap={objectClusterColorMap}
           onOpenObject={onOpenObject}
           onContextMenu={(e, object) => openContextMenu(e.clientX, e.clientY, object)}
         />
       )}
 
       <div>
-        <div
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: 8,
-              padding: '8px 14px',
-              background: 'var(--cp-surface)',
-              border: '1px solid var(--cp-border)',
-              borderRadius: 6,
-              boxShadow: 'none',
-              marginBottom: 12,
-              marginTop: 12,
-            }}
-          >
-          <svg width={14} height={14} viewBox="0 0 24 24" fill="none" aria-hidden="true">
-            <circle cx={11} cy={11} r={7} stroke="var(--cp-text-faint)" strokeWidth={2} />
-            <path d="M20 20l-3-3" stroke="var(--cp-text-faint)" strokeWidth={2} strokeLinecap="round" />
-          </svg>
-          <input
-          type="text"
-          value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
-          placeholder="Search objects, clusters, connections..."
-          style={{
-            width: '100%',
-            background: 'transparent',
-            border: 'none',
-            fontFamily: 'var(--cp-font-body)',
-            fontSize: 13,
-            color: 'var(--cp-text)',
-            outline: 'none',
-            boxSizing: 'border-box',
-          }}
-        />
-          <span
-            style={{
-              fontFamily: 'var(--cp-font-mono)',
-              fontSize: 9,
-              color: 'var(--cp-text-faint)',
-              whiteSpace: 'nowrap',
-            }}
-          >
-            {filteredNodes.length} results
-          </span>
-        </div>
-
         {types.length > 1 && (
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5, marginBottom: 20 }}>
             {activeCluster && (
@@ -562,25 +579,30 @@ export default function LibraryView({ onOpenObject }: LibraryViewProps) {
                   gap: 10,
                 }}
               >
-                {clusterItems.map((cluster) => (
-                  <ClusterCard
-                    key={clusterKeyFor(cluster)}
-                    clusterKey={clusterKeyFor(cluster)}
-                    label={cluster.label || getObjectTypeIdentity(cluster.type).label}
-                    color={cluster.color}
-                    summary={buildClusterSummary(cluster.members)}
-                    memberCount={cluster.count}
-                    members={cluster.members.map((member) =>
-                      renderableFromClusterMember(member, cluster.type),
-                    )}
-                    selected={activeClusterKey === clusterKeyFor(cluster)}
-                    onSelectCluster={(clusterKey) =>
-                      setActiveClusterKey((prev) => (prev === clusterKey ? null : clusterKey))
-                    }
-                    onOpenObject={handleObjectClick}
-                    onContextMenu={(e, object) => openContextMenu(e.clientX, e.clientY, object)}
-                  />
-                ))}
+                {clusterItems.map((cluster) => {
+                  const key = clusterKeyFor(cluster);
+                  return (
+                    <div key={key}>
+                      <ClusterCard
+                        clusterKey={key}
+                        label={cluster.label || getObjectTypeIdentity(cluster.type).label}
+                        color={cluster.color}
+                        summary={buildClusterSummary(cluster.members)}
+                        memberCount={cluster.count}
+                        members={cluster.members.map((member) =>
+                          renderableFromClusterMember(member, cluster.type),
+                        )}
+                        edges={clusterEdgesMap.get(key)}
+                        selected={activeClusterKey === key}
+                        onSelectCluster={(clusterKey) =>
+                          setActiveClusterKey((prev) => (prev === clusterKey ? null : clusterKey))
+                        }
+                        onOpenObject={handleObjectClick}
+                        onContextMenu={(e, object) => openContextMenu(e.clientX, e.clientY, object)}
+                      />
+                    </div>
+                  );
+                })}
               </div>
             </div>
 

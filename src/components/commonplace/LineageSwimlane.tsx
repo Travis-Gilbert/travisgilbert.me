@@ -7,6 +7,7 @@ import { renderableFromMockNode } from './objectRenderables';
 interface LineageSwimlaneProps {
   nodes: MockNode[];
   lineageData?: LineageResponse | null;
+  clusterColorMap?: Map<number, string>;
   onOpenObject?: (objectRef: number) => void;
   onContextMenu?: (e: React.MouseEvent, obj: RenderableObject) => void;
 }
@@ -35,6 +36,7 @@ function ChainArrow() {
 export default function LineageSwimlane({
   nodes,
   lineageData,
+  clusterColorMap,
   onOpenObject,
   onContextMenu,
 }: LineageSwimlaneProps) {
@@ -100,30 +102,50 @@ export default function LineageSwimlane({
           How recent captures are cohering into a thread
         </span>
       </div>
-      <div
-        style={{
-          display: 'flex',
-          alignItems: 'stretch',
-          overflowX: 'auto',
-          paddingBottom: 4,
-          scrollbarWidth: 'none',
-        }}
-      >
-        {chain.map((node, i) => (
-          <div
-            key={`${node.slug}-${node.id}`}
-            style={{ display: 'flex', alignItems: 'center', flexShrink: 0 }}
-          >
-            <ObjectRenderer
-              object={node}
-              compact
-              variant="chain"
-              onClick={(obj) => onOpenObject?.(obj.id)}
-              onContextMenu={onContextMenu}
-            />
-            {i < chain.length - 1 && <ChainArrow />}
-          </div>
-        ))}
+      <div style={{ position: 'relative' }}>
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'stretch',
+            overflowX: 'auto',
+            paddingBottom: 4,
+            paddingRight: 56,
+            scrollbarWidth: 'none',
+          }}
+        >
+          {chain.map((node, i) => {
+            const clusterColor = clusterColorMap?.get(node.id);
+            return (
+              <div
+                key={`${node.slug}-${node.id}`}
+                style={{ display: 'flex', alignItems: 'center', flexShrink: 0 }}
+              >
+                <div style={{ position: 'relative' }}>
+                  <ObjectRenderer
+                    object={node}
+                    compact
+                    variant="chain"
+                    onClick={(obj) => onOpenObject?.(obj.id)}
+                    onContextMenu={onContextMenu}
+                  />
+                  {clusterColor && (
+                    <div style={{
+                      position: 'absolute', bottom: 0, left: 4, right: 4, height: 2,
+                      borderRadius: 1, background: clusterColor, opacity: 0.3,
+                    }} />
+                  )}
+                </div>
+                {i < chain.length - 1 && <ChainArrow />}
+              </div>
+            );
+          })}
+        </div>
+        {/* Right fade overlay */}
+        <div style={{
+          position: 'absolute', right: 0, top: 0, bottom: 0, width: 56, zIndex: 2,
+          background: 'linear-gradient(270deg, var(--cp-bg), transparent)',
+          pointerEvents: 'none',
+        }} />
       </div>
     </div>
   );
