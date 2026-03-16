@@ -91,33 +91,16 @@ export function createCapturedObject(opts: {
   sourceUrl?: string;
   /** Binary file for server-side extraction (PDF, image) */
   file?: File;
-  /**
-   * Scraped page title from Firecrawl URL preview.
-   * When present the local object title shows the real page title
-   * instead of the raw domain string, and it is passed to Django
-   * on sync so the API skips its own title enrichment pass.
-   */
-  scrapedTitle?: string;
-  /**
-   * Full page body as Markdown from Firecrawl URL preview.
-   * When present it is passed to Django as the Object body on sync
-   * so the Object is immediately rich without backend polling.
-   */
-  scrapedBody?: string;
 }): CapturedObject {
-  const { text, captureMethod, sourceUrl, file, scrapedTitle, scrapedBody } = opts;
+  const { text, captureMethod, sourceUrl, file } = opts;
   const trimmed = text.trim();
   const objectType = opts.objectType ?? inferObjectType(trimmed);
 
-  /* Title priority: scraped title > domain > first ~60 chars */
-  let title: string;
-  if (scrapedTitle) {
-    title = scrapedTitle.slice(0, 120);
-  } else if (sourceUrl || isUrl(trimmed)) {
+  /* Title: domain for URLs, first ~60 chars for text */
+  let title = trimmed.slice(0, 60);
+  if (sourceUrl || isUrl(trimmed)) {
     const url = sourceUrl ?? extractUrls(trimmed)[0] ?? trimmed;
     title = domainFromUrl(url);
-  } else {
-    title = trimmed.slice(0, 60);
   }
 
   return {
@@ -130,8 +113,6 @@ export function createCapturedObject(opts: {
     status: 'local',
     sourceUrl: sourceUrl ?? (isUrl(trimmed) ? extractUrls(trimmed)[0] : undefined),
     file,
-    scrapedTitle,
-    scrapedBody,
   };
 }
 
