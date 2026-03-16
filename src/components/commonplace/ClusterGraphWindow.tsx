@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import { getObjectTypeIdentity } from '@/lib/commonplace';
 import { type RenderableObject } from './objects/ObjectRenderer';
 
@@ -23,6 +23,15 @@ export default function ClusterGraphWindow({
   height: heightOverride,
 }: ClusterGraphWindowProps) {
   const height = heightOverride ?? Math.max(80, members.length * 22);
+  const [zoom, setZoom] = useState(1.1);
+
+  const handleWheel = useCallback((e: React.WheelEvent) => {
+    e.preventDefault();
+    setZoom((prev) => {
+      const next = prev + (e.deltaY < 0 ? 0.15 : -0.15);
+      return Math.max(0.5, Math.min(next, 3));
+    });
+  }, []);
 
   const layout = useMemo(() => {
     const memberSet = new Set(members.map((m) => m.id));
@@ -114,14 +123,20 @@ export default function ClusterGraphWindow({
     WebkitMaskImage: 'radial-gradient(ellipse at center, transparent 0%, black 50%)',
   };
 
+  // Zoom adjusts the viewBox: smaller viewBox = zoomed in, centered on graph center
+  const vbW = 2.5 / zoom;
+  const vbH = 1 / zoom;
+  const vbX = 1.25 - vbW / 2;
+  const vbY = 0.5 - vbH / 2;
+
   return (
-    <div style={bgStyle}>
+    <div style={bgStyle} onWheel={handleWheel}>
       <svg
         width="100%"
         height="100%"
-        viewBox="0 0 2.5 1"
+        viewBox={`${vbX} ${vbY} ${vbW} ${vbH}`}
         preserveAspectRatio="xMidYMid meet"
-        style={{ position: 'absolute', inset: 0 }}
+        style={{ position: 'absolute', inset: 0, cursor: zoom > 1 ? 'zoom-out' : 'zoom-in' }}
       >
         {/* Edges */}
         {layout.lines.map((line, i) => (
@@ -162,11 +177,12 @@ export default function ClusterGraphWindow({
               {/* Label */}
               <text
                 x={node.x}
-                y={node.y + r + 0.025}
+                y={node.y + r + 0.035}
                 textAnchor="middle"
                 fill="var(--cp-text-muted)"
-                fontSize={0.032}
+                fontSize={0.06}
                 fontFamily="var(--cp-font-mono)"
+                fontWeight={600}
                 style={{ pointerEvents: 'none' }}
               >
                 {node.label}

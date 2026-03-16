@@ -97,6 +97,7 @@ export default function ClusterCard({
         overflow: 'hidden',
         display: 'flex',
         flexDirection: 'column',
+        width: '100%',
         background: 'var(--cp-card)',
         border: selected ? `1px solid ${accentColor}` : `1px solid ${borderTone}`,
         borderRadius: 7,
@@ -120,7 +121,7 @@ export default function ClusterCard({
       />
 
       {/* 3. Title + description on vellum surface */}
-      <div style={{ padding: '8px 10px' }}>
+      <div style={{ padding: '8px 10px', flex: 1 }}>
         <div
           style={{
             fontFamily: 'var(--cp-font-title)',

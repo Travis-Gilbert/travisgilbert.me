@@ -227,15 +227,26 @@ export default function LibraryView({ onOpenObject }: LibraryViewProps) {
   const lastEdited = allObjects[0] ?? null;
   const recentActivity = allObjects.slice(1, 4);
 
-  const resurfaceRenderables = useMemo<RenderableObject[]>(
-    () => {
-      if (resurfaceData?.cards?.length) {
-        return resurfaceData.cards.map(renderableFromResurfaceCard);
-      }
-      return DEMO_LIBRARY_NODES.slice(1, 4).map(renderableFromMockNode);
-    },
-    [resurfaceData],
-  );
+  const resurfacePills = useMemo(() => {
+    const cards = resurfaceData?.cards?.length
+      ? resurfaceData.cards
+      : null;
+
+    if (!cards) {
+      // Demo fallback: create fake resurface pill data from demo nodes
+      return DEMO_LIBRARY_NODES.slice(1, 4).map((node) => ({
+        renderable: renderableFromMockNode(node),
+        signal_label: 'fading connection',
+        object: { slug: node.objectSlug || String(node.objectRef) },
+      }));
+    }
+
+    return cards.map((card) => ({
+      renderable: renderableFromResurfaceCard(card),
+      signal_label: card.signal_label || card.signal.replace(/_/g, ' '),
+      object: { slug: card.object.slug },
+    }));
+  }, [resurfaceData]);
 
   const reminderProjects = useMemo(
     () =>
@@ -288,6 +299,17 @@ export default function LibraryView({ onOpenObject }: LibraryViewProps) {
     }
     return map;
   }, [clusterItems]);
+
+  // Objects not belonging to any cluster
+  const unclusteredObjects = useMemo(() => {
+    const clusteredIds = new Set<number>();
+    for (const cluster of clusterItems) {
+      for (const member of cluster.members) {
+        clusteredIds.add(member.id);
+      }
+    }
+    return allObjects.filter((obj) => !clusteredIds.has(obj.id));
+  }, [allObjects, clusterItems]);
 
   return (
     <div style={{ flex: 1, overflow: 'auto', padding: '24px 28px 48px' }}>
@@ -549,7 +571,7 @@ export default function LibraryView({ onOpenObject }: LibraryViewProps) {
           </div>
         ) : (
           <>
-            <div style={{ marginBottom: 28 }}>
+            <div style={{ marginBottom: 24 }}>
               <div
                 style={{
                   display: 'flex',
@@ -582,7 +604,7 @@ export default function LibraryView({ onOpenObject }: LibraryViewProps) {
                 {clusterItems.map((cluster) => {
                   const key = clusterKeyFor(cluster);
                   return (
-                    <div key={key}>
+                    <div key={key} style={{ display: 'flex' }}>
                       <ClusterCard
                         clusterKey={key}
                         label={cluster.label || getObjectTypeIdentity(cluster.type).label}
@@ -606,8 +628,126 @@ export default function LibraryView({ onOpenObject }: LibraryViewProps) {
               </div>
             </div>
 
+            {unclusteredObjects.length > 0 && (
+              <div style={{ marginBottom: 24 }}>
+                <div
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 8,
+                    marginBottom: 10,
+                  }}
+                >
+                  <span
+                    style={{
+                      fontFamily: 'var(--cp-font-mono)',
+                      fontSize: 9,
+                      fontWeight: 700,
+                      color: 'var(--cp-text-faint)',
+                      letterSpacing: '0.1em',
+                      textTransform: 'uppercase',
+                    }}
+                  >
+                    Not yet clustered
+                  </span>
+                  <div style={{ flex: 1, height: 1, background: 'var(--cp-border)' }} />
+                  <span
+                    style={{
+                      fontFamily: 'var(--cp-font-mono)',
+                      fontSize: 9,
+                      color: 'var(--cp-text-faint)',
+                    }}
+                  >
+                    {unclusteredObjects.length}
+                  </span>
+                </div>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+                  {unclusteredObjects.map((obj) => {
+                    const identity = getObjectTypeIdentity(obj.object_type_slug);
+                    const isPill = obj.object_type_slug === 'concept' || obj.object_type_slug === 'person';
+                    return (
+                      <button
+                        key={obj.slug}
+                        type="button"
+                        onClick={() => handleObjectClick(obj)}
+                        onContextMenu={(e) => openContextMenu(e.clientX, e.clientY, obj)}
+                        style={{
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: 6,
+                          padding: '5px 12px 5px 8px',
+                          borderRadius: isPill ? 100 : 6,
+                          border: `1px solid ${identity.color}20`,
+                          background: `${identity.color}06`,
+                          cursor: 'pointer',
+                          fontFamily: 'var(--cp-font-body)',
+                          fontSize: 12,
+                          fontWeight: 500,
+                          color: 'var(--cp-text)',
+                          maxWidth: 260,
+                        }}
+                      >
+                        <span style={{
+                          width: 6,
+                          height: 6,
+                          borderRadius: '50%',
+                          background: identity.color,
+                          flexShrink: 0,
+                        }} />
+                        <span style={{
+                          overflow: 'hidden',
+                          textOverflow: 'ellipsis',
+                          whiteSpace: 'nowrap',
+                        }}>
+                          {obj.display_title ?? obj.title}
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
+            {resurfacePills.length > 0 && (
+              <div style={{ marginBottom: 24 }}>
+                <div
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 8,
+                    marginBottom: 10,
+                  }}
+                >
+                  <span
+                    style={{
+                      fontFamily: 'var(--cp-font-mono)',
+                      fontSize: 9,
+                      fontWeight: 700,
+                      color: 'var(--cp-red)',
+                      letterSpacing: '0.1em',
+                      textTransform: 'uppercase',
+                    }}
+                  >
+                    Resurfaced
+                  </span>
+                  <div style={{ flex: 1, height: 1, background: 'var(--cp-red-line)' }} />
+                </div>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+                  {resurfacePills.map((card) => (
+                    <ResurfacedPill
+                      key={card.object.slug}
+                      object={card.renderable}
+                      signal={card.signal_label}
+                      onClick={handleObjectClick}
+                      onContextMenu={(e, obj) => openContextMenu(e.clientX, e.clientY, obj)}
+                    />
+                  ))}
+                </div>
+              </div>
+            )}
+
             {reminderProjects.length > 0 && (
-              <div style={{ marginBottom: 28 }}>
+              <div style={{ marginBottom: 24 }}>
                 <div
                   style={{
                     display: 'flex',
@@ -675,113 +815,130 @@ export default function LibraryView({ onOpenObject }: LibraryViewProps) {
                 </div>
               </div>
             )}
-
-            <div>
-              <div
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: 8,
-                  marginBottom: 10,
-                }}
-              >
-                <span
-                  style={{
-                  fontFamily: 'var(--cp-font-mono)',
-                  fontSize: 9,
-                  fontWeight: 700,
-                  color: 'var(--cp-text-faint)',
-                  letterSpacing: '0.1em',
-                  textTransform: 'uppercase',
-                }}
-              >
-                  All Objects
-                </span>
-                <div style={{ flex: 1, height: 1, background: 'var(--cp-border)' }} />
-                <span
-                  style={{
-                    fontFamily: 'var(--cp-font-mono)',
-                    fontSize: 9,
-                    color: 'var(--cp-text-faint)',
-                  }}
-                >
-                  {allObjects.length}
-                </span>
-              </div>
-              <div
-                style={{
-                  display: 'grid',
-                  gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))',
-                  gap: 8,
-                }}
-              >
-                {allObjects.map((obj) => (
-                  <div key={obj.slug}>
-                    <ObjectRenderer
-                      object={obj}
-                      variant="module"
-                      onClick={handleObjectClick}
-                      onContextMenu={(e, object) => openContextMenu(e.clientX, e.clientY, object)}
-                    />
-                    {obj.explanation && (
-                      <div style={{
-                        fontFamily: 'var(--cp-font-mono)',
-                        fontSize: 10,
-                        color: 'var(--cp-red)',
-                        padding: '4px 0',
-                        borderTop: '1px dashed var(--cp-red-line)',
-                        marginTop: 3,
-                        lineHeight: 1.5,
-                      }}>
-                        {obj.explanation}
-                      </div>
-                    )}
-                  </div>
-                ))}
-              </div>
-            </div>
           </>
         )}
-
-      {resurfaceRenderables.length > 0 && !isFiltering && (
-        <div style={{ marginTop: 28 }}>
-          <div
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: 8,
-              marginBottom: 10,
-            }}
-          >
-            <span
-              style={{
-                fontFamily: 'var(--cp-font-mono)',
-                fontSize: 9,
-                fontWeight: 700,
-                color: 'var(--cp-chrome-muted)',
-                letterSpacing: '0.1em',
-                textTransform: 'uppercase',
-              }}
-            >
-              Resurface
-            </span>
-            <div style={{ flex: 1, height: 1, background: 'var(--cp-border)' }} />
-          </div>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-            {resurfaceRenderables.map((obj) => (
-              <ObjectRenderer
-                key={obj.slug}
-                object={obj}
-                compact
-                variant="module"
-                onClick={handleObjectClick}
-                onContextMenu={(e, object) => openContextMenu(e.clientX, e.clientY, object)}
-              />
-            ))}
-          </div>
-        </div>
-      )}
       </div>
     </div>
+  );
+}
+
+function ResurfacedPill({
+  object,
+  signal,
+  onClick,
+  onContextMenu,
+}: {
+  object: RenderableObject;
+  signal: string;
+  onClick?: (obj: RenderableObject) => void;
+  onContextMenu?: (e: React.MouseEvent, obj: RenderableObject) => void;
+}) {
+  const identity = getObjectTypeIdentity(object.object_type_slug);
+  return (
+    <button
+      type="button"
+      onClick={() => onClick?.(object)}
+      onContextMenu={(e) => onContextMenu?.(e, object)}
+      style={{
+        display: 'inline-flex',
+        alignItems: 'center',
+        gap: 8,
+        padding: '6px 14px 6px 10px',
+        borderRadius: 100,
+        border: '1px solid var(--cp-red-line)',
+        background: 'var(--cp-red-soft)',
+        maxWidth: 320,
+        cursor: 'pointer',
+        textAlign: 'left',
+      }}
+    >
+      <MiniConnectionGraph
+        edgeCount={object.edge_count ?? 0}
+        color={identity.color}
+        size={22}
+      />
+      <div style={{ minWidth: 0 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+          <span style={{
+            width: 5,
+            height: 5,
+            borderRadius: '50%',
+            background: identity.color,
+            flexShrink: 0,
+          }} />
+          <span style={{
+            fontFamily: 'var(--cp-font-body)',
+            fontSize: 12,
+            fontWeight: 600,
+            color: 'var(--cp-text)',
+            overflow: 'hidden',
+            textOverflow: 'ellipsis',
+            whiteSpace: 'nowrap',
+          }}>
+            {object.display_title ?? object.title}
+          </span>
+        </div>
+        <div style={{
+          fontFamily: 'var(--cp-font-mono)',
+          fontSize: 8,
+          color: 'var(--cp-red)',
+          marginTop: 1,
+          letterSpacing: '0.04em',
+        }}>
+          {signal}
+        </div>
+      </div>
+    </button>
+  );
+}
+
+function MiniConnectionGraph({
+  edgeCount,
+  color,
+  size = 22,
+}: {
+  edgeCount: number;
+  color: string;
+  size?: number;
+}) {
+  if (edgeCount < 1) return null;
+
+  const cx = size / 2;
+  const cy = size / 2;
+  const centerR = 2.5;
+  const outerR = size / 2 - 2;
+  const nodeR = 1.5;
+  const count = Math.min(edgeCount, 6);
+
+  return (
+    <svg
+      width={size}
+      height={size}
+      viewBox={`0 0 ${size} ${size}`}
+      fill="none"
+      aria-hidden="true"
+      style={{ flexShrink: 0 }}
+    >
+      {Array.from({ length: count }, (_, i) => {
+        const angle = (2 * Math.PI * i) / count - Math.PI / 2;
+        const nx = cx + Math.cos(angle) * outerR;
+        const ny = cy + Math.sin(angle) * outerR;
+        return (
+          <g key={i}>
+            <line
+              x1={cx}
+              y1={cy}
+              x2={nx}
+              y2={ny}
+              stroke={color}
+              strokeOpacity={0.25}
+              strokeWidth={0.5}
+            />
+            <circle cx={nx} cy={ny} r={nodeR} fill={color} opacity={0.5} />
+          </g>
+        );
+      })}
+      <circle cx={cx} cy={cy} r={centerR} fill={color} />
+    </svg>
   );
 }
