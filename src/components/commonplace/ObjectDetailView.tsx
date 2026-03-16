@@ -22,6 +22,7 @@ import { getObjectTypeIdentity } from '@/lib/commonplace';
 import type { ApiObjectDetail, ApiNodeListItem } from '@/lib/commonplace';
 import ComponentList from './ComponentList';
 import ConnectionList from './ConnectionList';
+import ReadingPane from './ReadingPane';
 
 interface ObjectDetailViewProps {
   objectRef: number;
@@ -158,31 +159,11 @@ export default function ObjectDetailView({
         <h2 className="cp-detail-title">{detail.display_title || detail.title}</h2>
       </div>
 
-      {/* ── Body text ── */}
-      {detail.body && (
-        <div className="cp-detail-body">
-          <p>{detail.body}</p>
-        </div>
-      )}
-
-      {/* ── URL + OG metadata ── */}
-      {detail.url && (
-        <div className="cp-detail-url">
-          <a href={detail.url} target="_blank" rel="noopener noreferrer">
-            {detail.url.length > 70 ? detail.url.slice(0, 67) + '...' : detail.url}
-          </a>
-          {(detail.og_title || detail.og_description) && (
-            <div className="cp-detail-og">
-              {detail.og_title && (
-                <span className="cp-detail-og-title">{detail.og_title}</span>
-              )}
-              {detail.og_description && (
-                <span className="cp-detail-og-desc">{detail.og_description}</span>
-              )}
-            </div>
-          )}
-        </div>
-      )}
+      {/* ── Reading pane: body, provenance, metadata, entities, tags ── */}
+      <ReadingPane
+        detail={detail}
+        onEntityClick={(text) => onOpenObject?.(0, text)}
+      />
 
       {/* ── Components (typed properties) ── */}
       <ComponentList components={detail.components} />

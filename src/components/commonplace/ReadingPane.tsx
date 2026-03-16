@@ -1,388 +1,26 @@
 'use client';
 
 /**
- * ReadingPane: type-aware reading surface for the Overview tab.
+ * ReadingPane: type-aware reading surface for CommonPlace objects.
  *
- * Replaces the raw `<p>{detail.body}</p>` in ObjectDrawer/ObjectDetailView
- * with a structured reading experience:
+ * Renders markdown body, provenance cards (sources), terminal blocks (scripts),
+ * metadata grids (PDFs / files), entity chips in a margin rail, tags, a reading
+ * progress bar, and footer statistics. Layout and typography are handled by
+ * reading-pane.css using --cp-* design tokens.
  *
- *   1. Reading progress bar (sticky, 2px, red pencil fill)
- *   2. Provenance card for Source objects with OG metadata
- *   3. Metadata grid for PDFs/files (author, pages, publisher)
- *   4. Markdown rendering for body text (remark + remark-gfm + remark-html)
- *   5. TerminalBlock for Script objects (code body on dark surface)
- *   6. Entity chips in the right margin, positioned alongside relevant paragraphs
- *   7. Word count + read time + entity/connection counts at the footer
- *   8. Tag pills from the tag components
- *
- * The reading column is capped at 560px for comfortable line lengths.
- * Entity chips float in a 110px margin to the right when space permits,
- * otherwise they collapse into an inline row above the body.
+ * Note: dangerouslySetInnerHTML is used to render remark-processed markdown.
+ * The content originates from the user's own stored body text, processed
+ * through remark (which strips raw HTML by default with remarkHtml).
  */
 
-import { useMemo, useRef, useState, useEffect, useCallback } from 'react';
-import type {
-  ApiObjectDetail,
-  ApiComponent,
-  ApiEdgeCompact,
-} from '@/lib/commonplace';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import type { ApiObjectDetail, ApiComponent } from '@/lib/commonplace';
+import { remark } from 'remark';
+import remarkGfm from 'remark-gfm';
+import remarkHtml from 'remark-html';
 
 /* ─────────────────────────────────────────────────
-   Markdown rendering via remark (already in deps)
-   ───────────────────────────────────────────────── */
-
-let remarkProcessor: ((md: string) => string) | null = null;
-
-async function loadRemark() {
-  if (remarkProcessor) return remarkProcessor;
-  try {
-    const { remark } = await import('remark');
-    const remarkGfm = (await import('remark-gfm')).default;
-    const remarkHtml = (await import('remark-html')).default;
-    const processor = remark().use(remarkGfm).use(remarkHtml, { sanitize: false });
-    remarkProcessor = (md: string) => {
-      const file = processor.processSync(md);
-      return String(file);
-    };
-    return remarkProcessor;
-  } catch {
-    // Fallback: wrap paragraphs in <p> tags
-    return (md: string) =>
-      md
-        .split(/\n\n+/)
-        .map((p) => `<p>${p.replace(/\n/g, '<br>')}</p>`)
-        .join('');
-  }
-}
-
-/* ─────────────────────────────────────────────────
-   Entity extraction from components
-   ───────────────────────────────────────────────── */
-
-interface EntityChip {
-  text: string;
-  kind: 'PERSON' | 'ORG' | 'PLACE' | 'CONCEPT' | 'EVENT' | 'ENTITY';
-  color: string;
-}
-
-const ENTITY_COLORS: Record<string, string> = {
-  PERSON: '#C4503C',
-  ORG: '#1A7A8A',
-  PLACE: '#2E8A3E',
-  CONCEPT: '#7050A0',
-  EVENT: '#3858B8',
-  ENTITY: '#68666E',
-};
-
-const ENTITY_KEYWORDS = ['person', 'people', 'place', 'location', 'org', 'company', 'entity', 'geo'];
-
-function extractEntities(components: ApiComponent[]): EntityChip[] {
-  const chips: EntityChip[] = [];
-  for (const comp of components) {
-    const lower = comp.component_type_name.toLowerCase();
-    if (!ENTITY_KEYWORDS.some((k) => lower.includes(k))) continue;
-
-    let kind: EntityChip['kind'] = 'ENTITY';
-    if (lower.includes('person') || lower.includes('people')) kind = 'PERSON';
-    else if (lower.includes('org') || lower.includes('company')) kind = 'ORG';
-    else if (lower.includes('place') || lower.includes('location') || lower.includes('geo')) kind = 'PLACE';
-
-    const value = typeof comp.value === 'string' ? comp.value : String(comp.value || '');
-    if (value.trim()) {
-      chips.push({
-        text: value.trim(),
-        kind,
-        color: ENTITY_COLORS[kind] || ENTITY_COLORS.ENTITY,
-      });
-    }
-  }
-  return chips;
-}
-
-/* ─────────────────────────────────────────────────
-   Tag extraction from components
-   ───────────────────────────────────────────────── */
-
-function extractTags(components: ApiComponent[]): string[] {
-  const tagComps = components.filter(
-    (c) => c.key === 'tags' || c.component_type_name.toLowerCase() === 'tags',
-  );
-  const tags: string[] = [];
-  for (const comp of tagComps) {
-    const val = typeof comp.value === 'string' ? comp.value : '';
-    try {
-      const parsed = JSON.parse(val);
-      if (Array.isArray(parsed)) {
-        tags.push(...parsed.map(String));
-        continue;
-      }
-    } catch {
-      // not JSON
-    }
-    tags.push(
-      ...val
-        .split(',')
-        .map((s) => s.trim())
-        .filter(Boolean),
-    );
-  }
-  return tags;
-}
-
-/* ─────────────────────────────────────────────────
-   Word count and read time
-   ───────────────────────────────────────────────── */
-
-function computeReadingStats(text: string) {
-  const words = text.split(/\s+/).filter(Boolean).length;
-  const minutes = Math.max(1, Math.ceil(words / 250));
-  return { words, minutes };
-}
-
-/* ─────────────────────────────────────────────────
-   Metadata extraction for files/PDFs
-   ───────────────────────────────────────────────── */
-
-interface MetaItem {
-  label: string;
-  value: string;
-}
-
-function extractMetadata(detail: ApiObjectDetail): MetaItem[] {
-  const items: MetaItem[] = [];
-  const props = detail.properties || {};
-
-  const fieldMap: Record<string, string> = {
-    author: 'Author',
-    authors: 'Authors',
-    publisher: 'Publisher',
-    isbn: 'ISBN',
-    pages: 'Pages',
-    year: 'Year',
-    language: 'Language',
-    file_type: 'File Type',
-    file_size: 'Size',
-  };
-
-  for (const [key, label] of Object.entries(fieldMap)) {
-    const val = props[key];
-    if (val) items.push({ label, value: String(val) });
-  }
-
-  // Also check components for file-section metadata
-  for (const comp of detail.components) {
-    if (comp.key === 'extracted_sections' || comp.data_type === 'file') {
-      continue; // Skip file sections (rendered separately)
-    }
-    if (comp.component_type_name.toLowerCase().includes('metadata')) {
-      const val = typeof comp.value === 'string' ? comp.value : JSON.stringify(comp.value);
-      items.push({ label: comp.key, value: val });
-    }
-  }
-
-  return items;
-}
-
-/* ─────────────────────────────────────────────────
-   Reading progress hook
-   ───────────────────────────────────────────────── */
-
-function useReadingProgress(ref: React.RefObject<HTMLElement | null>) {
-  const [progress, setProgress] = useState(0);
-
-  useEffect(() => {
-    const el = ref.current;
-    if (!el) return;
-
-    function handleScroll() {
-      if (!el) return;
-      const scrollTop = el.scrollTop;
-      const scrollHeight = el.scrollHeight - el.clientHeight;
-      if (scrollHeight <= 0) {
-        setProgress(100);
-        return;
-      }
-      setProgress(Math.round((scrollTop / scrollHeight) * 100));
-    }
-
-    el.addEventListener('scroll', handleScroll, { passive: true });
-    handleScroll();
-    return () => el.removeEventListener('scroll', handleScroll);
-  }, [ref]);
-
-  return progress;
-}
-
-/* ─────────────────────────────────────────────────
-   Section rule component
-   ───────────────────────────────────────────────── */
-
-function SectionRule({ label }: { label: string }) {
-  return (
-    <div
-      style={{
-        display: 'flex',
-        alignItems: 'center',
-        gap: 8,
-        margin: '20px 0 16px',
-      }}
-    >
-      <span
-        style={{
-          fontFamily: 'var(--cp-font-mono)',
-          fontSize: 9,
-          letterSpacing: '0.06em',
-          color: 'var(--cp-text-faint)',
-          textTransform: 'uppercase' as const,
-          flexShrink: 0,
-        }}
-      >
-        {label}
-      </span>
-      <span
-        style={{
-          flex: 1,
-          height: 1,
-          background: 'var(--cp-red-line, rgba(196,80,60,0.22))',
-        }}
-      />
-    </div>
-  );
-}
-
-/* ─────────────────────────────────────────────────
-   Entity margin component
-   ───────────────────────────────────────────────── */
-
-function EntityMargin({
-  entities,
-  inline = false,
-  onEntityClick,
-}: {
-  entities: EntityChip[];
-  inline?: boolean;
-  onEntityClick?: (text: string) => void;
-}) {
-  if (entities.length === 0) return null;
-
-  if (inline) {
-    return (
-      <div
-        style={{
-          display: 'flex',
-          flexWrap: 'wrap',
-          gap: 4,
-          marginBottom: 12,
-        }}
-      >
-        {entities.map((e, i) => (
-          <button
-            key={`${e.text}-${i}`}
-            type="button"
-            onClick={() => onEntityClick?.(e.text)}
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: 4,
-              padding: '3px 8px',
-              borderRadius: 3,
-              background: `${e.color}0D`,
-              border: '1px solid transparent',
-              fontFamily: 'var(--cp-font-mono)',
-              fontSize: 8,
-              letterSpacing: '0.04em',
-              cursor: 'pointer',
-              transition: 'border-color 150ms',
-            }}
-          >
-            <span
-              style={{
-                width: 5,
-                height: 5,
-                borderRadius: '50%',
-                background: e.color,
-                flexShrink: 0,
-              }}
-            />
-            <span style={{ color: e.color, fontWeight: 600 }}>{e.kind}</span>
-            <span
-              style={{
-                color: 'var(--cp-text-muted, #78767E)',
-                maxWidth: 80,
-                overflow: 'hidden',
-                textOverflow: 'ellipsis',
-                whiteSpace: 'nowrap' as const,
-              }}
-            >
-              {e.text}
-            </span>
-          </button>
-        ))}
-      </div>
-    );
-  }
-
-  return (
-    <div
-      className="cp-reading-entity-margin"
-      style={{
-        position: 'absolute',
-        right: -120,
-        top: 0,
-        width: 110,
-      }}
-    >
-      {entities.map((e, i) => (
-        <button
-          key={`${e.text}-${i}`}
-          type="button"
-          onClick={() => onEntityClick?.(e.text)}
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: 4,
-            padding: '3px 8px',
-            borderRadius: 3,
-            background: `${e.color}0D`,
-            border: '1px solid transparent',
-            marginBottom: 4,
-            fontFamily: 'var(--cp-font-mono)',
-            fontSize: 8,
-            letterSpacing: '0.04em',
-            cursor: 'pointer',
-            transition: 'border-color 150ms',
-            width: '100%',
-          }}
-        >
-          <span
-            style={{
-              width: 5,
-              height: 5,
-              borderRadius: '50%',
-              background: e.color,
-              flexShrink: 0,
-            }}
-          />
-          <span style={{ color: e.color, fontWeight: 600 }}>{e.kind}</span>
-          <span
-            style={{
-              color: 'var(--cp-text-muted, #78767E)',
-              overflow: 'hidden',
-              textOverflow: 'ellipsis',
-              whiteSpace: 'nowrap' as const,
-              flex: 1,
-            }}
-          >
-            {e.text}
-          </span>
-        </button>
-      ))}
-    </div>
-  );
-}
-
-/* ─────────────────────────────────────────────────
-   Main ReadingPane component
+   Props
    ───────────────────────────────────────────────── */
 
 interface ReadingPaneProps {
@@ -390,335 +28,308 @@ interface ReadingPaneProps {
   onEntityClick?: (text: string) => void;
 }
 
+/* ─────────────────────────────────────────────────
+   Helpers
+   ───────────────────────────────────────────────── */
+
+/** Parse markdown body to HTML string via remark pipeline. */
+function markdownToHtml(md: string): string {
+  const file = remark().use(remarkGfm).use(remarkHtml).processSync(md);
+  return String(file);
+}
+
+/** Count words in a plain text string (strip markdown roughly). */
+function wordCount(text: string): number {
+  const stripped = text
+    .replace(/```[\s\S]*?```/g, ' ')
+    .replace(/[#*_~`>\[\]()!|]/g, ' ');
+  return stripped.split(/\s+/).filter(Boolean).length;
+}
+
+/** Estimate reading time (minutes) at 238 wpm. */
+function readTime(words: number): string {
+  const minutes = Math.max(1, Math.round(words / 238));
+  return `${minutes} min`;
+}
+
+/** Extract the site name from a URL string. */
+function siteName(url: string): string {
+  try {
+    const host = new URL(url).hostname.replace(/^www\./, '');
+    return host;
+  } catch {
+    return '';
+  }
+}
+
+/** Check if a component is an entity chip (person, place, org, entity). */
+function isEntity(c: ApiComponent): boolean {
+  const name = c.component_type_name.toLowerCase();
+  return (
+    name.includes('person') ||
+    name.includes('place') ||
+    name.includes('org') ||
+    name.includes('entity')
+  );
+}
+
+/** Check if a component is a tag. */
+function isTag(c: ApiComponent): boolean {
+  return c.component_type_name.toLowerCase().includes('tag');
+}
+
+/** Check if a component is a "property" (metadata) -- not an entity or tag. */
+function isProperty(c: ApiComponent): boolean {
+  return !isEntity(c) && !isTag(c);
+}
+
+/** Parse a comma/semicolon-separated tag value into individual tags. */
+function parseTags(value: string): string[] {
+  return value
+    .split(/[,;]/)
+    .map((t) => t.trim())
+    .filter(Boolean);
+}
+
+/* ─────────────────────────────────────────────────
+   Feature flags per object type slug
+   ───────────────────────────────────────────────── */
+
+interface TypeFeatures {
+  provenance: boolean;
+  terminal: boolean;
+  metadataGrid: boolean;
+  margin: boolean;
+}
+
+function typeFeatures(slug: string, detail: ApiObjectDetail): TypeFeatures {
+  const hasOg = !!(detail.og_title || detail.og_description);
+  const hasProps = detail.components.some(isProperty);
+
+  switch (slug) {
+    case 'source':
+      return { provenance: hasOg, terminal: false, metadataGrid: hasProps, margin: true };
+    case 'script':
+      return { provenance: false, terminal: true, metadataGrid: hasProps, margin: false };
+    case 'note':
+      return { provenance: false, terminal: false, metadataGrid: false, margin: true };
+    case 'person':
+      return { provenance: false, terminal: false, metadataGrid: hasProps, margin: true };
+    case 'concept':
+      return { provenance: false, terminal: false, metadataGrid: false, margin: true };
+    default:
+      return { provenance: false, terminal: false, metadataGrid: hasProps, margin: true };
+  }
+}
+
+/* ─────────────────────────────────────────────────
+   Component
+   ───────────────────────────────────────────────── */
+
 export default function ReadingPane({ detail, onEntityClick }: ReadingPaneProps) {
-  const scrollRef = useRef<HTMLDivElement>(null);
-  const progress = useReadingProgress(scrollRef);
-  const [bodyHtml, setBodyHtml] = useState<string>('');
-  const [containerWidth, setContainerWidth] = useState(800);
+  const slug = detail.object_type_data.slug;
+  const features = useMemo(() => typeFeatures(slug, detail), [slug, detail]);
+
+  /* ── Markdown body ── */
+  const bodyHtml = useMemo(() => markdownToHtml(detail.body || ''), [detail.body]);
+  const words = useMemo(() => wordCount(detail.body || ''), [detail.body]);
+  const showProgress = words > 100;
+
+  /* ── Components breakdown ── */
+  const entityComponents = useMemo(
+    () => detail.components.filter(isEntity),
+    [detail.components],
+  );
+  const tagComponents = useMemo(
+    () => detail.components.filter(isTag),
+    [detail.components],
+  );
+  const propertyComponents = useMemo(
+    () => detail.components.filter(isProperty),
+    [detail.components],
+  );
+  const allTags = useMemo(
+    () => tagComponents.flatMap((tc) => parseTags(tc.value)),
+    [tagComponents],
+  );
+
+  /* ── Reading progress ── */
+  const [progress, setProgress] = useState(0);
   const containerRef = useRef<HTMLDivElement>(null);
 
-  const typeSlug = detail.object_type_data?.slug ?? 'note';
-  const typeColor = detail.object_type_data?.color ?? '#68666E';
-  const typeName = detail.object_type_data?.name ?? 'Note';
-
-  const entities = useMemo(() => extractEntities(detail.components), [detail.components]);
-  const tags = useMemo(() => extractTags(detail.components), [detail.components]);
-  const metadata = useMemo(() => extractMetadata(detail), [detail]);
-  const stats = useMemo(() => computeReadingStats(detail.body || ''), [detail.body]);
-  const isCode = typeSlug === 'script';
-  const isSource = typeSlug === 'source';
-  const hasOg = isSource && (detail.og_title || detail.og_description);
-  const showMarginEntities = containerWidth > 700 && entities.length > 0;
-
-  // Parse markdown body
-  useEffect(() => {
-    if (!detail.body || isCode) {
-      setBodyHtml('');
-      return;
-    }
-    loadRemark().then((parse) => {
-      setBodyHtml(parse(detail.body || ''));
-    });
-  }, [detail.body, isCode]);
-
-  // Measure container width for entity margin responsiveness
-  useEffect(() => {
+  const handleScroll = useCallback(() => {
     const el = containerRef.current;
     if (!el) return;
-    const observer = new ResizeObserver((entries) => {
-      for (const entry of entries) {
-        setContainerWidth(entry.contentRect.width);
-      }
-    });
-    observer.observe(el);
-    return () => observer.disconnect();
+
+    // Walk up to the nearest scrollable ancestor
+    let scrollParent: HTMLElement | null = el.parentElement;
+    while (scrollParent && scrollParent.scrollHeight <= scrollParent.clientHeight) {
+      scrollParent = scrollParent.parentElement;
+    }
+    if (!scrollParent) return;
+
+    const rect = el.getBoundingClientRect();
+    const parentRect = scrollParent.getBoundingClientRect();
+
+    // How far the container top has scrolled above the viewport vs total scrollable height
+    const scrolled = parentRect.top - rect.top;
+    const total = el.scrollHeight - scrollParent.clientHeight;
+    if (total <= 0) {
+      setProgress(100);
+      return;
+    }
+    const pct = Math.min(100, Math.max(0, (scrolled / total) * 100));
+    setProgress(pct);
   }, []);
 
-  const edgeCount = detail.edges?.length ?? 0;
-  const entityCount = entities.length;
+  useEffect(() => {
+    if (!showProgress) return;
+
+    const el = containerRef.current;
+    if (!el) return;
+
+    let scrollParent: HTMLElement | null = el.parentElement;
+    while (scrollParent && scrollParent.scrollHeight <= scrollParent.clientHeight) {
+      scrollParent = scrollParent.parentElement;
+    }
+    if (!scrollParent) return;
+
+    scrollParent.addEventListener('scroll', handleScroll, { passive: true });
+    handleScroll(); // initial measurement
+
+    return () => {
+      scrollParent!.removeEventListener('scroll', handleScroll);
+    };
+  }, [showProgress, handleScroll]);
+
+  /* ── Render ── */
 
   return (
-    <div
-      ref={containerRef}
-      style={{ position: 'relative', height: '100%', display: 'flex', flexDirection: 'column' }}
-    >
-      {/* Reading progress bar */}
-      {stats.words > 100 && (
-        <div
-          style={{
-            position: 'sticky',
-            top: 0,
-            left: 0,
-            right: 0,
-            height: 2,
-            background: 'var(--cp-border-faint, #F0EEEA)',
-            zIndex: 10,
-            flexShrink: 0,
-          }}
-        >
+    <div className="rp-container" ref={containerRef}>
+      {/* Progress bar */}
+      {showProgress && (
+        <div className="rp-progress-track">
           <div
-            style={{
-              height: '100%',
-              background: 'var(--cp-red, #C4503C)',
-              width: `${progress}%`,
-              borderRadius: '0 1px 1px 0',
-              transition: 'width 200ms ease-out',
-            }}
+            className="rp-progress-fill"
+            style={{ width: `${progress}%` }}
           />
         </div>
       )}
 
-      <div
-        ref={scrollRef}
-        className="cp-scrollbar"
-        style={{
-          flex: 1,
-          overflowY: 'auto',
-          padding: '24px 28px 32px',
-          background: 'var(--cp-surface, #FEFEFE)',
-        }}
-      >
-        {/* ── Provenance card (Source objects with OG data) ── */}
-        {hasOg && (
-          <div
-            style={{
-              margin: '0 0 24px',
-              padding: '12px 14px',
-              borderRadius: 4,
-              borderLeft: `3px solid ${typeColor}`,
-              background: `${typeColor}0D`,
-            }}
-          >
-            {detail.og_site_name && (
-              <div
-                style={{
-                  fontFamily: 'var(--cp-font-mono)',
-                  fontSize: 9,
-                  fontWeight: 600,
-                  letterSpacing: '0.06em',
-                  textTransform: 'uppercase' as const,
-                  color: typeColor,
-                  marginBottom: 4,
-                }}
-              >
-                {detail.og_site_name}
-              </div>
-            )}
-            {detail.og_title && (
-              <div
-                style={{
-                  fontSize: 14,
-                  fontWeight: 500,
-                  color: 'var(--cp-text, #18181B)',
-                  lineHeight: 1.4,
-                  marginBottom: 4,
-                }}
-              >
-                {detail.og_title}
-              </div>
-            )}
-            {detail.og_description && (
-              <div
-                style={{
-                  fontSize: 12,
-                  color: 'var(--cp-text-secondary, #48464E)',
-                  lineHeight: 1.5,
-                }}
-              >
-                {detail.og_description}
-              </div>
-            )}
-            {detail.url && (
-              <a
-                href={detail.url}
-                target="_blank"
-                rel="noopener noreferrer"
-                style={{
-                  display: 'block',
-                  fontFamily: 'var(--cp-font-mono)',
-                  fontSize: 9,
-                  color: 'var(--cp-text-faint, #A8A6AE)',
-                  marginTop: 6,
-                  textDecoration: 'none',
-                }}
-              >
-                {detail.url.length > 60 ? detail.url.slice(0, 57) + '...' : detail.url}
-              </a>
-            )}
-          </div>
-        )}
+      <div className="rp-layout">
+        {/* Main reading column */}
+        <div className="rp-column">
+          {/* Provenance card (sources with OG data) */}
+          {features.provenance && (
+            <div className="rp-provenance">
+              {detail.url && (
+                <div className="rp-provenance-site">{siteName(detail.url)}</div>
+              )}
+              {detail.og_title && (
+                <div className="rp-provenance-title">{detail.og_title}</div>
+              )}
+              {detail.og_description && (
+                <div className="rp-provenance-desc">{detail.og_description}</div>
+              )}
+            </div>
+          )}
 
-        {/* ── Metadata grid (for files/PDFs with structured metadata) ── */}
-        {metadata.length > 0 && (
-          <div
-            style={{
-              display: 'grid',
-              gridTemplateColumns: metadata.length > 2 ? '1fr 1fr' : '1fr',
-              gap: '6px 16px',
-              marginBottom: 20,
-              padding: '10px 14px',
-              background: 'var(--cp-bg-secondary, #F4F3F0)',
-              borderRadius: 4,
-            }}
-          >
-            {metadata.map((m, i) => (
-              <div key={`${m.label}-${i}`}>
-                <div
-                  style={{
-                    fontFamily: 'var(--cp-font-mono)',
-                    fontSize: 9,
-                    color: 'var(--cp-text-faint, #A8A6AE)',
-                    letterSpacing: '0.04em',
-                  }}
-                >
-                  {m.label}
-                </div>
-                <div
-                  style={{
-                    fontFamily: 'var(--cp-font-body)',
-                    fontSize: 12,
-                    color: 'var(--cp-text-secondary, #48464E)',
-                  }}
-                >
-                  {m.value}
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
+          {/* Metadata grid */}
+          {features.metadataGrid && propertyComponents.length > 0 && (
+            <div className="rp-metadata-grid">
+              {propertyComponents.map((c) => (
+                <MetadataRow key={c.id} label={c.key} value={c.value} />
+              ))}
+            </div>
+          )}
 
-        {/* ── Section rule ── */}
-        {detail.body && <SectionRule label={isCode ? 'Code' : 'Body'} />}
-
-        {/* ── Inline entity chips (narrow containers) ── */}
-        {!showMarginEntities && entities.length > 0 && (
-          <EntityMargin entities={entities} inline onEntityClick={onEntityClick} />
-        )}
-
-        {/* ── Body content ── */}
-        {detail.body && (
-          <div style={{ position: 'relative', maxWidth: 560 }}>
-            {/* Margin entity chips (wide containers) */}
-            {showMarginEntities && (
-              <EntityMargin entities={entities} onEntityClick={onEntityClick} />
-            )}
-
-            {isCode ? (
-              /* Code objects: TerminalBlock-style dark surface */
+          {/* Terminal block (scripts) */}
+          {features.terminal ? (
+            <div className="rp-terminal">
+              <code>{detail.body}</code>
+            </div>
+          ) : (
+            /* Markdown body */
+            detail.body && (
               <div
-                style={{
-                  background: 'var(--cp-term, #1A1C22)',
-                  border: '1px solid var(--cp-term-border, #2A2C32)',
-                  borderRadius: 4,
-                  padding: '12px 14px',
-                  overflowX: 'auto',
-                }}
-              >
-                <pre
-                  style={{
-                    margin: 0,
-                    fontFamily: 'var(--cp-font-mono)',
-                    fontSize: 11,
-                    color: 'var(--cp-term-text, #C0C8D8)',
-                    lineHeight: 1.6,
-                    whiteSpace: 'pre-wrap',
-                    wordBreak: 'break-word',
-                  }}
-                >
-                  {detail.body}
-                </pre>
-              </div>
-            ) : bodyHtml ? (
-              /* Markdown-rendered body */
-              <div
-                className="cp-reading-body"
+                className="rp-body"
+                // Content is user-owned markdown processed through remark
+                // (remarkHtml does not pass through raw HTML by default)
                 dangerouslySetInnerHTML={{ __html: bodyHtml }}
               />
-            ) : (
-              /* Fallback: plain text with paragraph breaks */
-              <div className="cp-reading-body">
-                {detail.body.split(/\n\n+/).map((para, i) => (
-                  <p key={i}>{para}</p>
-                ))}
-              </div>
-            )}
-          </div>
-        )}
+            )
+          )}
 
-        {/* ── URL (for non-source objects that have one) ── */}
-        {detail.url && !hasOg && (
-          <div style={{ marginTop: 16 }}>
-            <a
-              href={detail.url}
-              target="_blank"
-              rel="noopener noreferrer"
-              style={{
-                fontFamily: 'var(--cp-font-mono)',
-                fontSize: 11,
-                color: 'var(--cp-source, #1A7A8A)',
-                textDecoration: 'none',
-                borderBottom: '1px solid rgba(26,122,138,0.25)',
-              }}
-            >
-              {detail.url.length > 70 ? detail.url.slice(0, 67) + '...' : detail.url}
-            </a>
-          </div>
-        )}
+          {/* Tags */}
+          {allTags.length > 0 && (
+            <div className="rp-tags-row">
+              {allTags.map((tag, i) => (
+                <span key={`${tag}-${i}`} className="rp-tag">
+                  {tag}
+                </span>
+              ))}
+            </div>
+          )}
+        </div>
 
-        {/* ── Footer: stats + tags ── */}
-        {(stats.words > 10 || tags.length > 0) && (
-          <div
-            style={{
-              marginTop: 24,
-              paddingTop: 12,
-              borderTop: '1px solid var(--cp-border-faint, #F0EEEA)',
-            }}
-          >
-            {stats.words > 10 && (
-              <div
-                style={{
-                  fontFamily: 'var(--cp-font-mono)',
-                  fontSize: 9,
-                  color: 'var(--cp-text-faint, #A8A6AE)',
-                }}
+        {/* Entity margin rail */}
+        {features.margin && entityComponents.length > 0 && (
+          <aside className="rp-margin">
+            {entityComponents.map((ec) => (
+              <button
+                key={ec.id}
+                type="button"
+                className="rp-entity-chip"
+                onClick={() => onEntityClick?.(ec.value)}
+                title={`${ec.component_type_name}: ${ec.value}`}
               >
-                ~{stats.words} words · {stats.minutes} min read
-                {entityCount > 0 && ` · ${entityCount} entities extracted`}
-                {edgeCount > 0 && ` · ${edgeCount} connections`}
-              </div>
-            )}
-
-            {tags.length > 0 && (
-              <div
-                style={{
-                  display: 'flex',
-                  flexWrap: 'wrap',
-                  gap: 4,
-                  marginTop: 8,
-                }}
-              >
-                {tags.map((tag, i) => (
-                  <span
-                    key={`${tag}-${i}`}
-                    style={{
-                      fontFamily: 'var(--cp-font-mono)',
-                      fontSize: 9,
-                      padding: '2px 8px',
-                      borderRadius: 10,
-                      border: '1px solid var(--cp-border, #E6E4E0)',
-                      color: 'var(--cp-text-muted, #78767E)',
-                      cursor: 'pointer',
-                      transition: 'all 150ms',
-                    }}
-                  >
-                    {tag}
-                  </span>
-                ))}
-              </div>
-            )}
-          </div>
+                {ec.value}
+              </button>
+            ))}
+          </aside>
         )}
       </div>
+
+      {/* Footer stats */}
+      <footer className="rp-footer">
+        <span className="rp-stat">
+          <span className="rp-stat-value">{words.toLocaleString()}</span>
+          <span className="rp-stat-label">words</span>
+        </span>
+        <span className="rp-stat">
+          <span className="rp-stat-value">{readTime(words)}</span>
+          <span className="rp-stat-label">read</span>
+        </span>
+        {entityComponents.length > 0 && (
+          <span className="rp-stat">
+            <span className="rp-stat-value">{entityComponents.length}</span>
+            <span className="rp-stat-label">
+              {entityComponents.length === 1 ? 'entity' : 'entities'}
+            </span>
+          </span>
+        )}
+        {detail.edges.length > 0 && (
+          <span className="rp-stat">
+            <span className="rp-stat-value">{detail.edges.length}</span>
+            <span className="rp-stat-label">
+              {detail.edges.length === 1 ? 'connection' : 'connections'}
+            </span>
+          </span>
+        )}
+      </footer>
     </div>
+  );
+}
+
+/* ─────────────────────────────────────────────────
+   Sub-components
+   ───────────────────────────────────────────────── */
+
+function MetadataRow({ label, value }: { label: string; value: string }) {
+  return (
+    <>
+      <div className="rp-metadata-key">{label}</div>
+      <div className="rp-metadata-val">{value}</div>
+    </>
   );
 }

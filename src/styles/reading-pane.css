@@ -1,180 +1,437 @@
 /* ─────────────────────────────────────────────────
-   ReadingPane: type-aware reading surface styles
-   
-   Import in layout or commonplace.css:
+   ReadingPane: type-aware reading surface for
+   CommonPlace objects. Uses --cp-* tokens from
+   commonplace.css (loaded by the layout).
+
+   Import this file from the consuming layout:
      @import './reading-pane.css';
-   
-   These styles scope to .cp-reading-body (the markdown
-   rendered body) and .cp-reading-entity-margin (the
-   floating entity chip column).
    ───────────────────────────────────────────────── */
+
+/* ── Container ── */
+
+.rp-container {
+  position: relative;
+  width: 100%;
+}
+
+/* ── Reading progress bar ── */
+
+.rp-progress-track {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  height: 2px;
+  background: var(--cp-border-faint);
+}
+
+.rp-progress-fill {
+  height: 100%;
+  background: var(--cp-red);
+  width: 0%;
+  transition: width 120ms ease-out;
+  will-change: width;
+}
+
+/* ── Layout: column + margin ── */
+
+.rp-layout {
+  display: flex;
+  flex-direction: row;
+  gap: 0;
+}
+
+.rp-column {
+  max-width: 560px;
+  width: 100%;
+  min-width: 0;
+}
+
+/* ── Provenance card (sources with OG data) ── */
+
+.rp-provenance {
+  border-left: 3px solid var(--cp-teal);
+  background: rgba(45, 95, 107, 0.05);
+  padding: 12px 14px;
+  border-radius: 0 6px 6px 0;
+  margin-bottom: 16px;
+}
+
+.rp-provenance-site {
+  font-family: var(--cp-font-mono);
+  font-weight: 500;
+  font-size: 10px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--cp-teal);
+  margin-bottom: 4px;
+}
+
+.rp-provenance-title {
+  font-family: var(--cp-font-body);
+  font-weight: 600;
+  font-size: 14px;
+  color: var(--cp-text);
+  line-height: 1.35;
+  margin-bottom: 4px;
+}
+
+.rp-provenance-desc {
+  font-family: var(--cp-font-body);
+  font-size: 12.5px;
+  color: var(--cp-text-muted);
+  line-height: 1.5;
+}
+
+/* ── Metadata grid (PDF / file properties) ── */
+
+.rp-metadata-grid {
+  display: grid;
+  grid-template-columns: minmax(90px, auto) 1fr;
+  gap: 0;
+  background: var(--cp-bg-secondary, var(--cp-surface-hover));
+  border: 1px solid var(--cp-border-faint);
+  border-radius: 6px;
+  overflow: hidden;
+  margin-bottom: 16px;
+  font-family: var(--cp-font-body);
+  font-size: 12.5px;
+}
+
+.rp-metadata-key {
+  padding: 6px 10px;
+  color: var(--cp-text-faint);
+  font-weight: 500;
+  border-bottom: 1px solid var(--cp-border-faint);
+  font-family: var(--cp-font-mono);
+  font-size: 11px;
+  letter-spacing: 0.02em;
+}
+
+.rp-metadata-val {
+  padding: 6px 10px;
+  color: var(--cp-text);
+  border-bottom: 1px solid var(--cp-border-faint);
+  word-break: break-word;
+}
+
+.rp-metadata-key:last-of-type,
+.rp-metadata-val:last-of-type {
+  border-bottom: none;
+}
+
+/* ── Terminal block (scripts) ── */
+
+.rp-terminal {
+  background: var(--cp-term);
+  border: 1px solid var(--cp-term-border);
+  color: var(--cp-term-text);
+  font-family: var(--cp-font-mono);
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 1.7;
+  border-radius: 6px;
+  padding: 16px;
+  overflow-x: auto;
+  margin-bottom: 16px;
+  white-space: pre-wrap;
+  word-break: break-all;
+  font-feature-settings: var(--cp-kern-mono);
+}
+
+.rp-terminal pre,
+.rp-terminal code {
+  font-family: inherit;
+  font-size: inherit;
+  font-weight: inherit;
+  color: inherit;
+  background: none;
+  margin: 0;
+  padding: 0;
+}
 
 /* ── Markdown body typography ── */
 
-.cp-reading-body {
-  font-family: var(--cp-font-body, 'Outfit', system-ui, sans-serif);
+.rp-body {
+  font-family: var(--cp-font-body);
   font-size: 15px;
-  color: var(--cp-text, #18181B);
   line-height: 1.75;
+  color: var(--cp-text);
+  text-wrap: pretty;
+  hanging-punctuation: first;
+  font-variant-numeric: oldstyle-nums;
+  hyphens: auto;
+  font-feature-settings: var(--cp-kern-body);
 }
 
-.cp-reading-body p {
-  margin: 0 0 1.25rem;
-}
-
-.cp-reading-body h1 {
+.rp-body h1 {
   font-size: 20px;
   font-weight: 600;
-  color: var(--cp-text, #18181B);
-  margin: 2rem 0 0.75rem;
   line-height: 1.3;
+  margin: 24px 0 12px;
+  color: var(--cp-text);
 }
 
-.cp-reading-body h2 {
+.rp-body h2 {
   font-size: 17px;
   font-weight: 600;
-  color: var(--cp-text, #18181B);
-  margin: 1.75rem 0 0.75rem;
-  line-height: 1.3;
+  line-height: 1.35;
+  margin: 20px 0 10px;
+  color: var(--cp-text);
 }
 
-.cp-reading-body h3 {
+.rp-body h3 {
   font-size: 15px;
   font-weight: 600;
-  color: var(--cp-text, #18181B);
-  margin: 1.5rem 0 0.5rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
   line-height: 1.4;
+  margin: 18px 0 8px;
+  color: var(--cp-text);
 }
 
-.cp-reading-body strong {
+.rp-body h4 {
+  font-size: 14px;
   font-weight: 600;
+  line-height: 1.4;
+  margin: 16px 0 8px;
+  color: var(--cp-text-muted);
 }
 
-.cp-reading-body em {
-  font-style: italic;
-  color: var(--cp-text-secondary, #48464E);
+.rp-body p {
+  margin: 0 0 14px;
 }
 
-.cp-reading-body a {
-  color: var(--cp-source, #1A7A8A);
-  text-decoration: none;
-  border-bottom: 1px solid rgba(26, 122, 138, 0.25);
-  transition: border-color 150ms;
-}
-
-.cp-reading-body a:hover {
-  border-bottom-color: var(--cp-source, #1A7A8A);
-}
-
-.cp-reading-body ul,
-.cp-reading-body ol {
-  margin: 0 0 1.25rem 1.25rem;
-  padding: 0;
-}
-
-.cp-reading-body li {
-  font-size: 15px;
-  line-height: 1.75;
-  margin-bottom: 0.25rem;
-}
-
-.cp-reading-body li::marker {
-  color: var(--cp-text-faint, #A8A6AE);
-}
-
-.cp-reading-body blockquote {
-  margin: 0 0 1.25rem;
-  padding: 8px 16px;
-  border-left: 3px solid var(--cp-red-line, rgba(196, 80, 60, 0.22));
-  color: var(--cp-text-secondary, #48464E);
-  font-style: italic;
-}
-
-.cp-reading-body blockquote p {
+.rp-body p:last-child {
   margin-bottom: 0;
 }
 
-.cp-reading-body code {
-  font-family: var(--cp-font-mono, 'JetBrains Mono', monospace);
-  font-size: 0.88em;
-  background: var(--cp-bg-secondary, #F4F3F0);
-  padding: 1px 5px;
+.rp-body blockquote {
+  border-left: 3px solid var(--cp-red-line);
+  padding-left: 16px;
+  margin: 14px 0;
+  font-style: italic;
+  color: var(--cp-text-muted);
+}
+
+.rp-body code {
+  background: var(--cp-bg-secondary, var(--cp-surface-hover));
+  padding: 2px 5px;
   border-radius: 3px;
-  color: var(--cp-text-secondary, #48464E);
+  font-family: var(--cp-font-mono);
+  font-size: 13px;
+  font-weight: 500;
 }
 
-.cp-reading-body pre {
-  margin: 0 0 1.25rem;
-  padding: 12px 14px;
-  background: var(--cp-term, #1A1C22);
-  border: 1px solid var(--cp-term-border, #2A2C32);
-  border-radius: 4px;
+.rp-body pre {
+  background: var(--cp-term);
+  border: 1px solid var(--cp-term-border);
+  color: var(--cp-term-text);
+  font-family: var(--cp-font-mono);
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 1.7;
+  border-radius: 6px;
+  padding: 14px 16px;
   overflow-x: auto;
+  margin: 14px 0;
 }
 
-.cp-reading-body pre code {
-  background: transparent;
+.rp-body pre code {
+  background: none;
   padding: 0;
   border-radius: 0;
-  color: var(--cp-term-text, #C0C8D8);
-  font-size: 11px;
-  line-height: 1.6;
+  font-size: inherit;
+  color: inherit;
 }
 
-.cp-reading-body hr {
+.rp-body ul,
+.rp-body ol {
+  margin: 12px 0;
+  padding-left: 24px;
+}
+
+.rp-body ul {
+  list-style-type: disc;
+  list-style-position: outside;
+}
+
+.rp-body ol {
+  list-style-type: decimal;
+  list-style-position: outside;
+}
+
+.rp-body li {
+  margin-bottom: 4px;
+}
+
+.rp-body li > ul,
+.rp-body li > ol {
+  margin-top: 4px;
+  margin-bottom: 4px;
+}
+
+.rp-body a {
+  color: var(--cp-teal);
+  text-decoration: none;
+}
+
+.rp-body a:hover {
+  text-decoration: underline;
+}
+
+.rp-body a:focus-visible {
+  outline: 2px solid var(--cp-teal);
+  outline-offset: 2px;
+  border-radius: 2px;
+}
+
+.rp-body hr {
   border: none;
-  height: 1px;
-  background: var(--cp-border-faint, #F0EEEA);
-  margin: 1.5rem 0;
+  border-top: 1px solid var(--cp-border-faint);
+  margin: 20px 0;
 }
 
-.cp-reading-body table {
-  width: 100%;
+/* GFM tables */
+
+.rp-body table {
   border-collapse: collapse;
-  margin: 0 0 1.25rem;
+  width: 100%;
+  margin: 14px 0;
   font-size: 13px;
 }
 
-.cp-reading-body th {
-  text-align: left;
+.rp-body th {
+  background: var(--cp-bg-secondary, var(--cp-surface-hover));
   font-weight: 600;
-  font-family: var(--cp-font-mono, 'JetBrains Mono', monospace);
-  font-size: 9px;
+  text-align: left;
+  padding: 6px 10px;
+  border: 1px solid var(--cp-border-faint);
+}
+
+.rp-body td {
+  padding: 6px 10px;
+  border: 1px solid var(--cp-border-faint);
+}
+
+/* ── Tags row ── */
+
+.rp-tags-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 16px;
+}
+
+.rp-tag {
+  font-family: var(--cp-font-mono);
+  font-weight: 500;
+  font-size: 10.5px;
   letter-spacing: 0.04em;
-  text-transform: uppercase;
-  color: var(--cp-text-faint, #A8A6AE);
-  padding: 6px 8px;
-  border-bottom: 1px solid var(--cp-border, #E6E4E0);
+  color: var(--cp-teal);
+  background: rgba(45, 95, 107, 0.08);
+  border: 1px solid rgba(45, 95, 107, 0.18);
+  border-radius: 12px;
+  padding: 3px 9px;
 }
 
-.cp-reading-body td {
-  padding: 6px 8px;
-  color: var(--cp-text, #18181B);
-  border-bottom: 1px solid var(--cp-border-faint, #F0EEEA);
+/* ── Entity margin / chips ── */
+
+.rp-margin {
+  width: 140px;
+  flex-shrink: 0;
+  padding-left: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  padding-top: 4px;
 }
 
-.cp-reading-body img {
+.rp-entity-chip {
+  font-family: var(--cp-font-mono);
+  font-weight: 500;
+  font-size: 11px;
+  letter-spacing: 0.02em;
+  color: var(--cp-text-muted);
+  border: 1px solid var(--cp-border);
+  border-radius: 3px;
+  padding: 2px 7px;
+  cursor: pointer;
+  background: transparent;
+  transition: background 100ms ease, border-color 100ms ease;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
   max-width: 100%;
-  height: auto;
-  border-radius: 4px;
-  margin: 0.5rem 0 1rem;
+  appearance: none;
+  text-align: left;
 }
 
-/* ── Entity margin: responsive ── */
-
-.cp-reading-entity-margin {
-  pointer-events: auto;
+.rp-entity-chip:hover {
+  background: var(--cp-bg-secondary, var(--cp-surface-hover));
+  border-color: var(--cp-text-faint);
 }
 
-/* Hide margin entities on narrow screens */
-@media (max-width: 720px) {
-  .cp-reading-entity-margin {
-    display: none;
+.rp-entity-chip:focus-visible {
+  outline: 2px solid var(--cp-teal);
+  outline-offset: 1px;
+}
+
+.rp-entity-chip:active {
+  background: var(--cp-border-faint);
+}
+
+/* ── Footer stats ── */
+
+.rp-footer {
+  border-top: 1px solid var(--cp-border-faint);
+  padding: 12px 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  font-family: var(--cp-font-mono);
+  font-weight: 500;
+  font-size: 11px;
+  color: var(--cp-text-faint);
+  letter-spacing: 0.02em;
+  margin-top: 20px;
+}
+
+.rp-stat {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.rp-stat-label {
+  color: var(--cp-text-faint);
+}
+
+.rp-stat-value {
+  color: var(--cp-text-muted);
+}
+
+/* ── Responsive: narrow / mobile ── */
+
+@media (max-width: 640px) {
+  .rp-layout {
+    flex-direction: column;
+  }
+
+  .rp-column {
+    max-width: 100%;
+  }
+
+  .rp-margin {
+    width: 100%;
+    padding-left: 0;
+    padding-top: 16px;
+    flex-direction: row;
+    flex-wrap: wrap;
+    border-top: 1px solid var(--cp-border-faint);
+    margin-top: 16px;
   }
 }
 
-/* ── Reading progress bar transition ── */
-
-.cp-reading-progress-fill {
-  transition: width 200ms ease-out;
-}
+/* Note: Import this file from the consuming layout, e.g.:
+   @import '../styles/reading-pane.css';
+   Do NOT import from commonplace.css. */

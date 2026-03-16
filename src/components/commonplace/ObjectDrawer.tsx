@@ -24,6 +24,7 @@ import type {
 import type { TiptapUpdatePayload } from '@/components/studio/TiptapEditor';
 import HunchSketch from './HunchSketch';
 import ObjectTasks from './ObjectTasks';
+import ReadingPane from './ReadingPane';
 
 const CommonPlaceEditor = dynamic(() => import('./CommonPlaceEditor'), { ssr: false });
 
@@ -898,60 +899,11 @@ export default function ObjectDrawer() {
                   {detail.object_type_data?.slug === 'hunch' && (
                     <HunchSketch objectId={detail.id} components={detail.components} />
                   )}
-                  {(manuscriptParagraphs.length > 0 || detail.url) && (
-                    <div className="cp-drawer-manuscript">
-                      {manuscriptParagraphs.map((para, pIdx) => (
-                        <Fragment key={pIdx}>
-                          <p>{para}</p>
-                          {manuscriptRules.has(pIdx) && (
-                            <ManuscriptRule
-                              label={manuscriptRules.get(pIdx)!.other_title}
-                              onNavigate={() => navigateToObject(manuscriptRules.get(pIdx)!.other_id)}
-                            />
-                          )}
-                        </Fragment>
-                      ))}
-                      {manuscriptParagraphs.length > 0 && detail.url && <ManuscriptRule />}
-                      {detail.url && (
-                        <div className="cp-drawer-url-card">
-                          <div className="cp-drawer-url-label">SOURCE</div>
-                          <a
-                            href={detail.url}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="cp-drawer-url-link"
-                          >
-                            {detail.url}
-                          </a>
-                          {(detail.og_title || detail.og_description) && (
-                            <div className="cp-drawer-og-preview">
-                              {detail.og_title && (
-                                <div className="cp-drawer-og-title">{detail.og_title}</div>
-                              )}
-                              {detail.og_description && (
-                                <div className="cp-drawer-og-desc">{detail.og_description}</div>
-                              )}
-                            </div>
-                          )}
-                        </div>
-                      )}
-                      <ManuscriptRule />
-                    </div>
-                  )}
 
-                  {regularComponents.length > 0 && (
-                    <div className="cp-drawer-components-grid">
-                      <SectionHead label="Components" />
-                      {regularComponents.map((comp) => (
-                        <div key={comp.id} className="cp-drawer-component-row">
-                          <span className="cp-drawer-component-key">
-                            {comp.key || comp.component_type_name}
-                          </span>
-                          <span className="cp-drawer-component-value">{comp.value}</span>
-                        </div>
-                      ))}
-                    </div>
-                  )}
+                  <ReadingPane
+                    detail={detail}
+                    onEntityClick={(text) => navigateToEntity(text)}
+                  />
 
                   <ObjectTasks
                     objectId={detail.id}
@@ -959,45 +911,7 @@ export default function ObjectDrawer() {
                     onComponentsChange={setLiveComponents}
                   />
 
-                  {tagComponents.length > 0 && (
-                    <div className="cp-drawer-tags-row">
-                      <SectionHead label="Tags" />
-                      {tagComponents
-                        .flatMap((tc) => parseTags(tc.value))
-                        .map((tag, i) => (
-                          <span key={`${tag}-${i}`} className="cp-drawer-tag">
-                            {tag}
-                          </span>
-                        ))}
-                    </div>
-                  )}
-
-                  {entityComponents.length > 0 && (
-                    <div className="cp-drawer-entity-row">
-                      <SectionHead label="Entities" />
-                      {entityComponents.map((ec) => {
-                        const kind = detectEntityKind(ec.component_type_name);
-                        return (
-                          <button
-                            key={ec.id}
-                            type="button"
-                            className={`cp-drawer-entity-chip cp-drawer-entity-chip--${kind}`}
-                            onClick={() => {
-                              void navigateToEntity(ec.value);
-                            }}
-                            title={`Open ${ec.value}`}
-                          >
-                            <span className="cp-drawer-entity-kind">
-                              {entityChipLabel(kind)}
-                            </span>
-                            {ec.value}
-                          </button>
-                        );
-                      })}
-                    </div>
-                  )}
-
-                  {!detail.body && !detail.url && regularComponents.length === 0 &&
+                  {!detail.body && !detail.url && detail.components.length === 0 &&
                     !liveComponents.some(isTaskComponent) && (
                     <div className="cp-drawer-empty">No content captured yet</div>
                   )}

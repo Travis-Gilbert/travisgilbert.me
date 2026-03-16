@@ -127,7 +127,7 @@ export default function InquiryBar({
         const progress = await fetchInquiryProgress(runningInquiry.id);
         setRunningInquiry(progress);
 
-        if (progress.status === 'completed') {
+        if (progress.status === 'succeeded') {
           const result = await fetchInquiryResult(progress.id);
           setInquiryResult(result);
           onInquiryComplete?.(result);

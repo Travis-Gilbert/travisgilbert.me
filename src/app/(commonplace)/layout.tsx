@@ -9,6 +9,7 @@ import ConnectionComposer from '@/components/commonplace/ConnectionComposer';
 import EngineTerminal from '@/components/commonplace/EngineTerminal';
 import { Toaster } from 'sonner';
 import '@/styles/commonplace.css';
+import '@/styles/reading-pane.css';
 
 export const metadata: Metadata = {
   title: {
