@@ -3980,6 +3980,37 @@
   transition: outline 150ms, background 150ms;
 }
 
+/* ── Signal pips (epistemic indicators on object cards) ── */
+
+.cp-signal-pips {
+  display: inline-flex;
+  gap: 4px;
+  align-items: center;
+  opacity: 0;
+  transition: opacity 150ms;
+}
+
+.cp-lego-card-wrapper:hover .cp-signal-pips,
+.cp-lego-card-wrapper:focus-within .cp-signal-pips {
+  opacity: 1;
+}
+
+.cp-signal-pip {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+/* ── Epistemic tag footer row ── */
+
+.cp-tag-footer {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 6px;
+}
+
 /* CSS columns masonry layout */
 .cp-masonry {
   columns: 3;
@@ -5630,6 +5661,15 @@
   letter-spacing: 0.15em;
   color: var(--cp-gold);
   text-transform: uppercase;
+}
+
+/* ─── Claim cards in Connections tab ─── */
+
+.cp-drawer-claim-card {
+  padding: 8px 10px;
+  border: 1px solid var(--cp-chrome-line, #35353C);
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.02);
 }
 
 /* ─── History: immutable record panel ─── */

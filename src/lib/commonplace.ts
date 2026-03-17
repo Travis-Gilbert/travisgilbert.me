@@ -80,6 +80,16 @@ export type ViewType =
   | 'artifacts'
   | 'empty';
 
+/* ─────────────────────────────────────────────────
+   Navigation model: Screens vs Views
+   Screens replace the entire content area.
+   Views open inside the split pane workspace.
+   ───────────────────────────────────────────────── */
+
+export type NavigationMode = 'screen' | 'view';
+
+export type ScreenType = 'library' | 'models' | 'notebooks' | 'projects' | 'engine' | 'settings';
+
 export interface ViewDefinition {
   type: ViewType;
   label: string;
@@ -131,9 +141,13 @@ export interface SidebarItem {
   /** If true, this is an expandable group with children */
   expandable?: boolean;
   children?: SidebarItem[];
-  /** If set, clicking this item opens a pane tab instead of navigating */
+  /** Navigation mode: 'screen' replaces content area, 'view' opens in pane workspace */
+  mode?: NavigationMode;
+  /** Screen target (when mode is 'screen') */
+  screenType?: ScreenType;
+  /** View target (when mode is 'view') */
   viewType?: ViewType;
-  /** Context to pass to the pane tab */
+  /** Context to pass to the view */
   viewContext?: Record<string, unknown>;
 }
 
@@ -147,24 +161,19 @@ export const SIDEBAR_SECTIONS: SidebarSection[] = [
   {
     title: '',
     items: [
-      { label: 'Library', href: '#library', icon: 'grid', viewType: 'library' as ViewType },
-      { label: 'Models', href: '#models', icon: 'model', viewType: 'model-view' as ViewType },
-      { label: 'Artifacts', href: '#artifacts', icon: 'document', viewType: 'artifacts' as ViewType },
-      { label: 'Compose', href: '#compose', icon: 'note-pencil', viewType: 'compose' as ViewType },
+      { label: 'Library', href: '#library', icon: 'grid', mode: 'screen', screenType: 'library' },
+      { label: 'Models', href: '#models', icon: 'model', mode: 'screen', screenType: 'models' },
+      { label: 'Artifacts', href: '#artifacts', icon: 'document', mode: 'view', viewType: 'artifacts' },
+      { label: 'Compose', href: '#compose', icon: 'note-pencil', mode: 'view', viewType: 'compose' },
     ],
   },
   {
     title: 'Views',
     items: [
-      { label: 'Timeline', href: '#timeline', icon: 'timeline', viewType: 'timeline' as ViewType },
-      {
-        label: 'Map',
-        href: '#networks',
-        icon: 'graph',
-        viewType: 'network' as ViewType,
-      },
-      { label: 'Calendar', href: '#calendar', icon: 'calendar', viewType: 'calendar' as ViewType },
-      { label: 'Loose Ends', href: '#loose-ends', icon: 'scatter', viewType: 'loose-ends' as ViewType },
+      { label: 'Timeline', href: '#timeline', icon: 'timeline', mode: 'view', viewType: 'timeline' },
+      { label: 'Map', href: '#networks', icon: 'graph', mode: 'view', viewType: 'network' },
+      { label: 'Calendar', href: '#calendar', icon: 'calendar', mode: 'view', viewType: 'calendar' },
+      { label: 'Loose Ends', href: '#loose-ends', icon: 'scatter', mode: 'view', viewType: 'loose-ends' },
     ],
   },
   {
@@ -174,15 +183,19 @@ export const SIDEBAR_SECTIONS: SidebarSection[] = [
         label: 'Notebooks',
         href: '/commonplace/notebooks',
         icon: 'book',
+        mode: 'screen',
+        screenType: 'notebooks',
         expandable: true,
         children: [
-          { label: 'Formation', href: '#notebook-formation', icon: 'book', viewType: 'notebook-formation' as ViewType },
+          { label: 'Formation', href: '#notebook-formation', icon: 'book', mode: 'view', viewType: 'notebook-formation' },
         ],
       },
       {
         label: 'Projects',
         href: '/commonplace/projects',
         icon: 'briefcase',
+        mode: 'screen',
+        screenType: 'projects',
         expandable: true,
         children: [],
       },
@@ -191,19 +204,19 @@ export const SIDEBAR_SECTIONS: SidebarSection[] = [
   {
     title: 'System',
     items: [
-      { label: 'Engine', href: '#engine', icon: 'engine', viewType: 'connection-engine' as ViewType },
-      { label: 'Review Queue', href: '#review', icon: 'check-list', viewType: 'promotion-queue' as ViewType },
+      { label: 'Engine', href: '#engine', icon: 'engine', mode: 'screen', screenType: 'engine' },
+      { label: 'Review Queue', href: '#review', icon: 'check-list', mode: 'view', viewType: 'promotion-queue' },
       {
         label: 'Self-organize',
         href: '#self-organize',
         icon: 'sparkle',
         expandable: true,
         children: [
-          { label: 'Emergent Types', href: '#emergent-types', icon: 'sparkle', viewType: 'emergent-types' as ViewType },
-          { label: 'Entity Promotions', href: '#entity-promotions', icon: 'person', viewType: 'entity-promotions' as ViewType },
+          { label: 'Emergent Types', href: '#emergent-types', icon: 'sparkle', mode: 'view', viewType: 'emergent-types' },
+          { label: 'Entity Promotions', href: '#entity-promotions', icon: 'person', mode: 'view', viewType: 'entity-promotions' },
         ],
       },
-      { label: 'Settings', href: '#settings', icon: 'gear', viewType: 'settings' as ViewType },
+      { label: 'Settings', href: '#settings', icon: 'gear', mode: 'screen', screenType: 'settings' },
     ],
   },
 ];
@@ -426,6 +439,26 @@ export interface ApiNodeListItem {
 }
 
 /** GET /objects/{slug}/ (ObjectDetailSerializer) */
+export interface ApiEvidenceLink {
+  id: number;
+  artifact_id: number | null;
+  relation_type: string;
+  confidence: number;
+  reason: string;
+  created_at: string;
+}
+
+export interface ApiObjectClaim {
+  id: number;
+  text: string;
+  claim_type: string;
+  polarity: string;
+  status: string;
+  confidence: number;
+  reviewed_at: string | null;
+  evidence_links: ApiEvidenceLink[];
+}
+
 export interface ApiObjectDetail {
   id: number;
   title: string;
@@ -443,6 +476,7 @@ export interface ApiObjectDetail {
   edges: ApiEdgeCompact[];
   components: ApiComponent[];
   recent_nodes: ApiNodeListItem[];
+  object_claims?: ApiObjectClaim[];
 }
 
 /** POST /capture/ response */
@@ -626,6 +660,18 @@ export interface ApiDailyLog {
    Fetch helpers (same pattern as networks.ts)
    ───────────────────────────────────────────────── */
 
+export interface TagSummaryPip {
+  type: 'evidence' | 'tension' | 'refuted' | 'candidate' | 'dormant';
+  count: number;
+}
+
+export interface TagSummary {
+  badge: 'proposed' | 'supported' | 'contested' | 'refuted' | 'superseded' | null;
+  badge_confirmed: boolean;
+  pips: TagSummaryPip[];
+  needs_review: boolean;
+}
+
 export interface ObjectListItem {
   id: number;
   title: string;
@@ -644,6 +690,7 @@ export interface ObjectListItem {
   capture_method: string;
   edge_count: number;
   pinned_objects?: PinnedBadgeObject[];
+  tag_summary?: TagSummary | null;
 }
 
 /** Object attached to a parent via a pinned edge (Lego composition). */

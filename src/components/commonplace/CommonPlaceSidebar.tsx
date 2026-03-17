@@ -34,6 +34,7 @@ import { toast } from 'sonner';
 import { SIDEBAR_SECTIONS } from '@/lib/commonplace';
 import type { CapturedObject, ViewType } from '@/lib/commonplace';
 import { syncCapture } from '@/lib/commonplace-capture';
+import { findLeafWithView } from '@/lib/commonplace-layout';
 import { useCommonPlace } from '@/lib/commonplace-context';
 import {
   fetchNotebooks,
@@ -69,7 +70,10 @@ export default function CommonPlaceSidebar() {
     notifyCaptured,
     mobileSidebarOpen,
     closeMobileSidebar,
-    requestView,
+    activeScreen,
+    layout,
+    launchView,
+    navigateToScreen,
     openDrawer,
     sidebarCollapsed,
     setSidebarCollapsed,
@@ -257,9 +261,9 @@ export default function CommonPlaceSidebar() {
                     label: child.label,
                     color: undefined as string | undefined,
                     icon: child.icon,
-                    onClick: () => {
+                    onClick: (e: React.MouseEvent) => {
                       if (child.viewType) {
-                        requestView(child.viewType, child.label);
+                        launchView(child.viewType, undefined, e.shiftKey);
                       }
                       closeDrawerIfMobile();
                     },
@@ -275,7 +279,7 @@ export default function CommonPlaceSidebar() {
                             color: nb.color as string | undefined,
                             icon: undefined as string | undefined,
                             onClick: () => {
-                              requestView('notebook', nb.name, { slug: nb.slug });
+                              launchView('notebook', { slug: nb.slug });
                               closeDrawerIfMobile();
                             },
                           })),
@@ -287,7 +291,7 @@ export default function CommonPlaceSidebar() {
                             color: undefined as string | undefined,
                             icon: undefined as string | undefined,
                             onClick: () => {
-                              requestView('project', pj.name, { slug: pj.slug });
+                              launchView('project', { slug: pj.slug });
                               closeDrawerIfMobile();
                             },
                         }))
@@ -303,14 +307,11 @@ export default function CommonPlaceSidebar() {
                         onClick={() => {
                           toggleGroup(item.label);
                           /* Parent click also opens the associated view */
-                          if (item.viewType) {
-                            requestView(item.viewType, item.label, item.viewContext);
+                          if (item.screenType) {
+                            navigateToScreen(item.screenType);
                             closeDrawerIfMobile();
-                          } else if (item.label === 'Notebooks') {
-                            requestView('notebook', 'Notebooks', { listMode: true });
-                            closeDrawerIfMobile();
-                          } else if (item.label === 'Projects') {
-                            requestView('project', 'Projects', { listMode: true });
+                          } else if (item.viewType) {
+                            launchView(item.viewType, item.viewContext);
                             closeDrawerIfMobile();
                           }
                         }}
@@ -379,15 +380,15 @@ export default function CommonPlaceSidebar() {
                 }
 
                 /* Items with viewType open pane tabs instead of navigating */
-                if (item.viewType) {
+                if (item.mode === 'screen' && item.screenType) {
                   return (
                     <button
                       key={item.href}
                       type="button"
                       className="cp-sidebar-item"
-                      data-active={isActive}
+                      data-active={isActive || activeScreen === item.screenType}
                       onClick={() => {
-                        requestView(item.viewType!, item.label);
+                        navigateToScreen(item.screenType!);
                         closeDrawerIfMobile();
                       }}
                       style={{
@@ -399,6 +400,44 @@ export default function CommonPlaceSidebar() {
                     >
                       <SidebarIcon name={item.icon} />
                       <span>{item.label}</span>
+                    </button>
+                  );
+                }
+
+                if (item.viewType) {
+                  const viewIsOpen = Boolean(findLeafWithView(layout, item.viewType));
+                  return (
+                    <button
+                      key={item.href}
+                      type="button"
+                      className="cp-sidebar-item"
+                      data-active={isActive || viewIsOpen}
+                      onClick={(e) => {
+                        launchView(item.viewType!, undefined, e.shiftKey);
+                        closeDrawerIfMobile();
+                      }}
+                      style={{
+                        width: '100%',
+                        border: 'none',
+                        background: 'transparent',
+                        textAlign: 'left',
+                      }}
+                    >
+                      <SidebarIcon name={item.icon} />
+                      <span>{item.label}</span>
+                      {viewIsOpen && (
+                        <span
+                          aria-hidden="true"
+                          style={{
+                            marginLeft: 'auto',
+                            width: 6,
+                            height: 6,
+                            borderRadius: '50%',
+                            backgroundColor: '#C4503C',
+                            flexShrink: 0,
+                          }}
+                        />
+                      )}
                     </button>
                   );
                 }
@@ -512,22 +551,22 @@ export default function CommonPlaceSidebar() {
   /* ── Collapsed 48px icon rail (desktop, compose mode) ── */
   if (!isMobile && sidebarCollapsed) {
     const railItems: Array<
-      | { key: string; icon: string; label: string; onClick: () => void }
+      | { key: string; icon: string; label: string; onClick: (e: React.MouseEvent) => void }
       | { key: string; divider: true }
     > = [
-      { key: 'library', icon: 'grid', label: 'Library', onClick: () => requestView('library', 'Library') },
-      { key: 'models', icon: 'model', label: 'Models', onClick: () => requestView('model-view', 'Models') },
-      { key: 'compose', icon: 'note-pencil', label: 'Compose', onClick: () => requestView('compose', 'Compose') },
-      { key: 'timeline', icon: 'timeline', label: 'Timeline', onClick: () => requestView('timeline', 'Timeline') },
-      { key: 'map', icon: 'graph', label: 'Map', onClick: () => requestView('network', 'Map') },
-      { key: 'calendar', icon: 'calendar', label: 'Calendar', onClick: () => requestView('calendar', 'Calendar') },
-      { key: 'loose-ends', icon: 'scatter', label: 'Loose Ends', onClick: () => requestView('loose-ends', 'Loose Ends') },
+      { key: 'library', icon: 'grid', label: 'Library', onClick: () => navigateToScreen('library') },
+      { key: 'models', icon: 'model', label: 'Models', onClick: () => navigateToScreen('models') },
+      { key: 'compose', icon: 'note-pencil', label: 'Compose', onClick: (e) => launchView('compose', undefined, e.shiftKey) },
+      { key: 'timeline', icon: 'timeline', label: 'Timeline', onClick: (e) => launchView('timeline', undefined, e.shiftKey) },
+      { key: 'map', icon: 'graph', label: 'Map', onClick: (e) => launchView('network', undefined, e.shiftKey) },
+      { key: 'calendar', icon: 'calendar', label: 'Calendar', onClick: (e) => launchView('calendar', undefined, e.shiftKey) },
+      { key: 'loose-ends', icon: 'scatter', label: 'Loose Ends', onClick: (e) => launchView('loose-ends', undefined, e.shiftKey) },
       { key: 'divider-1', divider: true },
-      { key: 'notebooks', icon: 'book', label: 'Notebooks', onClick: () => requestView('notebook', 'Notebooks', { listMode: true }) },
-      { key: 'projects', icon: 'briefcase', label: 'Projects', onClick: () => requestView('project', 'Projects', { listMode: true }) },
+      { key: 'notebooks', icon: 'book', label: 'Notebooks', onClick: () => navigateToScreen('notebooks') },
+      { key: 'projects', icon: 'briefcase', label: 'Projects', onClick: () => navigateToScreen('projects') },
       { key: 'divider-2', divider: true },
-      { key: 'engine', icon: 'engine', label: 'Engine', onClick: () => requestView('connection-engine', 'Engine') },
-      { key: 'settings', icon: 'gear', label: 'Settings', onClick: () => requestView('settings', 'Settings') },
+      { key: 'engine', icon: 'engine', label: 'Engine', onClick: () => navigateToScreen('engine') },
+      { key: 'settings', icon: 'gear', label: 'Settings', onClick: () => navigateToScreen('settings') },
     ];
     return (
       <aside
@@ -674,7 +713,7 @@ function RailIconButton({
 }: {
   icon: string;
   label: string;
-  onClick: () => void;
+  onClick: (e: React.MouseEvent) => void;
 }) {
   const [hovered, setHovered] = useState(false);
   const { refs, floatingStyles, context } = useFloating({

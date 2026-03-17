@@ -26,7 +26,7 @@ interface CaptureButtonProps {
 }
 
 export default function CaptureButton({ onCapture }: CaptureButtonProps) {
-  const { requestView } = useCommonPlace();
+  const { launchView } = useCommonPlace();
   const [isOpen, setIsOpen] = useState(false);
   const [text, setText] = useState('');
   const [selectedType, setSelectedType] = useState<string | null>(null);
@@ -255,7 +255,7 @@ export default function CaptureButton({ onCapture }: CaptureButtonProps) {
           <button
             type="button"
             onClick={() => {
-              requestView('compose', 'Compose', {
+              launchView('compose', {
                 prefillText: text.trim(),
                 prefillType: selectedType ?? undefined,
               });

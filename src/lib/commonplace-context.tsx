@@ -1,32 +1,33 @@
 'use client';
 
 /**
- * CommonPlaceContext: lightweight event bus for cross-component
+ * CommonPlaceContext: state management for cross-component
  * communication within the CommonPlace route group.
  *
- * Primary use case: when a capture syncs successfully in the
- * sidebar, the timeline needs to refetch. The context provides
- * a `captureVersion` counter that increments on each successful
- * sync, and the timeline includes it in its useApiData deps.
+ * Owns: layout tree, active screen, capture version counter,
+ * sidebar collapse, mobile drawer, command palette, object drawer,
+ * context menu, stash, and manual connection draft.
  *
  * Architecture: the CommonPlace layout is a Server Component
  * that cannot hold state. This Client Component provider wraps
- * the layout's children so both CommonPlaceSidebar and
- * TimelineView (inside SplitPaneContainer) can share state.
+ * the layout's children so all CommonPlace components share state.
  */
 
 import { createContext, useContext, useState, useCallback, useMemo } from 'react';
 import type { ReactNode } from 'react';
-import type { ViewType } from '@/lib/commonplace';
+import type { ViewType, ScreenType } from '@/lib/commonplace';
+import type { PaneNode } from '@/lib/commonplace-layout';
+import {
+  LAYOUT_PRESETS,
+  collectLeafIds,
+  findLeafWithView,
+  replaceView,
+  splitLeaf,
+  deserializeLayout,
+  shouldDiscardPersistedLayout,
+} from '@/lib/commonplace-layout';
 import { fetchObjectById, postObjectConnection } from '@/lib/commonplace-api';
 import type { RenderableObject } from '@/components/commonplace/objects/ObjectRenderer';
-
-/** A request from the sidebar (or a list view) to open a pane tab */
-export interface ViewRequest {
-  viewType: ViewType;
-  label?: string;
-  context?: Record<string, unknown>;
-}
 
 interface CommonPlaceContextValue {
   /** Monotonically increasing counter; changes trigger timeline refetch */
@@ -45,12 +46,31 @@ interface CommonPlaceContextValue {
   closeMobileSidebar: () => void;
   /** Toggle sidebar drawer */
   toggleMobileSidebar: () => void;
-  /** Sidebar or list view calls this to request a new pane tab */
-  requestView: (viewType: ViewType, label?: string, context?: Record<string, unknown>) => void;
-  /** SplitPaneContainer reads this and creates a tab, then clears it */
-  pendingView: ViewRequest | null;
-  /** Clear the pending view after consuming it */
-  clearPendingView: () => void;
+
+  /** Currently active screen (null when in pane workspace mode) */
+  activeScreen: ScreenType | null;
+  /** Navigate to a full-screen mode (Library, Models, etc.) */
+  navigateToScreen: (screen: ScreenType) => void;
+  /** Open a view in the pane workspace using Smart Launch strategy */
+  launchView: (viewId: ViewType, context?: Record<string, unknown>, forceNewPane?: boolean) => void;
+  /** Exit any active screen and return to the pane workspace */
+  exitScreen: () => void;
+
+  /** The layout tree (owned by context, consumed by SplitPaneContainer) */
+  layout: PaneNode;
+  /** Update the layout tree */
+  setLayout: (updater: PaneNode | ((prev: PaneNode) => PaneNode)) => void;
+  /** Currently focused pane ID */
+  focusedPaneId: string | null;
+  /** Set the focused pane */
+  setFocusedPaneId: (id: string | null) => void;
+  /** Pane in fullscreen mode (null for normal view) */
+  fullscreenPaneId: string | null;
+  /** Toggle fullscreen for a pane */
+  toggleFullscreen: (paneId: string) => void;
+  /** Exit fullscreen mode */
+  exitFullscreen: () => void;
+
   /** Active content view mode within a pane (Grid, Timeline, or Graph) */
   viewMode: 'grid' | 'timeline' | 'graph';
   /** Set the active content view mode */
@@ -98,38 +118,48 @@ interface CommonPlaceContextValue {
   submitConnection: (input?: { edgeType?: string; reason?: string }) => Promise<void>;
 }
 
+const NOOP = () => {};
+
 const CommonPlaceContext = createContext<CommonPlaceContextValue>({
   captureVersion: 0,
   sidebarCollapsed: false,
-  setSidebarCollapsed: () => {},
-  notifyCaptured: () => {},
+  setSidebarCollapsed: NOOP,
+  notifyCaptured: NOOP,
   mobileSidebarOpen: false,
-  openMobileSidebar: () => {},
-  closeMobileSidebar: () => {},
-  toggleMobileSidebar: () => {},
-  requestView: () => {},
-  pendingView: null,
-  clearPendingView: () => {},
+  openMobileSidebar: NOOP,
+  closeMobileSidebar: NOOP,
+  toggleMobileSidebar: NOOP,
+  activeScreen: 'library',
+  navigateToScreen: NOOP,
+  launchView: NOOP,
+  exitScreen: NOOP,
+  layout: LAYOUT_PRESETS[0].tree,
+  setLayout: NOOP,
+  focusedPaneId: null,
+  setFocusedPaneId: NOOP,
+  fullscreenPaneId: null,
+  toggleFullscreen: NOOP,
+  exitFullscreen: NOOP,
   viewMode: 'grid',
-  setViewMode: () => {},
+  setViewMode: NOOP,
   paletteOpen: false,
-  openPalette: () => {},
-  closePalette: () => {},
+  openPalette: NOOP,
+  closePalette: NOOP,
   drawerSlug: null,
   lastViewedObjectSlug: null,
-  openDrawer: () => {},
-  closeDrawer: () => {},
+  openDrawer: NOOP,
+  closeDrawer: NOOP,
   contextMenuTarget: null,
-  openContextMenu: () => {},
-  closeContextMenu: () => {},
+  openContextMenu: NOOP,
+  closeContextMenu: NOOP,
   stashedObjects: [],
-  stashObject: () => {},
-  unstashObject: () => {},
-  clearStash: () => {},
+  stashObject: NOOP,
+  unstashObject: NOOP,
+  clearStash: NOOP,
   connectionDraft: null,
-  beginConnection: () => {},
-  selectConnectionTarget: () => {},
-  cancelConnection: () => {},
+  beginConnection: NOOP,
+  selectConnectionTarget: NOOP,
+  cancelConnection: NOOP,
   submitConnection: async () => {},
 });
 
@@ -153,11 +183,32 @@ async function resolveObjectSlug(obj: RenderableObject): Promise<string> {
   return detail.slug;
 }
 
+const STORAGE_KEY = 'commonplace-layout-v6';
+
+function loadPersistedLayout(): PaneNode | null {
+  if (typeof window === 'undefined') return null;
+  try {
+    const json = localStorage.getItem(STORAGE_KEY);
+    if (!json) return null;
+    const layout = deserializeLayout(json);
+    if (!layout) return null;
+    if (shouldDiscardPersistedLayout(layout)) return null;
+    return layout;
+  } catch {
+    return null;
+  }
+}
+
 export function CommonPlaceProvider({ children }: { children: ReactNode }) {
   const [captureVersion, setCaptureVersion] = useState(0);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
-  const [pendingView, setPendingView] = useState<ViewRequest | null>(null);
+  const [activeScreen, setActiveScreen] = useState<ScreenType | null>('library');
+  const [layout, setLayoutRaw] = useState<PaneNode>(
+    () => loadPersistedLayout() ?? LAYOUT_PRESETS[0].tree,
+  );
+  const [focusedPaneId, setFocusedPaneId] = useState<string | null>(null);
+  const [fullscreenPaneId, setFullscreenPaneId] = useState<string | null>(null);
   const [viewMode, setViewMode] = useState<'grid' | 'timeline' | 'graph'>('grid');
   const [paletteOpen, setPaletteOpen] = useState(false);
   const [drawerSlug, setDrawerSlug] = useState<string | null>(null);
@@ -173,32 +224,84 @@ export function CommonPlaceProvider({ children }: { children: ReactNode }) {
     target: RenderableObject | null;
   } | null>(null);
 
-  const notifyCaptured = useCallback(() => {
-    setCaptureVersion((v) => v + 1);
-  }, []);
-
-  const requestView = useCallback(
-    (viewType: ViewType, label?: string, context?: Record<string, unknown>) => {
-      setPendingView({ viewType, label, context });
+  /* ── Layout persistence ── */
+  const setLayout = useCallback(
+    (updater: PaneNode | ((prev: PaneNode) => PaneNode)) => {
+      setLayoutRaw((prev) => {
+        const next = typeof updater === 'function' ? updater(prev) : updater;
+        if (typeof window !== 'undefined') {
+          try {
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
+          } catch { /* quota exceeded: ignore */ }
+        }
+        return next;
+      });
     },
     [],
   );
 
-  const clearPendingView = useCallback(() => {
-    setPendingView(null);
+  /* ── Navigation: screens ── */
+  const navigateToScreen = useCallback((screen: ScreenType) => {
+    setActiveScreen(screen);
+    setFullscreenPaneId(null);
   }, []);
 
-  const openMobileSidebar = useCallback(() => {
-    setMobileSidebarOpen(true);
+  const exitScreen = useCallback(() => {
+    setActiveScreen(null);
   }, []);
 
-  const closeMobileSidebar = useCallback(() => {
-    setMobileSidebarOpen(false);
+  /* ── Navigation: views (Smart Launch) ── */
+  const launchView = useCallback(
+    (viewId: ViewType, context?: Record<string, unknown>, forceNewPane?: boolean) => {
+      // Exit any screen
+      setActiveScreen(null);
+      setFullscreenPaneId(null);
+
+      setLayout((prev) => {
+        // 1. Force new pane via shift+click
+        if (forceNewPane && focusedPaneId) {
+          return splitLeaf(prev, focusedPaneId, 'vertical', viewId);
+        }
+
+        // 2. If view already open in a pane, focus that pane
+        const existing = findLeafWithView(prev, viewId);
+        if (existing) {
+          setFocusedPaneId(existing.id);
+          return prev;
+        }
+
+        // 3. Single pane: replace its view
+        const leaves = collectLeafIds(prev);
+        if (leaves.length === 1) {
+          return replaceView(prev, leaves[0], viewId, context);
+        }
+
+        // 4. Multiple panes: replace the focused pane
+        const targetId = focusedPaneId && leaves.includes(focusedPaneId)
+          ? focusedPaneId : leaves[0];
+        return replaceView(prev, targetId, viewId, context);
+      });
+    },
+    [focusedPaneId, setLayout],
+  );
+
+  /* ── Fullscreen ── */
+  const toggleFullscreen = useCallback((paneId: string) => {
+    setFullscreenPaneId((prev) => (prev === paneId ? null : paneId));
   }, []);
 
-  const toggleMobileSidebar = useCallback(() => {
-    setMobileSidebarOpen((open) => !open);
+  const exitFullscreen = useCallback(() => {
+    setFullscreenPaneId(null);
   }, []);
+
+  /* ── Other callbacks ── */
+  const notifyCaptured = useCallback(() => {
+    setCaptureVersion((v) => v + 1);
+  }, []);
+
+  const openMobileSidebar = useCallback(() => setMobileSidebarOpen(true), []);
+  const closeMobileSidebar = useCallback(() => setMobileSidebarOpen(false), []);
+  const toggleMobileSidebar = useCallback(() => setMobileSidebarOpen((o) => !o), []);
 
   const openPalette = useCallback(() => setPaletteOpen(true), []);
   const closePalette = useCallback(() => setPaletteOpen(false), []);
@@ -258,9 +361,17 @@ export function CommonPlaceProvider({ children }: { children: ReactNode }) {
       openMobileSidebar,
       closeMobileSidebar,
       toggleMobileSidebar,
-      requestView,
-      pendingView,
-      clearPendingView,
+      activeScreen,
+      navigateToScreen,
+      launchView,
+      exitScreen,
+      layout,
+      setLayout,
+      focusedPaneId,
+      setFocusedPaneId,
+      fullscreenPaneId,
+      toggleFullscreen,
+      exitFullscreen,
       viewMode,
       setViewMode,
       paletteOpen,
@@ -291,9 +402,16 @@ export function CommonPlaceProvider({ children }: { children: ReactNode }) {
       openMobileSidebar,
       closeMobileSidebar,
       toggleMobileSidebar,
-      requestView,
-      pendingView,
-      clearPendingView,
+      activeScreen,
+      navigateToScreen,
+      launchView,
+      exitScreen,
+      layout,
+      setLayout,
+      focusedPaneId,
+      fullscreenPaneId,
+      toggleFullscreen,
+      exitFullscreen,
       viewMode,
       paletteOpen,
       openPalette,
