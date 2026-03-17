@@ -35,6 +35,16 @@ export default function ComponentToolbox() {
           key: comp.id,
           value: '',
         });
+        // Trigger absorption glow on the target card
+        const cardEl = document.querySelector(`[data-object-id="${objectId}"]`);
+        if (cardEl) {
+          cardEl.dispatchEvent(
+            new CustomEvent('cp-component-attached', {
+              detail: { color: comp.color },
+              bubbles: false,
+            }),
+          );
+        }
         toast.success(`Attached ${comp.label}`);
       } catch {
         toast.error(`Could not attach ${comp.label}`);

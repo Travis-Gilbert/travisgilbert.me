@@ -15,7 +15,7 @@ import TaskRow from './TaskRow';
 import EventBadge from './EventBadge';
 import ScriptBlock from './ScriptBlock';
 import PlacePin from './PlacePin';
-import { useState, useCallback, type ComponentType } from 'react';
+import { useState, useCallback, useRef, useEffect, type ComponentType } from 'react';
 import { createPin } from '@/lib/commonplace-api';
 import { useCommonPlace } from '@/lib/commonplace-context';
 
@@ -1181,6 +1181,22 @@ export default function ObjectRenderer(props: ObjectCardProps) {
   const { draggedComponent } = useCommonPlace();
   const [pointerInside, setPointerInside] = useState(false);
   const isDropTarget = draggedComponent !== null;
+  const wrapperRef = useRef<HTMLDivElement>(null);
+  const [justAttached, setJustAttached] = useState<string | null>(null);
+
+  useEffect(() => {
+    const el = wrapperRef.current;
+    if (!el) return;
+    const handler = (e: Event) => {
+      const color = (e as CustomEvent).detail?.color;
+      if (color) {
+        setJustAttached(color);
+        setTimeout(() => setJustAttached(null), 300);
+      }
+    };
+    el.addEventListener('cp-component-attached', handler);
+    return () => el.removeEventListener('cp-component-attached', handler);
+  }, []);
 
   // Compact variants (dock/chain/chip) are too small for DnD interaction
   if (
@@ -1289,13 +1305,16 @@ export default function ObjectRenderer(props: ObjectCardProps) {
     dragOver ? 'cp-drop-target' : '',
     isDropTarget ? 'cp-object-card--receptive' : '',
     isDropTarget && pointerInside ? 'cp-object-card--hover-drop' : '',
+    justAttached ? 'cp-object-card--absorbing' : '',
   ]
     .filter(Boolean)
     .join(' ');
 
   return (
     <div
+      ref={wrapperRef}
       className={wrapperClass}
+      style={justAttached ? { '--absorb-color': justAttached } as React.CSSProperties : undefined}
       data-object-id={props.object.id}
       draggable
       onDragStart={handleDragStart}
