@@ -1,7 +1,6 @@
 'use client';
 
 import type { ObjectCardProps } from './ObjectRenderer';
-
 export default function TaskRow({ object, compact, onClick, onContextMenu }: ObjectCardProps) {
   const done = object.status === 'done' || object.status === 'complete' || object.status === 'completed';
   const title = object.display_title ?? object.title;
@@ -18,11 +17,10 @@ export default function TaskRow({ object, compact, onClick, onContextMenu }: Obj
         width: '100%',
         textAlign: 'left',
         background: 'var(--cp-card)',
-        border: '1px solid var(--cp-border)',
+        border: 'none',
         borderRadius: 6,
         padding: compact ? '7px 10px' : '10px 12px',
         cursor: 'pointer',
-        transition: 'border-color 120ms ease',
         opacity: done ? 0.6 : 1,
       }}
       className="cp-object-card cp-object-task"

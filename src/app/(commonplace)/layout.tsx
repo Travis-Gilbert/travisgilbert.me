@@ -1,4 +1,5 @@
 import type { Metadata } from 'next';
+import DotGrid from '@/components/DotGrid';
 import { CommonPlaceProvider } from '@/lib/commonplace-context';
 import CommonPlaceSidebar from '@/components/commonplace/CommonPlaceSidebar';
 import SplitPaneContainer from '@/components/commonplace/SplitPaneContainer';
@@ -57,11 +58,13 @@ export default function CommonPlaceLayout({
         display: 'flex',
         height: '100vh',
         overflow: 'hidden',
-        backgroundColor: 'var(--cp-bg)',
         color: 'var(--cp-text)',
         margin: 0,
       }}
     >
+      {/* Site DotGrid: warm parchment with dark gradient on top */}
+      <DotGrid />
+
       {/* Ambient red-pencil glow */}
       <div className="cp-ambient-glow" aria-hidden="true" />
 
@@ -94,9 +97,9 @@ export default function CommonPlaceLayout({
           position="bottom-right"
           toastOptions={{
             style: {
-              background: '#FAF6F1',
-              border: '1px solid rgba(58, 54, 50, 0.12)',
-              color: '#3A3632',
+              background: '#2A2A2E',
+              border: '1px solid rgba(244, 243, 240, 0.12)',
+              color: '#F4F3F0',
               fontFamily: 'var(--font-metadata, "Courier Prime", monospace)',
               fontSize: '13px',
             },

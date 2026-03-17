@@ -1,7 +1,6 @@
 'use client';
 
 import type { ObjectCardProps } from './ObjectRenderer';
-
 export default function HunchSticky({ object, compact, onClick, onContextMenu }: ObjectCardProps) {
   const title = object.display_title ?? object.title;
 
@@ -15,12 +14,11 @@ export default function HunchSticky({ object, compact, onClick, onContextMenu }:
         width: '100%',
         textAlign: 'left',
         background: 'var(--cp-card)',
-        border: '1px dashed var(--cp-border)',
+        border: 'none',
         borderRadius: 6,
         padding: compact ? '8px 10px' : '12px 14px',
         cursor: 'pointer',
-        transform: 'rotate(-0.3deg)',
-        transition: 'border-color 120ms ease, transform 120ms ease',
+        transition: 'transform 120ms ease',
       }}
       className="cp-object-card cp-object-hunch"
     >

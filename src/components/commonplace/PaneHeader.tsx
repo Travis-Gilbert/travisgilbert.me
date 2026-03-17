@@ -41,7 +41,7 @@ export default function PaneHeader({
         padding: '0 8px',
         background: isFocused ? 'var(--cp-chrome-mid)' : 'var(--cp-chrome)',
         borderBottom: isFocused
-          ? '2px solid #C4503C'
+          ? '2px solid #B8623D'
           : '1px solid var(--cp-chrome-line)',
         userSelect: 'none',
         flexShrink: 0,

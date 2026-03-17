@@ -13,6 +13,6 @@ export const COMPONENT_TOOLBOX: ComponentToolboxItem[] = [
   { id: 'cluster',   label: 'Cluster',   icon: 'network-right',  color: '#7050A0', description: 'Nearest connections mini-graph', apiTypeName: 'cluster' },
   { id: 'tasks',     label: 'Tasks',     icon: 'check',          color: '#B85C28', description: 'Checklist', apiTypeName: 'task' },
   { id: 'notes',     label: 'Notes',     icon: 'edit-pencil',    color: '#78767E', description: 'Rich text notes block', apiTypeName: 'text' },
-  { id: 'reminder',  label: 'Reminder',  icon: 'bell',           color: '#C4503C', description: 'Time-triggered resurface', apiTypeName: 'reminder' },
+  { id: 'reminder',  label: 'Reminder',  icon: 'bell',           color: '#B8623D', description: 'Time-triggered resurface', apiTypeName: 'reminder' },
   { id: 'timeline',  label: 'Timeline',  icon: 'clock',          color: '#3858B8', description: 'Scoped event timeline', apiTypeName: 'timeline' },
 ];

@@ -51,7 +51,6 @@ import EntityPromotionView from './EntityPromotionView';
 import EmergentTypeSuggestionsView from './EmergentTypeSuggestionsView';
 import ArtifactBrowserView from './ArtifactBrowserView';
 import TemporalEvolutionView from './TemporalEvolutionView';
-import PaneDotGrid from './PaneDotGrid';
 
 /* =============================================
    Main container: consumes layout from context,
@@ -233,7 +232,7 @@ export default function SplitPaneContainer() {
 
   if (activeScreen && !isMobile) {
     return (
-      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0, overflow: 'hidden' }}>
+      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0, overflow: 'hidden', position: 'relative' }}>
         <ScreenRouter screen={activeScreen} />
       </div>
     );
@@ -468,7 +467,6 @@ function FullscreenLeaf({
         onSplitPreview={setSplitPreview}
       />
       <div style={{ position: 'relative', flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
-        <PaneDotGrid seed={leaf.id} />
         <PaneViewContent
           viewType={leaf.viewId}
           context={leaf.context}
@@ -611,7 +609,6 @@ function RenderLeaf(props: NodeProps & { node: LeafPane }) {
           flexDirection: 'column',
         }}
       >
-        <PaneDotGrid seed={node.id} />
         <PaneViewContent
           viewType={node.viewId}
           context={node.context}

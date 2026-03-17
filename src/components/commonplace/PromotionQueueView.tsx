@@ -19,7 +19,7 @@ const ITEM_TYPE_STYLES: Record<
   ApiPromotionItem['item_type'],
   { color: string; label: string }
 > = {
-  claim: { color: '#C4503C', label: 'Claim' },
+  claim: { color: '#B8623D', label: 'Claim' },
   entity: { color: '#1A7A8A', label: 'Entity' },
   question: { color: '#7050A0', label: 'Question' },
   rule: { color: '#A08020', label: 'Rule' },

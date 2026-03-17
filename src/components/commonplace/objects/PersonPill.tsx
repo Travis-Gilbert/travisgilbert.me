@@ -1,7 +1,6 @@
 'use client';
 
 import type { ObjectCardProps } from './ObjectRenderer';
-
 export default function PersonPill({ object, compact, onClick, onContextMenu }: ObjectCardProps) {
   const name = object.display_title ?? object.title;
   const initial = name.charAt(0).toUpperCase();
@@ -18,11 +17,10 @@ export default function PersonPill({ object, compact, onClick, onContextMenu }: 
         width: '100%',
         textAlign: 'left',
         background: 'var(--cp-card)',
-        border: '1px solid var(--cp-border)',
+        border: 'none',
         borderRadius: 100,
         padding: compact ? '6px 10px 6px 6px' : '8px 14px 8px 8px',
         cursor: 'pointer',
-        transition: 'border-color 120ms ease',
       }}
       className="cp-object-card cp-object-person"
     >

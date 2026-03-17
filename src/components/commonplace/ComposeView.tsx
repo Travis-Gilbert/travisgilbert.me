@@ -16,6 +16,7 @@ import { captureToApi, type ComposeLiveResult } from '@/lib/commonplace-api';
 import { useCommonPlace } from '@/lib/commonplace-context';
 import { useEngineJobStatus } from '@/hooks/useEngineJobStatus';
 import { useLiveResearch } from '@/hooks/useLiveResearch';
+import { Activity, Flash, GridMinus, Bookmark } from 'iconoir-react';
 import TerminalBlock from './TerminalBlock';
 import ComposeDiscoveryDock from './ComposeDiscoveryDock';
 import ObjectRenderer from './objects/ObjectRenderer';
@@ -69,12 +70,12 @@ const PASS_LOG_NAMES: Record<ComposePassId, string> = {
 const TERMINAL_TABS: Array<{
   id: 'passes' | 'tension' | 'gaps' | 'stash';
   label: string;
-  icon: string;
+  Icon: React.ComponentType<{ width?: number; height?: number; strokeWidth?: number }>;
 }> = [
-  { id: 'passes', label: 'Passes', icon: '◉' },
-  { id: 'tension', label: 'Tension', icon: '⚡' },
-  { id: 'gaps', label: 'Gaps', icon: '◫' },
-  { id: 'stash', label: 'Stash', icon: '⌘' },
+  { id: 'passes', label: 'Passes', Icon: Activity },
+  { id: 'tension', label: 'Tension', Icon: Flash },
+  { id: 'gaps', label: 'Gaps', Icon: GridMinus },
+  { id: 'stash', label: 'Stash', Icon: Bookmark },
 ];
 
 const SIGNAL_LABELS: Record<ComposeResultSignal, string> = {
@@ -581,7 +582,7 @@ export default function ComposeView({
                       onClick={() => setTerminalTab(tab.id)}
                     >
                       <span className="cp-compose-terminal-tab-icon" aria-hidden="true">
-                        {tab.icon}
+                        <tab.Icon width={12} height={12} strokeWidth={2} />
                       </span>
                       <span>{tab.label}</span>
                     </button>

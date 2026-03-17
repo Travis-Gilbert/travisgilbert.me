@@ -41,7 +41,7 @@ export default function FalsifyBrick({
               fontFamily: 'var(--cp-font-mono)',
               fontSize: 8,
               fontWeight: 600,
-              color: '#C4503C',
+              color: '#B8623D',
               flexShrink: 0,
               marginTop: 2,
             }}

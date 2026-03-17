@@ -1,6 +1,7 @@
 'use client';
 
 import { getObjectTypeIdentity } from '@/lib/commonplace';
+import RoughBorder from '../RoughBorder';
 
 export interface PinnedBadgeObject {
   edge_id: number;
@@ -53,6 +54,14 @@ export default function PinnedBadge({
   };
 
   return (
+    <RoughBorder
+      seed={object.slug}
+      glow
+      glowColor={typeId.color}
+      roughness={0.5}
+      strokeWidth={0.5}
+      style={{ display: 'inline-flex', flexShrink: 0, borderRadius }}
+    >
     <button
       type="button"
       className="cp-pinned-badge"
@@ -67,8 +76,7 @@ export default function PinnedBadge({
         maxWidth: 180,
         padding: `0 ${compact ? 6 : 8}px`,
         borderRadius,
-        border: `1px solid ${getBorderStyle(object.object_type, typeId.color)}`,
-        borderStyle: object.object_type === 'hunch' ? 'dashed' : 'solid',
+        border: 'none',
         background: getBadgeBackground(object.object_type, typeId.color),
         cursor: 'pointer',
         fontFamily: object.object_type === 'script'
@@ -84,7 +92,7 @@ export default function PinnedBadge({
         overflow: 'hidden',
         whiteSpace: 'nowrap',
         textOverflow: 'ellipsis',
-        transition: 'border-color 0.15s, background 0.15s',
+        transition: 'background 0.15s',
         flexShrink: 0,
       }}
     >
@@ -97,6 +105,7 @@ export default function PinnedBadge({
         {getBadgeLabel(object)}
       </span>
     </button>
+    </RoughBorder>
   );
 }
 

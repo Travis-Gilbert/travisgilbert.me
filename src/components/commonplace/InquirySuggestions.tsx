@@ -1,5 +1,7 @@
 'use client';
 
+import type { ComponentType } from 'react';
+import { HelpCircle, WarningCircle, Compass, WarningTriangle } from 'iconoir-react';
 import {
   fetchInquirySuggestions,
   useApiData,
@@ -29,7 +31,7 @@ export default function InquirySuggestions({ onSelectQuery }: InquirySuggestions
     for (const q of data.unanswered_questions) {
       items.push({
         key: `q-${q.id}`,
-        icon: '?',
+        Icon: HelpCircle,
         iconColor: 'var(--cp-red)',
         title: q.title,
         meta: `${q.claim_count} claim${q.claim_count !== 1 ? 's' : ''}, ${q.gap_count} gap${q.gap_count !== 1 ? 's' : ''}`,
@@ -40,7 +42,7 @@ export default function InquirySuggestions({ onSelectQuery }: InquirySuggestions
     for (const gap of data.evidence_gaps) {
       items.push({
         key: `gap-${gap.description}`,
-        icon: '!',
+        Icon: WarningCircle,
         iconColor: 'var(--cp-term-amber)',
         title: gap.description,
         meta: gap.related_question_id
@@ -53,7 +55,7 @@ export default function InquirySuggestions({ onSelectQuery }: InquirySuggestions
     for (const topic of data.stale_topics) {
       items.push({
         key: `stale-${topic.entity}`,
-        icon: '~',
+        Icon: Compass,
         iconColor: 'var(--cp-term-muted)',
         title: topic.description,
         meta: 'stale topic',
@@ -64,7 +66,7 @@ export default function InquirySuggestions({ onSelectQuery }: InquirySuggestions
     for (const tension of data.unresolved_tensions) {
       items.push({
         key: `tension-${tension.id}`,
-        icon: '\u26A0',
+        Icon: WarningTriangle,
         iconColor: 'var(--cp-term-amber)',
         title: tension.title,
         meta: `tension (${tension.severity})`,
@@ -81,66 +83,21 @@ export default function InquirySuggestions({ onSelectQuery }: InquirySuggestions
       status="idle"
       style={{ marginTop: 10 }}
     >
-      <div style={{ margin: '-4px -4px' }}>
+      <div className="cp-suggestion-list">
         {items.map((item) => (
           <button
             key={item.key}
             type="button"
             onClick={() => onSelectQuery(item.query)}
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: 8,
-              width: '100%',
-              padding: '5px 4px',
-              cursor: 'pointer',
-              transition: 'background 100ms',
-              background: 'transparent',
-              border: 'none',
-              borderRadius: 2,
-              textAlign: 'left',
-            }}
-            onMouseEnter={(e) => {
-              e.currentTarget.style.background = 'rgba(255, 255, 255, 0.04)';
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.background = 'transparent';
-            }}
+            className="cp-suggestion-row"
           >
-            <span
-              style={{
-                fontFamily: 'var(--cp-font-mono)',
-                fontSize: 11,
-                fontWeight: 600,
-                color: item.iconColor,
-                width: 14,
-                textAlign: 'center',
-                flexShrink: 0,
-              }}
-            >
-              {item.icon}
+            <span className="cp-suggestion-icon" style={{ color: item.iconColor }}>
+              <item.Icon width={13} height={13} strokeWidth={2} />
             </span>
-            <span
-              style={{
-                flex: 1,
-                fontFamily: 'var(--cp-font-mono)',
-                fontSize: 11,
-                color: 'var(--cp-term-text)',
-                overflow: 'hidden',
-                textOverflow: 'ellipsis',
-                whiteSpace: 'nowrap',
-              }}
-            >
+            <span className="cp-suggestion-title">
               {item.title}
             </span>
-            <span
-              style={{
-                fontFamily: 'var(--cp-font-mono)',
-                fontSize: 9,
-                color: 'var(--cp-term-muted)',
-                flexShrink: 0,
-              }}
-            >
+            <span className="cp-suggestion-meta">
               {item.meta}
             </span>
           </button>
@@ -152,7 +109,7 @@ export default function InquirySuggestions({ onSelectQuery }: InquirySuggestions
 
 interface SuggestionItem {
   key: string;
-  icon: string;
+  Icon: ComponentType<{ width?: number; height?: number; strokeWidth?: number }>;
   iconColor: string;
   title: string;
   meta: string;

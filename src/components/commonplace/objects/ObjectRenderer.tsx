@@ -18,6 +18,7 @@ import PlacePin from './PlacePin';
 import { useState, useCallback, useRef, useEffect, type ComponentType } from 'react';
 import { createPin } from '@/lib/commonplace-api';
 import { useCommonPlace } from '@/lib/commonplace-context';
+import RoughBorder from '../RoughBorder';
 
 export interface RenderableObject extends Partial<ObjectListItem> {
   id: number;
@@ -948,6 +949,7 @@ function CompactVariantCard({ object, variant, onClick, onContextMenu }: ObjectC
 
   if (variant === 'chain') {
     return (
+      <RoughBorder seed={object.slug} glow glowColor="#2D5F6B" roughness={0.6} strokeWidth={0.6}>
       <button
         type="button"
         onClick={onClick ? () => onClick(object) : undefined}
@@ -961,7 +963,7 @@ function CompactVariantCard({ object, variant, onClick, onContextMenu }: ObjectC
           maxWidth: 168,
           padding: '8px 10px',
           borderRadius: 8,
-          border: `1px solid ${typeLine}`,
+          border: 'none',
           background: `${identity.color}08`,
           cursor: 'pointer',
           textAlign: 'center',
@@ -1005,6 +1007,7 @@ function CompactVariantCard({ object, variant, onClick, onContextMenu }: ObjectC
           </span>
         )}
       </button>
+      </RoughBorder>
     );
   }
 
@@ -1244,12 +1247,12 @@ export default function ObjectRenderer(props: ObjectCardProps) {
       const ghost = document.createElement('div');
       ghost.style.cssText = [
         'padding:4px 10px',
-        'background:var(--cp-card,#2A2A30)',
-        'border:1px solid var(--cp-border,#35353C)',
+        'background:var(--cp-card,rgba(255,255,255,0.85))',
+        'border:1px solid var(--cp-border,rgba(42,36,32,0.12))',
         'border-radius:4px',
         'font-family:var(--cp-font-body)',
         'font-size:12px',
-        'color:var(--cp-text,#E8E6E1)',
+        'color:var(--cp-text,#2A2420)',
         'box-shadow:0 4px 12px rgba(0,0,0,0.15)',
         'max-width:200px',
         'white-space:nowrap',
@@ -1322,7 +1325,13 @@ export default function ObjectRenderer(props: ObjectCardProps) {
       onPointerEnter={() => isDropTarget && setPointerInside(true)}
       onPointerLeave={() => setPointerInside(false)}
     >
-      {card}
+      <RoughBorder
+        seed={props.object.slug}
+        glow
+        glowColor={getObjectTypeIdentity(props.object.object_type_slug).color}
+      >
+        {card}
+      </RoughBorder>
       {/* Drop label */}
       {isDropTarget && pointerInside && (
         <div className="cp-drop-label">Drop to attach component</div>

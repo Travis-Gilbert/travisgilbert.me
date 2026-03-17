@@ -317,8 +317,8 @@ export default function LibraryView({ onOpenObject }: LibraryViewProps) {
   }, [allObjects, clusterItems]);
 
   return (
-    <div style={{ flex: 1, overflow: 'auto', padding: '24px 28px 48px' }}>
-      <div style={{ maxWidth: 880, margin: '0 auto' }}>
+    <div style={{ flex: 1, overflow: 'auto' }}>
+      <div className="cp-pane-content-inner">
       {/* Combined header + inquiry bar */}
       <div style={{ marginBottom: 20 }}>
         <div
@@ -344,6 +344,7 @@ export default function LibraryView({ onOpenObject }: LibraryViewProps) {
           </h2>
           <button
             type="button"
+            className="cp-resurface-btn"
             onClick={() => launchView('resurface')}
             style={{
               border: '1px solid var(--cp-red-line)',
@@ -400,7 +401,7 @@ export default function LibraryView({ onOpenObject }: LibraryViewProps) {
       )}
 
       {(lastEdited || recentActivity.length > 0) && (
-        <div style={{ marginBottom: 24 }}><ResumeCards
+        <div className="cp-content-section"><ResumeCards
           lastEdited={lastEdited}
           recentActivity={recentActivity}
           onOpenObject={onOpenObject}
@@ -409,16 +410,16 @@ export default function LibraryView({ onOpenObject }: LibraryViewProps) {
       )}
 
       {feedNodes.length > 0 && (
-        <LineageSwimlane
+        <div className="cp-content-section"><LineageSwimlane
           nodes={feedNodes.slice(0, 6)}
           lineageData={lineageData}
           clusterColorMap={objectClusterColorMap}
           onOpenObject={onOpenObject}
           onContextMenu={(e, object) => openContextMenu(e.clientX, e.clientY, object)}
-        />
+        /></div>
       )}
 
-      <div>
+      <div className="cp-content-section">
         {types.length > 1 && (
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5, marginBottom: 20 }}>
             {activeCluster && (
@@ -545,7 +546,7 @@ export default function LibraryView({ onOpenObject }: LibraryViewProps) {
           </div>
         ) : (
           <>
-            <div style={{ marginBottom: 24 }}>
+            <div className="cp-content-section">
               <div
                 style={{
                   display: 'flex',
@@ -603,7 +604,7 @@ export default function LibraryView({ onOpenObject }: LibraryViewProps) {
             </div>
 
             {unclusteredObjects.length > 0 && (
-              <div style={{ marginBottom: 24 }}>
+              <div className="cp-content-section">
                 <div
                   style={{
                     display: 'flex',

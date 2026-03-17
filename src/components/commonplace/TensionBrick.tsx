@@ -7,7 +7,7 @@ interface TensionBrickProps {
 }
 
 const SEVERITY_COLOR: Record<string, string> = {
-  high: '#C4503C',
+  high: '#B8623D',
   medium: '#D4944A',
   low: '#68666E',
 };

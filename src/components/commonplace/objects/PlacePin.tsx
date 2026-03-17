@@ -1,7 +1,6 @@
 'use client';
 
 import type { ObjectCardProps } from './ObjectRenderer';
-
 function PinIcon({ size = 14, color = 'currentColor' }: { size?: number; color?: string }) {
   return (
     <svg width={size} height={size} viewBox="0 0 14 14" fill="none" aria-hidden="true">
@@ -17,7 +16,6 @@ function PinIcon({ size = 14, color = 'currentColor' }: { size?: number; color?:
 
 export default function PlacePin({ object, compact, onClick, onContextMenu }: ObjectCardProps) {
   const name = object.display_title ?? object.title;
-
   return (
     <button
       type="button"
@@ -30,11 +28,10 @@ export default function PlacePin({ object, compact, onClick, onContextMenu }: Ob
         width: '100%',
         textAlign: 'left',
         background: 'var(--cp-card)',
-        border: '1px solid var(--cp-border)',
+        border: 'none',
         borderRadius: 6,
         padding: compact ? '7px 10px' : '10px 12px',
         cursor: 'pointer',
-        transition: 'border-color 120ms ease',
       }}
       className="cp-object-card cp-object-place"
     >

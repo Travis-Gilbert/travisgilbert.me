@@ -41,7 +41,6 @@ import {
   getNodeColor,
   truncateLabel,
 } from '@/lib/commonplace-graph';
-import { EDGE_RGB } from '@/lib/graph/colors';
 import GraphTooltip from '@/components/GraphTooltip';
 
 /* ─────────────────────────────────────────────────
@@ -88,82 +87,113 @@ interface ActiveEdge {
   midY: number;
 }
 
-function edgeTone(link: GraphLink): 'bridge' | 'manual' | 'tension' | 'support' | 'engine' {
+/* ── Signal type classification ─────────────────────── */
+
+type SignalType = 'mention' | 'support' | 'contradict' | 'similarity' | 'causal' | 'manual';
+
+/** Hex colors keyed by signal type (site color language). */
+const SIGNAL_TYPE_COLORS: Record<SignalType, string> = {
+  mention: '#2D5F6B',     // teal
+  support: '#5A7A4A',     // green
+  contradict: '#B8623D',  // terracotta
+  similarity: '#8B6FA0',  // purple
+  causal: '#C49A4A',      // gold
+  manual: '#9A9590',      // faint gray
+};
+
+function classifySignal(link: GraphLink): SignalType {
   const engine = (link.engine || '').toLowerCase();
   const edgeType = (link.edge_type || '').toLowerCase();
   const reason = (link.reason || '').toLowerCase();
 
-  if (engine.includes('research_bridge')) return 'bridge';
   if (engine.includes('manual')) return 'manual';
+
   if (
     edgeType.includes('counter') ||
     edgeType.includes('tension') ||
     reason.includes('contradict')
   ) {
-    return 'tension';
+    return 'contradict';
   }
   if (edgeType.includes('support') || reason.includes('support') || reason.includes('entail')) {
     return 'support';
   }
-  return 'engine';
+  if (edgeType.includes('causal') || reason.includes('caus')) {
+    return 'causal';
+  }
+  if (
+    edgeType.includes('similar') ||
+    reason.includes('similar') ||
+    engine.includes('embedding') ||
+    engine.includes('kge')
+  ) {
+    return 'similarity';
+  }
+  // Default: NER co-occurrence, bridge links, or unclassified connections
+  return 'mention';
 }
 
-function edgeStyle(link: GraphLink): {
+/** djb2 hash for deterministic rough.js seeds. */
+function hashSeed(str: string): number {
+  let hash = 5381;
+  for (let i = 0; i < str.length; i++) {
+    hash = ((hash << 5) + hash + str.charCodeAt(i)) | 0;
+  }
+  return Math.abs(hash);
+}
+
+/** Map edge strength (0..1) to stroke width (0.5..3.0). */
+function strengthToWidth(strength: number | undefined): number {
+  const s = typeof strength === 'number' ? Math.max(0, Math.min(1, strength)) : 0.4;
+  return 0.5 + s * 2.5;
+}
+
+/** Map edge strength to roughness: strong edges are smoother (0.8), weak edges are sketchier (1.5). */
+function strengthToRoughness(strength: number | undefined): number {
+  const s = typeof strength === 'number' ? Math.max(0, Math.min(1, strength)) : 0.4;
+  return 1.5 - s * 0.7;
+}
+
+/** Convert hex (#RRGGBB) to "R, G, B" string for rgba(). */
+function hexToRgb(hex: string): string {
+  const r = parseInt(hex.slice(1, 3), 16);
+  const g = parseInt(hex.slice(3, 5), 16);
+  const b = parseInt(hex.slice(5, 7), 16);
+  return `${r}, ${g}, ${b}`;
+}
+
+function edgeTone(link: GraphLink): string {
+  return classifySignal(link).replace(/_/g, ' ');
+}
+
+interface EdgeStyleResult {
   color: string;
-  alpha: number;
   width: number;
   roughness: number;
   bowing: number;
+  seed: number;
   dash?: string;
-} {
-  const tone = edgeTone(link);
-  if (tone === 'bridge') {
-    return {
-      color: '91, 130, 172',
-      alpha: 0.34,
-      width: 1.2,
-      roughness: 0.6,
-      bowing: 0.8,
-      dash: '7 5',
-    };
-  }
-  if (tone === 'manual') {
-    return {
-      color: '180, 90, 45',
-      alpha: 0.44,
-      width: 1.5,
-      roughness: 0.25,
-      bowing: 0.15,
-      dash: '1.5 5',
-    };
-  }
-  if (tone === 'tension') {
-    return {
-      color: '179, 68, 59',
-      alpha: 0.5,
-      width: 1.6,
-      roughness: 1.7,
-      bowing: 2.6,
-      dash: '6 4',
-    };
-  }
-  if (tone === 'support') {
-    return {
-      color: '90, 138, 90',
-      alpha: 0.42,
-      width: 1.45,
-      roughness: 0.55,
-      bowing: 0.9,
-      dash: '10 4',
-    };
-  }
-  return {
-    color: EDGE_RGB,
-    alpha: 0.3,
-    width: 1.2,
-    roughness: 0.8,
-    bowing: 1.5,
+}
+
+function edgeStyle(link: GraphLink): EdgeStyleResult {
+  const signal = classifySignal(link);
+  const hex = SIGNAL_TYPE_COLORS[signal];
+  const rgb = hexToRgb(hex);
+  const edgeId = `${String(link.source)}-${String(link.target)}-${link.reason ?? ''}`;
+
+  const base: EdgeStyleResult = {
+    color: rgb,
+    width: strengthToWidth(link.strength),
+    roughness: strengthToRoughness(link.strength),
+    bowing: signal === 'contradict' ? 2.0 : signal === 'similarity' ? 0.3 : 0.5,
+    seed: hashSeed(edgeId),
   };
+
+  if (signal === 'manual') {
+    base.dash = '1.5 5';
+  }
+
+  return base;
 }
 
 export default function KnowledgeMap({
@@ -304,10 +334,11 @@ export default function KnowledgeMap({
 
       const style = edgeStyle(l);
 
-      let alpha = style.alpha;
+      // Opacity: 0.25 resting, 0.04 dimmed (hovering unrelated node), 0.7 highlighted
+      let alpha = 0.25;
       if (hoveredId) {
         const connected = connectedIds.has(src) && connectedIds.has(tgt);
-        alpha = connected ? Math.min(style.alpha + 0.22, 0.82) : 0.05;
+        alpha = connected ? 0.7 : 0.04;
       }
 
       rc.line(from.x, from.y, to.x, to.y, {
@@ -315,6 +346,7 @@ export default function KnowledgeMap({
         stroke: `rgba(${style.color}, ${alpha})`,
         strokeWidth: style.width,
         bowing: style.bowing,
+        seed: style.seed,
       });
     });
   }, [layout, filteredLinks, hoveredId, connectedIds, containerSize, posMap, transform]);
@@ -474,7 +506,7 @@ export default function KnowledgeMap({
                   y1={from.y}
                   x2={to.x}
                   y2={to.y}
-                  stroke={`rgba(${style.color}, ${style.alpha + 0.12})`}
+                  stroke={`rgba(${style.color}, 0.35)`}
                   strokeWidth={style.width + 0.15}
                   strokeDasharray={style.dash}
                   strokeLinecap="round"

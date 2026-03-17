@@ -1,7 +1,6 @@
 'use client';
 
 import type { ObjectCardProps } from './ObjectRenderer';
-
 export default function QuoteBlock({ object, compact, onClick, onContextMenu }: ObjectCardProps) {
   const text = object.display_title ?? object.title;
   const attribution = object.body;
@@ -16,12 +15,11 @@ export default function QuoteBlock({ object, compact, onClick, onContextMenu }: 
         width: '100%',
         textAlign: 'left',
         background: 'var(--cp-card)',
-        border: '1px solid var(--cp-border)',
+        border: 'none',
         borderLeft: '3px solid var(--cp-accent)',
         borderRadius: '0 6px 6px 0',
         padding: compact ? '8px 10px' : '12px 16px',
         cursor: 'pointer',
-        transition: 'border-color 120ms ease',
       }}
       className="cp-object-card cp-object-quote"
     >

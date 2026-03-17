@@ -1,7 +1,6 @@
 'use client';
 
 import type { ObjectCardProps } from './ObjectRenderer';
-
 export default function NoteCard({ object, compact, onClick, onContextMenu }: ObjectCardProps) {
   const ts = object.captured_at ? formatDate(object.captured_at) : null;
 
@@ -15,11 +14,11 @@ export default function NoteCard({ object, compact, onClick, onContextMenu }: Ob
         width: '100%',
         textAlign: 'left',
         background: 'var(--cp-card)',
-        border: '1px solid var(--cp-border)',
+        border: 'none',
         borderRadius: 6,
         padding: compact ? '8px 10px' : '12px 14px',
         cursor: 'pointer',
-        transition: 'border-color 120ms ease, box-shadow 120ms ease',
+        transition: 'box-shadow 120ms ease',
       }}
       className="cp-object-card cp-object-note"
     >

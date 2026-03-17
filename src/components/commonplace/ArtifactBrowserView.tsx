@@ -322,7 +322,7 @@ export function ExtractionSummary({
   methods: number;
 }) {
   const items = [
-    { label: 'claims', count: claims, color: '#C4503C' },
+    { label: 'claims', count: claims, color: '#B8623D' },
     { label: 'entities', count: entities, color: '#1A7A8A' },
     { label: 'questions', count: questions, color: '#7050A0' },
     { label: 'rules', count: rules, color: '#A08020' },

@@ -6,18 +6,21 @@ import { usePathname } from 'next/navigation';
 import Link from 'next/link';
 import {
   Activity,
+  Archive,
   BellNotification,
   Book,
   Box3dCenter,
   BrainResearch,
   Calendar,
-  CurveArray,
+  ClipboardCheck,
   DotsGrid3x3,
   EditPencil,
   Folder,
+  HelpCircle,
   NavArrowRight,
+  RoundFlask,
   Settings,
-  Spark,
+  UserStar,
 } from 'iconoir-react';
 import {
   autoUpdate,
@@ -226,11 +229,13 @@ export default function CommonPlaceSidebar() {
       </div>
 
       <nav style={{ flex: 1, overflow: 'auto', scrollbarWidth: 'none', padding: '8px 6px', position: 'relative', zIndex: 2 }}>
-        {SIDEBAR_SECTIONS.map((section, sectionIdx) => (
+        {SIDEBAR_SECTIONS.map((section, sectionIdx) => {
+          const sectionKey = (section.title || 'capture').toLowerCase() as 'capture' | 'views' | 'work' | 'system';
+          return (
           <div key={section.title || `section-${sectionIdx}`} style={{ position: 'relative' }}>
             {sectionIdx > 0 && <div className="cp-sidebar-divider" />}
             {section.title && section.title !== 'Capture' && (
-              <div className="cp-section-title">{section.title}</div>
+              <div className="cp-section-title" data-section={sectionKey}>{section.title}</div>
             )}
 
             {section.title === 'Capture' ? (
@@ -304,6 +309,7 @@ export default function CommonPlaceSidebar() {
                         type="button"
                         className="cp-sidebar-item"
                         data-active={isActive}
+                        data-section={sectionKey}
                         onClick={() => {
                           toggleGroup(item.label);
                           /* Parent click also opens the associated view */
@@ -322,7 +328,7 @@ export default function CommonPlaceSidebar() {
                           textAlign: 'left',
                         }}
                       >
-                        <SidebarIcon name={item.icon} />
+                        <SidebarIcon name={item.icon} color={isActive ? LABEL_ACCENT[item.label] : undefined} />
                         <span style={{ flex: 1 }}>{item.label}</span>
                         <span
                           style={{
@@ -387,6 +393,7 @@ export default function CommonPlaceSidebar() {
                       type="button"
                       className="cp-sidebar-item"
                       data-active={isActive || activeScreen === item.screenType}
+                      data-section={sectionKey}
                       onClick={() => {
                         navigateToScreen(item.screenType!);
                         closeDrawerIfMobile();
@@ -398,7 +405,7 @@ export default function CommonPlaceSidebar() {
                         textAlign: 'left',
                       }}
                     >
-                      <SidebarIcon name={item.icon} />
+                      <SidebarIcon name={item.icon} color={(isActive || activeScreen === item.screenType) ? LABEL_ACCENT[item.label] : undefined} />
                       <span>{item.label}</span>
                     </button>
                   );
@@ -412,6 +419,7 @@ export default function CommonPlaceSidebar() {
                       type="button"
                       className="cp-sidebar-item"
                       data-active={isActive || viewIsOpen}
+                      data-section={sectionKey}
                       onClick={(e) => {
                         launchView(item.viewType!, undefined, e.shiftKey);
                         closeDrawerIfMobile();
@@ -423,7 +431,7 @@ export default function CommonPlaceSidebar() {
                         textAlign: 'left',
                       }}
                     >
-                      <SidebarIcon name={item.icon} />
+                      <SidebarIcon name={item.icon} color={(isActive || viewIsOpen) ? LABEL_ACCENT[item.label] : undefined} />
                       <span>{item.label}</span>
                       {viewIsOpen && (
                         <span
@@ -433,7 +441,7 @@ export default function CommonPlaceSidebar() {
                             width: 6,
                             height: 6,
                             borderRadius: '50%',
-                            backgroundColor: '#C4503C',
+                            backgroundColor: '#B8623D',
                             flexShrink: 0,
                           }}
                         />
@@ -449,9 +457,10 @@ export default function CommonPlaceSidebar() {
                     onClick={closeDrawerIfMobile}
                     className="cp-sidebar-item"
                     data-active={isActive}
+                    data-section={sectionKey}
                     style={{ textDecoration: 'none' }}
                   >
-                    <SidebarIcon name={item.icon} />
+                    <SidebarIcon name={item.icon} color={isActive ? LABEL_ACCENT[item.label] : undefined} />
                     <span>{item.label}</span>
                     {item.badge !== undefined && item.badge > 0 && (
                       <span
@@ -473,7 +482,8 @@ export default function CommonPlaceSidebar() {
               })
             )}
           </div>
-        ))}
+        );
+        })}
 
         {/* Pinned objects: 2x3 type-colored grid of starred objects.
             Each item opens the Vaul drawer via openDrawer(slug). */}
@@ -554,22 +564,22 @@ export default function CommonPlaceSidebar() {
   /* ── Collapsed 48px icon rail (desktop, compose mode) ── */
   if (!isMobile && sidebarCollapsed) {
     const railItems: Array<
-      | { key: string; icon: string; label: string; onClick: (e: React.MouseEvent) => void }
+      | { key: string; icon: string; label: string; section: string; accentColor?: string; onClick: (e: React.MouseEvent) => void }
       | { key: string; divider: true }
     > = [
-      { key: 'library', icon: 'grid', label: 'Library', onClick: () => navigateToScreen('library') },
-      { key: 'models', icon: 'model', label: 'Models', onClick: () => navigateToScreen('models') },
-      { key: 'compose', icon: 'note-pencil', label: 'Compose', onClick: (e) => launchView('compose', undefined, e.shiftKey) },
-      { key: 'timeline', icon: 'timeline', label: 'Timeline', onClick: (e) => launchView('timeline', undefined, e.shiftKey) },
-      { key: 'map', icon: 'graph', label: 'Map', onClick: (e) => launchView('network', undefined, e.shiftKey) },
-      { key: 'calendar', icon: 'calendar', label: 'Calendar', onClick: (e) => launchView('calendar', undefined, e.shiftKey) },
-      { key: 'loose-ends', icon: 'scatter', label: 'Loose Ends', onClick: (e) => launchView('loose-ends', undefined, e.shiftKey) },
+      { key: 'library', icon: 'grid', label: 'Library', section: 'capture', accentColor: activeScreen === 'library' ? LABEL_ACCENT['Library'] : undefined, onClick: () => navigateToScreen('library') },
+      { key: 'models', icon: 'model', label: 'Models', section: 'capture', accentColor: activeScreen === 'models' ? LABEL_ACCENT['Models'] : undefined, onClick: () => navigateToScreen('models') },
+      { key: 'compose', icon: 'note-pencil', label: 'Compose', section: 'capture', accentColor: findLeafWithView(layout, 'compose') ? LABEL_ACCENT['Compose'] : undefined, onClick: (e) => launchView('compose', undefined, e.shiftKey) },
+      { key: 'timeline', icon: 'timeline', label: 'Timeline', section: 'views', accentColor: findLeafWithView(layout, 'timeline') ? LABEL_ACCENT['Timeline'] : undefined, onClick: (e) => launchView('timeline', undefined, e.shiftKey) },
+      { key: 'map', icon: 'graph', label: 'Map', section: 'views', accentColor: findLeafWithView(layout, 'network') ? LABEL_ACCENT['Map'] : undefined, onClick: (e) => launchView('network', undefined, e.shiftKey) },
+      { key: 'calendar', icon: 'calendar', label: 'Calendar', section: 'views', accentColor: findLeafWithView(layout, 'calendar') ? LABEL_ACCENT['Calendar'] : undefined, onClick: (e) => launchView('calendar', undefined, e.shiftKey) },
+      { key: 'loose-ends', icon: 'scatter', label: 'Loose Ends', section: 'views', accentColor: findLeafWithView(layout, 'loose-ends') ? LABEL_ACCENT['Loose Ends'] : undefined, onClick: (e) => launchView('loose-ends', undefined, e.shiftKey) },
       { key: 'divider-1', divider: true },
-      { key: 'notebooks', icon: 'book', label: 'Notebooks', onClick: () => navigateToScreen('notebooks') },
-      { key: 'projects', icon: 'briefcase', label: 'Projects', onClick: () => navigateToScreen('projects') },
+      { key: 'notebooks', icon: 'book', label: 'Notebooks', section: 'work', onClick: () => navigateToScreen('notebooks') },
+      { key: 'projects', icon: 'briefcase', label: 'Projects', section: 'work', onClick: () => navigateToScreen('projects') },
       { key: 'divider-2', divider: true },
-      { key: 'engine', icon: 'engine', label: 'Engine', onClick: () => navigateToScreen('engine') },
-      { key: 'settings', icon: 'gear', label: 'Settings', onClick: () => navigateToScreen('settings') },
+      { key: 'engine', icon: 'engine', label: 'Engine', section: 'system', accentColor: activeScreen === 'engine' ? LABEL_ACCENT['Connection Engine'] : undefined, onClick: () => navigateToScreen('engine') },
+      { key: 'settings', icon: 'gear', label: 'Settings', section: 'system', onClick: () => navigateToScreen('settings') },
     ];
     return (
       <aside
@@ -636,6 +646,8 @@ export default function CommonPlaceSidebar() {
               key={item.key}
               icon={item.icon}
               label={item.label}
+              section={item.section}
+              accentColor={item.accentColor}
               onClick={item.onClick}
             />
           );
@@ -714,10 +726,14 @@ export default function CommonPlaceSidebar() {
 function RailIconButton({
   icon,
   label,
+  section,
+  accentColor,
   onClick,
 }: {
   icon: string;
   label: string;
+  section?: string;
+  accentColor?: string;
   onClick: (e: React.MouseEvent) => void;
 }) {
   const [hovered, setHovered] = useState(false);
@@ -739,9 +755,11 @@ function RailIconButton({
       <button
         ref={refs.setReference}
         type="button"
-        className="cp-rail-btn"
+        className="cp-rail-btn cp-sidebar-item"
         aria-label={label}
         title={label}
+        data-section={section}
+        data-active={accentColor ? 'true' : undefined}
         onClick={onClick}
         {...getReferenceProps()}
       >
@@ -766,9 +784,9 @@ function RailIconButton({
 const RAIL_ICON_COMPONENTS: Record<string, ComponentType<{ width?: number; height?: number }>> = {
   grid: DotsGrid3x3,
   timeline: Activity,
-  graph: CurveArray,
+  graph: Activity,
   calendar: Calendar,
-  scatter: Spark,
+  scatter: HelpCircle,
   engine: Box3dCenter,
   model: BrainResearch,
   bell: BellNotification,
@@ -776,20 +794,33 @@ const RAIL_ICON_COMPONENTS: Record<string, ComponentType<{ width?: number; heigh
   book: Book,
   briefcase: Folder,
   'note-pencil': EditPencil,
+  'brain-research': BrainResearch,
+  'round-flask': RoundFlask,
+  'user-star': UserStar,
+  'check-list': ClipboardCheck,
+  archive: Archive,
 };
 
 /* Per-section accent colors: shown on the icon when the item is active. */
 const LABEL_ACCENT: Record<string, string> = {
-  'Library':            'var(--cp-chrome-text)',
-  'Timeline':           '#3858B8',
-  'Compose':            '#2E8A3E',
-  'Map':                '#7050A0',
-  'Calendar':           '#3858B8',
-  'Loose Ends':         '#7050A0',
-  'Connection Engine':  '#C4503C',
-  'Notebooks':          'var(--cp-chrome-muted)',
-  'Projects':           'var(--cp-chrome-muted)',
-  'Settings':           'var(--cp-chrome-dim)',
+  /* Capture section: terracotta */
+  'Library':            '#B8623D',
+  'Models':             '#B8623D',
+  'Artifacts':          '#B8623D',
+  'Compose':            '#B8623D',
+  /* Views section: teal */
+  'Timeline':           '#2D5F6B',
+  'Map':                '#2D5F6B',
+  'Calendar':           '#2D5F6B',
+  'Loose Ends':         '#2D5F6B',
+  /* Work section: gold */
+  'Notebooks':          '#C49A4A',
+  'Projects':           '#C49A4A',
+  /* System section: purple */
+  'Connection Engine':  '#8B6FA0',
+  'Engine':             '#8B6FA0',
+  'Review Queue':       '#8B6FA0',
+  'Settings':           '#8B6FA0',
 };
 
 /* Sidebar icons: Iconoir 24x24 path data, rendered at 16px display size.
@@ -801,7 +832,7 @@ function SidebarIcon({ name, color }: { name: string; color?: string }) {
     width: size,
     height: size,
     flexShrink: 0 as const,
-    opacity: 0.7,
+    opacity: color ? 1 : 0.7,
   };
 
   const paths: Record<string, string | string[]> = {
@@ -845,8 +876,9 @@ function SidebarIcon({ name, color }: { name: string; color?: string }) {
       'M21 10V6C21 4.89543 20.1046 4 19 4H18.5',
     ],
     'scatter': [
-      'M8 15C12.8747 15 15 12.949 15 8C15 12.949 17.1104 15 22 15C17.1104 15 15 17.1104 15 22C15 17.1104 12.8747 15 8 15Z',
-      'M2 6.5C5.13376 6.5 6.5 5.18153 6.5 2C6.5 5.18153 7.85669 6.5 11 6.5C7.85669 6.5 6.5 7.85669 6.5 11C6.5 7.85669 5.13376 6.5 2 6.5Z',
+      'M12 22C17.5228 22 22 17.5228 22 12C22 6.47715 17.5228 2 12 2C6.47715 2 2 6.47715 2 12C2 17.5228 6.47715 22 12 22Z',
+      'M9 9C9 5.49997 14.5 5.5 14.5 9C14.5 11.5 12 10.9999 12 13.9999',
+      'M12 17.01L12.01 16.9989',
     ],
 
     /* Work section */
@@ -947,8 +979,17 @@ function SidebarIcon({ name, color }: { name: string; color?: string }) {
     'plus': 'M6 12H12M18 12H12M12 12V6M12 12V18',
   };
 
-  const pathData = paths[name] ?? paths['note-pencil'];
-  const dValues = Array.isArray(pathData) ? pathData : [pathData];
+  const pathData = paths[name];
+
+  /* If no inline SVG path, fall back to the Iconoir component from RAIL_ICON_COMPONENTS */
+  if (!pathData) {
+    const IconComp = RAIL_ICON_COMPONENTS[name];
+    if (IconComp) {
+      return <IconComp width={size} height={size} />;
+    }
+  }
+
+  const dValues = Array.isArray(pathData) ? pathData : [pathData ?? paths['note-pencil']];
 
   return (
     <svg

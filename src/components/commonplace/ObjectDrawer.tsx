@@ -27,6 +27,7 @@ import type { TiptapUpdatePayload } from '@/components/studio/TiptapEditor';
 import HunchSketch from './HunchSketch';
 import ObjectTasks from './ObjectTasks';
 import ReadingPane from './ReadingPane';
+import RoughBorder from './RoughBorder';
 import StatusBadge from './objects/StatusBadge';
 
 const CommonPlaceEditor = dynamic(() => import('./CommonPlaceEditor'), { ssr: false });
@@ -83,16 +84,6 @@ function MiniRadialSvg({ edgeCount, color }: { edgeCount: number; color: string 
       <circle cx={cx} cy={cy} r={8} fill={color} fillOpacity={0.65} />
     </svg>
   );
-}
-
-/* ─────────────────────────────────────────────────
-   Edge strength: color + width + dash encode tier
-   ───────────────────────────────────────────────── */
-
-function strengthStyle(strength: number): { color: string; width: number; dashed: boolean } {
-  if (strength > 0.6) return { color: '#2D5F6B', width: 4, dashed: false };
-  if (strength > 0.35) return { color: '#C49A4A', width: 3, dashed: false };
-  return { color: '#8A6A3A', width: 2, dashed: true };
 }
 
 /* ─────────────────────────────────────────────────
@@ -287,6 +278,98 @@ function DrawerSkeleton() {
 }
 
 /* ─────────────────────────────────────────────────
+   Connection arc: rough.js curve indicating edge type
+   ───────────────────────────────────────────────── */
+
+const ARC_TYPE_COLOR: Record<string, string> = {
+  mentions: '#2D5F6B',
+  shared_entity: '#2D5F6B',
+  supports: '#5A7A4A',
+  entailment: '#5A7A4A',
+  contradicts: '#B8623D',
+  similarity: '#8B6FA0',
+  semantic: '#8B6FA0',
+  causal: '#C49A4A',
+  manual: 'rgba(244,243,240,0.25)',
+};
+
+function ConnectionArc({
+  edgeType,
+  strength,
+  seed,
+}: {
+  edgeType: string;
+  strength: number;
+  seed: number;
+}) {
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    const container = containerRef.current;
+    if (!canvas || !container) return;
+
+    const h = container.offsetHeight;
+    const w = 32;
+    if (h < 1 || w < 1) return;
+
+    const dpr = window.devicePixelRatio || 1;
+    const cw = Math.min(w * dpr, 8192);
+    const ch = Math.min(h * dpr, 8192);
+
+    canvas.width = cw;
+    canvas.height = ch;
+    canvas.style.width = `${w}px`;
+    canvas.style.height = `${h}px`;
+
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+    ctx.scale(dpr, dpr);
+
+    const rc = rough.canvas(canvas);
+    const color = ARC_TYPE_COLOR[edgeType] || ARC_TYPE_COLOR.manual;
+    const strokeWidth = 0.4 + strength * 1.1;
+
+    /* Draw a gentle curve from top-left to bottom-left, arcing rightward */
+    const padY = 4;
+    const startY = padY;
+    const endY = h - padY;
+    const midY = h / 2;
+    const cpX = 22 + (seed % 6);
+
+    rc.curve(
+      [
+        [2, startY],
+        [cpX, midY * 0.6],
+        [cpX, midY * 1.4],
+        [2, endY],
+      ],
+      {
+        stroke: color,
+        strokeWidth,
+        roughness: 0.8,
+        seed,
+      },
+    );
+
+    return () => {
+      ctx.clearRect(0, 0, cw, ch);
+    };
+  }, [edgeType, strength, seed]);
+
+  return (
+    <div
+      ref={containerRef}
+      className="cp-drawer-connection-arc"
+      title={`Strength: ${Math.round(strength * 100)}%`}
+    >
+      <canvas ref={canvasRef} />
+    </div>
+  );
+}
+
+/* ─────────────────────────────────────────────────
    Connection item
    ───────────────────────────────────────────────── */
 
@@ -297,22 +380,16 @@ function ConnectionItem({
   edge: ApiEdgeCompact;
   onNavigate: (id: number) => void;
 }) {
-  const ss = strengthStyle(edge.strength);
   return (
     <button
       type="button"
       className="cp-drawer-connection-item"
       onClick={() => onNavigate(edge.other_id)}
     >
-      <div
-        className="cp-drawer-strength-bar"
-        style={{
-          backgroundColor: ss.dashed ? 'transparent' : ss.color,
-          borderLeft: ss.dashed ? `${ss.width}px dashed ${ss.color}` : 'none',
-          width: ss.dashed ? 0 : `${ss.width}px`,
-          opacity: Math.max(0.35, edge.strength),
-        }}
-        title={`Strength: ${Math.round(edge.strength * 100)}%`}
+      <ConnectionArc
+        edgeType={edge.edge_type}
+        strength={edge.strength}
+        seed={djb2Seed(String(edge.id))}
       />
       <div className="cp-drawer-connection-body">
         <div className="cp-drawer-connection-title">{edge.other_title}</div>
@@ -929,48 +1006,50 @@ export default function ObjectDrawer() {
             Object detail for {displayTitle || 'loading'}
           </Drawer.Description>
 
-          {/* Header */}
-          <div className="cp-drawer-header">
-            <div className="cp-drawer-header-text">
-              <Drawer.Title className="cp-drawer-title">
-                {displayTitle || (loading ? 'Loading...' : 'Object')}
-              </Drawer.Title>
-              {typeName && !loading && (
-                <div
-                  className="cp-drawer-type-badge"
-                  style={{ color: typeColor, borderColor: `${typeColor}50` }}
-                >
-                  {typeName.toUpperCase()}
-                </div>
-              )}
-            </div>
-            <Drawer.Close
-              className="cp-drawer-close"
-              aria-label="Close"
-              onClick={closeDrawer}
-            >
-              <svg
-                width={15}
-                height={15}
-                viewBox="0 0 15 15"
-                fill="none"
-                aria-hidden="true"
+          {/* Header with rough.js border */}
+          <RoughBorder seed={drawerSlug || 'drawer'} glow glowColor={typeColor}>
+            <div className="cp-drawer-header">
+              <div className="cp-drawer-header-text">
+                <Drawer.Title className="cp-drawer-title">
+                  {displayTitle || (loading ? 'Loading...' : 'Object')}
+                </Drawer.Title>
+                {typeName && !loading && (
+                  <div
+                    className="cp-drawer-type-badge"
+                    style={{ color: typeColor, borderColor: `${typeColor}50` }}
+                  >
+                    {typeName.toUpperCase()}
+                  </div>
+                )}
+              </div>
+              <Drawer.Close
+                className="cp-drawer-close"
+                aria-label="Close"
+                onClick={closeDrawer}
               >
-                <line
-                  x1={2.5} y1={2.5} x2={12.5} y2={12.5}
-                  stroke="currentColor"
-                  strokeWidth={1.5}
-                  strokeLinecap="round"
-                />
-                <line
-                  x1={12.5} y1={2.5} x2={2.5} y2={12.5}
-                  stroke="currentColor"
-                  strokeWidth={1.5}
-                  strokeLinecap="round"
-                />
-              </svg>
-            </Drawer.Close>
-          </div>
+                <svg
+                  width={15}
+                  height={15}
+                  viewBox="0 0 15 15"
+                  fill="none"
+                  aria-hidden="true"
+                >
+                  <line
+                    x1={2.5} y1={2.5} x2={12.5} y2={12.5}
+                    stroke="currentColor"
+                    strokeWidth={1.5}
+                    strokeLinecap="round"
+                  />
+                  <line
+                    x1={12.5} y1={2.5} x2={2.5} y2={12.5}
+                    stroke="currentColor"
+                    strokeWidth={1.5}
+                    strokeLinecap="round"
+                  />
+                </svg>
+              </Drawer.Close>
+            </div>
+          </RoughBorder>
 
           {/* Rough.js divider between header and body */}
           <div className="cp-drawer-header-rule">

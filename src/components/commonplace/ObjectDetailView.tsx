@@ -178,7 +178,7 @@ export default function ObjectDetailView({
           <div className="cp-history-list">
             {detail.recent_nodes.map((node: ApiNodeListItem) => (
               <div key={node.id} className="cp-history-item">
-                <span className="cp-history-dot" />
+                <span className="cp-history-dot" data-event={node.node_type ?? 'update'} />
                 <span className="cp-history-label">
                   {nodeEventLabel(node)}
                 </span>

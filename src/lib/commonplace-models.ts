@@ -44,7 +44,7 @@ export const MODEL_TYPE_META: Record<
   },
   normative: {
     label: 'Normative',
-    color: '#C4503C',
+    color: '#B8623D',
     description: 'What should be the case',
   },
   process: {
@@ -71,7 +71,7 @@ export const ASSUMPTION_STATUS_META: Record<
   { label: string; color: string }
 > = {
   supported: { label: 'Supported', color: '#1A7A8A' },
-  contested: { label: 'Contested', color: '#C4503C' },
+  contested: { label: 'Contested', color: '#B8623D' },
   accepted: { label: 'Accepted', color: '#2E8A3E' },
   proposed: { label: 'Proposed', color: '#7050A0' },
   falsified: { label: 'Falsified', color: '#A8A6AE' },
@@ -86,7 +86,7 @@ export type EvidenceRelation = 'supports' | 'contradicts';
 
 export const EVIDENCE_RELATION_COLOR: Record<EvidenceRelation, string> = {
   supports: '#1A7A8A',
-  contradicts: '#C4503C',
+  contradicts: '#B8623D',
 };
 
 export type EvidenceObjectType =
@@ -181,7 +181,7 @@ export const AGREEMENT_STYLE: Record<
   supportive: { label: 'supportive', color: '#2E8A3E' },
   partial: { label: 'partial', color: '#D4944A' },
   mixed: { label: 'mixed', color: '#D4944A' },
-  disagrees: { label: 'disagrees', color: '#C4503C' },
+  disagrees: { label: 'disagrees', color: '#B8623D' },
 };
 
 export interface CanonicalReference {
@@ -320,7 +320,7 @@ export const MODULE_META: Record<
   tensions: { label: 'Tensions', accentColor: '#D4944A' },
   methods: { label: 'Methods', accentColor: '#1A7A8A' },
   compare: { label: 'Canonical Compare', accentColor: '#7050A0' },
-  falsify: { label: 'Falsification Criteria', accentColor: '#C4503C' },
+  falsify: { label: 'Falsification Criteria', accentColor: '#B8623D' },
   narratives: { label: 'Narratives', accentColor: '#2E8A3E' },
 };
 
