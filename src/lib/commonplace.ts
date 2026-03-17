@@ -78,6 +78,7 @@ export type ViewType =
   | 'entity-promotions'
   | 'notebook-formation'
   | 'artifacts'
+  | 'temporal-evolution'
   | 'empty';
 
 /* ─────────────────────────────────────────────────
@@ -120,6 +121,7 @@ export const VIEW_REGISTRY: Record<ViewType, { label: string; icon: string }> = 
   'entity-promotions': { label: 'Entity Promotions', icon: 'person' },
   'notebook-formation': { label: 'Notebook Formation', icon: 'book' },
   artifacts: { label: 'Artifacts', icon: 'document' },
+  'temporal-evolution': { label: 'Temporal', icon: 'timeline' },
   empty: { label: 'Empty', icon: 'plus' },
 };
 
@@ -216,6 +218,7 @@ export const SIDEBAR_SECTIONS: SidebarSection[] = [
           { label: 'Entity Promotions', href: '#entity-promotions', icon: 'person', mode: 'view', viewType: 'entity-promotions' },
         ],
       },
+      { label: 'Temporal', href: '#temporal', icon: 'timeline', mode: 'view', viewType: 'temporal-evolution' },
       { label: 'Settings', href: '#settings', icon: 'gear', mode: 'screen', screenType: 'settings' },
     ],
   },
@@ -595,6 +598,56 @@ export interface ApiNotebookDetail extends ApiNotebookListItem {
   default_layout: Record<string, unknown> | null;
   theme: Record<string, unknown>;
   objects: { id: number; title: string; object_type: string }[];
+  visibility?: string;
+}
+
+/* ── Notebook Workspace types ── */
+
+/** GET /notebooks/<slug>/health/ */
+export interface ApiNotebookHealth {
+  object_count: number;
+  edge_count: number;
+  density: number;
+  last_engine_run: string | null;
+  cluster_count: number;
+}
+
+/** GET /temporal/ response */
+export interface ApiTemporalSnapshot {
+  window_start: string;
+  window_end: string;
+  object_count: number;
+  edge_count: number;
+  density: number;
+  component_count: number;
+  top_types: Record<string, number>;
+}
+
+export interface ApiTemporalTrajectory {
+  window_start: string;
+  object_growth: number;
+  edge_growth: number;
+  density_change: number;
+}
+
+export interface ApiTemporalEvolution {
+  snapshots: ApiTemporalSnapshot[];
+  trajectory: ApiTemporalTrajectory[];
+  summary: string;
+}
+
+/** Engine config shape (Surface 8) */
+export interface EnginePassConfig {
+  enabled: boolean;
+  [key: string]: unknown;
+}
+
+export interface EngineConfig {
+  passes?: Record<string, EnginePassConfig>;
+  post_passes?: Record<string, EnginePassConfig>;
+  modules?: Record<string, boolean>;
+  novelty?: number;
+  [key: string]: unknown;
 }
 
 /* ── Project types (ProjectListSerializer / ProjectDetailSerializer) ── */

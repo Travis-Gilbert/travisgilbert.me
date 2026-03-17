@@ -36,7 +36,7 @@ import TimelineView from './TimelineView';
 import NetworkView from './NetworkView';
 import ObjectDetailView from './ObjectDetailView';
 import ResurfaceView from './ResurfaceView';
-import NotebookView from './NotebookView';
+import NotebookWorkspace from './NotebookWorkspace';
 import ProjectView from './ProjectView';
 import NotebookListView from './NotebookListView';
 import ProjectListView from './ProjectListView';
@@ -50,6 +50,7 @@ import PromotionQueueView from './PromotionQueueView';
 import EntityPromotionView from './EntityPromotionView';
 import EmergentTypeSuggestionsView from './EmergentTypeSuggestionsView';
 import ArtifactBrowserView from './ArtifactBrowserView';
+import TemporalEvolutionView from './TemporalEvolutionView';
 import PaneDotGrid from './PaneDotGrid';
 
 /* =============================================
@@ -766,11 +767,11 @@ function PaneViewContent({
     );
   }
 
-  /* Notebook (list or detail) */
+  /* Notebook (workspace or list) */
   if (viewType === 'notebook') {
     if (context?.slug) {
       return (
-        <NotebookView
+        <NotebookWorkspace
           slug={context.slug as string}
           onOpenObject={
             paneId && onOpenObject
@@ -878,6 +879,11 @@ function PaneViewContent({
   /* Artifacts */
   if (viewType === 'artifacts') {
     return <ArtifactBrowserView />;
+  }
+
+  /* Temporal Evolution */
+  if (viewType === 'temporal-evolution') {
+    return <TemporalEvolutionView notebookSlug={context?.slug as string | undefined} />;
   }
 
   /* Placeholder for views not yet implemented */

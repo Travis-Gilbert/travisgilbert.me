@@ -43,6 +43,9 @@ import type {
   ApiPromotionItem,
   ApiEmergentTypeSuggestion,
   ApiArtifactListItem,
+  ApiNotebookHealth,
+  ApiTemporalEvolution,
+  EngineConfig,
 } from '@/lib/commonplace';
 import { API_BASE, EPISTEMIC_BASE } from '@/lib/commonplace';
 
@@ -507,6 +510,64 @@ export async function fetchNotebookBySlug(
   slug: string,
 ): Promise<ApiNotebookDetail> {
   return apiFetch<ApiNotebookDetail>(`/notebooks/${slug}/`);
+}
+
+/** GET /notebooks/<slug>/health/ */
+export async function fetchNotebookHealth(
+  slug: string,
+): Promise<ApiNotebookHealth> {
+  return apiFetch<ApiNotebookHealth>(`/notebooks/${slug}/health/`);
+}
+
+/** PATCH /notebooks/<slug>/engine-config/ (granular passes/modules config) */
+export async function patchEngineConfig(
+  slug: string,
+  config: Partial<EngineConfig>,
+): Promise<EngineConfig> {
+  return apiFetch<EngineConfig>(`/notebooks/${slug}/engine-config/`, {
+    method: 'PATCH',
+    body: JSON.stringify(config),
+  });
+}
+
+/** POST /notebooks/<slug>/add-objects/ (drag-drop batch assignment) */
+export async function batchAddObjects(
+  slug: string,
+  objectIds: number[],
+): Promise<{ assigned: number }> {
+  return apiFetch<{ assigned: number }>(`/notebooks/${slug}/add-objects/`, {
+    method: 'POST',
+    body: JSON.stringify({ object_ids: objectIds }),
+  });
+}
+
+/** GET /temporal/?notebook=<slug> */
+export async function fetchTemporalEvolution(
+  slug: string,
+  windowDays?: number,
+  stepDays?: number,
+): Promise<ApiTemporalEvolution> {
+  const search = new URLSearchParams({ notebook: slug });
+  if (windowDays) search.set('window_days', String(windowDays));
+  if (stepDays) search.set('step_days', String(stepDays));
+  return apiFetch<ApiTemporalEvolution>(`/temporal/?${search}`);
+}
+
+/** PATCH /notebooks/<slug>/ for visibility, available_types, etc. */
+export async function patchNotebook(
+  slug: string,
+  data: Partial<{
+    visibility: string;
+    available_types: string[];
+    engine_config: EngineConfig;
+    name: string;
+    description: string;
+  }>,
+): Promise<ApiNotebookDetail> {
+  return apiFetch<ApiNotebookDetail>(`/notebooks/${slug}/`, {
+    method: 'PATCH',
+    body: JSON.stringify(data),
+  });
 }
 
 /** Fetch all projects, optionally filtered by notebook or status. Handles both flat array and paginated envelope. */
