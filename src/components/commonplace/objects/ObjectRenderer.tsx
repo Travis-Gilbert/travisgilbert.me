@@ -17,6 +17,7 @@ import ScriptBlock from './ScriptBlock';
 import PlacePin from './PlacePin';
 import { useState, useCallback, type ComponentType } from 'react';
 import { createPin } from '@/lib/commonplace-api';
+import { useCommonPlace } from '@/lib/commonplace-context';
 
 export interface RenderableObject extends Partial<ObjectListItem> {
   id: number;
@@ -1177,6 +1178,9 @@ const DND_MIME = 'application/commonplace-object';
 
 export default function ObjectRenderer(props: ObjectCardProps) {
   const [dragOver, setDragOver] = useState(false);
+  const { draggedComponent } = useCommonPlace();
+  const [pointerInside, setPointerInside] = useState(false);
+  const isDropTarget = draggedComponent !== null;
 
   // Compact variants (dock/chain/chip) are too small for DnD interaction
   if (
@@ -1283,6 +1287,8 @@ export default function ObjectRenderer(props: ObjectCardProps) {
   const wrapperClass = [
     'cp-lego-card-wrapper',
     dragOver ? 'cp-drop-target' : '',
+    isDropTarget ? 'cp-object-card--receptive' : '',
+    isDropTarget && pointerInside ? 'cp-object-card--hover-drop' : '',
   ]
     .filter(Boolean)
     .join(' ');
@@ -1290,13 +1296,20 @@ export default function ObjectRenderer(props: ObjectCardProps) {
   return (
     <div
       className={wrapperClass}
+      data-object-id={props.object.id}
       draggable
       onDragStart={handleDragStart}
       onDragOver={handleDragOver}
       onDragLeave={handleDragLeave}
       onDrop={handleDrop}
+      onPointerEnter={() => isDropTarget && setPointerInside(true)}
+      onPointerLeave={() => setPointerInside(false)}
     >
       {card}
+      {/* Drop label */}
+      {isDropTarget && pointerInside && (
+        <div className="cp-drop-label">Drop to attach component</div>
+      )}
       {/* Epistemic tag footer: badge + signal pips */}
       {props.object.tag_summary?.badge && (
         <div className="cp-tag-footer">

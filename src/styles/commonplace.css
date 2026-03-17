@@ -7927,3 +7927,23 @@
     gap: 12px;
   }
 }
+
+/* Drop target feedback for component toolbox drag */
+.cp-object-card--receptive {
+  transition: outline 150ms, background 150ms;
+}
+
+.cp-object-card--hover-drop {
+  outline: 2px dashed #2D5F6B;
+  outline-offset: -2px;
+  background: rgba(45, 95, 107, 0.08);
+}
+
+.cp-drop-label {
+  font-family: var(--cp-font-mono);
+  font-size: 9px;
+  color: #2D5F6B;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  margin-top: 6px;
+}
