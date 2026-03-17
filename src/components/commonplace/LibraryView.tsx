@@ -1,6 +1,7 @@
 'use client';
 
 import { useMemo, useState } from 'react';
+import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
 import {
   fetchClusters,
   fetchFeed,
@@ -159,6 +160,7 @@ const DEMO_CLUSTERS: ClusterResponse[] = [
 ];
 
 export default function LibraryView({ onOpenObject }: LibraryViewProps) {
+  const prefersReducedMotion = useReducedMotion();
   const { captureVersion, openContextMenu, launchView } = useCommonPlace();
   const [activeType, setActiveType] = useState<string | null>(null);
   const [activeClusterKey, setActiveClusterKey] = useState<string | null>(null);
@@ -520,15 +522,25 @@ export default function LibraryView({ onOpenObject }: LibraryViewProps) {
                 No objects match the current search.
               </div>
             ) : (
-              filteredNodes.map((obj) => (
-                <ObjectRenderer
-                  key={obj.slug}
-                  object={obj}
-                  variant="module"
-                  onClick={handleObjectClick}
-                  onContextMenu={(e, object) => openContextMenu(e.clientX, e.clientY, object)}
-                />
-              ))
+              <AnimatePresence mode="popLayout">
+                {filteredNodes.map((obj) => (
+                  <motion.div
+                    key={obj.id}
+                    layout="position"
+                    initial={prefersReducedMotion ? false : { opacity: 0, y: 8 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, scale: 0.95 }}
+                    transition={{ layout: { duration: 0.2, ease: 'easeOut' } }}
+                  >
+                    <ObjectRenderer
+                      object={obj}
+                      variant="module"
+                      onClick={handleObjectClick}
+                      onContextMenu={(e, object) => openContextMenu(e.clientX, e.clientY, object)}
+                    />
+                  </motion.div>
+                ))}
+              </AnimatePresence>
             )}
           </div>
         ) : (

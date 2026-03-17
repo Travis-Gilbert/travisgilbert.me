@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useMemo } from 'react';
+import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
 import { fetchFeed, fetchResurface, useApiData } from '@/lib/commonplace-api';
 import { useCommonPlace } from '@/lib/commonplace-context';
 import type { MockEdge, MockNode } from '@/lib/commonplace';
@@ -121,6 +122,7 @@ interface GridViewProps {
 }
 
 export default function GridView({ onOpenObject }: GridViewProps) {
+  const prefersReducedMotion = useReducedMotion();
   const { captureVersion, openContextMenu, launchView } = useCommonPlace();
 
   const { data: nodes, loading, error, refetch } = useApiData(
@@ -248,16 +250,26 @@ export default function GridView({ onOpenObject }: GridViewProps) {
             <span className="cp-drawer-section-head-rule" />
           </div>
           <div className="cp-resurface-cards">
-            {resurfaceNodes.map((obj) => (
-              <ObjectRenderer
-                key={obj.id}
-                object={obj}
-                compact
-                variant="module"
-                onClick={handleObjectClick}
-                onContextMenu={(e, object) => openContextMenu(e.clientX, e.clientY, object)}
-              />
-            ))}
+            <AnimatePresence mode="popLayout">
+              {resurfaceNodes.map((obj) => (
+                <motion.div
+                  key={obj.id}
+                  layout="position"
+                  initial={prefersReducedMotion ? false : { opacity: 0, y: 8 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, scale: 0.95 }}
+                  transition={{ layout: { duration: 0.2, ease: 'easeOut' } }}
+                >
+                  <ObjectRenderer
+                    object={obj}
+                    compact
+                    variant="module"
+                    onClick={handleObjectClick}
+                    onContextMenu={(e, object) => openContextMenu(e.clientX, e.clientY, object)}
+                  />
+                </motion.div>
+              ))}
+            </AnimatePresence>
           </div>
         </div>
       )}
@@ -293,20 +305,27 @@ export default function GridView({ onOpenObject }: GridViewProps) {
 
         {!loading && !error && filteredNodes.length > 0 && (
           <div className="cp-masonry">
-            {gridObjects.map((obj) => (
-              <div
-                key={obj.id}
-                className="cp-masonry-item"
-                data-priority={(obj.edge_count ?? 0) >= 5 ? 'featured' : undefined}
-              >
-                <ObjectRenderer
-                  object={obj}
-                  variant="module"
-                  onClick={handleObjectClick}
-                  onContextMenu={(e, object) => openContextMenu(e.clientX, e.clientY, object)}
-                />
-              </div>
-            ))}
+            <AnimatePresence mode="popLayout">
+              {gridObjects.map((obj) => (
+                <motion.div
+                  key={obj.id}
+                  layout="position"
+                  className="cp-masonry-item"
+                  data-priority={(obj.edge_count ?? 0) >= 5 ? 'featured' : undefined}
+                  initial={prefersReducedMotion ? false : { opacity: 0, y: 8 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, scale: 0.95 }}
+                  transition={{ layout: { duration: 0.2, ease: 'easeOut' } }}
+                >
+                  <ObjectRenderer
+                    object={obj}
+                    variant="module"
+                    onClick={handleObjectClick}
+                    onContextMenu={(e, object) => openContextMenu(e.clientX, e.clientY, object)}
+                  />
+                </motion.div>
+              ))}
+            </AnimatePresence>
           </div>
         )}
       </div>
