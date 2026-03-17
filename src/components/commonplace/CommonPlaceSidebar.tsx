@@ -257,6 +257,7 @@ export default function CommonPlaceSidebar() {
                           key: nb.slug,
                           label: nb.name,
                           color: nb.color,
+                          icon: undefined as string | undefined,
                           onClick: () => {
                             requestView('notebook', nb.name, { slug: nb.slug });
                             closeDrawerIfMobile();
@@ -266,13 +267,25 @@ export default function CommonPlaceSidebar() {
                         ? (projects ?? []).map((pj) => ({
                             key: pj.slug,
                             label: pj.name,
-                            color: undefined,
+                            color: undefined as string | undefined,
+                            icon: undefined as string | undefined,
                             onClick: () => {
                               requestView('project', pj.name, { slug: pj.slug });
                               closeDrawerIfMobile();
                             },
                         }))
-                        : [];
+                        : (item.children ?? []).map((child) => ({
+                            key: child.href,
+                            label: child.label,
+                            color: undefined as string | undefined,
+                            icon: child.icon,
+                            onClick: () => {
+                              if (child.viewType) {
+                                requestView(child.viewType, child.label);
+                              }
+                              closeDrawerIfMobile();
+                            },
+                          }));
                   const childCount = dynamicItems.length;
 
                   return (
@@ -337,7 +350,7 @@ export default function CommonPlaceSidebar() {
                                   style={{ backgroundColor: child.color }}
                                 />
                               )}
-                              {!child.color && <SidebarIcon name="briefcase" />}
+                              {!child.color && <SidebarIcon name={child.icon ?? 'briefcase'} />}
                               <span>{child.label}</span>
                             </button>
                           ))}

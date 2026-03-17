@@ -53,6 +53,9 @@ import LooseEndsView from './LooseEndsView';
 import ComposeView from './ComposeView';
 import LibraryView from './LibraryView';
 import ModelView from './ModelView';
+import NotebookFormationView from './NotebookFormationView';
+import PromotionQueueView from './PromotionQueueView';
+import EntityPromotionView from './EntityPromotionView';
 import PaneDotGrid from './PaneDotGrid';
 
 /* ─────────────────────────────────────────────────
@@ -1371,6 +1374,21 @@ function PaneViewContent({ viewType, context, paneId, onOpenObject }: PaneViewCo
     );
   }
 
+  /* Live view: Promotion Queue (epistemic triage) */
+  if (viewType === 'promotion-queue') {
+    return <PromotionQueueView />;
+  }
+
+  /* Live view: Notebook Formation (self-organize monitoring) */
+  if (viewType === 'notebook-formation') {
+    return <NotebookFormationView />;
+  }
+
+  /* Live view: Entity Promotions (self-organize monitoring) */
+  if (viewType === 'entity-promotions') {
+    return <EntityPromotionView />;
+  }
+
   /* Placeholder for views not yet implemented */
   return (
     <div
@@ -1549,6 +1567,40 @@ function ViewTypeIcon({ viewType, size = 16 }: { viewType: ViewType; size?: numb
           <line x1={2} y1={4} x2={14} y2={4} />
           <line x1={2} y1={8} x2={11} y2={8} />
           <line x1={2} y1={12} x2={13} y2={12} />
+        </svg>
+      );
+    case 'promotion-queue':
+      return (
+        <svg width={s} height={s} viewBox="0 0 16 16" fill="none" stroke={color} strokeWidth={sw} style={{ display: 'block', margin: '0 auto' }}>
+          <line x1={5} y1={4} x2={14} y2={4} />
+          <line x1={5} y1={8} x2={14} y2={8} />
+          <line x1={5} y1={12} x2={14} y2={12} />
+          <path d="M2 3.5 L3 4.5 L4.5 2.5" />
+          <circle cx={3} cy={8} r={1} />
+          <circle cx={3} cy={12} r={1} />
+        </svg>
+      );
+    case 'notebook-formation':
+      return (
+        <svg width={s} height={s} viewBox="0 0 16 16" fill="none" stroke={color} strokeWidth={sw} style={{ display: 'block', margin: '0 auto' }}>
+          <circle cx={5} cy={5} r={3} />
+          <circle cx={11} cy={5} r={3} />
+          <circle cx={8} cy={11} r={3} />
+        </svg>
+      );
+    case 'entity-promotions':
+      return (
+        <svg width={s} height={s} viewBox="0 0 16 16" fill="none" stroke={color} strokeWidth={sw} style={{ display: 'block', margin: '0 auto' }}>
+          <circle cx={8} cy={5} r={3} />
+          <path d="M3 14 C3 10 13 10 13 14" />
+          <line x1={12} y1={3} x2={12} y2={7} />
+          <line x1={10} y1={5} x2={14} y2={5} />
+        </svg>
+      );
+    case 'emergent-types':
+      return (
+        <svg width={s} height={s} viewBox="0 0 16 16" fill="none" stroke={color} strokeWidth={sw} style={{ display: 'block', margin: '0 auto' }}>
+          <path d="M8 2 L9.5 6 L14 6.5 L10.5 9.5 L11.5 14 L8 11.5 L4.5 14 L5.5 9.5 L2 6.5 L6.5 6 Z" />
         </svg>
       );
     default:

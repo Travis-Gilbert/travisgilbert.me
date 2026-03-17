@@ -39,6 +39,8 @@ import type {
   ObjectListItem,
   ClusterResponse,
   LineageResponse,
+  ApiSelfOrganizePreview,
+  ApiPromotionItem,
 } from '@/lib/commonplace';
 import { API_BASE, EPISTEMIC_BASE } from '@/lib/commonplace';
 
@@ -958,4 +960,57 @@ export async function fetchInquiryResult(
   id: number,
 ): Promise<InquiryResultData> {
   return epistemicFetch<InquiryResultData>(`/inquiries/${id}/result/`);
+}
+
+/* ─────────────────────────────────────────────────
+   Self-organize endpoints
+   ───────────────────────────────────────────────── */
+
+/** Fetch self-organize preview (notebook formation, entity promotions, edge evolution) */
+export async function fetchSelfOrganizePreview(): Promise<ApiSelfOrganizePreview> {
+  return apiFetch<ApiSelfOrganizePreview>('/self-organize/preview/');
+}
+
+/** Run a specific self-organize loop */
+export async function runSelfOrganizeLoop(
+  loop: 'form-notebooks' | 'promote-entities',
+  params?: Record<string, unknown>,
+): Promise<{ status: string; detail?: string }> {
+  return apiFetch<{ status: string; detail?: string }>(`/self-organize/${loop}/`, {
+    method: 'POST',
+    body: JSON.stringify(params ?? {}),
+  });
+}
+
+/* ─────────────────────────────────────────────────
+   Promotion queue endpoints (epistemic API)
+   ───────────────────────────────────────────────── */
+
+/** Fetch promotion queue items */
+export async function fetchPromotionQueue(params?: {
+  queue_state?: string;
+  item_type?: string;
+  artifact?: number;
+}): Promise<ApiPromotionItem[]> {
+  const search = new URLSearchParams();
+  if (params?.queue_state) search.set('queue_state', params.queue_state);
+  if (params?.item_type) search.set('item_type', params.item_type);
+  if (params?.artifact) search.set('artifact', String(params.artifact));
+
+  const qs = search.toString();
+  const path = `/promotion-items/${qs ? `?${qs}` : ''}`;
+  const data = await epistemicFetch<{ results: ApiPromotionItem[] } | ApiPromotionItem[]>(path);
+  return Array.isArray(data) ? data : data.results;
+}
+
+/** Submit a review action on a promotion item */
+export async function submitReviewAction(data: {
+  promotion_item_id: number;
+  action_type: 'accept' | 'reject' | 'revise' | 'defer';
+  rationale?: string;
+}): Promise<{ id: number; action_type: string }> {
+  return epistemicFetch<{ id: number; action_type: string }>('/review-actions/', {
+    method: 'POST',
+    body: JSON.stringify({ ...data, actor_label: 'user' }),
+  });
 }

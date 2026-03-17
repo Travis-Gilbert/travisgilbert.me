@@ -73,6 +73,10 @@ export type ViewType =
   | 'model-view'
   | 'reminders'
   | 'settings'
+  | 'promotion-queue'
+  | 'emergent-types'
+  | 'entity-promotions'
+  | 'notebook-formation'
   | 'empty';
 
 export interface ViewDefinition {
@@ -100,6 +104,10 @@ export const VIEW_REGISTRY: Record<ViewType, { label: string; icon: string }> = 
   'model-view': { label: 'Models', icon: 'model' },
   reminders: { label: 'Reminders', icon: 'bell' },
   settings: { label: 'Settings', icon: 'gear' },
+  'promotion-queue': { label: 'Review Queue', icon: 'check-list' },
+  'emergent-types': { label: 'Emergent Types', icon: 'sparkle' },
+  'entity-promotions': { label: 'Entity Promotions', icon: 'person' },
+  'notebook-formation': { label: 'Notebook Formation', icon: 'book' },
   empty: { label: 'Empty', icon: 'plus' },
 };
 
@@ -179,6 +187,18 @@ export const SIDEBAR_SECTIONS: SidebarSection[] = [
     title: 'System',
     items: [
       { label: 'Engine', href: '#engine', icon: 'engine', viewType: 'connection-engine' as ViewType },
+      { label: 'Review Queue', href: '#review', icon: 'check-list', viewType: 'promotion-queue' as ViewType },
+      {
+        label: 'Self-organize',
+        href: '#self-organize',
+        icon: 'sparkle',
+        expandable: true,
+        children: [
+          { label: 'Emergent Types', href: '#emergent-types', icon: 'sparkle', viewType: 'emergent-types' as ViewType },
+          { label: 'Entity Promotions', href: '#entity-promotions', icon: 'person', viewType: 'entity-promotions' as ViewType },
+          { label: 'Notebook Formation', href: '#notebook-formation', icon: 'book', viewType: 'notebook-formation' as ViewType },
+        ],
+      },
       { label: 'Settings', href: '#settings', icon: 'gear', viewType: 'settings' as ViewType },
     ],
   },
@@ -706,6 +726,58 @@ export async function fetchObjects(params?: {
   } catch {
     return { count: 0, next: null, previous: null, results: [] };
   }
+}
+
+/* ─────────────────────────────────────────────────
+   Epistemic + self-organize API types
+   ───────────────────────────────────────────────── */
+
+export interface ApiPromotionItem {
+  id: number;
+  artifact: number;
+  artifact_title: string;
+  item_type: 'claim' | 'entity' | 'question' | 'rule' | 'method_candidate';
+  queue_state: 'pending' | 'accepted' | 'rejected' | 'deferred';
+  title: string;
+  confidence: number;
+  pack_hint: string;
+  created_at: string;
+}
+
+export interface ApiNotebookFormationPreview {
+  modularity: number;
+  threshold: number;
+  eligible: boolean;
+  candidate_count: number;
+  candidates: {
+    label: string;
+    member_count: number;
+    unassigned_count: number;
+    top_notebook_share: number;
+    top_types: Record<string, number>;
+  }[];
+}
+
+export interface ApiEntityPromotionCandidate {
+  normalized_text: string;
+  entity_type: string;
+  mention_count: number;
+  suggested_object_type: string;
+}
+
+export interface ApiSelfOrganizePreview {
+  notebook_formation: ApiNotebookFormationPreview;
+  entity_promotions: {
+    threshold: number;
+    candidate_count: number;
+    candidates: ApiEntityPromotionCandidate[];
+  };
+  edge_evolution: {
+    half_life_days: number;
+    prune_threshold: number;
+    to_prune_count: number;
+    to_decay_count: number;
+  };
 }
 
 export async function quickCapture(data: {
