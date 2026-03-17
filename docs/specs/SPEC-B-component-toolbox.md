@@ -35,23 +35,38 @@ through the tag system (Spec C).
 
 - No em dashes anywhere in code, comments, or copy.
 - The toolbox lives in the sidebar, not in each pane.
-- Drag source is the sidebar toolbox tile.
+- **Framer Motion drag** instead of native HTML drag-and-drop (see rationale).
 - Drop target is any object card in any visible screen or pane.
 - Components attach to objects via the existing Component API.
 - Object-scoped terminals use `TerminalCanvas` with near-black base (#1A1C22)
   and subtle teal radial gradient from bottom-left corner.
 
+### Why Framer Motion drag instead of native HTML
+
+Native HTML drag-and-drop uses an unstyleable browser ghost image, fires
+erratic `dragleave` events on child elements (causing drop zone flickering),
+has no return animation on invalid drops, and behaves inconsistently on
+touch devices. Framer Motion is already in the bundle (`framer-motion` is
+used throughout SplitPaneContainer, AnimatePresence, etc.). Framer drag
+gives us:
+
+- The actual tile follows the cursor with spring physics.
+- Full visual control: scale, shadow, tint during drag.
+- Smooth spring-back animation on invalid drops.
+- Identical behavior on touch and pointer devices.
+- Drop detection via `document.elementFromPoint()` instead of the browser's
+  buggy drop target system.
+
 ---
 
-## Batch 1: Toolbox UI in sidebar
+## Batch 1: Toolbox UI in sidebar with Framer Motion drag
 
 ### Read first
 - `src/components/commonplace/CommonPlaceSidebar.tsx`
 - `src/styles/commonplace.css`
+- `src/lib/commonplace-context.tsx` (for shared drag state)
 
-### New constant: `COMPONENT_TOOLBOX`
-
-Add to `src/lib/commonplace-components.ts`:
+### New constant file: `src/lib/commonplace-components.ts`
 
 ```typescript
 export interface ComponentToolboxItem {
@@ -74,13 +89,81 @@ export const COMPONENT_TOOLBOX: ComponentToolboxItem[] = [
 ];
 ```
 
-### Sidebar addition
+### Shared drag state in context
 
-Add a collapsible "Toolbox" section above the "travisgilbert.me" back link.
-2-column CSS grid, 4px gap. Each tile is `draggable` with `onDragStart`
-setting `dataTransfer.setData('component-type', comp.id)`.
+Add to `CommonPlaceProvider` (or a dedicated `ComponentDragProvider`):
 
-Store open/closed state in localStorage key `cp-toolbox-open`.
+```typescript
+/** Currently dragged component type ID, or null */
+const [draggedComponent, setDraggedComponent] = useState<string | null>(null);
+```
+
+This is shared so that object cards anywhere in the app can react to an
+active drag (showing drop zone highlights) without prop drilling.
+
+### Sidebar toolbox section
+
+Add between the sidebar navigation and the "travisgilbert.me" back link.
+
+Collapsible header: "TOOLBOX" in mono 10px uppercase, chevron, count badge.
+Open/closed state stored in localStorage key `cp-toolbox-open`.
+
+2-column CSS grid. Each tile is a Framer Motion `<motion.div>`:
+
+```typescript
+import { motion } from 'framer-motion';
+
+function ToolboxTile({ comp }: { comp: ComponentToolboxItem }) {
+  const { setDraggedComponent } = useCommonPlace();
+
+  return (
+    <motion.div
+      className="cp-toolbox-tile"
+      title={comp.description}
+      drag
+      dragSnapToOrigin    // springs back if dropped on invalid target
+      dragElastic={0.15}  // slight rubber band feel
+      dragMomentum={false}
+      whileDrag={{
+        scale: 0.9,
+        boxShadow: `0 4px 16px ${comp.color}44`,
+        zIndex: 9999,
+        cursor: 'grabbing',
+      }}
+      onDragStart={() => setDraggedComponent(comp.id)}
+      onDragEnd={(event, info) => {
+        // Hit-test: find the object card under the pointer
+        const target = document.elementFromPoint(
+          info.point.x,
+          info.point.y,
+        );
+        const card = target?.closest('[data-object-id]');
+        if (card) {
+          const objectId = Number(card.getAttribute('data-object-id'));
+          if (!isNaN(objectId)) {
+            handleComponentDrop(objectId, comp.id);
+          }
+        }
+        setDraggedComponent(null);
+      }}
+      style={{ position: 'relative', zIndex: 1 }}
+    >
+      <Icon name={comp.icon} size={11} color={comp.color} />
+      <span>{comp.label}</span>
+    </motion.div>
+  );
+}
+```
+
+Key behaviors:
+- `dragSnapToOrigin` makes the tile spring back to its sidebar position if
+  dropped outside a valid target. No manual reset needed.
+- `whileDrag` scales the tile down slightly and adds a colored shadow matching
+  the component's identity color.
+- `onDragEnd` uses `document.elementFromPoint()` with the pointer coordinates
+  from Framer's `info.point` to find the nearest `[data-object-id]` element.
+- The shared `draggedComponent` context state allows object cards to show
+  drop zone indicators while a drag is active.
 
 ### CSS
 
@@ -128,28 +211,23 @@ Store open/closed state in localStorage key `cp-toolbox-open`.
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  touch-action: none;  /* required for Framer drag on touch devices */
 }
 
 .cp-toolbox-tile:hover {
   border-color: var(--cp-chrome-muted);
   background: var(--cp-chrome-raise);
 }
-
-.cp-toolbox-tile:active {
-  cursor: grabbing;
-}
-
-.cp-toolbox-tile[data-dragging="true"] {
-  opacity: 0.6;
-}
 ```
 
 ### Verification
 - [ ] Toolbox section appears at bottom of sidebar
-- [ ] Collapsible toggle works
+- [ ] Collapsible toggle works, state persists in localStorage
 - [ ] 7 component tiles render in 2-column grid
-- [ ] Tiles are draggable (browser shows drag ghost)
-- [ ] Open/closed state persists across page loads
+- [ ] Tiles follow the cursor when dragged (Framer Motion)
+- [ ] Tiles scale down and show colored shadow while dragging
+- [ ] Tiles spring back to sidebar position on invalid drop
+- [ ] Drag works on touch devices
 - [ ] `npm run build` passes
 
 ---
@@ -160,33 +238,83 @@ Store open/closed state in localStorage key `cp-toolbox-open`.
 - `src/components/commonplace/objects/ObjectRenderer.tsx`
 - `src/components/commonplace/LibraryView.tsx`
 - `src/lib/commonplace-api.ts`
+- `src/lib/commonplace-context.tsx` (draggedComponent state from Batch 1)
 
-### Drop zone hook
+### Object card drop zone attribute
+
+Every object card must include a `data-object-id` attribute on its outermost
+DOM element. This is what the Framer drag `onDragEnd` handler uses to identify
+the drop target via `document.elementFromPoint()`.
+
+Update all polymorphic renderers (NoteCard, SourceCard, PersonPill, etc.):
 
 ```typescript
-// src/hooks/useComponentDrop.ts
-export function useComponentDrop(objectId: number) {
-  const [dragOver, setDragOver] = useState(false);
+<div
+  className="cp-object-card"
+  data-object-id={object.id}
+  // ... existing props
+>
+```
 
-  const handlers = {
-    onDragOver: (e: React.DragEvent) => {
-      if (e.dataTransfer.types.includes('component-type')) {
-        e.preventDefault();
-        setDragOver(true);
-      }
-    },
-    onDragLeave: () => setDragOver(false),
-    onDrop: async (e: React.DragEvent) => {
-      e.preventDefault();
-      const componentType = e.dataTransfer.getData('component-type');
-      if (componentType) {
-        await attachComponent(objectId, componentType);
-      }
-      setDragOver(false);
-    },
-  };
+### Visual drop zone feedback
 
-  return { dragOver, handlers };
+Object cards read `draggedComponent` from context. When a component drag is
+active, cards show a receptive state:
+
+```typescript
+function ObjectCard({ object, ... }) {
+  const { draggedComponent } = useCommonPlace();
+  const [pointerInside, setPointerInside] = useState(false);
+  const isDropTarget = draggedComponent !== null;
+
+  return (
+    <div
+      className={cn(
+        'cp-object-card',
+        isDropTarget && 'cp-object-card--receptive',
+        isDropTarget && pointerInside && 'cp-object-card--hover-drop',
+      )}
+      data-object-id={object.id}
+      onPointerEnter={() => isDropTarget && setPointerInside(true)}
+      onPointerLeave={() => setPointerInside(false)}
+    >
+      {/* card content */}
+      {isDropTarget && pointerInside && (
+        <div className="cp-drop-label">Drop to attach component</div>
+      )}
+    </div>
+  );
+}
+```
+
+Note: we use `onPointerEnter`/`onPointerLeave` instead of the native drag
+events. These fire reliably during Framer Motion drags because Framer uses
+pointer events internally, and the dragged element has `pointer-events: none`
+set by Framer during drag. That means the pointer events fire on the elements
+*underneath* the dragged tile, which is exactly what we want.
+
+### CSS
+
+```css
+/* Subtle receptive state: all cards gently signal they accept drops */
+.cp-object-card--receptive {
+  transition: outline 150ms, background 150ms;
+}
+
+/* Active hover: this specific card is the target */
+.cp-object-card--hover-drop {
+  outline: 2px dashed #2D5F6B;
+  outline-offset: -2px;
+  background: rgba(45, 95, 107, 0.08);
+}
+
+.cp-drop-label {
+  font-family: var(--cp-font-mono);
+  font-size: 9px;
+  color: #2D5F6B;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  margin-top: 6px;
 }
 ```
 
@@ -220,21 +348,32 @@ export async function detachComponent(componentId: number): Promise<void> {
 }
 ```
 
-### Visual feedback
+### Drop handler (in context or shared utility)
 
-When `dragOver` is true:
-- Teal dashed outline (2px, `outline-offset: -2px`)
-- Background tint: `rgba(45, 95, 107, 0.08)`
-- "Drop to attach component" label (mono 9px, teal, uppercase)
+```typescript
+async function handleComponentDrop(objectId: number, componentTypeId: string) {
+  const comp = COMPONENT_TOOLBOX.find(c => c.id === componentTypeId);
+  if (!comp) return;
 
-On successful drop: toast "Attached {component label} to {object title}".
+  try {
+    await attachComponent(objectId, comp.apiTypeName);
+    toast.success(`Attached ${comp.label}`);
+    // Trigger refetch of the object's components
+    notifyComponentChange(objectId);
+  } catch {
+    toast.error(`Could not attach ${comp.label}`);
+  }
+}
+```
 
 ### Verification
-- [ ] Dragging a toolbox tile over an object card highlights it
+- [ ] All object cards have `data-object-id` attribute
+- [ ] Cards show dashed outline when pointer enters during drag
+- [ ] "Drop to attach component" label appears on hover-drop
 - [ ] Dropping attaches the component via API
 - [ ] Toast confirms the attachment
-- [ ] Drop zones work in Library, Grid, and Timeline views
-- [ ] Non-component drags do not trigger the drop zone
+- [ ] Failed API calls show error toast
+- [ ] Drop detection works across Library, Grid, and Timeline views
 - [ ] `npm run build` passes
 
 ---
@@ -297,14 +436,25 @@ Types not in the registry render as a generic badge (icon + label pill).
 ### Integration
 
 Object cards check their `components` array and render matching inline
-renderers below the body text.
+renderers below the body text. New components fade in using Framer Motion:
+
+```typescript
+<motion.div
+  initial={{ opacity: 0, y: 8 }}
+  animate={{ opacity: 1, y: 0 }}
+  transition={{ duration: 0.2, ease: 'easeOut' }}
+>
+  <ComponentRenderer type={compId} ... />
+</motion.div>
+```
 
 ### Verification
 - [ ] MiniTerminal renders with dark bg and teal bloom
 - [ ] MiniCluster renders SVG mini-graph with real edge data
 - [ ] MiniPhotos renders horizontal thumbnail strip
 - [ ] All have working close/remove buttons
-- [ ] Components appear inline after drag-and-drop
+- [ ] Components fade in smoothly after drag-and-drop attachment
+- [ ] Components appear inline on object cards
 - [ ] `npm run build` passes
 
 ---
@@ -312,8 +462,8 @@ renderers below the body text.
 ## Build Order Summary
 
 ```
-Batch 1: Toolbox UI in sidebar (tiles, grid, drag start)
-Batch 2: Drop targets on object cards (drop zone, API, feedback)
+Batch 1: Toolbox UI with Framer Motion drag (tiles, grid, spring-back)
+Batch 2: Drop targets on object cards (pointer hit-test, API, feedback)
 Batch 3: Inline component renderers (MiniTerminal, MiniCluster, MiniPhotos)
 ```
 
