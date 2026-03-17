@@ -1,6 +1,7 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { motion } from 'framer-motion';
 import { COMPONENT_TOOLBOX } from '@/lib/commonplace-components';
 import type { ComponentToolboxItem } from '@/lib/commonplace-components';
@@ -35,7 +36,6 @@ export default function ComponentToolbox() {
           key: comp.id,
           value: '',
         });
-        // Trigger absorption glow on the target card
         const cardEl = document.querySelector(`[data-object-id="${objectId}"]`);
         if (cardEl) {
           cardEl.dispatchEvent(
@@ -85,6 +85,39 @@ export default function ComponentToolbox() {
   );
 }
 
+/** Floating ghost that follows the cursor via portal, escaping sidebar overflow. */
+function DragOverlay({ comp }: { comp: ComponentToolboxItem }) {
+  const [pos, setPos] = useState({ x: 0, y: 0 });
+
+  useEffect(() => {
+    const onMove = (e: PointerEvent) => setPos({ x: e.clientX, y: e.clientY });
+    window.addEventListener('pointermove', onMove);
+    return () => window.removeEventListener('pointermove', onMove);
+  }, []);
+
+  return createPortal(
+    <div
+      className="commonplace-theme cp-toolbox-drag-ghost"
+      style={{
+        left: pos.x + 12,
+        top: pos.y - 14,
+        '--comp-color': comp.color,
+      } as React.CSSProperties}
+    >
+      <div className="cp-toolbox-tile">
+        <span
+          className="cp-capture-type-dot"
+          style={{ background: comp.color }}
+        />
+        <span className="cp-toolbox-tile-label">
+          {comp.label}
+        </span>
+      </div>
+    </div>,
+    document.body,
+  );
+}
+
 function ToolboxTile({
   comp,
   onDragStart,
@@ -96,50 +129,54 @@ function ToolboxTile({
   onDrop: (objectId: number) => void;
   onDragCancel: () => void;
 }) {
+  const [dragging, setDragging] = useState(false);
+  const pointerRef = useRef({ x: 0, y: 0 });
+
   return (
-    <motion.div
-      className="cp-toolbox-tile"
-      drag
-      dragSnapToOrigin
-      dragElastic={0.15}
-      dragMomentum={false}
-      whileDrag={{
-        scale: 0.9,
-        boxShadow: `0 4px 16px ${comp.color}44`,
-        zIndex: 9999,
-      }}
-      onDragStart={onDragStart}
-      onDragEnd={(_event, info) => {
-        const el = document.elementFromPoint(info.point.x, info.point.y);
-        if (!el) {
-          onDragCancel();
-          return;
-        }
-        const target = el.closest('[data-object-id]');
-        if (target) {
-          const objectId = Number(target.getAttribute('data-object-id'));
-          if (!Number.isNaN(objectId)) {
-            onDrop(objectId);
+    <>
+      <motion.div
+        className="cp-toolbox-tile cp-toolbox-tile-source"
+        drag
+        dragSnapToOrigin
+        dragElastic={0.15}
+        dragMomentum={false}
+        whileDrag={{ scale: 0.9, opacity: 0.4 }}
+        onDragStart={() => {
+          setDragging(true);
+          onDragStart();
+        }}
+        onDrag={(_e, info) => {
+          pointerRef.current = { x: info.point.x, y: info.point.y };
+        }}
+        onDragEnd={() => {
+          setDragging(false);
+          const { x, y } = pointerRef.current;
+          const el = document.elementFromPoint(x, y);
+          if (!el) {
+            onDragCancel();
             return;
           }
-        }
-        onDragCancel();
-      }}
-      style={{ position: 'relative', zIndex: 1 }}
-    >
-      <span
-        style={{
-          width: 7,
-          height: 7,
-          borderRadius: '50%',
-          background: comp.color,
-          flexShrink: 0,
+          const target = el.closest('[data-object-id]');
+          if (target) {
+            const objectId = Number(target.getAttribute('data-object-id'));
+            if (!Number.isNaN(objectId)) {
+              onDrop(objectId);
+              return;
+            }
+          }
+          onDragCancel();
         }}
-      />
-      <span style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>
-        {comp.label}
-      </span>
-    </motion.div>
+      >
+        <span
+          className="cp-capture-type-dot"
+          style={{ background: comp.color }}
+        />
+        <span className="cp-toolbox-tile-label">
+          {comp.label}
+        </span>
+      </motion.div>
+      {dragging && <DragOverlay comp={comp} />}
+    </>
   );
 }
 

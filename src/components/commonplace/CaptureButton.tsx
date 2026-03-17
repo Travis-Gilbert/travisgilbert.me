@@ -12,8 +12,7 @@ import { useCommonPlace } from '@/lib/commonplace-context';
 /**
  * CaptureButton: spring-animated sidebar capture input.
  *
- * Collapsed state: 40px bar with cycling placeholder text
- * (adapted from CyclingTagline typewriter pattern).
+ * Collapsed state: 40px bar with placeholder text.
  * Click springs open to ~120px with textarea + type selector.
  * Esc or outside click collapses back.
  *
@@ -96,62 +95,16 @@ export default function CaptureButton({ onCapture }: CaptureButtonProps) {
         type="button"
         onClick={() => setIsOpen(true)}
         className="cp-capture-collapsed"
-        style={{
-          width: '100%',
-          display: 'flex',
-          alignItems: 'center',
-          gap: 8,
-          padding: '10px 12px',
-          border: '1px solid var(--cp-sidebar-border)',
-          borderRadius: 4,
-          background: 'rgba(255,255,255,0.03)',
-          color: 'var(--cp-sidebar-text-faint)',
-          fontFamily: 'var(--cp-font-body)',
-          fontSize: 12,
-          cursor: 'text',
-          textAlign: 'left',
-          transition: 'border-color 200ms, background-color 200ms',
-          minHeight: 40,
-        }}
-        >
-        <span
-          aria-hidden="true"
-          style={{
-            color: 'var(--cp-sidebar-text-faint)',
-            fontSize: 14,
-            lineHeight: 1,
-            flexShrink: 0,
-            opacity: 0.8,
-          }}
-        >
-          +
-        </span>
-        <span
-          style={{
-            overflow: 'hidden',
-            whiteSpace: 'nowrap',
-            textOverflow: 'ellipsis',
-          }}
-        >
-          Capture...
-        </span>
+      >
+        <span aria-hidden="true" className="cp-capture-plus">+</span>
+        <span className="cp-capture-placeholder">Capture...</span>
       </button>
     );
   }
 
   /* ── Expanded state ── */
   return (
-    <div
-      ref={containerRef}
-      className="cp-capture-expanded"
-      style={{
-        border: '1px solid var(--cp-sidebar-border-strong)',
-        borderRadius: 6,
-        background: 'rgba(255,255,255,0.03)',
-        overflow: 'hidden',
-        animation: 'cp-spring-open 350ms cubic-bezier(0.34, 1.56, 0.64, 1) both',
-      }}
-    >
+    <div ref={containerRef} className="cp-capture-expanded">
       <textarea
         ref={textareaRef}
         value={text}
@@ -159,30 +112,11 @@ export default function CaptureButton({ onCapture }: CaptureButtonProps) {
         onKeyDown={handleKeyDown}
         placeholder="Capture anything..."
         rows={3}
-        style={{
-          width: '100%',
-          padding: '10px 12px',
-          border: 'none',
-          background: 'transparent',
-          color: 'var(--cp-sidebar-text)',
-          fontFamily: 'var(--cp-font-body)',
-          fontSize: 14,
-          resize: 'none',
-          outline: 'none',
-          lineHeight: 1.6,
-        }}
+        className="cp-capture-textarea"
       />
 
       {/* Type selector row */}
-      <div
-        style={{
-          display: 'flex',
-          alignItems: 'center',
-          gap: 4,
-          padding: '4px 8px 8px',
-          flexWrap: 'wrap',
-        }}
-      >
+      <div className="cp-capture-type-row">
         {OBJECT_TYPES.slice(0, 6).map((t) => (
           <button
             key={t.slug}
@@ -191,35 +125,13 @@ export default function CaptureButton({ onCapture }: CaptureButtonProps) {
               setSelectedType(selectedType === t.slug ? null : t.slug)
             }
             title={t.label}
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: 4,
-              padding: '2px 8px',
-              borderRadius: 4,
-              border:
-                detectedType === t.slug
-                  ? `1px solid ${t.color}55`
-                  : '1px solid rgba(255,255,255,0.04)',
-              background:
-                detectedType === t.slug
-                  ? `${t.color}18`
-                  : 'rgba(255,255,255,0.02)',
-              color: 'var(--cp-sidebar-text-muted)',
-              fontFamily: 'var(--cp-font-mono)',
-              fontSize: 10,
-              cursor: 'pointer',
-              transition: 'all 150ms',
-            }}
+            className="cp-capture-type-btn"
+            data-active={detectedType === t.slug}
+            style={{ '--chip-color': t.color } as React.CSSProperties}
           >
             <span
-              style={{
-                width: 6,
-                height: 6,
-                borderRadius: '50%',
-                backgroundColor: t.color,
-                flexShrink: 0,
-              }}
+              className="cp-capture-type-dot"
+              style={{ backgroundColor: t.color }}
             />
             {t.label}
           </button>
@@ -227,27 +139,11 @@ export default function CaptureButton({ onCapture }: CaptureButtonProps) {
       </div>
 
       {/* Submit row */}
-      <div
-        style={{
-          display: 'flex',
-          justifyContent: 'flex-end',
-          padding: '0 8px 8px',
-          gap: 6,
-        }}
-      >
+      <div className="cp-capture-submit-row">
         <button
           type="button"
           onClick={() => setIsOpen(false)}
-          style={{
-            padding: '4px 12px',
-            borderRadius: 4,
-            border: 'none',
-            background: 'transparent',
-            color: 'var(--cp-sidebar-text-faint)',
-            fontFamily: 'var(--cp-font-mono)',
-            fontSize: 10,
-            cursor: 'pointer',
-          }}
+          className="cp-capture-btn cp-capture-btn--esc"
         >
           ESC
         </button>
@@ -263,17 +159,7 @@ export default function CaptureButton({ onCapture }: CaptureButtonProps) {
               setSelectedType(null);
               setIsOpen(false);
             }}
-            style={{
-              padding: '4px 12px',
-              borderRadius: 4,
-              border: '1px solid var(--cp-sidebar-border)',
-              background: 'transparent',
-              color: 'var(--cp-sidebar-text-muted)',
-              fontFamily: 'var(--cp-font-mono)',
-              fontSize: 10,
-              cursor: 'pointer',
-              transition: 'border-color 200ms',
-            }}
+            className="cp-capture-btn cp-capture-btn--expand"
           >
             EXPAND
           </button>
@@ -282,23 +168,7 @@ export default function CaptureButton({ onCapture }: CaptureButtonProps) {
           type="button"
           onClick={handleSubmit}
           disabled={!text.trim()}
-          style={{
-            padding: '4px 14px',
-            borderRadius: 4,
-            border: '1px solid var(--cp-sidebar-border-strong)',
-            background: text.trim()
-              ? 'rgba(255,255,255,0.06)'
-              : 'rgba(255,255,255,0.02)',
-            color: text.trim()
-              ? 'var(--cp-sidebar-text)'
-              : 'var(--cp-sidebar-text-faint)',
-            fontFamily: 'var(--cp-font-mono)',
-            fontSize: 10,
-            fontWeight: 600,
-            letterSpacing: '0.05em',
-            cursor: text.trim() ? 'pointer' : 'default',
-            transition: 'background-color 200ms',
-          }}
+          className="cp-capture-btn cp-capture-btn--submit"
         >
           CAPTURE
         </button>

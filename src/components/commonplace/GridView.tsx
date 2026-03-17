@@ -306,7 +306,7 @@ export default function GridView({ onOpenObject }: GridViewProps) {
         {!loading && !error && filteredNodes.length > 0 && (
           <div className="cp-masonry">
             <AnimatePresence mode="popLayout">
-              {gridObjects.map((obj) => (
+              {gridObjects.map((obj, index) => (
                 <motion.div
                   key={obj.id}
                   layout="position"
@@ -315,7 +315,11 @@ export default function GridView({ onOpenObject }: GridViewProps) {
                   initial={prefersReducedMotion ? false : { opacity: 0, y: 8 }}
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0, scale: 0.95 }}
-                  transition={{ layout: { duration: 0.2, ease: 'easeOut' } }}
+                  transition={{
+                    layout: { duration: 0.2, ease: 'easeOut' },
+                    opacity: prefersReducedMotion ? {} : { delay: Math.min(index * 0.03, 0.45) },
+                    y: prefersReducedMotion ? {} : { delay: Math.min(index * 0.03, 0.45) },
+                  }}
                 >
                   <ObjectRenderer
                     object={obj}

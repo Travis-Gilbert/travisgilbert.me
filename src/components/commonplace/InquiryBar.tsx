@@ -232,22 +232,10 @@ export default function InquiryBar({
   }
 
   return (
-    <div ref={containerRef} style={{ position: 'relative' }}>
+    <div ref={containerRef} className="cp-inquiry-container">
       {/* ── Search input ── */}
       <div
-        style={{
-          display: 'flex',
-          alignItems: 'center',
-          gap: 8,
-          padding: '8px 12px',
-          borderRadius: 6,
-          border: `1px solid ${isFocused ? 'var(--cp-red-line)' : 'var(--cp-border)'}`,
-          boxShadow: isFocused ? '0 0 0 3px var(--cp-red-soft)' : 'none',
-          background: isFocused ? 'var(--cp-card)' : 'rgba(254, 254, 254, 0.7)',
-          backdropFilter: isFocused ? 'none' : 'blur(4px)',
-          transition: 'border-color 200ms, box-shadow 200ms, background 200ms',
-          cursor: 'text',
-        }}
+        className={`cp-inquiry-input-row${isFocused ? ' cp-inquiry-input-row--focused' : ''}`}
         onClick={() => inputRef.current?.focus()}
       >
         <svg
@@ -255,7 +243,7 @@ export default function InquiryBar({
           height={14}
           viewBox="0 0 16 16"
           fill="none"
-          style={{ flexShrink: 0 }}
+          className="cp-inquiry-search-icon"
         >
           <circle
             cx={7}
@@ -279,15 +267,7 @@ export default function InquiryBar({
           onChange={(e) => setQuery(e.target.value)}
           onFocus={() => setIsFocused(true)}
           placeholder="What your notes want you to find"
-          style={{
-            flex: 1,
-            border: 'none',
-            outline: 'none',
-            background: 'transparent',
-            fontFamily: 'var(--cp-font-body)',
-            fontSize: 14,
-            color: 'var(--cp-text)',
-          }}
+          className="cp-inquiry-input"
         />
 
         {/* Web toggle */}
@@ -298,19 +278,7 @@ export default function InquiryBar({
             setWebEnabled(!webEnabled);
           }}
           title={webEnabled ? 'Web search on' : 'Web search off'}
-          style={{
-            fontFamily: 'var(--cp-font-mono)',
-            fontSize: 9,
-            letterSpacing: '0.04em',
-            padding: '2px 7px',
-            borderRadius: 3,
-            cursor: 'pointer',
-            transition: 'all 150ms',
-            border: webEnabled ? '1px solid var(--cp-red-line)' : '1px solid transparent',
-            background: webEnabled ? 'var(--cp-red-soft)' : 'transparent',
-            color: webEnabled ? 'var(--cp-red)' : 'var(--cp-text-faint)',
-            userSelect: 'none',
-          }}
+          className={`cp-inquiry-web-toggle${webEnabled ? ' cp-inquiry-web-toggle--on' : ''}`}
         >
           {webEnabled ? 'WEB ON' : 'WEB OFF'}
         </button>
@@ -319,11 +287,7 @@ export default function InquiryBar({
         {gapCount > 0 && (
           <span
             title={`${gapCount} knowledge gap${gapCount !== 1 ? 's' : ''} detected`}
-            style={{
-              fontFamily: 'var(--cp-font-mono)',
-              fontSize: 9,
-              color: 'var(--cp-text-faint)',
-            }}
+            className="cp-inquiry-gap-count"
           >
             {gapCount} gap{gapCount !== 1 ? 's' : ''}
           </span>
@@ -332,21 +296,11 @@ export default function InquiryBar({
 
       {/* ── Dropdown (expanded state) ── */}
       {isExpanded && !isRunning && (
-        <div
-          style={{
-            marginTop: 6,
-            border: '1px solid var(--cp-border)',
-            borderRadius: 6,
-            background: 'var(--cp-card)',
-            overflow: 'hidden',
-            animation: 'inquirySlideDown 200ms ease-out',
-            boxShadow: 'var(--cp-shadow)',
-          }}
-        >
+        <div className="cp-inquiry-dropdown">
           {/* Graph results */}
           {(graphResults.length > 0 || isSearching) && (
             <>
-              <div style={groupLabelStyle}>
+              <div className="cp-inquiry-group-label">
                 In your graph{graphResults.length > 0 ? ` (${graphResults.length})` : ''}
               </div>
               {graphResults.map((result) => {
@@ -356,22 +310,16 @@ export default function InquiryBar({
                     key={result.id}
                     type="button"
                     onClick={() => handleResultClick(result)}
-                    style={resultRowStyle}
-                    onMouseEnter={(e) => {
-                      e.currentTarget.style.background = 'var(--cp-border-faint)';
-                    }}
-                    onMouseLeave={(e) => {
-                      e.currentTarget.style.background = 'transparent';
-                    }}
+                    className="cp-inquiry-result-row"
                   >
-                    <span style={{ width: 6, height: 6, borderRadius: '50%', background: identity.color, flexShrink: 0 }} />
-                    <span style={resultTitleStyle}>{result.display_title || result.title}</span>
-                    <span style={resultTypeStyle}>{identity.label}</span>
+                    <span className="cp-inquiry-result-dot" style={{ background: identity.color }} />
+                    <span className="cp-inquiry-result-title">{result.display_title || result.title}</span>
+                    <span className="cp-inquiry-result-type">{identity.label}</span>
                   </button>
                 );
               })}
               {isSearching && graphResults.length === 0 && (
-                <div style={{ padding: '8px 12px', fontFamily: 'var(--cp-font-mono)', fontSize: 9, color: 'var(--cp-text-faint)' }}>
+                <div className="cp-inquiry-searching">
                   Searching...
                 </div>
               )}
@@ -381,20 +329,18 @@ export default function InquiryBar({
           {/* Suggested searches (from plan) */}
           {planResult && planResult.subqueries.length > 0 && (
             <>
-              <div style={groupLabelStyle}>Suggested searches</div>
+              <div className="cp-inquiry-group-label">Suggested searches</div>
               {planResult.subqueries.map((sq, i) => (
                 <button
                   key={i}
                   type="button"
                   onClick={() => handleSuggestionFill(sq.query)}
-                  style={suggestionRowStyle}
-                  onMouseEnter={(e) => { e.currentTarget.style.background = 'var(--cp-border-faint)'; }}
-                  onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; }}
+                  className="cp-inquiry-suggestion-row"
                 >
-                  <span style={{ ...suggestionIconStyle, color: 'var(--cp-text-muted)' }}>Q</span>
+                  <span className="cp-inquiry-suggestion-icon" style={{ color: 'var(--cp-text-muted)' }}>Q</span>
                   <div style={{ flex: 1 }}>
-                    <div style={suggestionTextStyle}>&ldquo;{sq.query}&rdquo;</div>
-                    <div style={suggestionMetaStyle}>{sq.purpose}</div>
+                    <div className="cp-inquiry-suggestion-text">&ldquo;{sq.query}&rdquo;</div>
+                    <div className="cp-inquiry-suggestion-meta">{sq.purpose}</div>
                   </div>
                 </button>
               ))}
@@ -404,20 +350,18 @@ export default function InquiryBar({
           {/* Gaps in knowledge */}
           {planResult && planResult.internal_context.evidence_gaps.length > 0 && (
             <>
-              <div style={groupLabelStyle}>Gaps in your knowledge</div>
+              <div className="cp-inquiry-group-label">Gaps in your knowledge</div>
               {planResult.internal_context.evidence_gaps.map((gap, i) => (
                 <button
                   key={i}
                   type="button"
                   onClick={() => handleSuggestionFill(gap.description)}
-                  style={suggestionRowStyle}
-                  onMouseEnter={(e) => { e.currentTarget.style.background = 'var(--cp-border-faint)'; }}
-                  onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; }}
+                  className="cp-inquiry-suggestion-row"
                 >
-                  <span style={{ ...suggestionIconStyle, color: 'var(--cp-term-amber)' }}>!</span>
+                  <span className="cp-inquiry-suggestion-icon" style={{ color: 'var(--cp-term-amber)' }}>!</span>
                   <div style={{ flex: 1 }}>
-                    <div style={suggestionTextStyle}>{gap.description}</div>
-                    <div style={suggestionMetaStyle}>
+                    <div className="cp-inquiry-suggestion-text">{gap.description}</div>
+                    <div className="cp-inquiry-suggestion-meta">
                       {gap.priority > 0.7 ? 'High priority' : 'Evidence gap'}
                     </div>
                   </div>
@@ -427,13 +371,11 @@ export default function InquiryBar({
           )}
 
           {/* Action buttons */}
-          <div style={{ display: 'flex', gap: 8, padding: '10px 12px', borderTop: '1px solid var(--cp-border-faint)' }}>
+          <div className="cp-inquiry-actions">
             <button
               type="button"
               onClick={handleSearchGraph}
-              style={actionBtnStyle}
-              onMouseEnter={(e) => { e.currentTarget.style.borderColor = 'var(--cp-text-faint)'; }}
-              onMouseLeave={(e) => { e.currentTarget.style.borderColor = 'var(--cp-border)'; }}
+              className="cp-inquiry-action-btn"
             >
               SEARCH GRAPH
             </button>
@@ -441,14 +383,7 @@ export default function InquiryBar({
               type="button"
               onClick={handleSearchWeb}
               disabled={!webEnabled}
-              style={{
-                ...actionBtnStyle,
-                background: webEnabled ? 'var(--cp-red-soft)' : 'transparent',
-                color: webEnabled ? 'var(--cp-red)' : 'var(--cp-text-faint)',
-                borderColor: webEnabled ? 'var(--cp-red-line)' : 'var(--cp-border)',
-                opacity: webEnabled ? 1 : 0.35,
-                cursor: webEnabled ? 'pointer' : 'default',
-              }}
+              className={`cp-inquiry-action-btn${webEnabled ? ' cp-inquiry-action-btn--web' : ''}`}
             >
               SEARCH WEB
             </button>
@@ -466,25 +401,14 @@ export default function InquiryBar({
           {INQUIRY_PHASES.map((phase) => {
             const status = getPhaseStatus(phase);
             return (
-              <div key={phase} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                <span
-                  style={{
-                    width: 14,
-                    textAlign: 'center',
-                    fontSize: 11,
-                    color:
-                      status === 'done' ? 'var(--cp-term-green)'
-                        : status === 'active' ? 'var(--cp-term-amber)'
-                          : 'var(--cp-term-muted)',
-                    animation: status === 'active' ? 'cpPulse 2s ease-in-out infinite' : 'none',
-                  }}
-                >
+              <div key={phase} className="cp-inquiry-phase-row">
+                <span className={`cp-inquiry-phase-icon cp-inquiry-phase-icon--${status}`}>
                   {status === 'done' ? '\u2713' : status === 'active' ? '\u25CF' : '\u25CB'}
                 </span>
-                <span style={{ flex: 1, color: status === 'pending' ? 'var(--cp-term-muted)' : 'var(--cp-term-text)' }}>
+                <span className={`cp-inquiry-phase-label${status === 'pending' ? ' cp-inquiry-phase-label--pending' : ''}`}>
                   {phase.replace(/_/g, ' ')}
                 </span>
-                <span style={{ color: 'var(--cp-term-muted)', fontSize: 10 }}>
+                <span className="cp-inquiry-phase-detail">
                   {getPhaseDetail(phase)}
                 </span>
               </div>
@@ -501,15 +425,15 @@ export default function InquiryBar({
           style={{ marginTop: 10 }}
         >
           {inquiryResult.answer.answer_text && (
-            <div style={{ marginBottom: 8 }}>
-              <div style={{ color: 'var(--cp-term-muted)', fontSize: 9, marginBottom: 4, letterSpacing: '0.06em', textTransform: 'uppercase' as const }}>
+            <div className="cp-inquiry-result-answer">
+              <div className="cp-inquiry-result-label">
                 Answer (confidence: {inquiryResult.answer.confidence.toFixed(2)})
               </div>
               <div>{inquiryResult.answer.answer_text}</div>
             </div>
           )}
 
-          <div style={{ color: 'var(--cp-term-muted)', fontSize: 10, marginTop: 4 }}>
+          <div className="cp-inquiry-result-summary">
             {inquiryResult.supporting_evidence.length} supporting
             {inquiryResult.contradicting_evidence.length > 0 &&
               ` \u00B7 ${inquiryResult.contradicting_evidence.length} contradicting`}
@@ -518,140 +442,29 @@ export default function InquiryBar({
           </div>
 
           {inquiryResult.open_gaps.length > 0 && (
-            <div style={{ marginTop: 8 }}>
-              <div style={{ color: 'var(--cp-term-amber)', fontSize: 9, marginBottom: 2, letterSpacing: '0.06em', textTransform: 'uppercase' as const }}>
+            <div className="cp-inquiry-result-gaps">
+              <div className="cp-inquiry-result-gaps-label">
                 Still missing
               </div>
               {inquiryResult.open_gaps.map((gap, i) => (
-                <div key={i} style={{ color: 'var(--cp-term-muted)', fontSize: 10 }}>
+                <div key={i} className="cp-inquiry-result-gap-item">
                   {gap.description}
                 </div>
               ))}
             </div>
           )}
 
-          <div style={{ marginTop: 8 }}>
+          <div className="cp-inquiry-dismiss-row">
             <button
               type="button"
               onClick={dismissInquiry}
-              style={{
-                fontFamily: 'var(--cp-font-mono)',
-                fontSize: 9,
-                fontWeight: 600,
-                letterSpacing: '0.04em',
-                color: 'var(--cp-term-green)',
-                background: 'none',
-                border: 'none',
-                cursor: 'pointer',
-                padding: 0,
-              }}
+              className="cp-inquiry-dismiss-btn"
             >
               DISMISS
             </button>
           </div>
         </TerminalBlock>
       )}
-
-      <style>{`
-        @keyframes inquirySlideDown {
-          from { opacity: 0; transform: translateY(-4px); }
-          to { opacity: 1; transform: translateY(0); }
-        }
-      `}</style>
     </div>
   );
 }
-
-/* ─────────────────────────────────────────────────
-   Shared inline styles
-   ───────────────────────────────────────────────── */
-
-const groupLabelStyle: React.CSSProperties = {
-  fontFamily: 'var(--cp-font-mono)',
-  fontSize: 9,
-  letterSpacing: '0.06em',
-  color: 'var(--cp-text-faint)',
-  padding: '10px 12px 4px',
-  textTransform: 'uppercase',
-};
-
-const resultRowStyle: React.CSSProperties = {
-  display: 'flex',
-  alignItems: 'center',
-  gap: 8,
-  padding: '7px 12px',
-  cursor: 'pointer',
-  transition: 'background 100ms',
-  background: 'transparent',
-  border: 'none',
-  width: '100%',
-  textAlign: 'left',
-};
-
-const resultTitleStyle: React.CSSProperties = {
-  fontSize: 13,
-  fontFamily: 'var(--cp-font-body)',
-  color: 'var(--cp-text)',
-  flex: 1,
-  overflow: 'hidden',
-  textOverflow: 'ellipsis',
-  whiteSpace: 'nowrap',
-};
-
-const resultTypeStyle: React.CSSProperties = {
-  fontFamily: 'var(--cp-font-mono)',
-  fontSize: 9,
-  color: 'var(--cp-text-faint)',
-  flexShrink: 0,
-};
-
-const suggestionRowStyle: React.CSSProperties = {
-  display: 'flex',
-  alignItems: 'flex-start',
-  gap: 8,
-  padding: '7px 12px',
-  cursor: 'pointer',
-  transition: 'background 100ms',
-  background: 'transparent',
-  border: 'none',
-  width: '100%',
-  textAlign: 'left',
-};
-
-const suggestionIconStyle: React.CSSProperties = {
-  fontFamily: 'var(--cp-font-mono)',
-  fontSize: 11,
-  flexShrink: 0,
-  width: 16,
-  textAlign: 'center',
-  lineHeight: '1.4',
-};
-
-const suggestionTextStyle: React.CSSProperties = {
-  fontSize: 12,
-  fontFamily: 'var(--cp-font-body)',
-  color: 'var(--cp-text-muted)',
-};
-
-const suggestionMetaStyle: React.CSSProperties = {
-  fontFamily: 'var(--cp-font-mono)',
-  fontSize: 9,
-  color: 'var(--cp-text-faint)',
-  marginTop: 1,
-};
-
-const actionBtnStyle: React.CSSProperties = {
-  flex: 1,
-  padding: '7px 0',
-  borderRadius: 4,
-  fontFamily: 'var(--cp-font-mono)',
-  fontSize: 10,
-  fontWeight: 600,
-  letterSpacing: '0.05em',
-  textAlign: 'center',
-  cursor: 'pointer',
-  transition: 'all 150ms',
-  border: '1px solid var(--cp-border)',
-  background: 'var(--cp-card)',
-  color: 'var(--cp-text-muted)',
-};

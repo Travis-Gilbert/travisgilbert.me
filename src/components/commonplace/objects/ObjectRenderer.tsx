@@ -1288,9 +1288,7 @@ export default function ObjectRenderer(props: ObjectCardProps) {
       if (!raw) return;
       try {
         const data = JSON.parse(raw) as { slug: string };
-        // Prevent self-pin
         if (data.slug === props.object.slug) return;
-        // Optimistic: fire callback, then hit API
         props.onPinCreated?.(props.object.slug, data.slug);
         await createPin(props.object.slug, { target_slug: data.slug });
       } catch {

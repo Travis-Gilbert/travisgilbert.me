@@ -117,6 +117,8 @@ CollageHero (homepage) and EssayHero (essay pages) share: dark ground, `--hero-h
 
 Scoped route group `(commonplace)` with own layout.tsx (warm studio theme, not main site DotGrid/TopNav/Footer). Split pane system uses recursive binary tree. API calls go through `commonplace-api.ts` anti-corruption layer. Sidebar collapse is reactive via context (`SplitPaneContainer` is sole writer). See `docs/records/004-commonplace-v5-dark-chrome.md`.
 
+**Two API fetch helpers**: `apiFetch()` → `/api/v1/notebook/...` (objects, edges, nodes), `epistemicFetch()` → `/api/v1/...` (inquiries, artifacts, provenance). Inquiry endpoints live at `/api/v1/inquiries/`, not notebook-scoped.
+
 **Evidence rendering is polymorphic**: `EvidenceItem.tsx` dispatches to sub-components per object type (source=gradient bar, hunch=dashed italic, quote=blockquote, concept=pill, note=card). Visual constants (`EVIDENCE_TYPE_COLOR`, `EVIDENCE_RELATION_COLOR`, `AGREEMENT_STYLE`) live in `commonplace-models.ts`.
 
 **Icon system**: CommonPlace uses `iconoir-react` (not Phosphor). Phosphor is used on the main site only.
@@ -130,6 +132,8 @@ All canvas components (PaneDotGrid, TerminalCanvas, KnowledgeMap, TimelineViz) m
 Vercel with native Next.js builder. Auto-deploys on push to `main`. **Important:** Output Directory must be blank/default (not `dist`).
 
 **Django services (Railway):** Both services deploy with PostgreSQL via `railway.toml`. Env vars: `SECRET_KEY`, `DATABASE_URL`, `GITHUB_TOKEN`, `GITHUB_REPO`, `GITHUB_BRANCH`. research_api also needs `WEBMENTION_TARGET_DOMAIN`.
+
+**Index-API (Railway):** Production at `https://index-api-production-a5f7.up.railway.app`. Two services from one repo: web (`railway.toml` → `Dockerfile.web` → gunicorn), worker (`railway.worker.toml` → `Dockerfile.worker` → rqworker). Worker env vars are NOT shared with web; each needs `DATABASE_URL`, `REDIS_URL`, `FIRECRAWL_API_KEY`. Local dev port: 8000. Publishing API: 8080.
 
 ## Status
 
@@ -146,8 +150,10 @@ Vercel with native Next.js builder. Auto-deploys on push to `main`. **Important:
 | CommonPlace v5 Dark Chrome (9 batches) | Complete | `docs/records/004-commonplace-v5-dark-chrome.md` |
 | CommonPlace v5.1 Lego Composition (5 batches) | Complete | PinnedBadge, drag/drop, layout presets, tab drag |
 | Model View v6 redesign | Complete | Polymorphic evidence, two-column workspace, timeline-style assumptions |
+| Nav model migration (Spec A) | Complete | Screen/view navigation replaces tab system |
+| Engine tag system (Spec C) | Complete | StatusBadge, SignalPips, drawer provenance, backend tag_summary |
 
-**Next step:** Verify production deploy with live API, then optimistic capture sync. Also pending: train KGE embeddings for production (`export_kge_triples` + `train_kge.py`), verify production API connectivity end to end.
+**Next step:** Verify nav model + engine tags deploy, then optimistic capture sync. Also pending: train KGE embeddings for production (`export_kge_triples` + `train_kge.py`).
 
 **Remaining backlog:**
 - CommonPlace: verify production deploy with live API
@@ -171,6 +177,8 @@ Vercel with native Next.js builder. Auto-deploys on push to `main`. **Important:
 | Canvas dimension guards | Min 1px, max 8192px on all canvas components | Prevents broken-image icons (0px) and browser crashes (>16384px) |
 | CommonPlace: Models placement | Under Library (not Views) | Models are a creation surface, not a view |
 | CommonPlace: Model View v6 | Two-column layout, no drag reorder, polymorphic evidence | White card repetition was poor UI; timeline rows + type-specific rendering is more information-dense |
+| Deploy sequencing | Push backend (Index-API) before frontend (Website) | Frontend depends on new API fields; optional types prevent breakage but backend should land first |
+| tag_summary badge_confirmed | Uses `_has_reviewed_claim` annotation (claims with reviewed_at set) | Object model has no epistemic_status field; Claim.reviewed_at is the ground truth |
 
 ## Gotchas
 
@@ -218,9 +226,16 @@ Vercel with native Next.js builder. Auto-deploys on push to `main`. **Important:
 - **`sidebarCollapsed` is reactive, not a toggle**: `SplitPaneContainer` writes; sidebar only reads
 - **Portal theme escaping**: `createPortal` to `document.body` exits `.commonplace-theme`. Wrap portal content in `<div className="commonplace-theme">` for `--cp-*` token resolution
 - **Sidebar dual data sources**: Expanded sidebar reads `SIDEBAR_SECTIONS` from `commonplace.ts`; collapsed rail has a hardcoded array in `CommonPlaceSidebar.tsx`. Both must stay in sync when reordering
+- **Tension to Object relationship**: M2M via `source_objects` with `related_name='tensions'`. Filter by `tensions__status__in=['open', 'investigating']`
+- **Evidence links traverse Claims**: Objects have no direct evidence_links FK. Use `claims__evidence_links` for ORM joins
+- **Index-API has noisy working tree**: Many untracked spec docs, .idea files, .DS_Store. Always stage specific files, never `git add .`
 
 ### Deployment
 - **Vercel Output Directory**: Must be blank/default. `dist` setting from old Astro config breaks Next.js builds
 - **Railway auto-deploys from `main`**: Both services deploy independently, ~2 minutes each
 - **reCAPTCHA v3 tokens are single-use**: Never split verification and scoring into separate HTTP calls
 - **Railway nixpacks `cmds` doesn't persist to runtime**: Use `startCommand` with conditional download instead
+- **`SECURE_SSL_REDIRECT=True` when `DEBUG=False`**: Breaks CORS preflight (HTTP→HTTPS 301). Always use `DEBUG=True` for local dev
+- **Scraper env vars read at import time**: `FIRECRAWL_API_KEY`, `WHOOGLE_BASE_URL` must be set before server starts
+- **Whoogle on cloud IPs blocked by Google**: Use Firecrawl as production search provider
+- **Railway worker env vars not shared with web**: Each service needs its own `DATABASE_URL`, `REDIS_URL`, `FIRECRAWL_API_KEY`

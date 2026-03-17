@@ -172,7 +172,17 @@ export const SIDEBAR_SECTIONS: SidebarSection[] = [
   {
     title: 'Views',
     items: [
-      { label: 'Timeline', href: '#timeline', icon: 'timeline', mode: 'view', viewType: 'timeline' },
+      {
+        label: 'Timeline',
+        href: '#timeline',
+        icon: 'timeline',
+        mode: 'view',
+        viewType: 'timeline',
+        expandable: true,
+        children: [
+          { label: 'Temporal', href: '#temporal', icon: 'timeline', mode: 'view', viewType: 'temporal-evolution' },
+        ],
+      },
       { label: 'Map', href: '#networks', icon: 'graph', mode: 'view', viewType: 'network' },
       { label: 'Calendar', href: '#calendar', icon: 'calendar', mode: 'view', viewType: 'calendar' },
       { label: 'Loose Ends', href: '#loose-ends', icon: 'scatter', mode: 'view', viewType: 'loose-ends' },
@@ -206,19 +216,19 @@ export const SIDEBAR_SECTIONS: SidebarSection[] = [
   {
     title: 'System',
     items: [
-      { label: 'Engine', href: '#engine', icon: 'engine', mode: 'screen', screenType: 'engine' },
-      { label: 'Review Queue', href: '#review', icon: 'check-list', mode: 'view', viewType: 'promotion-queue' },
       {
-        label: 'Self-organize',
-        href: '#self-organize',
-        icon: 'sparkle',
+        label: 'Engine',
+        href: '#engine',
+        icon: 'engine',
+        mode: 'screen',
+        screenType: 'engine',
         expandable: true,
         children: [
-          { label: 'Emergent Types', href: '#emergent-types', icon: 'sparkle', mode: 'view', viewType: 'emergent-types' },
+          { label: 'Emergent Types', href: '#emergent-types', icon: 'engine', mode: 'view', viewType: 'emergent-types' },
           { label: 'Entity Promotions', href: '#entity-promotions', icon: 'person', mode: 'view', viewType: 'entity-promotions' },
         ],
       },
-      { label: 'Temporal', href: '#temporal', icon: 'timeline', mode: 'view', viewType: 'temporal-evolution' },
+      { label: 'Review Queue', href: '#review', icon: 'check-list', mode: 'view', viewType: 'promotion-queue' },
       { label: 'Settings', href: '#settings', icon: 'gear', mode: 'screen', screenType: 'settings' },
     ],
   },

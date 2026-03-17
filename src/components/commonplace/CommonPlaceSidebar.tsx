@@ -223,10 +223,9 @@ export default function CommonPlaceSidebar() {
         >
           CommonPlace
         </Link>
-        <div className="cp-brand-stats">Capture / manipulate / discover</div>
       </div>
 
-      <nav style={{ flex: 1, overflow: 'auto', padding: '8px 6px', position: 'relative', zIndex: 2 }}>
+      <nav style={{ flex: 1, overflow: 'auto', scrollbarWidth: 'none', padding: '8px 6px', position: 'relative', zIndex: 2 }}>
         {SIDEBAR_SECTIONS.map((section, sectionIdx) => (
           <div key={section.title || `section-${sectionIdx}`} style={{ position: 'relative' }}>
             {sectionIdx > 0 && <div className="cp-sidebar-divider" />}
@@ -582,6 +581,7 @@ export default function CommonPlaceSidebar() {
           flexDirection: 'column',
           alignItems: 'center',
           overflowY: 'auto',
+          scrollbarWidth: 'none',
           height: '100vh',
           position: 'sticky',
           top: 0,
@@ -690,6 +690,7 @@ export default function CommonPlaceSidebar() {
         display: 'flex',
         flexDirection: 'column',
         overflowY: 'auto',
+        scrollbarWidth: 'none',
         height: '100vh',
         position: 'sticky',
         top: 0,
