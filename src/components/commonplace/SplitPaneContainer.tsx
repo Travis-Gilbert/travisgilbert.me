@@ -381,28 +381,14 @@ export default function SplitPaneContainer() {
     const fsLeaf = findPane(layout, fullscreenPaneId);
     if (fsLeaf && fsLeaf.type === 'leaf') {
       return (
-        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0, overflow: 'hidden' }}>
-          <PaneHeader
-            viewId={fsLeaf.viewId}
-            paneId={fsLeaf.id}
-            isFocused
-            isFullscreen
-            leafCount={leafIds.length}
-            onSplitH={() => handleSplit(fsLeaf.id, 'horizontal')}
-            onSplitV={() => handleSplit(fsLeaf.id, 'vertical')}
-            onToggleFullscreen={() => toggleFullscreen(fsLeaf.id)}
-            onClose={() => handleClosePane(fsLeaf.id)}
-          />
-          <div style={{ position: 'relative', flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
-            <PaneDotGrid seed={fsLeaf.id} />
-            <PaneViewContent
-              viewType={fsLeaf.viewId}
-              context={fsLeaf.context}
-              paneId={fsLeaf.id}
-              onOpenObject={handleOpenObject}
-            />
-          </div>
-        </div>
+        <FullscreenLeaf
+          leaf={fsLeaf}
+          leafCount={leafIds.length}
+          onSplit={handleSplit}
+          onToggleFullscreen={toggleFullscreen}
+          onClosePane={handleClosePane}
+          onOpenObject={handleOpenObject}
+        />
       );
     }
   }
@@ -440,6 +426,59 @@ export default function SplitPaneContainer() {
           onOpenObject={handleOpenObject}
           onToggleFullscreen={toggleFullscreen}
         />
+      </div>
+    </div>
+  );
+}
+
+/* =============================================
+   Fullscreen leaf: extracted so useState works
+   ============================================= */
+
+function FullscreenLeaf({
+  leaf,
+  leafCount,
+  onSplit,
+  onToggleFullscreen,
+  onClosePane,
+  onOpenObject,
+}: {
+  leaf: LeafPane;
+  leafCount: number;
+  onSplit: (paneId: string, direction: SplitDirection) => void;
+  onToggleFullscreen: (paneId: string) => void;
+  onClosePane: (paneId: string) => void;
+  onOpenObject: (fromPaneId: string, objectRef: number, title?: string) => void;
+}) {
+  const [splitPreview, setSplitPreview] = useState<'horizontal' | 'vertical' | null>(null);
+
+  return (
+    <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0, overflow: 'hidden' }}>
+      <PaneHeader
+        viewId={leaf.viewId}
+        paneId={leaf.id}
+        isFocused
+        isFullscreen
+        leafCount={leafCount}
+        onSplitH={() => onSplit(leaf.id, 'horizontal')}
+        onSplitV={() => onSplit(leaf.id, 'vertical')}
+        onToggleFullscreen={() => onToggleFullscreen(leaf.id)}
+        onClose={() => onClosePane(leaf.id)}
+        onSplitPreview={setSplitPreview}
+      />
+      <div style={{ position: 'relative', flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+        <PaneDotGrid seed={leaf.id} />
+        <PaneViewContent
+          viewType={leaf.viewId}
+          context={leaf.context}
+          paneId={leaf.id}
+          onOpenObject={onOpenObject}
+        />
+        {splitPreview && (
+          <div className={`cp-split-preview cp-split-preview--${splitPreview}`}>
+            <span className="cp-split-preview-label">New pane</span>
+          </div>
+        )}
       </div>
     </div>
   );
@@ -534,6 +573,7 @@ function RenderLeaf(props: NodeProps & { node: LeafPane }) {
     onToggleFullscreen,
   } = props;
   const isFocused = focusedPaneId === node.id;
+  const [splitPreview, setSplitPreview] = useState<'horizontal' | 'vertical' | null>(null);
 
   return (
     <div
@@ -557,6 +597,7 @@ function RenderLeaf(props: NodeProps & { node: LeafPane }) {
         onSplitV={() => onSplit(node.id, 'vertical')}
         onToggleFullscreen={() => onToggleFullscreen(node.id)}
         onClose={() => onClosePane(node.id)}
+        onSplitPreview={setSplitPreview}
       />
 
       {/* Content with canvas dot grid */}
@@ -576,6 +617,11 @@ function RenderLeaf(props: NodeProps & { node: LeafPane }) {
           paneId={node.id}
           onOpenObject={onOpenObject}
         />
+        {splitPreview && (
+          <div className={`cp-split-preview cp-split-preview--${splitPreview}`}>
+            <span className="cp-split-preview-label">New pane</span>
+          </div>
+        )}
       </div>
     </div>
   );

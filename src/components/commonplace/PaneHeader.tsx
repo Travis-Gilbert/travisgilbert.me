@@ -13,6 +13,7 @@ interface PaneHeaderProps {
   onSplitV: () => void;
   onToggleFullscreen: () => void;
   onClose: () => void;
+  onSplitPreview?: (direction: 'horizontal' | 'vertical' | null) => void;
 }
 
 export default function PaneHeader({
@@ -25,6 +26,7 @@ export default function PaneHeader({
   onSplitV,
   onToggleFullscreen,
   onClose,
+  onSplitPreview,
 }: PaneHeaderProps) {
   const reg = VIEW_REGISTRY[viewId];
 
@@ -62,12 +64,16 @@ export default function PaneHeader({
         <HeaderButton
           title="Split horizontal (Ctrl+\)"
           onClick={onSplitH}
+          onMouseEnter={() => onSplitPreview?.('horizontal')}
+          onMouseLeave={() => onSplitPreview?.(null)}
         >
           <SplitHIcon />
         </HeaderButton>
         <HeaderButton
           title="Split vertical (Ctrl+-)"
           onClick={onSplitV}
+          onMouseEnter={() => onSplitPreview?.('vertical')}
+          onMouseLeave={() => onSplitPreview?.(null)}
         >
           <SplitVIcon />
         </HeaderButton>
@@ -90,10 +96,14 @@ export default function PaneHeader({
 function HeaderButton({
   title,
   onClick,
+  onMouseEnter,
+  onMouseLeave,
   children,
 }: {
   title: string;
   onClick: () => void;
+  onMouseEnter?: () => void;
+  onMouseLeave?: () => void;
   children: React.ReactNode;
 }) {
   return (
@@ -119,10 +129,12 @@ function HeaderButton({
       onMouseEnter={(e) => {
         e.currentTarget.style.color = 'var(--cp-chrome-text)';
         e.currentTarget.style.background = 'var(--cp-chrome-raise)';
+        onMouseEnter?.();
       }}
       onMouseLeave={(e) => {
         e.currentTarget.style.color = 'var(--cp-chrome-dim)';
         e.currentTarget.style.background = 'transparent';
+        onMouseLeave?.();
       }}
     >
       {children}
