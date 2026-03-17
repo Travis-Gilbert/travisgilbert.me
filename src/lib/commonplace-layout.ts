@@ -122,6 +122,11 @@ function viewTypeLabel(viewType: ViewType): string {
     'model-view': 'Models',
     reminders: 'Reminders',
     settings: 'Settings',
+    'promotion-queue': 'Review Queue',
+    'emergent-types': 'Emergent Types',
+    'entity-promotions': 'Entity Promotions',
+    'notebook-formation': 'Notebook Formation',
+    artifacts: 'Artifacts',
     empty: 'Empty',
   };
   return labels[viewType] ?? viewType;

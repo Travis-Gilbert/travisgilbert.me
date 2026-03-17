@@ -41,6 +41,8 @@ import type {
   LineageResponse,
   ApiSelfOrganizePreview,
   ApiPromotionItem,
+  ApiEmergentTypeSuggestion,
+  ApiArtifactListItem,
 } from '@/lib/commonplace';
 import { API_BASE, EPISTEMIC_BASE } from '@/lib/commonplace';
 
@@ -1013,4 +1015,59 @@ export async function submitReviewAction(data: {
     method: 'POST',
     body: JSON.stringify({ ...data, actor_label: 'user' }),
   });
+}
+
+/* ─────────────────────────────────────────────────
+   Emergent type endpoints
+   ───────────────────────────────────────────────── */
+
+/** Fetch emergent type suggestions from self-organize preview */
+export async function fetchEmergentTypes(): Promise<ApiEmergentTypeSuggestion[]> {
+  const data = await apiFetch<ApiSelfOrganizePreview>('/self-organize/preview/');
+  return data.emergent_types?.candidates ?? [];
+}
+
+/** Apply an emergent type suggestion (creates a new ObjectType) */
+export async function applyEmergentType(data: {
+  suggested_name: string;
+  suggested_slug: string;
+  member_pks: number[];
+  icon?: string;
+  color?: string;
+}): Promise<{ status: string }> {
+  return apiFetch<{ status: string }>('/self-organize/emergent-types/apply/', {
+    method: 'POST',
+    body: JSON.stringify(data),
+  });
+}
+
+/* ─────────────────────────────────────────────────
+   Artifact endpoints (epistemic API)
+   ───────────────────────────────────────────────── */
+
+/** Fetch artifact list with optional filters */
+export async function fetchArtifacts(params?: {
+  capture_kind?: string;
+  ingestion_status?: string;
+  notebook?: string;
+}): Promise<ApiArtifactListItem[]> {
+  const search = new URLSearchParams();
+  if (params?.capture_kind) search.set('capture_kind', params.capture_kind);
+  if (params?.ingestion_status) search.set('ingestion_status', params.ingestion_status);
+  if (params?.notebook) search.set('notebook', params.notebook);
+
+  const qs = search.toString();
+  const path = `/artifacts/${qs ? `?${qs}` : ''}`;
+  const data = await epistemicFetch<{ results: ApiArtifactListItem[] } | ApiArtifactListItem[]>(path);
+  return Array.isArray(data) ? data : data.results;
+}
+
+/** Trigger extraction on an artifact */
+export async function triggerExtraction(
+  artifactId: number,
+): Promise<{ extraction_run: object; promotion_items: ApiPromotionItem[] }> {
+  return epistemicFetch<{ extraction_run: object; promotion_items: ApiPromotionItem[] }>(
+    `/artifacts/${artifactId}/extract/`,
+    { method: 'POST' },
+  );
 }

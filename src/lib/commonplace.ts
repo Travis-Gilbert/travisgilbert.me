@@ -77,6 +77,7 @@ export type ViewType =
   | 'emergent-types'
   | 'entity-promotions'
   | 'notebook-formation'
+  | 'artifacts'
   | 'empty';
 
 export interface ViewDefinition {
@@ -108,6 +109,7 @@ export const VIEW_REGISTRY: Record<ViewType, { label: string; icon: string }> = 
   'emergent-types': { label: 'Emergent Types', icon: 'sparkle' },
   'entity-promotions': { label: 'Entity Promotions', icon: 'person' },
   'notebook-formation': { label: 'Notebook Formation', icon: 'book' },
+  artifacts: { label: 'Artifacts', icon: 'document' },
   empty: { label: 'Empty', icon: 'plus' },
 };
 
@@ -147,6 +149,7 @@ export const SIDEBAR_SECTIONS: SidebarSection[] = [
     items: [
       { label: 'Library', href: '#library', icon: 'grid', viewType: 'library' as ViewType },
       { label: 'Models', href: '#models', icon: 'model', viewType: 'model-view' as ViewType },
+      { label: 'Artifacts', href: '#artifacts', icon: 'document', viewType: 'artifacts' as ViewType },
       { label: 'Compose', href: '#compose', icon: 'note-pencil', viewType: 'compose' as ViewType },
     ],
   },
@@ -172,7 +175,9 @@ export const SIDEBAR_SECTIONS: SidebarSection[] = [
         href: '/commonplace/notebooks',
         icon: 'book',
         expandable: true,
-        children: [],
+        children: [
+          { label: 'Formation', href: '#notebook-formation', icon: 'book', viewType: 'notebook-formation' as ViewType },
+        ],
       },
       {
         label: 'Projects',
@@ -196,7 +201,6 @@ export const SIDEBAR_SECTIONS: SidebarSection[] = [
         children: [
           { label: 'Emergent Types', href: '#emergent-types', icon: 'sparkle', viewType: 'emergent-types' as ViewType },
           { label: 'Entity Promotions', href: '#entity-promotions', icon: 'person', viewType: 'entity-promotions' as ViewType },
-          { label: 'Notebook Formation', href: '#notebook-formation', icon: 'book', viewType: 'notebook-formation' as ViewType },
         ],
       },
       { label: 'Settings', href: '#settings', icon: 'gear', viewType: 'settings' as ViewType },
@@ -778,6 +782,39 @@ export interface ApiSelfOrganizePreview {
     to_prune_count: number;
     to_decay_count: number;
   };
+  emergent_types?: {
+    candidate_count: number;
+    candidates: ApiEmergentTypeSuggestion[];
+  };
+}
+
+export interface ApiEmergentTypeSuggestion {
+  reason: string;
+  suggested_name: string;
+  suggested_slug: string;
+  member_count: number;
+  member_pks: number[];
+  member_samples?: { id: number; title: string; slug: string; object_type_name: string }[];
+}
+
+export interface ApiArtifactListItem {
+  id: number;
+  sha_hash: string;
+  title: string;
+  capture_kind: 'text' | 'url' | 'file';
+  source_url: string;
+  parser_type: string;
+  ingestion_status: 'captured' | 'parsed' | 'extracted' | 'failed';
+  epistemic_status: string;
+  notebook_slug: string | null;
+  project_slug: string | null;
+  projection_count: number;
+  raw_text_preview?: string;
+  extraction_summary?: {
+    claims: number; entities: number; questions: number;
+    rules: number; methods: number;
+  };
+  created_at: string;
 }
 
 export async function quickCapture(data: {

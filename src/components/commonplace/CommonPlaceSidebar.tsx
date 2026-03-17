@@ -251,18 +251,35 @@ export default function CommonPlaceSidebar() {
                 if (item.expandable) {
                   const isExpanded = expandedGroups.has(item.label);
 
+                  /* Map static children (viewType entries) from SIDEBAR_SECTIONS */
+                  const staticChildren = (item.children ?? []).map((child) => ({
+                    key: child.href,
+                    label: child.label,
+                    color: undefined as string | undefined,
+                    icon: child.icon,
+                    onClick: () => {
+                      if (child.viewType) {
+                        requestView(child.viewType, child.label);
+                      }
+                      closeDrawerIfMobile();
+                    },
+                  }));
+
                   const dynamicItems =
                     item.label === 'Notebooks'
-                      ? (notebooks ?? []).map((nb) => ({
-                          key: nb.slug,
-                          label: nb.name,
-                          color: nb.color,
-                          icon: undefined as string | undefined,
-                          onClick: () => {
-                            requestView('notebook', nb.name, { slug: nb.slug });
-                            closeDrawerIfMobile();
-                          },
-                        }))
+                      ? [
+                          ...staticChildren,
+                          ...(notebooks ?? []).map((nb) => ({
+                            key: nb.slug,
+                            label: nb.name,
+                            color: nb.color as string | undefined,
+                            icon: undefined as string | undefined,
+                            onClick: () => {
+                              requestView('notebook', nb.name, { slug: nb.slug });
+                              closeDrawerIfMobile();
+                            },
+                          })),
+                        ]
                       : item.label === 'Projects'
                         ? (projects ?? []).map((pj) => ({
                             key: pj.slug,
@@ -274,18 +291,7 @@ export default function CommonPlaceSidebar() {
                               closeDrawerIfMobile();
                             },
                         }))
-                        : (item.children ?? []).map((child) => ({
-                            key: child.href,
-                            label: child.label,
-                            color: undefined as string | undefined,
-                            icon: child.icon,
-                            onClick: () => {
-                              if (child.viewType) {
-                                requestView(child.viewType, child.label);
-                              }
-                              closeDrawerIfMobile();
-                            },
-                          }));
+                        : staticChildren;
                   const childCount = dynamicItems.length;
 
                   return (

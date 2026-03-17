@@ -56,6 +56,8 @@ import ModelView from './ModelView';
 import NotebookFormationView from './NotebookFormationView';
 import PromotionQueueView from './PromotionQueueView';
 import EntityPromotionView from './EntityPromotionView';
+import EmergentTypeSuggestionsView from './EmergentTypeSuggestionsView';
+import ArtifactBrowserView from './ArtifactBrowserView';
 import PaneDotGrid from './PaneDotGrid';
 
 /* ─────────────────────────────────────────────────
@@ -1389,6 +1391,16 @@ function PaneViewContent({ viewType, context, paneId, onOpenObject }: PaneViewCo
     return <EntityPromotionView />;
   }
 
+  /* Live view: Emergent Types (self-organize monitoring) */
+  if (viewType === 'emergent-types') {
+    return <EmergentTypeSuggestionsView />;
+  }
+
+  /* Live view: Artifacts (epistemic pipeline browser) */
+  if (viewType === 'artifacts') {
+    return <ArtifactBrowserView />;
+  }
+
   /* Placeholder for views not yet implemented */
   return (
     <div
@@ -1601,6 +1613,15 @@ function ViewTypeIcon({ viewType, size = 16 }: { viewType: ViewType; size?: numb
       return (
         <svg width={s} height={s} viewBox="0 0 16 16" fill="none" stroke={color} strokeWidth={sw} style={{ display: 'block', margin: '0 auto' }}>
           <path d="M8 2 L9.5 6 L14 6.5 L10.5 9.5 L11.5 14 L8 11.5 L4.5 14 L5.5 9.5 L2 6.5 L6.5 6 Z" />
+        </svg>
+      );
+    case 'artifacts':
+      return (
+        <svg width={s} height={s} viewBox="0 0 16 16" fill="none" stroke={color} strokeWidth={sw} style={{ display: 'block', margin: '0 auto' }}>
+          <path d="M4 2 L10 2 L13 5 L13 14 L4 14 Z" />
+          <path d="M10 2 L10 5 L13 5" />
+          <line x1={6} y1={8} x2={11} y2={8} />
+          <line x1={6} y1={11} x2={11} y2={11} />
         </svg>
       );
     default:
