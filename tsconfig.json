@@ -39,6 +39,7 @@
     "node_modules",
     "research_api",
     "publishing_api",
-    "collage-engine"
+    "collage-engine",
+    "Index-API"
   ]
 }
