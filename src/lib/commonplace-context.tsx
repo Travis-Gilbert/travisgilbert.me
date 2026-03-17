@@ -103,6 +103,10 @@ interface CommonPlaceContextValue {
   unstashObject: (objectId: number) => void;
   /** Clear the shared stash */
   clearStash: () => void;
+  /** Currently dragged component type ID from toolbox, or null */
+  draggedComponent: string | null;
+  /** Set the dragged component type ID (null to clear) */
+  setDraggedComponent: (id: string | null) => void;
   /** Active manual connection draft */
   connectionDraft: {
     source: RenderableObject;
@@ -156,6 +160,8 @@ const CommonPlaceContext = createContext<CommonPlaceContextValue>({
   stashObject: NOOP,
   unstashObject: NOOP,
   clearStash: NOOP,
+  draggedComponent: null,
+  setDraggedComponent: NOOP,
   connectionDraft: null,
   beginConnection: NOOP,
   selectConnectionTarget: NOOP,
@@ -219,6 +225,7 @@ export function CommonPlaceProvider({ children }: { children: ReactNode }) {
     obj: RenderableObject;
   } | null>(null);
   const [stashedObjects, setStashedObjects] = useState<RenderableObject[]>([]);
+  const [draggedComponent, setDraggedComponent] = useState<string | null>(null);
   const [connectionDraft, setConnectionDraft] = useState<{
     source: RenderableObject;
     target: RenderableObject | null;
@@ -388,6 +395,8 @@ export function CommonPlaceProvider({ children }: { children: ReactNode }) {
       stashObject,
       unstashObject,
       clearStash,
+      draggedComponent,
+      setDraggedComponent,
       connectionDraft,
       beginConnection,
       selectConnectionTarget,
@@ -427,6 +436,7 @@ export function CommonPlaceProvider({ children }: { children: ReactNode }) {
       stashObject,
       unstashObject,
       clearStash,
+      draggedComponent,
       connectionDraft,
       beginConnection,
       selectConnectionTarget,
