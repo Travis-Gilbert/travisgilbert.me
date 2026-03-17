@@ -49,6 +49,7 @@ import CaptureButton from './CaptureButton';
 import ObjectPalette from './ObjectPalette';
 import RecentCaptures from './RecentCaptures';
 import DropZone from './DropZone';
+import ComponentToolbox from './ComponentToolbox';
 
 const SIDEBAR_MIN = 192;
 const SIDEBAR_MAX = 280;
@@ -518,6 +519,9 @@ export default function CommonPlaceSidebar() {
 
       {/* DropZone: fixed overlay, lives here to share capture state */}
       <DropZone onCapture={handleCapture} />
+
+      {/* Component toolbox: drag tiles onto objects */}
+      <ComponentToolbox />
 
       {/* Bottom: back to main site */}
       <div

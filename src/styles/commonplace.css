@@ -358,6 +358,68 @@
 }
 
 /* ─────────────────────────────────────────────────
+   Component Toolbox
+   ───────────────────────────────────────────────── */
+
+.cp-toolbox-toggle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 8px 14px;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  font-family: var(--cp-font-mono);
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--cp-chrome-muted);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  text-align: left;
+}
+
+.cp-toolbox-count {
+  font-size: 9px;
+  font-weight: 500;
+  color: var(--cp-sidebar-text-faint);
+  margin-left: auto;
+}
+
+.cp-toolbox-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 4px;
+  padding: 0 8px 8px;
+  max-height: 200px;
+  overflow-y: auto;
+}
+
+.cp-toolbox-tile {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 5px 6px;
+  border-radius: 4px;
+  cursor: grab;
+  border: 1px solid var(--cp-chrome-line);
+  background: var(--cp-chrome-mid);
+  font-family: var(--cp-font-mono);
+  font-size: 10px;
+  color: var(--cp-chrome-text);
+  transition: background 100ms, border-color 100ms;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  touch-action: none;
+}
+
+.cp-toolbox-tile:hover {
+  border-color: var(--cp-chrome-muted);
+  background: var(--cp-chrome-raise);
+}
+
+/* ─────────────────────────────────────────────────
    Brand section stats
    ───────────────────────────────────────────────── */
 
