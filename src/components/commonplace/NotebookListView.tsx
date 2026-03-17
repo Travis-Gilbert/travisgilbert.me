@@ -5,7 +5,7 @@
  *
  * Fetches notebooks from the API and renders each as a card
  * showing: color dot, name, description excerpt, object count.
- * Clicking a card opens the notebook detail via requestView().
+ * Clicking a card opens the notebook detail via launchView().
  */
 
 import { fetchNotebooks, useApiData } from '@/lib/commonplace-api';
@@ -16,7 +16,7 @@ export default function NotebookListView() {
     () => fetchNotebooks(),
     [],
   );
-  const { requestView } = useCommonPlace();
+  const { launchView } = useCommonPlace();
 
   /* Loading */
   if (loading) {
@@ -76,7 +76,7 @@ export default function NotebookListView() {
             key={nb.id}
             type="button"
             className="cp-list-card"
-            onClick={() => requestView('notebook', nb.name, { slug: nb.slug })}
+            onClick={() => launchView('notebook', { slug: nb.slug })}
           >
             <span
               className="cp-list-card-color"

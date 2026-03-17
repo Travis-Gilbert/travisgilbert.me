@@ -66,7 +66,7 @@ function saveRecent(list: ObjectSearchResult[]) {
 }
 
 export default function CommandPalette() {
-  const { paletteOpen, openPalette, closePalette, requestView } = useCommonPlace();
+  const { paletteOpen, openPalette, closePalette, launchView } = useCommonPlace();
 
   const [query, setQuery] = useState('');
   const [results, setResults] = useState<ObjectSearchResult[]>([]);
@@ -87,7 +87,7 @@ export default function CommandPalette() {
 
   useHotkeys('mod+n', (e) => {
     e.preventDefault();
-    requestView('compose', 'Compose');
+    launchView('compose');
     closePalette();
   });
 
@@ -125,9 +125,7 @@ export default function CommandPalette() {
 
   const handleOpenObject = useCallback(
     (result: ObjectSearchResult) => {
-      requestView('object-detail', result.display_title || result.title, {
-        objectSlug: result.slug,
-      });
+      launchView('object-detail', { objectSlug: result.slug });
       setRecentItems((prev) => {
         const deduped = [result, ...prev.filter((item) => item.id !== result.id)].slice(0, MAX_RECENT);
         saveRecent(deduped);
@@ -136,23 +134,23 @@ export default function CommandPalette() {
       closePalette();
       toast.success(`Opened: ${result.display_title || result.title}`);
     },
-    [requestView, closePalette],
+    [launchView, closePalette],
   );
 
   const handleAction = useCallback(
-    (viewType: ViewType, label: string) => {
-      requestView(viewType, label);
+    (viewType: ViewType) => {
+      launchView(viewType);
       closePalette();
     },
-    [requestView, closePalette],
+    [launchView, closePalette],
   );
 
   const handleCreate = useCallback(
-    (objectType: string, label: string) => {
-      requestView('compose', label, { prefillType: objectType });
+    (objectType: string) => {
+      launchView('compose', { prefillType: objectType });
       closePalette();
     },
-    [requestView, closePalette],
+    [launchView, closePalette],
   );
 
   const handleKeyDown = useCallback(
@@ -271,7 +269,7 @@ export default function CommandPalette() {
                   <Command.Item
                     key={objectType}
                     value={label}
-                    onSelect={() => handleCreate(objectType, label)}
+                    onSelect={() => handleCreate(objectType)}
                     className="cp-palette-item cp-palette-item--action"
                   >
                     <span className="cp-palette-item-title">{label}</span>
@@ -294,7 +292,7 @@ export default function CommandPalette() {
                     <Command.Item
                       key={objectType}
                       value={label}
-                      onSelect={() => handleCreate(objectType, label)}
+                      onSelect={() => handleCreate(objectType)}
                       className="cp-palette-item cp-palette-item--action"
                     >
                       <span className="cp-palette-item-title">{label}</span>
@@ -311,7 +309,7 @@ export default function CommandPalette() {
                   <Command.Item
                     key={key}
                     value={label}
-                    onSelect={() => handleAction(key, label)}
+                    onSelect={() => handleAction(key)}
                     className="cp-palette-item cp-palette-item--action"
                   >
                     <span className="cp-palette-item-title">{label}</span>

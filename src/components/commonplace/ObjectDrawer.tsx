@@ -16,6 +16,8 @@ import {
 } from '@/lib/commonplace-api';
 import type {
   ApiObjectDetail,
+  ApiObjectClaim,
+  ApiEvidenceLink,
   ApiEdgeCompact,
   ApiNodeListItem,
   ApiComponent,
@@ -25,6 +27,7 @@ import type { TiptapUpdatePayload } from '@/components/studio/TiptapEditor';
 import HunchSketch from './HunchSketch';
 import ObjectTasks from './ObjectTasks';
 import ReadingPane from './ReadingPane';
+import StatusBadge from './objects/StatusBadge';
 
 const CommonPlaceEditor = dynamic(() => import('./CommonPlaceEditor'), { ssr: false });
 
@@ -553,6 +556,113 @@ function DrawerTabBar({
         ))}
       </Reorder.Group>
     </Tabs.List>
+  );
+}
+
+/* ─────────────────────────────────────────────────
+   Claim card: epistemic status badge + type + confidence
+   ───────────────────────────────────────────────── */
+
+function ClaimCard({ claim }: { claim: ApiObjectClaim }) {
+  const confidencePercent = Math.round(claim.confidence * 100);
+  return (
+    <div className="cp-drawer-claim-card">
+      <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4 }}>
+        <StatusBadge
+          status={claim.status}
+          confirmed={claim.reviewed_at !== null}
+        />
+        <span
+          style={{
+            fontFamily: 'var(--cp-font-mono)',
+            fontSize: 9,
+            fontWeight: 600,
+            letterSpacing: '0.08em',
+            textTransform: 'uppercase',
+            color: 'var(--cp-text-faint)',
+          }}
+        >
+          {claim.claim_type}
+        </span>
+        <span
+          style={{
+            marginLeft: 'auto',
+            fontFamily: 'var(--cp-font-mono)',
+            fontSize: 10,
+            color: 'var(--cp-text-faint)',
+          }}
+        >
+          {confidencePercent}%
+        </span>
+      </div>
+      <div
+        style={{
+          fontFamily: 'var(--cp-font-body)',
+          fontSize: 12.5,
+          lineHeight: 1.5,
+          color: 'var(--cp-text-muted)',
+        }}
+      >
+        {claim.text}
+      </div>
+      {claim.evidence_links.length > 0 && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 4, marginTop: 6 }}>
+          {claim.evidence_links.map((link) => (
+            <EvidenceLinkCard key={link.id} link={link} />
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ─────────────────────────────────────────────────
+   Evidence link card: color-coded by relation type
+   ───────────────────────────────────────────────── */
+
+const EVIDENCE_COLORS: Record<string, { bg: string; border: string }> = {
+  supports:    { bg: '#E1F5EE', border: '#0F6E56' },
+  contradicts: { bg: '#FCEBEB', border: '#E24B4A' },
+  cites:       { bg: '#F0F0F0', border: '#88868E' },
+  derived_from: { bg: '#EDE8F5', border: '#534AB7' },
+  references:  { bg: '#F0F0F0', border: '#88868E' },
+};
+
+function EvidenceLinkCard({ link }: { link: ApiEvidenceLink }) {
+  const colors = EVIDENCE_COLORS[link.relation_type] ?? EVIDENCE_COLORS.references;
+  return (
+    <div
+      style={{
+        padding: '5px 8px',
+        background: colors.bg,
+        borderLeft: `3px solid ${colors.border}`,
+        borderRadius: '0 4px 4px 0',
+        fontFamily: 'var(--cp-font-body)',
+        fontSize: 11.5,
+        lineHeight: 1.45,
+        color: '#2A2A30',
+      }}
+    >
+      <span
+        style={{
+          fontFamily: 'var(--cp-font-mono)',
+          fontSize: 9,
+          fontWeight: 600,
+          letterSpacing: '0.06em',
+          textTransform: 'uppercase',
+          color: colors.border,
+          marginRight: 6,
+        }}
+      >
+        {link.relation_type.replace('_', ' ')}
+      </span>
+      {link.reason && <span>{link.reason}</span>}
+      {!link.reason && (
+        <span style={{ fontStyle: 'italic', color: '#88868E' }}>
+          {Math.round(link.confidence * 100)}% confidence
+        </span>
+      )}
+    </div>
   );
 }
 
@@ -1087,6 +1197,18 @@ export default function ObjectDrawer() {
                                 edge={edge}
                                 onNavigate={navigateToObject}
                               />
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* ─── Claims provenance ─── */}
+                      {(detail.object_claims ?? []).length > 0 && (
+                        <div className="cp-drawer-connection-group">
+                          <SectionHead label="Claims" />
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                            {(detail.object_claims ?? []).map((claim) => (
+                              <ClaimCard key={claim.id} claim={claim} />
                             ))}
                           </div>
                         </div>

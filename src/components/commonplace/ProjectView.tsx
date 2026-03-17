@@ -47,7 +47,7 @@ export default function ProjectView({ slug, onOpenObject }: ProjectViewProps) {
     [slug],
   );
 
-  const { requestView } = useCommonPlace();
+  const { launchView } = useCommonPlace();
   const [activeTab, setActiveTab] = useState('objects');
 
   /* Loading */
@@ -118,9 +118,7 @@ export default function ProjectView({ slug, onOpenObject }: ProjectViewProps) {
               className="cp-project-notebook-link"
               onClick={() => {
                 if (project.notebook) {
-                  requestView('notebook', project.notebook_name ?? 'Notebook', {
-                    slug: project.notebook,
-                  });
+                  launchView('notebook', { slug: project.notebook });
                 }
               }}
             >

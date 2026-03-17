@@ -159,7 +159,7 @@ const DEMO_CLUSTERS: ClusterResponse[] = [
 ];
 
 export default function LibraryView({ onOpenObject }: LibraryViewProps) {
-  const { captureVersion, openContextMenu, requestView } = useCommonPlace();
+  const { captureVersion, openContextMenu, launchView } = useCommonPlace();
   const [activeType, setActiveType] = useState<string | null>(null);
   const [activeClusterKey, setActiveClusterKey] = useState<string | null>(null);
   const [inquiryQuery, setInquiryQuery] = useState('');
@@ -342,7 +342,7 @@ export default function LibraryView({ onOpenObject }: LibraryViewProps) {
           </h2>
           <button
             type="button"
-            onClick={() => requestView('resurface', 'Resurface')}
+            onClick={() => launchView('resurface')}
             style={{
               border: '1px solid var(--cp-red-line)',
               background: 'var(--cp-red-soft)',
@@ -737,7 +737,7 @@ export default function LibraryView({ onOpenObject }: LibraryViewProps) {
                     <button
                       key={project.id}
                       type="button"
-                      onClick={() => requestView('project', project.name, { slug: project.slug })}
+                      onClick={() => launchView('project', { slug: project.slug })}
                       style={{
                         textAlign: 'left',
                         border: '1px solid var(--cp-border)',

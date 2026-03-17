@@ -2,7 +2,7 @@
  * CommonPlace split pane layout: types, serialization, and presets.
  *
  * The layout is a recursive binary tree. Each node is either:
- *   - Leaf: holds an array of tabs (views) and an activeTabIndex
+ *   - Leaf: holds a single view (viewId) and optional context
  *   - Split: holds two children with a direction and size ratio
  *
  * This tree structure enables arbitrary nesting while remaining
@@ -17,20 +17,12 @@ import type { ViewType } from '@/lib/commonplace';
 
 export type SplitDirection = 'horizontal' | 'vertical';
 
-export interface PaneTab {
-  id: string;
-  viewType: ViewType;
-  label: string;
-  /** Optional context: object ID, notebook slug, filter config */
-  context?: Record<string, unknown>;
-}
-
-/** Leaf node: a single pane with one or more tabs */
+/** Leaf node: a single pane displaying one view */
 export interface LeafPane {
   type: 'leaf';
   id: string;
-  tabs: PaneTab[];
-  activeTabIndex: number;
+  viewId: ViewType;
+  context?: Record<string, unknown>;
 }
 
 /** Split node: two children separated by a drag handle */
@@ -50,7 +42,6 @@ export type PaneNode = LeafPane | SplitPane;
 export interface SavedLayout {
   name: string;
   tree: PaneNode;
-  isPreset: boolean;
 }
 
 /* ─────────────────────────────────────────────────
@@ -64,27 +55,16 @@ export function generatePaneId(): string {
   return `pane-${Date.now()}-${paneCounter}`;
 }
 
-export function generateTabId(): string {
-  paneCounter += 1;
-  return `tab-${Date.now()}-${paneCounter}`;
-}
-
 /* ─────────────────────────────────────────────────
    Factory helpers
    ───────────────────────────────────────────────── */
 
-export function createLeaf(viewType: ViewType = 'empty', label?: string): LeafPane {
+export function createLeaf(viewType: ViewType = 'empty', context?: Record<string, unknown>): LeafPane {
   return {
     type: 'leaf',
     id: generatePaneId(),
-    tabs: [
-      {
-        id: generateTabId(),
-        viewType,
-        label: label ?? viewTypeLabel(viewType),
-      },
-    ],
-    activeTabIndex: 0,
+    viewId: viewType,
+    context,
   };
 }
 
@@ -104,34 +84,6 @@ export function createSplit(
   };
 }
 
-function viewTypeLabel(viewType: ViewType): string {
-  const labels: Record<ViewType, string> = {
-    library: 'Library',
-    grid: 'All Objects',
-    timeline: 'Timeline',
-    'scoped-timeline': 'My Timelines',
-    network: 'Map',
-    notebook: 'Notebook',
-    project: 'Project',
-    'object-detail': 'Object',
-    calendar: 'Calendar',
-    resurface: 'Resurface',
-    'loose-ends': 'Loose Ends',
-    compose: 'Compose',
-    'connection-engine': 'Connection Engine',
-    'model-view': 'Models',
-    reminders: 'Reminders',
-    settings: 'Settings',
-    'promotion-queue': 'Review Queue',
-    'emergent-types': 'Emergent Types',
-    'entity-promotions': 'Entity Promotions',
-    'notebook-formation': 'Notebook Formation',
-    artifacts: 'Artifacts',
-    empty: 'Empty',
-  };
-  return labels[viewType] ?? viewType;
-}
-
 /* ─────────────────────────────────────────────────
    Layout presets
    ───────────────────────────────────────────────── */
@@ -139,69 +91,15 @@ function viewTypeLabel(viewType: ViewType): string {
 export const LAYOUT_PRESETS: SavedLayout[] = [
   {
     name: 'Focus',
-    isPreset: true,
-    tree: {
-      type: 'leaf',
-      id: 'focus',
-      tabs: [{ id: 'library-1', viewType: 'library', label: 'Library' }],
-      activeTabIndex: 0,
-    },
+    tree: createLeaf('timeline'),
   },
   {
     name: 'Research',
-    isPreset: true,
-    tree: {
-      type: 'split',
-      id: 'research-split',
-      direction: 'horizontal',
-      ratio: 0.55,
-      first: {
-        type: 'leaf',
-        id: 'research-left',
-        tabs: [{ id: 'library-2', viewType: 'library', label: 'Library' }],
-        activeTabIndex: 0,
-      },
-      second: {
-        type: 'leaf',
-        id: 'research-right',
-        tabs: [{ id: 'timeline-1', viewType: 'timeline', label: 'Timeline' }],
-        activeTabIndex: 0,
-      },
-    },
+    tree: createSplit('horizontal', createLeaf('timeline'), createLeaf('network'), 0.55),
   },
   {
     name: 'Studio',
-    isPreset: true,
-    tree: {
-      type: 'split',
-      id: 'studio-split',
-      direction: 'horizontal',
-      ratio: 0.33,
-      first: {
-        type: 'leaf',
-        id: 'studio-left',
-        tabs: [{ id: 'timeline-2', viewType: 'timeline', label: 'Timeline' }],
-        activeTabIndex: 0,
-      },
-      second: {
-        type: 'split',
-        id: 'studio-right-split',
-        direction: 'horizontal',
-        ratio: 0.55,
-        first: {
-          type: 'leaf',
-          id: 'studio-center',
-          tabs: [{ id: 'compose-1', viewType: 'compose', label: 'Compose' }],
-          activeTabIndex: 0,
-        },
-        second: {
-          type: 'leaf',
-          id: 'studio-right',
-          tabs: [{ id: 'library-3', viewType: 'library', label: 'Library' }],
-          activeTabIndex: 0,
-        },
-      },
-    },
+    tree: createSplit('horizontal', createLeaf('compose'), createLeaf('timeline'), 0.55),
   },
 ];
 
@@ -225,26 +123,6 @@ export function findParentSplit(node: PaneNode, childId: string): (PaneNode & { 
   return findParentSplit(node.first, childId) ?? findParentSplit(node.second, childId);
 }
 
-/** Move a tab within a leaf pane by delta positions (immutable) */
-export function moveTab(node: PaneNode, paneId: string, delta: number): PaneNode {
-  if (node.id === paneId && node.type === 'leaf') {
-    const tabs = [...node.tabs];
-    const idx = node.activeTabIndex;
-    const newIdx = idx + delta;
-    if (newIdx < 0 || newIdx >= tabs.length) return node;
-    [tabs[idx], tabs[newIdx]] = [tabs[newIdx], tabs[idx]];
-    return { ...node, tabs, activeTabIndex: newIdx };
-  }
-  if (node.type === 'split') {
-    return {
-      ...node,
-      first: moveTab(node.first, paneId, delta),
-      second: moveTab(node.second, paneId, delta),
-    };
-  }
-  return node;
-}
-
 /** Replace a pane by ID, returning a new tree (immutable) */
 export function replacePane(
   node: PaneNode,
@@ -260,6 +138,37 @@ export function replacePane(
     };
   }
   return node;
+}
+
+/** Replace the view in a specific leaf pane (immutable) */
+export function replaceView(
+  tree: PaneNode,
+  paneId: string,
+  viewId: ViewType,
+  context?: Record<string, unknown>,
+): PaneNode {
+  if (tree.type === 'leaf') {
+    if (tree.id === paneId) {
+      return { ...tree, viewId, context };
+    }
+    return tree;
+  }
+  return {
+    ...tree,
+    first: replaceView(tree.first, paneId, viewId, context),
+    second: replaceView(tree.second, paneId, viewId, context),
+  };
+}
+
+/** Find the first leaf pane displaying a given view type */
+export function findLeafWithView(
+  node: PaneNode,
+  viewId: ViewType,
+): LeafPane | null {
+  if (node.type === 'leaf') {
+    return node.viewId === viewId ? node : null;
+  }
+  return findLeafWithView(node.first, viewId) ?? findLeafWithView(node.second, viewId);
 }
 
 /** Split an existing leaf pane into two */
@@ -314,101 +223,6 @@ export function updateRatio(
   return tree;
 }
 
-/** Add a tab to a leaf pane */
-export function addTab(
-  tree: PaneNode,
-  paneId: string,
-  viewType: ViewType,
-  label?: string,
-  context?: Record<string, unknown>,
-): PaneNode {
-  if (tree.id === paneId && tree.type === 'leaf') {
-    const newTab: PaneTab = {
-      id: generateTabId(),
-      viewType,
-      label: label ?? viewTypeLabel(viewType),
-      context,
-    };
-    return {
-      ...tree,
-      tabs: [...tree.tabs, newTab],
-      activeTabIndex: tree.tabs.length,
-    };
-  }
-  if (tree.type === 'split') {
-    return {
-      ...tree,
-      first: addTab(tree.first, paneId, viewType, label, context),
-      second: addTab(tree.second, paneId, viewType, label, context),
-    };
-  }
-  return tree;
-}
-
-/** Close a tab in a leaf pane */
-export function closeTab(
-  tree: PaneNode,
-  paneId: string,
-  tabIndex: number
-): PaneNode {
-  if (tree.id === paneId && tree.type === 'leaf') {
-    if (tree.tabs.length <= 1) {
-      // Last tab: replace with empty (closeTabOrPane handles pane removal)
-      return {
-        ...tree,
-        tabs: [{ id: generateTabId(), viewType: 'empty', label: 'Empty' }],
-        activeTabIndex: 0,
-      };
-    }
-    const newTabs = tree.tabs.filter((_, i) => i !== tabIndex);
-    const newActive = Math.min(tree.activeTabIndex, newTabs.length - 1);
-    return { ...tree, tabs: newTabs, activeTabIndex: newActive };
-  }
-  if (tree.type === 'split') {
-    return {
-      ...tree,
-      first: closeTab(tree.first, paneId, tabIndex),
-      second: closeTab(tree.second, paneId, tabIndex),
-    };
-  }
-  return tree;
-}
-
-/** Close a tab; if it was the last tab in a non-root pane, close the pane too */
-export function closeTabOrPane(
-  tree: PaneNode,
-  paneId: string,
-  tabIndex: number
-): PaneNode {
-  const target = findPane(tree, paneId);
-  if (!target || target.type !== 'leaf') return tree;
-
-  if (target.tabs.length <= 1) {
-    // Last tab: close the entire pane (root falls back to empty leaf)
-    return closePane(tree, paneId);
-  }
-  return closeTab(tree, paneId, tabIndex);
-}
-
-/** Set active tab in a leaf pane */
-export function setActiveTab(
-  tree: PaneNode,
-  paneId: string,
-  tabIndex: number
-): PaneNode {
-  if (tree.id === paneId && tree.type === 'leaf') {
-    return { ...tree, activeTabIndex: Math.min(tabIndex, tree.tabs.length - 1) };
-  }
-  if (tree.type === 'split') {
-    return {
-      ...tree,
-      first: setActiveTab(tree.first, paneId, tabIndex),
-      second: setActiveTab(tree.second, paneId, tabIndex),
-    };
-  }
-  return tree;
-}
-
 /** Collect all leaf IDs in the tree */
 export function collectLeafIds(node: PaneNode): string[] {
   if (node.type === 'leaf') return [node.id];
@@ -434,17 +248,17 @@ export function serializeLayout(tree: PaneNode): string {
 export function deserializeLayout(json: string): PaneNode | null {
   try {
     const parsed = JSON.parse(json);
-    if (parsed && (parsed.type === 'leaf' || parsed.type === 'split')) {
-      return parsed as PaneNode;
+    if (!parsed || (parsed.type !== 'leaf' && parsed.type !== 'split')) {
+      return null;
     }
-    return null;
+    // Reject old tab-based layouts (force migration to v6)
+    if (parsed.type === 'leaf' && Array.isArray(parsed.tabs)) {
+      return null;
+    }
+    return parsed as PaneNode;
   } catch {
     return null;
   }
-}
-
-function leafHasMeaningfulTab(node: LeafPane): boolean {
-  return node.tabs.some((tab) => tab.viewType !== 'empty');
 }
 
 export function summarizeLayout(node: PaneNode): {
@@ -453,7 +267,7 @@ export function summarizeLayout(node: PaneNode): {
   meaningfulLeafCount: number;
 } {
   if (node.type === 'leaf') {
-    const meaningful = leafHasMeaningfulTab(node);
+    const meaningful = node.viewId !== 'empty';
     return {
       leafCount: 1,
       emptyLeafCount: meaningful ? 0 : 1,
@@ -495,15 +309,10 @@ export interface KeyBinding {
 export const KEY_BINDINGS: KeyBinding[] = [
   { key: '\\', ctrl: true, label: 'Split Horizontal', action: 'split-horizontal' },
   { key: '-', ctrl: true, label: 'Split Vertical', action: 'split-vertical' },
-  { key: 'w', ctrl: true, label: 'Close Tab', action: 'close-tab' },
-  { key: 'w', ctrl: true, shift: true, label: 'Close Pane', action: 'close-pane' },
-  { key: 'Tab', ctrl: true, label: 'Next Tab', action: 'next-tab' },
-  { key: 'Tab', ctrl: true, shift: true, label: 'Previous Tab', action: 'prev-tab' },
+  { key: 'w', ctrl: true, label: 'Close Pane', action: 'close-pane' },
   { key: '1', ctrl: true, alt: true, label: 'Focus Layout', action: 'preset-focus' },
   { key: '2', ctrl: true, alt: true, label: 'Research Layout', action: 'preset-research' },
   { key: '3', ctrl: true, alt: true, label: 'Studio Layout', action: 'preset-studio' },
   { key: '[', alt: true, label: 'Shrink Split', action: 'ratio-shrink' },
   { key: ']', alt: true, label: 'Grow Split', action: 'ratio-grow' },
-  { key: 'ArrowLeft', alt: true, shift: true, label: 'Move Tab Left', action: 'move-tab-left' },
-  { key: 'ArrowRight', alt: true, shift: true, label: 'Move Tab Right', action: 'move-tab-right' },
 ];

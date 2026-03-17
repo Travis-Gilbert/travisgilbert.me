@@ -121,7 +121,7 @@ interface GridViewProps {
 }
 
 export default function GridView({ onOpenObject }: GridViewProps) {
-  const { captureVersion, openContextMenu, requestView } = useCommonPlace();
+  const { captureVersion, openContextMenu, launchView } = useCommonPlace();
 
   const { data: nodes, loading, error, refetch } = useApiData(
     () => fetchFeed({ per_page: 100 }),
@@ -177,11 +177,11 @@ export default function GridView({ onOpenObject }: GridViewProps) {
               className={`cp-view-toggle-btn${mode === 'grid' ? ' cp-view-toggle-btn--active' : ''}`}
               onClick={() => {
                 if (mode === 'timeline') {
-                  requestView('timeline', 'Timeline');
+                  launchView('timeline');
                   return;
                 }
                 if (mode === 'graph') {
-                  requestView('network', 'Map', {
+                  launchView('network', {
                     filterTypes: Array.from(activeTypes),
                   });
                 }

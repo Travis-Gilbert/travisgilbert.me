@@ -34,7 +34,7 @@ export default function ProjectListView() {
     () => fetchProjects(),
     [],
   );
-  const { requestView } = useCommonPlace();
+  const { launchView } = useCommonPlace();
 
   /* Group by status */
   const grouped = useMemo(() => {
@@ -121,7 +121,7 @@ export default function ProjectListView() {
                 key={p.id}
                 type="button"
                 className="cp-list-card"
-                onClick={() => requestView('project', p.name, { slug: p.slug })}
+                onClick={() => launchView('project', { slug: p.slug })}
               >
                 <div className="cp-list-card-body">
                   <h3 className="cp-list-card-name">{p.name}</h3>

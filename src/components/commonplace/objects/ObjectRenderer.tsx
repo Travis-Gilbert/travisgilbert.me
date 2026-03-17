@@ -1,8 +1,10 @@
 'use client';
 
 import { getObjectTypeIdentity } from '@/lib/commonplace';
-import type { ObjectListItem, PinnedBadgeObject } from '@/lib/commonplace';
+import type { ObjectListItem, PinnedBadgeObject, TagSummary } from '@/lib/commonplace';
 import PinnedBadge from './PinnedBadge';
+import StatusBadge from './StatusBadge';
+import SignalPips from './SignalPips';
 import NoteCard from './NoteCard';
 import SourceCard from './SourceCard';
 import PersonPill from './PersonPill';
@@ -38,6 +40,7 @@ export interface RenderableObject extends Partial<ObjectListItem> {
   explanation?: string;
   supporting_signal_labels?: string[];
   pinned_objects?: PinnedBadgeObject[];
+  tag_summary?: TagSummary | null;
   [key: string]: unknown;
 }
 
@@ -1294,6 +1297,18 @@ export default function ObjectRenderer(props: ObjectCardProps) {
       onDrop={handleDrop}
     >
       {card}
+      {/* Epistemic tag footer: badge + signal pips */}
+      {props.object.tag_summary?.badge && (
+        <div className="cp-tag-footer">
+          <StatusBadge
+            status={props.object.tag_summary.badge}
+            confirmed={props.object.tag_summary.badge_confirmed}
+          />
+          {props.object.tag_summary.pips.length > 0 && (
+            <SignalPips pips={props.object.tag_summary.pips} />
+          )}
+        </div>
+      )}
       {pins.length > 0 && (
         <div className="cp-pinned-badges">
           {pins.map((pin) => (
