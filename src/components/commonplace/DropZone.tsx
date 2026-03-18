@@ -15,24 +15,24 @@ import {
 /**
  * DropZone: full-screen drag-and-drop overlay.
  *
- * When the user drags content over the CommonPlace layout, this
- * overlay appears with a dashed border and "digitize" prompt.
- * On drop, the content is captured with a framer-motion particle
- * scatter animation: 14-18 circles burst outward then converge
- * to the sidebar. Colors sample from the dropped image when
- * available, otherwise fall back to brand palette.
+ * When the user drags EXTERNAL content (files, URLs, text selections)
+ * over the CommonPlace layout, this overlay appears with a dashed
+ * border and "capture" prompt. On drop, the content is captured with
+ * a particle scatter animation.
  *
- * Renders as a portal-style overlay on the layout root.
+ * Internal drags (catalog items, tabs) are identified by their custom
+ * dataTransfer types and ignored at every lifecycle event. This is the
+ * only reliable guard because e.target during drag events refers to
+ * the element being hovered, not the drag source.
  */
 
 interface DropZoneProps {
   onCapture: (object: CapturedObject) => void;
 }
 
-/* ─────────────────────────────────────────────────
+/* -----------------------------------------------
    Mulberry32 PRNG (deterministic seeded random)
-   Same pattern as HeroAccents.tsx (djb2 + LCG)
-   ───────────────────────────────────────────────── */
+   ----------------------------------------------- */
 
 function djb2(str: string): number {
   let hash = 5381;
@@ -53,9 +53,31 @@ function mulberry32(seed: number) {
   };
 }
 
-/* ─────────────────────────────────────────────────
+/* -----------------------------------------------
+   Internal drag type detection
+   -----------------------------------------------
+   All internal CommonPlace drag operations set a custom MIME type
+   on the DataTransfer. We check for these to avoid intercepting
+   drags that belong to other parts of the UI. */
+
+const INTERNAL_DRAG_TYPES = [
+  'application/commonplace-tab',
+  'application/commonplace-catalog',
+  'application/commonplace-component',
+];
+
+function isInternalDrag(dataTransfer: DataTransfer | null): boolean {
+  if (!dataTransfer) return false;
+  const types = dataTransfer.types;
+  for (const internalType of INTERNAL_DRAG_TYPES) {
+    if (types.includes(internalType)) return true;
+  }
+  return false;
+}
+
+/* -----------------------------------------------
    Particle scatter constants
-   ───────────────────────────────────────────────── */
+   ----------------------------------------------- */
 
 const PALETTE = ['#B45A2D', '#2D5F6B', '#C49A4A', '#8C7B6E', '#5A7A4A'];
 const PARTICLE_SPRING = [0.34, 1.56, 0.64, 1] as const;
@@ -128,9 +150,9 @@ function buildParticles(seed: string, colors: string[]): Particle[] {
   });
 }
 
-/* ─────────────────────────────────────────────────
+/* -----------------------------------------------
    Main component
-   ───────────────────────────────────────────────── */
+   ----------------------------------------------- */
 
 export default function DropZone({ onCapture }: DropZoneProps) {
   const [isDragActive, setIsDragActive] = useState(false);
@@ -145,11 +167,13 @@ export default function DropZone({ onCapture }: DropZoneProps) {
      workaround for the "flickering overlay" problem. */
 
   const handleDragEnter = useCallback((e: DragEvent) => {
-    // Ignore internal drags (tabs, catalog items, components)
-    if (e.dataTransfer?.types.includes('application/commonplace-tab')) return;
-    if (e.dataTransfer?.types.includes('application/commonplace-catalog')) return;
-    // Ignore drags originating from within CommonPlace (board cards, sidebar items)
-    if ((e.target as HTMLElement)?.closest?.('[data-board-item], [draggable]')) return;
+    /* Ignore all internal CommonPlace drags. The dataTransfer.types
+       array persists throughout the drag lifecycle and is the only
+       reliable way to identify the drag source. Checking e.target
+       is unreliable because it refers to the element being hovered,
+       not the element that initiated the drag. */
+    if (isInternalDrag(e.dataTransfer)) return;
+
     e.preventDefault();
     setDragCounter((c) => {
       if (c === 0) setIsDragActive(true);
@@ -158,8 +182,8 @@ export default function DropZone({ onCapture }: DropZoneProps) {
   }, []);
 
   const handleDragLeave = useCallback((e: DragEvent) => {
-    if (e.dataTransfer?.types.includes('application/commonplace-tab')) return;
-    if (e.dataTransfer?.types.includes('application/commonplace-catalog')) return;
+    if (isInternalDrag(e.dataTransfer)) return;
+
     e.preventDefault();
     setDragCounter((c) => {
       const next = c - 1;
@@ -172,17 +196,16 @@ export default function DropZone({ onCapture }: DropZoneProps) {
   }, []);
 
   const handleDragOver = useCallback((e: DragEvent) => {
-    if (e.dataTransfer?.types.includes('application/commonplace-tab')) return;
-    if (e.dataTransfer?.types.includes('application/commonplace-catalog')) return;
+    if (isInternalDrag(e.dataTransfer)) return;
+
     e.preventDefault();
     if (e.dataTransfer) e.dataTransfer.dropEffect = 'copy';
   }, []);
 
   const handleDrop = useCallback(
     (e: DragEvent) => {
-      // Ignore internal drags
-      if (e.dataTransfer?.types.includes('application/commonplace-tab')) return;
-      if (e.dataTransfer?.types.includes('application/commonplace-catalog')) return;
+      if (isInternalDrag(e.dataTransfer)) return;
+
       e.preventDefault();
       setIsDragActive(false);
       setDragCounter(0);
@@ -271,7 +294,7 @@ export default function DropZone({ onCapture }: DropZoneProps) {
     };
   }, [isAbsorbing]);
 
-  /* ── Portal target: render overlays at document.body to escape stacking contexts ── */
+  /* Portal target: render overlays at document.body to escape stacking contexts */
 
   /* Absorb animation overlay */
   if (isAbsorbing) {
