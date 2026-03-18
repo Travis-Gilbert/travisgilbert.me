@@ -1,11 +1,23 @@
 import type { NextConfig } from 'next';
 
+const backendUrl =
+  process.env.NEXT_PUBLIC_RESEARCH_API_URL ||
+  'https://index-api-production-a5f7.up.railway.app';
+
 const nextConfig: NextConfig = {
   reactCompiler: true,
   images: {
     unoptimized: true,
   },
   trailingSlash: false,
+  async rewrites() {
+    return [
+      {
+        source: '/api/:path*',
+        destination: `${backendUrl}/api/:path*`,
+      },
+    ];
+  },
   async redirects() {
     return [
       {
