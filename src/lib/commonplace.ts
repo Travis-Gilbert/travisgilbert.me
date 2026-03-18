@@ -10,7 +10,7 @@
    ───────────────────────────────────────────────── */
 
 const RESEARCH_API =
-  process.env.NEXT_PUBLIC_RESEARCH_API_URL ?? 'http://localhost:8001';
+  process.env.NEXT_PUBLIC_RESEARCH_API_URL ?? '';
 
 export const API_BASE = `${RESEARCH_API}/api/v1/notebook`;
 export const EPISTEMIC_BASE = `${RESEARCH_API}/api/v1`;
@@ -837,17 +837,20 @@ export async function fetchObjects(params?: {
   notebook?: string;
   project?: string;
 }): Promise<PaginatedResponse<ObjectListItem>> {
-  const url = new URL(`${API_BASE}/nodes/`);
-  if (params?.status) url.searchParams.set('status', params.status);
-  if (params?.type) url.searchParams.set('type', params.type);
-  if (params?.q) url.searchParams.set('q', params.q);
-  if (params?.starred) url.searchParams.set('starred', 'true');
-  if (params?.pinned) url.searchParams.set('pinned', 'true');
-  if (params?.notebook) url.searchParams.set('notebook', params.notebook);
-  if (params?.project) url.searchParams.set('project', params.project);
+  const search = new URLSearchParams();
+  if (params?.status) search.set('status', params.status);
+  if (params?.type) search.set('type', params.type);
+  if (params?.q) search.set('q', params.q);
+  if (params?.starred) search.set('starred', 'true');
+  if (params?.pinned) search.set('pinned', 'true');
+  if (params?.notebook) search.set('notebook', params.notebook);
+  if (params?.project) search.set('project', params.project);
+
+  const qs = search.toString();
+  const url = `${API_BASE}/nodes/${qs ? `?${qs}` : ''}`;
 
   try {
-    const res = await fetch(url.toString(), { cache: 'no-store' });
+    const res = await fetch(url, { cache: 'no-store' });
     if (!res.ok) return { count: 0, next: null, previous: null, results: [] };
     return res.json();
   } catch {
