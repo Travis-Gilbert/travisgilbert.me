@@ -117,11 +117,19 @@ CollageHero (homepage) and EssayHero (essay pages) share: dark ground, `--hero-h
 
 Scoped route group `(commonplace)` with own layout.tsx (warm studio theme, not main site DotGrid/TopNav/Footer). Split pane system uses recursive binary tree. API calls go through `commonplace-api.ts` anti-corruption layer. Sidebar collapse is reactive via context (`SplitPaneContainer` is sole writer). See `docs/records/004-commonplace-v5-dark-chrome.md`.
 
-**Two API fetch helpers**: `apiFetch()` → `/api/v1/notebook/...` (objects, edges, nodes), `epistemicFetch()` → `/api/v1/...` (inquiries, artifacts, provenance). Inquiry endpoints live at `/api/v1/inquiries/`, not notebook-scoped.
+**Two API fetch helpers**: `apiFetch()` -> `/api/v1/notebook/...` (objects, edges, nodes), `epistemicFetch()` -> `/api/v1/...` (inquiries, artifacts, provenance). Inquiry endpoints live at `/api/v1/inquiries/`, not notebook-scoped.
 
 **Evidence rendering is polymorphic**: `EvidenceItem.tsx` dispatches to sub-components per object type (source=gradient bar, hunch=dashed italic, quote=blockquote, concept=pill, note=card). Visual constants (`EVIDENCE_TYPE_COLOR`, `EVIDENCE_RELATION_COLOR`, `AGREEMENT_STYLE`) live in `commonplace-models.ts`.
 
 **Icon system**: CommonPlace uses `iconoir-react` (not Phosphor). Phosphor is used on the main site only.
+
+### API Proxy (Next.js Rewrite)
+
+All `/api/*` requests are proxied through Next.js to the Index-API Django backend via `next.config.ts` rewrites. This eliminates CORS in every environment (local dev, Claude Code, Vercel production). The browser only ever talks to its own origin; Next.js forwards to Railway.
+
+`NEXT_PUBLIC_RESEARCH_API_URL` is optional. If unset, the rewrite defaults to `https://index-api-production-a5f7.up.railway.app`. Set it only when pointing at a different backend (e.g., a staging instance). Because the frontend uses relative URLs (`/api/v1/notebook/...`), no env file is needed for `npm run dev` to work with live data.
+
+All three API client files use this pattern: `commonplace.ts`, `networks.ts`, and `research.ts`.
 
 ### Canvas Components
 
@@ -133,7 +141,7 @@ Vercel with native Next.js builder. Auto-deploys on push to `main`. **Important:
 
 **Django services (Railway):** Both services deploy with PostgreSQL via `railway.toml`. Env vars: `SECRET_KEY`, `DATABASE_URL`, `GITHUB_TOKEN`, `GITHUB_REPO`, `GITHUB_BRANCH`. research_api also needs `WEBMENTION_TARGET_DOMAIN`.
 
-**Index-API (Railway):** Production at `https://index-api-production-a5f7.up.railway.app`. Two services from one repo: web (`railway.toml` → `Dockerfile.web` → gunicorn), worker (`railway.worker.toml` → `Dockerfile.worker` → rqworker). Worker env vars are NOT shared with web; each needs `DATABASE_URL`, `REDIS_URL`, `FIRECRAWL_API_KEY`. Local dev port: 8000. Publishing API: 8080.
+**Index-API (Railway):** Production at `https://index-api-production-a5f7.up.railway.app`. Two services from one repo: web (`railway.toml` -> `Dockerfile.web` -> gunicorn), worker (`railway.worker.toml` -> `Dockerfile.worker` -> rqworker). Worker env vars are NOT shared with web; each needs `DATABASE_URL`, `REDIS_URL`, `FIRECRAWL_API_KEY`. Local dev port: 8000. Publishing API: 8080.
 
 ## Status
 
@@ -179,6 +187,7 @@ Vercel with native Next.js builder. Auto-deploys on push to `main`. **Important:
 | CommonPlace: Model View v6 | Two-column layout, no drag reorder, polymorphic evidence | White card repetition was poor UI; timeline rows + type-specific rendering is more information-dense |
 | Deploy sequencing | Push backend (Index-API) before frontend (Website) | Frontend depends on new API fields; optional types prevent breakage but backend should land first |
 | tag_summary badge_confirmed | Uses `_has_reviewed_claim` annotation (claims with reviewed_at set) | Object model has no epistemic_status field; Claim.reviewed_at is the ground truth |
+| API proxy via Next.js rewrites | Rewrite `/api/*` through Next.js to Railway backend | Eliminates CORS, removes env var requirement, works in Claude Code without config |
 
 ## Gotchas
 
@@ -192,7 +201,7 @@ Vercel with native Next.js builder. Auto-deploys on push to `main`. **Important:
 - **OG image via `opengraph-image.tsx`**: Do NOT also set `metadata.openGraph.images` in `layout.tsx` or it will conflict
 - **Satori CSS limitations**: Only flexbox layout, no grid. Every element needs `display: 'flex'`
 - **Webpack `.next/` cache corruption**: After major file deletions or renames, fix with `rm -rf .next` and rebuild
-- **`NEXT_PUBLIC_*` env vars**: Inlined at build time, not runtime. Changing values requires Vercel redeploy
+- **`NEXT_PUBLIC_*` env vars**: Inlined at build time, not runtime. Changing values requires Vercel redeploy. Note: `NEXT_PUBLIC_RESEARCH_API_URL` is no longer required for backend connectivity (the rewrite proxy handles it), but other `NEXT_PUBLIC_*` vars still follow this rule
 - **Default array/object props cause infinite loops**: `dotColor = [26, 26, 29]` in function signature creates a new ref each render. Use `useMemo` or module-level constant
 
 ### Styling / Design System
@@ -235,7 +244,7 @@ Vercel with native Next.js builder. Auto-deploys on push to `main`. **Important:
 - **Railway auto-deploys from `main`**: Both services deploy independently, ~2 minutes each
 - **reCAPTCHA v3 tokens are single-use**: Never split verification and scoring into separate HTTP calls
 - **Railway nixpacks `cmds` doesn't persist to runtime**: Use `startCommand` with conditional download instead
-- **`SECURE_SSL_REDIRECT=True` when `DEBUG=False`**: Breaks CORS preflight (HTTP→HTTPS 301). Always use `DEBUG=True` for local dev
+- **`SECURE_SSL_REDIRECT=True` when `DEBUG=False`**: Breaks CORS preflight (HTTP->HTTPS 301). Always use `DEBUG=True` for local dev
 - **Scraper env vars read at import time**: `FIRECRAWL_API_KEY`, `WHOOGLE_BASE_URL` must be set before server starts
 - **Whoogle on cloud IPs blocked by Google**: Use Firecrawl as production search provider
 - **Railway worker env vars not shared with web**: Each service needs its own `DATABASE_URL`, `REDIS_URL`, `FIRECRAWL_API_KEY`
