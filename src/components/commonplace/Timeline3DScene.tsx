@@ -15,7 +15,7 @@
 
 import { useRef, useState, useMemo, useEffect, useCallback } from 'react';
 import { Canvas, useFrame, useThree } from '@react-three/fiber';
-import { Text, Environment } from '@react-three/drei';
+import { Text, Billboard, Environment } from '@react-three/drei';
 import * as THREE from 'three';
 import type { MockNode } from '@/lib/commonplace';
 import {
@@ -53,20 +53,20 @@ function DateLabels({ markers }: { markers: Timeline3DLayout['dateMarkers'] }) {
   return (
     <group>
       {markers.map((marker) => (
-        <Text
-          key={marker.dateKey}
-          position={marker.position}
-          fontSize={0.5}
-          color="#9A8E82"
-          anchorX="left"
-          anchorY="bottom"
-          letterSpacing={0.08}
-          material-transparent
-          material-opacity={0.6}
-          material-depthWrite={false}
-        >
-          {marker.label}
-        </Text>
+        <Billboard key={marker.dateKey} position={marker.position} follow>
+          <Text
+            fontSize={0.5}
+            color="#9A8E82"
+            anchorX="left"
+            anchorY="bottom"
+            letterSpacing={0.08}
+            material-transparent
+            material-opacity={0.6}
+            material-depthWrite={false}
+          >
+            {marker.label}
+          </Text>
+        </Billboard>
       ))}
     </group>
   );
@@ -224,7 +224,7 @@ function InnerScene({
       <Environment preset="warehouse" />
 
       {/* Fog: objects in the deep past fade into the page */}
-      <fog attach="fog" args={['#F7F2EA', 50, 100]} />
+      <fog attach="fog" args={['#F7F2EA', 80, 200]} />
 
       {/* Camera controller */}
       <CameraController
@@ -295,10 +295,10 @@ export default function Timeline3DScene({
   return (
     <Canvas
       camera={{
-        position: [0, 6, -2],
+        position: [0, 8, -5],
         fov: 50,
         near: 0.1,
-        far: 200,
+        far: 500,
       }}
       style={{
         width: '100%',

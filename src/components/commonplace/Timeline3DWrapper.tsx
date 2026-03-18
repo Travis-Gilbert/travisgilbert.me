@@ -161,23 +161,28 @@ export default function Timeline3DWrapper() {
     [filteredNodes],
   );
 
-  // Scroll handler: maps scrollTop to 0..1 progress
-  useEffect(() => {
-    const el = scrollRef.current;
-    if (!el) return;
+  // Wheel handler: forward wheel events to hidden scroll container,
+  // then read its scrollTop to compute normalized progress.
+  const canvasContainerRef = useRef<HTMLDivElement>(null);
 
-    function onScroll() {
-      if (!el) return;
-      const maxScroll = el.scrollHeight - el.clientHeight;
+  useEffect(() => {
+    const canvasEl = canvasContainerRef.current;
+    const scrollEl = scrollRef.current;
+    if (!canvasEl || !scrollEl) return;
+
+    function onWheel(e: WheelEvent) {
+      if (!scrollEl) return;
+      scrollEl.scrollTop += e.deltaY;
+      const maxScroll = scrollEl.scrollHeight - scrollEl.clientHeight;
       if (maxScroll <= 0) {
         setScrollProgress(0);
         return;
       }
-      setScrollProgress(Math.min(el.scrollTop / maxScroll, 1));
+      setScrollProgress(Math.min(scrollEl.scrollTop / maxScroll, 1));
     }
 
-    el.addEventListener('scroll', onScroll, { passive: true });
-    return () => el.removeEventListener('scroll', onScroll);
+    canvasEl.addEventListener('wheel', onWheel, { passive: true });
+    return () => canvasEl.removeEventListener('wheel', onWheel);
   }, []);
 
   // Drawer handler: convert TimelineNode3D to ObjectDrawer slug
@@ -221,6 +226,7 @@ export default function Timeline3DWrapper() {
         display: 'flex',
         flexDirection: 'column',
         overflow: 'hidden',
+        background: '#F7F2EA',
       }}
     >
       {/* Search/filter overlay (fixed DOM above canvas) */}
@@ -231,17 +237,19 @@ export default function Timeline3DWrapper() {
           left: 0,
           right: 0,
           zIndex: 10,
-          pointerEvents: 'auto',
+          pointerEvents: 'none',
         }}
       >
-        <TimelineSearch
-          filters={filters}
-          onChange={setFilters}
-          resultCount={filteredNodes.length}
-        />
+        <div style={{ pointerEvents: 'auto' }}>
+          <TimelineSearch
+            filters={filters}
+            onChange={setFilters}
+            resultCount={filteredNodes.length}
+          />
+        </div>
       </div>
 
-      {/* Scroll container: invisible tall div drives GSAP progress */}
+      {/* Hidden scroll container: drives GSAP progress via wheel forwarding */}
       <div
         ref={scrollRef}
         className="cp-scrollbar"
@@ -249,21 +257,20 @@ export default function Timeline3DWrapper() {
           position: 'absolute',
           inset: 0,
           overflow: 'auto',
-          zIndex: 5,
-          pointerEvents: 'auto',
+          zIndex: 0,
+          pointerEvents: 'none',
         }}
       >
-        {/* Invisible spacer that makes the container scrollable */}
         <div
           style={{
             height: layout.scrollHeight || 2000,
-            pointerEvents: 'none',
           }}
         />
       </div>
 
-      {/* 3D Canvas (behind scroll container, receives pointer events via passthrough) */}
+      {/* 3D Canvas (on top, receives all pointer events including wheel) */}
       <div
+        ref={canvasContainerRef}
         style={{
           position: 'absolute',
           inset: 0,

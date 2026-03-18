@@ -10,7 +10,7 @@
 
 import { useRef, useMemo, useCallback } from 'react';
 import { useFrame, useThree, type ThreeEvent } from '@react-three/fiber';
-import { Text } from '@react-three/drei';
+import { Text, Billboard } from '@react-three/drei';
 import * as THREE from 'three';
 import { OBJECT_TYPES } from '@/lib/commonplace';
 import type { TimelineNode3D } from '@/lib/timeline-3d-layout';
@@ -221,11 +221,11 @@ function TypeInstanceGroup({
    ───────────────────────────────────────────────── */
 
 function NodeLabel({ node }: { node: TimelineNode3D }) {
-  const ref = useRef<THREE.Mesh>(null);
+  const groupRef = useRef<THREE.Group>(null);
   const { camera } = useThree();
 
   useFrame(() => {
-    if (!ref.current) return;
+    if (!groupRef.current) return;
     const [x, y, z] = node.position;
     const dx = camera.position.x - x;
     const dy = camera.position.y - y;
@@ -233,33 +233,28 @@ function NodeLabel({ node }: { node: TimelineNode3D }) {
     const distSq = dx * dx + dy * dy + dz * dz;
 
     // Only visible within label range
-    const visible = distSq < LOD_LABEL_SQ;
-    ref.current.visible = visible;
-
-    if (visible) {
-      // Opacity fade based on distance
-      const t = Math.max(0, 1 - distSq / LOD_LABEL_SQ);
-      const mat = ref.current.material as THREE.MeshBasicMaterial;
-      if (mat && 'opacity' in mat) {
-        mat.opacity = t;
-      }
-    }
+    groupRef.current.visible = distSq < LOD_LABEL_SQ;
   });
 
   return (
-    <Text
-      ref={ref}
-      position={[node.position[0], node.position[1] + node.radius + 0.3, node.position[2]]}
-      fontSize={0.2}
-      color={node.color}
-      anchorX="center"
-      anchorY="bottom"
-      maxWidth={3}
-      material-transparent
-      material-depthWrite={false}
-    >
-      {node.title.length > 40 ? node.title.slice(0, 37) + '...' : node.title}
-    </Text>
+    <group ref={groupRef}>
+      <Billboard
+        position={[node.position[0], node.position[1] + node.radius + 0.4, node.position[2]]}
+        follow
+      >
+        <Text
+          fontSize={0.25}
+          color={node.color}
+          anchorX="center"
+          anchorY="bottom"
+          maxWidth={4}
+          material-transparent
+          material-depthWrite={false}
+        >
+          {node.title.length > 40 ? node.title.slice(0, 37) + '...' : node.title}
+        </Text>
+      </Billboard>
+    </group>
   );
 }
 

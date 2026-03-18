@@ -79,16 +79,16 @@ export interface Timeline3DLayout {
    ───────────────────────────────────────────────── */
 
 /** Pixels of scroll per date group */
-const SCROLL_PER_GROUP = 600;
+const SCROLL_PER_GROUP = 800;
 
 /** Z-axis spacing: world units per date group */
-const Z_PER_GROUP = 8;
+const Z_PER_GROUP = 15;
 
-/** Type lane Y positions (spread evenly from 0.5 to 4.5) */
+/** Type lane Y positions (spread evenly from 1.0 to 6.0) */
 const TYPE_LANE_MAP = new Map(
   OBJECT_TYPES.map((t, i) => [
     t.slug,
-    0.5 + (i / Math.max(OBJECT_TYPES.length - 1, 1)) * 4,
+    1.0 + (i / Math.max(OBJECT_TYPES.length - 1, 1)) * 5,
   ]),
 );
 
@@ -144,7 +144,7 @@ export function computeTimeline3DLayout(
   const maxEdges = d3.max(feedNodes, (n) => n.edgeCount) ?? 1;
   const radiusScale = d3.scaleSqrt()
     .domain([0, Math.max(maxEdges, 1)])
-    .range([0.2, 0.6]);
+    .range([0.3, 0.8]);
 
   /* ── Compute node positions ── */
   const nodeById = new Map<string, TimelineNode3D>();
@@ -164,8 +164,8 @@ export function computeTimeline3DLayout(
     // Slight Y elevation for more connected objects
     const elevationBoost = Math.min(node.edgeCount * 0.15, 1.0);
     const y = baseY + elevationBoost;
-    // X jitter within date cluster
-    const x = nextJitter() * 1.5;
+    // X jitter within date cluster (wider spread)
+    const x = nextJitter() * 3.0;
 
     const radius = radiusScale(node.edgeCount);
     const color = TYPE_COLOR_MAP.get(node.objectType) ?? '#9A8E82';
@@ -263,13 +263,13 @@ function computeChoreographyPhases(
   const totalGroups = groupCount;
   if (totalGroups === 0) return phases;
 
-  // Entry phase: first 10% of scroll
+  // Entry phase: wide establishing shot, camera high and pulled back
   phases.push({
     start: 0,
     end: 0.08,
     type: 'entry',
-    cameraPosition: [0, 6, -2],
-    cameraTarget: [0, 2, 20],
+    cameraPosition: [0, 8, -5],
+    cameraTarget: [0, 3, 30],
   });
 
   // Body phases based on density
@@ -297,36 +297,36 @@ function computeChoreographyPhases(
         start: progressStart,
         end: progressEnd,
         type: 'dense',
-        cameraPosition: [-1.5, 5, z - 4],
-        cameraTarget: [0, 2.5, z],
+        cameraPosition: [-2, 7, z - 8],
+        cameraTarget: [0, 3, z],
       });
     } else if (isHotspot) {
       phases.push({
         start: progressStart,
         end: progressEnd,
         type: 'hotspot',
-        cameraPosition: [1.5, 3.5, z - 3],
-        cameraTarget: [0, 2.5, z],
+        cameraPosition: [2, 5, z - 6],
+        cameraTarget: [0, 3, z],
       });
     } else {
       phases.push({
         start: progressStart,
         end: progressEnd,
         type: 'sparse',
-        cameraPosition: [0, 3, z - 2],
-        cameraTarget: [0, 2, z + 2],
+        cameraPosition: [0, 4.5, z - 5],
+        cameraTarget: [0, 3, z + 5],
       });
     }
   }
 
   // Exit phase: last 8% of scroll
-  const zMax = groupCount * 8;
+  const zMax = groupCount * Z_PER_GROUP;
   phases.push({
     start: 0.92,
     end: 1.0,
     type: 'exit',
-    cameraPosition: [0, 3, zMax - 2],
-    cameraTarget: [0, 2, zMax + 5],
+    cameraPosition: [0, 4.5, zMax - 5],
+    cameraTarget: [0, 3, zMax + 10],
   });
 
   return phases;
