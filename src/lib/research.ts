@@ -1,12 +1,13 @@
 /**
  * Research Trail API client and TypeScript types.
  *
- * Fetches from the research_api Django service at research.travisgilbert.me.
+ * Fetches from the Index-API Django service via the Next.js rewrite proxy.
  * All functions return null on failure for graceful degradation:
  * if the API is unreachable, the Research Trail section simply doesn't appear.
  */
 
-const RESEARCH_API = 'https://research.travisgilbert.me';
+const RESEARCH_API =
+  process.env.NEXT_PUBLIC_RESEARCH_API_URL ?? '';
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 
