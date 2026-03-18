@@ -949,7 +949,6 @@ function CompactVariantCard({ object, variant, onClick, onContextMenu }: ObjectC
 
   if (variant === 'chain') {
     return (
-      <RoughBorder seed={object.slug} glow glowColor="#2D5F6B" roughness={0.6} strokeWidth={0.6}>
       <button
         type="button"
         onClick={onClick ? () => onClick(object) : undefined}
@@ -961,12 +960,14 @@ function CompactVariantCard({ object, variant, onClick, onContextMenu }: ObjectC
           gap: 5,
           minWidth: 120,
           maxWidth: 168,
-          padding: '8px 10px',
+          padding: '10px 12px',
           borderRadius: 8,
-          border: 'none',
-          background: `${identity.color}08`,
+          border: `1px solid ${identity.color}40`,
+          background: `${identity.color}12`,
+          boxShadow: `0 0 8px ${identity.color}15`,
           cursor: 'pointer',
           textAlign: 'center',
+          transition: 'box-shadow 150ms, border-color 150ms',
         }}
       >
         <span
@@ -1007,7 +1008,6 @@ function CompactVariantCard({ object, variant, onClick, onContextMenu }: ObjectC
           </span>
         )}
       </button>
-      </RoughBorder>
     );
   }
 
