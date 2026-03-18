@@ -1,6 +1,7 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
+import { toast } from 'sonner';
 import type { EpistemicModelSummary } from '@/lib/commonplace-models';
 import {
   fetchModels,
@@ -75,6 +76,10 @@ export default function ModelListPane({
     fetchModels()
       .then(setModels)
       .finally(() => setLoading(false));
+  }, []);
+
+  const handleCreateModel = useCallback(() => {
+    toast.info('Model creation coming soon');
   }, []);
 
   if (loading) {
@@ -159,6 +164,17 @@ export default function ModelListPane({
           {models.length} model{models.length !== 1 ? 's' : ''}
         </div>
       </div>
+
+      {/* New Model button */}
+      <button
+        type="button"
+        onClick={handleCreateModel}
+        className="cp-btn-accent"
+        style={{ margin: '8px 10px', width: 'calc(100% - 20px)' }}
+      >
+        <span className="cp-btn-accent-dot" />
+        New Model
+      </button>
 
       {/* Card list */}
       <div

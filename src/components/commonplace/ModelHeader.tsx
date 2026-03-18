@@ -1,5 +1,7 @@
 'use client';
 
+import { useCallback } from 'react';
+import { toast } from 'sonner';
 import type { EpistemicModelDetail } from '@/lib/commonplace-models';
 import {
   ASSUMPTION_STATUS_META,
@@ -64,6 +66,10 @@ function CBar({
 }
 
 export default function ModelHeader({ model }: ModelHeaderProps): React.ReactElement {
+  const handleSave = useCallback(() => {
+    toast.info('Save coming soon');
+  }, []);
+
   const typeMeta = MODEL_TYPE_META[model.modelType];
   const statusKey = (model.modelStatus ?? 'proposed') as keyof typeof ASSUMPTION_STATUS_META;
   const statusMeta = ASSUMPTION_STATUS_META[statusKey] ?? ASSUMPTION_STATUS_META.proposed;
@@ -149,6 +155,15 @@ export default function ModelHeader({ model }: ModelHeaderProps): React.ReactEle
         </span>
 
         <CBar value={confidence} color={statusMeta.color} />
+
+        <button
+          type="button"
+          className="cp-btn-accent"
+          onClick={handleSave}
+          style={{ marginLeft: 8, padding: '2px 10px', fontSize: 10 }}
+        >
+          Save
+        </button>
       </div>
 
       {/* Title */}

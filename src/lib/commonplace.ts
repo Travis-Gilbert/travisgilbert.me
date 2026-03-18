@@ -114,7 +114,7 @@ export const VIEW_REGISTRY: Record<ViewType, { label: string; icon: string }> = 
   'loose-ends': { label: 'Loose Ends', icon: 'scatter' },
   compose: { label: 'Compose', icon: 'note-pencil' },
   'connection-engine': { label: 'Engine', icon: 'engine' },
-  'model-view': { label: 'Models', icon: 'model' },
+  'model-view': { label: 'Models', icon: 'cube-scan' },
   reminders: { label: 'Reminders', icon: 'bell' },
   settings: { label: 'Settings', icon: 'gear' },
   'promotion-queue': { label: 'Review Queue', icon: 'check-list' },
@@ -123,7 +123,7 @@ export const VIEW_REGISTRY: Record<ViewType, { label: string; icon: string }> = 
   'notebook-formation': { label: 'Notebook Formation', icon: 'book' },
   artifacts: { label: 'Artifacts', icon: 'archive' },
   'temporal-evolution': { label: 'Temporal', icon: 'timeline' },
-  board: { label: 'Board', icon: 'board' },
+  board: { label: 'Free', icon: 'substract' },
   empty: { label: 'Empty', icon: 'plus' },
 };
 
@@ -169,12 +169,13 @@ export const SIDEBAR_SECTIONS: SidebarSection[] = [
       {
         label: 'Models',
         href: '#models',
-        icon: 'model',
+        icon: 'cube-scan',
         mode: 'screen',
         screenType: 'models',
         expandable: true,
         children: [
-          { label: 'Boards', href: '#boards', icon: 'board', mode: 'view', viewType: 'board' },
+          { label: 'Structured', href: '#models', icon: 'keyframes-solid', mode: 'screen', screenType: 'models' },
+          { label: 'Free', href: '#boards', icon: 'substract', mode: 'view', viewType: 'board' },
         ],
       },
       { label: 'Artifacts', href: '#artifacts', icon: 'archive', mode: 'view', viewType: 'artifacts' },

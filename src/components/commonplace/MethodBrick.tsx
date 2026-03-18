@@ -4,6 +4,7 @@ import type { Method } from '@/lib/commonplace-models';
 
 interface MethodBrickProps {
   methods: Method[];
+  onOpenObject?: (objectRef: number) => void;
 }
 
 const STATUS_COLOR: Record<string, string> = {
@@ -16,6 +17,7 @@ const STATUS_COLOR: Record<string, string> = {
 
 export default function MethodBrick({
   methods,
+  onOpenObject,
 }: MethodBrickProps): React.JSX.Element {
   if (methods.length === 0) {
     return (
@@ -39,11 +41,19 @@ export default function MethodBrick({
         return (
           <div
             key={method.id}
+            role={onOpenObject ? 'button' : undefined}
+            tabIndex={onOpenObject ? 0 : undefined}
+            onClick={() => onOpenObject?.(method.id)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') onOpenObject?.(method.id);
+            }}
             style={{
               background: 'var(--cp-term, #1A1C22)',
               border: '1px solid var(--cp-term-border, #2A2C32)',
               borderRadius: 4,
               padding: '4px 6px',
+              cursor: onOpenObject ? 'pointer' : 'default',
+              transition: 'border-color 0.15s ease',
             }}
           >
             <div

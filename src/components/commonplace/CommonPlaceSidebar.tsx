@@ -48,6 +48,9 @@ import {
 } from '@/lib/commonplace-api';
 import { useIsAppShellMobile } from '@/hooks/useIsAppShellMobile';
 import MobileDrawer from '@/components/mobile-shell/MobileDrawer';
+import CubeScanIcon from './icons/CubeScanIcon';
+import KeyframesSolidIcon from './icons/KeyframesSolidIcon';
+import SubstractIcon from './icons/SubstractIcon';
 import CaptureButton from './CaptureButton';
 import ObjectPalette from './ObjectPalette';
 import RecentCaptures from './RecentCaptures';
@@ -295,7 +298,9 @@ export default function CommonPlaceSidebar() {
                     color: undefined as string | undefined,
                     icon: child.icon,
                     onClick: (e: React.MouseEvent) => {
-                      if (child.viewType) {
+                      if (child.screenType) {
+                        navigateToScreen(child.screenType);
+                      } else if (child.viewType) {
                         launchView(child.viewType, undefined, e.shiftKey);
                       }
                       closeDrawerIfMobile();
@@ -599,7 +604,7 @@ export default function CommonPlaceSidebar() {
       | { key: string; divider: true }
     > = [
       { key: 'library', icon: 'grid', label: 'Library', section: 'capture', accentColor: activeScreen === 'library' ? LABEL_ACCENT['Library'] : undefined, onClick: () => navigateToScreen('library') },
-      { key: 'models', icon: 'model', label: 'Models', section: 'capture', accentColor: activeScreen === 'models' ? LABEL_ACCENT['Models'] : undefined, onClick: () => navigateToScreen('models') },
+      { key: 'models', icon: 'cube-scan', label: 'Models', section: 'capture', accentColor: activeScreen === 'models' ? LABEL_ACCENT['Models'] : undefined, onClick: () => navigateToScreen('models') },
       { key: 'compose', icon: 'note-pencil', label: 'Compose', section: 'capture', accentColor: findLeafWithView(layout, 'compose') ? LABEL_ACCENT['Compose'] : undefined, onClick: (e) => launchView('compose', undefined, e.shiftKey) },
       { key: 'timeline', icon: 'timeline', label: 'Timeline', section: 'views', accentColor: findLeafWithView(layout, 'timeline') ? LABEL_ACCENT['Timeline'] : undefined, onClick: (e) => launchView('timeline', undefined, e.shiftKey) },
       { key: 'map', icon: 'graph', label: 'Map', section: 'views', accentColor: findLeafWithView(layout, 'network') ? LABEL_ACCENT['Map'] : undefined, onClick: (e) => launchView('network', undefined, e.shiftKey) },
@@ -845,6 +850,9 @@ const RAIL_ICON_COMPONENTS: Record<string, ComponentType<{ width?: number; heigh
   'user-star': UserStar,
   'check-list': ClipboardCheck,
   archive: Archive,
+  'cube-scan': CubeScanIcon,
+  'keyframes-solid': KeyframesSolidIcon,
+  'substract': SubstractIcon,
 };
 
 /* Per-section accent colors: shown on the icon when the item is active. */

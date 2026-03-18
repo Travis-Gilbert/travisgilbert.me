@@ -240,6 +240,7 @@ export default function ModelWorkbench({
                 display: 'flex',
                 flexDirection: 'column',
                 gap: 12,
+                overflow: 'hidden',
               }}
             >
               {visibility.tensions && moduleCounts.tensions > 0 && (
@@ -248,7 +249,7 @@ export default function ModelWorkbench({
                   accentColor={MODULE_META.tensions.accentColor}
                   onClose={() => handleCloseModule('tensions')}
                 >
-                  <TensionBrick tensions={model.tensions} />
+                  <TensionBrick tensions={model.tensions} onOpenObject={handleOpenObject} />
                 </ModuleBrick>
               )}
 
@@ -258,7 +259,7 @@ export default function ModelWorkbench({
                   accentColor={MODULE_META.methods.accentColor}
                   onClose={() => handleCloseModule('methods')}
                 >
-                  <MethodBrick methods={model.methods} />
+                  <MethodBrick methods={model.methods} onOpenObject={handleOpenObject} />
                 </ModuleBrick>
               )}
 
