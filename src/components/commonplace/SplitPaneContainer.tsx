@@ -51,6 +51,7 @@ import EntityPromotionView from './EntityPromotionView';
 import EmergentTypeSuggestionsView from './EmergentTypeSuggestionsView';
 import ArtifactBrowserView from './ArtifactBrowserView';
 import TemporalEvolutionView from './TemporalEvolutionView';
+import BoardView from './BoardView';
 
 /* =============================================
    Main container: consumes layout from context,
@@ -883,6 +884,11 @@ function PaneViewContent({
     return <TemporalEvolutionView notebookSlug={context?.slug as string | undefined} />;
   }
 
+  /* Board (spatial thinking surface) */
+  if (viewType === 'board') {
+    return <BoardView paneId={paneId} />;
+  }
+
   /* Placeholder for views not yet implemented */
   return (
     <div
@@ -1219,6 +1225,25 @@ function ViewTypeIcon({
           <path d="M10 2 L10 5 L13 5" />
           <line x1={6} y1={8} x2={11} y2={8} />
           <line x1={6} y1={11} x2={11} y2={11} />
+        </svg>
+      );
+    case 'board':
+      return (
+        <svg
+          width={s}
+          height={s}
+          viewBox="0 0 16 16"
+          fill="none"
+          stroke={color}
+          strokeWidth={sw}
+          style={{ display: 'block', margin: '0 auto' }}
+        >
+          <rect x={1} y={1} width={14} height={14} rx={1} />
+          <rect x={3} y={3} width={4} height={3} rx={0.5} />
+          <rect x={9} y={5} width={4} height={3} rx={0.5} />
+          <rect x={4} y={9} width={4} height={3} rx={0.5} />
+          <line x1={7} y1={4.5} x2={9} y2={6.5} opacity={0.5} />
+          <line x1={6} y1={9} x2={7} y2={8} opacity={0.5} />
         </svg>
       );
     default:

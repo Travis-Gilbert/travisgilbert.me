@@ -79,6 +79,7 @@ export type ViewType =
   | 'notebook-formation'
   | 'artifacts'
   | 'temporal-evolution'
+  | 'board'
   | 'empty';
 
 /* ─────────────────────────────────────────────────
@@ -122,6 +123,7 @@ export const VIEW_REGISTRY: Record<ViewType, { label: string; icon: string }> = 
   'notebook-formation': { label: 'Notebook Formation', icon: 'book' },
   artifacts: { label: 'Artifacts', icon: 'archive' },
   'temporal-evolution': { label: 'Temporal', icon: 'timeline' },
+  board: { label: 'Board', icon: 'board' },
   empty: { label: 'Empty', icon: 'plus' },
 };
 
@@ -164,7 +166,17 @@ export const SIDEBAR_SECTIONS: SidebarSection[] = [
     title: '',
     items: [
       { label: 'Library', href: '#library', icon: 'grid', mode: 'screen', screenType: 'library' },
-      { label: 'Models', href: '#models', icon: 'model', mode: 'screen', screenType: 'models' },
+      {
+        label: 'Models',
+        href: '#models',
+        icon: 'model',
+        mode: 'screen',
+        screenType: 'models',
+        expandable: true,
+        children: [
+          { label: 'Boards', href: '#boards', icon: 'board', mode: 'view', viewType: 'board' },
+        ],
+      },
       { label: 'Artifacts', href: '#artifacts', icon: 'archive', mode: 'view', viewType: 'artifacts' },
       { label: 'Compose', href: '#compose', icon: 'note-pencil', mode: 'view', viewType: 'compose' },
     ],
