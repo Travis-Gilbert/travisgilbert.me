@@ -24,7 +24,7 @@ import DragGhost from './DragGhost';
 const GRID_SIZE = 48;
 const MIN_ZOOM = 0.25;
 const MAX_ZOOM = 3;
-const ZOOM_STEP = 0.1;
+const ZOOM_STEP = 0.04;
 
 /* ─────────────────────────────────────────────────
    Placed card wrapper (applies elevation, glow, badges)
@@ -59,6 +59,7 @@ function PlacedCard({
       data-selected={isSelected || undefined}
       data-dragging={isDragging || undefined}
       data-hunch={item.object.object_type_slug === 'hunch' || undefined}
+      draggable={false}
       tabIndex={0}
       className={glowClass ?? undefined}
       style={{
@@ -421,6 +422,7 @@ export default function BoardCanvas({
       onWheel={handleWheel}
       onMouseDown={handleCanvasMouseDown}
       onClick={handleCanvasClick}
+      onDragStart={(e) => e.preventDefault()}
     >
       {/* Grid background */}
       <div

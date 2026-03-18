@@ -27,7 +27,7 @@ interface RoughBorderProps {
 export default function RoughBorder({
   color,
   strokeWidth = 0.8,
-  roughness = 0.8,
+  roughness = 0.45,
   seed,
   padding = 0,
   glow = false,

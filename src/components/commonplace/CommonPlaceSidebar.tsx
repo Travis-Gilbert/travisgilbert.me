@@ -330,15 +330,17 @@ export default function CommonPlaceSidebar() {
                       >
                         <SidebarIcon name={item.icon} color={isActive ? LABEL_ACCENT[item.label] : undefined} />
                         <span style={{ flex: 1 }}>{item.label}</span>
-                        <span
-                          style={{
-                            fontSize: 10,
-                            fontFamily: 'var(--cp-font-mono)',
-                            color: 'var(--cp-sidebar-text-faint)',
-                          }}
-                        >
-                          {childCount}
-                        </span>
+                        {item.label !== 'Models' && (
+                          <span
+                            style={{
+                              fontSize: 10,
+                              fontFamily: 'var(--cp-font-mono)',
+                              color: 'var(--cp-sidebar-text-faint)',
+                            }}
+                          >
+                            {childCount}
+                          </span>
+                        )}
                         <ChevronIcon open={isExpanded} />
                       </button>
                       {isExpanded && dynamicItems.length > 0 && (

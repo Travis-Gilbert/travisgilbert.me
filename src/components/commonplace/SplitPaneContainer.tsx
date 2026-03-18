@@ -453,20 +453,24 @@ function FullscreenLeaf({
 }) {
   const [splitPreview, setSplitPreview] = useState<'horizontal' | 'vertical' | null>(null);
 
+  const hideHeader = leaf.viewId === 'board';
+
   return (
     <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0, overflow: 'hidden' }}>
-      <PaneHeader
-        viewId={leaf.viewId}
-        paneId={leaf.id}
-        isFocused
-        isFullscreen
-        leafCount={leafCount}
-        onSplitH={() => onSplit(leaf.id, 'horizontal')}
-        onSplitV={() => onSplit(leaf.id, 'vertical')}
-        onToggleFullscreen={() => onToggleFullscreen(leaf.id)}
-        onClose={() => onClosePane(leaf.id)}
-        onSplitPreview={setSplitPreview}
-      />
+      {!hideHeader && (
+        <PaneHeader
+          viewId={leaf.viewId}
+          paneId={leaf.id}
+          isFocused
+          isFullscreen
+          leafCount={leafCount}
+          onSplitH={() => onSplit(leaf.id, 'horizontal')}
+          onSplitV={() => onSplit(leaf.id, 'vertical')}
+          onToggleFullscreen={() => onToggleFullscreen(leaf.id)}
+          onClose={() => onClosePane(leaf.id)}
+          onSplitPreview={setSplitPreview}
+        />
+      )}
       <div style={{ position: 'relative', flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
         <PaneViewContent
           viewType={leaf.viewId}
@@ -587,18 +591,20 @@ function RenderLeaf(props: NodeProps & { node: LeafPane }) {
       }}
       onClick={() => onFocus(node.id)}
     >
-      <PaneHeader
-        viewId={node.viewId}
-        paneId={node.id}
-        isFocused={isFocused}
-        isFullscreen={false}
-        leafCount={leafCount}
-        onSplitH={() => onSplit(node.id, 'horizontal')}
-        onSplitV={() => onSplit(node.id, 'vertical')}
-        onToggleFullscreen={() => onToggleFullscreen(node.id)}
-        onClose={() => onClosePane(node.id)}
-        onSplitPreview={setSplitPreview}
-      />
+      {node.viewId !== 'board' && (
+        <PaneHeader
+          viewId={node.viewId}
+          paneId={node.id}
+          isFocused={isFocused}
+          isFullscreen={false}
+          leafCount={leafCount}
+          onSplitH={() => onSplit(node.id, 'horizontal')}
+          onSplitV={() => onSplit(node.id, 'vertical')}
+          onToggleFullscreen={() => onToggleFullscreen(node.id)}
+          onClose={() => onClosePane(node.id)}
+          onSplitPreview={setSplitPreview}
+        />
+      )}
 
       {/* Content with canvas dot grid */}
       <div
