@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useCallback, useMemo } from 'react';
+import { useState, useCallback, useMemo, useRef } from 'react';
 import { toast } from 'sonner';
 import { Plus, Xmark } from 'iconoir-react';
 import type { PlacedItem, BoardConnection, ViewportState, BoardFrame } from '@/lib/commonplace-board';
@@ -30,6 +30,21 @@ export default function BoardView({ paneId }: BoardViewProps) {
   const [frames, setFrames] = useState<BoardFrame[]>([]);
   const [activeFrameId, setActiveFrameId] = useState<string | null>(null);
 
+  /**
+   * Snapshot of the main board state. When switching to a frame tab,
+   * the current items/connections/viewport are saved here so they can
+   * be restored when the user clicks back to the "Board" tab.
+   */
+  const mainBoardSnapshot = useRef<{
+    items: PlacedItem[];
+    connections: BoardConnection[];
+    viewport: ViewportState;
+  }>({
+    items: DEMO_BOARD.items,
+    connections: DEMO_BOARD.connections,
+    viewport: DEMO_BOARD.viewport,
+  });
+
   /** Set of objectRef IDs currently placed on the board */
   const placedObjectIds = useMemo(
     () => new Set(items.map((i) => i.objectRef)),
@@ -56,8 +71,6 @@ export default function BoardView({ paneId }: BoardViewProps) {
 
   /**
    * Handle a catalog item being dropped onto the canvas.
-   * Creates a new PlacedItem at the drop coordinates.
-   * If the object is already on the board, shows a notice instead.
    */
   const handleCatalogDrop = useCallback(
     (catalogId: string, x: number, y: number) => {
@@ -67,7 +80,6 @@ export default function BoardView({ paneId }: BoardViewProps) {
         return;
       }
 
-      /* Prevent duplicate placement */
       if (placedObjectIds.has(object.id)) {
         toast('Already on the board', {
           description: object.title,
@@ -82,8 +94,8 @@ export default function BoardView({ paneId }: BoardViewProps) {
         id: `item-${object.id}-${Date.now()}`,
         objectRef: object.id,
         object,
-        x: x - 110, /* center the 220px card on the drop point */
-        y: y - 80,  /* center vertically on the drop point */
+        x: x - 110,
+        y: y - 80,
         width: 220,
         height: 160,
         rotation: isHunch ? -0.8 : 0,
@@ -101,13 +113,10 @@ export default function BoardView({ paneId }: BoardViewProps) {
   );
 
   /**
-   * Handle connect-on-drop: create a manual BoardConnection between
-   * two placed items. Prevents duplicate connections (treats A-B and
-   * B-A as the same pair).
+   * Handle connect-on-drop: create a manual BoardConnection.
    */
   const handleConnect = useCallback(
     (fromItemId: string, toItemId: string) => {
-      /* Duplicate check (order-independent) */
       const pairKey = [fromItemId, toItemId].sort().join('::');
       if (connectionPairKeys.has(pairKey)) {
         const fromItem = items.find((i) => i.id === fromItemId);
@@ -140,6 +149,34 @@ export default function BoardView({ paneId }: BoardViewProps) {
     [connectionPairKeys, items],
   );
 
+  /**
+   * Switch to the main board tab. Saves the current frame state back
+   * to the frames array (if a frame is active), then restores the
+   * main board snapshot.
+   */
+  const handleSwitchToBoard = useCallback(() => {
+    if (activeFrameId) {
+      /* Save current edits back to the active frame before switching */
+      setFrames((prev) =>
+        prev.map((f) =>
+          f.id === activeFrameId
+            ? { ...f, items: items.map((i) => ({ ...i })), connections: [...connections], viewport: { ...viewport } }
+            : f,
+        ),
+      );
+    }
+
+    /* Restore the main board snapshot */
+    setItems(mainBoardSnapshot.current.items);
+    setConnections(mainBoardSnapshot.current.connections);
+    setViewport(mainBoardSnapshot.current.viewport);
+    setActiveFrameId(null);
+  }, [activeFrameId, items, connections, viewport]);
+
+  /**
+   * Save the current board state as a new frame. The frame gets a
+   * deep copy of the current items/connections/viewport.
+   */
   const handleSaveFrame = useCallback(() => {
     const name = `Frame ${frames.length + 1}`;
     const frame: BoardFrame = {
@@ -150,19 +187,60 @@ export default function BoardView({ paneId }: BoardViewProps) {
       viewport: { ...viewport },
     };
     setFrames((prev) => [...prev, frame]);
+
+    /* If we were on the main board, snapshot it before switching */
+    if (!activeFrameId) {
+      mainBoardSnapshot.current = {
+        items: items.map((i) => ({ ...i })),
+        connections: [...connections],
+        viewport: { ...viewport },
+      };
+    }
+
     setActiveFrameId(frame.id);
     toast.success(`Saved "${name}"`);
-  }, [items, connections, viewport, frames.length]);
+  }, [items, connections, viewport, frames.length, activeFrameId]);
 
+  /**
+   * Load a frame tab. Saves the current state first (to main board
+   * snapshot or back to the active frame), then loads the target frame.
+   */
   const handleLoadFrame = useCallback((frame: BoardFrame) => {
-    setItems(frame.items);
+    /* Save current state before switching */
+    if (!activeFrameId) {
+      /* Currently on main board: snapshot it */
+      mainBoardSnapshot.current = {
+        items: items.map((i) => ({ ...i })),
+        connections: [...connections],
+        viewport: { ...viewport },
+      };
+    } else {
+      /* Currently on another frame: save edits back */
+      setFrames((prev) =>
+        prev.map((f) =>
+          f.id === activeFrameId
+            ? { ...f, items: items.map((i) => ({ ...i })), connections: [...connections], viewport: { ...viewport } }
+            : f,
+        ),
+      );
+    }
+
+    setItems(frame.items.map((i) => ({ ...i })));
+    setConnections([...frame.connections]);
+    setViewport({ ...frame.viewport });
     setActiveFrameId(frame.id);
     toast(`Loaded "${frame.name}"`);
-  }, []);
+  }, [activeFrameId, items, connections, viewport]);
 
   const handleDeleteFrame = useCallback((frameId: string) => {
     setFrames((prev) => prev.filter((f) => f.id !== frameId));
-    if (activeFrameId === frameId) setActiveFrameId(null);
+    /* If deleting the active frame, switch back to main board */
+    if (activeFrameId === frameId) {
+      setItems(mainBoardSnapshot.current.items);
+      setConnections(mainBoardSnapshot.current.connections);
+      setViewport(mainBoardSnapshot.current.viewport);
+      setActiveFrameId(null);
+    }
   }, [activeFrameId]);
 
   return (
@@ -205,10 +283,7 @@ export default function BoardView({ paneId }: BoardViewProps) {
             color: activeFrameId === null ? 'var(--cp-chrome-text)' : 'var(--cp-chrome-dim)',
             whiteSpace: 'nowrap',
           }}
-          onClick={() => {
-            setActiveFrameId(null);
-            setItems(DEMO_BOARD.items);
-          }}
+          onClick={handleSwitchToBoard}
         >
           Board
         </button>
