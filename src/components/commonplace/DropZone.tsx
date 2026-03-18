@@ -20,10 +20,11 @@ import {
  * border and "capture" prompt. On drop, the content is captured with
  * a particle scatter animation.
  *
- * Internal drags (catalog items, tabs) are identified by their custom
- * dataTransfer types and ignored at every lifecycle event. This is the
- * only reliable guard because e.target during drag events refers to
- * the element being hovered, not the drag source.
+ * Internal drags (catalog items, tabs, assumption reorder) are
+ * identified by their custom dataTransfer types and ignored at every
+ * lifecycle event. This is the only reliable guard because e.target
+ * during drag events refers to the element being hovered, not the
+ * drag source.
  */
 
 interface DropZoneProps {
@@ -64,6 +65,7 @@ const INTERNAL_DRAG_TYPES = [
   'application/commonplace-tab',
   'application/commonplace-catalog',
   'application/commonplace-component',
+  'application/commonplace-assumption',
 ];
 
 function isInternalDrag(dataTransfer: DataTransfer | null): boolean {
@@ -167,11 +169,6 @@ export default function DropZone({ onCapture }: DropZoneProps) {
      workaround for the "flickering overlay" problem. */
 
   const handleDragEnter = useCallback((e: DragEvent) => {
-    /* Ignore all internal CommonPlace drags. The dataTransfer.types
-       array persists throughout the drag lifecycle and is the only
-       reliable way to identify the drag source. Checking e.target
-       is unreliable because it refers to the element being hovered,
-       not the element that initiated the drag. */
     if (isInternalDrag(e.dataTransfer)) return;
 
     e.preventDefault();
