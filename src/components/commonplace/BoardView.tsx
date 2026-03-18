@@ -1,11 +1,23 @@
 'use client';
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useMemo } from 'react';
 import { toast } from 'sonner';
 import { Plus, Xmark } from 'iconoir-react';
 import type { PlacedItem, BoardConnection, ViewportState, BoardFrame } from '@/lib/commonplace-board';
 import { DEMO_BOARD } from '@/lib/commonplace-board';
+import { getObjectTypeIdentity } from '@/lib/commonplace';
 import BoardCanvas from './BoardCanvas';
+
+/**
+ * Catalog lookup: maps numeric IDs and string component IDs to
+ * RenderableObjects for creating PlacedItems on drop.
+ *
+ * Currently draws from DEMO_BOARD objects. When the API is wired,
+ * this will be replaced by a fetch call or context lookup.
+ */
+const CATALOG_OBJECTS = new Map(
+  DEMO_BOARD.items.map((item) => [String(item.objectRef), item.object]),
+);
 
 interface BoardViewProps {
   paneId?: string;
@@ -13,10 +25,16 @@ interface BoardViewProps {
 
 export default function BoardView({ paneId }: BoardViewProps) {
   const [items, setItems] = useState<PlacedItem[]>(DEMO_BOARD.items);
-  const [connections] = useState<BoardConnection[]>(DEMO_BOARD.connections);
+  const [connections, setConnections] = useState<BoardConnection[]>(DEMO_BOARD.connections);
   const [viewport, setViewport] = useState<ViewportState>(DEMO_BOARD.viewport);
   const [frames, setFrames] = useState<BoardFrame[]>([]);
   const [activeFrameId, setActiveFrameId] = useState<string | null>(null);
+
+  /** Set of objectRef IDs currently placed on the board */
+  const placedObjectIds = useMemo(
+    () => new Set(items.map((i) => i.objectRef)),
+    [items],
+  );
 
   const handleItemMove = useCallback((itemId: string, x: number, y: number) => {
     setItems((prev) =>
@@ -25,6 +43,52 @@ export default function BoardView({ paneId }: BoardViewProps) {
       ),
     );
   }, []);
+
+  /**
+   * Handle a catalog item being dropped onto the canvas.
+   * Creates a new PlacedItem at the drop coordinates.
+   * If the object is already on the board, shows a notice instead.
+   */
+  const handleCatalogDrop = useCallback(
+    (catalogId: string, x: number, y: number) => {
+      const object = CATALOG_OBJECTS.get(catalogId);
+      if (!object) {
+        toast.error('Object not found in catalog');
+        return;
+      }
+
+      /* Prevent duplicate placement */
+      if (placedObjectIds.has(object.id)) {
+        toast('Already on the board', {
+          description: object.title,
+        });
+        return;
+      }
+
+      const typeIdentity = getObjectTypeIdentity(object.object_type_slug);
+      const isHunch = object.object_type_slug === 'hunch';
+
+      const newItem: PlacedItem = {
+        id: `item-${object.id}-${Date.now()}`,
+        objectRef: object.id,
+        object,
+        x: x - 110, /* center the 220px card on the drop point */
+        y: y - 80,  /* center vertically on the drop point */
+        width: 220,
+        height: 160,
+        rotation: isHunch ? -0.8 : 0,
+        stackedOn: null,
+        stackPosition: null,
+        placedAt: Date.now(),
+      };
+
+      setItems((prev) => [...prev, newItem]);
+      toast.success(`Placed "${object.title}"`, {
+        description: typeIdentity.label,
+      });
+    },
+    [placedObjectIds],
+  );
 
   const handleSaveFrame = useCallback(() => {
     const name = `Frame ${frames.length + 1}`;
@@ -196,6 +260,7 @@ export default function BoardView({ paneId }: BoardViewProps) {
           viewport={viewport}
           onViewportChange={setViewport}
           onItemMove={handleItemMove}
+          onCatalogDrop={handleCatalogDrop}
         />
       </div>
     </div>
