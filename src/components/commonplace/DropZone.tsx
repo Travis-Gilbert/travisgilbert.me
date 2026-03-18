@@ -145,8 +145,11 @@ export default function DropZone({ onCapture }: DropZoneProps) {
      workaround for the "flickering overlay" problem. */
 
   const handleDragEnter = useCallback((e: DragEvent) => {
-    // Ignore internal tab drags (they use a custom MIME type)
+    // Ignore internal drags (tabs, catalog items, components)
     if (e.dataTransfer?.types.includes('application/commonplace-tab')) return;
+    if (e.dataTransfer?.types.includes('application/commonplace-catalog')) return;
+    // Ignore drags originating from within CommonPlace (board cards, sidebar items)
+    if ((e.target as HTMLElement)?.closest?.('[data-board-item], [draggable]')) return;
     e.preventDefault();
     setDragCounter((c) => {
       if (c === 0) setIsDragActive(true);
@@ -156,6 +159,7 @@ export default function DropZone({ onCapture }: DropZoneProps) {
 
   const handleDragLeave = useCallback((e: DragEvent) => {
     if (e.dataTransfer?.types.includes('application/commonplace-tab')) return;
+    if (e.dataTransfer?.types.includes('application/commonplace-catalog')) return;
     e.preventDefault();
     setDragCounter((c) => {
       const next = c - 1;
@@ -169,14 +173,16 @@ export default function DropZone({ onCapture }: DropZoneProps) {
 
   const handleDragOver = useCallback((e: DragEvent) => {
     if (e.dataTransfer?.types.includes('application/commonplace-tab')) return;
+    if (e.dataTransfer?.types.includes('application/commonplace-catalog')) return;
     e.preventDefault();
     if (e.dataTransfer) e.dataTransfer.dropEffect = 'copy';
   }, []);
 
   const handleDrop = useCallback(
     (e: DragEvent) => {
-      // Ignore internal tab drags
+      // Ignore internal drags
       if (e.dataTransfer?.types.includes('application/commonplace-tab')) return;
+      if (e.dataTransfer?.types.includes('application/commonplace-catalog')) return;
       e.preventDefault();
       setIsDragActive(false);
       setDragCounter(0);

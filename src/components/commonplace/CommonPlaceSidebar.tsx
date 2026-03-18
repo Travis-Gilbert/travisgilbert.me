@@ -246,10 +246,23 @@ export default function CommonPlaceSidebar() {
       <nav style={{ flex: 1, overflow: 'auto', scrollbarWidth: 'none', padding: '8px 6px', position: 'relative', zIndex: 2 }}>
         {SIDEBAR_SECTIONS.map((section, sectionIdx) => {
           const sectionKey = (section.title || 'capture').toLowerCase() as 'capture' | 'views' | 'work' | 'system';
+          const sectionGroupClass = `cp-sidebar-section-${sectionKey}`;
+          /* Divider color hints at the NEXT section's accent */
+          const DIVIDER_COLORS: Record<string, string> = {
+            views: 'rgba(45, 95, 107, 0.25)',
+            work: 'rgba(196, 154, 74, 0.25)',
+            system: 'rgba(139, 111, 160, 0.25)',
+          };
           return (
-          <div key={section.title || `section-${sectionIdx}`} style={{ position: 'relative' }}>
-            {sectionIdx > 0 && <div className="cp-sidebar-divider" />}
-            {section.title && section.title !== 'Capture' && (
+            <div key={section.title || `section-${sectionIdx}`} style={{ position: 'relative' }}>
+              {sectionIdx > 0 && (
+                <div
+                  className="cp-sidebar-divider"
+                  style={{ '--divider-color': DIVIDER_COLORS[sectionKey] } as React.CSSProperties}
+                />
+              )}
+              <div className={sectionGroupClass}>
+              {section.title && section.title !== 'Capture' && (
               <div className="cp-section-title" data-section={sectionKey}>{section.title}</div>
             )}
 
@@ -498,8 +511,9 @@ export default function CommonPlaceSidebar() {
                 );
               })
             )}
+            </div>
           </div>
-        );
+          );
         })}
 
         {/* Pinned objects: 2x3 type-colored grid of starred objects.

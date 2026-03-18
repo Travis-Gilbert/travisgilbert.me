@@ -90,6 +90,7 @@ function ObjectRow({ obj }: { obj: CatalogObject }) {
   return (
     <div
       draggable
+      onDragStart={(e) => e.dataTransfer.setData('application/commonplace-catalog', String(obj.id))}
       style={{
         padding: '6px 8px',
         marginBottom: 3,
@@ -148,6 +149,7 @@ function ComponentRow({ comp }: { comp: CatalogComponent }) {
   return (
     <div
       draggable
+      onDragStart={(e) => e.dataTransfer.setData('application/commonplace-catalog', comp.id)}
       style={{
         padding: '5px 8px',
         marginBottom: 2,
@@ -364,7 +366,7 @@ function ComposeSplitView({
               backgroundColor: 'var(--cp-chrome-mid)',
               fontFamily: 'var(--cp-font-body)',
               fontSize: 11.5,
-              color: 'var(--cp-chrome-muted)',
+              color: 'var(--cp-chrome-text)',
               lineHeight: 1.5,
               outline: 'none',
             }}
