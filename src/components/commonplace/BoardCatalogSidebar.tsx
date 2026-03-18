@@ -321,8 +321,8 @@ function ComposeSplitView({
               minHeight: 80,
               padding: 8,
               borderRadius: 4,
-              border: '1px solid var(--cp-chrome-line)',
-              backgroundColor: 'var(--cp-chrome-mid)',
+              border: '1px solid rgba(255, 255, 255, 0.06)',
+              backgroundColor: 'rgba(255, 255, 255, 0.04)',
               fontFamily: 'var(--cp-font-body)',
               fontSize: 11.5,
               color: 'var(--cp-chrome-text)',
@@ -368,7 +368,7 @@ function ComposeSplitView({
       </div>
 
       {/* Compressed catalog */}
-      <div style={{ flex: 1 - ratio, minHeight: MIN_CATALOG, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+      <div style={{ height: `${(1 - ratio) * 100}%`, minHeight: MIN_CATALOG, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
         <div style={{ padding: '6px 10px', borderBottom: '1px solid var(--cp-chrome-line)', display: 'flex', gap: 5 }}>
           <input placeholder="Search..." style={{ ...searchInputStyle, padding: '4px 6px', borderRadius: 3, fontSize: 10 }} />
           <button type="button" style={{ width: 24, height: 24, borderRadius: 3, border: '1px solid var(--cp-chrome-line)', backgroundColor: 'transparent', fontSize: 11, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
@@ -384,16 +384,6 @@ function ComposeSplitView({
           ))}
         </div>
 
-        {/* Discovery dock */}
-        <div style={{ borderTop: '1px solid var(--cp-chrome-line)', padding: '5px 10px' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-            <span style={{ fontFamily: 'var(--cp-font-mono)', fontSize: 8, fontWeight: 600, color: 'var(--cp-teal-light)' }}>DISCOVERY</span>
-            <span style={{ fontFamily: 'var(--cp-font-mono)', fontSize: 7, color: 'var(--cp-green)' }}>Live</span>
-          </div>
-          <div style={{ fontFamily: 'var(--cp-font-body)', fontSize: 10, color: 'var(--cp-chrome-text)', marginTop: 3 }}>
-            No active suggestions
-          </div>
-        </div>
       </div>
     </div>
   );
