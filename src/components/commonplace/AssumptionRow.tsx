@@ -8,7 +8,11 @@ import EvidenceItem from './EvidenceItem';
 interface AssumptionRowProps {
   assumption: Assumption;
   index: number;
+  isDragSource?: boolean;
   onOpenObject?: (objectRef: number) => void;
+  onDragStart?: () => void;
+  onDragOver?: (e: React.DragEvent) => void;
+  onDragEnd?: () => void;
 }
 
 function confidenceBarColor(value: number): string {
@@ -32,7 +36,11 @@ function countCandidates(evidence: EvidenceLink[]): number {
 export default function AssumptionRow({
   assumption,
   index,
+  isDragSource,
   onOpenObject,
+  onDragStart,
+  onDragOver,
+  onDragEnd,
 }: AssumptionRowProps) {
   const [expanded, setExpanded] = useState(false);
   const statusMeta = ASSUMPTION_STATUS_META[assumption.status];
@@ -51,11 +59,54 @@ export default function AssumptionRow({
 
   return (
     <div
+      draggable
+      onDragStart={(e) => {
+        e.dataTransfer.setData(
+          'application/commonplace-assumption',
+          String(assumption.id),
+        );
+        e.dataTransfer.effectAllowed = 'move';
+        onDragStart?.();
+      }}
+      onDragOver={onDragOver}
+      onDragEnd={onDragEnd}
       style={{
         position: 'relative',
         paddingLeft: 16,
+        opacity: isDragSource ? 0.35 : 1,
+        transition: 'opacity 150ms',
       }}
     >
+      {/* Drag handle (visible on hover via CSS, always functional) */}
+      <div
+        style={{
+          position: 'absolute',
+          left: -10,
+          top: 4,
+          width: 14,
+          height: 20,
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          justifyContent: 'center',
+          gap: 2,
+          cursor: 'grab',
+          opacity: 0.25,
+          transition: 'opacity 150ms',
+        }}
+        onMouseEnter={(e) => {
+          (e.currentTarget as HTMLElement).style.opacity = '0.7';
+        }}
+        onMouseLeave={(e) => {
+          (e.currentTarget as HTMLElement).style.opacity = '0.25';
+        }}
+        title="Drag to reorder"
+      >
+        <span style={{ width: 6, height: 2, borderRadius: 1, background: 'var(--cp-text-faint, #68666E)' }} />
+        <span style={{ width: 6, height: 2, borderRadius: 1, background: 'var(--cp-text-faint, #68666E)' }} />
+        <span style={{ width: 6, height: 2, borderRadius: 1, background: 'var(--cp-text-faint, #68666E)' }} />
+      </div>
+
       {/* Left colored border */}
       <div
         style={{
