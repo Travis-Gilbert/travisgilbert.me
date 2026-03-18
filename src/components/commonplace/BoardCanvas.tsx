@@ -5,6 +5,7 @@ import {
   useCallback,
   useRef,
   useEffect,
+  useMemo,
   type WheelEvent as ReactWheelEvent,
 } from 'react';
 import type { PlacedItem, BoardConnection, ViewportState } from '@/lib/commonplace-board';
@@ -25,6 +26,39 @@ const MIN_ZOOM = 0.25;
 const MAX_ZOOM = 3;
 const ZOOM_STEP = 0.04;
 
+/** Distance in canvas-space px at which the connect zone activates */
+const CONNECT_THRESHOLD = 60;
+
+/* -----------------------------------------------
+   Proximity helper: find the nearest non-dragged
+   item within CONNECT_THRESHOLD of the dragged
+   card's current center.
+   ----------------------------------------------- */
+
+function findConnectTarget(
+  draggedItem: PlacedItem,
+  allItems: PlacedItem[],
+): string | null {
+  const cx = draggedItem.x + draggedItem.width / 2;
+  const cy = draggedItem.y + (draggedItem.height ?? 160) / 2;
+
+  let bestId: string | null = null;
+  let bestDist = CONNECT_THRESHOLD;
+
+  for (const item of allItems) {
+    if (item.id === draggedItem.id) continue;
+    const ix = item.x + item.width / 2;
+    const iy = item.y + (item.height ?? 160) / 2;
+    const dist = Math.hypot(cx - ix, cy - iy);
+    if (dist < bestDist) {
+      bestDist = dist;
+      bestId = item.id;
+    }
+  }
+
+  return bestId;
+}
+
 /* -----------------------------------------------
    Placed card: warm parchment tint-wash style
    ----------------------------------------------- */
@@ -33,6 +67,7 @@ interface PlacedCardProps {
   item: PlacedItem;
   isSelected: boolean;
   isDragging: boolean;
+  isConnectTarget: boolean;
   engineRelevantIds: Set<number>;
   onMouseDown: (e: React.MouseEvent, item: PlacedItem) => void;
   onContextMenu: (e: React.MouseEvent, item: PlacedItem) => void;
@@ -43,6 +78,7 @@ function PlacedCard({
   item,
   isSelected,
   isDragging,
+  isConnectTarget,
   engineRelevantIds,
   onMouseDown,
   onContextMenu,
@@ -54,11 +90,17 @@ function PlacedCard({
   const isHunch = item.object.object_type_slug === 'hunch';
   const isConcept = item.object.object_type_slug === 'concept';
 
+  /* Connect target: pulsing terracotta glow */
+  const connectShadow = isConnectTarget
+    ? '0 0 0 2px #B8623D, 0 0 12px 2px rgba(184, 98, 61, 0.35)'
+    : undefined;
+
   return (
     <div
       data-board-item
       data-selected={isSelected || undefined}
       data-dragging={isDragging || undefined}
+      data-connect-target={isConnectTarget || undefined}
       data-hunch={isHunch || undefined}
       draggable={false}
       tabIndex={0}
@@ -69,9 +111,10 @@ function PlacedCard({
         top: item.y,
         width: item.width,
         transform: item.rotation ? `rotate(${item.rotation}deg)` : undefined,
-        boxShadow: isDragging ? undefined : shadow,
-        zIndex: isDragging ? 100 : 2,
+        boxShadow: connectShadow ?? (isDragging ? undefined : shadow),
+        zIndex: isDragging ? 100 : isConnectTarget ? 50 : 2,
         cursor: isDragging ? 'grabbing' : 'grab',
+        transition: isConnectTarget ? 'box-shadow 150ms ease-out' : undefined,
       }}
       onMouseDown={(e) => onMouseDown(e, item)}
       onContextMenu={(e) => onContextMenu(e, item)}
@@ -83,15 +126,42 @@ function PlacedCard({
           position: 'relative',
           padding: '10px 12px',
           borderRadius: isConcept ? 16 : isHunch ? 3 : 6,
-          backgroundColor: `color-mix(in srgb, ${typeIdentity.color} ${isSelected ? 10 : 6}%, transparent)`,
-          border: `1px solid ${isSelected
-            ? `color-mix(in srgb, ${typeIdentity.color} 30%, transparent)`
-            : `color-mix(in srgb, ${typeIdentity.color} 8%, transparent)`
+          backgroundColor: isConnectTarget
+            ? `color-mix(in srgb, #B8623D 12%, transparent)`
+            : `color-mix(in srgb, ${typeIdentity.color} ${isSelected ? 10 : 6}%, transparent)`,
+          border: `1px solid ${
+            isConnectTarget
+              ? 'rgba(184, 98, 61, 0.5)'
+              : isSelected
+                ? `color-mix(in srgb, ${typeIdentity.color} 30%, transparent)`
+                : `color-mix(in srgb, ${typeIdentity.color} 8%, transparent)`
           }`,
-          transition: 'background-color 200ms, border-color 200ms',
+          transition: 'background-color 150ms, border-color 150ms',
           overflow: 'hidden',
         }}
       >
+        {/* Connect target label */}
+        {isConnectTarget && (
+          <div
+            style={{
+              position: 'absolute',
+              top: -18,
+              left: '50%',
+              transform: 'translateX(-50%)',
+              fontFamily: 'var(--cp-font-mono)',
+              fontSize: 8,
+              fontWeight: 600,
+              letterSpacing: '0.06em',
+              color: '#B8623D',
+              textTransform: 'uppercase',
+              whiteSpace: 'nowrap',
+              pointerEvents: 'none',
+            }}
+          >
+            Release to connect
+          </div>
+        )}
+
         {/* Type kicker */}
         <div
           style={{
@@ -261,6 +331,51 @@ function ConnectionLines({ connections, items, hoveredId, onHover }: ConnectionL
 }
 
 /* -----------------------------------------------
+   Pending connection line (shown while dragging
+   near a connect target)
+   ----------------------------------------------- */
+
+function PendingConnectionLine({
+  from,
+  to,
+}: {
+  from: PlacedItem;
+  to: PlacedItem;
+}) {
+  const x1 = from.x + from.width / 2;
+  const y1 = from.y + (from.height ?? 160) / 2;
+  const x2 = to.x + to.width / 2;
+  const y2 = to.y + (to.height ?? 160) / 2;
+  const cpx = (x1 + x2) / 2 + (y2 - y1) * 0.15;
+  const cpy = (y1 + y2) / 2;
+
+  return (
+    <svg
+      style={{
+        position: 'absolute',
+        top: 0,
+        left: 0,
+        width: '100%',
+        height: '100%',
+        pointerEvents: 'none',
+        overflow: 'visible',
+      }}
+    >
+      <path
+        d={`M ${x1} ${y1} Q ${cpx} ${cpy} ${x2} ${y2}`}
+        stroke="#B8623D"
+        strokeWidth={1.5}
+        strokeDasharray="6 4"
+        strokeOpacity={0.55}
+        fill="none"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
+
+/* -----------------------------------------------
    Empty state
    ----------------------------------------------- */
 
@@ -319,6 +434,8 @@ interface BoardCanvasProps {
   onItemMove: (itemId: string, x: number, y: number) => void;
   /** Called when a catalog item is dropped onto the canvas */
   onCatalogDrop?: (catalogId: string, x: number, y: number) => void;
+  /** Called when a card is dropped onto another card to form a connection */
+  onConnect?: (fromItemId: string, toItemId: string) => void;
   engineRelevantIds?: Set<number>;
 }
 
@@ -329,6 +446,7 @@ export default function BoardCanvas({
   onViewportChange,
   onItemMove,
   onCatalogDrop,
+  onConnect,
   engineRelevantIds = new Set(),
 }: BoardCanvasProps) {
   const { selectedItems, selectSingle, toggleSelectItem, clearSelection, openContextMenu, openDrawer } =
@@ -342,6 +460,15 @@ export default function BoardCanvas({
   const dragStart = useRef<{ x: number; y: number; itemX: number; itemY: number } | null>(null);
   const [dropTarget, setDropTarget] = useState<{ x: number; y: number } | null>(null);
   const [hoveredConnectionId, setHoveredConnectionId] = useState<string | null>(null);
+
+  /** ID of the item that would receive a connection if the drag ends now */
+  const [connectTargetId, setConnectTargetId] = useState<string | null>(null);
+
+  /* Ref to track connectTargetId for the mouseup handler (avoids stale closure) */
+  const connectTargetRef = useRef<string | null>(null);
+  useEffect(() => {
+    connectTargetRef.current = connectTargetId;
+  }, [connectTargetId]);
 
   /* -- Zoom via scroll wheel -- */
   const handleWheel = useCallback(
@@ -414,7 +541,7 @@ export default function BoardCanvas({
     [openContextMenu],
   );
 
-  /* -- Global mouse move/up for drag and pan -- */
+  /* -- Global mouse move/up for drag, pan, and proximity detection -- */
   useEffect(() => {
     const handleMove = (e: MouseEvent) => {
       if (isPanning.current) {
@@ -431,13 +558,36 @@ export default function BoardCanvas({
       if (dragId && dragStart.current) {
         const dx = (e.clientX - dragStart.current.x) / viewport.zoom;
         const dy = (e.clientY - dragStart.current.y) / viewport.zoom;
-        onItemMove(dragId, dragStart.current.itemX + dx, dragStart.current.itemY + dy);
+        const newX = dragStart.current.itemX + dx;
+        const newY = dragStart.current.itemY + dy;
+        onItemMove(dragId, newX, newY);
+
+        /* Proximity detection: check if dragged card is near another card */
+        const draggedItem = items.find((i) => i.id === dragId);
+        if (draggedItem) {
+          /* Use the new position for proximity check */
+          const movedItem = { ...draggedItem, x: newX, y: newY };
+          const target = findConnectTarget(movedItem, items);
+          setConnectTargetId(target);
+        }
       }
     };
 
     const handleUp = () => {
+      /* If releasing while near a connect target, fire onConnect */
+      if (dragId && connectTargetRef.current && onConnect) {
+        onConnect(dragId, connectTargetRef.current);
+
+        /* Snap the dragged card back to its original position so
+           the connection is visually clear (cards don't overlap) */
+        if (dragStart.current) {
+          onItemMove(dragId, dragStart.current.itemX, dragStart.current.itemY);
+        }
+      }
+
       isPanning.current = false;
       setDragId(null);
+      setConnectTargetId(null);
       dragStart.current = null;
     };
 
@@ -447,7 +597,7 @@ export default function BoardCanvas({
       document.removeEventListener('mousemove', handleMove);
       document.removeEventListener('mouseup', handleUp);
     };
-  }, [dragId, viewport, onViewportChange, onItemMove]);
+  }, [dragId, viewport, onViewportChange, onItemMove, items, onConnect]);
 
   /* -- Keyboard: Escape clears selection -- */
   useEffect(() => {
@@ -511,6 +661,7 @@ export default function BoardCanvas({
   );
 
   const draggedItem = dragId ? items.find((i) => i.id === dragId) : null;
+  const connectTargetItem = connectTargetId ? items.find((i) => i.id === connectTargetId) : null;
 
   return (
     <div
@@ -578,12 +729,18 @@ export default function BoardCanvas({
           onHover={setHoveredConnectionId}
         />
 
+        {/* Pending connection line while dragging near a target */}
+        {draggedItem && connectTargetItem && (
+          <PendingConnectionLine from={draggedItem} to={connectTargetItem} />
+        )}
+
         {items.map((item) => (
           <PlacedCard
             key={item.id}
             item={item}
             isSelected={selectedItems.has(item.id)}
             isDragging={dragId === item.id}
+            isConnectTarget={connectTargetId === item.id}
             engineRelevantIds={engineRelevantIds}
             onMouseDown={handleItemMouseDown}
             onContextMenu={handleItemContextMenu}
