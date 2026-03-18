@@ -36,6 +36,16 @@ export default function BoardView({ paneId }: BoardViewProps) {
     [items],
   );
 
+  /** Set of connection pairs for duplicate detection (sorted so A-B === B-A) */
+  const connectionPairKeys = useMemo(() => {
+    const keys = new Set<string>();
+    for (const conn of connections) {
+      const sorted = [conn.fromItemId, conn.toItemId].sort().join('::');
+      keys.add(sorted);
+    }
+    return keys;
+  }, [connections]);
+
   const handleItemMove = useCallback((itemId: string, x: number, y: number) => {
     setItems((prev) =>
       prev.map((item) =>
@@ -88,6 +98,46 @@ export default function BoardView({ paneId }: BoardViewProps) {
       });
     },
     [placedObjectIds],
+  );
+
+  /**
+   * Handle connect-on-drop: create a manual BoardConnection between
+   * two placed items. Prevents duplicate connections (treats A-B and
+   * B-A as the same pair).
+   */
+  const handleConnect = useCallback(
+    (fromItemId: string, toItemId: string) => {
+      /* Duplicate check (order-independent) */
+      const pairKey = [fromItemId, toItemId].sort().join('::');
+      if (connectionPairKeys.has(pairKey)) {
+        const fromItem = items.find((i) => i.id === fromItemId);
+        const toItem = items.find((i) => i.id === toItemId);
+        toast('Already connected', {
+          description: `${fromItem?.object.title ?? 'Item'} and ${toItem?.object.title ?? 'Item'}`,
+        });
+        return;
+      }
+
+      const newConnection: BoardConnection = {
+        id: `conn-manual-${Date.now()}`,
+        fromItemId,
+        toItemId,
+        label: '',
+        edgeType: 'related',
+        source: 'manual',
+        confirmed: true,
+      };
+
+      setConnections((prev) => [...prev, newConnection]);
+
+      const fromItem = items.find((i) => i.id === fromItemId);
+      const toItem = items.find((i) => i.id === toItemId);
+
+      toast.success('Connected', {
+        description: `${fromItem?.object.title ?? 'Item'} and ${toItem?.object.title ?? 'Item'}`,
+      });
+    },
+    [connectionPairKeys, items],
   );
 
   const handleSaveFrame = useCallback(() => {
@@ -248,7 +298,7 @@ export default function BoardView({ paneId }: BoardViewProps) {
             letterSpacing: '0.04em',
           }}
         >
-          {items.length} objects
+          {items.length} objects · {connections.length} connections
         </div>
       </div>
 
@@ -261,6 +311,7 @@ export default function BoardView({ paneId }: BoardViewProps) {
           onViewportChange={setViewport}
           onItemMove={handleItemMove}
           onCatalogDrop={handleCatalogDrop}
+          onConnect={handleConnect}
         />
       </div>
     </div>
