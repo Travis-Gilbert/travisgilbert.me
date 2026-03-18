@@ -2,7 +2,7 @@
 
 import { useState, useCallback } from 'react';
 import { toast } from 'sonner';
-import { BookmarkBook } from 'iconoir-react';
+import { Plus, Xmark } from 'iconoir-react';
 import type { PlacedItem, BoardConnection, ViewportState, BoardFrame } from '@/lib/commonplace-board';
 import { DEMO_BOARD } from '@/lib/commonplace-board';
 import BoardCanvas from './BoardCanvas';
@@ -16,6 +16,7 @@ export default function BoardView({ paneId }: BoardViewProps) {
   const [connections] = useState<BoardConnection[]>(DEMO_BOARD.connections);
   const [viewport, setViewport] = useState<ViewportState>(DEMO_BOARD.viewport);
   const [frames, setFrames] = useState<BoardFrame[]>([]);
+  const [activeFrameId, setActiveFrameId] = useState<string | null>(null);
 
   const handleItemMove = useCallback((itemId: string, x: number, y: number) => {
     setItems((prev) =>
@@ -35,13 +36,20 @@ export default function BoardView({ paneId }: BoardViewProps) {
       viewport: { ...viewport },
     };
     setFrames((prev) => [...prev, frame]);
+    setActiveFrameId(frame.id);
     toast.success(`Saved "${name}"`);
   }, [items, connections, viewport, frames.length]);
 
   const handleLoadFrame = useCallback((frame: BoardFrame) => {
     setItems(frame.items);
+    setActiveFrameId(frame.id);
     toast(`Loaded "${frame.name}"`);
   }, []);
+
+  const handleDeleteFrame = useCallback((frameId: string) => {
+    setFrames((prev) => prev.filter((f) => f.id !== frameId));
+    if (activeFrameId === frameId) setActiveFrameId(null);
+  }, [activeFrameId]);
 
   return (
     <div
@@ -52,92 +60,148 @@ export default function BoardView({ paneId }: BoardViewProps) {
         overflow: 'hidden',
       }}
     >
-      {/* Board title bar */}
+      {/* Tab bar: board tab + frame tabs */}
       <div
         style={{
+          height: 40,
+          backgroundColor: 'var(--cp-chrome)',
+          borderBottom: '1px solid var(--cp-chrome-line)',
           display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          padding: '8px 12px',
-          borderBottom: '1px solid var(--cp-border-faint)',
-          backgroundColor: 'rgba(244, 243, 240, 0.5)',
+          alignItems: 'stretch',
           flexShrink: 0,
+          overflow: 'hidden',
         }}
       >
+        {/* Board tab (always first, always active when no frame selected) */}
         <div
           style={{
-            fontFamily: 'var(--cp-font-title)',
-            fontSize: 15,
-            color: '#2A2420',
+            display: 'flex',
+            alignItems: 'center',
+            gap: 8,
+            padding: '0 16px',
+            borderRight: '1px solid var(--cp-chrome-line)',
+            borderBottom: activeFrameId === null
+              ? '2px solid var(--cp-red)'
+              : '2px solid transparent',
+            backgroundColor: activeFrameId === null ? 'var(--cp-chrome-raise)' : 'transparent',
+            cursor: 'pointer',
+          }}
+          onClick={() => {
+            setActiveFrameId(null);
+            setItems(DEMO_BOARD.items);
           }}
         >
-          {DEMO_BOARD.title}
+          <div
+            style={{
+              width: 8,
+              height: 8,
+              borderRadius: '50%',
+              backgroundColor: 'var(--cp-red)',
+              flexShrink: 0,
+            }}
+          />
+          <span
+            style={{
+              fontFamily: 'var(--cp-font-title)',
+              fontSize: 14,
+              fontWeight: 600,
+              color: 'var(--cp-chrome-text)',
+              whiteSpace: 'nowrap',
+            }}
+          >
+            {DEMO_BOARD.title}
+          </span>
         </div>
 
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-          {/* Saved frames */}
-          {frames.length > 0 && (
-            <div style={{ display: 'flex', gap: 4 }}>
-              {frames.map((frame) => (
-                <button
-                  key={frame.id}
-                  type="button"
-                  onClick={() => handleLoadFrame(frame)}
-                  style={{
-                    padding: '2px 8px',
-                    borderRadius: 4,
-                    border: '1px solid rgba(196, 154, 74, 0.3)',
-                    backgroundColor: 'transparent',
-                    color: '#C49A4A',
-                    fontFamily: 'var(--font-metadata)',
-                    fontSize: 10,
-                    cursor: 'pointer',
-                    letterSpacing: '0.04em',
-                  }}
-                >
-                  {frame.name}
-                </button>
-              ))}
-            </div>
-          )}
-
-          {/* Save frame button */}
-          <button
-            type="button"
-            onClick={handleSaveFrame}
-            title="Save current layout as a frame"
+        {/* Frame tabs */}
+        {frames.map((frame) => (
+          <div
+            key={frame.id}
             style={{
               display: 'flex',
               alignItems: 'center',
               gap: 4,
-              padding: '3px 8px',
-              borderRadius: 4,
-              border: '1px solid rgba(42, 36, 32, 0.15)',
-              backgroundColor: 'transparent',
-              color: 'rgba(42, 36, 32, 0.5)',
-              fontFamily: 'var(--font-metadata)',
-              fontSize: 10,
+              padding: '0 10px',
+              borderRight: '1px solid var(--cp-chrome-line)',
+              borderBottom: activeFrameId === frame.id
+                ? '2px solid #C49A4A'
+                : '2px solid transparent',
+              backgroundColor: activeFrameId === frame.id ? 'var(--cp-chrome-raise)' : 'transparent',
               cursor: 'pointer',
-              letterSpacing: '0.04em',
-              textTransform: 'uppercase',
             }}
+            onClick={() => handleLoadFrame(frame)}
           >
-            <BookmarkBook width={12} height={12} strokeWidth={1.5} />
-            Save Frame
-          </button>
-
-          {/* Stats */}
-          <div
-            style={{
-              fontFamily: 'var(--font-metadata)',
-              fontSize: 10,
-              color: 'rgba(42, 36, 32, 0.4)',
-              letterSpacing: '0.06em',
-              textTransform: 'uppercase',
-            }}
-          >
-            {items.length} objects, {connections.length} connections
+            <span
+              style={{
+                fontFamily: 'var(--font-metadata)',
+                fontSize: 11,
+                color: activeFrameId === frame.id ? 'var(--cp-chrome-text)' : 'var(--cp-chrome-dim)',
+              }}
+            >
+              <span style={{ fontSize: 9, opacity: 0.4, marginRight: 4 }}>◫</span>
+              {frame.name}
+            </span>
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                handleDeleteFrame(frame.id);
+              }}
+              style={{
+                width: 14,
+                height: 14,
+                borderRadius: 3,
+                border: 'none',
+                background: 'transparent',
+                color: 'var(--cp-chrome-dim)',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                padding: 0,
+              }}
+            >
+              <Xmark width={10} height={10} strokeWidth={2} />
+            </button>
           </div>
+        ))}
+
+        {/* Add frame button */}
+        <button
+          type="button"
+          onClick={handleSaveFrame}
+          title="Save current layout as a frame"
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            width: 32,
+            border: 'none',
+            background: 'transparent',
+            color: 'var(--cp-chrome-dim)',
+            cursor: 'pointer',
+          }}
+        >
+          <Plus width={14} height={14} strokeWidth={1.5} />
+        </button>
+
+        {/* Spacer */}
+        <div style={{ flex: 1 }} />
+
+        {/* Stats (right side) */}
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            padding: '0 14px',
+            fontFamily: 'var(--font-metadata)',
+            fontSize: 10,
+            color: 'var(--cp-chrome-dim)',
+            letterSpacing: '0.06em',
+            textTransform: 'uppercase',
+          }}
+        >
+          {items.length} objects, {connections.length} connections
         </div>
       </div>
 
