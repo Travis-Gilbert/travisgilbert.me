@@ -33,6 +33,7 @@ import ScreenRouter from './ScreenRouter';
 import PaneHeader from './PaneHeader';
 import GridView from './GridView';
 import TimelineView from './TimelineView';
+import Timeline3DWrapper from './Timeline3DWrapper';
 import NetworkView from './NetworkView';
 import ObjectDetailView from './ObjectDetailView';
 import ResurfaceView from './ResurfaceView';
@@ -717,9 +718,9 @@ function PaneViewContent({
     );
   }
 
-  /* Timeline */
+  /* Timeline (3D with 2D fallback) */
   if (viewType === 'timeline') {
-    return <TimelineView />;
+    return <Timeline3DWrapper />;
   }
 
   /* Scoped Timeline (re-uses TimelineView for now) */
