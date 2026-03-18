@@ -53,6 +53,7 @@ import ObjectPalette from './ObjectPalette';
 import RecentCaptures from './RecentCaptures';
 import DropZone from './DropZone';
 import ComponentToolbox from './ComponentToolbox';
+import BoardCatalogSidebar from './BoardCatalogSidebar';
 
 const SIDEBAR_MIN = 192;
 const SIDEBAR_MAX = 280;
@@ -205,6 +206,20 @@ export default function CommonPlaceSidebar() {
     document.addEventListener('mousemove', onMove);
     document.addEventListener('mouseup', onUp);
   }, [sidebarWidth]);
+
+  /* Detect if a board view is active in the layout */
+  const isBoardActive = !activeScreen && !!findLeafWithView(layout, 'board');
+
+  /* Demo catalog data for the board sidebar (will be replaced with API data) */
+  const boardCatalogObjects = [
+    { id: 10, title: 'Governing the Commons', type: 'source', connections: 6 },
+    { id: 11, title: 'Cities have the capability...', type: 'quote', connections: 2 },
+    { id: 12, title: 'Pull Ostrom chapter notes', type: 'task', connections: 1 },
+  ];
+  const boardCatalogComponents = [
+    { id: 'c1', label: 'Claim: Buildings adapt', parent: 'How Buildings Learn', color: '#2D5F6B' },
+    { id: 'c2', label: 'Entity: Stewart Brand', parent: 'How Buildings Learn', color: '#B45A2D' },
+  ];
 
   const sidebarInner = (
     <>
@@ -716,7 +731,22 @@ export default function CommonPlaceSidebar() {
         onMouseDown={handleResizeStart}
         aria-hidden="true"
       />
-      {sidebarInner}
+      {isBoardActive ? (
+        <>
+          {/* Chrome shell glow */}
+          <div className="cp-sidebar-glow" aria-hidden="true" />
+          <div style={{ display: 'flex', flexDirection: 'column', flex: 1, overflow: 'hidden', position: 'relative', zIndex: 2 }}>
+            <BoardCatalogSidebar
+              objects={boardCatalogObjects}
+              components={boardCatalogComponents}
+              zoom={1}
+            />
+          </div>
+          <DropZone onCapture={handleCapture} />
+        </>
+      ) : (
+        sidebarInner
+      )}
     </aside>
   );
 }
