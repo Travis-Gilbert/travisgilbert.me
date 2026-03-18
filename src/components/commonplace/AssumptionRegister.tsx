@@ -1,32 +1,103 @@
 'use client';
 
+import { useState, useCallback } from 'react';
 import type { Assumption } from '@/lib/commonplace-models';
 import AssumptionRow from './AssumptionRow';
 
 /**
- * AssumptionRegister: vertical list of assumption rows.
+ * AssumptionRegister: vertical list of assumption rows with
+ * drag-to-reorder support.
  *
  * This is the primary argument structure of a model. Assumptions
- * are ordered by position_index (set by the backend ModelClaimRole).
+ * are ordered by positionIndex (set by the backend ModelClaimRole).
  * Each row is an expandable card showing the claim, its status,
  * confidence, and grouped evidence.
  *
- * The register is always visible in the workspace (it is the core
- * of the model, not a toggleable module brick).
+ * Drag-to-reorder uses HTML5 DnD with the custom MIME type
+ * 'application/commonplace-assumption' so the global DropZone
+ * ignores these drags. A drop indicator line appears between
+ * rows during reorder.
  */
 
 interface AssumptionRegisterProps {
   assumptions: Assumption[];
   onOpenObject?: (objectRef: number) => void;
+  /** Called with the reordered assumption IDs (top to bottom) */
+  onReorder?: (orderedIds: number[]) => void;
 }
 
 export default function AssumptionRegister({
   assumptions,
   onOpenObject,
+  onReorder,
 }: AssumptionRegisterProps) {
   const sorted = [...assumptions].sort(
     (a, b) => a.positionIndex - b.positionIndex,
   );
+
+  /** Index position where the dragged item would be inserted */
+  const [dropIndex, setDropIndex] = useState<number | null>(null);
+  /** ID of the assumption currently being dragged */
+  const [dragId, setDragId] = useState<number | null>(null);
+
+  const handleDragStart = useCallback((assumptionId: number) => {
+    setDragId(assumptionId);
+  }, []);
+
+  const handleDragOver = useCallback(
+    (e: React.DragEvent, overIndex: number) => {
+      if (!e.dataTransfer.types.includes('application/commonplace-assumption')) return;
+      e.preventDefault();
+      e.dataTransfer.dropEffect = 'move';
+
+      /* Determine whether to insert above or below the hovered row */
+      const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+      const midY = rect.top + rect.height / 2;
+      const insertIndex = e.clientY < midY ? overIndex : overIndex + 1;
+      setDropIndex(insertIndex);
+    },
+    [],
+  );
+
+  const handleDrop = useCallback(
+    (e: React.DragEvent) => {
+      e.preventDefault();
+      if (dragId === null || dropIndex === null || !onReorder) {
+        setDragId(null);
+        setDropIndex(null);
+        return;
+      }
+
+      /* Build the new order */
+      const currentOrder = sorted.map((a) => a.id);
+      const fromIndex = currentOrder.indexOf(dragId);
+      if (fromIndex === -1) {
+        setDragId(null);
+        setDropIndex(null);
+        return;
+      }
+
+      /* Remove from old position */
+      const newOrder = [...currentOrder];
+      newOrder.splice(fromIndex, 1);
+
+      /* Adjust drop index if we removed an item before the drop point */
+      const adjustedDrop = dropIndex > fromIndex ? dropIndex - 1 : dropIndex;
+
+      /* Insert at new position */
+      newOrder.splice(adjustedDrop, 0, dragId);
+
+      onReorder(newOrder);
+      setDragId(null);
+      setDropIndex(null);
+    },
+    [dragId, dropIndex, sorted, onReorder],
+  );
+
+  const handleDragEnd = useCallback(() => {
+    setDragId(null);
+    setDropIndex(null);
+  }, []);
 
   if (sorted.length === 0) {
     return (
@@ -68,6 +139,18 @@ export default function AssumptionRegister({
         gap: 6,
         padding: '12px 20px',
       }}
+      onDragOver={(e) => {
+        if (e.dataTransfer.types.includes('application/commonplace-assumption')) {
+          e.preventDefault();
+        }
+      }}
+      onDrop={handleDrop}
+      onDragLeave={(e) => {
+        /* Clear drop indicator when cursor leaves the register entirely */
+        if (!(e.currentTarget as HTMLElement).contains(e.relatedTarget as Node)) {
+          setDropIndex(null);
+        }
+      }}
     >
       {/* Section label */}
       <div
@@ -85,13 +168,42 @@ export default function AssumptionRegister({
       </div>
 
       {sorted.map((assumption, i) => (
-        <AssumptionRow
-          key={assumption.id}
-          assumption={assumption}
-          index={i}
-          onOpenObject={onOpenObject}
-        />
+        <div key={assumption.id}>
+          {/* Drop indicator line */}
+          {dropIndex === i && dragId !== assumption.id && (
+            <div
+              style={{
+                height: 2,
+                background: '#B8623D',
+                borderRadius: 1,
+                margin: '2px 0',
+                transition: 'opacity 100ms',
+              }}
+            />
+          )}
+          <AssumptionRow
+            assumption={assumption}
+            index={i}
+            isDragSource={dragId === assumption.id}
+            onOpenObject={onOpenObject}
+            onDragStart={() => handleDragStart(assumption.id)}
+            onDragOver={(e) => handleDragOver(e, i)}
+            onDragEnd={handleDragEnd}
+          />
+        </div>
       ))}
+
+      {/* Drop indicator at the bottom */}
+      {dropIndex === sorted.length && (
+        <div
+          style={{
+            height: 2,
+            background: '#B8623D',
+            borderRadius: 1,
+            margin: '2px 0',
+          }}
+        />
+      )}
     </div>
   );
 }
