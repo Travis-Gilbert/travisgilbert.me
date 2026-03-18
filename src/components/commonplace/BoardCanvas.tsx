@@ -16,18 +16,18 @@ import ConnectionBadge from './ConnectionBadge';
 import EngineRelevancePip from './EngineRelevancePip';
 import DragGhost from './DragGhost';
 
-/* ─────────────────────────────────────────────────
+/* -----------------------------------------------
    Constants
-   ───────────────────────────────────────────────── */
+   ----------------------------------------------- */
 
 const GRID_SIZE = 48;
 const MIN_ZOOM = 0.25;
 const MAX_ZOOM = 3;
 const ZOOM_STEP = 0.04;
 
-/* ─────────────────────────────────────────────────
+/* -----------------------------------------------
    Placed card: warm parchment tint-wash style
-   ───────────────────────────────────────────────── */
+   ----------------------------------------------- */
 
 interface PlacedCardProps {
   item: PlacedItem;
@@ -152,9 +152,9 @@ function PlacedCard({
   );
 }
 
-/* ─────────────────────────────────────────────────
+/* -----------------------------------------------
    Connection renderer with hover hit areas
-   ───────────────────────────────────────────────── */
+   ----------------------------------------------- */
 
 interface ConnectionLinesProps {
   connections: BoardConnection[];
@@ -260,9 +260,9 @@ function ConnectionLines({ connections, items, hoveredId, onHover }: ConnectionL
   );
 }
 
-/* ─────────────────────────────────────────────────
+/* -----------------------------------------------
    Empty state
-   ───────────────────────────────────────────────── */
+   ----------------------------------------------- */
 
 function BoardEmptyState() {
   return (
@@ -307,9 +307,9 @@ function BoardEmptyState() {
   );
 }
 
-/* ─────────────────────────────────────────────────
+/* -----------------------------------------------
    Main canvas
-   ───────────────────────────────────────────────── */
+   ----------------------------------------------- */
 
 interface BoardCanvasProps {
   items: PlacedItem[];
@@ -317,6 +317,8 @@ interface BoardCanvasProps {
   viewport: ViewportState;
   onViewportChange: (v: ViewportState) => void;
   onItemMove: (itemId: string, x: number, y: number) => void;
+  /** Called when a catalog item is dropped onto the canvas */
+  onCatalogDrop?: (catalogId: string, x: number, y: number) => void;
   engineRelevantIds?: Set<number>;
 }
 
@@ -326,6 +328,7 @@ export default function BoardCanvas({
   viewport,
   onViewportChange,
   onItemMove,
+  onCatalogDrop,
   engineRelevantIds = new Set(),
 }: BoardCanvasProps) {
   const { selectedItems, selectSingle, toggleSelectItem, clearSelection, openContextMenu, openDrawer } =
@@ -340,7 +343,7 @@ export default function BoardCanvas({
   const [dropTarget, setDropTarget] = useState<{ x: number; y: number } | null>(null);
   const [hoveredConnectionId, setHoveredConnectionId] = useState<string | null>(null);
 
-  /* ── Zoom via scroll wheel ── */
+  /* -- Zoom via scroll wheel -- */
   const handleWheel = useCallback(
     (e: ReactWheelEvent) => {
       e.preventDefault();
@@ -351,7 +354,7 @@ export default function BoardCanvas({
     [viewport, onViewportChange],
   );
 
-  /* ── Pan via middle click ── */
+  /* -- Pan via middle click -- */
   const handleCanvasMouseDown = useCallback(
     (e: React.MouseEvent) => {
       if (e.button === 1) {
@@ -368,7 +371,7 @@ export default function BoardCanvas({
     [viewport],
   );
 
-  /* ── Item drag ── */
+  /* -- Item drag -- */
   const handleItemMouseDown = useCallback(
     (e: React.MouseEvent, item: PlacedItem) => {
       if (e.button !== 0) return;
@@ -411,7 +414,7 @@ export default function BoardCanvas({
     [openContextMenu],
   );
 
-  /* ── Global mouse move/up for drag and pan ── */
+  /* -- Global mouse move/up for drag and pan -- */
   useEffect(() => {
     const handleMove = (e: MouseEvent) => {
       if (isPanning.current) {
@@ -446,7 +449,7 @@ export default function BoardCanvas({
     };
   }, [dragId, viewport, onViewportChange, onItemMove]);
 
-  /* ── Keyboard: Escape clears selection ── */
+  /* -- Keyboard: Escape clears selection -- */
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
       if (e.key === 'Escape') clearSelection();
@@ -455,7 +458,7 @@ export default function BoardCanvas({
     return () => document.removeEventListener('keydown', handler);
   }, [clearSelection]);
 
-  /* ── Click empty canvas clears selection ── */
+  /* -- Click empty canvas clears selection -- */
   const handleCanvasClick = useCallback(
     (e: React.MouseEvent) => {
       if (!(e.target as HTMLElement).closest('[data-board-item]')) {
@@ -463,6 +466,48 @@ export default function BoardCanvas({
       }
     },
     [clearSelection],
+  );
+
+  /* -- Catalog drag-over: show crosshair at canvas-space position -- */
+  const handleDragOver = useCallback(
+    (e: React.DragEvent) => {
+      if (!e.dataTransfer.types.includes('application/commonplace-catalog')) return;
+      e.preventDefault();
+      e.dataTransfer.dropEffect = 'copy';
+      const bounds = containerRef.current?.getBoundingClientRect();
+      if (bounds) {
+        setDropTarget({
+          x: (e.clientX - bounds.left - viewport.panX) / viewport.zoom,
+          y: (e.clientY - bounds.top - viewport.panY) / viewport.zoom,
+        });
+      }
+    },
+    [viewport],
+  );
+
+  /* -- Catalog drop: parse ID and position, call parent handler -- */
+  const handleDrop = useCallback(
+    (e: React.DragEvent) => {
+      if (!e.dataTransfer.types.includes('application/commonplace-catalog')) return;
+      e.preventDefault();
+      e.stopPropagation();
+
+      const catalogId = e.dataTransfer.getData('application/commonplace-catalog');
+      if (!catalogId) {
+        setDropTarget(null);
+        return;
+      }
+
+      const bounds = containerRef.current?.getBoundingClientRect();
+      if (bounds && onCatalogDrop) {
+        const x = (e.clientX - bounds.left - viewport.panX) / viewport.zoom;
+        const y = (e.clientY - bounds.top - viewport.panY) / viewport.zoom;
+        onCatalogDrop(catalogId, x, y);
+      }
+
+      setDropTarget(null);
+    },
+    [viewport, onCatalogDrop],
   );
 
   const draggedItem = dragId ? items.find((i) => i.id === dragId) : null;
@@ -486,24 +531,9 @@ export default function BoardCanvas({
       onMouseDown={handleCanvasMouseDown}
       onClick={handleCanvasClick}
       onDragStart={(e) => e.preventDefault()}
-      onDragOver={(e) => {
-        if (e.dataTransfer.types.includes('application/commonplace-catalog')) {
-          e.preventDefault();
-          e.dataTransfer.dropEffect = 'copy';
-          const bounds = containerRef.current?.getBoundingClientRect();
-          if (bounds) {
-            setDropTarget({
-              x: (e.clientX - bounds.left - viewport.panX) / viewport.zoom,
-              y: (e.clientY - bounds.top - viewport.panY) / viewport.zoom,
-            });
-          }
-        }
-      }}
+      onDragOver={handleDragOver}
       onDragLeave={() => setDropTarget(null)}
-      onDrop={(e) => {
-        e.preventDefault();
-        setDropTarget(null);
-      }}
+      onDrop={handleDrop}
     >
       {/* Grid background */}
       <div
