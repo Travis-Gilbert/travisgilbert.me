@@ -12,7 +12,6 @@ import { getObjectTypeIdentity } from '@/lib/commonplace';
 import { useCommonPlace } from '@/lib/commonplace-context';
 import { useCardElevation } from '@/hooks/useCardElevation';
 import { useRecentlyPlaced } from '@/hooks/useRecentlyPlaced';
-import ObjectRenderer from './objects/ObjectRenderer';
 import ConnectionBadge from './ConnectionBadge';
 import EngineRelevancePip from './EngineRelevancePip';
 import DragGhost from './DragGhost';
@@ -27,7 +26,7 @@ const MAX_ZOOM = 3;
 const ZOOM_STEP = 0.04;
 
 /* ─────────────────────────────────────────────────
-   Placed card wrapper (applies elevation, glow, badges)
+   Placed card: warm parchment tint-wash style
    ───────────────────────────────────────────────── */
 
 interface PlacedCardProps {
@@ -52,13 +51,15 @@ function PlacedCard({
   const { shadow } = useCardElevation(item.object.edge_count ?? 0);
   const glowClass = useRecentlyPlaced(item.placedAt);
   const typeIdentity = getObjectTypeIdentity(item.object.object_type_slug);
+  const isHunch = item.object.object_type_slug === 'hunch';
+  const isConcept = item.object.object_type_slug === 'concept';
 
   return (
     <div
       data-board-item
       data-selected={isSelected || undefined}
       data-dragging={isDragging || undefined}
-      data-hunch={item.object.object_type_slug === 'hunch' || undefined}
+      data-hunch={isHunch || undefined}
       draggable={false}
       tabIndex={0}
       className={glowClass ?? undefined}
@@ -76,12 +77,69 @@ function PlacedCard({
       onContextMenu={(e) => onContextMenu(e, item)}
       onClick={(e) => onClick(e, item)}
     >
-      <div style={{ position: 'relative' }}>
-        <ObjectRenderer
-          object={item.object}
-          variant="default"
-          compact
-        />
+      {/* Tint-wash card body */}
+      <div
+        style={{
+          position: 'relative',
+          padding: '10px 12px',
+          borderRadius: isConcept ? 16 : isHunch ? 3 : 6,
+          backgroundColor: `color-mix(in srgb, ${typeIdentity.color} ${isSelected ? 10 : 6}%, transparent)`,
+          border: `1px solid ${isSelected
+            ? `color-mix(in srgb, ${typeIdentity.color} 30%, transparent)`
+            : `color-mix(in srgb, ${typeIdentity.color} 8%, transparent)`
+          }`,
+          transition: 'background-color 200ms, border-color 200ms',
+          overflow: 'hidden',
+        }}
+      >
+        {/* Type kicker */}
+        <div
+          style={{
+            fontFamily: 'var(--font-metadata)',
+            fontSize: 8,
+            fontWeight: 600,
+            letterSpacing: '0.06em',
+            color: typeIdentity.color,
+            textTransform: 'uppercase',
+            marginBottom: 4,
+          }}
+        >
+          {typeIdentity.label}
+        </div>
+
+        {/* Title */}
+        <div
+          style={{
+            fontFamily: 'var(--cp-font-body, system-ui)',
+            fontSize: 13,
+            fontWeight: 600,
+            fontStyle: isHunch ? 'italic' : undefined,
+            color: '#2A2420',
+            lineHeight: 1.3,
+            marginBottom: 3,
+          }}
+        >
+          {item.object.title}
+        </div>
+
+        {/* Body preview */}
+        {item.object.body && (
+          <div
+            style={{
+              fontFamily: 'var(--cp-font-body, system-ui)',
+              fontSize: 10.5,
+              color: '#5C564E',
+              lineHeight: 1.4,
+              overflow: 'hidden',
+              display: '-webkit-box',
+              WebkitLineClamp: 3,
+              WebkitBoxOrient: 'vertical',
+            }}
+          >
+            {item.object.body}
+          </div>
+        )}
+
         <ConnectionBadge
           count={item.object.edge_count ?? 0}
           typeColor={typeIdentity.color}
@@ -95,15 +153,17 @@ function PlacedCard({
 }
 
 /* ─────────────────────────────────────────────────
-   Connection renderer (SVG overlay)
+   Connection renderer with hover hit areas
    ───────────────────────────────────────────────── */
 
 interface ConnectionLinesProps {
   connections: BoardConnection[];
   items: PlacedItem[];
+  hoveredId: string | null;
+  onHover: (id: string | null) => void;
 }
 
-function ConnectionLines({ connections, items }: ConnectionLinesProps) {
+function ConnectionLines({ connections, items, hoveredId, onHover }: ConnectionLinesProps) {
   const itemMap = new Map(items.map((i) => [i.id, i]));
 
   return (
@@ -130,48 +190,53 @@ function ConnectionLines({ connections, items }: ConnectionLinesProps) {
 
         const isEngine = conn.source === 'engine';
         const color = isEngine ? '#2D5F6B' : '#B8623D';
-        const opacity = conn.confirmed ? 0.4 : 0.25;
+        const isHovered = hoveredId === conn.id;
+        const opacity = isHovered ? 0.7 : conn.confirmed ? 0.4 : 0.25;
         const strokeDash = conn.confirmed ? undefined : '4 4';
         const strokeWidth = conn.confirmed ? 1.5 : 1;
 
+        let d: string;
         if (isEngine) {
-          // Railway: rectilinear path
           const midY = (y1 + y2) / 2;
-          const d = `M ${x1} ${y1} L ${x1} ${midY} L ${x2} ${midY} L ${x2} ${y2}`;
-          return (
-            <path
-              key={conn.id}
-              d={d}
-              stroke={color}
-              strokeWidth={strokeWidth}
-              strokeDasharray={strokeDash}
-              strokeOpacity={opacity}
-              fill="none"
-            />
-          );
+          d = `M ${x1} ${y1} L ${x1} ${midY} L ${x2} ${midY} L ${x2} ${y2}`;
+        } else {
+          const cpx = (x1 + x2) / 2 + (y2 - y1) * 0.15;
+          const cpy = (y1 + y2) / 2;
+          d = `M ${x1} ${y1} Q ${cpx} ${cpy} ${x2} ${y2}`;
         }
 
-        // Manual: curved pencil line
-        const cpx = (x1 + x2) / 2 + (y2 - y1) * 0.15;
-        const cpy = (y1 + y2) / 2;
-        const d = `M ${x1} ${y1} Q ${cpx} ${cpy} ${x2} ${y2}`;
         return (
           <g key={conn.id}>
-            {/* Shadow stroke (pencil texture) */}
+            {/* Invisible wide hit area */}
             <path
               d={d}
-              stroke={color}
-              strokeWidth={0.5}
-              strokeOpacity={0.18}
+              stroke="transparent"
+              strokeWidth={16}
               fill="none"
+              style={{ pointerEvents: 'stroke', cursor: 'pointer' }}
+              onMouseEnter={() => onHover(conn.id)}
+              onMouseLeave={() => onHover(null)}
             />
+            {/* Shadow stroke for manual connections */}
+            {!isEngine && (
+              <path
+                d={d}
+                stroke={color}
+                strokeWidth={0.5}
+                strokeOpacity={0.18}
+                fill="none"
+              />
+            )}
             {/* Primary stroke */}
             <path
               d={d}
               stroke={color}
-              strokeWidth={1.2}
+              strokeWidth={isHovered ? strokeWidth + 0.5 : strokeWidth}
+              strokeDasharray={strokeDash}
               strokeOpacity={opacity}
               fill="none"
+              strokeLinecap="round"
+              strokeLinejoin="round"
             />
             {/* Label */}
             {conn.label && (
@@ -179,7 +244,7 @@ function ConnectionLines({ connections, items }: ConnectionLinesProps) {
                 x={(x1 + x2) / 2}
                 y={(y1 + y2) / 2 - 6}
                 fill={color}
-                fillOpacity={0.5}
+                fillOpacity={isHovered ? 0.8 : 0.5}
                 fontSize={9}
                 fontFamily="var(--font-metadata)"
                 fontStyle="italic"
@@ -270,9 +335,10 @@ export default function BoardCanvas({
   const isPanning = useRef(false);
   const panStart = useRef({ x: 0, y: 0, panX: 0, panY: 0 });
 
-  // Drag state
   const [dragId, setDragId] = useState<string | null>(null);
   const dragStart = useRef<{ x: number; y: number; itemX: number; itemY: number } | null>(null);
+  const [dropTarget, setDropTarget] = useState<{ x: number; y: number } | null>(null);
+  const [hoveredConnectionId, setHoveredConnectionId] = useState<string | null>(null);
 
   /* ── Zoom via scroll wheel ── */
   const handleWheel = useCallback(
@@ -308,13 +374,11 @@ export default function BoardCanvas({
       if (e.button !== 0) return;
       e.stopPropagation();
 
-      // Shift+click for multi-select
       if (e.shiftKey) {
         toggleSelectItem(item.id);
         return;
       }
 
-      // Start drag
       if (!selectedItems.has(item.id)) {
         selectSingle(item.id);
       }
@@ -401,7 +465,6 @@ export default function BoardCanvas({
     [clearSelection],
   );
 
-  // Find the dragged item for ghost rendering
   const draggedItem = dragId ? items.find((i) => i.id === dragId) : null;
 
   return (
@@ -423,6 +486,24 @@ export default function BoardCanvas({
       onMouseDown={handleCanvasMouseDown}
       onClick={handleCanvasClick}
       onDragStart={(e) => e.preventDefault()}
+      onDragOver={(e) => {
+        if (e.dataTransfer.types.includes('application/commonplace-catalog')) {
+          e.preventDefault();
+          e.dataTransfer.dropEffect = 'copy';
+          const bounds = containerRef.current?.getBoundingClientRect();
+          if (bounds) {
+            setDropTarget({
+              x: (e.clientX - bounds.left - viewport.panX) / viewport.zoom,
+              y: (e.clientY - bounds.top - viewport.panY) / viewport.zoom,
+            });
+          }
+        }
+      }}
+      onDragLeave={() => setDropTarget(null)}
+      onDrop={(e) => {
+        e.preventDefault();
+        setDropTarget(null);
+      }}
     >
       {/* Grid background */}
       <div
@@ -460,10 +541,13 @@ export default function BoardCanvas({
           transform: `translate(${viewport.panX}px, ${viewport.panY}px) scale(${viewport.zoom})`,
         }}
       >
-        {/* Connection lines (behind cards) */}
-        <ConnectionLines connections={connections} items={items} />
+        <ConnectionLines
+          connections={connections}
+          items={items}
+          hoveredId={hoveredConnectionId}
+          onHover={setHoveredConnectionId}
+        />
 
-        {/* Placed items */}
         {items.map((item) => (
           <PlacedCard
             key={item.id}
@@ -477,7 +561,6 @@ export default function BoardCanvas({
           />
         ))}
 
-        {/* Drag ghost at original position */}
         {draggedItem && dragStart.current && (
           <DragGhost
             x={dragStart.current.itemX}
@@ -487,25 +570,56 @@ export default function BoardCanvas({
             typeColor={getObjectTypeIdentity(draggedItem.object.object_type_slug).color}
           />
         )}
+
+        {/* Drop target crosshair */}
+        {dropTarget && (
+          <div
+            className="board-drop-crosshair"
+            style={{ left: dropTarget.x - 10, top: dropTarget.y - 10, width: 20, height: 20 }}
+          />
+        )}
       </div>
 
       {/* Empty state */}
       {items.length === 0 && <BoardEmptyState />}
 
-      {/* Zoom indicator */}
+      {/* Zoom controls overlay (bottom-right, Figma style) */}
       <div
         style={{
           position: 'absolute',
           bottom: 12,
           right: 12,
-          fontFamily: 'var(--font-metadata)',
-          fontSize: 10,
-          color: 'rgba(45, 95, 107, 0.4)',
-          letterSpacing: '0.04em',
-          pointerEvents: 'none',
+          display: 'flex',
+          gap: 2,
+          zIndex: 20,
         }}
       >
-        {Math.round(viewport.zoom * 100)}%
+        {[
+          { label: '\u2212', action: () => onViewportChange({ ...viewport, zoom: Math.max(MIN_ZOOM, viewport.zoom - ZOOM_STEP * 3) }) },
+          { label: `${Math.round(viewport.zoom * 100)}%`, action: undefined as (() => void) | undefined },
+          { label: '+', action: () => onViewportChange({ ...viewport, zoom: Math.min(MAX_ZOOM, viewport.zoom + ZOOM_STEP * 3) }) },
+          { label: 'Fit', action: () => onViewportChange({ panX: 0, panY: 0, zoom: 1 }) },
+        ].map((btn) => (
+          <button
+            key={btn.label}
+            type="button"
+            onClick={btn.action}
+            disabled={!btn.action}
+            style={{
+              padding: '4px 8px',
+              borderRadius: 4,
+              border: '1px solid rgba(42, 36, 32, 0.12)',
+              backgroundColor: 'rgba(244, 243, 240, 0.9)',
+              backdropFilter: 'blur(4px)',
+              fontFamily: 'var(--font-metadata)',
+              fontSize: 10,
+              color: btn.action ? '#5C564E' : '#9A948A',
+              cursor: btn.action ? 'pointer' : 'default',
+            }}
+          >
+            {btn.label}
+          </button>
+        ))}
       </div>
     </div>
   );

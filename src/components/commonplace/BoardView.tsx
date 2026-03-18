@@ -60,10 +60,10 @@ export default function BoardView({ paneId }: BoardViewProps) {
         overflow: 'hidden',
       }}
     >
-      {/* Tab bar: board tab + frame tabs */}
+      {/* Tab strip */}
       <div
         style={{
-          height: 40,
+          height: 36,
           backgroundColor: 'var(--cp-chrome)',
           borderBottom: '1px solid var(--cp-chrome-line)',
           display: 'flex',
@@ -72,46 +72,32 @@ export default function BoardView({ paneId }: BoardViewProps) {
           overflow: 'hidden',
         }}
       >
-        {/* Board tab (always first, always active when no frame selected) */}
-        <div
+        {/* Board tab */}
+        <button
+          type="button"
           style={{
             display: 'flex',
             alignItems: 'center',
-            gap: 8,
             padding: '0 16px',
-            borderRight: '1px solid var(--cp-chrome-line)',
+            border: 'none',
             borderBottom: activeFrameId === null
               ? '2px solid var(--cp-red)'
               : '2px solid transparent',
             backgroundColor: activeFrameId === null ? 'var(--cp-chrome-raise)' : 'transparent',
             cursor: 'pointer',
+            fontFamily: 'var(--cp-font-title)',
+            fontSize: 15,
+            fontWeight: 600,
+            color: activeFrameId === null ? 'var(--cp-chrome-text)' : 'var(--cp-chrome-dim)',
+            whiteSpace: 'nowrap',
           }}
           onClick={() => {
             setActiveFrameId(null);
             setItems(DEMO_BOARD.items);
           }}
         >
-          <div
-            style={{
-              width: 8,
-              height: 8,
-              borderRadius: '50%',
-              backgroundColor: 'var(--cp-red)',
-              flexShrink: 0,
-            }}
-          />
-          <span
-            style={{
-              fontFamily: 'var(--cp-font-title)',
-              fontSize: 14,
-              fontWeight: 600,
-              color: 'var(--cp-chrome-text)',
-              whiteSpace: 'nowrap',
-            }}
-          >
-            {DEMO_BOARD.title}
-          </span>
-        </div>
+          Board
+        </button>
 
         {/* Frame tabs */}
         {frames.map((frame) => (
@@ -120,9 +106,8 @@ export default function BoardView({ paneId }: BoardViewProps) {
             style={{
               display: 'flex',
               alignItems: 'center',
-              gap: 4,
-              padding: '0 10px',
-              borderRight: '1px solid var(--cp-chrome-line)',
+              gap: 6,
+              padding: '0 12px',
               borderBottom: activeFrameId === frame.id
                 ? '2px solid #C49A4A'
                 : '2px solid transparent',
@@ -133,12 +118,12 @@ export default function BoardView({ paneId }: BoardViewProps) {
           >
             <span
               style={{
-                fontFamily: 'var(--font-metadata)',
-                fontSize: 11,
+                fontFamily: 'var(--cp-font-title)',
+                fontSize: 14,
+                fontWeight: 500,
                 color: activeFrameId === frame.id ? 'var(--cp-chrome-text)' : 'var(--cp-chrome-dim)',
               }}
             >
-              <span style={{ fontSize: 9, opacity: 0.4, marginRight: 4 }}>◫</span>
               {frame.name}
             </span>
             <button
@@ -148,8 +133,8 @@ export default function BoardView({ paneId }: BoardViewProps) {
                 handleDeleteFrame(frame.id);
               }}
               style={{
-                width: 14,
-                height: 14,
+                width: 16,
+                height: 16,
                 borderRadius: 3,
                 border: 'none',
                 background: 'transparent',
@@ -166,7 +151,7 @@ export default function BoardView({ paneId }: BoardViewProps) {
           </div>
         ))}
 
-        {/* Add frame button */}
+        {/* Add frame */}
         <button
           type="button"
           onClick={handleSaveFrame}
@@ -185,10 +170,9 @@ export default function BoardView({ paneId }: BoardViewProps) {
           <Plus width={14} height={14} strokeWidth={1.5} />
         </button>
 
-        {/* Spacer */}
         <div style={{ flex: 1 }} />
 
-        {/* Stats (right side) */}
+        {/* Stats */}
         <div
           style={{
             display: 'flex',
@@ -197,11 +181,10 @@ export default function BoardView({ paneId }: BoardViewProps) {
             fontFamily: 'var(--font-metadata)',
             fontSize: 10,
             color: 'var(--cp-chrome-dim)',
-            letterSpacing: '0.06em',
-            textTransform: 'uppercase',
+            letterSpacing: '0.04em',
           }}
         >
-          {items.length} objects, {connections.length} connections
+          {items.length} objects
         </div>
       </div>
 

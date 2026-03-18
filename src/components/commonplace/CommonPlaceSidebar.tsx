@@ -753,7 +753,7 @@ export default function CommonPlaceSidebar() {
             <BoardCatalogSidebar
               objects={boardCatalogObjects}
               components={boardCatalogComponents}
-              zoom={1}
+              onExitBoard={() => navigateToScreen('library')}
             />
           </div>
           <DropZone onCapture={handleCapture} />

@@ -2,8 +2,8 @@
 
 /**
  * BoardCatalogSidebar: replaces the default CommonPlace sidebar when the
- * Board view is active. Shows search, objects catalog, components, compose
- * button, and zoom controls per the v2 wireframe spec.
+ * Board view is active. Shows nav header, search, objects catalog,
+ * components, and compose button.
  *
  * When compose mode is active, splits vertically into compose editor (top)
  * and compressed catalog (bottom) with a draggable divider.
@@ -32,15 +32,12 @@ interface CatalogComponent {
 }
 
 interface BoardCatalogSidebarProps {
-  /** Objects not on the board (available to drag) */
   objects: CatalogObject[];
-  /** Components extracted from board objects */
   components: CatalogComponent[];
-  /** Current zoom level (0 to 1 scale, displayed as percentage) */
-  zoom: number;
-  onZoomIn?: () => void;
-  onZoomOut?: () => void;
-  onFitToContent?: () => void;
+  /** IDs of objects currently placed on the board */
+  placedObjectIds?: Set<number>;
+  /** Called when user wants to exit board and return to normal sidebar */
+  onExitBoard?: () => void;
 }
 
 /* ─────────────────────────────────────────────────
@@ -68,24 +65,11 @@ const searchInputStyle: CSSProperties = {
   outline: 'none',
 };
 
-const globeBtnStyle: CSSProperties = {
-  width: 26,
-  height: 26,
-  borderRadius: 4,
-  border: '1px solid var(--cp-chrome-line)',
-  backgroundColor: 'transparent',
-  fontSize: 12,
-  cursor: 'pointer',
-  display: 'flex',
-  alignItems: 'center',
-  justifyContent: 'center',
-};
-
 /* ─────────────────────────────────────────────────
    Object row (draggable)
    ───────────────────────────────────────────────── */
 
-function ObjectRow({ obj }: { obj: CatalogObject }) {
+function ObjectRow({ obj, isOnBoard }: { obj: CatalogObject; isOnBoard?: boolean }) {
   const identity = getObjectTypeIdentity(obj.type);
   return (
     <div
@@ -101,6 +85,7 @@ function ObjectRow({ obj }: { obj: CatalogObject }) {
         display: 'flex',
         alignItems: 'center',
         gap: 7,
+        opacity: isOnBoard ? 0.45 : 1,
       }}
     >
       <div
@@ -137,6 +122,31 @@ function ObjectRow({ obj }: { obj: CatalogObject }) {
           {obj.type} · {obj.connections} conn.
         </div>
       </div>
+      {isOnBoard ? (
+        <span
+          style={{
+            fontFamily: 'var(--cp-font-mono)',
+            fontSize: 7,
+            color: 'var(--cp-chrome-dim)',
+            letterSpacing: '0.04em',
+            flexShrink: 0,
+          }}
+        >
+          ON BOARD
+        </span>
+      ) : (
+        <span
+          style={{
+            fontFamily: 'var(--cp-font-mono)',
+            fontSize: 11,
+            color: 'var(--cp-chrome-dim)',
+            opacity: 0.3,
+            flexShrink: 0,
+          }}
+        >
+          ⠿
+        </span>
+      )}
     </div>
   );
 }
@@ -184,62 +194,17 @@ function ComponentRow({ comp }: { comp: CatalogComponent }) {
       >
         {comp.label}
       </div>
-    </div>
-  );
-}
-
-/* ─────────────────────────────────────────────────
-   Zoom controls
-   ───────────────────────────────────────────────── */
-
-function ZoomControls({
-  zoom,
-  onZoomIn,
-  onZoomOut,
-  onFit,
-}: {
-  zoom: number;
-  onZoomIn?: () => void;
-  onZoomOut?: () => void;
-  onFit?: () => void;
-}) {
-  const btnStyle: CSSProperties = {
-    padding: '3px 7px',
-    borderRadius: 3,
-    border: '1px solid var(--cp-chrome-line)',
-    backgroundColor: 'transparent',
-    fontFamily: 'var(--cp-font-mono)',
-    fontSize: 10,
-    color: 'var(--cp-chrome-muted)',
-    cursor: 'pointer',
-  };
-
-  return (
-    <div
-      style={{
-        padding: '5px 8px 8px',
-        borderTop: '1px solid var(--cp-chrome-line)',
-        display: 'flex',
-        gap: 2,
-        justifyContent: 'center',
-      }}
-    >
-      <button type="button" style={btnStyle} onClick={onZoomOut}>
-        &minus;
-      </button>
-      <button
-        type="button"
-        style={{ ...btnStyle, fontSize: 9, minWidth: 36, textAlign: 'center' }}
-        disabled
+      <span
+        style={{
+          fontFamily: 'var(--cp-font-mono)',
+          fontSize: 11,
+          color: 'var(--cp-chrome-dim)',
+          opacity: 0.3,
+          flexShrink: 0,
+        }}
       >
-        {Math.round(zoom * 100)}%
-      </button>
-      <button type="button" style={btnStyle} onClick={onZoomIn}>
-        +
-      </button>
-      <button type="button" style={btnStyle} onClick={onFit}>
-        Fit
-      </button>
+        ⠿
+      </span>
     </div>
   );
 }
@@ -254,19 +219,13 @@ const MIN_CATALOG = 120;
 function ComposeSplitView({
   objects,
   components,
-  zoom,
+  placedObjectIds,
   onExitCompose,
-  onZoomIn,
-  onZoomOut,
-  onFitToContent,
 }: {
   objects: CatalogObject[];
   components: CatalogComponent[];
-  zoom: number;
+  placedObjectIds?: Set<number>;
   onExitCompose: () => void;
-  onZoomIn?: () => void;
-  onZoomOut?: () => void;
-  onFitToContent?: () => void;
 }) {
   const [ratio, setRatio] = useState(0.5);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -405,74 +364,20 @@ function ComposeSplitView({
           flexShrink: 0,
         }}
       >
-        <div
-          style={{
-            width: 20,
-            height: 2,
-            borderRadius: 1,
-            backgroundColor: 'var(--cp-chrome-muted)',
-            opacity: 0.4,
-          }}
-        />
+        <div style={{ width: 20, height: 2, borderRadius: 1, backgroundColor: 'var(--cp-chrome-muted)', opacity: 0.4 }} />
       </div>
 
       {/* Compressed catalog */}
       <div style={{ flex: 1 - ratio, minHeight: MIN_CATALOG, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
         <div style={{ padding: '6px 10px', borderBottom: '1px solid var(--cp-chrome-line)', display: 'flex', gap: 5 }}>
           <input placeholder="Search..." style={{ ...searchInputStyle, padding: '4px 6px', borderRadius: 3, fontSize: 10 }} />
-          <button type="button" style={{ ...globeBtnStyle, width: 24, height: 24, borderRadius: 3, fontSize: 11 }}>
+          <button type="button" style={{ width: 24, height: 24, borderRadius: 3, border: '1px solid var(--cp-chrome-line)', backgroundColor: 'transparent', fontSize: 11, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
             🌐
           </button>
         </div>
         <div style={{ flex: 1, overflowY: 'auto', padding: '4px 8px' }}>
           {objects.map((obj) => (
-            <div
-              key={obj.id}
-              draggable
-              style={{
-                padding: '5px 7px',
-                marginBottom: 2,
-                borderRadius: 3,
-                cursor: 'grab',
-                display: 'flex',
-                alignItems: 'center',
-                gap: 6,
-              }}
-            >
-              <div
-                style={{
-                  width: 5,
-                  height: 5,
-                  borderRadius: '50%',
-                  backgroundColor: getObjectTypeIdentity(obj.type).color,
-                  flexShrink: 0,
-                }}
-              />
-              <div
-                style={{
-                  fontFamily: 'var(--cp-font-body)',
-                  fontSize: 10.5,
-                  fontWeight: 600,
-                  color: 'var(--cp-chrome-text)',
-                  overflow: 'hidden',
-                  textOverflow: 'ellipsis',
-                  whiteSpace: 'nowrap',
-                  flex: 1,
-                }}
-              >
-                {obj.title}
-              </div>
-              <span
-                style={{
-                  fontFamily: 'var(--cp-font-mono)',
-                  fontSize: 10,
-                  color: 'var(--cp-chrome-dim)',
-                  opacity: 0.25,
-                }}
-              >
-                ⠿
-              </span>
-            </div>
+            <ObjectRow key={obj.id} obj={obj} isOnBoard={placedObjectIds?.has(obj.id)} />
           ))}
           {components.map((c) => (
             <ComponentRow key={c.id} comp={c} />
@@ -490,8 +395,6 @@ function ComposeSplitView({
           </div>
         </div>
       </div>
-
-      <ZoomControls zoom={zoom} onZoomIn={onZoomIn} onZoomOut={onZoomOut} onFit={onFitToContent} />
     </div>
   );
 }
@@ -503,10 +406,8 @@ function ComposeSplitView({
 export default function BoardCatalogSidebar({
   objects,
   components,
-  zoom,
-  onZoomIn,
-  onZoomOut,
-  onFitToContent,
+  placedObjectIds,
+  onExitBoard,
 }: BoardCatalogSidebarProps) {
   const [composeActive, setComposeActive] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
@@ -520,17 +421,56 @@ export default function BoardCatalogSidebar({
       <ComposeSplitView
         objects={filteredObjects}
         components={components}
-        zoom={zoom}
+        placedObjectIds={placedObjectIds}
         onExitCompose={() => setComposeActive(false)}
-        onZoomIn={onZoomIn}
-        onZoomOut={onZoomOut}
-        onFitToContent={onFitToContent}
       />
     );
   }
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', flex: 1, overflow: 'hidden' }}>
+      {/* Navigation header */}
+      <div
+        style={{
+          padding: '10px 10px 6px',
+          borderBottom: '1px solid var(--cp-chrome-line)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+        }}
+      >
+        <button
+          type="button"
+          onClick={onExitBoard}
+          style={{
+            background: 'transparent',
+            border: 'none',
+            fontFamily: 'var(--cp-font-title)',
+            fontSize: 13,
+            color: 'var(--cp-chrome-text)',
+            cursor: 'pointer',
+            padding: 0,
+            display: 'flex',
+            alignItems: 'center',
+            gap: 6,
+          }}
+        >
+          <span style={{ fontSize: 11, color: 'var(--cp-chrome-dim)' }}>&larr;</span>
+          CommonPlace
+        </button>
+        <span
+          style={{
+            fontFamily: 'var(--font-metadata)',
+            fontSize: 9,
+            color: 'var(--cp-chrome-dim)',
+            letterSpacing: '0.06em',
+            textTransform: 'uppercase',
+          }}
+        >
+          Board
+        </span>
+      </div>
+
       {/* Search bar */}
       <div style={{ padding: '8px 10px', borderBottom: '1px solid var(--cp-chrome-line)', display: 'flex', gap: 5 }}>
         <input
@@ -539,7 +479,7 @@ export default function BoardCatalogSidebar({
           onChange={(e) => setSearchQuery(e.target.value)}
           style={searchInputStyle}
         />
-        <button type="button" style={globeBtnStyle}>
+        <button type="button" style={{ width: 26, height: 26, borderRadius: 4, border: '1px solid var(--cp-chrome-line)', backgroundColor: 'transparent', fontSize: 12, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
           🌐
         </button>
       </div>
@@ -548,7 +488,7 @@ export default function BoardCatalogSidebar({
       <div style={{ flex: 1, overflowY: 'auto', padding: '6px 8px' }}>
         <div style={sectionLabelStyle}>OBJECTS</div>
         {filteredObjects.map((obj) => (
-          <ObjectRow key={obj.id} obj={obj} />
+          <ObjectRow key={obj.id} obj={obj} isOnBoard={placedObjectIds?.has(obj.id)} />
         ))}
 
         <div style={sectionLabelStyle}>COMPONENTS</div>
@@ -557,7 +497,7 @@ export default function BoardCatalogSidebar({
         ))}
       </div>
 
-      {/* Compose button */}
+      {/* Compose button (muted, not dominant) */}
       <button
         type="button"
         onClick={() => setComposeActive(true)}
@@ -565,20 +505,17 @@ export default function BoardCatalogSidebar({
           margin: '6px 8px',
           padding: '7px 0',
           borderRadius: 4,
-          backgroundColor: 'var(--cp-red-soft)',
-          border: '1px solid var(--cp-red-line)',
+          backgroundColor: 'var(--cp-chrome-raise)',
+          border: '1px solid var(--cp-chrome-line)',
           fontFamily: 'var(--cp-font-mono)',
           fontSize: 10,
           fontWeight: 600,
-          color: 'var(--cp-red)',
+          color: 'var(--cp-chrome-muted)',
           cursor: 'pointer',
         }}
       >
         ✎ Compose
       </button>
-
-      {/* Zoom controls */}
-      <ZoomControls zoom={zoom} onZoomIn={onZoomIn} onZoomOut={onZoomOut} onFit={onFitToContent} />
     </div>
   );
 }
