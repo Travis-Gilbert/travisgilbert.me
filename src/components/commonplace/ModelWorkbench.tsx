@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
+import { toast } from 'sonner';
 import type {
   EpistemicModelDetail,
   ModuleId,
@@ -84,6 +85,31 @@ export default function ModelWorkbench({
       }
     },
     [paneId, onOpenObject],
+  );
+
+  /**
+   * Reorder assumptions: receives the new order of assumption IDs
+   * (top to bottom) and updates each assumption's positionIndex
+   * in local state. When the API is wired, this will also PATCH
+   * the backend.
+   */
+  const handleReorderAssumptions = useCallback(
+    (orderedIds: number[]) => {
+      setModel((prev) => {
+        if (!prev) return prev;
+
+        const updated = prev.assumptions.map((a) => {
+          const newIndex = orderedIds.indexOf(a.id);
+          if (newIndex === -1) return a;
+          return { ...a, positionIndex: newIndex };
+        });
+
+        return { ...prev, assumptions: updated };
+      });
+
+      toast.success('Argument order updated');
+    },
+    [],
   );
 
   if (loading || !model) {
@@ -203,6 +229,7 @@ export default function ModelWorkbench({
             <AssumptionRegister
               assumptions={model.assumptions}
               onOpenObject={handleOpenObject}
+              onReorder={handleReorderAssumptions}
             />
 
             {/* Falsify brick */}
