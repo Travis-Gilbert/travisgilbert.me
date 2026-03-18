@@ -120,6 +120,21 @@ interface CommonPlaceContextValue {
   cancelConnection: () => void;
   /** Submit the pending manual connection */
   submitConnection: (input?: { edgeType?: string; reason?: string }) => Promise<void>;
+
+  /** Set of selected PlacedItem/object IDs for multi-select */
+  selectedItems: Set<string>;
+  /** Add an item to the selection */
+  selectItem: (id: string) => void;
+  /** Toggle an item in/out of the selection */
+  toggleSelectItem: (id: string) => void;
+  /** Select all items (pass array of all IDs on the board) */
+  selectAll: (ids: string[]) => void;
+  /** Clear all selection */
+  clearSelection: () => void;
+  /** Replace selection with a single item */
+  selectSingle: (id: string) => void;
+  /** Replace selection with a set from rubber-band */
+  selectRect: (ids: string[]) => void;
 }
 
 const NOOP = () => {};
@@ -167,6 +182,13 @@ const CommonPlaceContext = createContext<CommonPlaceContextValue>({
   selectConnectionTarget: NOOP,
   cancelConnection: NOOP,
   submitConnection: async () => {},
+  selectedItems: new Set<string>(),
+  selectItem: NOOP,
+  toggleSelectItem: NOOP,
+  selectAll: NOOP,
+  clearSelection: NOOP,
+  selectSingle: NOOP,
+  selectRect: NOOP,
 });
 
 function dedupeRenderableObjects(items: RenderableObject[]): RenderableObject[] {
@@ -230,6 +252,38 @@ export function CommonPlaceProvider({ children }: { children: ReactNode }) {
     source: RenderableObject;
     target: RenderableObject | null;
   } | null>(null);
+
+  /* ── Multi-select ── */
+  const [selectedItems, setSelectedItems] = useState<Set<string>>(new Set());
+
+  const selectItem = useCallback((id: string) => {
+    setSelectedItems((prev) => new Set(prev).add(id));
+  }, []);
+
+  const toggleSelectItem = useCallback((id: string) => {
+    setSelectedItems((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }, []);
+
+  const selectAll = useCallback((ids: string[]) => {
+    setSelectedItems(new Set(ids));
+  }, []);
+
+  const clearSelection = useCallback(() => {
+    setSelectedItems(new Set());
+  }, []);
+
+  const selectSingle = useCallback((id: string) => {
+    setSelectedItems(new Set([id]));
+  }, []);
+
+  const selectRect = useCallback((ids: string[]) => {
+    setSelectedItems(new Set(ids));
+  }, []);
 
   /* ── Layout persistence ── */
   const setLayout = useCallback(
@@ -402,6 +456,13 @@ export function CommonPlaceProvider({ children }: { children: ReactNode }) {
       selectConnectionTarget,
       cancelConnection,
       submitConnection,
+      selectedItems,
+      selectItem,
+      toggleSelectItem,
+      selectAll,
+      clearSelection,
+      selectSingle,
+      selectRect,
     }),
     [
       captureVersion,
@@ -442,6 +503,7 @@ export function CommonPlaceProvider({ children }: { children: ReactNode }) {
       selectConnectionTarget,
       cancelConnection,
       submitConnection,
+      selectedItems,
     ],
   );
 

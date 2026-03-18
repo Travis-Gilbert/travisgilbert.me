@@ -272,6 +272,22 @@ export interface EngineCandidate {
 }
 
 /* ─────────────────────────────────────────────────
+   Engine operational status
+   ───────────────────────────────────────────────── */
+
+export type EngineStatus = 'idle' | 'recalculating' | 'error';
+
+export interface EngineStatusInfo {
+  status: EngineStatus;
+  /** Number of board items the engine is processing */
+  itemCount?: number;
+  /** ISO timestamp of last successful calculation */
+  lastUpdated?: string;
+  /** Error message when status is 'error' */
+  errorMessage?: string;
+}
+
+/* ─────────────────────────────────────────────────
    Full model
    ───────────────────────────────────────────────── */
 

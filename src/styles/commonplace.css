@@ -9634,6 +9634,177 @@
 }
 
 /* ─────────────────────────────────────────────────
+   Board: Multi-select visual treatment
+   ───────────────────────────────────────────────── */
+
+[data-board-item][data-selected='true'] {
+  outline: 2px solid var(--cp-red);
+  outline-offset: 2px;
+}
+
+.board-group-bounds {
+  border: 1px dashed rgba(var(--cp-red-rgb), 0.15);
+  padding: 8px;
+  pointer-events: none;
+  position: absolute;
+  z-index: 10;
+}
+
+/* ─────────────────────────────────────────────────
+   Board: Keyboard focus styles
+   ───────────────────────────────────────────────── */
+
+[data-board-item]:focus-visible {
+  outline: 2px solid var(--cp-teal);
+  outline-offset: 2px;
+}
+
+.board-canvas:focus-visible {
+  outline: 2px solid var(--cp-teal);
+  outline-offset: -2px;
+}
+
+/* ─────────────────────────────────────────────────
+   Board: Touch targets (minimum 44px interactive zone)
+   ───────────────────────────────────────────────── */
+
+.touch-target-44 {
+  position: relative;
+}
+
+.touch-target-44::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  min-width: 44px;
+  min-height: 44px;
+}
+
+.cp-sidebar-row {
+  min-height: 44px;
+  display: flex;
+  align-items: center;
+}
+
+.cp-zoom-btn {
+  min-width: 36px;
+  min-height: 36px;
+  position: relative;
+}
+
+.cp-zoom-btn::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  min-width: 44px;
+  min-height: 44px;
+}
+
+/* ─────────────────────────────────────────────────
+   Board: Engine status dot pulse
+   ───────────────────────────────────────────────── */
+
+@keyframes engine-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.4; }
+}
+
+/* ─────────────────────────────────────────────────
+   Board: Recently placed glow
+   ───────────────────────────────────────────────── */
+
+.board-glow-strong {
+  box-shadow: 0 0 12px rgba(var(--cp-red-rgb), 0.08);
+}
+
+.board-glow-medium {
+  box-shadow: 0 0 8px rgba(var(--cp-red-rgb), 0.04);
+}
+
+.board-glow-fade {
+  box-shadow: 0 0 4px rgba(var(--cp-red-rgb), 0.02);
+  transition: box-shadow 5s ease-out;
+}
+
+/* ─────────────────────────────────────────────────
+   Board: Drag state visual treatment
+   ───────────────────────────────────────────────── */
+
+[data-board-item] {
+  cursor: grab;
+}
+
+[data-board-item][data-dragging='true'] {
+  transform: scale(1.02);
+  box-shadow: 0 8px 24px rgba(42, 36, 32, 0.12),
+    0 2px 6px rgba(42, 36, 32, 0.06);
+  z-index: 100;
+  cursor: grabbing;
+}
+
+[data-board-item][data-dragging='true'][data-hunch='true'] {
+  rotate: 0deg;
+}
+
+.board-drop-crosshair {
+  position: absolute;
+  pointer-events: none;
+  z-index: 50;
+}
+
+.board-drop-crosshair::before,
+.board-drop-crosshair::after {
+  content: '';
+  position: absolute;
+  background-color: rgba(45, 95, 107, 0.2);
+}
+
+.board-drop-crosshair::before {
+  width: 1px;
+  height: 20px;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+}
+
+.board-drop-crosshair::after {
+  width: 20px;
+  height: 1px;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+}
+
+@keyframes stack-pulse {
+  0%, 100% { opacity: 0.2; }
+  50% { opacity: 0.4; }
+}
+
+.board-stack-zone {
+  position: absolute;
+  width: 3px;
+  background-color: var(--cp-teal);
+  animation: stack-pulse 800ms ease-in-out infinite;
+}
+
+.board-drag-badge {
+  position: fixed;
+  pointer-events: none;
+  z-index: 200;
+  background-color: var(--cp-red);
+  color: var(--cp-cream);
+  font-family: var(--font-code);
+  font-size: 10px;
+  padding: 2px 8px;
+  border-radius: 10px;
+  white-space: nowrap;
+}
+
+/* ─────────────────────────────────────────────────
    Global reduced-motion contract.
    Suppresses all spatial movement and bouncing.
    Preserves opacity fades and skeleton shimmer.
