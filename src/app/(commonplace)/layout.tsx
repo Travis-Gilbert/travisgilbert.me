@@ -1,8 +1,7 @@
 import type { Metadata } from 'next';
 import DotGrid from '@/components/DotGrid';
 import { CommonPlaceProvider } from '@/lib/commonplace-context';
-import CommonPlaceSidebar from '@/components/commonplace/CommonPlaceSidebar';
-import SplitPaneContainer from '@/components/commonplace/SplitPaneContainer';
+import CommonPlaceShell from '@/components/commonplace/CommonPlaceShell';
 import CommandPalette from '@/components/commonplace/CommandPalette';
 import ObjectDrawer from '@/components/commonplace/ObjectDrawer';
 import ObjectContextMenu from '@/components/commonplace/ObjectContextMenu';
@@ -10,6 +9,7 @@ import ConnectionComposer from '@/components/commonplace/ConnectionComposer';
 import EngineTerminal from '@/components/commonplace/EngineTerminal';
 import { Toaster } from 'sonner';
 import '@/styles/commonplace.css';
+import '@/styles/object-cards.css';
 import '@/styles/reading-pane.css';
 
 export const metadata: Metadata = {
@@ -32,7 +32,7 @@ export const metadata: Metadata = {
 };
 
 /**
- * CommonPlace layout: chrome shell with split pane system.
+ * CommonPlace layout: chrome shell with navigation and split pane system.
  *
  * Does NOT render html/body (the root layout handles that).
  * Applies the `commonplace-theme` class to scope all CSS
@@ -41,10 +41,9 @@ export const metadata: Metadata = {
  * Visual layers (back to front):
  *   1. Chrome shell background with construction grid
  *   2. Ambient red-pencil glow
- *   3. Paper grain on main and sidebar surfaces
- *   4. Sidebar
- *   5. Split pane system
- *   6. Engine terminal (fixed bottom, portal to body)
+ *   3. Navigation (top bar + rail or sidebar, via CommonPlaceShell)
+ *   4. Split pane system
+ *   5. Engine terminal (fixed bottom, portal to body)
  */
 export default function CommonPlaceLayout({
   children,
@@ -56,6 +55,7 @@ export default function CommonPlaceLayout({
       className="commonplace-theme cp-shell-root"
       style={{
         display: 'flex',
+        flexDirection: 'column',
         height: '100vh',
         overflow: 'hidden',
         color: 'var(--cp-text)',
@@ -68,24 +68,10 @@ export default function CommonPlaceLayout({
       {/* Ambient red-pencil glow */}
       <div className="cp-ambient-glow" aria-hidden="true" />
 
-      {/* Provider: lets Sidebar notify Timeline of new captures */}
+      {/* Provider: lets navigation notify Timeline of new captures */}
       <CommonPlaceProvider>
-        {/* Sidebar: 240px fixed, warm dark with paper grain */}
-        <CommonPlaceSidebar />
-
-        {/* Main content area: vignette dots + paper grain + split panes */}
-        <main
-          className="cp-main-surface cp-grain"
-          style={{
-            flex: 1,
-            minWidth: 0,
-            display: 'flex',
-            flexDirection: 'column',
-            position: 'relative',
-          }}
-        >
-          <SplitPaneContainer />
-        </main>
+        {/* Shell: handles nav-mode toggle (topbar vs sidebar) */}
+        <CommonPlaceShell />
 
         {/* Global overlays: object drawer, command palette, context menu, engine terminal, toast notifications */}
         <ObjectDrawer />
