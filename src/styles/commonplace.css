@@ -6,10 +6,10 @@
 
 .commonplace-theme {
   /* Chrome shell */
-  --cp-chrome: #1C1C20;
-  --cp-chrome-mid: #232328;
-  --cp-chrome-raise: #2A2A30;
-  --cp-chrome-line: #35353C;
+  --cp-chrome: #1E1B18;
+  --cp-chrome-mid: #252220;
+  --cp-chrome-raise: #2E2A26;
+  --cp-chrome-line: #3D3936;
   --cp-chrome-text: #D8D6DC;
   --cp-chrome-muted: #88868E;
   --cp-chrome-dim: #807E86;          /* AA 4.5:1 on #1C1C20 */
@@ -24,22 +24,22 @@
   --cp-sidebar-border: var(--cp-chrome-line);
   --cp-sidebar-border-strong: rgba(216, 214, 220, 0.15);
 
-  /* Content surfaces (dark chrome, matching main site hero) */
-  --cp-bg: #1C1C20;
-  --cp-surface: rgba(244, 243, 240, 0.10);
-  --cp-surface-hover: rgba(244, 243, 240, 0.14);
-  --cp-card: rgba(244, 243, 240, 0.09);
-  --cp-card-hover: rgba(244, 243, 240, 0.13);
+  /* Content surfaces (opaque dark chrome) */
+  --cp-bg: #1E1B18;
+  --cp-surface: #262320;
+  --cp-surface-hover: #2E2A26;
+  --cp-card: #242118;
+  --cp-card-hover: #2C2822;
 
   /* Text (cream on dark) */
   --cp-text: #F4F3F0;
   --cp-text-muted: #C0BDB5;
-  --cp-text-faint: #8A887F;
+  --cp-text-faint: #9A9890;
 
   /* Accent: Terracotta pencil (engine/machine signal) */
   --cp-red: #B8623D;
   --cp-red-rgb: 184, 98, 61;
-  --cp-red-soft: rgba(184, 98, 61, 0.07);
+  --cp-red-soft: #2D2219;
   --cp-red-line: rgba(184, 98, 61, 0.22);
   --cp-red-glow: rgba(184, 98, 61, 0.12);
   --cp-accent: var(--cp-red);
@@ -259,11 +259,143 @@
   pointer-events: none;
   z-index: 0;
   background: radial-gradient(
-    ellipse at 50% 0%,
-    rgba(184, 98, 61, 0.06) 0%,
-    rgba(184, 98, 61, 0.02) 20%,
+    ellipse at 65% 0%,
+    rgba(184, 98, 61, 0.04) 0%,
+    rgba(184, 98, 61, 0.015) 20%,
     transparent 50%
   );
+}
+
+/* ─────────────────────────────────────────────────
+   Top bar: 44px command strip navigation.
+   ───────────────────────────────────────────────── */
+
+.cp-topbar {
+  display: flex;
+  align-items: center;
+  height: 44px;
+  padding: 0 14px;
+  gap: 10px;
+  background: linear-gradient(180deg, #1B1512 0%, #15110F 100%);
+  border-bottom: 1px solid rgba(181, 120, 74, 0.18);
+  box-shadow: inset 0 0 40px rgba(198, 121, 61, 0.04);
+  flex-shrink: 0;
+  z-index: 10;
+}
+
+.cp-topbar-nav {
+  display: flex;
+  gap: 2px;
+  margin-left: 12px;
+}
+
+.cp-topbar-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 10px;
+  font-size: 11px;
+  font-family: var(--cp-font-mono);
+  font-weight: 500;
+  letter-spacing: 0.03em;
+  color: var(--cp-text-faint);
+  border-radius: 4px;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  transition: background-color 120ms, color 120ms;
+}
+
+.cp-topbar-btn:hover {
+  background: var(--cp-chrome-raise);
+  color: var(--cp-text-muted);
+}
+
+.cp-topbar-btn[data-active="true"] {
+  background: rgba(184, 98, 61, 0.15);
+  color: var(--cp-text);
+}
+
+.cp-topbar-right {
+  margin-left: auto;
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.cp-topbar-cmd {
+  padding: 3px 10px;
+  border: 1px solid var(--cp-chrome-line);
+  border-radius: 4px;
+  font-size: 10px;
+  font-family: var(--cp-font-mono);
+  font-weight: 500;
+  color: var(--cp-text-faint);
+  background: transparent;
+  cursor: pointer;
+}
+
+.cp-topbar-toggle {
+  width: 28px;
+  height: 28px;
+  border-radius: 4px;
+  border: 1px solid var(--cp-chrome-line);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--cp-text-faint);
+  background: transparent;
+  cursor: pointer;
+  transition: all 120ms;
+}
+
+.cp-topbar-toggle:hover {
+  border-color: var(--cp-text-faint);
+  color: var(--cp-text);
+}
+
+.cp-topbar-toggle[data-active="true"] {
+  background: rgba(184, 98, 61, 0.12);
+  border-color: rgba(184, 98, 61, 0.3);
+  color: var(--cp-text);
+}
+
+/* ─────────────────────────────────────────────────
+   Icon rail: 48px vertical navigation strip.
+   ───────────────────────────────────────────────── */
+
+.cp-rail {
+  width: 48px;
+  flex-shrink: 0;
+  background: linear-gradient(180deg, #15110F 0%, #1B1512 100%);
+  border-right: 1px solid rgba(181, 120, 74, 0.18);
+  box-shadow: inset 0 0 40px rgba(198, 121, 61, 0.04);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 12px 0;
+  gap: 2px;
+  overflow: hidden;
+  transition: width 250ms cubic-bezier(0.34, 1.56, 0.64, 1),
+              opacity 200ms;
+}
+
+.cp-rail--hidden {
+  width: 0;
+  opacity: 0;
+  border-right: none;
+  padding: 0;
+}
+
+/* ─────────────────────────────────────────────────
+   Body area: flex container below top bar.
+   ───────────────────────────────────────────────── */
+
+.cp-body-area {
+  display: flex;
+  flex: 1;
+  overflow: hidden;
+  min-height: 0;
 }
 
 /* ─────────────────────────────────────────────────

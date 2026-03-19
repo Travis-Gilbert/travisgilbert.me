@@ -6,12 +6,12 @@
    ───────────────────────────────────────────────── */
 
 @theme inline {
-  /* Backgrounds */
-  --color-paper: #F2EDE5;
-  --color-surface: #FAF6F1;
-  --color-bg-alt: #E8E0D6;
-  --color-card: #FAF6F1;           /* alias → surface */
-  --color-code: #E8E0D6;           /* alias → bg-alt */
+  /* Backgrounds (amber parchment: hue ~33°, elevated saturation) */
+  --color-paper: #F5E9D8;
+  --color-surface: #FBF3E8;
+  --color-bg-alt: #EBDBC8;
+  --color-card: #FBF3E8;           /* alias → surface */
+  --color-code: #EBDBC8;           /* alias → bg-alt */
   --color-nav-bg: #221A1C;         /* nav: warm dark wine, no cool purple cast */
 
   /* Text */
@@ -42,14 +42,14 @@
 
   /* Ink (rough.js strokes) */
   --color-rough: #3A3632;
-  --color-rough-light: #A09A90;
+  --color-rough-light: #A29B8E;
 
   /* Borders */
-  --color-border: #D4CCC4;
-  --color-border-light: #E8E0D6;
+  --color-border: #D7CBC1;
+  --color-border-light: #ECE0D2;
 
   /* Paper at zero alpha (for gradient fades; avoids OKLAB green shift) */
-  --color-paper-0: rgba(242, 237, 229, 0);
+  --color-paper-0: rgba(245, 237, 226, 0);
 
   /* Utility */
   --color-shadow: rgba(42, 36, 32, 0.08);
@@ -111,12 +111,12 @@
 
 html[data-theme="dark"] {
   /* Backgrounds: warm charcoal, not blue-gray */
-  --color-paper: #1A1816;
+  --color-paper: #1B1815;
   --color-nav-bg: #221A1C;
-  --color-surface: #222018;
-  --color-bg-alt: #2E2A26;
-  --color-card: #222018;
-  --color-code: #2E2A26;
+  --color-surface: #252016;
+  --color-bg-alt: #302A24;
+  --color-card: #252016;
+  --color-code: #302A24;
 
   /* Text: cream tones, not pure white */
   --color-ink: #E8E0D6;
@@ -140,14 +140,14 @@ html[data-theme="dark"] {
 
   /* Rough.js strokes: lighter for visibility */
   --color-rough: #8A8480;
-  --color-rough-light: #B0AAA4;
+  --color-rough-light: #B2AAA2;
 
   /* Borders: darker but still visible */
-  --color-border: #3A3632;
-  --color-border-light: #4A4642;
+  --color-border: #3C3630;
+  --color-border-light: #4C4640;
 
   /* Paper at zero alpha (for gradient fades; avoids OKLAB green shift) */
-  --color-paper-0: rgba(26, 24, 22, 0);
+  --color-paper-0: rgba(27, 24, 21, 0);
 
   /* Utility */
   --color-shadow: rgba(0, 0, 0, 0.25);
@@ -372,6 +372,28 @@ body {
   color: var(--color-ink);
   font-size: 1.0625rem; /* 17px per brand spec */
   line-height: 1.75;
+  isolation: isolate;
+}
+
+/* Bottom warmth gradient: subtle amber bloom at viewport floor.
+   Mirrors the top shadow gradient, inverted. Encourages scrolling
+   by suggesting content continues below the fold. */
+body::before {
+  content: '';
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 15vh;
+  pointer-events: none;
+  z-index: 90;
+  background: linear-gradient(
+    to bottom,
+    transparent 0%,
+    rgba(200, 160, 100, 0.03) 40%,
+    rgba(190, 140, 75, 0.08) 70%,
+    rgba(180, 125, 60, 0.12) 100%
+  );
 }
 
 /* ─────────────────────────────────────────────────
@@ -1943,4 +1965,113 @@ html {
     background: rgba(180, 90, 45, 0.08);
     font-size: 10px;
   }
+}
+
+/* ─────────────────────────────────────────────────
+   Theseus Explainer Page
+   Full-bleed sections escape the max-w-4xl container.
+   Text-heavy sections apply their own constraint.
+   ───────────────────────────────────────────────── */
+
+.theseus-page {
+  /* Break out of max-w-4xl mx-auto in MainLayout */
+  width: 100vw;
+  position: relative;
+  left: 50%;
+  right: 50%;
+  margin-left: -50vw;
+  margin-right: -50vw;
+  /* No solid background: DotGrid texture shows through */
+}
+
+.theseus-section {
+  max-width: 1000px;
+  margin: 0 auto;
+  padding: 56px 24px;
+}
+
+.theseus-divider {
+  max-width: 1000px;
+  margin: 0 auto;
+  padding: 0 24px;
+}
+
+.theseus-hero {
+  position: relative;
+  padding: 60px 24px 40px;
+  overflow: visible;
+}
+
+.theseus-hero-fade {
+  position: absolute;
+  bottom: -40px;
+  left: 0;
+  right: 0;
+  height: 60%;
+  z-index: 1;
+  pointer-events: none;
+  background: linear-gradient(
+    to bottom,
+    transparent 0%,
+    color-mix(in srgb, var(--color-paper) 3%, transparent) 15%,
+    color-mix(in srgb, var(--color-paper) 8%, transparent) 28%,
+    color-mix(in srgb, var(--color-paper) 18%, transparent) 40%,
+    color-mix(in srgb, var(--color-paper) 35%, transparent) 55%,
+    color-mix(in srgb, var(--color-paper) 58%, transparent) 68%,
+    color-mix(in srgb, var(--color-paper) 80%, transparent) 80%,
+    var(--color-paper) 100%
+  );
+}
+
+/* Inline badge styles for Theseus comparison responses */
+.tag-contradiction {
+  display: inline-block;
+  font-family: var(--font-code);
+  font-size: 9px;
+  font-weight: 600;
+  padding: 2px 6px;
+  border-radius: 3px;
+  letter-spacing: 0.06em;
+  vertical-align: middle;
+  background: rgba(180, 90, 45, 0.1);
+  color: var(--color-terracotta);
+}
+
+.tag-connection {
+  display: inline-block;
+  font-family: var(--font-code);
+  font-size: 9px;
+  font-weight: 600;
+  padding: 2px 6px;
+  border-radius: 3px;
+  letter-spacing: 0.06em;
+  vertical-align: middle;
+  background: rgba(45, 95, 107, 0.1);
+  color: var(--color-teal);
+}
+
+.tag-gap {
+  display: inline-block;
+  font-family: var(--font-code);
+  font-size: 9px;
+  font-weight: 600;
+  padding: 2px 6px;
+  border-radius: 3px;
+  letter-spacing: 0.06em;
+  vertical-align: middle;
+  background: rgba(196, 154, 74, 0.1);
+  color: var(--color-gold);
+}
+
+.tag-provenance {
+  display: inline-block;
+  font-family: var(--font-code);
+  font-size: 9px;
+  font-weight: 600;
+  padding: 2px 6px;
+  border-radius: 3px;
+  letter-spacing: 0.06em;
+  vertical-align: middle;
+  background: rgba(107, 79, 122, 0.1);
+  color: #6B4F7A;
 }
