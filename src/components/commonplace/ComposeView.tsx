@@ -16,7 +16,20 @@ import { captureToApi, type ComposeLiveResult } from '@/lib/commonplace-api';
 import { useCommonPlace } from '@/lib/commonplace-context';
 import { useEngineJobStatus } from '@/hooks/useEngineJobStatus';
 import { useLiveResearch } from '@/hooks/useLiveResearch';
-import { Activity, Flash, GridMinus, Bookmark } from 'iconoir-react';
+import {
+  Activity,
+  Flash,
+  GridMinus,
+  Bookmark,
+  Bold,
+  Italic,
+  Code,
+  Link as LinkIcon,
+  List,
+  NumberedListLeft,
+  QuoteMessage,
+  Strikethrough,
+} from 'iconoir-react';
 import TerminalBlock from './TerminalBlock';
 import ComposeDiscoveryDock from './ComposeDiscoveryDock';
 import ObjectRenderer from './objects/ObjectRenderer';
@@ -209,6 +222,7 @@ export default function ComposeView({
     type: string;
     slug: string;
   } | null>(null);
+  const [activeMarks, setActiveMarks] = useState<Record<string, boolean>>({});
   const [terminalOpen, setTerminalOpen] = useState(false);
   const [terminalHeight, setTerminalHeight] = useState(184);
   const [terminalTab, setTerminalTab] = useState<'passes' | 'tension' | 'gaps' | 'stash'>('passes');
@@ -285,6 +299,20 @@ export default function ComposeView({
 
   const handleEditorReady = useCallback((editor: Editor) => {
     editorRef.current = editor;
+    const updateMarks = () => {
+      setActiveMarks({
+        bold: editor.isActive('bold'),
+        italic: editor.isActive('italic'),
+        strike: editor.isActive('strike'),
+        code: editor.isActive('code'),
+        bulletList: editor.isActive('bulletList'),
+        orderedList: editor.isActive('orderedList'),
+        blockquote: editor.isActive('blockquote'),
+        link: editor.isActive('link'),
+      });
+    };
+    editor.on('selectionUpdate', updateMarks);
+    editor.on('transaction', updateMarks);
   }, []);
 
   const handleSave = useCallback(async () => {
@@ -467,6 +495,84 @@ export default function ComposeView({
           <div className="cp-compose-editor-shell">
             <div className="cp-compose-writing-scroll">
               <div className="cp-compose-writing-column">
+                <div className="cp-compose-toolbar">
+                  <div className="cp-compose-toolbar-group">
+                    <button
+                      type="button"
+                      className={`cp-compose-toolbar-btn${activeMarks.bold ? ' active' : ''}`}
+                      title="Bold"
+                      onClick={() => editorRef.current?.chain().focus().toggleBold().run()}
+                    >
+                      <Bold width={14} height={14} strokeWidth={2} />
+                    </button>
+                    <button
+                      type="button"
+                      className={`cp-compose-toolbar-btn${activeMarks.italic ? ' active' : ''}`}
+                      title="Italic"
+                      onClick={() => editorRef.current?.chain().focus().toggleItalic().run()}
+                    >
+                      <Italic width={14} height={14} strokeWidth={2} />
+                    </button>
+                    <button
+                      type="button"
+                      className={`cp-compose-toolbar-btn${activeMarks.strike ? ' active' : ''}`}
+                      title="Strikethrough"
+                      onClick={() => editorRef.current?.chain().focus().toggleStrike().run()}
+                    >
+                      <Strikethrough width={14} height={14} strokeWidth={2} />
+                    </button>
+                    <button
+                      type="button"
+                      className={`cp-compose-toolbar-btn${activeMarks.code ? ' active' : ''}`}
+                      title="Inline code"
+                      onClick={() => editorRef.current?.chain().focus().toggleCode().run()}
+                    >
+                      <Code width={14} height={14} strokeWidth={2} />
+                    </button>
+                  </div>
+                  <div className="cp-compose-toolbar-divider" />
+                  <div className="cp-compose-toolbar-group">
+                    <button
+                      type="button"
+                      className={`cp-compose-toolbar-btn${activeMarks.bulletList ? ' active' : ''}`}
+                      title="Bullet list"
+                      onClick={() => editorRef.current?.chain().focus().toggleBulletList().run()}
+                    >
+                      <List width={14} height={14} strokeWidth={2} />
+                    </button>
+                    <button
+                      type="button"
+                      className={`cp-compose-toolbar-btn${activeMarks.orderedList ? ' active' : ''}`}
+                      title="Ordered list"
+                      onClick={() => editorRef.current?.chain().focus().toggleOrderedList().run()}
+                    >
+                      <NumberedListLeft width={14} height={14} strokeWidth={2} />
+                    </button>
+                    <button
+                      type="button"
+                      className={`cp-compose-toolbar-btn${activeMarks.blockquote ? ' active' : ''}`}
+                      title="Blockquote"
+                      onClick={() => editorRef.current?.chain().focus().toggleBlockquote().run()}
+                    >
+                      <QuoteMessage width={14} height={14} strokeWidth={2} />
+                    </button>
+                  </div>
+                  <div className="cp-compose-toolbar-divider" />
+                  <div className="cp-compose-toolbar-group">
+                    <button
+                      type="button"
+                      className={`cp-compose-toolbar-btn${activeMarks.link ? ' active' : ''}`}
+                      title="Insert link"
+                      onClick={() => {
+                        const url = window.prompt('URL');
+                        if (url) editorRef.current?.chain().focus().setLink({ href: url }).run();
+                      }}
+                    >
+                      <LinkIcon width={14} height={14} strokeWidth={2} />
+                    </button>
+                  </div>
+                </div>
+
                 <div className="cp-compose-editor-topline">
                   <div
                     className="cp-compose-type-badge"

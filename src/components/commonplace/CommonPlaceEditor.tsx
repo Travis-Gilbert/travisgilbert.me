@@ -18,12 +18,14 @@ export default function CommonPlaceEditor({
   onUpdate,
   onEditorReady,
   placeholder = 'Begin writing. Use / for commands, [[ for links...',
+  toolbar,
 }: {
   initialContent?: string;
   initialContentFormat?: 'html' | 'markdown';
   onUpdate?: (payload: TiptapUpdatePayload) => void;
   onEditorReady?: (editor: Editor) => void;
   placeholder?: string;
+  toolbar?: React.ReactNode;
 }) {
   return (
     <div className="cp-editor-wrapper">
@@ -34,6 +36,7 @@ export default function CommonPlaceEditor({
         onEditorReady={onEditorReady}
         typewriterMode={false}
         placeholder={placeholder}
+        toolbar={toolbar}
       />
     </div>
   );

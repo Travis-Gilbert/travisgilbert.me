@@ -276,7 +276,7 @@
   height: 44px;
   padding: 0 14px;
   gap: 10px;
-  background: linear-gradient(180deg, #1B1512 0%, #15110F 100%);
+  background: linear-gradient(180deg, rgba(27, 21, 18, 0.82) 0%, rgba(21, 17, 15, 0.78) 100%);
   border-bottom: 1px solid rgba(181, 120, 74, 0.18);
   box-shadow: inset 0 0 40px rgba(198, 121, 61, 0.04);
   flex-shrink: 0;
@@ -367,7 +367,7 @@
 .cp-rail {
   width: 48px;
   flex-shrink: 0;
-  background: linear-gradient(180deg, #15110F 0%, #1B1512 100%);
+  background: linear-gradient(180deg, rgba(21, 17, 15, 0.78) 0%, rgba(27, 21, 18, 0.82) 100%);
   border-right: 1px solid rgba(181, 120, 74, 0.18);
   box-shadow: inset 0 0 40px rgba(198, 121, 61, 0.04);
   display: flex;
@@ -9104,6 +9104,126 @@
   display: flex;
   flex-direction: column;
   box-sizing: border-box;
+  background: rgb(245, 230, 210);
+  border: 1px solid rgba(180, 160, 130, 0.18);
+  border-radius: 10px;
+  box-shadow:
+    0 1px 3px rgba(120, 100, 70, 0.06),
+    0 4px 14px rgba(120, 100, 70, 0.05),
+    0 10px 32px rgba(100, 80, 50, 0.04);
+  padding: 0;
+  overflow: hidden;
+  transition: box-shadow 250ms ease;
+  /* Dark-on-parchment text overrides for the lifted card */
+  --_card-text: #2A2520;
+  --_card-text-muted: #5A5248;
+  --_card-text-faint: #8A8070;
+  --_card-accent: #B8623D;
+  color: var(--_card-text);
+}
+
+/* Subtle shadow lift when the card has focus */
+.cp-compose-writing-column:focus-within {
+  box-shadow:
+    0 1px 3px rgba(120, 100, 70, 0.08),
+    0 6px 18px rgba(120, 100, 70, 0.07),
+    0 14px 40px rgba(100, 80, 50, 0.05);
+}
+
+.cp-compose-writing-column .cp-compose-title {
+  color: var(--_card-text);
+}
+
+.cp-compose-writing-column .cp-compose-title::placeholder {
+  color: rgba(120, 100, 70, 0.35);
+}
+
+.cp-compose-writing-column .cp-compose-type-badge {
+  color: var(--_card-text-faint);
+  border-color: rgba(120, 100, 70, 0.10);
+  background: rgba(120, 100, 70, 0.05);
+}
+
+.cp-compose-writing-column .cp-compose-editor-stats {
+  color: var(--_card-text-faint);
+  font-size: 11px;
+  letter-spacing: 0.02em;
+}
+
+.cp-compose-writing-column .cp-compose-editor-placeholder-kicker {
+  color: rgba(120, 100, 70, 0.32);
+}
+
+.cp-compose-writing-column .cp-compose-check-tension {
+  color: var(--_card-accent);
+  background: rgba(184, 98, 61, 0.06);
+  border: 1px solid rgba(184, 98, 61, 0.15);
+  border-radius: 5px;
+  transition: background 150ms, border-color 150ms;
+}
+
+.cp-compose-writing-column .cp-compose-check-tension:hover {
+  background: rgba(184, 98, 61, 0.10);
+  border-color: rgba(184, 98, 61, 0.25);
+}
+
+/* Caret: warm terracotta accent for visibility on parchment */
+.cp-compose-writing-column .ProseMirror {
+  caret-color: var(--_card-accent);
+}
+
+.cp-compose-writing-column .cp-compose-title {
+  caret-color: var(--_card-accent);
+}
+
+/* Writing toolbar: top strip inside the lifted card */
+.cp-compose-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 5px 14px;
+  border-bottom: 1px solid rgba(120, 100, 70, 0.08);
+  background: transparent;
+  flex-shrink: 0;
+}
+
+.cp-compose-toolbar-group {
+  display: flex;
+  align-items: center;
+  gap: 1px;
+}
+
+.cp-compose-toolbar-divider {
+  width: 1px;
+  height: 14px;
+  background: rgba(120, 100, 70, 0.10);
+  margin: 0 7px;
+  flex-shrink: 0;
+}
+
+.cp-compose-toolbar-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 26px;
+  border: none;
+  border-radius: 5px;
+  background: transparent;
+  color: rgba(80, 65, 45, 0.38);
+  cursor: pointer;
+  transition: background 120ms, color 120ms;
+  padding: 0;
+}
+
+.cp-compose-toolbar-btn:hover {
+  background: rgba(120, 100, 70, 0.07);
+  color: rgba(60, 45, 25, 0.65);
+}
+
+.cp-compose-toolbar-btn.active {
+  background: rgba(184, 98, 61, 0.08);
+  color: var(--_card-accent, rgba(184, 98, 61, 0.85));
 }
 
 .cp-compose-editor-topline,
@@ -9116,7 +9236,7 @@
 
 .cp-compose-editor-topline {
   margin: 0;
-  padding: 18px 0 0;
+  padding: 14px 20px 0;
 }
 
 .cp-compose-type-badge {
@@ -9141,18 +9261,21 @@
 
 .cp-compose-title {
   margin: 0;
-  padding: 8px 0 12px;
+  padding: 8px 20px 14px;
   font-size: clamp(24px, 2.2vw, 28px);
   line-height: 1.25;
   letter-spacing: -0.015em;
+  font-weight: 600;
   font-feature-settings: var(--cp-kern-title);
+  border-bottom: 1px solid rgba(120, 100, 70, 0.08);
 }
 
 .cp-compose-editor-frame {
   width: 100%;
   min-height: 0;
   position: relative;
-  margin-top: 4px;
+  margin-top: 0;
+  padding: 4px 20px 0;
 }
 
 .cp-compose-editor-shell .cp-editor-wrapper {
@@ -9214,10 +9337,10 @@
 }
 
 .cp-compose-editor-shell .cp-editor-wrapper .studio-prose {
-  font-size: clamp(15px, 1.2vw, 15.5px);
-  line-height: 1.74;
+  font-size: clamp(16px, 1.3vw, 17px);
+  line-height: 1.78;
   letter-spacing: 0.005em;
-  color: var(--cp-text-muted);
+  color: var(--_card-text-muted, var(--cp-text-muted));
   min-height: 200px;
   padding: 0;
   background-image: none;
@@ -9251,8 +9374,8 @@
 
 .cp-compose-tension-row {
   margin: 12px 0 0;
-  padding: 8px 0 10px;
-  border-top: 1px solid var(--cp-border-faint);
+  padding: 8px 20px 10px;
+  border-top: 1px solid rgba(120, 100, 70, 0.08);
 }
 
 .cp-compose-check-tension {
@@ -9270,27 +9393,36 @@
   flex-shrink: 0;
   min-width: 200px;
   max-width: 280px;
-  border-left: 1px solid var(--cp-border-faint);
-  background: var(--cp-surface);
+  border-left: 1px solid rgba(180, 160, 130, 0.15);
+  background: rgb(240, 225, 205);
   overflow-y: auto;
   padding: 12px;
+  /* Warm text palette scoped to dock */
+  --_dock-text: #3A3530;
+  --_dock-text-muted: #6A6258;
+  --_dock-text-faint: #9A9080;
+  --_dock-accent: #B8623D;
+  color: var(--_dock-text);
 }
 
 .cp-compose-dock-header {
   padding: 11px 12px 7px;
-  border-bottom: none;
+  border-bottom: 1px solid rgba(160, 140, 110, 0.12);
+  margin-bottom: 4px;
 }
 
 .cp-compose-dock-kicker {
   font-size: 9px;
   font-weight: 600;
   letter-spacing: 0.08em;
+  color: var(--_dock-text-faint, var(--cp-text-faint));
 }
 
 .cp-compose-dock-title {
   font-size: 11px;
   line-height: 1.45;
   max-width: 21ch;
+  color: var(--_dock-text-muted, var(--cp-text-muted));
 }
 
 .cp-compose-dock-presence {
@@ -9298,12 +9430,11 @@
   align-items: center;
   gap: 8px;
   font-family: var(--cp-font-mono);
-  font-weight: 500;
   font-size: 9px;
   font-weight: 600;
   letter-spacing: 0.08em;
   text-transform: uppercase;
-  color: var(--cp-text-faint);
+  color: var(--_dock-text-faint, var(--cp-text-faint));
 }
 
 .cp-compose-dock-presence-dot {
@@ -9322,7 +9453,6 @@
   min-height: 0;
   overflow-y: auto;
   padding: 0 12px 10px;
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.28), transparent 18%);
 }
 
 .cp-compose-dock-section {
@@ -9333,12 +9463,11 @@
 
 .cp-compose-dock-section-title {
   font-family: var(--cp-font-mono);
-  font-weight: 500;
   font-size: 9px;
   font-weight: 700;
   letter-spacing: 0.1em;
   text-transform: uppercase;
-  color: var(--cp-text-faint);
+  color: var(--_dock-text-faint, var(--cp-text-faint));
 }
 
 .cp-compose-results-panel {
@@ -9411,8 +9540,8 @@
 }
 
 .cp-discovery-badge--ghost {
-  background: rgba(24, 24, 27, 0.035);
-  color: var(--cp-text-faint);
+  background: rgba(120, 100, 70, 0.06);
+  color: var(--_dock-text-faint, var(--cp-text-faint));
 }
 
 .cp-discovery-score,
@@ -9432,7 +9561,7 @@
   font-family: var(--cp-font-title);
   font-size: 16px;
   line-height: 1.24;
-  color: var(--cp-text);
+  color: var(--_dock-text, var(--cp-text));
   font-feature-settings: var(--cp-kern-title);
 }
 
@@ -9446,7 +9575,7 @@
   font-family: var(--cp-font-body);
   font-size: 12px;
   line-height: 1.55;
-  color: var(--cp-text-muted);
+  color: var(--_dock-text-muted, var(--cp-text-muted));
 }
 
 .cp-discovery-pill {
@@ -9474,7 +9603,7 @@
   font-size: 12.5px;
   font-weight: 600;
   line-height: 1.35;
-  color: var(--cp-text);
+  color: var(--_dock-text, var(--cp-text));
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -9518,6 +9647,7 @@
   padding: 0;
   font-size: 12px;
   line-height: 1.55;
+  color: var(--_dock-text-faint, var(--cp-text-faint));
 }
 
 .cp-compose-stash-chip-list {
@@ -9727,7 +9857,7 @@
 
   .cp-compose-graph-panel.cp-compose-right-dock {
     border-left: none;
-    border-top: 1px solid var(--cp-border);
+    border-top: 1px solid rgba(160, 140, 110, 0.15);
     min-width: 0;
     max-width: none;
     max-height: 42vh;
@@ -9746,12 +9876,24 @@
   }
 
   .cp-compose-editor-topline {
-    padding: 18px 0 0;
+    padding: 18px 12px 0;
   }
 
   .cp-compose-title {
-    padding: 10px 0 8px;
+    padding: 10px 12px 8px;
     font-size: clamp(24px, 6.5vw, 30px);
+  }
+
+  .cp-compose-editor-frame {
+    padding: 0 12px;
+  }
+
+  .cp-compose-tension-row {
+    padding: 8px 12px 10px;
+  }
+
+  .cp-compose-writing-column {
+    border-radius: 8px;
   }
 
   .cp-compose-editor-frame,
@@ -9981,12 +10123,12 @@
    ───────────────────────────────────────────────── */
 
 .cp-compose-right-dock {
-  border-left: 1px solid var(--cp-border);
-  box-shadow: inset 2px 0 8px rgba(24, 24, 27, 0.04);
+  border-left: 1px solid rgba(180, 160, 130, 0.15);
+  box-shadow: inset 2px 0 8px rgba(120, 100, 70, 0.03);
 }
 
 .cp-compose-dock-section-title {
-  border-bottom: 1px solid var(--cp-border-faint);
+  border-bottom: 1px solid rgba(160, 140, 110, 0.12);
   padding-bottom: 6px;
   margin-bottom: 8px;
 }

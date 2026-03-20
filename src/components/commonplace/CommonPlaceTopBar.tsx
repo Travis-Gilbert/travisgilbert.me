@@ -33,7 +33,7 @@ export default function CommonPlaceTopBar({ railVisible, onToggleRail }: CommonP
   const { activeScreen, navigateToScreen, launchView, openPalette } = useCommonPlace();
 
   return (
-    <header className="cp-topbar">
+    <header className="cp-topbar" style={{ backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)' }}>
       {/* Left: brand */}
       <a
         href="/commonplace"

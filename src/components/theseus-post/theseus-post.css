@@ -1,0 +1,61 @@
+/* theseus-post.css: Scoped styles for the Theseus x CommonPlace explainer page.
+   Handles responsive behavior for components that need media queries. */
+
+/* ── MarginNote responsive ── */
+.margin-note-desktop {
+  display: none;
+}
+.margin-note-mobile {
+  display: block;
+}
+
+@media (min-width: 1100px) {
+  .margin-note-desktop {
+    display: block;
+  }
+  .margin-note-mobile {
+    display: none;
+  }
+}
+
+/* ── SplitSection responsive ── */
+@media (max-width: 767px) {
+  .split-grid {
+    display: block !important;
+  }
+  .split-content {
+    padding: 36px 20px !important;
+    border: none !important;
+  }
+  .split-open {
+    display: none;
+  }
+}
+
+/* ── FloatingAnnotation responsive ── */
+@media (max-width: 767px) {
+  .floating-annotation {
+    position: relative !important;
+    top: auto !important;
+    left: auto !important;
+    right: auto !important;
+    bottom: auto !important;
+    margin: 24px auto !important;
+    max-width: 100% !important;
+  }
+}
+
+/* ── ContentSection mobile ── */
+@media (max-width: 767px) {
+  .editorial-section {
+    padding: 36px 20px !important;
+    backdrop-filter: blur(4px) !important;
+    -webkit-backdrop-filter: blur(4px) !important;
+  }
+}
+
+/* ── Scroll pulse animation ── */
+@keyframes maze-scroll-pulse {
+  0%, 100% { opacity: 0.4; transform: translateY(0); }
+  50% { opacity: 0.7; transform: translateY(4px); }
+}
