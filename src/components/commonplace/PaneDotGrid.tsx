@@ -68,11 +68,11 @@ interface PaneDotGridProps {
 
 export default function PaneDotGrid({
   seed = 7,
-  dotColor = [24, 24, 27],
-  dotOpacity = 0.22,
+  dotColor = [36, 30, 24],
+  dotOpacity = 0.18,
   spacing = 20,
   dotRadius = 0.75,
-  binaryDensity = 0.10,
+  binaryDensity = 0.07,
   bgColor = [244, 243, 240],
   vignette = true,
   className,

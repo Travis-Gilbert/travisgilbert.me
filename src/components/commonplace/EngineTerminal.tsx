@@ -275,7 +275,7 @@ export default function EngineTerminal({
                   border: 'none',
                   borderBottom:
                     activeTab === tab.id
-                      ? '2px solid var(--cp-term-text, #C0C8D8)'
+                      ? '2px solid var(--cp-teal, #2D5F6B)'
                       : '2px solid transparent',
                   padding: '6px 14px',
                   cursor: 'pointer',

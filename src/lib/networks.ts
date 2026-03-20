@@ -9,8 +9,10 @@
    API base
    ───────────────────────────────────────────────── */
 
-const RESEARCH_API =
-  process.env.NEXT_PUBLIC_RESEARCH_API_URL ?? '';
+// Browser: relative URL (rewrite proxy handles it). SSR: use env var if set.
+const RESEARCH_API = typeof window !== 'undefined'
+  ? ''
+  : (process.env.NEXT_PUBLIC_RESEARCH_API_URL ?? '');
 
 const API_BASE = `${RESEARCH_API}/api/v1/notebook`;
 

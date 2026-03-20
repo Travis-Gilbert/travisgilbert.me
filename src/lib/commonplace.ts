@@ -9,8 +9,12 @@
    API base
    ───────────────────────────────────────────────── */
 
-const RESEARCH_API =
-  process.env.NEXT_PUBLIC_RESEARCH_API_URL ?? '';
+// Client-side: always use relative URLs so Next.js rewrite proxy handles routing.
+// The rewrite in next.config.ts reads NEXT_PUBLIC_RESEARCH_API_URL for the actual
+// backend destination. Client code should never build absolute URLs to the backend.
+const RESEARCH_API = typeof window !== 'undefined'
+  ? ''  // browser: relative URL, goes through Next.js rewrite proxy
+  : (process.env.NEXT_PUBLIC_RESEARCH_API_URL ?? '');  // SSR: can use direct URL
 
 export const API_BASE = `${RESEARCH_API}/api/v1/notebook`;
 export const EPISTEMIC_BASE = `${RESEARCH_API}/api/v1`;

@@ -45,16 +45,16 @@ interface DotFieldProps {
 export default function DotField({
   seed = 'model-workspace',
   dotColor: dotColorProp,
-  dotOpacity = 0.07,
+  dotOpacity = 0.05,
   spacing = 20,
   dotRadius = 0.5,
-  binaryDensity = 0.08,
+  binaryDensity = 0.06,
   className,
   style,
 }: DotFieldProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const dotColor = useMemo<[number, number, number]>(
-    () => dotColorProp ?? [26, 26, 29],
+    () => dotColorProp ?? [36, 30, 24],
     [dotColorProp],
   );
 

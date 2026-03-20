@@ -132,10 +132,13 @@ function ToolboxTile({
   const [dragging, setDragging] = useState(false);
   const pointerRef = useRef({ x: 0, y: 0 });
 
+  const initial = comp.label.charAt(0);
+
   return (
     <>
       <motion.div
         className="cp-toolbox-tile cp-toolbox-tile-source"
+        style={{ '--comp-color': comp.color } as React.CSSProperties}
         drag
         dragSnapToOrigin
         dragElastic={0.15}
@@ -167,11 +170,17 @@ function ToolboxTile({
           onDragCancel();
         }}
       >
-        <span
-          className="cp-capture-type-dot"
-          style={{ background: comp.color }}
-        />
-        <span className="cp-toolbox-tile-label">
+        <div
+          className="cp-toolbox-glow-icon"
+          style={{
+            background: `radial-gradient(circle, ${comp.color}50, ${comp.color}15)`,
+            color: comp.color,
+            boxShadow: `0 0 8px ${comp.color}30`,
+          }}
+        >
+          {initial}
+        </div>
+        <span className="cp-toolbox-tile-label" style={{ opacity: 0.85 }}>
           {comp.label}
         </span>
       </motion.div>

@@ -89,8 +89,8 @@ const CLUSTER_HULL_COLORS = [
   '#8A7A5A',
 ];
 
-const RESEARCH_URL =
-  process.env.NEXT_PUBLIC_RESEARCH_API_URL ?? 'http://localhost:8001';
+// Browser: relative URL (rewrite proxy handles it)
+const RESEARCH_URL = '';
 
 // ─────────────────────────────────────────────────
 // Helpers

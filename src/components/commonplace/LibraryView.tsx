@@ -329,49 +329,15 @@ export default function LibraryView({ onOpenObject }: LibraryViewProps) {
             marginBottom: 10,
           }}
         >
-          <h2
-            style={{
-              margin: 0,
-              fontFamily: 'var(--cp-font-title)',
-              fontSize: 22,
-              lineHeight: 1.08,
-              color: 'var(--cp-text)',
-              letterSpacing: '-0.02em',
-              fontFeatureSettings: 'var(--cp-kern-title)',
-            }}
-          >
+          <h2 className="cp-view-title">
             Library
           </h2>
           <button
             type="button"
-            className="cp-resurface-btn"
+            className="cp-resurface-btn cp-btn-accent"
             onClick={() => launchView('resurface')}
-            style={{
-              border: '1px solid var(--cp-red-line)',
-              background: 'var(--cp-red-soft)',
-              color: 'var(--cp-red)',
-              borderRadius: 5,
-              padding: '5px 12px',
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: 5,
-              fontFamily: 'var(--cp-font-mono)',
-              fontSize: 10,
-              fontWeight: 700,
-              letterSpacing: '0.04em',
-              textTransform: 'uppercase',
-              cursor: 'pointer',
-            }}
           >
-            <span
-              style={{
-                width: 6,
-                height: 6,
-                borderRadius: '50%',
-                background: 'var(--cp-red)',
-                flexShrink: 0,
-              }}
-            />
+            <span className="cp-btn-accent-dot" />
             Resurface
           </button>
         </div>
@@ -387,15 +353,7 @@ export default function LibraryView({ onOpenObject }: LibraryViewProps) {
       </div>
 
       {usingOfflinePreview && (
-        <div
-          style={{
-            fontFamily: 'var(--cp-font-mono)',
-            fontSize: 10,
-            color: 'var(--cp-text-faint)',
-            letterSpacing: '0.06em',
-            padding: '2px 2px 0',
-          }}
-        >
+        <div className="cp-offline-banner">
           Offline preview. Start the notebook API to replace demo content with live data.
         </div>
       )}
@@ -425,44 +383,19 @@ export default function LibraryView({ onOpenObject }: LibraryViewProps) {
             {activeCluster && (
               <button
                 type="button"
+                className="cp-filter-pill"
+                data-active="true"
                 onClick={() => setActiveClusterKey(null)}
-                style={{
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  gap: 6,
-                  fontFamily: 'var(--cp-font-mono)',
-                  fontSize: 9,
-                  fontWeight: 700,
-                  letterSpacing: '0.05em',
-                  textTransform: 'uppercase',
-                  padding: '3px 10px',
-                  borderRadius: 999,
-                  border: '1px solid var(--cp-red-line)',
-                  background: 'var(--cp-red-soft)',
-                  color: 'var(--cp-red)',
-                  cursor: 'pointer',
-                }}
               >
-                Cluster
-                <span style={{ opacity: 0.72 }}>{activeCluster.label}</span>
+                Cluster: {activeCluster.label}
+                <span style={{ fontSize: 11, opacity: 0.6, marginLeft: 2 }}>✕</span>
               </button>
             )}
             <button
               type="button"
+              className="cp-filter-pill"
+              data-active={activeType === null}
               onClick={() => setActiveType(null)}
-              style={{
-                fontFamily: 'var(--cp-font-mono)',
-                fontSize: 9,
-                fontWeight: 700,
-                letterSpacing: '0.05em',
-                textTransform: 'uppercase',
-                padding: '3px 10px',
-                borderRadius: 999,
-                border: '1px solid var(--cp-border)',
-                background: activeType === null ? 'var(--cp-red-soft)' : 'transparent',
-                color: activeType === null ? 'var(--cp-red)' : 'var(--cp-text-faint)',
-                cursor: 'pointer',
-              }}
             >
               All
             </button>
@@ -473,32 +406,14 @@ export default function LibraryView({ onOpenObject }: LibraryViewProps) {
                 <button
                   key={type}
                   type="button"
+                  className="cp-filter-pill"
+                  data-active={isActive}
+                  style={{ '--pill-color': identity.color } as React.CSSProperties}
                   onClick={() => setActiveType(isActive ? null : type)}
-                  style={{
-                    display: 'inline-flex',
-                    alignItems: 'center',
-                    gap: 6,
-                    fontFamily: 'var(--cp-font-mono)',
-                    fontSize: 9,
-                    fontWeight: 700,
-                    letterSpacing: '0.05em',
-                    textTransform: 'uppercase',
-                    padding: '3px 10px',
-                    borderRadius: 999,
-                    border: `1px solid ${isActive ? identity.color : 'var(--cp-border)'}`,
-                    background: isActive ? `${identity.color}12` : 'transparent',
-                    color: isActive ? identity.color : 'var(--cp-text-faint)',
-                    cursor: 'pointer',
-                  }}
                 >
                   <span
-                    style={{
-                      width: 6,
-                      height: 6,
-                      borderRadius: '50%',
-                      background: identity.color,
-                      flexShrink: 0,
-                    }}
+                    className="cp-filter-pill-dot"
+                    style={{ background: identity.color }}
                   />
                   {identity.label}
                 </button>
@@ -511,15 +426,7 @@ export default function LibraryView({ onOpenObject }: LibraryViewProps) {
       {isFiltering ? (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
             {filteredNodes.length === 0 ? (
-              <div
-                style={{
-                  fontFamily: 'var(--cp-font-mono)',
-                  fontSize: 10,
-                  color: 'var(--cp-chrome-muted)',
-                  padding: '16px 0',
-                  textAlign: 'center',
-                }}
-              >
+              <div className="cp-empty-state">
                 No objects match the current search.
               </div>
             ) : (
@@ -547,28 +454,26 @@ export default function LibraryView({ onOpenObject }: LibraryViewProps) {
         ) : (
           <>
             <div className="cp-content-section">
-              <div
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: 8,
-                  marginBottom: 10,
-                }}
-              >
-                <span
-                  style={{
-                  fontFamily: 'var(--cp-font-mono)',
-                  fontSize: 9,
-                  fontWeight: 700,
-                  color: 'var(--cp-purple)',
-                  letterSpacing: '0.1em',
-                  textTransform: 'uppercase',
-                }}
-              >
+              <div className="cp-section-header">
+                <span className="cp-section-header-label" style={{ color: 'var(--cp-purple)' }}>
                   Clusters
                 </span>
-                <div style={{ flex: 1, height: 1, background: 'var(--cp-border)' }} />
+                <div className="cp-section-header-rule" />
+                {clusterCount > 0 && (
+                  <span className="cp-section-header-count">{clusterCount}</span>
+                )}
               </div>
+              {clusterItems.length > 0 && (
+                <div style={{
+                  fontFamily: 'var(--cp-font-body)',
+                  fontSize: 11,
+                  color: 'var(--cp-text-faint)',
+                  marginTop: -6,
+                  marginBottom: 10,
+                }}>
+                  Objects that share enough connections to form a natural group
+                </div>
+              )}
               <div
                 style={{
                   display: 'grid',
@@ -605,41 +510,22 @@ export default function LibraryView({ onOpenObject }: LibraryViewProps) {
 
             {unclusteredObjects.length > 0 && (
               <div className="cp-content-section">
-                <div
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: 8,
-                    marginBottom: 10,
-                  }}
-                >
-                  <span
-                    style={{
-                      fontFamily: 'var(--cp-font-mono)',
-                      fontSize: 9,
-                      fontWeight: 700,
-                      color: 'var(--cp-text-faint)',
-                      letterSpacing: '0.1em',
-                      textTransform: 'uppercase',
-                    }}
-                  >
+                <div className="cp-section-header">
+                  <span className="cp-section-header-label" style={{ color: 'var(--cp-text-faint)' }}>
                     Not yet clustered
                   </span>
-                  <div style={{ flex: 1, height: 1, background: 'var(--cp-border)' }} />
-                  <span
-                    style={{
-                      fontFamily: 'var(--cp-font-mono)',
-                      fontSize: 9,
-                      color: 'var(--cp-text-faint)',
-                    }}
-                  >
+                  <div className="cp-section-header-rule" />
+                  <span className="cp-section-header-count">
                     {unclusteredObjects.length}
                   </span>
                 </div>
-                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+                <div style={{
+                  display: 'grid',
+                  gridTemplateColumns: '1fr 1fr',
+                  gap: 4,
+                }}>
                   {unclusteredObjects.map((obj) => {
                     const identity = getObjectTypeIdentity(obj.object_type_slug);
-                    const isPill = obj.object_type_slug === 'concept' || obj.object_type_slug === 'person';
                     return (
                       <button
                         key={obj.slug}
@@ -647,19 +533,16 @@ export default function LibraryView({ onOpenObject }: LibraryViewProps) {
                         onClick={() => handleObjectClick(obj)}
                         onContextMenu={(e) => openContextMenu(e.clientX, e.clientY, obj)}
                         style={{
-                          display: 'inline-flex',
+                          display: 'flex',
                           alignItems: 'center',
-                          gap: 6,
-                          padding: '5px 12px 5px 8px',
-                          borderRadius: isPill ? 100 : 6,
-                          border: `1px solid ${identity.color}20`,
+                          gap: 8,
+                          padding: '8px 12px',
+                          borderRadius: 6,
+                          border: `1px solid ${identity.color}18`,
                           background: `${identity.color}06`,
                           cursor: 'pointer',
-                          fontFamily: 'var(--cp-font-body)',
-                          fontSize: 12,
-                          fontWeight: 500,
-                          color: 'var(--cp-text)',
-                          maxWidth: 260,
+                          textAlign: 'left',
+                          minHeight: 40,
                         }}
                       >
                         <span style={{
@@ -670,12 +553,27 @@ export default function LibraryView({ onOpenObject }: LibraryViewProps) {
                           flexShrink: 0,
                         }} />
                         <span style={{
+                          flex: 1,
+                          fontFamily: 'var(--cp-font-body)',
+                          fontSize: 12,
+                          fontWeight: 500,
+                          color: 'var(--cp-text)',
                           overflow: 'hidden',
                           textOverflow: 'ellipsis',
                           whiteSpace: 'nowrap',
                         }}>
                           {obj.display_title ?? obj.title}
                         </span>
+                        {(obj.edge_count ?? 0) > 0 && (
+                          <span style={{
+                            fontFamily: 'var(--cp-font-mono)',
+                            fontSize: 9,
+                            color: 'var(--cp-text-faint)',
+                            flexShrink: 0,
+                          }}>
+                            {obj.edge_count}e
+                          </span>
+                        )}
                       </button>
                     );
                   })}
@@ -685,27 +583,11 @@ export default function LibraryView({ onOpenObject }: LibraryViewProps) {
 
             {resurfacePills.length > 0 && (
               <div style={{ marginBottom: 24 }}>
-                <div
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: 8,
-                    marginBottom: 10,
-                  }}
-                >
-                  <span
-                    style={{
-                      fontFamily: 'var(--cp-font-mono)',
-                      fontSize: 9,
-                      fontWeight: 700,
-                      color: 'var(--cp-red)',
-                      letterSpacing: '0.1em',
-                      textTransform: 'uppercase',
-                    }}
-                  >
+                <div className="cp-section-header">
+                  <span className="cp-section-header-label" style={{ color: 'var(--cp-red)' }}>
                     Resurfaced
                   </span>
-                  <div style={{ flex: 1, height: 1, background: 'var(--cp-red-line)' }} />
+                  <div className="cp-section-header-rule" style={{ background: 'var(--cp-red-line)' }} />
                 </div>
                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
                   {resurfacePills.map((card) => (
@@ -723,27 +605,11 @@ export default function LibraryView({ onOpenObject }: LibraryViewProps) {
 
             {reminderProjects.length > 0 && (
               <div style={{ marginBottom: 24 }}>
-                <div
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: 8,
-                    marginBottom: 10,
-                  }}
-                >
-                  <span
-                    style={{
-                      fontFamily: 'var(--cp-font-mono)',
-                      fontSize: 9,
-                      fontWeight: 700,
-                      color: 'var(--cp-type-task, var(--cp-chrome-muted))',
-                      letterSpacing: '0.1em',
-                      textTransform: 'uppercase',
-                    }}
-                  >
+                <div className="cp-section-header">
+                  <span className="cp-section-header-label" style={{ color: 'var(--cp-type-task, var(--cp-chrome-muted))' }}>
                     Reminders
                   </span>
-                  <div style={{ flex: 1, height: 1, background: 'var(--cp-border)' }} />
+                  <div className="cp-section-header-rule" />
                 </div>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
                   {reminderProjects.map((project) => (

@@ -454,7 +454,7 @@ function FullscreenLeaf({
 }) {
   const [splitPreview, setSplitPreview] = useState<'horizontal' | 'vertical' | null>(null);
 
-  const hideHeader = leaf.viewId === 'board';
+  const hideHeader = leaf.viewId === 'board' || leafCount === 1;
 
   return (
     <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0, overflow: 'hidden' }}>
@@ -592,7 +592,7 @@ function RenderLeaf(props: NodeProps & { node: LeafPane }) {
       }}
       onClick={() => onFocus(node.id)}
     >
-      {node.viewId !== 'board' && (
+      {node.viewId !== 'board' && leafCount > 1 && (
         <PaneHeader
           viewId={node.viewId}
           paneId={node.id}

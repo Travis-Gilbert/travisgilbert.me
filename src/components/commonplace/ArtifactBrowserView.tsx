@@ -43,6 +43,7 @@ export default function ArtifactBrowserView() {
   const [searchQuery, setSearchQuery] = useState('');
   const [expandedId, setExpandedId] = useState<number | null>(null);
   const [extractingIds, setExtractingIds] = useState<Set<number>>(new Set());
+  const [activeStage, setActiveStage] = useState<string | null>(null);
 
   const { data: artifacts, loading, error, refetch } = useApiData(
     () => fetchArtifacts({
@@ -52,16 +53,78 @@ export default function ArtifactBrowserView() {
     [captureVersion, kindFilter, statusFilter],
   );
 
+  /** Count artifacts per pipeline stage. */
+  const stageCounts = useMemo(() => {
+    const counts: Record<string, number> = {};
+    for (const stage of PIPELINE_STAGES) counts[stage] = 0;
+    if (artifacts) {
+      for (const a of artifacts) {
+        const s = a.ingestion_status;
+        if (s in counts) counts[s] += 1;
+      }
+    }
+    return counts;
+  }, [artifacts]);
+
+  const failedCount = useMemo(() => {
+    if (!artifacts) return 0;
+    return artifacts.filter((a) => a.ingestion_status === 'failed').length;
+  }, [artifacts]);
+
   const filteredArtifacts = useMemo(() => {
     if (!artifacts) return [];
-    if (!searchQuery.trim()) return artifacts;
-    const q = searchQuery.toLowerCase();
-    return artifacts.filter(
-      (a) =>
-        a.title.toLowerCase().includes(q) ||
-        (a.source_url && a.source_url.toLowerCase().includes(q)),
-    );
-  }, [artifacts, searchQuery]);
+    let list = artifacts;
+
+    // Pipeline stage filter
+    if (activeStage) {
+      list = list.filter((a) => a.ingestion_status === activeStage);
+    }
+
+    // Search filter
+    if (searchQuery.trim()) {
+      const q = searchQuery.toLowerCase();
+      list = list.filter(
+        (a) =>
+          a.title.toLowerCase().includes(q) ||
+          (a.source_url && a.source_url.toLowerCase().includes(q)),
+      );
+    }
+    return list;
+  }, [artifacts, searchQuery, activeStage]);
+
+  /** Group URL artifacts by domain. */
+  const groupedArtifacts = useMemo(() => {
+    const domains = new Map<string, ApiArtifactListItem[]>();
+    const ungrouped: ApiArtifactListItem[] = [];
+
+    for (const a of filteredArtifacts) {
+      if (a.capture_kind === 'url' && a.source_url) {
+        try {
+          const domain = new URL(a.source_url).hostname.replace(/^www\./, '');
+          if (!domains.has(domain)) domains.set(domain, []);
+          domains.get(domain)!.push(a);
+        } catch {
+          ungrouped.push(a);
+        }
+      } else {
+        ungrouped.push(a);
+      }
+    }
+
+    // Only group domains with 2+ artifacts
+    const groups: Array<{ domain?: string; items: ApiArtifactListItem[] }> = [];
+    for (const [domain, items] of domains) {
+      if (items.length >= 2) {
+        groups.push({ domain, items });
+      } else {
+        ungrouped.push(...items);
+      }
+    }
+    if (ungrouped.length > 0) {
+      groups.push({ items: ungrouped });
+    }
+    return groups;
+  }, [filteredArtifacts]);
 
   const handleExtract = useCallback(async (artifactId: number) => {
     setExtractingIds((prev) => new Set(prev).add(artifactId));
@@ -111,10 +174,42 @@ export default function ArtifactBrowserView() {
         <h2 style={titleStyle}>Artifacts</h2>
         <p style={subtitleStyle}>
           Captured content flowing through the epistemic pipeline.
-          Extract to populate the promotion queue with claims,
-          entities, and questions.
         </p>
       </div>
+
+      {/* Failed callout */}
+      {failedCount > 0 && (
+        <div style={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          padding: '8px 12px',
+          borderRadius: 6,
+          background: 'color-mix(in srgb, var(--cp-red) 10%, var(--cp-surface))',
+          border: '1px solid var(--cp-red-line)',
+          fontSize: 12,
+          color: 'var(--cp-text)',
+        }}>
+          <span>{failedCount} artifact{failedCount !== 1 ? 's' : ''} failed extraction</span>
+          <button
+            onClick={() => setActiveStage(activeStage === 'failed' ? null : 'failed')}
+            style={{
+              ...actionBtnStyle('var(--cp-red)'),
+              fontSize: 11,
+              padding: '2px 8px',
+            }}
+          >
+            {activeStage === 'failed' ? 'Show all' : 'Show failed'}
+          </button>
+        </div>
+      )}
+
+      {/* Pipeline summary bar */}
+      <PipelineSummaryBar
+        stageCounts={stageCounts}
+        activeStage={activeStage}
+        onStageClick={(stage) => setActiveStage(activeStage === stage ? null : stage)}
+      />
 
       {/* Filter bar */}
       <ArtifactFilterBar
@@ -126,35 +221,151 @@ export default function ArtifactBrowserView() {
         onSearchChange={setSearchQuery}
       />
 
-      {/* Stats */}
-      <div style={statsBarStyle}>
-        <span style={{ fontFamily: 'var(--cp-font-mono)', fontSize: 13, color: 'var(--cp-text)' }}>
-          {filteredArtifacts.length} artifact{filteredArtifacts.length !== 1 ? 's' : ''}
-        </span>
-        {artifacts && artifacts.length !== filteredArtifacts.length && (
-          <span style={{ fontSize: 11, color: 'var(--cp-text-faint)', fontFamily: 'var(--cp-font-mono)' }}>
-            {artifacts.length} total
-          </span>
-        )}
-      </div>
-
       {/* Artifact list */}
       {filteredArtifacts.length === 0 ? (
         <EmptyArtifacts hasAny={!!artifacts && artifacts.length > 0} />
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-          {filteredArtifacts.map((artifact) => (
-            <ArtifactRow
-              key={artifact.id}
-              artifact={artifact}
-              isExpanded={expandedId === artifact.id}
-              isExtracting={extractingIds.has(artifact.id)}
-              onToggle={() => handleToggleExpand(artifact.id)}
-              onExtract={() => handleExtract(artifact.id)}
-            />
+          {groupedArtifacts.map((group, gi) => (
+            <div key={group.domain ?? `ungrouped-${gi}`}>
+              {group.domain && (
+                <DomainGroupHeader domain={group.domain} count={group.items.length} />
+              )}
+              {group.items.map((artifact) => (
+                <ArtifactRow
+                  key={artifact.id}
+                  artifact={artifact}
+                  isExpanded={expandedId === artifact.id}
+                  isExtracting={extractingIds.has(artifact.id)}
+                  onToggle={() => handleToggleExpand(artifact.id)}
+                  onExtract={() => handleExtract(artifact.id)}
+                />
+              ))}
+            </div>
           ))}
         </div>
       )}
+    </div>
+  );
+}
+
+/* ── Pipeline Summary Bar ── */
+
+function PipelineSummaryBar({
+  stageCounts,
+  activeStage,
+  onStageClick,
+}: {
+  stageCounts: Record<string, number>;
+  activeStage: string | null;
+  onStageClick: (stage: string) => void;
+}) {
+  return (
+    <div style={{
+      display: 'flex',
+      alignItems: 'center',
+      gap: 0,
+      padding: '10px 12px',
+      borderRadius: 8,
+      backgroundColor: 'var(--cp-surface)',
+      border: '1px solid var(--cp-chrome-line)',
+    }}>
+      {PIPELINE_STAGES.map((stage, idx) => {
+        const isActive = activeStage === stage;
+        const count = stageCounts[stage] ?? 0;
+        return (
+          <div key={stage} style={{ display: 'flex', alignItems: 'center', flex: 1 }}>
+            <button
+              onClick={() => onStageClick(stage)}
+              style={{
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                gap: 4,
+                background: 'none',
+                border: 'none',
+                cursor: 'pointer',
+                padding: '2px 4px',
+                borderRadius: 4,
+                flex: 1,
+              }}
+            >
+              {/* Dot */}
+              <div style={{
+                width: 10,
+                height: 10,
+                borderRadius: '50%',
+                backgroundColor: count > 0 ? 'var(--cp-teal)' : 'var(--cp-chrome-line)',
+                border: isActive ? '2px solid var(--cp-text)' : '2px solid transparent',
+                transition: 'all 150ms',
+              }} />
+              {/* Label */}
+              <span style={{
+                fontSize: 10,
+                fontFamily: 'var(--cp-font-mono)',
+                textTransform: 'uppercase' as const,
+                letterSpacing: '0.04em',
+                color: isActive ? 'var(--cp-text)' : 'var(--cp-text-faint)',
+              }}>
+                {stage.slice(0, 4)}
+              </span>
+              {/* Count */}
+              <span style={{
+                fontSize: 11,
+                fontFamily: 'var(--cp-font-mono)',
+                color: isActive ? 'var(--cp-text)' : 'var(--cp-text-muted)',
+                fontWeight: isActive ? 700 : 400,
+              }}>
+                {count}
+              </span>
+              {/* Active underline */}
+              {isActive && (
+                <div style={{
+                  width: 16,
+                  height: 2,
+                  borderRadius: 1,
+                  backgroundColor: 'var(--cp-teal)',
+                }} />
+              )}
+            </button>
+            {/* Connector line */}
+            {idx < PIPELINE_STAGES.length - 1 && (
+              <div style={{
+                height: 1,
+                flex: 1,
+                minWidth: 8,
+                backgroundColor: 'var(--cp-chrome-line)',
+                alignSelf: 'flex-start',
+                marginTop: 5,
+              }} />
+            )}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+/* ── Domain Group Header ── */
+
+function DomainGroupHeader({ domain, count }: { domain: string; count: number }) {
+  return (
+    <div style={{
+      display: 'flex',
+      alignItems: 'center',
+      gap: 6,
+      padding: '6px 14px',
+      fontSize: 11,
+      fontFamily: 'var(--cp-font-mono)',
+      color: 'var(--cp-text-faint)',
+      letterSpacing: '0.03em',
+    }}>
+      <svg width={12} height={12} viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth={1.5}>
+        <circle cx={8} cy={8} r={6} />
+        <path d="M2 8 Q8 4 14 8" />
+      </svg>
+      {domain}
+      <span style={{ color: 'var(--cp-chrome-muted)' }}>({count})</span>
     </div>
   );
 }
@@ -427,24 +638,37 @@ function ArtifactRow({
           }}>
             {artifact.title || 'Untitled artifact'}
           </div>
-          {subtitle && (
-            <div style={{
-              fontSize: 11,
-              color: 'var(--cp-text-faint)',
-              overflow: 'hidden',
-              textOverflow: 'ellipsis',
-              whiteSpace: 'nowrap' as const,
-              marginTop: 1,
-            }}>
-              {subtitle}
-            </div>
-          )}
+          <div style={{
+            fontSize: 11,
+            color: 'var(--cp-text-faint)',
+            overflow: 'hidden',
+            textOverflow: 'ellipsis',
+            whiteSpace: 'nowrap' as const,
+            marginTop: 1,
+            display: 'flex',
+            gap: 6,
+            alignItems: 'center',
+          }}>
+            {subtitle && <span>{subtitle}</span>}
+            {subtitle && artifact.ingestion_status !== 'captured' && <span>|</span>}
+            <span>{artifact.ingestion_status}</span>
+          </div>
         </div>
 
-        {/* Stage track */}
-        <div style={{ flexShrink: 0 }}>
-          <StageTrack status={artifact.ingestion_status} failed={isFailed} />
-        </div>
+        {/* Extraction badges (inline on collapsed row) */}
+        {artifact.extraction_summary && (
+          <div style={{ flexShrink: 0, display: 'flex', gap: 4 }}>
+            {artifact.extraction_summary.claims > 0 && (
+              <InlineBadge count={artifact.extraction_summary.claims} label="claims" color="#B8623D" />
+            )}
+            {artifact.extraction_summary.entities > 0 && (
+              <InlineBadge count={artifact.extraction_summary.entities} label="entities" color="#1A7A8A" />
+            )}
+            {artifact.extraction_summary.questions > 0 && (
+              <InlineBadge count={artifact.extraction_summary.questions} label="questions" color="#7050A0" />
+            )}
+          </div>
+        )}
 
         {/* Expand chevron */}
         <svg
@@ -469,6 +693,21 @@ function ArtifactRow({
         />
       )}
     </div>
+  );
+}
+
+/* ── Inline Badge ── */
+
+function InlineBadge({ count, label, color }: { count: number; label: string; color: string }) {
+  return (
+    <span style={{
+      fontSize: 10,
+      fontFamily: 'var(--cp-font-mono)',
+      color,
+      whiteSpace: 'nowrap' as const,
+    }}>
+      {count} {label}
+    </span>
   );
 }
 
@@ -705,15 +944,6 @@ const centeredStyle: React.CSSProperties = {
   padding: 40,
 };
 
-const statsBarStyle: React.CSSProperties = {
-  display: 'flex',
-  justifyContent: 'space-between',
-  alignItems: 'center',
-  padding: '8px 12px',
-  borderRadius: 8,
-  backgroundColor: 'var(--cp-surface)',
-  border: '1px solid var(--cp-chrome-line)',
-};
 
 const searchInputStyle: React.CSSProperties = {
   width: '100%',

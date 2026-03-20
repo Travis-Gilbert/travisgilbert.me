@@ -6,8 +6,10 @@
  * if the API is unreachable, the Research Trail section simply doesn't appear.
  */
 
-const RESEARCH_API =
-  process.env.NEXT_PUBLIC_RESEARCH_API_URL ?? '';
+// Browser: relative URL (rewrite proxy handles it). SSR: use env var if set.
+const RESEARCH_API = typeof window !== 'undefined'
+  ? ''
+  : (process.env.NEXT_PUBLIC_RESEARCH_API_URL ?? '');
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 

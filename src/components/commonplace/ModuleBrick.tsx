@@ -21,7 +21,7 @@ export default function ModuleBrick({
     <div
       className={className}
       style={{
-        background: 'var(--cp-surface, rgba(244, 243, 240, 0.06))',
+        background: 'var(--cp-surface, #262320)',
         border: '1px solid var(--cp-border-faint)',
         borderRadius: 4,
         overflow: 'hidden',
