@@ -6,12 +6,12 @@
    ───────────────────────────────────────────────── */
 
 @theme inline {
-  /* Backgrounds (amber parchment: hue ~33°, elevated saturation) */
-  --color-paper: #F5E9D8;
-  --color-surface: #FBF3E8;
-  --color-bg-alt: #EBDBC8;
-  --color-card: #FBF3E8;           /* alias → surface */
-  --color-code: #EBDBC8;           /* alias → bg-alt */
+  /* Backgrounds (amber parchment: hue ~35°, sat ~53%) */
+  --color-paper: #F5E6D2;
+  --color-surface: #FBF0E2;
+  --color-bg-alt: #EBD8C0;
+  --color-card: #FBF0E2;           /* alias → surface */
+  --color-code: #EBD8C0;           /* alias → bg-alt */
   --color-nav-bg: #221A1C;         /* nav: warm dark wine, no cool purple cast */
 
   /* Text */
@@ -373,6 +373,9 @@ body {
   font-size: 1.0625rem; /* 17px per brand spec */
   line-height: 1.75;
   isolation: isolate;
+  font-kerning: normal;
+  font-feature-settings: 'kern' 1, 'liga' 1, 'calt' 1;
+  text-rendering: optimizeLegibility;
 }
 
 /* Bottom warmth gradient: subtle amber bloom at viewport floor.
@@ -390,9 +393,9 @@ body::before {
   background: linear-gradient(
     to bottom,
     transparent 0%,
-    rgba(200, 160, 100, 0.03) 40%,
-    rgba(190, 140, 75, 0.08) 70%,
-    rgba(180, 125, 60, 0.12) 100%
+    rgba(200, 160, 100, 0.04) 40%,
+    rgba(190, 140, 75, 0.11) 70%,
+    rgba(180, 125, 60, 0.16) 100%
   );
 }
 
@@ -1982,6 +1985,18 @@ html {
   margin-left: -50vw;
   margin-right: -50vw;
   /* No solid background: DotGrid texture shows through */
+}
+
+/* Heavier mono type with OpenType features across all Theseus mono text */
+.theseus-page [style*="font-family"] {
+  font-weight: 800 !important;
+  font-kerning: normal;
+  font-feature-settings: 'kern' 1, 'liga' 1, 'calt' 1;
+}
+.theseus-page .font-mono {
+  font-weight: 800;
+  font-kerning: normal;
+  font-feature-settings: 'kern' 1, 'liga' 1, 'calt' 1;
 }
 
 .theseus-section {
