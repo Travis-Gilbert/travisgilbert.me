@@ -12,6 +12,7 @@
   --color-bg-alt: #EBD8C0;
   --color-card: #FBF0E2;           /* alias → surface */
   --color-code: #EBD8C0;           /* alias → bg-alt */
+  --color-theseus-panel: rgba(251, 240, 226, 0.80); /* transparent parchment for light */
   --color-nav-bg: #221A1C;         /* nav: warm dark wine, no cool purple cast */
 
   /* Text */
@@ -117,6 +118,7 @@ html[data-theme="dark"] {
   --color-bg-alt: #302A24;
   --color-card: #252016;
   --color-code: #302A24;
+  --color-theseus-panel: rgba(37, 32, 22, 0.82); /* transparent dark for DotGrid bleed */
 
   /* Text: cream tones, not pure white */
   --color-ink: #E8E0D6;
