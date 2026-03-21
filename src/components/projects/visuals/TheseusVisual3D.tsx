@@ -40,6 +40,74 @@ function mulberry32(seed: number) {
   };
 }
 
+/* ---- Solid Core: layered glow + dense particle cloud ---- */
+
+function SolidCore({ hovered }: { hovered: React.MutableRefObject<boolean> }) {
+  const coreRef = useRef<THREE.Mesh>(null);
+  const glowRefs = useRef<THREE.Mesh[]>([]);
+
+  useFrame(({ clock }) => {
+    if (!coreRef.current) return;
+    const t = clock.getElapsedTime();
+    const pulse = 1 + Math.sin(t * 1.5) * 0.06;
+    coreRef.current.scale.setScalar(pulse);
+
+    /* Breathe the glow layers */
+    glowRefs.current.forEach((mesh, i) => {
+      if (!mesh) return;
+      const mat = mesh.material as THREE.MeshBasicMaterial;
+      const baseOpacity = [0.12, 0.06, 0.03][i] ?? 0.03;
+      const targetBoost = hovered.current ? 1.6 : 1.0;
+      mat.opacity += (baseOpacity * targetBoost - mat.opacity) * 0.04;
+      mesh.scale.setScalar(1 + Math.sin(t * 0.8 + i * 1.2) * 0.04);
+    });
+  });
+
+  return (
+    <group>
+      {/* Solid core sphere */}
+      <mesh ref={coreRef}>
+        <sphereGeometry args={[0.35, 20, 20]} />
+        <meshPhongMaterial
+          color={0xc4503c}
+          emissive={0xc4503c}
+          emissiveIntensity={0.6}
+          shininess={40}
+          transparent
+          opacity={0.85}
+        />
+      </mesh>
+
+      {/* 3 concentric glow shells */}
+      {[0.9, 1.6, 2.8].map((scale, i) => (
+        <mesh
+          key={i}
+          scale={scale}
+          ref={(el) => { if (el) glowRefs.current[i] = el; }}
+        >
+          <sphereGeometry args={[0.35, 14, 14]} />
+          <meshBasicMaterial
+            color={0xc4503c}
+            transparent
+            opacity={[0.12, 0.06, 0.03][i]}
+            depthWrite={false}
+          />
+        </mesh>
+      ))}
+
+      {/* Wireframe accent ring around core */}
+      <mesh rotation={[Math.PI / 2, 0, 0]}>
+        <torusGeometry args={[0.5, 0.006, 8, 32]} />
+        <meshBasicMaterial color={0xc4503c} transparent opacity={0.25} />
+      </mesh>
+      <mesh rotation={[0.3, Math.PI / 3, 0]}>
+        <torusGeometry args={[0.55, 0.005, 8, 32]} />
+        <meshBasicMaterial color={0xc4503c} transparent opacity={0.12} />
+      </mesh>
+    </group>
+  );
+}
+
 /* ---- Inner Ring: Engine Passes ---- */
 
 function InnerRing({ hovered }: { hovered: React.MutableRefObject<boolean> }) {
@@ -57,37 +125,38 @@ function InnerRing({ hovered }: { hovered: React.MutableRefObject<boolean> }) {
     <group ref={groupRef} rotation={[0.44, 0, 0]}>
       {/* Ring torus */}
       <mesh>
-        <torusGeometry args={[2.0, 0.008, 8, 64]} />
-        <meshBasicMaterial color="#C4503C" transparent opacity={0.18} />
+        <torusGeometry args={[1.8, 0.01, 8, 64]} />
+        <meshBasicMaterial color="#C4503C" transparent opacity={0.2} />
       </mesh>
 
-      {/* Pass spheres */}
+      {/* Pass spheres (larger, more visible) */}
       {PASSES.map((pass, i) => {
         const angle = (i / PASSES.length) * Math.PI * 2;
-        const x = Math.cos(angle) * 2.0;
-        const z = Math.sin(angle) * 2.0;
+        const x = Math.cos(angle) * 1.8;
+        const z = Math.sin(angle) * 1.8;
         const colorNum = parseInt(pass.color.slice(1), 16);
         return (
           <group key={pass.label} position={[x, 0, z]}>
             {/* Glow shell */}
-            <mesh scale={0.35}>
+            <mesh scale={0.55}>
               <sphereGeometry args={[1, 10, 10]} />
-              <meshBasicMaterial color={colorNum} transparent opacity={0.06} />
+              <meshBasicMaterial color={colorNum} transparent opacity={0.08} depthWrite={false} />
             </mesh>
             {/* Node */}
             <mesh>
-              <sphereGeometry args={[0.15, 12, 12]} />
+              <sphereGeometry args={[0.2, 14, 14]} />
               <meshPhongMaterial
                 color={colorNum}
                 emissive={colorNum}
-                emissiveIntensity={0.25}
+                emissiveIntensity={0.3}
                 transparent
-                opacity={0.8}
+                opacity={0.85}
+                shininess={30}
               />
             </mesh>
             {/* Label */}
             <Html
-              position={[0, 0.32, 0]}
+              position={[0, 0.38, 0]}
               center
               distanceFactor={6}
               style={{ pointerEvents: 'none', whiteSpace: 'nowrap' }}
@@ -99,13 +168,33 @@ function InnerRing({ hovered }: { hovered: React.MutableRefObject<boolean> }) {
                   fontWeight: 600,
                   letterSpacing: '0.05em',
                   color: pass.color,
-                  textShadow: '0 0 8px rgba(28,28,32,0.9)',
+                  textShadow: '0 1px 4px rgba(0,0,0,0.5), 0 0 12px rgba(0,0,0,0.3)',
                 }}
               >
                 {pass.label}
               </span>
             </Html>
           </group>
+        );
+      })}
+
+      {/* Cross-connection lines between non-adjacent passes for web density */}
+      {[
+        [0, 2], [0, 3], [1, 3], [1, 4], [2, 4], [2, 5], [3, 5],
+      ].map(([a, b]) => {
+        const aAngle = (a / PASSES.length) * Math.PI * 2;
+        const bAngle = (b / PASSES.length) * Math.PI * 2;
+        const points = new Float32Array([
+          Math.cos(aAngle) * 1.8, 0, Math.sin(aAngle) * 1.8,
+          Math.cos(bAngle) * 1.8, 0, Math.sin(bAngle) * 1.8,
+        ]);
+        return (
+          <line key={`cross-${a}-${b}`}>
+            <bufferGeometry>
+              <bufferAttribute attach="attributes-position" args={[points, 3]} count={2} />
+            </bufferGeometry>
+            <lineBasicMaterial color="#C4503C" transparent opacity={0.06} />
+          </line>
         );
       })}
     </group>
@@ -129,30 +218,30 @@ function MiddleRing({ hovered }: { hovered: React.MutableRefObject<boolean> }) {
     <group ref={groupRef} rotation={[0.96, 0, 0.5]}>
       {/* Ring torus */}
       <mesh>
-        <torusGeometry args={[3.2, 0.006, 8, 64]} />
+        <torusGeometry args={[3.0, 0.007, 8, 64]} />
         <meshBasicMaterial color="#8A8378" transparent opacity={0.1} />
       </mesh>
 
       {/* Object spheres */}
       {OBJECTS.map((obj, i) => {
         const angle = (i / OBJECTS.length) * Math.PI * 2;
-        const x = Math.cos(angle) * 3.2;
-        const z = Math.sin(angle) * 3.2;
+        const x = Math.cos(angle) * 3.0;
+        const z = Math.sin(angle) * 3.0;
         const colorNum = parseInt(obj.color.slice(1), 16);
         return (
           <group key={obj.label} position={[x, 0, z]}>
             <mesh>
-              <sphereGeometry args={[0.1, 10, 10]} />
+              <sphereGeometry args={[0.12, 10, 10]} />
               <meshPhongMaterial
                 color={colorNum}
                 emissive={colorNum}
-                emissiveIntensity={0.15}
+                emissiveIntensity={0.2}
                 transparent
-                opacity={0.55}
+                opacity={0.6}
               />
             </mesh>
             <Html
-              position={[0, 0.25, 0]}
+              position={[0, 0.28, 0]}
               center
               distanceFactor={8}
               style={{ pointerEvents: 'none', whiteSpace: 'nowrap' }}
@@ -163,8 +252,8 @@ function MiddleRing({ hovered }: { hovered: React.MutableRefObject<boolean> }) {
                   fontSize: 8,
                   fontWeight: 500,
                   color: obj.color,
-                  opacity: 0.6,
-                  textShadow: '0 0 6px rgba(28,28,32,0.8)',
+                  opacity: 0.65,
+                  textShadow: '0 1px 3px rgba(0,0,0,0.4)',
                 }}
               >
                 {obj.label}
@@ -177,18 +266,21 @@ function MiddleRing({ hovered }: { hovered: React.MutableRefObject<boolean> }) {
   );
 }
 
-/* ---- Outer Field: Evidence Particles ---- */
+/* ---- Evidence Particles: denser, with inner cloud ---- */
 
 function EvidenceParticles() {
   const pointsRef = useRef<THREE.Points>(null);
 
   const { positions, count } = useMemo(() => {
     const rng = mulberry32(77);
-    const n = 50;
+    const n = 140;
     const pos = new Float32Array(n * 3);
     for (let i = 0; i < n; i++) {
-      // Spherical shell between radius 4.0 and 5.5
-      const r = 4.0 + rng() * 1.5;
+      /* Mix: 40% in dense inner cloud (r 0.8-2.0), 60% in outer shell (r 3.5-5.0) */
+      const isInner = i < n * 0.4;
+      const r = isInner
+        ? 0.8 + rng() * 1.2
+        : 3.5 + rng() * 1.5;
       const theta = rng() * Math.PI * 2;
       const phi = Math.acos(2 * rng() - 1);
       pos[i * 3] = r * Math.sin(phi) * Math.cos(theta);
@@ -200,7 +292,7 @@ function EvidenceParticles() {
 
   useFrame(({ clock }) => {
     if (!pointsRef.current) return;
-    pointsRef.current.rotation.y = clock.getElapsedTime() * 0.001;
+    pointsRef.current.rotation.y = clock.getElapsedTime() * 0.002;
   });
 
   return (
@@ -212,43 +304,31 @@ function EvidenceParticles() {
           count={count}
         />
       </bufferGeometry>
-      <pointsMaterial color="#D4D0C8" size={0.06} transparent opacity={0.3} sizeAttenuation />
+      <pointsMaterial color="#D4D0C8" size={0.05} transparent opacity={0.35} sizeAttenuation />
     </points>
   );
 }
 
-/* ---- Center Hub ---- */
+/* ---- Spoke lines from core to each pass ---- */
 
-function CenterHub({ hovered }: { hovered: React.MutableRefObject<boolean> }) {
-  const meshRef = useRef<THREE.Mesh>(null);
-  const glowRef = useRef<THREE.Mesh>(null);
-
-  useFrame(({ clock }) => {
-    if (!meshRef.current) return;
-    const t = clock.getElapsedTime();
-    const pulse = 1 + Math.sin(t * 2) * 0.08;
-    meshRef.current.scale.setScalar(pulse);
-    if (glowRef.current) {
-      const targetOpacity = hovered.current ? 0.1 : 0.05;
-      const mat = glowRef.current.material as THREE.MeshBasicMaterial;
-      mat.opacity += (targetOpacity - mat.opacity) * 0.05;
-    }
-  });
-
+function CoreSpokes() {
   return (
-    <group>
-      <mesh ref={meshRef}>
-        <sphereGeometry args={[0.08, 12, 12]} />
-        <meshPhongMaterial
-          color={0xc4503c}
-          emissive={0xc4503c}
-          emissiveIntensity={0.5}
-        />
-      </mesh>
-      <mesh ref={glowRef} scale={4}>
-        <sphereGeometry args={[0.1, 10, 10]} />
-        <meshBasicMaterial color={0xc4503c} transparent opacity={0.05} />
-      </mesh>
+    <group rotation={[0.44, 0, 0]}>
+      {PASSES.map((_, i) => {
+        const angle = (i / PASSES.length) * Math.PI * 2;
+        const points = new Float32Array([
+          0, 0, 0,
+          Math.cos(angle) * 1.8, 0, Math.sin(angle) * 1.8,
+        ]);
+        return (
+          <line key={`spoke-${i}`}>
+            <bufferGeometry>
+              <bufferAttribute attach="attributes-position" args={[points, 3]} count={2} />
+            </bufferGeometry>
+            <lineBasicMaterial color="#C4503C" transparent opacity={0.08} />
+          </line>
+        );
+      })}
     </group>
   );
 }
@@ -258,7 +338,7 @@ function CenterHub({ hovered }: { hovered: React.MutableRefObject<boolean> }) {
 function FixedCamera() {
   const { camera } = useThree();
   useMemo(() => {
-    camera.position.set(0, 3, 8);
+    camera.position.set(0, 2.5, 7);
     camera.lookAt(0, 0, 0);
   }, [camera]);
   return null;
@@ -273,11 +353,12 @@ function OrreryScene({ isHovered }: { isHovered: boolean }) {
   return (
     <>
       <FixedCamera />
-      <ambientLight intensity={0.5} color={0xf4f3f0} />
-      <directionalLight position={[4, 6, 3]} intensity={0.4} color={0xffeedd} />
-      <directionalLight position={[-3, -2, -4]} intensity={0.1} color={0xc4503c} />
+      <ambientLight intensity={0.45} color={0xf4f3f0} />
+      <directionalLight position={[4, 6, 3]} intensity={0.5} color={0xffeedd} />
+      <directionalLight position={[-3, -2, -4]} intensity={0.15} color={0xc4503c} />
 
-      <CenterHub hovered={hoveredRef} />
+      <SolidCore hovered={hoveredRef} />
+      <CoreSpokes />
       <InnerRing hovered={hoveredRef} />
       <MiddleRing hovered={hoveredRef} />
       <EvidenceParticles />
@@ -298,7 +379,7 @@ export default function TheseusVisual3D({ isHovered }: { isHovered: boolean }) {
     <Suspense fallback={<TheseusVisual isHovered={isHovered} />}>
       <Canvas
         gl={{ alpha: true, antialias: true }}
-        camera={{ fov: 40, near: 0.1, far: 100, position: [0, 3, 8] }}
+        camera={{ fov: 40, near: 0.1, far: 100, position: [0, 2.5, 7] }}
         style={{
           position: 'absolute',
           inset: 0,
