@@ -6,11 +6,11 @@ import ScrollReveal from '@/components/ScrollReveal';
 import { usePrefersReducedMotion } from '@/hooks/usePrefersReducedMotion';
 import type { ProjectCardData } from './projects-data';
 
-/* Lazy-load the R3F components (keeps initial bundle smaller) */
+/* Lazy-load the enhanced visual components */
 const TheseusVisual3D = lazy(() => import('./visuals/TheseusVisual3D'));
 const CommonPlaceVisual3D = lazy(() => import('./visuals/CommonPlaceVisual3D'));
 
-/* Direct imports for 2D visuals (small, always needed) */
+/* Direct imports for 2D visuals */
 import TheseusVisual from './visuals/TheseusVisual';
 import CommonPlaceVisual from './visuals/CommonPlaceVisual';
 import IndexApiVisual from './visuals/IndexApiVisual';
@@ -27,18 +27,12 @@ const CHROME = '#1C1C20';
 
 function visualBg(theme: ProjectCardData['theme']): string {
   switch (theme) {
-    case 'dark':
-      return CHROME;
-    case 'warm':
-      return '#F0EBE4';
-    case 'warm-teal':
-      return 'linear-gradient(135deg, #EEF3F4, #E8EEEF)';
-    case 'warm-gold':
-      return 'linear-gradient(135deg, #F7F2E8, #F0EBE0)';
-    case 'warm-green':
-      return 'linear-gradient(135deg, #F0F4F0, #E8EFE8)';
-    case 'warm-purple':
-      return 'linear-gradient(135deg, #F2EFF4, #ECE8F0)';
+    case 'dark': return CHROME;
+    case 'warm': return '#F0EBE4';
+    case 'warm-teal': return 'linear-gradient(135deg, #EEF3F4, #E8EEEF)';
+    case 'warm-gold': return 'linear-gradient(135deg, #F7F2E8, #F0EBE0)';
+    case 'warm-green': return 'linear-gradient(135deg, #F0F4F0, #E8EFE8)';
+    case 'warm-purple': return 'linear-gradient(135deg, #F2EFF4, #ECE8F0)';
   }
 }
 
@@ -61,10 +55,7 @@ function RoleBadge({ role, color, textOverride }: { role: string; color: string;
         background: `color-mix(in srgb, ${resolved} 8%, transparent)`,
       }}
     >
-      <span
-        className="block flex-shrink-0 rounded-full"
-        style={{ width: 5, height: 5, backgroundColor: resolved }}
-      />
+      <span className="block flex-shrink-0 rounded-full" style={{ width: 5, height: 5, backgroundColor: resolved }} />
       {role}
     </span>
   );
@@ -72,14 +63,8 @@ function RoleBadge({ role, color, textOverride }: { role: string; color: string;
 
 function PoweredByBadge({ name }: { name: string }) {
   return (
-    <span
-      className="inline-flex items-center gap-[5px] font-mono text-[9px] font-medium tracking-[0.06em] mt-2"
-      style={{ color: ENGINE_ACCENT, opacity: 0.65 }}
-    >
-      <span
-        className="block rounded-full"
-        style={{ width: 4, height: 4, backgroundColor: ENGINE_ACCENT }}
-      />
+    <span className="inline-flex items-center gap-[5px] font-mono text-[9px] font-medium tracking-[0.06em] mt-2" style={{ color: ENGINE_ACCENT, opacity: 0.65 }}>
+      <span className="block rounded-full" style={{ width: 4, height: 4, backgroundColor: ENGINE_ACCENT }} />
       Powered by {name}
     </span>
   );
@@ -101,20 +86,13 @@ function CardVisual({ visual, isHovered }: { visual: string; isHovered: boolean 
           <CommonPlaceVisual3D isHovered={isHovered} />
         </Suspense>
       );
-    case 'index-api':
-      return <IndexApiVisual isHovered={isHovered} />;
-    case 'gatehouse':
-      return <GatehouseVisual isHovered={isHovered} />;
-    case 'porchfest':
-      return <PorchfestVisual isHovered={isHovered} />;
-    case 'compliance':
-      return <ComplianceVisual isHovered={isHovered} />;
-    case 'youtube':
-      return <YoutubeVisual isHovered={isHovered} />;
-    case 'django-design':
-      return <DjangoDesignVisual isHovered={isHovered} />;
-    default:
-      return null;
+    case 'index-api': return <IndexApiVisual isHovered={isHovered} />;
+    case 'gatehouse': return <GatehouseVisual isHovered={isHovered} />;
+    case 'porchfest': return <PorchfestVisual isHovered={isHovered} />;
+    case 'compliance': return <ComplianceVisual isHovered={isHovered} />;
+    case 'youtube': return <YoutubeVisual isHovered={isHovered} />;
+    case 'django-design': return <DjangoDesignVisual isHovered={isHovered} />;
+    default: return null;
   }
 }
 
@@ -131,13 +109,27 @@ export default function ProjectCard({ data, delay = 0 }: ProjectCardProps) {
   const prefersReducedMotion = usePrefersReducedMotion();
   const isTheseus = data.slug === 'theseus';
 
-  /* Is this a 3D card? If so, visual area is transparent */
-  const is3D = data.visual === 'theseus' || data.visual === 'commonplace';
+  /*
+   * Enhanced cards (Theseus + CommonPlace) get transparent visual areas.
+   * The 3D/force-tree content floats on the page background.
+   * Only the info area below gets a solid background.
+   */
+  const isEnhanced = data.visual === 'theseus' || data.visual === 'commonplace';
 
-  const cardBg = isDark ? CHROME : '#fff';
-  const cardBorder = isDark
-    ? '1px solid rgba(255,255,255,0.06)'
-    : `1px solid ${isHovered ? 'var(--color-border)' : 'var(--color-border-light)'}`;
+  /*
+   * Card-level background:
+   * - Enhanced cards: transparent (visual floats on page)
+   * - Dark standard: chrome
+   * - Light standard: white
+   */
+  const cardBg = isEnhanced ? 'transparent' : isDark ? CHROME : '#fff';
+
+  const cardBorder = isEnhanced
+    ? '1px solid transparent'
+    : isDark
+      ? '1px solid rgba(255,255,255,0.06)'
+      : `1px solid ${isHovered ? 'var(--color-border)' : 'var(--color-border-light)'}`;
+
   const hoverShadow = isDark
     ? '0 12px 40px rgba(196,80,60,0.15)'
     : '0 12px 40px rgba(0,0,0,0.10)';
@@ -149,17 +141,22 @@ export default function ProjectCard({ data, delay = 0 }: ProjectCardProps) {
     <ScrollReveal delay={delay} className="h-full">
       <Link
         href={data.href}
-        className="block h-full rounded-md overflow-hidden no-underline outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-current"
+        className="block h-full no-underline outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-current"
         style={{
           background: cardBg,
           border: cardBorder,
+          borderRadius: 6,
           position: 'relative',
           cursor: 'pointer',
+          /* Enhanced cards: no overflow hidden so 3D objects can peek out */
+          overflow: isEnhanced ? 'visible' : 'hidden',
           transition: prefersReducedMotion
             ? 'none'
             : 'transform 0.3s ease, box-shadow 0.3s ease, border-color 0.3s ease',
           transform: isHovered && !prefersReducedMotion ? 'translateY(-4px)' : 'none',
-          boxShadow: isHovered ? hoverShadow : '0 1px 3px rgba(0,0,0,0.04)',
+          boxShadow: isEnhanced
+            ? (isHovered ? '0 8px 32px rgba(0,0,0,0.08)' : 'none')
+            : (isHovered ? hoverShadow : '0 1px 3px rgba(0,0,0,0.04)'),
           color: 'inherit',
           display: 'flex',
           flexDirection: 'column',
@@ -167,37 +164,21 @@ export default function ProjectCard({ data, delay = 0 }: ProjectCardProps) {
         onMouseEnter={() => setIsHovered(true)}
         onMouseLeave={() => setIsHovered(false)}
       >
-        {/* Glow overlay (Theseus only) */}
-        {isDark && (
-          <div
-            aria-hidden="true"
-            style={{
-              position: 'absolute',
-              inset: -1,
-              borderRadius: 7,
-              background:
-                'radial-gradient(ellipse at 40% 30%, rgba(196,80,60,0.12) 0%, transparent 60%)',
-              pointerEvents: 'none',
-              zIndex: 0,
-            }}
-          />
-        )}
-
         {/* Visual area */}
         <div
           style={{
             width: '100%',
             aspectRatio: '16 / 10',
             position: 'relative',
-            /* 3D cards: transparent bg, allow slight overflow for floating effect */
-            overflow: is3D ? 'visible' : 'hidden',
+            overflow: isEnhanced ? 'visible' : 'hidden',
             zIndex: 1,
-            ...(is3D
+            /* Enhanced: fully transparent. Standard: themed background */
+            ...(isEnhanced
               ? { background: 'transparent' }
               : isGradient
                 ? { backgroundImage: vBg }
                 : { backgroundColor: vBg }),
-            ...(data.theme === 'warm' && !is3D
+            ...(data.theme === 'warm' && !isEnhanced
               ? { borderBottom: '1px solid var(--color-border-light)' }
               : {}),
           }}
@@ -217,22 +198,32 @@ export default function ProjectCard({ data, delay = 0 }: ProjectCardProps) {
               transition: 'opacity 0.3s ease',
               pointerEvents: 'none',
               zIndex: 2,
-              color: isDark ? 'rgba(255,255,255,0.4)' : 'var(--color-ink-muted)',
-              background: isDark ? 'rgba(0,0,0,0.4)' : 'rgba(255,255,255,0.8)',
+              color: 'var(--color-ink-muted)',
+              background: 'rgba(255,255,255,0.8)',
             }}
           >
             Explore project
           </span>
         </div>
 
-        {/* Info area */}
+        {/* Info area: this is where the solid background lives */}
         <div
           className="flex-1 flex flex-col"
           style={{
             padding: '18px 20px 22px',
             position: 'relative',
             zIndex: 1,
-            ...(isDark ? { background: CHROME } : {}),
+            background: isDark ? CHROME : '#fff',
+            /* Info area gets its own rounded bottom corners and border */
+            ...(isEnhanced ? {
+              borderRadius: '0 0 6px 6px',
+              border: isDark
+                ? '1px solid rgba(255,255,255,0.06)'
+                : '1px solid var(--color-border-light)',
+              borderTop: isDark
+                ? '1px solid rgba(255,255,255,0.04)'
+                : '1px solid var(--color-border-light)',
+            } : {}),
           }}
         >
           <RoleBadge
@@ -273,10 +264,7 @@ export default function ProjectCard({ data, delay = 0 }: ProjectCardProps) {
           )}
 
           {data.organization && (
-            <span
-              className="text-xs mb-2"
-              style={{ color: isDark ? 'rgba(255,255,255,0.4)' : 'var(--color-ink-muted)' }}
-            >
+            <span className="text-xs mb-2" style={{ color: isDark ? 'rgba(255,255,255,0.4)' : 'var(--color-ink-muted)' }}>
               {data.organization}
             </span>
           )}
