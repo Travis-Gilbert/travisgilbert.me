@@ -1,10 +1,16 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, Suspense, lazy } from 'react';
 import Link from 'next/link';
 import ScrollReveal from '@/components/ScrollReveal';
 import { usePrefersReducedMotion } from '@/hooks/usePrefersReducedMotion';
 import type { ProjectCardData } from './projects-data';
+
+/* Lazy-load the R3F components (keeps initial bundle smaller) */
+const TheseusVisual3D = lazy(() => import('./visuals/TheseusVisual3D'));
+const CommonPlaceVisual3D = lazy(() => import('./visuals/CommonPlaceVisual3D'));
+
+/* Direct imports for 2D visuals (small, always needed) */
 import TheseusVisual from './visuals/TheseusVisual';
 import CommonPlaceVisual from './visuals/CommonPlaceVisual';
 import IndexApiVisual from './visuals/IndexApiVisual';
@@ -14,18 +20,17 @@ import ComplianceVisual from './visuals/ComplianceVisual';
 import YoutubeVisual from './visuals/YoutubeVisual';
 import DjangoDesignVisual from './visuals/DjangoDesignVisual';
 
-/* ── Theme colors ── */
+/* ---- Theme colors ---- */
 
 const ENGINE_ACCENT = '#C4503C';
 const CHROME = '#1C1C20';
 
-/** Visual-area background by theme */
 function visualBg(theme: ProjectCardData['theme']): string {
   switch (theme) {
     case 'dark':
       return CHROME;
     case 'warm':
-      return '#F0EBE4'; // parchment
+      return '#F0EBE4';
     case 'warm-teal':
       return 'linear-gradient(135deg, #EEF3F4, #E8EEEF)';
     case 'warm-gold':
@@ -37,13 +42,12 @@ function visualBg(theme: ProjectCardData['theme']): string {
   }
 }
 
-/** Resolve roleColor: CSS var name or raw hex */
 function resolveColor(roleColor: string): string {
   if (roleColor === '--color-engine-accent') return ENGINE_ACCENT;
   return `var(${roleColor})`;
 }
 
-/* ── Sub-components ── */
+/* ---- Sub-components ---- */
 
 function RoleBadge({ role, color, textOverride }: { role: string; color: string; textOverride?: string }) {
   const resolved = resolveColor(color);
@@ -81,7 +85,40 @@ function PoweredByBadge({ name }: { name: string }) {
   );
 }
 
-/* ── Main component ── */
+/* ---- Visual Renderer ---- */
+
+function CardVisual({ visual, isHovered }: { visual: string; isHovered: boolean }) {
+  switch (visual) {
+    case 'theseus':
+      return (
+        <Suspense fallback={<TheseusVisual isHovered={isHovered} />}>
+          <TheseusVisual3D isHovered={isHovered} />
+        </Suspense>
+      );
+    case 'commonplace':
+      return (
+        <Suspense fallback={<CommonPlaceVisual isHovered={isHovered} />}>
+          <CommonPlaceVisual3D isHovered={isHovered} />
+        </Suspense>
+      );
+    case 'index-api':
+      return <IndexApiVisual isHovered={isHovered} />;
+    case 'gatehouse':
+      return <GatehouseVisual isHovered={isHovered} />;
+    case 'porchfest':
+      return <PorchfestVisual isHovered={isHovered} />;
+    case 'compliance':
+      return <ComplianceVisual isHovered={isHovered} />;
+    case 'youtube':
+      return <YoutubeVisual isHovered={isHovered} />;
+    case 'django-design':
+      return <DjangoDesignVisual isHovered={isHovered} />;
+    default:
+      return null;
+  }
+}
+
+/* ---- Main component ---- */
 
 interface ProjectCardProps {
   data: ProjectCardData;
@@ -92,21 +129,21 @@ export default function ProjectCard({ data, delay = 0 }: ProjectCardProps) {
   const [isHovered, setIsHovered] = useState(false);
   const isDark = data.theme === 'dark';
   const prefersReducedMotion = usePrefersReducedMotion();
+  const isTheseus = data.slug === 'theseus';
 
-  /* Card-level styles */
+  /* Is this a 3D card? If so, visual area is transparent */
+  const is3D = data.visual === 'theseus' || data.visual === 'commonplace';
+
   const cardBg = isDark ? CHROME : '#fff';
   const cardBorder = isDark
     ? '1px solid rgba(255,255,255,0.06)'
     : `1px solid ${isHovered ? 'var(--color-border)' : 'var(--color-border-light)'}`;
   const hoverShadow = isDark
-    ? `0 12px 40px rgba(196,80,60,0.15)`
-    : `0 12px 40px rgba(0,0,0,0.10)`;
+    ? '0 12px 40px rgba(196,80,60,0.15)'
+    : '0 12px 40px rgba(0,0,0,0.10)';
 
-  /* Visual area bg (may be gradient or solid) */
   const vBg = visualBg(data.theme);
   const isGradient = vBg.startsWith('linear');
-
-  const isTheseus = data.slug === 'theseus';
 
   return (
     <ScrollReveal delay={delay} className="h-full">
@@ -118,7 +155,9 @@ export default function ProjectCard({ data, delay = 0 }: ProjectCardProps) {
           border: cardBorder,
           position: 'relative',
           cursor: 'pointer',
-          transition: prefersReducedMotion ? 'none' : 'transform 0.3s ease, box-shadow 0.3s ease, border-color 0.3s ease',
+          transition: prefersReducedMotion
+            ? 'none'
+            : 'transform 0.3s ease, box-shadow 0.3s ease, border-color 0.3s ease',
           transform: isHovered && !prefersReducedMotion ? 'translateY(-4px)' : 'none',
           boxShadow: isHovered ? hoverShadow : '0 1px 3px rgba(0,0,0,0.04)',
           color: 'inherit',
@@ -150,24 +189,20 @@ export default function ProjectCard({ data, delay = 0 }: ProjectCardProps) {
             width: '100%',
             aspectRatio: '16 / 10',
             position: 'relative',
-            overflow: 'hidden',
+            /* 3D cards: transparent bg, allow slight overflow for floating effect */
+            overflow: is3D ? 'visible' : 'hidden',
             zIndex: 1,
-            ...(isGradient
-              ? { backgroundImage: vBg }
-              : { backgroundColor: vBg }),
-            ...(data.theme === 'warm'
+            ...(is3D
+              ? { background: 'transparent' }
+              : isGradient
+                ? { backgroundImage: vBg }
+                : { backgroundColor: vBg }),
+            ...(data.theme === 'warm' && !is3D
               ? { borderBottom: '1px solid var(--color-border-light)' }
               : {}),
           }}
         >
-          {data.visual === 'theseus' && <TheseusVisual isHovered={isHovered} />}
-          {data.visual === 'commonplace' && <CommonPlaceVisual isHovered={isHovered} />}
-          {data.visual === 'index-api' && <IndexApiVisual isHovered={isHovered} />}
-          {data.visual === 'gatehouse' && <GatehouseVisual isHovered={isHovered} />}
-          {data.visual === 'porchfest' && <PorchfestVisual isHovered={isHovered} />}
-          {data.visual === 'compliance' && <ComplianceVisual isHovered={isHovered} />}
-          {data.visual === 'youtube' && <YoutubeVisual isHovered={isHovered} />}
-          {data.visual === 'django-design' && <DjangoDesignVisual isHovered={isHovered} />}
+          <CardVisual visual={data.visual} isHovered={isHovered} />
 
           {/* Hover hint */}
           <span
