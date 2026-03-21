@@ -112,7 +112,12 @@ export default function TopNav({ navItems }: TopNavProps) {
     <nav
       aria-label="Main navigation"
       className="sticky top-0 z-50 nav-fade safe-area-pad-top"
-      style={{ backgroundColor: 'var(--color-nav-bg)', boxShadow: '0 1px 12px rgba(34, 26, 28, 0.5)' }}
+      style={{
+        background: 'linear-gradient(to bottom, rgba(34, 26, 28, 0.78), rgba(34, 26, 28, 0.6))',
+        backdropFilter: 'blur(12px)',
+        WebkitBackdropFilter: 'blur(12px)',
+        boxShadow: '0 1px 12px rgba(34, 26, 28, 0.5)',
+      }}
     >
       <div className="w-full px-3 sm:px-6 py-3 flex items-center">
         {/* Site title (left) */}

@@ -486,8 +486,8 @@ body::after {
   background: linear-gradient(
     in srgb,
     to bottom,
-    var(--color-nav-bg),
-    rgba(34, 26, 28, 0.4) 40%,
+    rgba(34, 26, 28, 0.55),
+    rgba(34, 26, 28, 0.25) 40%,
     rgba(34, 26, 28, 0)
   );
   pointer-events: none;
