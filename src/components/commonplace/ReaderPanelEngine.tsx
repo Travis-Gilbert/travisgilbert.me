@@ -9,6 +9,7 @@
  */
 
 import { useMemo, useState } from 'react';
+import { useCommonPlace } from '@/lib/commonplace-context';
 import type { ApiObjectDetail, ApiObjectClaim, ApiEdgeCompact, ApiComponent } from '@/lib/commonplace';
 import {
   CLAIM_STATUS_COLORS,
@@ -140,7 +141,7 @@ function EntitiesTab({ entities }: { entities: EntityEntry[] }) {
    Tab: Graph (connections + tensions)
    ───────────────────────────────────────────────── */
 
-function GraphTab({ edges }: { edges: ApiEdgeCompact[] }) {
+function GraphTab({ edges, onOpenObject }: { edges: ApiEdgeCompact[]; onOpenObject: (id: number) => void }) {
   const connections = edges.filter((e) => e.edge_type !== 'contradicts');
   const tensions = edges.filter((e) => e.edge_type === 'contradicts');
 
@@ -153,7 +154,12 @@ function GraphTab({ edges }: { edges: ApiEdgeCompact[] }) {
       {connections.map((cn) => {
         const color = EDGE_TYPE_COLORS[cn.edge_type] || 'var(--r-text-faint)';
         return (
-          <div key={cn.id} className="reader-entity-row" style={{ cursor: 'pointer' }}>
+          <div
+            key={cn.id}
+            className="reader-entity-row"
+            style={{ cursor: 'pointer' }}
+            onClick={() => onOpenObject(cn.other_id)}
+          >
             <div className="reader-entity-dot" style={{ background: color }} />
             <div style={{ flex: 1, minWidth: 0 }}>
               <div
@@ -224,6 +230,7 @@ export default function ReaderPanelEngine({
   open,
   detail,
 }: ReaderPanelEngineProps) {
+  const { openReader } = useCommonPlace();
   const [activeTab, setActiveTab] = useState<EngineTab>('claims');
 
   const claims = useMemo(
@@ -268,7 +275,7 @@ export default function ReaderPanelEngine({
         <div className="reader-engine-content">
           {activeTab === 'claims' && <ClaimsTab claims={claims} />}
           {activeTab === 'entities' && <EntitiesTab entities={entities} />}
-          {activeTab === 'graph' && <GraphTab edges={edges} />}
+          {activeTab === 'graph' && <GraphTab edges={edges} onOpenObject={openReader} />}
         </div>
       </div>
     </div>

@@ -13,6 +13,13 @@
   position: relative;
   width: 100%;
   padding: 24px 28px 32px;
+
+  /* Reading pane sits on a light parchment surface, so override
+     the dark-chrome --cp-text tokens with dark readable values. */
+  --cp-text: #2A2520;
+  --cp-text-muted: #5C554D;
+  --cp-text-faint: #8A8279;
+  --cp-text-ghost: #AEA89F;
 }
 
 /* ── Reading progress bar ── */

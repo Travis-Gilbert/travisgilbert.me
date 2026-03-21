@@ -305,13 +305,11 @@ export default function ReaderOverlay() {
     return () => document.removeEventListener('keydown', handleKeyDown);
   }, [readerObjectId, closeReader, focusNext, focusPrev, focusIdx, paragraphs, toggleHighlight]);
 
-  /* ── Reset state when opening a new object ── */
+  /* ── Reset per-object state when navigating (preserve panel open state) ── */
   useEffect(() => {
     setFocusIdx(-1);
     setHighlights(new Map());
     setProgress(0);
-    setLeftOpen(false);
-    setRightOpen(false);
   }, [readerObjectId]);
 
   /* ── Focus trap ── */
@@ -353,8 +351,16 @@ export default function ReaderOverlay() {
           onScrollToParagraph={scrollToParagraph}
         />
 
-        {/* Reading column */}
-        <div className="reader-scroll" ref={scrollRef} onScroll={handleScroll}>
+        {/* Reading column: clicking here closes panels */}
+        <div
+          className="reader-scroll"
+          ref={scrollRef}
+          onScroll={handleScroll}
+          onClick={() => {
+            if (leftOpen) setLeftOpen(false);
+            if (rightOpen) setRightOpen(false);
+          }}
+        >
           {/* Selection popover (positioned inside scroll container) */}
           <ReaderSelectionPopover
             scrollContainerRef={scrollRef}

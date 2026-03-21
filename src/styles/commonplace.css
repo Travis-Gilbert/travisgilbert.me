@@ -1064,6 +1064,13 @@
   overflow: auto;
   /* Transparent so SiteDotGrid canvas shows through behind content */
   background-color: transparent;
+
+  /* Pane content sits on light parchment (dot-grid canvas); override
+     dark-chrome text tokens so cards, headings, and labels are readable. */
+  --cp-text: #2A2520;
+  --cp-text-muted: #5C554D;
+  --cp-text-faint: #8A8279;
+  --cp-text-ghost: #AEA89F;
 }
 
 /* ─────────────────────────────────────────────────
@@ -1089,6 +1096,12 @@
   max-width: 880px;
   margin: 0 auto;
   padding: 24px 20px;
+
+  /* Same light-surface text overrides (may not be nested inside cp-pane-content) */
+  --cp-text: #2A2520;
+  --cp-text-muted: #5C554D;
+  --cp-text-faint: #8A8279;
+  --cp-text-ghost: #AEA89F;
 }
 
 /* ─────────────────────────────────────────────────
@@ -1743,8 +1756,8 @@
   gap: 8px;
   padding: 10px 14px;
   border-radius: 6px;
-  border: 1px solid rgba(244, 243, 240, 0.15);
-  background: rgba(244, 243, 240, 0.10);
+  border: 1px solid rgba(42, 37, 32, 0.18);
+  background: rgba(244, 243, 240, 0.45);
   backdrop-filter: blur(8px);
   transition: border-color 200ms, box-shadow 200ms, background 200ms;
   cursor: text;
@@ -1772,7 +1785,7 @@
 }
 
 .cp-inquiry-input::placeholder {
-  color: rgba(130, 160, 166, 0.75);
+  color: #5A544D;
 }
 
 .cp-inquiry-web-toggle {
@@ -1783,9 +1796,9 @@
   border-radius: 3px;
   cursor: pointer;
   transition: all 150ms;
-  border: 1px solid transparent;
-  background: transparent;
-  color: var(--cp-text-faint);
+  border: 1px solid var(--cp-border);
+  background: rgba(42, 37, 32, 0.06);
+  color: var(--cp-text-muted, #5C554D);
   user-select: none;
 }
 
@@ -2691,6 +2704,16 @@
   height: 100%;
   overflow-y: auto;
   background: var(--cp-color-surface);
+
+  /* Detail view has a light parchment background; override dark-chrome
+     text tokens so body, headings, and metadata are readable. */
+  --cp-color-text: #2A2520;
+  --cp-color-text-muted: #5C554D;
+  --cp-color-border: rgba(42, 37, 32, 0.12);
+  --cp-text: #2A2520;
+  --cp-text-muted: #5C554D;
+  --cp-text-faint: #8A8279;
+  --cp-text-ghost: #AEA89F;
 }
 
 .cp-detail-header {
@@ -7063,13 +7086,15 @@
   padding: 4px 10px;
   border-radius: 5px;
   border: 1px solid var(--cp-teal);
-  background: transparent;
+  background: color-mix(in srgb, var(--cp-teal) 18%, transparent);
   color: var(--cp-teal);
   cursor: pointer;
-  transition: background 120ms ease, color 120ms ease;
+  box-shadow: 0 0 8px rgba(45, 95, 107, 0.35);
+  transition: background 120ms ease, color 120ms ease, box-shadow 120ms ease;
 }
 .cp-drawer-read-btn:hover {
-  background: color-mix(in srgb, var(--cp-teal) 10%, transparent);
+  background: color-mix(in srgb, var(--cp-teal) 30%, transparent);
+  box-shadow: 0 0 14px rgba(45, 95, 107, 0.5);
 }
 
 /* ─── Rough divider below header ─── */

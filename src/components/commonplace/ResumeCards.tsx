@@ -34,11 +34,12 @@ export default function ResumeCards({ lastEdited, recentActivity = [], onOpenObj
             textAlign: 'left',
             position: 'relative',
             overflow: 'hidden',
-            background: '#2D2219',
-            border: '1px solid var(--cp-red-line)',
+            background: 'rgba(180, 90, 45, 0.06)',
+            border: '1px solid rgba(180, 90, 45, 0.22)',
             borderRadius: 7,
             padding: '13px 16px',
             cursor: 'pointer',
+            boxShadow: '0 0 18px rgba(180, 90, 45, 0.10), inset 0 0 24px rgba(180, 90, 45, 0.04)',
           }}
         >
           {/* Accent stripe */}
@@ -48,7 +49,7 @@ export default function ResumeCards({ lastEdited, recentActivity = [], onOpenObj
             left: 0,
             right: 0,
             height: 2,
-            background: 'linear-gradient(90deg, var(--cp-red), rgba(196, 80, 60, 0.25), transparent)',
+            background: 'linear-gradient(90deg, #B45A2D, rgba(180, 90, 45, 0.25), transparent)',
           }} />
           <div>
             <div style={{
@@ -60,9 +61,9 @@ export default function ResumeCards({ lastEdited, recentActivity = [], onOpenObj
             }}>
               <div style={{
                 fontFamily: 'var(--cp-font-mono)',
-                fontSize: 9,
+                fontSize: 11,
                 fontWeight: 700,
-                color: 'var(--cp-accent)',
+                color: '#B45A2D',
                 letterSpacing: '0.1em',
                 textTransform: 'uppercase',
               }}>
@@ -122,67 +123,51 @@ export default function ResumeCards({ lastEdited, recentActivity = [], onOpenObj
         </button>
       )}
       {recentActivity.length > 0 && (
-        <div style={{
-          minHeight: 112,
-          position: 'relative',
-          overflow: 'hidden',
-          display: 'flex',
-          flexDirection: 'column',
-          justifyContent: 'space-between',
-          background: '#222828',
-          border: '1px solid rgba(90, 170, 186, 0.28)',
-          borderRadius: 7,
-          padding: '13px 16px',
-        }}>
-          {/* Accent stripe */}
+        <div style={{ padding: '4px 0', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
           <div style={{
-            position: 'absolute',
-            top: 0,
-            left: 0,
-            right: 0,
-            height: 2,
-            background: 'linear-gradient(90deg, #5AAABA, rgba(90, 170, 186, 0.25), transparent)',
-          }} />
-          <div>
-            <div style={{
-              fontFamily: 'var(--cp-font-mono)',
-              fontSize: 9,
-              fontWeight: 700,
-              color: '#5AAABA',
-              letterSpacing: '0.1em',
-              textTransform: 'uppercase',
-              marginBottom: 6,
-            }}>
-              While you were away
-            </div>
-            <div style={{
-              fontFamily: 'var(--cp-font-title)',
-              fontSize: 15,
-              fontWeight: 700,
-              color: 'var(--cp-text)',
-              lineHeight: 1.25,
-            }}>
-              {recentActivity.length} new connections formed
-            </div>
-            <div style={{
-              fontFamily: 'var(--cp-font-body)',
-              fontSize: 12,
-              color: 'var(--cp-text-muted)',
-              marginTop: 2,
-              lineHeight: 1.5,
-            }}>
-              {(recentActivity[0]?.display_title ?? recentActivity[0]?.title ?? 'Recent activity')}
-              {recentActivity.length > 1 ? ` linked to ${recentActivity.length - 1} other objects` : ''}
-            </div>
-          </div>
-          <div style={{
-            fontFamily: 'var(--cp-font-body)',
-            fontSize: 12,
-            color: 'var(--cp-text-faint)',
-            lineHeight: 1.45,
+            fontFamily: 'var(--cp-font-mono)',
+            fontSize: 11,
+            fontWeight: 700,
+            color: 'var(--cp-teal)',
+            letterSpacing: '0.1em',
+            textTransform: 'uppercase',
+            marginBottom: 8,
+            textDecoration: 'underline',
+            textUnderlineOffset: 4,
+            textDecorationThickness: 1,
           }}>
-            Recent activity is being synthesized from the latest objects in the current feed.
+            While you were away
           </div>
+          <ul style={{
+            margin: 0,
+            padding: '0 0 0 14px',
+            listStyle: 'none',
+          }}>
+            {recentActivity.map((item) => (
+              <li
+                key={item.id}
+                style={{
+                  fontFamily: 'var(--cp-font-body)',
+                  fontSize: 12,
+                  color: 'var(--cp-teal)',
+                  lineHeight: 1.5,
+                  marginBottom: 8,
+                  position: 'relative',
+                  paddingLeft: 2,
+                }}
+              >
+                <span style={{
+                  position: 'absolute',
+                  left: -12,
+                  top: 0,
+                  color: 'var(--cp-teal)',
+                }}>
+                  &bull;
+                </span>
+                {item.display_title ?? item.title}
+              </li>
+            ))}
+          </ul>
         </div>
       )}
     </div>

@@ -249,12 +249,12 @@ export default function InquiryBar({
             cx={7}
             cy={7}
             r={5}
-            stroke={isFocused ? 'var(--cp-red)' : 'var(--cp-text-faint)'}
+            stroke={isFocused ? 'var(--cp-red)' : '#5A544D'}
             strokeWidth={1.4}
           />
           <path
             d="M11 11l3.5 3.5"
-            stroke={isFocused ? 'var(--cp-red)' : 'var(--cp-text-faint)'}
+            stroke={isFocused ? 'var(--cp-red)' : '#5A544D'}
             strokeWidth={1.4}
             strokeLinecap="round"
           />
@@ -264,24 +264,33 @@ export default function InquiryBar({
           ref={inputRef}
           type="text"
           value={query}
-          onChange={(e) => setQuery(e.target.value)}
+          onChange={(e) => {
+            const val = e.target.value;
+            setQuery(val);
+            // Auto-enable web search when user starts typing
+            if (val.trim().length > 0 && !webEnabled) {
+              setWebEnabled(true);
+            }
+          }}
           onFocus={() => setIsFocused(true)}
           placeholder="What your notes want you to find"
           className="cp-inquiry-input"
         />
 
-        {/* Web toggle */}
-        <button
-          type="button"
-          onClick={(e) => {
-            e.stopPropagation();
-            setWebEnabled(!webEnabled);
-          }}
-          title={webEnabled ? 'Web search on' : 'Web search off'}
-          className={`cp-inquiry-web-toggle${webEnabled ? ' cp-inquiry-web-toggle--on' : ''}`}
-        >
-          {webEnabled ? 'WEB ON' : 'WEB OFF'}
-        </button>
+        {/* Web toggle: only visible when enabled (typing auto-enables) */}
+        {webEnabled && (
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              setWebEnabled(false);
+            }}
+            title="Web search on (click to disable)"
+            className="cp-inquiry-web-toggle cp-inquiry-web-toggle--on"
+          >
+            WEB ON
+          </button>
+        )}
 
         {/* Gap count */}
         {gapCount > 0 && (

@@ -468,6 +468,10 @@ function ClusterTerminal({
         background: 'var(--cp-term)',
         borderTop: '1px solid var(--cp-term-border)',
         overflow: 'hidden',
+        /* Re-establish light text for dark terminal surface */
+        ['--cp-text' as string]: '#F4F3F0',
+        ['--cp-text-muted' as string]: '#C0BDB5',
+        ['--cp-text-faint' as string]: '#8A8478',
       }}
     >
       {/* Header */}
@@ -502,8 +506,8 @@ function ClusterTerminal({
         </span>
       </div>
 
-      {/* Member list */}
-      <div style={{ padding: '6px 10px' }}>
+      {/* Member list (height-capped, no scroll) */}
+      <div style={{ padding: '6px 10px', maxHeight: 200, overflow: 'hidden' }}>
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
           {members.map((member) => {
             const identity = getObjectTypeIdentity(member.object_type_slug);
