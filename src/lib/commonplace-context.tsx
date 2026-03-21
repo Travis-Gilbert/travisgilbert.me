@@ -135,6 +135,13 @@ interface CommonPlaceContextValue {
   selectSingle: (id: string) => void;
   /** Replace selection with a set from rubber-band */
   selectRect: (ids: string[]) => void;
+
+  /** Object ID currently open in the full-screen reader overlay (null when closed) */
+  readerObjectId: number | null;
+  /** Open the full-screen reader for the given object */
+  openReader: (objectId: number) => void;
+  /** Close the full-screen reader */
+  closeReader: () => void;
 }
 
 const NOOP = () => {};
@@ -189,6 +196,9 @@ const CommonPlaceContext = createContext<CommonPlaceContextValue>({
   clearSelection: NOOP,
   selectSingle: NOOP,
   selectRect: NOOP,
+  readerObjectId: null,
+  openReader: NOOP,
+  closeReader: NOOP,
 });
 
 function dedupeRenderableObjects(items: RenderableObject[]): RenderableObject[] {
@@ -252,6 +262,17 @@ export function CommonPlaceProvider({ children }: { children: ReactNode }) {
     source: RenderableObject;
     target: RenderableObject | null;
   } | null>(null);
+
+  /* ── Reader overlay ── */
+  const [readerObjectId, setReaderObjectId] = useState<number | null>(null);
+
+  const openReader = useCallback((objectId: number) => {
+    setReaderObjectId(objectId);
+  }, []);
+
+  const closeReader = useCallback(() => {
+    setReaderObjectId(null);
+  }, []);
 
   /* ── Multi-select ── */
   const [selectedItems, setSelectedItems] = useState<Set<string>>(new Set());
@@ -463,6 +484,9 @@ export function CommonPlaceProvider({ children }: { children: ReactNode }) {
       clearSelection,
       selectSingle,
       selectRect,
+      readerObjectId,
+      openReader,
+      closeReader,
     }),
     [
       captureVersion,
@@ -504,6 +528,9 @@ export function CommonPlaceProvider({ children }: { children: ReactNode }) {
       cancelConnection,
       submitConnection,
       selectedItems,
+      readerObjectId,
+      openReader,
+      closeReader,
     ],
   );
 

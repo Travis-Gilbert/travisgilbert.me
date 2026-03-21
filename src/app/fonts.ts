@@ -1,4 +1,4 @@
-import { Vollkorn, IBM_Plex_Sans, Courier_Prime, JetBrains_Mono, Ysabeau, Caveat, Caudex } from 'next/font/google';
+import { Vollkorn, IBM_Plex_Sans, Courier_Prime, JetBrains_Mono, Ysabeau, Caveat, Caudex, Literata, Lora } from 'next/font/google';
 import localFont from 'next/font/local';
 
 export const vollkorn = Vollkorn({
@@ -52,6 +52,22 @@ export const caudex = Caudex({
   style: ['normal', 'italic'],
 });
 
+export const literata = Literata({
+  subsets: ['latin'],
+  variable: '--font-literata',
+  display: 'swap',
+  weight: ['400', '500', '600', '700'],
+  style: ['normal', 'italic'],
+});
+
+export const lora = Lora({
+  subsets: ['latin'],
+  variable: '--font-lora',
+  display: 'swap',
+  weight: ['400', '500', '600', '700'],
+  style: ['normal', 'italic'],
+});
+
 export const amarna = localFont({
   src: '../../public/fonts/Amarna-Variable.ttf',
   variable: '--font-amarna',
@@ -66,5 +82,7 @@ export const fontVariableClasses = [
   jetBrainsMono.variable,
   caveat.variable,
   caudex.variable,
+  literata.variable,
+  lora.variable,
   amarna.variable,
 ].join(' ');

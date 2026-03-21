@@ -7,6 +7,7 @@ import ObjectDrawer from '@/components/commonplace/ObjectDrawer';
 import ObjectContextMenu from '@/components/commonplace/ObjectContextMenu';
 import ConnectionComposer from '@/components/commonplace/ConnectionComposer';
 import EngineTerminal from '@/components/commonplace/EngineTerminal';
+import ReaderOverlay from '@/components/commonplace/ReaderOverlay';
 import { Toaster } from 'sonner';
 import '@/styles/commonplace.css';
 import '@/styles/object-cards.css';
@@ -75,6 +76,7 @@ export default function CommonPlaceLayout({
 
         {/* Global overlays: object drawer, command palette, context menu, engine terminal, toast notifications */}
         <ObjectDrawer />
+        <ReaderOverlay />
         <CommandPalette />
         <ObjectContextMenu />
         <ConnectionComposer />

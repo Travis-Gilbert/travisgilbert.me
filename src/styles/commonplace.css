@@ -1,3 +1,6 @@
+/* Reader overlay (parchment reading surface) */
+@import './reader.css';
+
 /* ─────────────────────────────────────────────────
    CommonPlace: Dark Chrome Instrument tokens
    Graphite shell, vellum work surface, red-pencil accents.
@@ -7051,6 +7054,22 @@
 .cp-drawer-close:hover {
   background: rgba(42, 36, 32, 0.06);
   color: var(--cp-text);
+}
+
+.cp-drawer-read-btn {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 10px;
+  border-radius: 5px;
+  border: 1px solid var(--cp-teal);
+  background: transparent;
+  color: var(--cp-teal);
+  cursor: pointer;
+  transition: background 120ms ease, color 120ms ease;
+}
+.cp-drawer-read-btn:hover {
+  background: color-mix(in srgb, var(--cp-teal) 10%, transparent);
 }
 
 /* ─── Rough divider below header ─── */

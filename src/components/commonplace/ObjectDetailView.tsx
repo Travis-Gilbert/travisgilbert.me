@@ -19,6 +19,7 @@
 import { useMemo } from 'react';
 import { fetchObjectById, useApiData } from '@/lib/commonplace-api';
 import { getObjectTypeIdentity } from '@/lib/commonplace';
+import { useCommonPlace } from '@/lib/commonplace-context';
 import type { ApiObjectDetail, ApiNodeListItem } from '@/lib/commonplace';
 import ComponentList from './ComponentList';
 import ConnectionList from './ConnectionList';
@@ -71,6 +72,7 @@ export default function ObjectDetailView({
   objectRef,
   onOpenObject,
 }: ObjectDetailViewProps) {
+  const { openReader } = useCommonPlace();
   const {
     data: detail,
     loading,
@@ -155,6 +157,18 @@ export default function ObjectDetailView({
           <span className="cp-detail-timestamp">
             Captured {relativeTime(detail.captured_at)}
           </span>
+          <button
+            type="button"
+            className="cp-drawer-read-btn"
+            onClick={() => openReader(detail.id)}
+            style={{ marginLeft: 'auto' }}
+          >
+            <svg width={14} height={14} viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth={1.5} aria-hidden="true">
+              <path d="M2 3 Q8 1 8 1 Q8 1 14 3 V13 Q8 11 8 11 Q8 11 2 13 Z" />
+              <line x1={8} y1={1} x2={8} y2={11} />
+            </svg>
+            <span style={{ fontSize: 11, fontFamily: 'var(--cp-font-mono)', letterSpacing: '0.04em' }}>Read</span>
+          </button>
         </div>
         <h2 className="cp-detail-title">{detail.display_title || detail.title}</h2>
       </div>

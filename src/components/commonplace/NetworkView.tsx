@@ -15,6 +15,7 @@ import { useState, useCallback, useMemo } from 'react';
 import FrameManager from './FrameManager';
 import type { ViewFrame, GraphNode, GraphLink } from '@/lib/commonplace';
 import { fetchGraph, useApiData } from '@/lib/commonplace-api';
+import { useCommonPlace } from '@/lib/commonplace-context';
 import { useIsMobileViewport } from '@/hooks/useIsMobileViewport';
 
 type NetworkSubView = 'list' | 'map' | 'entities' | 'timeline';
@@ -53,6 +54,7 @@ const LazyTimelineViz = dynamic(() => import('./TimelineViz'), {
 });
 
 export default function NetworkView({ onOpenObject, filterTypes }: NetworkViewProps) {
+  const { openReader } = useCommonPlace();
   const isMobile = useIsMobileViewport();
   const [activeSubView, setActiveSubView] = useState<NetworkSubView>('map');
   const [hasChosenView, setHasChosenView] = useState(false);
@@ -194,6 +196,7 @@ export default function NetworkView({ onOpenObject, filterTypes }: NetworkViewPr
             graphNodes={graphNodes}
             graphLinks={graphLinks}
             onOpenObject={onOpenObject}
+            onReadObject={openReader}
             filter={graphFilter}
             registerSnapshotGetter={effectiveSubView === 'map' ? handleRegisterSnapshotGetter : undefined}
           />

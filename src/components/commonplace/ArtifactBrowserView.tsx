@@ -37,7 +37,7 @@ type KindFilter = 'all' | 'url' | 'file' | 'text';
 type StatusFilter = 'all' | 'captured' | 'parsed' | 'extracted' | 'failed';
 
 export default function ArtifactBrowserView() {
-  const { captureVersion } = useCommonPlace();
+  const { captureVersion, openDrawer } = useCommonPlace();
   const [kindFilter, setKindFilter] = useState<KindFilter>('all');
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
   const [searchQuery, setSearchQuery] = useState('');
@@ -239,6 +239,7 @@ export default function ArtifactBrowserView() {
                   isExtracting={extractingIds.has(artifact.id)}
                   onToggle={() => handleToggleExpand(artifact.id)}
                   onExtract={() => handleExtract(artifact.id)}
+                  onOpenObject={artifact.notebook_slug ? () => openDrawer(artifact.notebook_slug!) : undefined}
                 />
               ))}
             </div>
@@ -572,12 +573,14 @@ function ArtifactRow({
   isExtracting,
   onToggle,
   onExtract,
+  onOpenObject,
 }: {
   artifact: ApiArtifactListItem;
   isExpanded: boolean;
   isExtracting: boolean;
   onToggle: () => void;
   onExtract: () => void;
+  onOpenObject?: () => void;
 }) {
   const kindMeta = CAPTURE_KIND_STYLES[artifact.capture_kind] ?? { color: '#666', label: artifact.capture_kind };
   const isFailed = artifact.ingestion_status === 'failed';
@@ -690,6 +693,7 @@ function ArtifactRow({
           artifact={artifact}
           isExtracting={isExtracting}
           onExtract={onExtract}
+          onOpenObject={onOpenObject}
         />
       )}
     </div>
@@ -752,10 +756,12 @@ function ArtifactDetail({
   artifact,
   isExtracting,
   onExtract,
+  onOpenObject,
 }: {
   artifact: ApiArtifactListItem;
   isExtracting: boolean;
   onExtract: () => void;
+  onOpenObject?: () => void;
 }) {
   const canExtract = artifact.ingestion_status === 'parsed' || artifact.ingestion_status === 'captured';
   const date = new Date(artifact.created_at);
@@ -863,7 +869,15 @@ function ArtifactDetail({
               {isExtracting ? 'Extracting...' : 'Extract'}
             </button>
           )}
-          {artifact.ingestion_status === 'extracted' && (
+          {artifact.ingestion_status === 'extracted' && onOpenObject && (
+            <button
+              onClick={onOpenObject}
+              style={actionBtnStyle('var(--cp-teal)')}
+            >
+              Read
+            </button>
+          )}
+          {artifact.ingestion_status === 'extracted' && !onOpenObject && (
             <span style={{ fontSize: 11, color: 'var(--cp-green)', fontFamily: 'var(--cp-font-mono)', alignSelf: 'center' }}>
               Extraction complete
             </span>

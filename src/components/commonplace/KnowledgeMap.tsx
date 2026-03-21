@@ -64,6 +64,8 @@ const ICON_PATHS: Record<string, string> = {
 
 interface KnowledgeMapProps {
   onOpenObject?: (objectId: string) => void;
+  /** Open the full-screen reader for a node (double-click) */
+  onReadObject?: (objectRef: number) => void;
   /** Pre-fetched graph nodes from parent NetworkView */
   graphNodes: GraphNode[];
   /** Pre-fetched graph links from parent NetworkView */
@@ -198,6 +200,7 @@ function edgeStyle(link: GraphLink): EdgeStyleResult {
 
 export default function KnowledgeMap({
   onOpenObject,
+  onReadObject,
   graphNodes: rawNodes,
   graphLinks: rawLinks,
   filter,
@@ -378,6 +381,19 @@ export default function KnowledgeMap({
     [onOpenObject],
   );
 
+  /* ── Double-click handler for reader ──────────────── */
+
+  const handleNodeDoubleClick = useCallback(
+    (nodeId: string) => {
+      if (!onReadObject) return;
+      const entry = posMap.get(nodeId);
+      if (entry?.node.objectRef) {
+        onReadObject(entry.node.objectRef);
+      }
+    },
+    [onReadObject, posMap],
+  );
+
   /* ── Edge click handler ───────────────────────────── */
 
   const handleEdgeClick = useCallback(
@@ -546,6 +562,7 @@ export default function KnowledgeMap({
                 onMouseEnter={() => setHoveredId(node.id)}
                 onMouseLeave={() => setHoveredId(null)}
                 onClick={() => handleNodeClick(node.id)}
+                onDoubleClick={() => handleNodeDoubleClick(node.id)}
               >
                 {/* Node circle */}
                 <circle

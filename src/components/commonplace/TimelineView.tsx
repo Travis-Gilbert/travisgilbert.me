@@ -267,11 +267,13 @@ function TimelineCard({
   allNodes,
   onOpenObject,
   onContextMenu,
+  onRead,
 }: {
   node: MockNode;
   allNodes: MockNode[];
   onOpenObject: (obj: RenderableObject) => void;
   onContextMenu?: (e: React.MouseEvent, obj: RenderableObject) => void;
+  onRead?: (objectId: number) => void;
 }) {
   const typeInfo = getObjectTypeIdentity(node.objectType);
   const entityChips = useMemo(() => deriveEntityChips(node), [node]);
@@ -430,13 +432,25 @@ function TimelineCard({
               </div>
             </div>
           ) : (
-            <button
-              type="button"
-              className="cp-tl-retro-add"
-              onClick={() => setRetroOpen(true)}
-            >
-              + Add note
-            </button>
+            <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+              <button
+                type="button"
+                className="cp-tl-retro-add"
+                onClick={() => setRetroOpen(true)}
+              >
+                + Add note
+              </button>
+              {onRead && (
+                <button
+                  type="button"
+                  className="cp-tl-retro-add"
+                  onClick={() => onRead(node.objectRef)}
+                  style={{ color: 'var(--cp-teal)' }}
+                >
+                  Read
+                </button>
+              )}
+            </div>
           )}
         </div>
       </div>
@@ -454,7 +468,7 @@ export default function TimelineView() {
     activeTypes: new Set<string>(),
   });
   const scrollRef = useRef<HTMLDivElement>(null);
-  const { captureVersion, openDrawer, openContextMenu } = useCommonPlace();
+  const { captureVersion, openDrawer, openReader, openContextMenu } = useCommonPlace();
   const handleObjectClick = useRenderableObjectAction((obj) => openDrawer(obj.slug));
 
   const { data: feed, loading, error, refetch } = useApiData(fetchFeed, [captureVersion]);
@@ -588,6 +602,7 @@ export default function TimelineView() {
                   allNodes={allNodes}
                   onOpenObject={handleObjectClick}
                   onContextMenu={(e, obj) => openContextMenu(e.clientX, e.clientY, obj)}
+                  onRead={openReader}
                 />
               ))}
             </div>

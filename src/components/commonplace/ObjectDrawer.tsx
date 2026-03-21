@@ -748,7 +748,7 @@ function EvidenceLinkCard({ link }: { link: ApiEvidenceLink }) {
    ───────────────────────────────────────────────── */
 
 export default function ObjectDrawer() {
-  const { drawerSlug, closeDrawer, openDrawer } = useCommonPlace();
+  const { drawerSlug, closeDrawer, openDrawer, openReader } = useCommonPlace();
 
   const [detail, setDetail] = useState<ApiObjectDetail | null>(null);
   const [liveComponents, setLiveComponents] = useState<ApiComponent[]>([]);
@@ -1022,6 +1022,21 @@ export default function ObjectDrawer() {
                   </div>
                 )}
               </div>
+              {/* Read button: opens full-screen reader overlay */}
+              {detail && (
+                <button
+                  type="button"
+                  className="cp-drawer-read-btn"
+                  aria-label="Open in reader"
+                  onClick={() => openReader(detail.id)}
+                >
+                  <svg width={14} height={14} viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth={1.5} aria-hidden="true">
+                    <path d="M2 3 Q8 1 8 1 Q8 1 14 3 V13 Q8 11 8 11 Q8 11 2 13 Z" />
+                    <line x1={8} y1={1} x2={8} y2={11} />
+                  </svg>
+                  <span style={{ fontSize: 11, fontFamily: 'var(--cp-font-mono)', letterSpacing: '0.04em' }}>Read</span>
+                </button>
+              )}
               <Drawer.Close
                 className="cp-drawer-close"
                 aria-label="Close"
