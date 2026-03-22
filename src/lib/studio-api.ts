@@ -186,11 +186,11 @@ export async function studioFetch<T>(
     headers['Content-Type'] = 'application/json';
   }
 
-  /* Attach Bearer token for publish requests (session cookies are not
+  /* Attach Bearer token to every request (session cookies are not
      available because we use credentials: 'omit' for cross-origin). */
-  const publishToken = process.env.NEXT_PUBLIC_STUDIO_API_TOKEN;
-  if (publishToken && path.includes('/publish/')) {
-    headers['Authorization'] = `Bearer ${publishToken}`;
+  const studioToken = process.env.NEXT_PUBLIC_STUDIO_API_TOKEN;
+  if (studioToken) {
+    headers['Authorization'] = `Bearer ${studioToken}`;
   }
 
   try {

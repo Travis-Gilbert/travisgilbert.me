@@ -88,6 +88,7 @@ from apps.editor.forms import (
     VideoDeliverableForm,
 )
 from apps.connections.services import build_connections_graph
+from apps.editor.auth import require_studio_token
 from apps.publisher.github import publish_binary_file
 from apps.publisher.publish import (
     delete_content,
@@ -2770,8 +2771,9 @@ def _update_instance_from_payload(instance, config, payload):
 
 
 @method_decorator(csrf_exempt, name="dispatch")
+@method_decorator(require_studio_token, name="dispatch")
 class StudioApiBaseView(View):
-    """Base view for JSON wrappers with CORS and OPTIONS support."""
+    """Base view for JSON wrappers with CORS, token auth, and OPTIONS support."""
 
     def options(self, request, *args, **kwargs):
         return self._json(request, {"ok": True})

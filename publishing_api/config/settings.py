@@ -53,11 +53,13 @@ INSTALLED_APPS = [
     "apps.publisher",
     "apps.editor",
     "apps.intake",
+    "corsheaders",
 ]
 
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
     "whitenoise.middleware.WhiteNoiseMiddleware",
+    "corsheaders.middleware.CorsMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
     "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
@@ -227,3 +229,17 @@ if not DEBUG:
         for h in ALLOWED_HOSTS_RAW.split(",")
         if h.strip() and h.strip() != "*"
     ]
+
+# CORS (django-cors-headers): allow the Studio frontend to reach the API
+CORS_ALLOWED_ORIGINS = [
+    origin.strip()
+    for origin in os.environ.get(
+        "CORS_ALLOWED_ORIGINS",
+        "http://localhost:3000,https://travisgilbert.me,https://travisishere.vercel.app",
+    ).split(",")
+    if origin.strip()
+]
+CORS_ALLOW_HEADERS = [
+    "accept", "authorization", "content-type", "origin", "x-requested-with",
+]
+CORS_ALLOW_METHODS = ["GET", "POST", "PATCH", "DELETE", "OPTIONS"]
