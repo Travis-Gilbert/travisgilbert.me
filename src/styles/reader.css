@@ -1,58 +1,7 @@
 /* ─────────────────────────────────────────────────
-   CommonPlace Reader: design tokens and base styles.
-   Warm parchment reading surface with progressive
-   disclosure of engine intelligence.
-
-   Loaded inside the (commonplace) route group via
-   commonplace.css. All tokens use the --r- prefix
-   to avoid collision with --cp-* CommonPlace tokens.
+   CommonPlace Reader: base styles.
+   Tokens extracted to reader-tokens.css.
    ───────────────────────────────────────────────── */
-
-/* ═════════════════════════════════════════════════
-   TOKENS
-   ═════════════════════════════════════════════════ */
-
-:root {
-  /* Parchment palette */
-  --r-bg: #F0EBE0;
-  --r-bg-light: #F5F0E8;
-  --r-cream: #FAF8F4;
-  --r-card: #FFFFFF;
-  --r-card-border: rgba(0, 0, 0, 0.06);
-  --r-card-shadow: 0 1px 3px rgba(0, 0, 0, 0.04), 0 4px 12px rgba(0, 0, 0, 0.03);
-
-  /* Text hierarchy */
-  --r-text: #2A2A30;
-  --r-text-body: #3D3D44;
-  --r-text-muted: #6B6B72;
-  --r-text-faint: #9B9BA0;
-  --r-text-ghost: #B8B8BC;
-
-  /* Accent colours */
-  --r-teal: #2D5F6B;
-  --r-teal-bg: rgba(45, 95, 107, 0.07);
-  --r-red: #B8623D;
-  --r-red-bg: rgba(184, 98, 61, 0.07);
-  --r-gold: #C49A4A;
-  --r-gold-bg: rgba(196, 154, 74, 0.10);
-  --r-gold-hl: rgba(196, 154, 74, 0.22);
-  --r-purple: #8B6FA0;
-  --r-purple-bg: rgba(139, 111, 160, 0.07);
-  --r-green: #5A7A4A;
-  --r-green-bg: rgba(90, 122, 74, 0.07);
-
-  /* Chrome and rules */
-  --r-rule: rgba(0, 0, 0, 0.08);
-  --r-rule-light: rgba(0, 0, 0, 0.04);
-  --r-focus-bg: rgba(45, 95, 107, 0.06);
-  --r-focus-border: rgba(45, 95, 107, 0.35);
-
-  /* Typography (families set via next/font CSS variables) */
-  --r-font-read: var(--font-ibm-plex-condensed, var(--font-ibm-plex, 'IBM Plex Sans', sans-serif));
-  --r-font-title: var(--font-vollkorn, 'Vollkorn', serif);
-  --r-font-ui: var(--font-courier-prime, 'Courier Prime', monospace);
-  --r-font-size: 18px;
-}
 
 /* ═════════════════════════════════════════════════
    READER SHELL

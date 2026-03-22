@@ -9,6 +9,7 @@ import ConnectionComposer from '@/components/commonplace/ConnectionComposer';
 import EngineTerminal from '@/components/commonplace/EngineTerminal';
 import ReaderOverlay from '@/components/commonplace/ReaderOverlay';
 import { Toaster } from 'sonner';
+import '@/styles/commonplace-tokens.css';
 import '@/styles/commonplace.css';
 import '@/styles/object-cards.css';
 import '@/styles/reading-pane.css';
