@@ -13,7 +13,7 @@
 
 import { useState } from 'react';
 import { fetchProjectBySlug, useApiData } from '@/lib/commonplace-api';
-import { useCommonPlace } from '@/lib/commonplace-context';
+import { useLayout } from '@/lib/providers/layout-provider';
 import ViewSubTabs from './ViewSubTabs';
 import ObjectListPanel from './ObjectListPanel';
 import ScopedTimelinePanel from './ScopedTimelinePanel';
@@ -47,7 +47,7 @@ export default function ProjectView({ slug, onOpenObject }: ProjectViewProps) {
     [slug],
   );
 
-  const { launchView } = useCommonPlace();
+  const { launchView } = useLayout();
   const [activeTab, setActiveTab] = useState('objects');
 
   /* Loading */

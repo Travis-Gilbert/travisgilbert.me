@@ -10,7 +10,8 @@ import {
 } from 'react';
 import type { PlacedItem, BoardConnection, ViewportState } from '@/lib/commonplace-board';
 import { getObjectTypeIdentity } from '@/lib/commonplace';
-import { useCommonPlace } from '@/lib/commonplace-context';
+import { useSelection } from '@/lib/providers/selection-provider';
+import { useDrawer } from '@/lib/providers/drawer-provider';
 import { useCardElevation } from '@/hooks/useCardElevation';
 import { useRecentlyPlaced } from '@/hooks/useRecentlyPlaced';
 import ConnectionBadge from './ConnectionBadge';
@@ -449,8 +450,8 @@ export default function BoardCanvas({
   onConnect,
   engineRelevantIds = new Set(),
 }: BoardCanvasProps) {
-  const { selectedItems, selectSingle, toggleSelectItem, clearSelection, openContextMenu, openDrawer } =
-    useCommonPlace();
+  const { selectedItems, selectSingle, toggleSelectItem, clearSelection } = useSelection();
+  const { openContextMenu, openDrawer } = useDrawer();
 
   const containerRef = useRef<HTMLDivElement>(null);
   const isPanning = useRef(false);

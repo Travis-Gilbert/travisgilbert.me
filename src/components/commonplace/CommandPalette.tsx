@@ -4,7 +4,8 @@ import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { Command } from 'cmdk';
 import { useHotkeys } from 'react-hotkeys-hook';
 import { toast } from 'sonner';
-import { useCommonPlace } from '@/lib/commonplace-context';
+import { useLayout } from '@/lib/providers/layout-provider';
+import { useWorkspace } from '@/lib/providers/workspace-provider';
 import { searchObjects } from '@/lib/commonplace-api';
 import type { ObjectSearchResult } from '@/lib/commonplace-api';
 import { OBJECT_TYPES } from '@/lib/commonplace';
@@ -66,7 +67,8 @@ function saveRecent(list: ObjectSearchResult[]) {
 }
 
 export default function CommandPalette() {
-  const { paletteOpen, openPalette, closePalette, launchView } = useCommonPlace();
+  const { launchView } = useLayout();
+  const { paletteOpen, openPalette, closePalette } = useWorkspace();
 
   const [query, setQuery] = useState('');
   const [results, setResults] = useState<ObjectSearchResult[]>([]);

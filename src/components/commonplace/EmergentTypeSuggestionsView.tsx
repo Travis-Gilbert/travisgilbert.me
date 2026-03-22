@@ -6,7 +6,7 @@ import {
   fetchEmergentTypes,
   applyEmergentType,
 } from '@/lib/commonplace-api';
-import { useCommonPlace } from '@/lib/commonplace-context';
+import { useCapture } from '@/lib/providers/capture-provider';
 import type { ApiEmergentTypeSuggestion } from '@/lib/commonplace';
 import { getObjectTypeIdentity } from '@/lib/commonplace';
 
@@ -33,7 +33,7 @@ const COLOR_SWATCHES = [
 type CardState = 'default' | 'customizing' | 'applying' | 'applied' | 'dismissed';
 
 export default function EmergentTypeSuggestionsView() {
-  const { captureVersion } = useCommonPlace();
+  const { captureVersion } = useCapture();
   const [cardStates, setCardStates] = useState<Map<string, CardState>>(new Map());
 
   const { data: suggestions, loading, error, refetch } = useApiData(

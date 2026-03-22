@@ -26,7 +26,9 @@ import {
   useInteractions,
   FloatingPortal,
 } from '@floating-ui/react';
-import { useCommonPlace } from '@/lib/commonplace-context';
+import { useSelection } from '@/lib/providers/selection-provider';
+import { useDrawer } from '@/lib/providers/drawer-provider';
+import { useWorkspace } from '@/lib/providers/workspace-provider';
 import type { RenderableObject } from './objects/ObjectRenderer';
 import { getObjectTypeIdentity } from '@/lib/commonplace';
 import { toast } from 'sonner';
@@ -59,13 +61,9 @@ const ALL_ACTIONS = [...PRIMARY_ACTIONS, ...GRAPH_ACTIONS];
    ───────────────────────────────────────────────── */
 
 export default function ObjectContextMenu() {
-  const {
-    beginConnection,
-    closeContextMenu,
-    contextMenuTarget,
-    openDrawer,
-    stashObject,
-  } = useCommonPlace();
+  const { beginConnection } = useSelection();
+  const { closeContextMenu, contextMenuTarget, openDrawer } = useDrawer();
+  const { stashObject } = useWorkspace();
   const isOpen = contextMenuTarget !== null;
 
   /* Virtual element at cursor coordinates */

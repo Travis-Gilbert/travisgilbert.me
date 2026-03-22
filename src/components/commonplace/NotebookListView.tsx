@@ -9,14 +9,14 @@
  */
 
 import { fetchNotebooks, useApiData } from '@/lib/commonplace-api';
-import { useCommonPlace } from '@/lib/commonplace-context';
+import { useLayout } from '@/lib/providers/layout-provider';
 
 export default function NotebookListView() {
   const { data: notebooks, loading, error, refetch } = useApiData(
     () => fetchNotebooks(),
     [],
   );
-  const { launchView } = useCommonPlace();
+  const { launchView } = useLayout();
 
   /* Loading */
   if (loading) {

@@ -32,7 +32,7 @@ import {
   useRole,
 } from '@floating-ui/react';
 import { findLeafWithView } from '@/lib/commonplace-layout';
-import { useCommonPlace } from '@/lib/commonplace-context';
+import { useLayout } from '@/lib/providers/layout-provider';
 import CubeScanIcon from './icons/CubeScanIcon';
 import KeyframesSolidIcon from './icons/KeyframesSolidIcon';
 import SubstractIcon from './icons/SubstractIcon';
@@ -85,7 +85,7 @@ export default function CommonPlaceRail({ visible }: CommonPlaceRailProps) {
     navigateToScreen,
     launchView,
     layout,
-  } = useCommonPlace();
+  } = useLayout();
 
   const railItems: Array<
     | { key: string; icon: string; label: string; section: string; accentColor?: string; onClick: (e: React.MouseEvent) => void }

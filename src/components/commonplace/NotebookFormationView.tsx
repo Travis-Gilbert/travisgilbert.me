@@ -2,7 +2,7 @@
 
 import { useState, useCallback } from 'react';
 import { useApiData, fetchSelfOrganizePreview, runSelfOrganizeLoop } from '@/lib/commonplace-api';
-import { useCommonPlace } from '@/lib/commonplace-context';
+import { useCapture } from '@/lib/providers/capture-provider';
 import { getObjectTypeIdentity } from '@/lib/commonplace';
 
 /* ─────────────────────────────────────────────────
@@ -13,7 +13,7 @@ import { getObjectTypeIdentity } from '@/lib/commonplace';
    ───────────────────────────────────────────────── */
 
 export default function NotebookFormationView() {
-  const { captureVersion } = useCommonPlace();
+  const { captureVersion } = useCapture();
   const { data, loading, error, refetch } = useApiData(
     () => fetchSelfOrganizePreview(),
     [captureVersion],

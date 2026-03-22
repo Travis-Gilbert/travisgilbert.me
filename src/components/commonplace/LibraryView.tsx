@@ -12,7 +12,9 @@ import {
   useApiData,
 } from '@/lib/commonplace-api';
 import { getObjectTypeIdentity, type ClusterResponse, type MockNode } from '@/lib/commonplace';
-import { useCommonPlace } from '@/lib/commonplace-context';
+import { useLayout } from '@/lib/providers/layout-provider';
+import { useCapture } from '@/lib/providers/capture-provider';
+import { useDrawer } from '@/lib/providers/drawer-provider';
 import ObjectRenderer, { type RenderableObject } from './objects/ObjectRenderer';
 import ResumeCards from './ResumeCards';
 import LineageSwimlane from './LineageSwimlane';
@@ -161,7 +163,9 @@ const DEMO_CLUSTERS: ClusterResponse[] = [
 
 export default function LibraryView({ onOpenObject }: LibraryViewProps) {
   const prefersReducedMotion = useReducedMotion();
-  const { captureVersion, openContextMenu, launchView } = useCommonPlace();
+  const { launchView } = useLayout();
+  const { captureVersion } = useCapture();
+  const { openContextMenu } = useDrawer();
   const [activeType, setActiveType] = useState<string | null>(null);
   const [activeClusterKey, setActiveClusterKey] = useState<string | null>(null);
   const [inquiryQuery, setInquiryQuery] = useState('');

@@ -19,7 +19,7 @@
 import { useMemo } from 'react';
 import { fetchObjectById, useApiData } from '@/lib/commonplace-api';
 import { getObjectTypeIdentity } from '@/lib/commonplace';
-import { useCommonPlace } from '@/lib/commonplace-context';
+import { useDrawer } from '@/lib/providers/drawer-provider';
 import type { ApiObjectDetail, ApiNodeListItem } from '@/lib/commonplace';
 import ComponentList from './ComponentList';
 import ConnectionList from './ConnectionList';
@@ -72,7 +72,7 @@ export default function ObjectDetailView({
   objectRef,
   onOpenObject,
 }: ObjectDetailViewProps) {
-  const { openReader } = useCommonPlace();
+  const { openReader } = useDrawer();
   const {
     data: detail,
     loading,

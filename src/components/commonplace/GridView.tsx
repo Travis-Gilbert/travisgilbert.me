@@ -3,7 +3,9 @@
 import { useState, useMemo } from 'react';
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
 import { fetchFeed, fetchResurface, useApiData } from '@/lib/commonplace-api';
-import { useCommonPlace } from '@/lib/commonplace-context';
+import { useLayout } from '@/lib/providers/layout-provider';
+import { useCapture } from '@/lib/providers/capture-provider';
+import { useDrawer } from '@/lib/providers/drawer-provider';
 import type { MockEdge, MockNode } from '@/lib/commonplace';
 import { getObjectTypeIdentity } from '@/lib/commonplace';
 import ObjectRenderer, { type RenderableObject } from './objects/ObjectRenderer';
@@ -123,7 +125,9 @@ interface GridViewProps {
 
 export default function GridView({ onOpenObject }: GridViewProps) {
   const prefersReducedMotion = useReducedMotion();
-  const { captureVersion, openContextMenu, launchView } = useCommonPlace();
+  const { launchView } = useLayout();
+  const { captureVersion } = useCapture();
+  const { openContextMenu } = useDrawer();
 
   const { data: nodes, loading, error, refetch } = useApiData(
     () => fetchFeed({ per_page: 100 }),

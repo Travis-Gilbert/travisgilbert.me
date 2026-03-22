@@ -28,7 +28,8 @@ import {
   fetchFeed,
   useApiData,
 } from '@/lib/commonplace-api';
-import { useCommonPlace } from '@/lib/commonplace-context';
+import { useDrawer } from '@/lib/providers/drawer-provider';
+import { useCapture } from '@/lib/providers/capture-provider';
 import { useIsAppShellMobile } from '@/hooks/useIsAppShellMobile';
 import { computeTimeline3DLayout, type TimelineNode3D } from '@/lib/timeline-3d-layout';
 import { renderableFromMockNode } from './objectRenderables';
@@ -132,7 +133,8 @@ export default function Timeline3DWrapper() {
     return hasWebGL2() && !prefersReducedMotion();
   }, []);
 
-  const { captureVersion, openDrawer, openContextMenu } = useCommonPlace();
+  const { openDrawer, openContextMenu } = useDrawer();
+  const { captureVersion } = useCapture();
 
   // Fetch feed data
   const { data: feed, loading, error } = useApiData(fetchFeed, [captureVersion]);

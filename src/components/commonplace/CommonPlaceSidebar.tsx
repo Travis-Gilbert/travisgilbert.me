@@ -38,7 +38,10 @@ import { SIDEBAR_SECTIONS } from '@/lib/commonplace';
 import type { CapturedObject, ViewType } from '@/lib/commonplace';
 import { syncCapture } from '@/lib/commonplace-capture';
 import { findLeafWithView } from '@/lib/commonplace-layout';
-import { useCommonPlace } from '@/lib/commonplace-context';
+import { useLayout } from '@/lib/providers/layout-provider';
+import { useDrawer } from '@/lib/providers/drawer-provider';
+import { useWorkspace } from '@/lib/providers/workspace-provider';
+import { useCapture } from '@/lib/providers/capture-provider';
 import {
   fetchNotebooks,
   fetchProjects,
@@ -75,17 +78,19 @@ function getInitialSidebarWidth(): number {
 export default function CommonPlaceSidebar() {
   const pathname = usePathname();
   const {
-    notifyCaptured,
-    mobileSidebarOpen,
-    closeMobileSidebar,
     activeScreen,
     layout,
     launchView,
     navigateToScreen,
-    openDrawer,
+  } = useLayout();
+  const { openDrawer } = useDrawer();
+  const {
+    mobileSidebarOpen,
+    closeMobileSidebar,
     sidebarCollapsed,
     setSidebarCollapsed,
-  } = useCommonPlace();
+  } = useWorkspace();
+  const { notifyCaptured } = useCapture();
   const [expandedGroups, setExpandedGroups] = useState<Set<string>>(
     new Set()
   );

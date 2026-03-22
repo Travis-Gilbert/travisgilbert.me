@@ -6,7 +6,7 @@ import rough from 'roughjs';
 import { Reorder } from 'framer-motion';
 import { Drawer } from 'vaul';
 import * as Tabs from '@radix-ui/react-tabs';
-import { useCommonPlace } from '@/lib/commonplace-context';
+import { useDrawer } from '@/lib/providers/drawer-provider';
 import {
   fetchCanvasSuggestions,
   fetchObjectDetail,
@@ -748,7 +748,7 @@ function EvidenceLinkCard({ link }: { link: ApiEvidenceLink }) {
    ───────────────────────────────────────────────── */
 
 export default function ObjectDrawer() {
-  const { drawerSlug, closeDrawer, openDrawer, openReader } = useCommonPlace();
+  const { drawerSlug, closeDrawer, openDrawer, openReader } = useDrawer();
 
   const [detail, setDetail] = useState<ApiObjectDetail | null>(null);
   const [liveComponents, setLiveComponents] = useState<ApiComponent[]>([]);

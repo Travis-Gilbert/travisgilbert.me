@@ -13,7 +13,7 @@
 import { useMemo } from 'react';
 import { fetchFeed, groupNodesByDate, useApiData } from '@/lib/commonplace-api';
 import type { MockNode } from '@/lib/commonplace';
-import { useCommonPlace } from '@/lib/commonplace-context';
+import { useDrawer } from '@/lib/providers/drawer-provider';
 import DateHeader from './DateHeader';
 import ObjectRenderer from './objects/ObjectRenderer';
 import { renderableFromMockNode } from './objectRenderables';
@@ -30,7 +30,7 @@ export default function ScopedTimelinePanel({
   project,
   onOpenObject,
 }: ScopedTimelinePanelProps) {
-  const { openContextMenu } = useCommonPlace();
+  const { openContextMenu } = useDrawer();
   const { data: nodes, loading, error, refetch } = useApiData(
     () => fetchFeed({ per_page: 50, notebook, project }),
     [notebook, project],

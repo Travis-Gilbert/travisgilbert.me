@@ -16,7 +16,7 @@ import { useState, useMemo } from 'react';
 import { fetchGraph, useApiData } from '@/lib/commonplace-api';
 import { getObjectTypeIdentity } from '@/lib/commonplace';
 import type { GraphNode } from '@/lib/commonplace';
-import { useCommonPlace } from '@/lib/commonplace-context';
+import { useDrawer } from '@/lib/providers/drawer-provider';
 import ViewSubTabs from './ViewSubTabs';
 import ObjectRenderer from './objects/ObjectRenderer';
 import { renderableFromGraphNode } from './objectRenderables';
@@ -32,7 +32,7 @@ const THRESHOLD_TABS = [
 ];
 
 export default function LooseEndsView({ onOpenObject }: LooseEndsViewProps) {
-  const { openContextMenu } = useCommonPlace();
+  const { openContextMenu } = useDrawer();
   const [thresholdKey, setThresholdKey] = useState('orphaned');
   const { data: graphData, loading, error, refetch } = useApiData(
     () => fetchGraph(),

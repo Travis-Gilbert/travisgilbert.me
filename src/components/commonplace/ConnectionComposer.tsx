@@ -2,10 +2,10 @@
 
 import { useEffect, useState } from 'react';
 import { toast } from 'sonner';
-import { useCommonPlace } from '@/lib/commonplace-context';
+import { useSelection } from '@/lib/providers/selection-provider';
 
 export default function ConnectionComposer() {
-  const { cancelConnection, connectionDraft, submitConnection } = useCommonPlace();
+  const { cancelConnection, connectionDraft, submitConnection } = useSelection();
   const [edgeType, setEdgeType] = useState('related');
   const [reason, setReason] = useState('');
   const [saving, setSaving] = useState(false);

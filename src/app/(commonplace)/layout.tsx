@@ -1,6 +1,6 @@
 import type { Metadata } from 'next';
 import DotGrid from '@/components/DotGrid';
-import { CommonPlaceProvider } from '@/lib/commonplace-context';
+import { CommonPlaceProviders } from '@/lib/providers/commonplace-providers';
 import CommonPlaceShell from '@/components/commonplace/CommonPlaceShell';
 import CommandPalette from '@/components/commonplace/CommandPalette';
 import ObjectDrawer from '@/components/commonplace/ObjectDrawer';
@@ -70,7 +70,7 @@ export default function CommonPlaceLayout({
       <div className="cp-ambient-glow" aria-hidden="true" />
 
       {/* Provider: lets navigation notify Timeline of new captures */}
-      <CommonPlaceProvider>
+      <CommonPlaceProviders>
         {/* Shell: handles nav-mode toggle (topbar vs sidebar) */}
         <CommonPlaceShell />
 
@@ -93,7 +93,7 @@ export default function CommonPlaceLayout({
             },
           }}
         />
-      </CommonPlaceProvider>
+      </CommonPlaceProviders>
     </div>
   );
 }

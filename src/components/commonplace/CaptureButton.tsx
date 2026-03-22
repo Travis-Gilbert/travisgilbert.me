@@ -7,7 +7,7 @@ import {
   createCapturedObject,
   isUrl,
 } from '@/lib/commonplace-capture';
-import { useCommonPlace } from '@/lib/commonplace-context';
+import { useLayout } from '@/lib/providers/layout-provider';
 
 /**
  * CaptureButton: spring-animated sidebar capture input.
@@ -25,7 +25,7 @@ interface CaptureButtonProps {
 }
 
 export default function CaptureButton({ onCapture }: CaptureButtonProps) {
-  const { launchView } = useCommonPlace();
+  const { launchView } = useLayout();
   const [isOpen, setIsOpen] = useState(false);
   const [text, setText] = useState('');
   const [selectedType, setSelectedType] = useState<string | null>(null);

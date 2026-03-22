@@ -22,7 +22,8 @@ import {
 } from '@/lib/commonplace-layout';
 import type { ViewType } from '@/lib/commonplace';
 import { VIEW_REGISTRY } from '@/lib/commonplace';
-import { useCommonPlace } from '@/lib/commonplace-context';
+import { useLayout } from '@/lib/providers/layout-provider';
+import { useWorkspace } from '@/lib/providers/workspace-provider';
 import { useIsAppShellMobile } from '@/hooks/useIsAppShellMobile';
 import MobileTopBar from '@/components/mobile-shell/MobileTopBar';
 import MobileTabs from '@/components/mobile-shell/MobileTabs';
@@ -70,10 +71,12 @@ export default function SplitPaneContainer() {
     fullscreenPaneId,
     toggleFullscreen,
     exitFullscreen,
+  } = useLayout();
+  const {
     toggleMobileSidebar,
     openMobileSidebar,
     setSidebarCollapsed,
-  } = useCommonPlace();
+  } = useWorkspace();
   const isMobile = useIsAppShellMobile();
 
   const [mobileLeafIndex, setMobileLeafIndex] = useState(0);

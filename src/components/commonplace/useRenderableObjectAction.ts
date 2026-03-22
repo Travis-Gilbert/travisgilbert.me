@@ -1,13 +1,13 @@
 'use client';
 
 import { useCallback } from 'react';
-import { useCommonPlace } from '@/lib/commonplace-context';
+import { useSelection } from '@/lib/providers/selection-provider';
 import type { RenderableObject } from './objects/ObjectRenderer';
 
 export function useRenderableObjectAction(
   onOpenObject?: (obj: RenderableObject) => void,
 ) {
-  const { connectionDraft, selectConnectionTarget } = useCommonPlace();
+  const { connectionDraft, selectConnectionTarget } = useSelection();
 
   return useCallback(
     (obj: RenderableObject) => {

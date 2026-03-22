@@ -13,7 +13,7 @@
 
 import { fetchResurface, useApiData } from '@/lib/commonplace-api';
 import type { ApiResurfaceCard } from '@/lib/commonplace';
-import { useCommonPlace } from '@/lib/commonplace-context';
+import { useDrawer } from '@/lib/providers/drawer-provider';
 import ObjectRenderer from './objects/ObjectRenderer';
 import { renderableFromResurfaceCard } from './objectRenderables';
 import { useRenderableObjectAction } from './useRenderableObjectAction';
@@ -38,7 +38,7 @@ function relativeTime(isoDate: string): string {
 }
 
 export default function ResurfaceView({ onOpenObject }: ResurfaceViewProps) {
-  const { openContextMenu } = useCommonPlace();
+  const { openContextMenu } = useDrawer();
   const {
     data: resurfaceData,
     loading,

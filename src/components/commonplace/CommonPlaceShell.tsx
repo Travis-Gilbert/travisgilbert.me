@@ -8,7 +8,7 @@ import CommonPlaceRail from './CommonPlaceRail';
 import CaptureFAB from './CaptureFAB';
 import DropZone from './DropZone';
 import SplitPaneContainer from './SplitPaneContainer';
-import { useCommonPlace } from '@/lib/commonplace-context';
+import { useCapture } from '@/lib/providers/capture-provider';
 import { syncCapture } from '@/lib/commonplace-capture';
 import type { CapturedObject } from '@/lib/commonplace';
 
@@ -24,7 +24,7 @@ import type { CapturedObject } from '@/lib/commonplace';
  */
 export default function CommonPlaceShell() {
   const isMobile = useIsAppShellMobile();
-  const { notifyCaptured } = useCommonPlace();
+  const { notifyCaptured } = useCapture();
 
   const [navMode] = useState<'topbar' | 'sidebar'>(() => {
     if (typeof window === 'undefined') return 'topbar';

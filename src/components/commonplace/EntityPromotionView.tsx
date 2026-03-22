@@ -6,7 +6,7 @@ import {
   fetchSelfOrganizePreview,
   runSelfOrganizeLoop,
 } from '@/lib/commonplace-api';
-import { useCommonPlace } from '@/lib/commonplace-context';
+import { useCapture } from '@/lib/providers/capture-provider';
 import type { ApiEntityPromotionCandidate } from '@/lib/commonplace';
 import { getObjectTypeIdentity } from '@/lib/commonplace';
 
@@ -29,7 +29,7 @@ const NER_TO_OBJECT_TYPE: Record<string, string> = {
 };
 
 export default function EntityPromotionView() {
-  const { captureVersion } = useCommonPlace();
+  const { captureVersion } = useCapture();
   const [threshold, setThreshold] = useState<number | null>(null);
   const [promotedTexts, setPromotedTexts] = useState<Set<string>>(new Set());
 

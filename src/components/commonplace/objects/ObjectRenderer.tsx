@@ -17,7 +17,7 @@ import ScriptBlock from './ScriptBlock';
 import PlacePin from './PlacePin';
 import { useState, useCallback, useRef, useEffect, type ComponentType } from 'react';
 import { createPin } from '@/lib/commonplace-api';
-import { useCommonPlace } from '@/lib/commonplace-context';
+import { useWorkspace } from '@/lib/providers/workspace-provider';
 import RoughBorder from '../RoughBorder';
 
 /* ── Types ── */
@@ -100,7 +100,7 @@ const DND_MIME = 'application/commonplace-object';
 
 export default function ObjectRenderer(props: ObjectCardProps) {
   const [dragOver, setDragOver] = useState(false);
-  const { draggedComponent } = useCommonPlace();
+  const { draggedComponent } = useWorkspace();
   const [pointerInside, setPointerInside] = useState(false);
   const isDropTarget = draggedComponent !== null;
   const wrapperRef = useRef<HTMLDivElement>(null);

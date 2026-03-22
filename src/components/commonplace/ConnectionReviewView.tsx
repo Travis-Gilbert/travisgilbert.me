@@ -16,11 +16,11 @@ import {
   useApiData,
 } from '@/lib/commonplace-api';
 import type { ReviewQueueEdge, FeedbackStats } from '@/lib/commonplace-api';
-import { useCommonPlace } from '@/lib/commonplace-context';
+import { useDrawer } from '@/lib/providers/drawer-provider';
 import { getObjectTypeIdentity } from '@/lib/commonplace';
 
 export default function ConnectionReviewView() {
-  const { openDrawer } = useCommonPlace();
+  const { openDrawer } = useDrawer();
   const { data, loading, error, refetch } = useApiData(
     () => fetchReviewQueue({ limit: 40 }),
     [],

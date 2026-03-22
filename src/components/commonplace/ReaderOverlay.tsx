@@ -17,7 +17,7 @@
  */
 
 import { useCallback, useEffect, useMemo, useRef, useState, type RefObject } from 'react';
-import { useCommonPlace } from '@/lib/commonplace-context';
+import { useDrawer } from '@/lib/providers/drawer-provider';
 import { fetchObjectById, useApiData } from '@/lib/commonplace-api';
 import { getObjectTypeIdentity } from '@/lib/commonplace';
 import type { ReaderFont, ReaderHighlight } from './reader-data';
@@ -119,7 +119,7 @@ function siteName(url: string): string {
    ───────────────────────────────────────────────── */
 
 export default function ReaderOverlay() {
-  const { readerObjectId, closeReader } = useCommonPlace();
+  const { readerObjectId, closeReader } = useDrawer();
 
   /* ── Reader-local state ── */
   const [leftOpen, setLeftOpen] = useState(false);

@@ -1,7 +1,8 @@
 'use client';
 
 import type { ComponentType } from 'react';
-import { useCommonPlace } from '@/lib/commonplace-context';
+import { useLayout } from '@/lib/providers/layout-provider';
+import { useWorkspace } from '@/lib/providers/workspace-provider';
 import type { ScreenType, ViewType } from '@/lib/commonplace';
 import {
   Activity,
@@ -30,7 +31,8 @@ interface CommonPlaceTopBarProps {
 }
 
 export default function CommonPlaceTopBar({ railVisible, onToggleRail }: CommonPlaceTopBarProps) {
-  const { activeScreen, navigateToScreen, launchView, openPalette } = useCommonPlace();
+  const { activeScreen, navigateToScreen, launchView } = useLayout();
+  const { openPalette } = useWorkspace();
 
   return (
     <header className="cp-topbar" style={{ backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)' }}>

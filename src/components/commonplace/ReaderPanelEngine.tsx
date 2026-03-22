@@ -9,7 +9,7 @@
  */
 
 import { useMemo, useState } from 'react';
-import { useCommonPlace } from '@/lib/commonplace-context';
+import { useDrawer } from '@/lib/providers/drawer-provider';
 import type { ApiObjectDetail, ApiObjectClaim, ApiEdgeCompact, ApiComponent } from '@/lib/commonplace';
 import {
   CLAIM_STATUS_COLORS,
@@ -230,7 +230,7 @@ export default function ReaderPanelEngine({
   open,
   detail,
 }: ReaderPanelEngineProps) {
-  const { openReader } = useCommonPlace();
+  const { openReader } = useDrawer();
   const [activeTab, setActiveTab] = useState<EngineTab>('claims');
 
   const claims = useMemo(

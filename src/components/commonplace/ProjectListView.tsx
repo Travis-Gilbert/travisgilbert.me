@@ -11,7 +11,7 @@
 
 import { useMemo } from 'react';
 import { fetchProjects, useApiData } from '@/lib/commonplace-api';
-import { useCommonPlace } from '@/lib/commonplace-context';
+import { useLayout } from '@/lib/providers/layout-provider';
 import type { ApiProjectListItem } from '@/lib/commonplace';
 
 const STATUS_ORDER = ['active', 'paused', 'archived', 'completed'];
@@ -34,7 +34,7 @@ export default function ProjectListView() {
     () => fetchProjects(),
     [],
   );
-  const { launchView } = useCommonPlace();
+  const { launchView } = useLayout();
 
   /* Group by status */
   const grouped = useMemo(() => {

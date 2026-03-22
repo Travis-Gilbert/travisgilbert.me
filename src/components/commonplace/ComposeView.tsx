@@ -13,7 +13,8 @@ import {
   type ComposeResultSignal,
 } from '@/lib/commonplace';
 import { captureToApi, type ComposeLiveResult } from '@/lib/commonplace-api';
-import { useCommonPlace } from '@/lib/commonplace-context';
+import { useDrawer } from '@/lib/providers/drawer-provider';
+import { useWorkspace } from '@/lib/providers/workspace-provider';
 import { useEngineJobStatus } from '@/hooks/useEngineJobStatus';
 import { useLiveResearch } from '@/hooks/useLiveResearch';
 import {
@@ -201,13 +202,8 @@ export default function ComposeView({
   prefillType?: string;
   onSaved?: (objectId: number) => void;
 }) {
-  const {
-    clearStash,
-    openContextMenu,
-    openDrawer,
-    stashedObjects,
-    unstashObject,
-  } = useCommonPlace();
+  const { openContextMenu, openDrawer } = useDrawer();
+  const { clearStash, stashedObjects, unstashObject } = useWorkspace();
 
   const [title, setTitle] = useState('');
   const [objectType] = useState(prefillType ?? 'note');

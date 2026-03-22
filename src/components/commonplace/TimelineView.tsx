@@ -28,7 +28,8 @@ import {
   useApiData,
   postRetrospective,
 } from '@/lib/commonplace-api';
-import { useCommonPlace } from '@/lib/commonplace-context';
+import { useDrawer } from '@/lib/providers/drawer-provider';
+import { useCapture } from '@/lib/providers/capture-provider';
 import type { MockNode } from '@/lib/commonplace';
 import { getObjectTypeIdentity } from '@/lib/commonplace';
 import ObjectRenderer, { type RenderableObject } from './objects/ObjectRenderer';
@@ -468,7 +469,8 @@ export default function TimelineView() {
     activeTypes: new Set<string>(),
   });
   const scrollRef = useRef<HTMLDivElement>(null);
-  const { captureVersion, openDrawer, openReader, openContextMenu } = useCommonPlace();
+  const { openDrawer, openReader, openContextMenu } = useDrawer();
+  const { captureVersion } = useCapture();
   const handleObjectClick = useRenderableObjectAction((obj) => openDrawer(obj.slug));
 
   const { data: feed, loading, error, refetch } = useApiData(fetchFeed, [captureVersion]);

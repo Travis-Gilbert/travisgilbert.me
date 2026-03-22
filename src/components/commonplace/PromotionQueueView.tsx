@@ -6,7 +6,7 @@ import {
   fetchPromotionQueue,
   submitReviewAction,
 } from '@/lib/commonplace-api';
-import { useCommonPlace } from '@/lib/commonplace-context';
+import { useCapture } from '@/lib/providers/capture-provider';
 import type { ApiPromotionItem } from '@/lib/commonplace';
 
 /* ─────────────────────────────────────────────────
@@ -29,7 +29,7 @@ const ITEM_TYPE_STYLES: Record<
 type FilterType = 'all' | ApiPromotionItem['item_type'];
 
 export default function PromotionQueueView() {
-  const { captureVersion } = useCommonPlace();
+  const { captureVersion } = useCapture();
   const [filter, setFilter] = useState<FilterType>('all');
   const [reviewedIds, setReviewedIds] = useState<Set<number>>(new Set());
 

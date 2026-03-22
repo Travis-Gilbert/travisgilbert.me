@@ -5,12 +5,12 @@ import { createPortal } from 'react-dom';
 import { motion } from 'framer-motion';
 import { COMPONENT_TOOLBOX } from '@/lib/commonplace-components';
 import type { ComponentToolboxItem } from '@/lib/commonplace-components';
-import { useCommonPlace } from '@/lib/commonplace-context';
+import { useWorkspace } from '@/lib/providers/workspace-provider';
 import { createObjectComponent } from '@/lib/commonplace-api';
 import { toast } from 'sonner';
 
 export default function ComponentToolbox() {
-  const { setDraggedComponent } = useCommonPlace();
+  const { setDraggedComponent } = useWorkspace();
   const [open, setOpen] = useState(true);
 
   useEffect(() => {

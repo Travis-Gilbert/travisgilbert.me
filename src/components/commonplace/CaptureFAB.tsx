@@ -3,12 +3,12 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { createCapturedObject, syncCapture, isUrl } from '@/lib/commonplace-capture';
 import { COMPONENT_TOOLBOX } from '@/lib/commonplace-components';
-import { useCommonPlace } from '@/lib/commonplace-context';
+import { useCapture } from '@/lib/providers/capture-provider';
 
 type Section = 'capture' | 'toolbox' | null;
 
 export default function CaptureFAB() {
-  const { notifyCaptured } = useCommonPlace();
+  const { notifyCaptured } = useCapture();
   const [section, setSection] = useState<Section>(null);
   const [captureMode, setCaptureMode] = useState<'url' | 'text' | null>(null);
   const [inputValue, setInputValue] = useState('');

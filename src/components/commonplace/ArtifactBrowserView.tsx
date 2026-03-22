@@ -6,7 +6,8 @@ import {
   fetchArtifacts,
   triggerExtraction,
 } from '@/lib/commonplace-api';
-import { useCommonPlace } from '@/lib/commonplace-context';
+import { useDrawer } from '@/lib/providers/drawer-provider';
+import { useCapture } from '@/lib/providers/capture-provider';
 import type { ApiArtifactListItem } from '@/lib/commonplace';
 
 /* ─────────────────────────────────────────────────
@@ -37,7 +38,8 @@ type KindFilter = 'all' | 'url' | 'file' | 'text';
 type StatusFilter = 'all' | 'captured' | 'parsed' | 'extracted' | 'failed';
 
 export default function ArtifactBrowserView() {
-  const { captureVersion, openDrawer } = useCommonPlace();
+  const { openDrawer } = useDrawer();
+  const { captureVersion } = useCapture();
   const [kindFilter, setKindFilter] = useState<KindFilter>('all');
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
   const [searchQuery, setSearchQuery] = useState('');
