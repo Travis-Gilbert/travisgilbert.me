@@ -4,6 +4,14 @@
 > No em dashes anywhere. Use colons, semicolons, commas, or periods instead.
 > Run `npm run build` after each batch to verify zero errors before proceeding.
 
+## Confirmed Infrastructure
+
+- **Django backend domain:** `draftroom.travisgilbert.me` (Railway)
+- **Frontend domain:** `travisgilbert.me` and `travisishere.vercel.app` (Vercel)
+- **GITHUB_TOKEN:** Set on Railway (PAT with repo scope)
+- **GITHUB_REPO:** Must be exactly `Travis-Gilbert/travisgilbert.me` (case-sensitive)
+- **Edit-in-place priority:** Homepage first
+
 ## Part 1: Why Publishing Does Not Work
 
 ### Root Cause: Three blocking failures in the HTTP layer
@@ -30,10 +38,6 @@ The frontend adds a Bearer token header only for `/publish/` paths via `NEXT_PUB
 
 For non-publish API calls (list, save, create, delete), the frontend sends no authentication at all.
 
-**Potential Failure 4: Environment variables.**
-
-The `publisher/github.py` module reads `GITHUB_TOKEN` and `GITHUB_REPO` from Django settings. If these are not set in Railway's environment, publishing would fail at the GitHub API level even if all HTTP issues were resolved. `GITHUB_REPO` must be `Travis-Gilbert/travisgilbert.me` (case-sensitive).
-
 ### How the publish pipeline is supposed to work (when fixed)
 
 ```
@@ -43,7 +47,7 @@ Studio Frontend (Vercel)
   | Headers: Authorization: Bearer <token>, Content-Type: application/json
   |
   v
-Django Backend (Railway)
+Django Backend (Railway: draftroom.travisgilbert.me)
   |
   | StudioApiContentPublishView receives request
   | Validates Bearer token
@@ -193,7 +197,44 @@ Add import: `from apps.editor.api_base import StudioApiBaseView`
 
 Change every `class StudioApi*View(View):` to inherit from `StudioApiBaseView` instead. Also change `EditorImageUploadView`, `CollageGenerateView`, `CollageCutoutsListView`, `ContentSearchView`, and `EditorMentionBacklinksView`.
 
-Do NOT change HTMX views or Video API views.
+Full list of views to update:
+
+```
+StudioApiContentListView
+StudioApiContentTypeListView
+StudioApiContentCreateView
+StudioApiContentDetailView
+StudioApiContentUpdateView
+StudioApiContentDeleteView
+StudioApiContentSetStageView
+StudioApiTimelineView
+StudioApiSettingsView
+StudioApiConnectionsView
+StudioApiCommonplaceSearchView
+StudioApiStashListView
+StudioApiStashDeleteView
+StudioApiTaskListView
+StudioApiTaskUpdateView
+StudioApiTaskDeleteView
+StudioApiAllTasksView
+StudioApiContentPublishView
+StudioApiRevisionListView
+StudioApiRevisionDetailView
+StudioApiRevisionDiffView
+StudioApiRevisionRestoreView
+StudioApiSheetListView
+StudioApiSheetReorderView
+StudioApiSheetDetailView
+StudioApiSheetSplitView
+StudioApiSheetMergeView
+EditorImageUploadView
+CollageGenerateView
+CollageCutoutsListView
+ContentSearchView
+EditorMentionBacklinksView
+```
+
+Do NOT change HTMX views (EssayListView, EssayEditView, etc.) or Video API views (VideoAPIListView, etc.). Those use session auth and CSRF correctly for server-rendered pages.
 
 #### Step 5: Frontend token fix
 
@@ -217,28 +258,31 @@ if (studioToken) {
 
 #### Step 6: Environment variables
 
-**Railway:**
+**On Railway (add these, GITHUB_TOKEN already set):**
 ```
-STUDIO_API_TOKEN=<random 64-char hex>
-GITHUB_TOKEN=<PAT with repo scope>
-GITHUB_REPO=Travis-Gilbert/travisgilbert.me
-GITHUB_BRANCH=main
+STUDIO_API_TOKEN=<generate: python -c "import secrets; print(secrets.token_hex(32))">
 CORS_ALLOWED_ORIGINS=https://travisgilbert.me,https://travisishere.vercel.app
 ```
 
-**Vercel:**
+Verify existing vars:
 ```
-NEXT_PUBLIC_STUDIO_API_TOKEN=<same token as Railway>
+GITHUB_REPO=Travis-Gilbert/travisgilbert.me   (must be this exact casing)
+GITHUB_BRANCH=main
+```
+
+**On Vercel:**
+```
+NEXT_PUBLIC_STUDIO_API_TOKEN=<same value as STUDIO_API_TOKEN on Railway>
 NEXT_PUBLIC_STUDIO_URL=https://draftroom.travisgilbert.me
 ```
 
 #### Verification
 
-- [ ] Content list loads (GET, no CORS errors)
-- [ ] Create new essay (POST succeeds, no CSRF error)
+- [ ] Content list loads (GET, no CORS errors in DevTools Network tab)
+- [ ] Create new essay (POST succeeds, no CSRF 403)
 - [ ] Save edits (POST succeeds)
 - [ ] Publish (POST succeeds, response includes commit SHA)
-- [ ] .md file appears in GitHub repo
+- [ ] .md file appears in GitHub repo under src/content/essays/
 - [ ] Vercel rebuilds, essay appears on public site
 - [ ] `npm run build` passes
 
@@ -264,7 +308,7 @@ Unify Studio tokens with the main site's design language. Studio is part of trav
 - Studio component interaction patterns
 
 **What this does NOT touch:**
-- CommonPlace's Dark Chrome Instrument (separate)
+- CommonPlace's Dark Chrome Instrument (separate system, separate product)
 - Main site public-facing design (unchanged)
 
 CSS-only change in `src/styles/studio.css`.
@@ -275,15 +319,15 @@ CSS-only change in `src/styles/studio.css`.
 
 ### Problem
 
-Studio cannot control homepage layout, navigation, static pages, or page compositions. The Django backend has models for all of this (`DesignTokenSet`, `NavItem`, `PageComposition`, `SiteSettings`). And `publish_site_config()` serializes them to `src/config/site.json`. The gap: no way to invoke these from the main site.
+Studio cannot control homepage layout, navigation, static pages, or page compositions. The Django backend already has models for all of this (`DesignTokenSet`, `NavItem`, `PageComposition`, `SiteSettings`). And `publish_site_config()` serializes them to `src/config/site.json`. The gap: no way to invoke these from the main site.
 
 ### Architecture
 
 When authenticated, the main site pages gain an edit overlay. Not a separate route group. A conditional layer on existing pages.
 
-**Phase 1: Auth gate.** Add `/editor/api/whoami/` endpoint. Main site layout checks on mount, sets `isAuthor` flag.
+**Phase 1: Auth gate.** Add `/editor/api/whoami/` endpoint to Django. Main site layout checks this on mount and sets an `isAuthor` flag in React context.
 
-**Phase 2: Homepage edit mode.** Floating "Edit Layout" button. Sections become draggable. Featured content slots become searchable dropdowns. Save persists to Django, Publish commits to GitHub.
+**Phase 2: Homepage edit mode (first priority).** Floating "Edit Layout" button. Sections become bordered, draggable, with "Remove" and "Configure" controls. Featured content slots become searchable dropdowns. "Save Layout" persists the composition to Django. "Publish" commits to GitHub via `publish_site_config()`.
 
 **Phase 3: Navigation editing.** Inline reorder, add/remove. Publishes through `publish_site_config()`.
 
@@ -297,24 +341,44 @@ Studio loses: page layout and site structure control. That moves to edit-in-plac
 
 ---
 
+## Repo and Paths
+
+```
+Frontend repo:       Travis-Gilbert/travisgilbert.me
+Studio routes:       src/app/(studio)/studio/
+Studio components:   src/components/studio/
+Studio data layer:   src/lib/studio.ts, src/lib/studio-api.ts
+Studio styles:       src/styles/studio.css
+Main site routes:    src/app/(main)/
+Main site content:   src/content/
+Main site config:    src/config/site.json (published by Django)
+
+Django repo:         Same monorepo, publishing_api/
+Django settings:     publishing_api/config/settings.py
+Django editor app:   publishing_api/apps/editor/
+Django publisher:    publishing_api/apps/publisher/
+Django content:      publishing_api/apps/content/models.py
+Django domain:       draftroom.travisgilbert.me
+```
+
 ## Build Order
 
 ```
 Batch 0: CORS + Auth + CSRF fix (Django)       <- FIRST
 Batch 1: Frontend token fix (studio-api.ts)
-Batch 2: Env var setup (Railway + Vercel)       <- Manual
-Batch 3: End-to-end publish verification        <- Manual
+Batch 2: Env var setup (Railway + Vercel)       <- Manual, not code
+Batch 3: End-to-end publish verification        <- Manual testing
 Batch 4: Design token unification (studio.css)
 Batch 5: Edit-in-place auth gate
-Batch 6: Homepage edit mode
+Batch 6: Homepage edit mode                     <- First edit-in-place target
 Batch 7: Navigation editing
 Batch 8: Static page editing
 ```
 
-## Open Questions
+## Remaining Open Questions
 
-1. What is the Railway domain for the Django backend? Is it `draftroom.travisgilbert.me`?
-2. Is GITHUB_TOKEN currently set on Railway?
-3. Are there existing manually-committed content files in src/content/?
-4. Keep or remove the Django HTMX editor UI?
-5. Which page should get edit-in-place first: homepage or /now?
+1. **Are there existing manually-committed content files in src/content/?** If files were committed by hand (not through the Django publisher), the publisher's `_get_file_sha()` will find them and update rather than create. This is fine, but worth knowing.
+
+2. **Keep or remove the Django HTMX editor UI?** The Django backend has a full HTMX-based editor at draftroom.travisgilbert.me. With the Studio frontend working, the HTMX editor becomes redundant for content creation. It could be kept as a fallback or removed to reduce maintenance.
+
+3. **Verify GITHUB_REPO casing on Railway.** The env var must be exactly `Travis-Gilbert/travisgilbert.me` with a capital T. GitHub repository paths are case-sensitive. If it was set as `travis-gilbert/travisgilbert.me`, every publish attempt would 404 at the GitHub API level.
