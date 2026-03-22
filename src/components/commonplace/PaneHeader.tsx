@@ -2,6 +2,7 @@
 
 import type { ViewType } from '@/lib/commonplace';
 import { VIEW_REGISTRY } from '@/lib/commonplace';
+import styles from './PaneHeader.module.css';
 
 interface PaneHeaderProps {
   viewId: ViewType;

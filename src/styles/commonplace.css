@@ -91,282 +91,6 @@
   flex-shrink: 0;
 }
 
-/* ─────────────────────────────────────────────────
-   Split pane layout
-   ───────────────────────────────────────────────── */
-
-.cp-pane-container {
-  display: flex;
-  flex: 1;
-  min-width: 0;
-  min-height: 0;
-  overflow: hidden;
-}
-
-.cp-pane-container[data-direction="horizontal"] {
-  flex-direction: row;
-}
-
-.cp-pane-container[data-direction="vertical"] {
-  flex-direction: column;
-}
-
-.cp-pane {
-  display: flex;
-  flex-direction: column;
-  min-width: 120px;
-  min-height: 80px;
-  overflow: hidden;
-  position: relative;
-  border: none;
-  border-radius: 0;
-  background: transparent;
-  box-shadow: none;
-  backdrop-filter: none;
-}
-
-/* ─────────────────────────────────────────────────
-   Pane tab bar
-   ───────────────────────────────────────────────── */
-
-.cp-tab-bar {
-  display: flex;
-  align-items: stretch;
-  height: var(--cp-tab-height);
-  background: var(--cp-chrome);
-  border-bottom: 1px solid var(--cp-chrome-line);
-  overflow-x: auto;
-  flex-shrink: 0;
-}
-
-.cp-tab-bar::-webkit-scrollbar {
-  display: none;
-}
-
-.cp-tab {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 0 14px;
-  font-family: var(--cp-font-mono);
-  font-weight: 500;
-  font-size: 11px;
-  letter-spacing: 0.05em;
-  color: var(--cp-chrome-muted);
-  border-right: 1px solid var(--cp-chrome-line);
-  cursor: pointer;
-  white-space: nowrap;
-  transition: color 150ms, background-color 150ms;
-  user-select: none;
-  font-feature-settings: var(--cp-kern-mono);
-}
-
-.cp-tab:hover {
-  color: var(--cp-chrome-text);
-  background-color: var(--cp-chrome-raise);
-}
-
-.cp-tab[data-active="true"] {
-  color: var(--cp-chrome-text);
-  background-color: transparent;
-  border-bottom: 2px solid var(--cp-red);
-  margin-bottom: 0;
-}
-
-.cp-tab-pip {
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  background: var(--cp-chrome-dim);
-  flex-shrink: 0;
-}
-
-.cp-tab[data-active="true"] .cp-tab-pip {
-  background: var(--cp-red);
-}
-
-.cp-tab-close {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 16px;
-  height: 16px;
-  border-radius: 3px;
-  border: none;
-  background: transparent;
-  color: var(--cp-chrome-dim);
-  font-size: 12px;
-  cursor: pointer;
-  opacity: 0;
-  transition: opacity 150ms, background-color 150ms;
-}
-
-.cp-tab:hover .cp-tab-close {
-  opacity: 1;
-}
-
-.cp-tab-close:hover {
-  background-color: rgba(184, 98, 61, 0.15);
-  color: var(--cp-red);
-}
-
-/* Tab drag-and-drop feedback */
-.cp-tab[data-dragging="true"] {
-  opacity: 0.4;
-  transition: opacity 100ms;
-}
-
-.cp-tab-bar[data-drag-over="true"] {
-  background: color-mix(in srgb, var(--cp-red) 18%, var(--cp-chrome));
-  box-shadow:
-    inset 0 -3px 0 0 rgba(184, 98, 61, 0.6),
-    0 0 14px rgba(184, 98, 61, 0.2);
-  transition: background 120ms ease-out, box-shadow 120ms ease-out;
-}
-
-/* Tab land: spring bounce on drop completion */
-.cp-tab[data-landed="true"] {
-  animation: cp-tab-land 500ms cubic-bezier(0.34, 1.56, 0.64, 1) both;
-}
-
-@keyframes cp-tab-land {
-  0%   { transform: scale(0.8); opacity: 0.3; }
-  50%  { transform: scale(1.08); opacity: 1; }
-  100% { transform: scale(1); opacity: 1; }
-}
-
-/* Pip absorb pulse: grows as particles converge */
-.cp-tab[data-landed="true"] .cp-tab-pip {
-  animation: cp-pip-absorb 600ms cubic-bezier(0.34, 1.56, 0.64, 1) 250ms both;
-}
-
-@keyframes cp-pip-absorb {
-  0%   { transform: scale(0.3); background: var(--cp-chrome-dim); box-shadow: none; }
-  50%  { transform: scale(2.2); background: var(--cp-red); box-shadow: 0 0 12px rgba(180, 90, 45, 0.5); }
-  100% { transform: scale(1); background: var(--cp-red); box-shadow: none; }
-}
-
-/* Reduced motion: keep opacity transitions but remove spatial movement */
-@media (prefers-reduced-motion: reduce) {
-  .cp-tab[data-landed="true"] {
-    animation: cp-tab-land-reduced 200ms ease both;
-  }
-  .cp-tab[data-landed="true"] .cp-tab-pip {
-    animation: cp-pip-absorb-reduced 200ms ease 100ms both;
-  }
-}
-
-@keyframes cp-tab-land-reduced {
-  0%   { opacity: 0.5; }
-  100% { opacity: 1; }
-}
-
-@keyframes cp-pip-absorb-reduced {
-  0%   { background: var(--cp-chrome-dim); }
-  100% { background: var(--cp-red); }
-}
-
-/* ─────────────────────────────────────────────────
-   Drag handle for resizing panes
-   ───────────────────────────────────────────────── */
-
-.cp-drag-handle {
-  flex-shrink: 0;
-  background: var(--cp-border-faint);
-  transition: background-color 200ms;
-  position: relative;
-  z-index: 10;
-}
-
-.cp-drag-handle[data-direction="horizontal"] {
-  width: var(--cp-pane-gap);
-  cursor: col-resize;
-}
-
-.cp-drag-handle[data-direction="vertical"] {
-  height: var(--cp-pane-gap);
-  cursor: row-resize;
-}
-
-.cp-drag-handle:hover {
-  background: var(--cp-chrome-muted);
-}
-
-.cp-drag-handle[data-dragging="true"] {
-  background: rgba(184, 98, 61, 0.22);
-}
-
-/* Invisible hit area so the 1px line is easy to grab */
-.cp-drag-handle::before {
-  content: '';
-  position: absolute;
-}
-
-.cp-drag-handle[data-direction="horizontal"]::before {
-  top: 0;
-  bottom: 0;
-  left: -3px;
-  right: -3px;
-}
-
-.cp-drag-handle[data-direction="vertical"]::before {
-  left: 0;
-  right: 0;
-  top: -3px;
-  bottom: -3px;
-}
-
-.cp-drag-handle-grip {
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  display: flex;
-  gap: 4px;
-  opacity: 0;
-  transition: opacity 100ms;
-  pointer-events: none;
-}
-
-.cp-drag-handle[data-direction="horizontal"] .cp-drag-handle-grip {
-  flex-direction: column;
-}
-
-.cp-drag-handle-grip span {
-  width: 2px;
-  height: 2px;
-  border-radius: 50%;
-  background: var(--cp-chrome-text);
-}
-
-.cp-drag-handle:hover .cp-drag-handle-grip {
-  opacity: 0.4;
-}
-
-.cp-drag-readout {
-  position: absolute;
-  font-family: var(--cp-font-mono);
-  font-size: 9px;
-  color: var(--cp-chrome-text);
-  background: var(--cp-chrome-mid);
-  padding: 2px 6px;
-  border-radius: 4px;
-  pointer-events: none;
-  white-space: nowrap;
-  z-index: 20;
-}
-
-.cp-drag-handle[data-direction="horizontal"] .cp-drag-readout {
-  top: -20px;
-  left: 50%;
-  transform: translateX(-50%);
-}
-
-.cp-drag-handle[data-direction="vertical"] .cp-drag-readout {
-  left: -20px;
-  top: 50%;
-  transform: translate(-100%, -50%);
-}
 
 /* ─────────────────────────────────────────────────
    Pane content area
@@ -585,21 +309,6 @@
   pointer-events: none;
 }
 
-/* ─────────────────────────────────────────────────
-   Empty pane placeholder
-   ───────────────────────────────────────────────── */
-
-.cp-pane-empty {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex: 1;
-  color: var(--cp-text-faint);
-  font-family: var(--cp-font-mono);
-  font-weight: 500;
-  font-size: 12px;
-  letter-spacing: 0.05em;
-}
 
 /* ─────────────────────────────────────────────────
    Layout preset selector
@@ -5355,84 +5064,9 @@
   --cp-red-glow: rgba(184, 98, 61, 0.15);
 }
 
-.cp-pane-container {
-  gap: 0;
-  padding: 0;
-}
-
-.cp-pane {
-  border: none;
-  border-radius: 0;
-  background: transparent;
-  box-shadow: none;
-  backdrop-filter: none;
-}
-
-.cp-tab-bar {
-  background: var(--cp-chrome);
-  border-bottom: 1px solid var(--cp-chrome-line);
-  padding: 0;
-  gap: 0;
-  height: var(--cp-tab-height);
-}
-
-.cp-tab {
-  border-right: 1px solid var(--cp-chrome-line);
-  border-radius: 0;
-  color: var(--cp-chrome-muted);
-  min-height: var(--cp-tab-height);
-  padding: 0 14px;
-}
-
-.cp-tab:hover {
-  color: var(--cp-chrome-text);
-  background: var(--cp-chrome-raise);
-}
-
-.cp-tab[data-active="true"] {
-  background: transparent;
-  color: var(--cp-chrome-text);
-  border-bottom: 2px solid var(--cp-red);
-  margin-bottom: 0;
-  box-shadow: none;
-}
-
-.cp-tab-close {
-  color: currentColor;
-}
-
 .cp-pane-content {
   background-color: var(--cp-bg);
   border-radius: 0;
-}
-
-.cp-drag-handle {
-  background: transparent;
-}
-
-.cp-drag-handle:hover,
-.cp-drag-handle[data-dragging="true"] {
-  background: transparent;
-}
-
-.cp-drag-handle[data-direction="horizontal"]::after,
-.cp-drag-handle[data-direction="vertical"]::after {
-  content: '';
-  position: absolute;
-  inset: 0;
-  margin: auto;
-  background: rgba(184, 98, 61, 0.42);
-  border-radius: 999px;
-}
-
-.cp-drag-handle[data-direction="horizontal"]::after {
-  width: 2px;
-  height: 58px;
-}
-
-.cp-drag-handle[data-direction="vertical"]::after {
-  width: 58px;
-  height: 2px;
 }
 
 .cp-layout-selector {
@@ -6079,19 +5713,6 @@
 }
 
 @media (max-width: 1023px) {
-  .cp-pane-container {
-    padding: 0;
-    gap: 0;
-  }
-
-  .cp-pane {
-    border: none;
-    border-radius: 0;
-    box-shadow: none;
-    backdrop-filter: none;
-    background: transparent;
-  }
-
   .cp-pane-content {
     border-radius: 0;
   }
@@ -8083,16 +7704,6 @@
   background: rgba(12, 14, 20, 0.56);
 }
 
-.cp-drag-handle:hover,
-.cp-drag-handle[data-dragging="true"] {
-  background: var(--cp-red);
-}
-
-.cp-drag-handle[data-direction="horizontal"]::after,
-.cp-drag-handle[data-direction="vertical"]::after {
-  background: rgba(184, 98, 61, 0.42);
-}
-
 .cp-error-retry:hover {
   background: var(--cp-red-soft);
 }
@@ -9271,53 +8882,11 @@
   .cp-object-card--absorbing::after { animation: none; }
 }
 
-/* Split zone preview overlay */
-.cp-split-preview {
-  position: absolute;
-  z-index: 10;
-  pointer-events: none;
-  background: rgba(45, 95, 107, 0.06);
-  border: 1px dashed #2D5F6B;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: opacity 100ms;
-}
-
-.cp-split-preview--horizontal {
-  top: 0;
-  right: 0;
-  bottom: 0;
-  width: 50%;
-}
-
-.cp-split-preview--vertical {
-  left: 0;
-  right: 0;
-  bottom: 0;
-  height: 50%;
-}
-
-.cp-split-preview-label {
-  font-family: var(--cp-font-mono);
-  font-size: 9px;
-  color: #2D5F6B;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .cp-split-preview { transition: none; }
-}
 
 /* ─────────────────────────────────────────────────
    Batch 3: Active press feedback
    Subtle scale-down on click for tactile feel.
    ───────────────────────────────────────────────── */
-
-.cp-tab:active {
-  background: var(--cp-chrome-raise);
-}
 
 .cp-type-chip:active,
 .cp-layout-preset:active,

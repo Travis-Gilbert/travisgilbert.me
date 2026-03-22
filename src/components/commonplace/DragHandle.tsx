@@ -2,6 +2,7 @@
 
 import { useCallback, useRef, useState } from 'react';
 import type { SplitDirection } from '@/lib/commonplace-layout';
+import styles from './DragHandle.module.css';
 
 interface DragHandleProps {
   direction: SplitDirection;
@@ -83,7 +84,7 @@ export default function DragHandle({
   return (
     <div
       ref={handleRef}
-      className="cp-drag-handle"
+      className={styles.dragHandle}
       data-direction={direction}
       data-dragging={activeRatio !== null ? 'true' : 'false'}
       onPointerDown={onPointerDown}
@@ -95,12 +96,12 @@ export default function DragHandle({
       tabIndex={0}
     >
       {/* Grip indicator: three dots */}
-      <div className="cp-drag-handle-grip" aria-hidden="true">
+      <div className={styles.grip} aria-hidden="true">
         <span /><span /><span />
       </div>
       {/* Ratio readout during drag */}
       {activeRatio !== null && (
-        <div className="cp-drag-readout">
+        <div className={styles.readout}>
           {Math.round(activeRatio * 100)}% / {Math.round((1 - activeRatio) * 100)}%
         </div>
       )}

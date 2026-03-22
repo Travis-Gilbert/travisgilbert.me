@@ -1,0 +1,144 @@
+/* Tab bar and tab styles extracted from commonplace.css */
+
+.tabBar {
+  display: flex;
+  align-items: stretch;
+  height: var(--cp-tab-height);
+  background: var(--cp-chrome);
+  border-bottom: 1px solid var(--cp-chrome-line);
+  overflow-x: auto;
+  flex-shrink: 0;
+}
+
+.tabBar::-webkit-scrollbar {
+  display: none;
+}
+
+.tab {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 14px;
+  font-family: var(--cp-font-mono);
+  font-weight: 500;
+  font-size: 11px;
+  letter-spacing: 0.05em;
+  color: var(--cp-chrome-muted);
+  border-right: 1px solid var(--cp-chrome-line);
+  cursor: pointer;
+  white-space: nowrap;
+  transition: color 150ms, background-color 150ms;
+  user-select: none;
+  font-feature-settings: var(--cp-kern-mono);
+  min-height: var(--cp-tab-height);
+}
+
+.tab:hover {
+  color: var(--cp-chrome-text);
+  background-color: var(--cp-chrome-raise);
+}
+
+.tab:active {
+  background: var(--cp-chrome-raise);
+}
+
+.tab[data-active="true"] {
+  color: var(--cp-chrome-text);
+  background-color: transparent;
+  border-bottom: 2px solid var(--cp-red);
+  margin-bottom: 0;
+  box-shadow: none;
+}
+
+.tabPip {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--cp-chrome-dim);
+  flex-shrink: 0;
+}
+
+.tab[data-active="true"] .tabPip {
+  background: var(--cp-red);
+}
+
+.tabClose {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  border-radius: 3px;
+  border: none;
+  background: transparent;
+  color: var(--cp-chrome-dim);
+  font-size: 12px;
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 150ms, background-color 150ms;
+}
+
+.tab:hover .tabClose {
+  opacity: 1;
+}
+
+.tabClose:hover {
+  background-color: rgba(184, 98, 61, 0.15);
+  color: var(--cp-red);
+}
+
+/* Tab drag-and-drop feedback */
+.tab[data-dragging="true"] {
+  opacity: 0.4;
+  transition: opacity 100ms;
+}
+
+.tabBar[data-drag-over="true"] {
+  background: color-mix(in srgb, var(--cp-red) 18%, var(--cp-chrome));
+  box-shadow:
+    inset 0 -3px 0 0 rgba(184, 98, 61, 0.6),
+    0 0 14px rgba(184, 98, 61, 0.2);
+  transition: background 120ms ease-out, box-shadow 120ms ease-out;
+}
+
+/* Tab land: spring bounce on drop completion */
+.tab[data-landed="true"] {
+  animation: cp-tab-land 500ms cubic-bezier(0.34, 1.56, 0.64, 1) both;
+}
+
+@keyframes cp-tab-land {
+  0%   { transform: scale(0.8); opacity: 0.3; }
+  50%  { transform: scale(1.08); opacity: 1; }
+  100% { transform: scale(1); opacity: 1; }
+}
+
+/* Pip absorb pulse: grows as particles converge */
+.tab[data-landed="true"] .tabPip {
+  animation: cp-pip-absorb 600ms cubic-bezier(0.34, 1.56, 0.64, 1) 250ms both;
+}
+
+@keyframes cp-pip-absorb {
+  0%   { transform: scale(0.3); background: var(--cp-chrome-dim); box-shadow: none; }
+  50%  { transform: scale(2.2); background: var(--cp-red); box-shadow: 0 0 12px rgba(180, 90, 45, 0.5); }
+  100% { transform: scale(1); background: var(--cp-red); box-shadow: none; }
+}
+
+/* Reduced motion: keep opacity transitions but remove spatial movement */
+@media (prefers-reduced-motion: reduce) {
+  .tab[data-landed="true"] {
+    animation: cp-tab-land-reduced 200ms ease both;
+  }
+  .tab[data-landed="true"] .tabPip {
+    animation: cp-pip-absorb-reduced 200ms ease 100ms both;
+  }
+}
+
+@keyframes cp-tab-land-reduced {
+  0%   { opacity: 0.5; }
+  100% { opacity: 1; }
+}
+
+@keyframes cp-pip-absorb-reduced {
+  0%   { background: var(--cp-chrome-dim); }
+  100% { background: var(--cp-red); }
+}

@@ -28,6 +28,7 @@ import { useIsAppShellMobile } from '@/hooks/useIsAppShellMobile';
 import MobileTopBar from '@/components/mobile-shell/MobileTopBar';
 import MobileTabs from '@/components/mobile-shell/MobileTabs';
 import MobileSheet from '@/components/mobile-shell/MobileSheet';
+import styles from './SplitPaneContainer.module.css';
 import DragHandle from './DragHandle';
 import LayoutPresetSelector from './LayoutPresetSelector';
 import ScreenRouter from './ScreenRouter';
@@ -484,8 +485,8 @@ function FullscreenLeaf({
           onOpenObject={onOpenObject}
         />
         {splitPreview && (
-          <div className={`cp-split-preview cp-split-preview--${splitPreview}`}>
-            <span className="cp-split-preview-label">New pane</span>
+          <div className={`${styles.splitPreview} ${splitPreview === 'horizontal' ? styles.splitPreviewHorizontal : styles.splitPreviewVertical}`}>
+            <span className={styles.splitPreviewLabel}>New pane</span>
           </div>
         )}
       </div>
@@ -531,7 +532,7 @@ function RenderSplit(props: NodeProps & { node: SplitPane }) {
   return (
     <div
       ref={containerRef}
-      className="cp-pane-container"
+      className={styles.paneContainer}
       data-direction={node.direction}
     >
       <div
@@ -586,7 +587,7 @@ function RenderLeaf(props: NodeProps & { node: LeafPane }) {
 
   return (
     <div
-      className="cp-pane"
+      className={styles.pane}
       style={{
         flex: 1,
         boxShadow: isFocused
@@ -628,8 +629,8 @@ function RenderLeaf(props: NodeProps & { node: LeafPane }) {
           onOpenObject={onOpenObject}
         />
         {splitPreview && (
-          <div className={`cp-split-preview cp-split-preview--${splitPreview}`}>
-            <span className="cp-split-preview-label">New pane</span>
+          <div className={`${styles.splitPreview} ${splitPreview === 'horizontal' ? styles.splitPreviewHorizontal : styles.splitPreviewVertical}`}>
+            <span className={styles.splitPreviewLabel}>New pane</span>
           </div>
         )}
       </div>
@@ -662,7 +663,7 @@ function PaneViewContent({
 
   if (viewType === 'empty') {
     return (
-      <div className="cp-pane-empty">
+      <div className={styles.paneEmpty}>
         <div style={{ textAlign: 'center' }}>
           <div
             style={{
