@@ -8,6 +8,7 @@ import type { ComponentToolboxItem } from '@/lib/commonplace-components';
 import { useWorkspace } from '@/lib/providers/workspace-provider';
 import { createObjectComponent } from '@/lib/commonplace-api';
 import { toast } from 'sonner';
+import styles from './ComponentToolbox.module.css';
 
 export default function ComponentToolbox() {
   const { setDraggedComponent } = useWorkspace();
@@ -57,16 +58,16 @@ export default function ComponentToolbox() {
     <div style={{ position: 'relative', zIndex: 2 }}>
       <button
         type="button"
-        className="cp-toolbox-toggle"
+        className={styles.toolboxToggle}
         onClick={toggleOpen}
       >
         <ChevronIcon open={open} />
         TOOLBOX
-        <span className="cp-toolbox-count">{COMPONENT_TOOLBOX.length}</span>
+        <span className={styles.toolboxCount}>{COMPONENT_TOOLBOX.length}</span>
       </button>
 
       {open && (
-        <div className="cp-toolbox-grid">
+        <div className={styles.toolboxGrid}>
           {COMPONENT_TOOLBOX.map((comp) => (
             <ToolboxTile
               key={comp.id}
@@ -97,19 +98,19 @@ function DragOverlay({ comp }: { comp: ComponentToolboxItem }) {
 
   return createPortal(
     <div
-      className="commonplace-theme cp-toolbox-drag-ghost"
+      className={`commonplace-theme ${styles.toolboxDragGhost}`}
       style={{
         left: pos.x + 12,
         top: pos.y - 14,
         '--comp-color': comp.color,
       } as React.CSSProperties}
     >
-      <div className="cp-toolbox-tile">
+      <div className={styles.toolboxTile}>
         <span
           className="cp-capture-type-dot"
           style={{ background: comp.color }}
         />
-        <span className="cp-toolbox-tile-label">
+        <span className={styles.toolboxTileLabel}>
           {comp.label}
         </span>
       </div>
@@ -137,7 +138,7 @@ function ToolboxTile({
   return (
     <>
       <motion.div
-        className="cp-toolbox-tile cp-toolbox-tile-source"
+        className={`${styles.toolboxTile} ${styles.toolboxTileSource}`}
         style={{ '--comp-color': comp.color } as React.CSSProperties}
         drag
         dragSnapToOrigin
@@ -171,7 +172,7 @@ function ToolboxTile({
         }}
       >
         <div
-          className="cp-toolbox-glow-icon"
+          className={styles.toolboxGlowIcon}
           style={{
             background: `radial-gradient(circle, ${comp.color}50, ${comp.color}15)`,
             color: comp.color,
@@ -180,7 +181,7 @@ function ToolboxTile({
         >
           {initial}
         </div>
-        <span className="cp-toolbox-tile-label" style={{ opacity: 0.85 }}>
+        <span className={styles.toolboxTileLabel} style={{ opacity: 0.85 }}>
           {comp.label}
         </span>
       </motion.div>

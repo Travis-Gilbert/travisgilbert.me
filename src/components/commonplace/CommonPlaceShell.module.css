@@ -1,0 +1,141 @@
+/* Shell chrome: ambient glow, top bar, body area.
+   Extracted from commonplace.css into a CSS Module. */
+
+/* ─────────────────────────────────────────────────
+   Shell root: stacking context for the entire app.
+   ───────────────────────────────────────────────── */
+
+.shellRoot {
+  position: relative;
+  isolation: isolate;
+  /* Background is now the DotGrid canvas (warm parchment + dark gradient) */
+  background: transparent;
+}
+
+/* Construction grid disabled: DotGrid provides its own dot texture */
+.shellRoot::before {
+  display: none;
+}
+
+/* ─────────────────────────────────────────────────
+   Terracotta upper-right glow: ambient desk lamp.
+   Large radius, very subtle. Not a spot; an atmosphere.
+   ───────────────────────────────────────────────── */
+
+.ambientGlow {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+  background: radial-gradient(
+    ellipse at 65% 0%,
+    rgba(184, 98, 61, 0.04) 0%,
+    rgba(184, 98, 61, 0.015) 20%,
+    transparent 50%
+  );
+}
+
+/* ─────────────────────────────────────────────────
+   Top bar: 44px command strip navigation.
+   ───────────────────────────────────────────────── */
+
+.topbar {
+  display: flex;
+  align-items: center;
+  height: 44px;
+  padding: 0 14px;
+  gap: 10px;
+  background: linear-gradient(180deg, rgba(27, 21, 18, 0.82) 0%, rgba(21, 17, 15, 0.78) 100%);
+  border-bottom: 1px solid rgba(181, 120, 74, 0.18);
+  box-shadow: inset 0 0 40px rgba(198, 121, 61, 0.04);
+  flex-shrink: 0;
+  z-index: 10;
+}
+
+.topbarNav {
+  display: flex;
+  gap: 2px;
+  margin-left: 12px;
+}
+
+.topbarBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 10px;
+  font-size: 11px;
+  font-family: var(--cp-font-mono);
+  font-weight: 500;
+  letter-spacing: 0.03em;
+  color: var(--cp-text-faint);
+  border-radius: 4px;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  transition: background-color 120ms, color 120ms;
+}
+
+.topbarBtn:hover {
+  background: var(--cp-chrome-raise);
+  color: var(--cp-text-muted);
+}
+
+.topbarBtn[data-active="true"] {
+  background: rgba(184, 98, 61, 0.15);
+  color: var(--cp-text);
+}
+
+.topbarRight {
+  margin-left: auto;
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.topbarCmd {
+  padding: 3px 10px;
+  border: 1px solid var(--cp-chrome-line);
+  border-radius: 4px;
+  font-size: 10px;
+  font-family: var(--cp-font-mono);
+  font-weight: 500;
+  color: var(--cp-text-faint);
+  background: transparent;
+  cursor: pointer;
+}
+
+.topbarToggle {
+  width: 28px;
+  height: 28px;
+  border-radius: 4px;
+  border: 1px solid var(--cp-chrome-line);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--cp-text-faint);
+  background: transparent;
+  cursor: pointer;
+  transition: all 120ms;
+}
+
+.topbarToggle:hover {
+  border-color: var(--cp-text-faint);
+  color: var(--cp-text);
+}
+
+.topbarToggle[data-active="true"] {
+  background: rgba(184, 98, 61, 0.12);
+  border-color: rgba(184, 98, 61, 0.3);
+  color: var(--cp-text);
+}
+
+/* ─────────────────────────────────────────────────
+   Body area: flex container below top bar.
+   ───────────────────────────────────────────────── */
+
+.bodyArea {
+  display: flex;
+  flex: 1;
+  overflow: hidden;
+  min-height: 0;
+}

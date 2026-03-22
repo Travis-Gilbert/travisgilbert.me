@@ -2,6 +2,7 @@
 
 import type { CapturedObject } from '@/lib/commonplace';
 import { getObjectTypeIdentity } from '@/lib/commonplace';
+import styles from './CommonPlaceSidebar.module.css';
 
 /**
  * RecentCaptures: sidebar list of the last ~10 captured objects.
@@ -47,7 +48,7 @@ export default function RecentCaptures({
           <button
             key={capture.id}
             type="button"
-            className="cp-sidebar-item"
+            className={styles.sidebarItem}
             style={{
               width: '100%',
               border: 'none',

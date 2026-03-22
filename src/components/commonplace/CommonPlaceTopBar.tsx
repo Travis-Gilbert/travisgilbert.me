@@ -12,6 +12,7 @@ import {
 import CubeScanIcon from './icons/CubeScanIcon';
 import KeyframesSolidIcon from './icons/KeyframesSolidIcon';
 import SubstractIcon from './icons/SubstractIcon';
+import shellStyles from './CommonPlaceShell.module.css';
 
 const NAV_ITEMS: Array<
   | { label: string; type: 'screen'; target: ScreenType; icon: ComponentType<{ width?: number; height?: number }> }
@@ -35,7 +36,7 @@ export default function CommonPlaceTopBar({ railVisible, onToggleRail }: CommonP
   const { openPalette } = useWorkspace();
 
   return (
-    <header className="cp-topbar" style={{ backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)' }}>
+    <header className={shellStyles.topbar} style={{ backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)' }}>
       {/* Left: brand */}
       <a
         href="/commonplace"
@@ -52,7 +53,7 @@ export default function CommonPlaceTopBar({ railVisible, onToggleRail }: CommonP
       </a>
 
       {/* Center: nav items */}
-      <nav className="cp-topbar-nav">
+      <nav className={shellStyles.topbarNav}>
         {NAV_ITEMS.map((item) => {
           const isActive =
             item.type === 'screen'
@@ -64,7 +65,7 @@ export default function CommonPlaceTopBar({ railVisible, onToggleRail }: CommonP
             <button
               key={item.label}
               type="button"
-              className="cp-topbar-btn"
+              className={shellStyles.topbarBtn}
               data-active={isActive}
               onClick={() => {
                 if (item.type === 'screen') {
@@ -82,11 +83,11 @@ export default function CommonPlaceTopBar({ railVisible, onToggleRail }: CommonP
       </nav>
 
       {/* Right zone */}
-      <div className="cp-topbar-right">
+      <div className={shellStyles.topbarRight}>
         {/* Cmd+K button */}
         <button
           type="button"
-          className="cp-topbar-cmd"
+          className={shellStyles.topbarCmd}
           onClick={() => openPalette()}
         >
           &#8984;K
@@ -95,7 +96,7 @@ export default function CommonPlaceTopBar({ railVisible, onToggleRail }: CommonP
         {/* Rail toggle */}
         <button
           type="button"
-          className="cp-topbar-toggle"
+          className={shellStyles.topbarToggle}
           data-active={railVisible}
           onClick={onToggleRail}
           aria-label={railVisible ? 'Hide icon rail' : 'Show icon rail'}

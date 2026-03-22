@@ -11,6 +11,7 @@ import SplitPaneContainer from './SplitPaneContainer';
 import { useCapture } from '@/lib/providers/capture-provider';
 import { syncCapture } from '@/lib/commonplace-capture';
 import type { CapturedObject } from '@/lib/commonplace';
+import styles from './CommonPlaceShell.module.css';
 
 /**
  * CommonPlaceShell: client-side layout switcher.
@@ -74,7 +75,7 @@ export default function CommonPlaceShell() {
   return (
     <>
       <CommonPlaceTopBar railVisible={railVisible} onToggleRail={toggleRail} />
-      <div className="cp-body-area">
+      <div className={styles.bodyArea}>
         <CommonPlaceRail visible={railVisible} />
         <main
           className="cp-main-surface cp-grain"

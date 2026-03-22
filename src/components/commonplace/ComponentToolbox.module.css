@@ -1,0 +1,109 @@
+.toolboxToggle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 8px 14px;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  font-family: var(--cp-font-mono);
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--cp-chrome-muted);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  text-align: left;
+}
+
+.toolboxCount {
+  font-size: 9px;
+  font-weight: 500;
+  color: var(--cp-sidebar-text-faint);
+  margin-left: auto;
+}
+
+.toolboxGrid {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 4px;
+  padding: 0 8px 6px;
+  max-height: 200px;
+  overflow-y: auto;
+}
+
+.toolboxTile {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  padding: 10px 4px 7px;
+  border-radius: 8px;
+  cursor: grab;
+  border: 1px solid color-mix(in srgb, var(--comp-color, var(--cp-chrome-line)) 20%, transparent);
+  background: radial-gradient(
+    ellipse at 50% 35%,
+    color-mix(in srgb, var(--comp-color, var(--cp-chrome-muted)) 18%, transparent),
+    var(--cp-chrome-mid) 80%
+  );
+  font-family: var(--cp-font-mono);
+  font-size: 8.5px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  color: var(--cp-chrome-text);
+  min-height: 52px;
+  transition: background 120ms, border-color 120ms, box-shadow 120ms, transform 120ms;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.toolboxTile:hover {
+  border-color: color-mix(in srgb, var(--comp-color, var(--cp-chrome-muted)) 40%, transparent);
+  box-shadow:
+    0 0 12px color-mix(in srgb, var(--comp-color, var(--cp-chrome-muted)) 20%, transparent),
+    0 2px 6px rgba(0, 0, 0, 0.25);
+  transform: translateY(-1px);
+}
+
+.toolboxTile:focus-visible {
+  outline: 2px solid var(--cp-focus-ring-sidebar);
+  outline-offset: var(--cp-focus-ring-offset);
+}
+
+.toolboxGlowIcon {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 10px;
+  font-weight: 700;
+  margin-bottom: 2px;
+}
+
+.toolboxDragGhost {
+  position: fixed;
+  z-index: 99999;
+  pointer-events: none;
+}
+
+.toolboxDragGhost .toolboxTile {
+  transform: scale(0.92);
+  background: color-mix(in srgb, var(--comp-color) 13%, transparent);
+  border-color: var(--comp-color);
+  box-shadow: 0 4px 16px color-mix(in srgb, var(--comp-color) 27%, transparent);
+}
+
+.toolboxTileSource {
+  position: relative;
+  z-index: 1;
+  touch-action: none;
+}
+
+.toolboxTileLabel {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}

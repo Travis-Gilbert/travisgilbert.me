@@ -9,6 +9,7 @@ import ConnectionComposer from '@/components/commonplace/ConnectionComposer';
 import EngineTerminal from '@/components/commonplace/EngineTerminal';
 import ReaderOverlay from '@/components/commonplace/ReaderOverlay';
 import { Toaster } from 'sonner';
+import shellStyles from '@/components/commonplace/CommonPlaceShell.module.css';
 import '@/styles/commonplace-tokens.css';
 import '@/styles/commonplace.css';
 import '@/styles/object-cards.css';
@@ -54,7 +55,7 @@ export default function CommonPlaceLayout({
 }) {
   return (
     <div
-      className="commonplace-theme cp-shell-root"
+      className={`commonplace-theme ${shellStyles.shellRoot}`}
       style={{
         display: 'flex',
         flexDirection: 'column',
@@ -68,7 +69,7 @@ export default function CommonPlaceLayout({
       <DotGrid />
 
       {/* Ambient red-pencil glow */}
-      <div className="cp-ambient-glow" aria-hidden="true" />
+      <div className={shellStyles.ambientGlow} aria-hidden="true" />
 
       {/* Provider: lets navigation notify Timeline of new captures */}
       <CommonPlaceProviders>

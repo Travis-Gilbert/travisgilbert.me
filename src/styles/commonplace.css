@@ -25,7 +25,7 @@
   outline-offset: var(--cp-focus-ring-offset);
 }
 
-.commonplace-theme :is(.cp-sidebar-item, .cp-pinned-item, .cp-toolbox-tile, .cp-capture-collapsed, .cp-rail-btn):focus-visible {
+.commonplace-theme :is(.cp-capture-collapsed):focus-visible {
   outline-color: var(--cp-focus-ring-sidebar);
 }
 
@@ -79,321 +79,6 @@
   opacity: 0.02;
 }
 
-/* ─────────────────────────────────────────────────
-   Terracotta upper-right glow: ambient desk lamp.
-   Large radius, very subtle. Not a spot; an atmosphere.
-   ───────────────────────────────────────────────── */
-
-.cp-ambient-glow {
-  position: fixed;
-  inset: 0;
-  pointer-events: none;
-  z-index: 0;
-  background: radial-gradient(
-    ellipse at 65% 0%,
-    rgba(184, 98, 61, 0.04) 0%,
-    rgba(184, 98, 61, 0.015) 20%,
-    transparent 50%
-  );
-}
-
-/* ─────────────────────────────────────────────────
-   Top bar: 44px command strip navigation.
-   ───────────────────────────────────────────────── */
-
-.cp-topbar {
-  display: flex;
-  align-items: center;
-  height: 44px;
-  padding: 0 14px;
-  gap: 10px;
-  background: linear-gradient(180deg, rgba(27, 21, 18, 0.82) 0%, rgba(21, 17, 15, 0.78) 100%);
-  border-bottom: 1px solid rgba(181, 120, 74, 0.18);
-  box-shadow: inset 0 0 40px rgba(198, 121, 61, 0.04);
-  flex-shrink: 0;
-  z-index: 10;
-}
-
-.cp-topbar-nav {
-  display: flex;
-  gap: 2px;
-  margin-left: 12px;
-}
-
-.cp-topbar-btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  padding: 4px 10px;
-  font-size: 11px;
-  font-family: var(--cp-font-mono);
-  font-weight: 500;
-  letter-spacing: 0.03em;
-  color: var(--cp-text-faint);
-  border-radius: 4px;
-  border: none;
-  background: transparent;
-  cursor: pointer;
-  transition: background-color 120ms, color 120ms;
-}
-
-.cp-topbar-btn:hover {
-  background: var(--cp-chrome-raise);
-  color: var(--cp-text-muted);
-}
-
-.cp-topbar-btn[data-active="true"] {
-  background: rgba(184, 98, 61, 0.15);
-  color: var(--cp-text);
-}
-
-.cp-topbar-right {
-  margin-left: auto;
-  display: flex;
-  gap: 8px;
-  align-items: center;
-}
-
-.cp-topbar-cmd {
-  padding: 3px 10px;
-  border: 1px solid var(--cp-chrome-line);
-  border-radius: 4px;
-  font-size: 10px;
-  font-family: var(--cp-font-mono);
-  font-weight: 500;
-  color: var(--cp-text-faint);
-  background: transparent;
-  cursor: pointer;
-}
-
-.cp-topbar-toggle {
-  width: 28px;
-  height: 28px;
-  border-radius: 4px;
-  border: 1px solid var(--cp-chrome-line);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: var(--cp-text-faint);
-  background: transparent;
-  cursor: pointer;
-  transition: all 120ms;
-}
-
-.cp-topbar-toggle:hover {
-  border-color: var(--cp-text-faint);
-  color: var(--cp-text);
-}
-
-.cp-topbar-toggle[data-active="true"] {
-  background: rgba(184, 98, 61, 0.12);
-  border-color: rgba(184, 98, 61, 0.3);
-  color: var(--cp-text);
-}
-
-/* ─────────────────────────────────────────────────
-   Icon rail: 48px vertical navigation strip.
-   ───────────────────────────────────────────────── */
-
-.cp-rail {
-  width: 48px;
-  flex-shrink: 0;
-  background: linear-gradient(180deg, rgba(21, 17, 15, 0.78) 0%, rgba(27, 21, 18, 0.82) 100%);
-  border-right: 1px solid rgba(181, 120, 74, 0.18);
-  box-shadow: inset 0 0 40px rgba(198, 121, 61, 0.04);
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  padding: 12px 0;
-  gap: 2px;
-  overflow: hidden;
-  transition: width 250ms cubic-bezier(0.34, 1.56, 0.64, 1),
-              opacity 200ms;
-}
-
-.cp-rail--hidden {
-  width: 0;
-  opacity: 0;
-  border-right: none;
-  padding: 0;
-}
-
-/* ─────────────────────────────────────────────────
-   Body area: flex container below top bar.
-   ───────────────────────────────────────────────── */
-
-.cp-body-area {
-  display: flex;
-  flex: 1;
-  overflow: hidden;
-  min-height: 0;
-}
-
-/* ─────────────────────────────────────────────────
-   Sidebar glow: terracotta bloom from top-left,
-   warm studio light falling on the desk edge.
-   ───────────────────────────────────────────────── */
-
-.cp-sidebar-glow {
-  position: absolute;
-  inset: 0;
-  pointer-events: none;
-  background: radial-gradient(
-    ellipse at 50% 0%,
-    rgba(184, 98, 61, 0.08) 0%,
-    transparent 40%
-  );
-}
-
-/* ─────────────────────────────────────────────────
-   Sidebar section styles
-   ───────────────────────────────────────────────── */
-
-.cp-section-title {
-  font-family: var(--cp-font-mono);
-  font-weight: 500;
-  font-size: 10px;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-  color: var(--cp-sidebar-text-faint);
-  padding: 0 12px;
-  margin-bottom: 6px;
-  margin-top: 4px;
-}
-
-.cp-sidebar-item {
-  position: relative;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 6px 12px;
-  border-radius: 4px;
-  color: var(--cp-sidebar-text-muted);
-  font-family: var(--cp-font-body);
-  font-size: 13px;
-  cursor: pointer;
-  transition: background-color 150ms, color 150ms;
-  text-decoration: none;
-}
-
-/* Left-edge accent bar: appears on hover (50%) and active (100%) */
-.cp-sidebar-item::before {
-  content: '';
-  position: absolute;
-  left: 0;
-  top: 4px;
-  bottom: 4px;
-  width: 2px;
-  border-radius: 1px;
-  background: var(--sidebar-section-color, var(--cp-red));
-  opacity: 0;
-  transition: opacity 120ms ease;
-}
-.cp-sidebar-item:hover::before {
-  opacity: 0.5;
-}
-.cp-sidebar-item[data-active="true"]::before {
-  opacity: 1;
-}
-
-.cp-sidebar-item:hover {
-  background-color: var(--cp-sidebar-surface-hover);
-  color: var(--cp-sidebar-text);
-}
-.cp-sidebar-item:active {
-  transform: scale(0.98);
-}
-
-.cp-sidebar-item[data-active="true"] {
-  background-color: var(--cp-red-soft);
-  box-shadow: inset 0 0 0 1px var(--cp-red-line);
-  color: var(--cp-sidebar-text);
-}
-
-/* Section-colored sidebar icons */
-.cp-sidebar-item[data-section="capture"] svg { color: var(--cp-red); opacity: 0.5; }
-.cp-sidebar-item[data-section="capture"]:hover svg { opacity: 0.8; }
-.cp-sidebar-item[data-section="capture"][data-active="true"] svg { opacity: 1; }
-
-.cp-sidebar-item[data-section="views"] svg { color: var(--cp-teal); opacity: 0.5; }
-.cp-sidebar-item[data-section="views"]:hover svg { opacity: 0.8; }
-.cp-sidebar-item[data-section="views"][data-active="true"] svg { opacity: 1; }
-
-.cp-sidebar-item[data-section="work"] svg { color: var(--cp-gold); opacity: 0.5; }
-.cp-sidebar-item[data-section="work"]:hover svg { opacity: 0.8; }
-.cp-sidebar-item[data-section="work"][data-active="true"] svg { opacity: 1; }
-
-.cp-sidebar-item[data-section="system"] svg { color: var(--cp-purple); opacity: 0.5; }
-.cp-sidebar-item[data-section="system"]:hover svg { opacity: 0.8; }
-.cp-sidebar-item[data-section="system"][data-active="true"] svg { opacity: 1; }
-
-/* Section title labels use section color at 72% opacity */
-.cp-section-title[data-section="capture"] { color: var(--cp-red); opacity: 0.72; }
-.cp-section-title[data-section="views"] { color: var(--cp-teal); opacity: 0.72; }
-.cp-section-title[data-section="work"] { color: var(--cp-gold); opacity: 0.72; }
-.cp-section-title[data-section="system"] { color: var(--cp-purple); opacity: 0.72; }
-
-/* Active section sidebar item uses section-specific accent */
-.cp-sidebar-item[data-section="views"][data-active="true"] {
-  background-color: rgba(45, 95, 107, 0.12);
-  box-shadow: inset 0 0 0 1px rgba(45, 95, 107, 0.25);
-}
-.cp-sidebar-item[data-section="work"][data-active="true"] {
-  background-color: rgba(196, 154, 74, 0.12);
-  box-shadow: inset 0 0 0 1px rgba(196, 154, 74, 0.25);
-}
-.cp-sidebar-item[data-section="system"][data-active="true"] {
-  background-color: rgba(139, 111, 160, 0.12);
-  box-shadow: inset 0 0 0 1px rgba(139, 111, 160, 0.25);
-}
-
-/* ─────────────────────────────────────────────────
-   Sidebar section group backgrounds
-   ───────────────────────────────────────────────── */
-
-.cp-sidebar-section-capture {
-  --sidebar-section-color: var(--cp-red);
-  background: rgba(196, 80, 60, 0.025);
-  border-radius: 4px;
-  margin: 2px 0;
-  padding: 2px 0 4px;
-}
-.cp-sidebar-section-views {
-  --sidebar-section-color: var(--cp-teal);
-  background: rgba(45, 95, 107, 0.025);
-  border-radius: 4px;
-  margin: 2px 0;
-  padding: 2px 0 4px;
-}
-.cp-sidebar-section-work {
-  --sidebar-section-color: var(--cp-gold);
-  background: rgba(196, 154, 74, 0.02);
-  border-radius: 4px;
-  margin: 2px 0;
-  padding: 2px 0 4px;
-}
-.cp-sidebar-section-system {
-  --sidebar-section-color: var(--cp-purple);
-  background: rgba(139, 111, 160, 0.02);
-  border-radius: 4px;
-  margin: 2px 0;
-  padding: 2px 0 4px;
-}
-
-/* ─────────────────────────────────────────────────
-   Sidebar dividers between sections
-   ───────────────────────────────────────────────── */
-
-.cp-sidebar-divider {
-  height: 1px;
-  margin: 4px 12px;
-  background: linear-gradient(
-    to right,
-    var(--divider-color, var(--cp-sidebar-border)) 0%,
-    color-mix(in srgb, var(--cp-sidebar-border) 30%, transparent) 60%,
-    transparent 100%
-  );
-}
 
 /* ─────────────────────────────────────────────────
    Object type color dots
@@ -404,206 +89,6 @@
   height: 8px;
   border-radius: 50%;
   flex-shrink: 0;
-}
-
-/* ─────────────────────────────────────────────────
-   Sidebar resize handle (right edge drag)
-   ───────────────────────────────────────────────── */
-
-.cp-sidebar-resize {
-  position: absolute;
-  top: 0;
-  right: 0;
-  width: 5px;
-  height: 100%;
-  cursor: col-resize;
-  z-index: 10;
-  transition: background-color 150ms;
-}
-
-.cp-sidebar-resize:hover,
-.cp-sidebar-resize--dragging {
-  background: rgba(184, 98, 61, 0.28);
-}
-
-/* ─────────────────────────────────────────────────
-   Pinned objects 2x3 grid (sidebar "Objects" section)
-   ───────────────────────────────────────────────── */
-
-.cp-pinned-grid {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 2px;
-  padding: 0 4px;
-}
-
-.cp-pinned-item {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  padding: 6px 8px;
-  border-radius: 5px;
-  background: transparent;
-  border: none;
-  cursor: pointer;
-  text-align: left;
-  transition: background-color 150ms;
-}
-
-.cp-pinned-item:hover {
-  background: var(--cp-sidebar-surface-hover);
-}
-
-.cp-pinned-item-header {
-  display: flex;
-  align-items: center;
-  gap: 5px;
-}
-
-.cp-pinned-item-title {
-  font-family: var(--cp-font-body);
-  font-size: 11px;
-  color: var(--cp-sidebar-text-muted);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  flex: 1;
-  line-height: 1.3;
-}
-
-.cp-pinned-item:hover .cp-pinned-item-title {
-  color: var(--cp-sidebar-text);
-}
-
-.cp-pinned-item-count {
-  font-family: var(--cp-font-mono);
-  font-weight: 500;
-  font-size: 9px;
-  color: var(--cp-sidebar-text-faint);
-  margin-top: 1px;
-}
-
-/* ─────────────────────────────────────────────────
-   Component Toolbox
-   ───────────────────────────────────────────────── */
-
-.cp-toolbox-toggle {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  width: 100%;
-  padding: 8px 14px;
-  border: none;
-  background: transparent;
-  cursor: pointer;
-  font-family: var(--cp-font-mono);
-  font-size: 10px;
-  font-weight: 600;
-  color: var(--cp-chrome-muted);
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  text-align: left;
-}
-
-.cp-toolbox-count {
-  font-size: 9px;
-  font-weight: 500;
-  color: var(--cp-sidebar-text-faint);
-  margin-left: auto;
-}
-
-.cp-toolbox-grid {
-  display: grid;
-  grid-template-columns: 1fr 1fr 1fr;
-  gap: 4px;
-  padding: 0 8px 6px;
-  max-height: 200px;
-  overflow-y: auto;
-}
-
-.cp-toolbox-tile {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 4px;
-  padding: 10px 4px 7px;
-  border-radius: 8px;
-  cursor: grab;
-  border: 1px solid color-mix(in srgb, var(--comp-color, var(--cp-chrome-line)) 20%, transparent);
-  background: radial-gradient(
-    ellipse at 50% 35%,
-    color-mix(in srgb, var(--comp-color, var(--cp-chrome-muted)) 18%, transparent),
-    var(--cp-chrome-mid) 80%
-  );
-  font-family: var(--cp-font-mono);
-  font-size: 8.5px;
-  font-weight: 600;
-  letter-spacing: 0.04em;
-  color: var(--cp-chrome-text);
-  min-height: 52px;
-  transition: background 120ms, border-color 120ms, box-shadow 120ms, transform 120ms;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.cp-toolbox-tile:hover {
-  border-color: color-mix(in srgb, var(--comp-color, var(--cp-chrome-muted)) 40%, transparent);
-  box-shadow:
-    0 0 12px color-mix(in srgb, var(--comp-color, var(--cp-chrome-muted)) 20%, transparent),
-    0 2px 6px rgba(0, 0, 0, 0.25);
-  transform: translateY(-1px);
-}
-
-.cp-toolbox-glow-icon {
-  width: 22px;
-  height: 22px;
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 10px;
-  font-weight: 700;
-  margin-bottom: 2px;
-}
-
-.cp-toolbox-drag-ghost {
-  position: fixed;
-  z-index: 99999;
-  pointer-events: none;
-}
-
-.cp-toolbox-drag-ghost .cp-toolbox-tile {
-  transform: scale(0.92);
-  background: color-mix(in srgb, var(--comp-color) 13%, transparent);
-  border-color: var(--comp-color);
-  box-shadow: 0 4px 16px color-mix(in srgb, var(--comp-color) 27%, transparent);
-}
-
-.cp-toolbox-tile-source {
-  position: relative;
-  z-index: 1;
-  touch-action: none;
-}
-
-.cp-toolbox-tile-label {
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-/* ─────────────────────────────────────────────────
-   Brand section stats
-   ───────────────────────────────────────────────── */
-
-.cp-brand-stats {
-  font-family: var(--cp-font-mono);
-  font-weight: 500;
-  font-size: 9px;
-  color: var(--cp-sidebar-text-faint);
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  margin-top: 2px;
 }
 
 /* ─────────────────────────────────────────────────
@@ -1151,47 +636,6 @@
   background: var(--cp-terracotta-sidebar-glow);
 }
 
-/* ─────────────────────────────────────────────────
-   Icon rail: collapsed sidebar buttons + tooltips
-   ───────────────────────────────────────────────── */
-
-.cp-rail-btn {
-  width: 32px;
-  height: 32px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border: none;
-  border-radius: 6px;
-  background: transparent;
-  color: var(--cp-sidebar-text-muted, var(--cp-text-muted));
-  cursor: pointer;
-  transition: background 150ms, color 150ms;
-  margin: 2px 0;
-}
-
-.cp-rail-btn:hover {
-  background: var(--cp-sidebar-surface, var(--cp-surface-hover));
-  color: var(--cp-sidebar-text);
-}
-
-.cp-rail-tooltip {
-  position: absolute;
-  left: calc(100% + 8px);
-  top: 50%;
-  transform: translateY(-50%);
-  background: var(--cp-chrome-raise, #2a2a30);
-  color: var(--cp-vellum, #f4f3f0);
-  font-family: var(--cp-font-mono);
-  font-weight: 500;
-  font-size: 9px;
-  letter-spacing: 0.08em;
-  padding: 4px 8px;
-  border-radius: 4px;
-  white-space: nowrap;
-  z-index: 9999;
-  pointer-events: none;
-}
 
 /* ─────────────────────────────────────────────────
    Scrollbar styling (sidebar)
@@ -5891,18 +5335,6 @@
    Graphite shell + vellum work surfaces
    ========================================================================== */
 
-.cp-shell-root {
-  position: relative;
-  isolation: isolate;
-  /* Background is now the DotGrid canvas (warm parchment + dark gradient) */
-  background: transparent;
-}
-
-/* Construction grid disabled: DotGrid provides its own dot texture */
-.cp-shell-root::before {
-  display: none;
-}
-
 .cp-main-surface {
   background: transparent;
   backdrop-filter: none;
@@ -6024,7 +5456,6 @@
   background: rgba(180, 90, 45, 0.18);
 }
 
-/* cp-brand-stats: consolidated into original definition above (line ~383) */
 
 .cp-brand-chips {
   display: flex;
@@ -6095,8 +5526,7 @@
 }
 
 .cp-tl-date-label-text,
-.cp-resurface-label,
-.cp-section-title {
+.cp-resurface-label {
   letter-spacing: 0.16em;
 }
 
@@ -8704,7 +8134,6 @@
 .cp-tl-date-label,
 .cp-tl-date-label-text,
 .cp-resurface-label,
-.cp-section-title,
 .cp-compose-pass-reason,
 .cp-compose-check-tension,
 .cp-drawer-connection-engine--manual {
@@ -8712,7 +8141,6 @@
 }
 
 .cp-tl-date-label::after,
-.cp-section-title::after,
 .cp-date-header-rule {
   border-color: var(--cp-red-line);
 }

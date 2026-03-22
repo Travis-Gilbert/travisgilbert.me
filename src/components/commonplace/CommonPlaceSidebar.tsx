@@ -51,6 +51,7 @@ import {
 } from '@/lib/commonplace-api';
 import { useIsAppShellMobile } from '@/hooks/useIsAppShellMobile';
 import MobileDrawer from '@/components/mobile-shell/MobileDrawer';
+import styles from './CommonPlaceSidebar.module.css';
 import CubeScanIcon from './icons/CubeScanIcon';
 import KeyframesSolidIcon from './icons/KeyframesSolidIcon';
 import SubstractIcon from './icons/SubstractIcon';
@@ -232,7 +233,7 @@ export default function CommonPlaceSidebar() {
   const sidebarInner = (
     <>
       {/* Chrome shell glow */}
-      <div className="cp-sidebar-glow" aria-hidden="true" />
+      <div className={styles.sidebarGlow} aria-hidden="true" />
 
       <div style={{ padding: '18px 14px 10px', position: 'relative', zIndex: 2 }}>
         <Link
@@ -254,7 +255,13 @@ export default function CommonPlaceSidebar() {
       <nav style={{ flex: 1, overflow: 'auto', scrollbarWidth: 'none', padding: '8px 6px', position: 'relative', zIndex: 2 }}>
         {SIDEBAR_SECTIONS.map((section, sectionIdx) => {
           const sectionKey = (section.title || 'capture').toLowerCase() as 'capture' | 'views' | 'work' | 'system';
-          const sectionGroupClass = `cp-sidebar-section-${sectionKey}`;
+          const SECTION_GROUP_STYLES: Record<string, string> = {
+            capture: styles.sidebarSectionCapture,
+            views: styles.sidebarSectionViews,
+            work: styles.sidebarSectionWork,
+            system: styles.sidebarSectionSystem,
+          };
+          const sectionGroupClass = SECTION_GROUP_STYLES[sectionKey] ?? '';
           /* Divider color hints at the NEXT section's accent */
           const DIVIDER_COLORS: Record<string, string> = {
             views: 'rgba(45, 95, 107, 0.25)',
@@ -265,18 +272,18 @@ export default function CommonPlaceSidebar() {
             <div key={section.title || `section-${sectionIdx}`} style={{ position: 'relative' }}>
               {sectionIdx > 0 && (
                 <div
-                  className="cp-sidebar-divider"
+                  className={styles.sidebarDivider}
                   style={{ '--divider-color': DIVIDER_COLORS[sectionKey] } as React.CSSProperties}
                 />
               )}
               <div className={sectionGroupClass}>
               {section.title && section.title !== 'Capture' && (
-              <div className="cp-section-title" data-section={sectionKey}>{section.title}</div>
+              <div className={styles.sectionTitle} data-section={sectionKey}>{section.title}</div>
             )}
 
             {section.title === 'Capture' ? (
               <div style={{ padding: '0 4px' }}>
-                <div className="cp-section-title">Capture</div>
+                <div className={styles.sectionTitle}>Capture</div>
                 <CaptureButton onCapture={handleCapture} />
                 <ObjectPalette
                   isOpen={isPaletteOpen}
@@ -345,7 +352,7 @@ export default function CommonPlaceSidebar() {
                     <div key={item.href}>
                       <button
                         type="button"
-                        className="cp-sidebar-item"
+                        className={styles.sidebarItem}
                         data-active={isActive}
                         data-section={sectionKey}
                         onClick={() => {
@@ -387,7 +394,7 @@ export default function CommonPlaceSidebar() {
                             <button
                               key={child.key}
                               type="button"
-                              className="cp-sidebar-item"
+                              className={styles.sidebarItem}
                               onClick={child.onClick}
                               style={{
                                 width: '100%',
@@ -431,7 +438,7 @@ export default function CommonPlaceSidebar() {
                     <button
                       key={item.href}
                       type="button"
-                      className="cp-sidebar-item"
+                      className={styles.sidebarItem}
                       data-active={isActive || activeScreen === item.screenType}
                       data-section={sectionKey}
                       onClick={() => {
@@ -457,7 +464,7 @@ export default function CommonPlaceSidebar() {
                     <button
                       key={item.href}
                       type="button"
-                      className="cp-sidebar-item"
+                      className={styles.sidebarItem}
                       data-active={isActive || viewIsOpen}
                       data-section={sectionKey}
                       onClick={(e) => {
@@ -495,7 +502,7 @@ export default function CommonPlaceSidebar() {
                     key={item.href}
                     href={item.href}
                     onClick={closeDrawerIfMobile}
-                    className="cp-sidebar-item"
+                    className={styles.sidebarItem}
                     data-active={isActive}
                     data-section={sectionKey}
                     style={{ textDecoration: 'none' }}
@@ -530,26 +537,26 @@ export default function CommonPlaceSidebar() {
             Each item opens the Vaul drawer via openDrawer(slug). */}
         {pinnedObjects && pinnedObjects.length > 0 && (
           <>
-            <div className="cp-sidebar-divider" />
-            <div className="cp-section-title">Objects</div>
-            <div className="cp-pinned-grid">
+            <div className={styles.sidebarDivider} />
+            <div className={styles.sectionTitle}>Objects</div>
+            <div className={styles.pinnedGrid}>
               {pinnedObjects.map((obj) => (
                 <button
                   key={obj.id}
                   type="button"
-                  className="cp-pinned-item"
+                  className={styles.pinnedItem}
                   onClick={() => openDrawer(obj.slug)}
                   title={obj.title}
                 >
-                  <div className="cp-pinned-item-header">
+                  <div className={styles.pinnedItemHeader}>
                     <span
                       className="cp-type-dot"
                       style={{ backgroundColor: obj.objectTypeColor || 'var(--cp-text-muted)' }}
                     />
-                    <span className="cp-pinned-item-title">{obj.title}</span>
+                    <span className={styles.pinnedItemTitle}>{obj.title}</span>
                   </div>
                   {obj.edgeCount > 0 && (
-                    <div className="cp-pinned-item-count">{obj.edgeCount} edges</div>
+                    <div className={styles.pinnedItemCount}>{obj.edgeCount} edges</div>
                   )}
                 </button>
               ))}
@@ -560,8 +567,8 @@ export default function CommonPlaceSidebar() {
         {/* Recent captures feed */}
         {captures.length > 0 && (
           <>
-            <div className="cp-sidebar-divider" />
-            <div className="cp-section-title">Recent</div>
+            <div className={styles.sidebarDivider} />
+            <div className={styles.sectionTitle}>Recent</div>
             <RecentCaptures captures={captures} />
           </>
         )}
@@ -585,7 +592,7 @@ export default function CommonPlaceSidebar() {
         <Link
           href="/"
           onClick={closeDrawerIfMobile}
-          className="cp-sidebar-item"
+          className={styles.sidebarItem}
           style={{
             fontFamily: 'var(--cp-font-mono)',
             fontSize: 10,
@@ -641,7 +648,7 @@ export default function CommonPlaceSidebar() {
           gap: 2,
         }}
       >
-        <div className="cp-sidebar-glow" aria-hidden="true" />
+        <div className={styles.sidebarGlow} aria-hidden="true" />
         <Link
           href="/commonplace"
           title="CommonPlace"
@@ -696,7 +703,7 @@ export default function CommonPlaceSidebar() {
         <div style={{ flex: 1 }} />
         <button
           type="button"
-          className="cp-rail-btn"
+          className={styles.railBtn}
           title="Expand sidebar"
           aria-label="Expand sidebar"
           onClick={() => setSidebarCollapsed(false)}
@@ -751,14 +758,14 @@ export default function CommonPlaceSidebar() {
     >
       {/* Right-edge resize handle (desktop only) */}
       <div
-        className={`cp-sidebar-resize${isDragging ? ' cp-sidebar-resize--dragging' : ''}`}
+        className={`${styles.sidebarResize}${isDragging ? ` ${styles.sidebarResizeDragging}` : ''}`}
         onMouseDown={handleResizeStart}
         aria-hidden="true"
       />
       {isBoardActive ? (
         <>
           {/* Chrome shell glow */}
-          <div className="cp-sidebar-glow" aria-hidden="true" />
+          <div className={styles.sidebarGlow} aria-hidden="true" />
           <div style={{ display: 'flex', flexDirection: 'column', flex: 1, overflow: 'hidden', position: 'relative', zIndex: 2 }}>
             <BoardCatalogSidebar
               objects={boardCatalogObjects}
@@ -811,7 +818,7 @@ function RailIconButton({
       <button
         ref={refs.setReference}
         type="button"
-        className="cp-rail-btn cp-sidebar-item"
+        className={`${styles.railBtn} ${styles.sidebarItem}`}
         aria-label={label}
         title={label}
         data-section={section}
@@ -825,7 +832,7 @@ function RailIconButton({
         <FloatingPortal>
           <div
             ref={refs.setFloating}
-            className="cp-rail-tooltip"
+            className={styles.railTooltip}
             style={floatingStyles}
             {...getFloatingProps()}
           >

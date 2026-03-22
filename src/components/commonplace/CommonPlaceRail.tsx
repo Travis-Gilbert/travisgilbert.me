@@ -33,6 +33,7 @@ import {
 } from '@floating-ui/react';
 import { findLeafWithView } from '@/lib/commonplace-layout';
 import { useLayout } from '@/lib/providers/layout-provider';
+import styles from './CommonPlaceSidebar.module.css';
 import CubeScanIcon from './icons/CubeScanIcon';
 import KeyframesSolidIcon from './icons/KeyframesSolidIcon';
 import SubstractIcon from './icons/SubstractIcon';
@@ -108,7 +109,7 @@ export default function CommonPlaceRail({ visible }: CommonPlaceRailProps) {
   ];
 
   return (
-    <aside className={`cp-rail${visible ? '' : ' cp-rail--hidden'}`} style={{ backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)' }}>
+    <aside className={`${styles.rail}${visible ? '' : ` ${styles.railHidden}`}`} style={{ backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)' }}>
       {/* Brand abbreviation */}
       <Link
         href="/commonplace"
@@ -211,7 +212,7 @@ function RailIconButton({
       <button
         ref={refs.setReference}
         type="button"
-        className="cp-rail-btn cp-sidebar-item"
+        className={`${styles.railBtn} ${styles.sidebarItem}`}
         aria-label={label}
         title={label}
         data-section={section}
@@ -225,7 +226,7 @@ function RailIconButton({
         <FloatingPortal>
           <div
             ref={refs.setFloating}
-            className="commonplace-theme cp-rail-tooltip"
+            className={`commonplace-theme ${styles.railTooltip}`}
             style={floatingStyles}
             {...getFloatingProps()}
           >
