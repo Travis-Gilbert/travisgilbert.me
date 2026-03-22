@@ -16,6 +16,8 @@ import {
   Tools,
   Archive,
   VideoCamera,
+  NavArrowLeft,
+  NavArrowRight,
 } from 'iconoir-react';
 import { SIDEBAR_SECTIONS, SIDEBAR_TIMELINE_ITEM } from '@/lib/studio';
 import { fetchContentList } from '@/lib/studio-api';
@@ -35,7 +37,13 @@ import NewContentModal from './NewContentModal';
  * heavier grain texture. Content type counts from Studio API.
  * Active route highlighting with 2px terracotta left bar.
  */
-export default function StudioSidebar() {
+export default function StudioSidebar({
+  collapsed = false,
+  onToggleCollapse,
+}: {
+  collapsed?: boolean;
+  onToggleCollapse?: () => void;
+} = {}) {
   const pathname = usePathname();
   const { themeMode, toggleThemeMode } = useStudioView();
   const { editorState } = useStudioWorkbench();
@@ -99,7 +107,7 @@ export default function StudioSidebar() {
     <aside
       className="studio-sidebar-desktop studio-sidebar-grid studio-scrollbar studio-grain"
       style={{
-        width: 'var(--studio-sidebar-width)',
+        width: collapsed ? 56 : 'var(--studio-sidebar-width)',
         flexShrink: 0,
         backgroundColor: 'var(--studio-bg-sidebar)',
         borderRight: '1px solid var(--studio-border)',
@@ -107,6 +115,7 @@ export default function StudioSidebar() {
         flexDirection: 'column',
         position: 'relative',
         overflow: 'hidden',
+        transition: 'width 0.2s ease',
       }}
     >
       {/* Corner glow bloom */}
@@ -117,49 +126,53 @@ export default function StudioSidebar() {
         href="/studio"
         style={{
           display: 'block',
-          padding: '26px 20px 10px 12px',
+          padding: collapsed ? '18px 0 10px' : '26px 20px 10px 12px',
           textDecoration: 'none',
           position: 'relative',
           zIndex: 2,
+          textAlign: collapsed ? 'center' : undefined,
         }}
       >
-        <span
-          style={{
-            fontFamily: 'var(--studio-font-title)',
-            fontWeight: 700,
-            fontSize: '54px',
-            color: 'var(--studio-text-bright)',
-            letterSpacing: '-0.03em',
-            lineHeight: 1,
-          }}
-        >
-          Studio
-          <span style={{ color: 'var(--studio-tc)' }}>.</span>
-        </span>
-        <span
-          style={{
-            display: 'block',
-            fontFamily: 'var(--studio-font-mono)',
-            fontSize: '9px',
-            fontWeight: 600,
-            letterSpacing: '0.15em',
-            textTransform: 'uppercase' as const,
-            color: 'var(--studio-text-3)',
-            marginTop: '4px',
-          }}
-        >
-          TRAVISGILBERT.ME
-        </span>
+        {collapsed ? (
+          <span
+            style={{
+              fontFamily: 'var(--studio-font-title)',
+              fontWeight: 700,
+              fontSize: '28px',
+              color: 'var(--studio-tc)',
+              lineHeight: 1,
+            }}
+          >
+            .
+          </span>
+        ) : (
+          <>
+            <span
+              style={{
+                fontFamily: 'var(--studio-font-title)',
+                fontWeight: 700,
+                fontSize: '42px',
+                color: 'var(--studio-text-bright)',
+                letterSpacing: '-0.03em',
+                lineHeight: 1,
+              }}
+            >
+              Studio
+              <span style={{ color: 'var(--studio-tc)' }}>.</span>
+            </span>
+          </>
+        )}
       </Link>
 
-      <div style={{ padding: '8px 12px 14px', position: 'relative', zIndex: 2 }}>
+      <div style={{ padding: collapsed ? '4px 8px 10px' : '8px 12px 14px', position: 'relative', zIndex: 2 }}>
         <button
           type="button"
           onClick={() => setShowNewModal(true)}
+          title={collapsed ? 'New content' : undefined}
           style={{
             width: '100%',
-            padding: '9px 14px',
-            backgroundColor: 'var(--studio-tc-dim)',
+            padding: collapsed ? '8px 0' : '9px 14px',
+            backgroundColor: 'transparent',
             border: '1px solid var(--studio-border-tc)',
             borderRadius: '6px',
             color: 'var(--studio-tc-bright)',
@@ -168,15 +181,14 @@ export default function StudioSidebar() {
             fontWeight: 600,
             cursor: 'pointer',
             transition: 'all 0.12s ease',
-            textAlign: 'left',
-            boxShadow: '0 0 18px rgba(180, 90, 45, 0.34)',
+            textAlign: 'center',
           }}
         >
-          + New
+          {collapsed ? '+' : '+ New'}
         </button>
       </div>
 
-      {editorState.isSheetsMode && <SheetList />}
+      {!collapsed && editorState.isSheetsMode && <SheetList />}
 
       <nav
         style={{
@@ -188,7 +200,14 @@ export default function StudioSidebar() {
       >
         {SIDEBAR_SECTIONS.map((section) => (
           <div key={section.title} style={{ marginBottom: '4px' }}>
-            <div className="studio-nav-section-label">{section.title}</div>
+            {!collapsed && (
+              <div
+                className="studio-nav-section-label"
+                style={section.labelColor ? { color: section.labelColor } : undefined}
+              >
+                {section.title}
+              </div>
+            )}
 
             {section.items.map((item) => {
               const isActive =
@@ -204,6 +223,8 @@ export default function StudioSidebar() {
                   href={item.href}
                   className="studio-nav-item"
                   data-active={isActive ? 'true' : undefined}
+                  title={collapsed ? item.label : undefined}
+                  style={collapsed ? { justifyContent: 'center', padding: '8px 0' } : undefined}
                 >
                   <span
                     style={{
@@ -217,8 +238,8 @@ export default function StudioSidebar() {
                   >
                     <Icon width={16} height={16} aria-hidden="true" />
                   </span>
-                  <span>{item.label}</span>
-                  {count !== undefined && (
+                  {!collapsed && <span>{item.label}</span>}
+                  {!collapsed && count !== undefined && (
                     <span className="studio-nav-badge">{count}</span>
                   )}
                 </Link>
@@ -230,7 +251,7 @@ export default function StudioSidebar() {
 
       <div
         style={{
-          padding: '10px 12px 18px',
+          padding: collapsed ? '10px 0 18px' : '10px 12px 18px',
           borderTop: '1px solid var(--studio-border)',
         }}
       >
@@ -238,6 +259,8 @@ export default function StudioSidebar() {
           href={SIDEBAR_TIMELINE_ITEM.href}
           className="studio-nav-item studio-nav-item-timeline"
           data-active={timelineActive ? 'true' : undefined}
+          title={collapsed ? SIDEBAR_TIMELINE_ITEM.label : undefined}
+          style={collapsed ? { justifyContent: 'center', padding: '8px 0' } : undefined}
         >
           <span
             style={{
@@ -251,15 +274,16 @@ export default function StudioSidebar() {
           >
             <ClockRotateRight width={16} height={16} aria-hidden="true" />
           </span>
-          <span>{SIDEBAR_TIMELINE_ITEM.label}</span>
+          {!collapsed && <span>{SIDEBAR_TIMELINE_ITEM.label}</span>}
         </Link>
 
         <button
           type="button"
           onClick={toggleThemeMode}
           className="studio-nav-item"
-          style={{ marginTop: '4px' }}
+          style={collapsed ? { marginTop: '4px', justifyContent: 'center', padding: '8px 0' } : { marginTop: '4px' }}
           aria-label={themeMode === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
+          title={collapsed ? (themeMode === 'dark' ? 'Light Mode' : 'Dark Mode') : undefined}
         >
           <span
             style={{
@@ -277,8 +301,9 @@ export default function StudioSidebar() {
               <HalfMoon width={16} height={16} aria-hidden="true" />
             )}
           </span>
-          <span>{themeMode === 'dark' ? 'Light Mode' : 'Dark Mode'}</span>
+          {!collapsed && <span>{themeMode === 'dark' ? 'Light Mode' : 'Dark Mode'}</span>}
         </button>
+
       </div>
 
       {showNewModal && (

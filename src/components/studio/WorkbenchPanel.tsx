@@ -285,8 +285,8 @@ export default function WorkbenchPanel({
         width: mobileSheetMode ? '100%' : (open ? `${width}px` : '0px'),
         minWidth: mobileSheetMode ? '0px' : (open ? `${width}px` : '0px'),
         flexShrink: 0,
-        backgroundColor: '#111210',
-        borderLeft: mobileSheetMode ? 'none' : (open ? '1px solid rgba(237,231,220,0.08)' : 'none'),
+        backgroundColor: 'var(--studio-bg-sidebar)',
+        borderLeft: mobileSheetMode ? 'none' : (open ? '1px solid var(--studio-border)' : 'none'),
         display: 'flex',
         flexDirection: 'column',
         position: 'relative',
@@ -447,11 +447,11 @@ const PULSE_ICONS: Record<StudioPulseInsight['type'], string> = {
 };
 
 const PULSE_COLORS: Record<StudioPulseInsight['type'], string> = {
-  momentum: '#6A9A5A',
-  simmering: '#D4AA4A',
-  quiet: '#9A8E82',
-  ready: '#3A8A9A',
-  rich: '#B45A2D',
+  momentum: 'var(--studio-green)',
+  simmering: 'var(--studio-gold)',
+  quiet: 'var(--studio-text-3)',
+  ready: 'var(--studio-teal)',
+  rich: 'var(--studio-tc)',
 };
 
 const PULSE_LABELS: Record<StudioPulseInsight['type'], string> = {
@@ -501,7 +501,7 @@ function DashboardWorkbench() {
     [],
   );
 
-  const pulse = useMemo(() => getMockStudioPulse(), []);
+  const pulse = useMemo(() => getMockStudioPulse().filter((i) => i.type !== 'quiet'), []);
   const workbench = useMemo(() => getMockWorkbenchData(), []);
 
   const items = useMemo<StudioContentItemWithMetrics[]>(
@@ -577,6 +577,7 @@ function DashboardWorkbench() {
             return (
               <div key={`${insight.type}-${index}`} style={{ display: 'flex', gap: '10px' }}>
                 <span
+                  className="studio-accent-color"
                   style={{
                     fontFamily: 'var(--studio-font-mono)',
                     fontSize: '14px',
@@ -590,6 +591,7 @@ function DashboardWorkbench() {
                 </span>
                 <div style={{ minWidth: 0 }}>
                   <span
+                    className="studio-accent-color"
                     style={{
                       fontFamily: 'var(--studio-font-mono)',
                       fontSize: '9px',
@@ -613,34 +615,6 @@ function DashboardWorkbench() {
                   >
                     {insight.message}
                   </span>
-
-                  {href ? (
-                    <Link
-                      href={href}
-                      style={{
-                        fontFamily: 'var(--studio-font-metadata)',
-                        fontSize: '10px',
-                        color: 'var(--studio-teal)',
-                        display: 'inline-block',
-                        marginTop: '2px',
-                        textDecoration: 'none',
-                      }}
-                    >
-                      {insight.detail}
-                    </Link>
-                  ) : (
-                    <span
-                      style={{
-                        fontFamily: 'var(--studio-font-metadata)',
-                        fontSize: '10px',
-                        color: 'var(--studio-text-3)',
-                        display: 'block',
-                        marginTop: '2px',
-                      }}
-                    >
-                      {insight.detail}
-                    </span>
-                  )}
                 </div>
               </div>
             );
@@ -656,9 +630,9 @@ function DashboardWorkbench() {
             borderTop: '1px solid var(--studio-border)',
           }}
         >
-          <StatTile label="Drafting" count={drafting} color="#D4AA4A" />
-          <StatTile label="Revising" count={revising} color="#8A6A9A" />
-          <StatTile label="Published" count={published} color="#6A9A5A" />
+          <StatTile label="Drafting" count={drafting} color="var(--studio-gold)" />
+          <StatTile label="Revising" count={revising} color="var(--studio-purple)" />
+          <StatTile label="Published" count={published} color="var(--studio-green)" />
         </div>
       </div>
 
@@ -739,64 +713,6 @@ function DashboardWorkbench() {
         </div>
       )}
 
-      {recentlyTouched.length > 0 && (
-        <div style={{ marginBottom: '22px' }}>
-          <ToolboxLabel>Recently Touched</ToolboxLabel>
-          <div style={{ marginTop: '8px', display: 'flex', flexDirection: 'column', gap: '6px' }}>
-            {recentlyTouched.map((item) => {
-              const type = getContentTypeIdentity(item.contentType);
-              return (
-                <Link
-                  key={item.id}
-                  href={`/studio/${type.route}/${item.slug}`}
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '8px',
-                    textDecoration: 'none',
-                    color: 'inherit',
-                    padding: '4px 0',
-                  }}
-                >
-                  <span
-                    style={{
-                      width: '6px',
-                      height: '6px',
-                      borderRadius: '50%',
-                      backgroundColor: type.color,
-                      flexShrink: 0,
-                    }}
-                  />
-                  <span
-                    style={{
-                      fontFamily: 'var(--studio-font-title)',
-                      fontSize: '13px',
-                      color: 'var(--studio-text-2)',
-                      flex: 1,
-                      minWidth: 0,
-                      overflow: 'hidden',
-                      textOverflow: 'ellipsis',
-                      whiteSpace: 'nowrap',
-                    }}
-                  >
-                    {item.title}
-                  </span>
-                  <span
-                    style={{
-                      fontFamily: 'var(--studio-font-mono)',
-                      fontSize: '9px',
-                      color: 'var(--studio-text-3)',
-                      flexShrink: 0,
-                    }}
-                  >
-                    {relativeTime(item.updatedAt)}
-                  </span>
-                </Link>
-              );
-            })}
-          </div>
-        </div>
-      )}
 
       {savedForLater.length > 0 && (
         <div style={{ marginBottom: '22px' }}>
@@ -897,6 +813,7 @@ function StatTile({
       }}
     >
       <div
+        className="studio-accent-color"
         style={{
           fontFamily: 'var(--studio-font-mono)',
           fontSize: '18px',

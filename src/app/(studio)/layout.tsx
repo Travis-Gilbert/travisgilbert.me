@@ -1,6 +1,6 @@
 import type { Metadata } from 'next';
 import StudioLayout from '@/components/studio/StudioLayout';
-import StudioDotGrid from '@/components/studio/StudioDotGrid';
+import DotGrid from '@/components/DotGrid';
 import { Toaster } from 'sonner';
 import '@/styles/studio.css';
 
@@ -50,15 +50,15 @@ export default function StudioGroupLayout({
         isolation: 'isolate',
       }}
     >
-      {/* Theme flash prevention: applies light class before React hydrates */}
+      {/* Theme flash prevention: light is default; only remove if localStorage says dark */}
       <script
         dangerouslySetInnerHTML={{
-          __html: `(function(){try{if(localStorage.getItem('studio-theme-v1')==='light'){document.querySelector('.studio-theme').classList.add('studio-theme-light')}}catch(e){}})()`,
+          __html: `(function(){try{var t=localStorage.getItem('studio-theme-v1');if(t!=='dark'){document.querySelector('.studio-theme').classList.add('studio-theme-light')}}catch(e){document.querySelector('.studio-theme').classList.add('studio-theme-light')}})()`,
         }}
       />
 
-      {/* Interactive multi-color dot grid (terracotta, teal, gold) */}
-      <StudioDotGrid />
+      {/* Main site dot grid (single color, no hero gradient) */}
+      <DotGrid noGradient dotColor={[180, 90, 45]} dotOpacity={0.3} />
 
       {/* Terracotta upper-left corner glow */}
       <div className="studio-corner-glow" aria-hidden="true" />

@@ -348,6 +348,8 @@ export interface StudioDaySummary {
 export interface SidebarSection {
   title: string;
   items: SidebarItem[];
+  /** Color for the section label text */
+  labelColor?: string;
 }
 
 export interface SidebarItem {
@@ -362,6 +364,7 @@ export interface SidebarItem {
 export const SIDEBAR_SECTIONS: SidebarSection[] = [
   {
     title: 'MAKE STUFF',
+    labelColor: '#E08A4A',
     items: [
       {
         label: 'Essays',
@@ -385,6 +388,7 @@ export const SIDEBAR_SECTIONS: SidebarSection[] = [
   },
   {
     title: 'COLLECT',
+    labelColor: '#6AD0E0',
     items: [
       {
         label: 'Shelf',
@@ -414,6 +418,7 @@ export const SIDEBAR_SECTIONS: SidebarSection[] = [
   },
   {
     title: 'BUILD',
+    labelColor: '#E8C060',
     items: [
       {
         label: 'Projects',

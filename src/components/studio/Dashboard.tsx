@@ -148,6 +148,75 @@ export default function Dashboard() {
   );
 }
 
+function MoreActionsDropdown({
+  onAddFieldNote,
+  onAddSource,
+  onConvertToScript,
+  onStartSession,
+}: {
+  onAddFieldNote: () => void;
+  onAddSource: () => void;
+  onConvertToScript: () => void;
+  onStartSession: () => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const actions = [
+    { label: 'Add field note', action: onAddFieldNote },
+    { label: 'Add source', action: onAddSource },
+    { label: 'Convert to script', action: onConvertToScript },
+    { label: 'Start session', action: onStartSession },
+  ];
+
+  return (
+    <div style={{ position: 'relative' }}>
+      <button
+        type="button"
+        className="studio-dashboard-action"
+        onClick={() => setOpen((prev) => !prev)}
+        aria-expanded={open}
+        aria-haspopup="true"
+      >
+        More...
+      </button>
+      {open && (
+        <>
+          <div
+            style={{ position: 'fixed', inset: 0, zIndex: 19 }}
+            onClick={() => setOpen(false)}
+            role="presentation"
+          />
+          <div
+            style={{
+              position: 'absolute',
+              top: '100%',
+              left: 0,
+              marginTop: '4px',
+              zIndex: 20,
+              minWidth: '160px',
+              background: 'var(--studio-surface-raised)',
+              border: '1px solid var(--studio-border-strong)',
+              borderRadius: '8px',
+              padding: '4px',
+              boxShadow: 'var(--studio-shadow)',
+            }}
+          >
+            {actions.map(({ label, action }) => (
+              <button
+                key={label}
+                type="button"
+                onClick={() => { action(); setOpen(false); }}
+                className="studio-dropdown-item"
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
 function NowModule({
   activeItem,
   activeCandidates,
@@ -261,7 +330,7 @@ function ActiveProjectCard({
       : `${item.metrics.daysSinceLastTouched}d ago`;
 
   return (
-    <StudioCard typeColor={typeInfo.color} style={{ padding: '20px 22px' }}>
+    <StudioCard typeColor="var(--studio-teal)" style={{ padding: '20px 22px' }}>
       <div
         style={{
           display: 'flex',
@@ -329,6 +398,7 @@ function ActiveProjectCard({
           display: 'flex',
           gap: '8px',
           flexWrap: 'wrap',
+          alignItems: 'center',
           marginBottom: '14px',
         }}
       >
@@ -338,18 +408,12 @@ function ActiveProjectCard({
         >
           Continue writing
         </Link>
-        <button type="button" className="studio-dashboard-action" onClick={onAddFieldNote}>
-          Add field note
-        </button>
-        <button type="button" className="studio-dashboard-action" onClick={onAddSource}>
-          Add source
-        </button>
-        <button type="button" className="studio-dashboard-action" onClick={onConvertToScript}>
-          Convert to script
-        </button>
-        <button type="button" className="studio-dashboard-action" onClick={onStartSession}>
-          Start session
-        </button>
+        <MoreActionsDropdown
+          onAddFieldNote={onAddFieldNote}
+          onAddSource={onAddSource}
+          onConvertToScript={onConvertToScript}
+          onStartSession={onStartSession}
+        />
       </div>
 
       {sessionRunning && (

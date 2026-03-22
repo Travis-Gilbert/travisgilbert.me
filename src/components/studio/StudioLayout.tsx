@@ -46,6 +46,7 @@ function StudioLayoutInner({
 }) {
   const ZEN_MODE_STORAGE_KEY = 'studio-zen-mode-v1';
   const THEME_STORAGE_KEY = 'studio-theme-v1';
+  const SIDEBAR_COLLAPSED_KEY = 'studio-sidebar-collapsed-v1';
   const pathname = usePathname();
   const isAppShellMobile = useIsAppShellMobile();
   const { editorState } = useStudioWorkbench();
@@ -55,7 +56,8 @@ function StudioLayoutInner({
   const [showNewModal, setShowNewModal] = useState(false);
   const [commandPaletteOpen, setCommandPaletteOpen] = useState(false);
   const [zenMode, setZenModeState] = useState(false);
-  const [themeMode, setThemeModeState] = useState<StudioThemeMode>('dark');
+  const [themeMode, setThemeModeState] = useState<StudioThemeMode>('light');
+  const [sidebarCollapsed, setSidebarCollapsedState] = useState(false);
 
   const editorMode = useMemo(() => isEditorRoute(pathname), [pathname]);
   const setZenMode = useCallback((enabled: boolean) => {
@@ -124,6 +126,25 @@ function StudioLayoutInner({
     }
   }, [themeMode]);
 
+  /* Sidebar collapsed: read from localStorage on mount */
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    try {
+      const raw = window.localStorage.getItem(SIDEBAR_COLLAPSED_KEY);
+      if (raw === 'true') setSidebarCollapsedState(true);
+    } catch { /* ignore */ }
+  }, []);
+
+  /* Sidebar collapsed: persist to localStorage */
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    window.localStorage.setItem(SIDEBAR_COLLAPSED_KEY, String(sidebarCollapsed));
+  }, [sidebarCollapsed]);
+
+  const toggleSidebarCollapsed = useCallback(() => {
+    setSidebarCollapsedState((prev) => !prev);
+  }, []);
+
   useEffect(() => {
     setMobileOpen(false);
     setMobileWorkbenchOpen(false);
@@ -132,6 +153,7 @@ function StudioLayoutInner({
   useHotkeys('mod+k', (e) => { e.preventDefault(); setCommandPaletteOpen((prev) => !prev); });
   useHotkeys('mod+shift+z', (e) => { e.preventDefault(); toggleZenMode(); }, [toggleZenMode]);
   useHotkeys('mod+shift+t', (e) => { e.preventDefault(); toggleThemeMode(); }, [toggleThemeMode]);
+  useHotkeys('mod+b', (e) => { e.preventDefault(); toggleSidebarCollapsed(); }, [toggleSidebarCollapsed]);
 
   return (
     <StudioViewProvider value={{ zenMode, setZenMode, toggleZenMode, themeMode, setThemeMode, toggleThemeMode }}>
@@ -141,10 +163,16 @@ function StudioLayoutInner({
             position: 'sticky',
             top: 0,
             height: '100vh',
+            width: sidebarCollapsed ? 56 : 232,
+            flexShrink: 0,
+            transition: 'width 0.2s ease',
             display: isAppShellMobile ? 'none' : 'block',
           }}
         >
-          <StudioSidebar />
+          <StudioSidebar
+            collapsed={sidebarCollapsed}
+            onToggleCollapse={toggleSidebarCollapsed}
+          />
         </div>
       )}
 
