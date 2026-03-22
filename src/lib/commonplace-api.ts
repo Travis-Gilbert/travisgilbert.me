@@ -1132,3 +1132,84 @@ export async function triggerExtraction(
     { method: 'POST' },
   );
 }
+
+/* ─────────────────────────────────────────────────
+   Connection Review (Level 2 feedback)
+   ───────────────────────────────────────────────── */
+
+export interface ReviewQueueEdge {
+  edge_id: number;
+  from_object: number;
+  to_object: number;
+  from_title: string;
+  to_title: string;
+  from_slug: string;
+  to_slug: string;
+  from_type: string;
+  to_type: string;
+  from_type_color: string;
+  to_type_color: string;
+  edge_type: string;
+  reason: string;
+  strength: number;
+  engine: string;
+  feature_vector: Record<string, unknown>;
+  created_at: string;
+}
+
+export interface FeedbackStats {
+  total: number;
+  training_ready: boolean;
+  training_tier: 'full' | 'blended' | 'fixed_weights';
+  needed_for_training: number;
+}
+
+export interface ReviewQueueResponse {
+  results: ReviewQueueEdge[];
+  count: number;
+  feedback_stats: FeedbackStats;
+}
+
+export async function fetchReviewQueue(params?: {
+  limit?: number;
+  notebook?: string;
+  engine?: string;
+  min_strength?: number;
+}): Promise<ReviewQueueResponse> {
+  const search = new URLSearchParams();
+  if (params?.limit) search.set('limit', String(params.limit));
+  if (params?.notebook) search.set('notebook', params.notebook);
+  if (params?.engine) search.set('engine', params.engine);
+  if (params?.min_strength) search.set('min_strength', String(params.min_strength));
+  const qs = search.toString();
+  return apiFetch<ReviewQueueResponse>(
+    `/feedback/review-queue/${qs ? `?${qs}` : ''}`,
+  );
+}
+
+export async function submitConnectionFeedback(data: {
+  from_object: number;
+  to_object: number;
+  label: 'engaged' | 'dismissed';
+  feature_vector: Record<string, unknown>;
+  edge?: number;
+}): Promise<unknown> {
+  return apiFetch('/feedback/', {
+    method: 'POST',
+    body: JSON.stringify(data),
+  });
+}
+
+export async function fetchFeedbackStats(): Promise<FeedbackStats> {
+  const resp = await apiFetch<{
+    total: number;
+    training_ready: boolean;
+    training_tier: string;
+  }>('/feedback/stats/');
+  return {
+    total: resp.total,
+    training_ready: resp.training_ready,
+    training_tier: resp.training_tier as FeedbackStats['training_tier'],
+    needed_for_training: Math.max(0, 50 - resp.total),
+  };
+}

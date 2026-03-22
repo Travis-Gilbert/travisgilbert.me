@@ -84,6 +84,7 @@ export type ViewType =
   | 'artifacts'
   | 'temporal-evolution'
   | 'board'
+  | 'connection-review'
   | 'empty';
 
 /* ─────────────────────────────────────────────────
@@ -128,6 +129,7 @@ export const VIEW_REGISTRY: Record<ViewType, { label: string; icon: string }> = 
   artifacts: { label: 'Artifacts', icon: 'archive' },
   'temporal-evolution': { label: 'Temporal', icon: 'timeline' },
   board: { label: 'Free', icon: 'substract' },
+  'connection-review': { label: 'Connection Review', icon: 'check-circle' },
   empty: { label: 'Empty', icon: 'plus' },
 };
 
@@ -246,6 +248,7 @@ export const SIDEBAR_SECTIONS: SidebarSection[] = [
         ],
       },
       { label: 'Review Queue', href: '#review', icon: 'check-list', mode: 'view', viewType: 'promotion-queue' },
+      { label: 'Connection Review', href: '#connection-review', icon: 'check-circle', mode: 'view', viewType: 'connection-review' },
       { label: 'Settings', href: '#settings', icon: 'gear', mode: 'screen', screenType: 'settings' },
     ],
   },

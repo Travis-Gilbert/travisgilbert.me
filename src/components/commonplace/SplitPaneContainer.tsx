@@ -53,6 +53,7 @@ import EmergentTypeSuggestionsView from './EmergentTypeSuggestionsView';
 import ArtifactBrowserView from './ArtifactBrowserView';
 import TemporalEvolutionView from './TemporalEvolutionView';
 import BoardView from './BoardView';
+import ConnectionReviewView from './ConnectionReviewView';
 
 /* =============================================
    Main container: consumes layout from context,
@@ -894,6 +895,11 @@ function PaneViewContent({
   /* Board (spatial thinking surface) */
   if (viewType === 'board') {
     return <BoardView paneId={paneId} />;
+  }
+
+  /* Connection Review (Level 2 feedback) */
+  if (viewType === 'connection-review') {
+    return <ConnectionReviewView />;
   }
 
   /* Placeholder for views not yet implemented */
