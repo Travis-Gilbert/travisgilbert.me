@@ -10,6 +10,19 @@ Personal "creative workbench" site: a living record of work, interests, and thin
 - **No dashes.** Never use em dashes (`---`) or en dashes (`--`) anywhere: not in code comments, not in UI strings, not in markdown content. Use colons, periods, commas, semicolons, or parentheses instead.
 - Applies to all files: `.tsx`, `.ts`, `.css`, `.md`, frontmatter strings, JSDoc comments, JSX comments
 
+## Visual Design & CSS
+
+- When making visual/CSS changes, do NOT modify elements the user didn't ask to change. Preserve existing backgrounds, gradients, and patterns unless explicitly told to change them.
+- When implementing visual specs or design references (e.g., Observable examples, Figma specs), match the EXACT visual style shown. Do not substitute with similar-looking alternatives (e.g., curved Bezier paths vs straight lines, sized nodes vs hollow/filled nodes).
+
+## Git Workflow
+
+- Before committing, run `git diff --cached` and verify only relevant files are staged. Never include previously staged unrelated files in a commit.
+
+## Preview & Verification
+
+- For preview/eval verification: set viewport to desktop (1280px+) by default. If a view requires navigation (e.g., clicking a tab or route), describe what you're doing and confirm the correct view is visible before evaluating.
+
 ## Tech Stack
 
 Next.js 16 (App Router, Turbopack, React Compiler), React 19, Tailwind CSS v4 (`@tailwindcss/postcss`), rough.js, rough-notation, `next/font` (Google + local), Zod, gray-matter + remark, Django 5.x (publishing_api + research_api), DRF, spaCy (en_core_web_md), PyTorch (CPU), sentence-transformers, FAISS, django-cotton, django-crispy-forms (`studio` pack), django-tailwind, django-template-partials
@@ -137,7 +150,9 @@ All canvas components (PaneDotGrid, TerminalCanvas, KnowledgeMap, TimelineViz) m
 
 ## Deployment
 
-Vercel with native Next.js builder. Auto-deploys on push to `main`. **Important:** Output Directory must be blank/default (not `dist`).
+Vercel (frontend) with auto-deploy on push to main. Backend runs on Railway. When debugging deployment issues, check Vercel/Railway dashboards and logs before making speculative fixes.
+
+Vercel with native Next.js builder. **Important:** Output Directory must be blank/default (not `dist`).
 
 **Django services (Railway):** Both services deploy with PostgreSQL via `railway.toml`. Env vars: `SECRET_KEY`, `DATABASE_URL`, `GITHUB_TOKEN`, `GITHUB_REPO`, `GITHUB_BRANCH`. research_api also needs `WEBMENTION_TARGET_DOMAIN`.
 
