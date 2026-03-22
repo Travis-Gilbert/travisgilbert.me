@@ -9,16 +9,13 @@ import { usePrefersReducedMotion } from '@/hooks/usePrefersReducedMotion';
 import CommonPlaceVisual from './CommonPlaceVisual';
 
 /*
- * D3 computes a force-directed tree layout (Observable canonical pattern).
- * Three.js renders the result in 3D.
- *
- * Key: link distance 0 + strength 1 pulls parent-child tight.
- * Charge -150 pushes branches apart. forceX/Y (not forceCenter)
- * allows asymmetric organic spread. Deep tree (4 levels, 120+ nodes)
- * provides the repulsion pressure needed for real branching.
+ * D3 force-directed tree (Observable canonical pattern).
+ * D3 x,y map directly to Three.js x,y (screen plane).
+ * Depth maps to z for subtle parallax on rotation.
+ * Camera faces the tree head-on.
  */
 
-/* ---- Seeded PRNG for deterministic sub-leaf generation ---- */
+/* ---- Seeded PRNG ---- */
 
 function mulberry32(seed: number) {
   let s = seed | 0;
@@ -30,7 +27,7 @@ function mulberry32(seed: number) {
   };
 }
 
-/* ---- Hierarchical tree data ---- */
+/* ---- Tree data ---- */
 
 interface RawNode {
   name: string;
@@ -41,22 +38,12 @@ interface RawNode {
 function buildTreeData(): RawNode {
   const rng = mulberry32(42);
 
-  /* Helper: generate N sub-leaves for a feature node */
-  function subLeaves(color: string, count: number): RawNode[] {
-    return Array.from({ length: count }, () => ({
-      name: '',
-      color,
-      children: undefined,
-    }));
+  function leaves(color: string, n: number): RawNode[] {
+    return Array.from({ length: n }, () => ({ name: '', color }));
   }
 
-  /* Some features get sub-sub-leaves for extra density */
-  function feature(name: string, color: string, leafCount: number): RawNode {
-    return {
-      name,
-      color,
-      children: subLeaves(color, leafCount),
-    };
+  function branch(name: string, color: string, leafCount: number): RawNode {
+    return { name, color, children: leaves(color, leafCount) };
   }
 
   return {
@@ -64,85 +51,77 @@ function buildTreeData(): RawNode {
     color: '#2D5F6B',
     children: [
       {
-        name: 'Source',
-        color: '#1A7A8A',
+        name: 'Source', color: '#1A7A8A',
         children: [
-          feature('PDF', '#1A7A8A', 3 + Math.floor(rng() * 3)),
-          feature('OCR', '#1A7A8A', 2 + Math.floor(rng() * 3)),
-          feature('Metadata', '#1A7A8A', 3 + Math.floor(rng() * 2)),
-          feature('SHA', '#1A7A8A', 2 + Math.floor(rng() * 2)),
+          branch('PDF', '#1A7A8A', 3 + Math.floor(rng() * 3)),
+          branch('OCR', '#1A7A8A', 2 + Math.floor(rng() * 3)),
+          branch('Meta', '#1A7A8A', 3 + Math.floor(rng() * 2)),
+          branch('SHA', '#1A7A8A', 2 + Math.floor(rng() * 2)),
         ],
       },
       {
-        name: 'Claim',
-        color: '#3858B8',
+        name: 'Claim', color: '#3858B8',
         children: [
-          feature('NLI', '#3858B8', 3 + Math.floor(rng() * 3)),
-          feature('Dedup', '#3858B8', 2 + Math.floor(rng() * 2)),
-          feature('Status', '#3858B8', 3 + Math.floor(rng() * 2)),
-          feature('Pairwise', '#3858B8', 2 + Math.floor(rng() * 3)),
+          branch('NLI', '#3858B8', 3 + Math.floor(rng() * 3)),
+          branch('Dedup', '#3858B8', 2 + Math.floor(rng() * 2)),
+          branch('Status', '#3858B8', 3 + Math.floor(rng() * 2)),
+          branch('Pair', '#3858B8', 2 + Math.floor(rng() * 3)),
         ],
       },
       {
-        name: 'Concept',
-        color: '#7050A0',
+        name: 'Concept', color: '#7050A0',
         children: [
-          feature('NER', '#7050A0', 4 + Math.floor(rng() * 2)),
-          feature('Phrase', '#7050A0', 3 + Math.floor(rng() * 2)),
-          feature('Graph', '#7050A0', 2 + Math.floor(rng() * 3)),
+          branch('NER', '#7050A0', 4 + Math.floor(rng() * 2)),
+          branch('Phrase', '#7050A0', 3 + Math.floor(rng() * 2)),
+          branch('Graph', '#7050A0', 2 + Math.floor(rng() * 3)),
         ],
       },
       {
-        name: 'Tension',
-        color: '#B85C28',
+        name: 'Tension', color: '#B85C28',
         children: [
-          feature('Contradict', '#B85C28', 3 + Math.floor(rng() * 3)),
-          feature('Diverge', '#B85C28', 2 + Math.floor(rng() * 2)),
-          feature('Temporal', '#B85C28', 3 + Math.floor(rng() * 2)),
+          branch('Contra', '#B85C28', 3 + Math.floor(rng() * 3)),
+          branch('Diverge', '#B85C28', 2 + Math.floor(rng() * 2)),
+          branch('Temporal', '#B85C28', 3 + Math.floor(rng() * 2)),
         ],
       },
       {
-        name: 'Note',
-        color: '#68666E',
+        name: 'Note', color: '#68666E',
         children: [
-          feature('Timeline', '#68666E', 3 + Math.floor(rng() * 2)),
-          feature('Immutable', '#68666E', 2 + Math.floor(rng() * 3)),
-          feature('Fork', '#68666E', 2 + Math.floor(rng() * 2)),
+          branch('Time', '#68666E', 3 + Math.floor(rng() * 2)),
+          branch('Immut', '#68666E', 2 + Math.floor(rng() * 3)),
+          branch('Fork', '#68666E', 2 + Math.floor(rng() * 2)),
         ],
       },
       {
-        name: 'Hunch',
-        color: '#C07040',
+        name: 'Hunch', color: '#C07040',
         children: [
-          feature('Low-conf', '#C07040', 2 + Math.floor(rng() * 3)),
-          feature('Promote', '#C07040', 3 + Math.floor(rng() * 2)),
-          feature('Score', '#C07040', 2 + Math.floor(rng() * 2)),
+          branch('Low', '#C07040', 2 + Math.floor(rng() * 3)),
+          branch('Promo', '#C07040', 3 + Math.floor(rng() * 2)),
+          branch('Score', '#C07040', 2 + Math.floor(rng() * 2)),
         ],
       },
       {
-        name: 'Model',
-        color: '#C4503C',
+        name: 'Model', color: '#C4503C',
         children: [
-          feature('Assume', '#C4503C', 3 + Math.floor(rng() * 3)),
-          feature('Stress', '#C4503C', 2 + Math.floor(rng() * 2)),
-          feature('Propose', '#C4503C', 3 + Math.floor(rng() * 2)),
-          feature('Confirm', '#C4503C', 2 + Math.floor(rng() * 2)),
+          branch('Assume', '#C4503C', 3 + Math.floor(rng() * 3)),
+          branch('Stress', '#C4503C', 2 + Math.floor(rng() * 2)),
+          branch('Propose', '#C4503C', 3 + Math.floor(rng() * 2)),
+          branch('Confirm', '#C4503C', 2 + Math.floor(rng() * 2)),
         ],
       },
       {
-        name: 'Data',
-        color: '#4A7A5A',
+        name: 'Data', color: '#4A7A5A',
         children: [
-          feature('pgvector', '#4A7A5A', 3 + Math.floor(rng() * 2)),
-          feature('Embed', '#4A7A5A', 2 + Math.floor(rng() * 3)),
-          feature('PostGIS', '#4A7A5A', 2 + Math.floor(rng() * 2)),
+          branch('pgvec', '#4A7A5A', 3 + Math.floor(rng() * 2)),
+          branch('Embed', '#4A7A5A', 2 + Math.floor(rng() * 3)),
+          branch('PostGIS', '#4A7A5A', 2 + Math.floor(rng() * 2)),
         ],
       },
     ],
   };
 }
 
-/* ---- D3 layout computation ---- */
+/* ---- D3 layout ---- */
 
 interface LayoutNode {
   x: number;
@@ -166,47 +145,39 @@ function computeTreeLayout(): { nodes: LayoutNode[]; links: LayoutLink[] } {
   const d3Nodes = root.descendants();
 
   type SimNode = d3.HierarchyNode<RawNode> & {
-    x: number;
-    y: number;
-    vx: number;
-    vy: number;
+    x: number; y: number; vx: number; vy: number;
   };
 
   const simNodes = d3Nodes as unknown as SimNode[];
 
-  /*
-   * Observable canonical force-directed tree:
-   * - link distance 0 + strength 1: collapses parent-child pairs
-   * - charge -150: pushes branches apart (strong enough for 120+ nodes)
-   * - forceX + forceY (NOT forceCenter): allows asymmetric spread
-   */
+  /* Observable canonical: distance(0) + strength(1) + charge(-200) */
   const simulation = d3.forceSimulation(simNodes)
-    .force(
-      'link',
-      d3.forceLink(d3Links)
-        .id((_d, i) => String(i))
-        .distance(0)
-        .strength(1),
-    )
-    .force('charge', d3.forceManyBody().strength(-150))
+    .force('link', d3.forceLink(d3Links)
+      .id((_d, i) => String(i))
+      .distance(0)
+      .strength(1))
+    .force('charge', d3.forceManyBody().strength(-200))
     .force('x', d3.forceX())
     .force('y', d3.forceY());
 
-  /* Run 400 ticks to fully settle */
-  simulation.tick(400);
+  simulation.tick(500);
   simulation.stop();
 
   /*
-   * Scale: D3 with -150 charge and 120+ nodes spreads to roughly
-   * +/-400 px. Scale 0.012 maps that to +/-4.8 Three.js units.
-   * Camera at [0, 6, 12] with FOV 50 sees about +/-7 units.
+   * D3 output with -200 charge and ~130 nodes spreads roughly +-500px.
+   * Scale 0.018 maps to +-9 Three.js units.
+   * Camera at z=14 with FOV 55 sees about +-10 units at z=0.
+   *
+   * D3 x -> Three.js x (horizontal)
+   * D3 y -> Three.js y (vertical, INVERTED so tree grows outward naturally)
+   * depth -> Three.js z (subtle, for parallax on rotation)
    */
-  const SCALE = 0.012;
+  const SCALE = 0.018;
 
   const layoutNodes: LayoutNode[] = simNodes.map((n) => ({
     x: (n.x ?? 0) * SCALE,
-    y: n.depth * 0.08,
-    z: (n.y ?? 0) * SCALE,
+    y: (n.y ?? 0) * SCALE,
+    z: n.depth * 0.12,
     name: n.data.name,
     color: n.data.color,
     depth: n.depth,
@@ -222,7 +193,7 @@ function computeTreeLayout(): { nodes: LayoutNode[]; links: LayoutLink[] } {
   return { nodes: layoutNodes, links: layoutLinks };
 }
 
-/* ---- Tree Links (lineSegments for efficiency) ---- */
+/* ---- Links ---- */
 
 function TreeLinks({ links }: { links: LayoutLink[] }) {
   const positions = useMemo(() => {
@@ -243,38 +214,25 @@ function TreeLinks({ links }: { links: LayoutLink[] }) {
           count={positions.length / 3}
         />
       </bufferGeometry>
-      <lineBasicMaterial color="#999999" transparent opacity={0.35} />
+      <lineBasicMaterial color="#999999" transparent opacity={0.4} />
     </lineSegments>
   );
 }
 
-/* ---- Tree Nodes (instanced for performance) ---- */
+/* ---- Nodes ---- */
 
-function TreeNodes({
-  nodes,
-  showLabels,
-}: {
-  nodes: LayoutNode[];
-  showLabels: boolean;
-}) {
+function TreeNodes({ nodes, showLabels }: { nodes: LayoutNode[]; showLabels: boolean }) {
   return (
     <group>
       {nodes.map((node, i) => {
         const colorNum = parseInt(node.color.slice(1), 16);
         const isRoot = node.depth === 0;
-
-        /* Observable style sizing */
-        const r = isRoot ? 0.22 : node.depth === 1 ? 0.1 : node.isLeaf ? 0.04 : 0.06;
+        const r = isRoot ? 0.3 : node.depth === 1 ? 0.14 : node.isLeaf ? 0.055 : 0.08;
 
         return (
           <group key={i} position={[node.x, node.y, node.z]}>
-            {/*
-             * Observable style:
-             * - Parent nodes: white fill, dark stroke (wireframe ring)
-             * - Leaf nodes: dark fill, white stroke
-             */}
             {node.isLeaf ? (
-              /* Leaf: filled sphere */
+              /* Leaf: solid filled (Observable style) */
               <mesh>
                 <sphereGeometry args={[r, 8, 8]} />
                 <meshPhongMaterial
@@ -284,57 +242,47 @@ function TreeNodes({
                 />
               </mesh>
             ) : (
-              /* Parent: semi-transparent core + wireframe ring */
+              /* Parent: light fill + colored stroke ring (Observable style) */
               <>
                 <mesh>
-                  <sphereGeometry args={[r, 12, 12]} />
+                  <sphereGeometry args={[r, 14, 14]} />
                   <meshPhongMaterial
                     color={0xf4f3f0}
                     emissive={colorNum}
-                    emissiveIntensity={isRoot ? 0.25 : 0.1}
+                    emissiveIntensity={isRoot ? 0.3 : 0.12}
                     transparent
-                    opacity={isRoot ? 0.85 : 0.65}
+                    opacity={isRoot ? 0.9 : 0.7}
                   />
                 </mesh>
-                {/* Dark stroke ring (Observable style) */}
                 <mesh rotation={[Math.PI / 2, 0, 0]}>
-                  <torusGeometry args={[r, r * 0.12, 6, 20]} />
+                  <torusGeometry args={[r * 1.05, r * 0.1, 6, 20]} />
                   <meshBasicMaterial color={colorNum} transparent opacity={0.5} />
                 </mesh>
-                {/* Glow for root and depth-1 */}
                 {node.depth < 2 && (
-                  <mesh scale={isRoot ? 2.5 : 1.8}>
+                  <mesh scale={isRoot ? 2.5 : 1.6}>
                     <sphereGeometry args={[r, 8, 8]} />
-                    <meshBasicMaterial
-                      color={colorNum}
-                      transparent
-                      opacity={isRoot ? 0.06 : 0.03}
-                      depthWrite={false}
-                    />
+                    <meshBasicMaterial color={colorNum} transparent opacity={isRoot ? 0.07 : 0.03} depthWrite={false} />
                   </mesh>
                 )}
               </>
             )}
 
-            {/* Labels: root always visible, depth-1 on hover */}
+            {/* Labels */}
             {(isRoot || (showLabels && node.depth === 1)) && node.name && (
               <Html
-                position={[0, r + 0.12, 0]}
+                position={[0, r + 0.14, 0]}
                 center
-                distanceFactor={isRoot ? 6 : 9}
+                distanceFactor={isRoot ? 5 : 8}
                 style={{ pointerEvents: 'none', whiteSpace: 'nowrap' }}
               >
-                <span
-                  style={{
-                    fontFamily: "'JetBrains Mono', monospace",
-                    fontSize: isRoot ? 12 : 9,
-                    fontWeight: isRoot ? 700 : 500,
-                    color: node.color,
-                    opacity: isRoot ? 1 : 0.75,
-                    textShadow:
-                      '0 0 8px rgba(244,243,240,0.95), 0 1px 4px rgba(244,243,240,0.8)',
-                  }}
-                >
+                <span style={{
+                  fontFamily: "'JetBrains Mono', monospace",
+                  fontSize: isRoot ? 12 : 9,
+                  fontWeight: isRoot ? 700 : 500,
+                  color: node.color,
+                  opacity: isRoot ? 1 : 0.75,
+                  textShadow: '0 0 8px rgba(244,243,240,0.95), 0 1px 4px rgba(244,243,240,0.8)',
+                }}>
                   {node.name}
                 </span>
               </Html>
@@ -356,10 +304,11 @@ function ForceTreeScene({ isHovered }: { isHovered: boolean }) {
 
   const { nodes, links } = useMemo(() => computeTreeLayout(), []);
 
+  /* Front-facing camera: look straight at the tree */
   const { camera } = useThree();
   useMemo(() => {
-    camera.position.set(0, 5, 10);
-    camera.lookAt(0, 0.2, 0);
+    camera.position.set(0, 0, 14);
+    camera.lookAt(0, 0, 0);
   }, [camera]);
 
   useFrame(() => {
@@ -383,7 +332,7 @@ function ForceTreeScene({ isHovered }: { isHovered: boolean }) {
   );
 }
 
-/* ---- Exported Component ---- */
+/* ---- Export ---- */
 
 interface Props {
   isHovered: boolean;
@@ -400,7 +349,7 @@ export default function CommonPlaceVisual3D({ isHovered }: Props) {
     <Suspense fallback={<CommonPlaceVisual isHovered={isHovered} />}>
       <Canvas
         gl={{ alpha: true, antialias: true }}
-        camera={{ fov: 50, near: 0.1, far: 100, position: [0, 5, 10] }}
+        camera={{ fov: 55, near: 0.1, far: 100, position: [0, 0, 14] }}
         style={{
           position: 'absolute',
           inset: 0,
