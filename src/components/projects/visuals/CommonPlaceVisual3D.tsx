@@ -1,300 +1,363 @@
 'use client';
 
-import { useRef, useEffect } from 'react';
+import { useRef, useMemo, Suspense } from 'react';
+import { Canvas, useFrame, useThree } from '@react-three/fiber';
+import { Html } from '@react-three/drei';
+import * as THREE from 'three';
 import * as d3 from 'd3';
 import { usePrefersReducedMotion } from '@/hooks/usePrefersReducedMotion';
+import CommonPlaceVisual from './CommonPlaceVisual';
 
-/* ---- Tree Data ---- */
+/*
+ * D3 computes the force-directed tree layout (2D positions).
+ * Three.js renders the result in 3D space.
+ *
+ * Uses the canonical Observable force-directed tree pattern:
+ *   forceLink(links).distance(0).strength(1)
+ *   forceManyBody().strength(-50)
+ *   forceX() + forceY()
+ */
 
-interface TreeNode {
-  id: string;
-  label: string;
+/* ---- Hierarchical tree data ---- */
+
+interface RawNode {
+  name: string;
+  color: string;
+  children?: RawNode[];
+}
+
+const TREE_DATA: RawNode = {
+  name: 'CommonPlace',
+  color: '#2D5F6B',
+  children: [
+    {
+      name: 'Source',
+      color: '#1A7A8A',
+      children: [
+        { name: 'PDF', color: '#1A7A8A' },
+        { name: 'OCR', color: '#1A7A8A' },
+        { name: 'Metadata', color: '#1A7A8A' },
+        { name: 'SHA-256', color: '#1A7A8A' },
+        { name: 'URL', color: '#1A7A8A' },
+      ],
+    },
+    {
+      name: 'Claim',
+      color: '#3858B8',
+      children: [
+        { name: 'NLI', color: '#3858B8' },
+        { name: 'Dedup', color: '#3858B8' },
+        { name: 'Status', color: '#3858B8' },
+        { name: 'Pairwise', color: '#3858B8' },
+      ],
+    },
+    {
+      name: 'Concept',
+      color: '#7050A0',
+      children: [
+        { name: 'NER', color: '#7050A0' },
+        { name: 'Phrase', color: '#7050A0' },
+        { name: 'Graph', color: '#7050A0' },
+        { name: 'Cross-ref', color: '#7050A0' },
+      ],
+    },
+    {
+      name: 'Tension',
+      color: '#B85C28',
+      children: [
+        { name: 'Contradict', color: '#B85C28' },
+        { name: 'Diverge', color: '#B85C28' },
+        { name: 'Temporal', color: '#B85C28' },
+      ],
+    },
+    {
+      name: 'Note',
+      color: '#68666E',
+      children: [
+        { name: 'Timeline', color: '#68666E' },
+        { name: 'Immutable', color: '#68666E' },
+        { name: 'Fork', color: '#68666E' },
+      ],
+    },
+    {
+      name: 'Hunch',
+      color: '#C07040',
+      children: [
+        { name: 'Low-conf', color: '#C07040' },
+        { name: 'Promote', color: '#C07040' },
+        { name: 'Score', color: '#C07040' },
+      ],
+    },
+    {
+      name: 'Model',
+      color: '#C4503C',
+      children: [
+        { name: 'Assume', color: '#C4503C' },
+        { name: 'Stress', color: '#C4503C' },
+        { name: 'Propose', color: '#C4503C' },
+        { name: 'Confirm', color: '#C4503C' },
+      ],
+    },
+    {
+      name: 'Data',
+      color: '#4A7A5A',
+      children: [
+        { name: 'pgvector', color: '#4A7A5A' },
+        { name: 'Embed', color: '#4A7A5A' },
+        { name: 'PostGIS', color: '#4A7A5A' },
+      ],
+    },
+  ],
+};
+
+/* ---- D3 layout computation ---- */
+
+interface LayoutNode {
+  x: number;
+  y: number;
+  z: number; /* depth-based offset for 3D */
+  name: string;
   color: string;
   depth: number;
-  x?: number;
-  y?: number;
-  vx?: number;
-  vy?: number;
-  fx?: number | null;
-  fy?: number | null;
+  isLeaf: boolean;
 }
 
-interface TreeLink {
-  source: string | TreeNode;
-  target: string | TreeNode;
+interface LayoutLink {
+  source: LayoutNode;
+  target: LayoutNode;
 }
 
-function buildTree(): { nodes: TreeNode[]; links: TreeLink[] } {
-  const nodes: TreeNode[] = [
-    /* Root */
-    { id: 'root', label: 'CommonPlace', color: '#2D5F6B', depth: 0 },
-    /* Level 1: object types */
-    { id: 'source',  label: 'Source',   color: '#1A7A8A', depth: 1 },
-    { id: 'claim',   label: 'Claim',    color: '#3858B8', depth: 1 },
-    { id: 'concept', label: 'Concept',  color: '#7050A0', depth: 1 },
-    { id: 'tension', label: 'Tension',  color: '#B85C28', depth: 1 },
-    { id: 'note',    label: 'Note',     color: '#68666E', depth: 1 },
-    { id: 'hunch',   label: 'Hunch',    color: '#C07040', depth: 1 },
-    { id: 'model',   label: 'Model',    color: '#C4503C', depth: 1 },
-    { id: 'data',    label: 'Data',     color: '#4A7A5A', depth: 1 },
-    /* Level 2: features (2-3 per type) */
-    { id: 'src-pdf',   label: 'PDF',         color: '#1A7A8A', depth: 2 },
-    { id: 'src-ocr',   label: 'OCR',         color: '#1A7A8A', depth: 2 },
-    { id: 'src-meta',  label: 'Metadata',    color: '#1A7A8A', depth: 2 },
-    { id: 'clm-nli',   label: 'NLI',         color: '#3858B8', depth: 2 },
-    { id: 'clm-dedup', label: 'Dedup',       color: '#3858B8', depth: 2 },
-    { id: 'con-ner',   label: 'NER',         color: '#7050A0', depth: 2 },
-    { id: 'con-graph', label: 'Graph',       color: '#7050A0', depth: 2 },
-    { id: 'ten-contra',label: 'Contradict',  color: '#B85C28', depth: 2 },
-    { id: 'ten-div',   label: 'Diverge',     color: '#B85C28', depth: 2 },
-    { id: 'note-time', label: 'Timeline',    color: '#68666E', depth: 2 },
-    { id: 'note-immut',label: 'Immutable',   color: '#68666E', depth: 2 },
-    { id: 'hun-low',   label: 'Low-conf',    color: '#C07040', depth: 2 },
-    { id: 'hun-promo', label: 'Promote',     color: '#C07040', depth: 2 },
-    { id: 'mod-assume',label: 'Assumptions', color: '#C4503C', depth: 2 },
-    { id: 'mod-stress',label: 'Stress Test', color: '#C4503C', depth: 2 },
-    { id: 'dat-pgv',   label: 'pgvector',    color: '#4A7A5A', depth: 2 },
-    { id: 'dat-embed', label: 'Embeddings',  color: '#4A7A5A', depth: 2 },
-  ];
+function computeTreeLayout(): { nodes: LayoutNode[]; links: LayoutLink[] } {
+  const root = d3.hierarchy(TREE_DATA);
+  const d3Links = root.links();
+  const d3Nodes = root.descendants();
 
-  const links: TreeLink[] = [
-    /* Root to types */
-    { source: 'root', target: 'source' },
-    { source: 'root', target: 'claim' },
-    { source: 'root', target: 'concept' },
-    { source: 'root', target: 'tension' },
-    { source: 'root', target: 'note' },
-    { source: 'root', target: 'hunch' },
-    { source: 'root', target: 'model' },
-    { source: 'root', target: 'data' },
-    /* Types to features */
-    { source: 'source', target: 'src-pdf' },
-    { source: 'source', target: 'src-ocr' },
-    { source: 'source', target: 'src-meta' },
-    { source: 'claim', target: 'clm-nli' },
-    { source: 'claim', target: 'clm-dedup' },
-    { source: 'concept', target: 'con-ner' },
-    { source: 'concept', target: 'con-graph' },
-    { source: 'tension', target: 'ten-contra' },
-    { source: 'tension', target: 'ten-div' },
-    { source: 'note', target: 'note-time' },
-    { source: 'note', target: 'note-immut' },
-    { source: 'hunch', target: 'hun-low' },
-    { source: 'hunch', target: 'hun-promo' },
-    { source: 'model', target: 'mod-assume' },
-    { source: 'model', target: 'mod-stress' },
-    { source: 'data', target: 'dat-pgv' },
-    { source: 'data', target: 'dat-embed' },
-  ];
+  /* Augment nodes with simulation-compatible properties */
+  type SimNode = d3.HierarchyNode<RawNode> & {
+    x: number;
+    y: number;
+    vx: number;
+    vy: number;
+  };
 
-  return { nodes, links };
+  const simNodes = d3Nodes as unknown as SimNode[];
+
+  /* Canonical Observable force-directed tree pattern */
+  const simulation = d3.forceSimulation(simNodes)
+    .force(
+      'link',
+      d3.forceLink(d3Links)
+        .id((_d, i) => String(i))
+        .distance(0)
+        .strength(1),
+    )
+    .force('charge', d3.forceManyBody().strength(-60))
+    .force('x', d3.forceX())
+    .force('y', d3.forceY());
+
+  /* Run to completion */
+  simulation.tick(300);
+  simulation.stop();
+
+  /* Map D3 2D positions to 3D layout nodes */
+  /* D3 x -> Three.js x, D3 y -> Three.js z, depth -> Three.js y */
+  const scale = 0.025; /* scale D3 positions to Three.js units */
+
+  const layoutNodes: LayoutNode[] = simNodes.map((n) => ({
+    x: (n.x ?? 0) * scale,
+    y: n.depth * 0.15, /* slight elevation per depth level */
+    z: (n.y ?? 0) * scale,
+    name: n.data.name,
+    color: n.data.color,
+    depth: n.depth,
+    isLeaf: !n.children || n.children.length === 0,
+  }));
+
+  const layoutLinks: LayoutLink[] = d3Links.map((l) => {
+    const si = simNodes.indexOf(l.source as unknown as SimNode);
+    const ti = simNodes.indexOf(l.target as unknown as SimNode);
+    return { source: layoutNodes[si], target: layoutNodes[ti] };
+  });
+
+  return { nodes: layoutNodes, links: layoutLinks };
 }
 
-/* ---- Component ---- */
+/* ---- Tree Node component ---- */
+
+function TreeNodeMesh({
+  node,
+  showLabel,
+}: {
+  node: LayoutNode;
+  showLabel: boolean;
+}) {
+  const colorNum = parseInt(node.color.slice(1), 16);
+  const isRoot = node.depth === 0;
+  const r = isRoot ? 0.28 : node.isLeaf ? 0.06 : 0.12;
+
+  return (
+    <group position={[node.x, node.y, node.z]}>
+      {/* Observable style: parent = hollow (wireframe), leaf = filled */}
+      {node.isLeaf ? (
+        <mesh>
+          <sphereGeometry args={[r, 10, 10]} />
+          <meshPhongMaterial
+            color={colorNum}
+            emissive={colorNum}
+            emissiveIntensity={0.15}
+            transparent
+            opacity={0.85}
+          />
+        </mesh>
+      ) : (
+        <>
+          {/* Filled core at reduced opacity */}
+          <mesh>
+            <sphereGeometry args={[r, 14, 14]} />
+            <meshPhongMaterial
+              color={colorNum}
+              emissive={colorNum}
+              emissiveIntensity={isRoot ? 0.3 : 0.15}
+              transparent
+              opacity={isRoot ? 0.7 : 0.4}
+            />
+          </mesh>
+          {/* Wireframe ring */}
+          <mesh rotation={[Math.PI / 2, 0, 0]}>
+            <torusGeometry args={[r * 1.3, 0.005, 6, 24]} />
+            <meshBasicMaterial color={colorNum} transparent opacity={0.25} />
+          </mesh>
+          {/* Glow shell */}
+          <mesh scale={isRoot ? 2.2 : 1.8}>
+            <sphereGeometry args={[r, 10, 10]} />
+            <meshBasicMaterial color={colorNum} transparent opacity={isRoot ? 0.08 : 0.04} depthWrite={false} />
+          </mesh>
+        </>
+      )}
+
+      {/* Labels: root always, depth-1 on hover, leaves on hover */}
+      {(isRoot || (showLabel && node.depth <= 1)) && (
+        <Html
+          position={[0, r + 0.15, 0]}
+          center
+          distanceFactor={isRoot ? 5 : 7}
+          style={{ pointerEvents: 'none', whiteSpace: 'nowrap' }}
+        >
+          <span
+            style={{
+              fontFamily: "'JetBrains Mono', monospace",
+              fontSize: isRoot ? 11 : 9,
+              fontWeight: isRoot ? 700 : 500,
+              color: node.color,
+              opacity: isRoot ? 1 : 0.7,
+              textShadow: '0 0 8px rgba(240,235,228,0.95), 0 1px 3px rgba(240,235,228,0.7)',
+            }}
+          >
+            {node.name}
+          </span>
+        </Html>
+      )}
+    </group>
+  );
+}
+
+/* ---- Tree Links ---- */
+
+function TreeLinks({ links }: { links: LayoutLink[] }) {
+  const lineSegments = useMemo(() => {
+    const positions: number[] = [];
+    for (const link of links) {
+      positions.push(link.source.x, link.source.y, link.source.z);
+      positions.push(link.target.x, link.target.y, link.target.z);
+    }
+    return new Float32Array(positions);
+  }, [links]);
+
+  return (
+    <lineSegments>
+      <bufferGeometry>
+        <bufferAttribute
+          attach="attributes-position"
+          args={[lineSegments, 3]}
+          count={lineSegments.length / 3}
+        />
+      </bufferGeometry>
+      <lineBasicMaterial color="#2D5F6B" transparent opacity={0.18} />
+    </lineSegments>
+  );
+}
+
+/* ---- Scene ---- */
+
+function ForceTreeScene({ isHovered }: { isHovered: boolean }) {
+  const hoveredRef = useRef(isHovered);
+  hoveredRef.current = isHovered;
+  const groupRef = useRef<THREE.Group>(null);
+  const speedRef = useRef(0.001);
+
+  const { nodes, links } = useMemo(() => computeTreeLayout(), []);
+
+  const { camera } = useThree();
+  useMemo(() => {
+    camera.position.set(0, 3, 6);
+    camera.lookAt(0, 0.3, 0);
+  }, [camera]);
+
+  useFrame(() => {
+    if (!groupRef.current) return;
+    const target = hoveredRef.current ? 0.004 : 0.001;
+    speedRef.current += (target - speedRef.current) * 0.05;
+    groupRef.current.rotation.y += speedRef.current;
+  });
+
+  return (
+    <>
+      <ambientLight intensity={0.55} color={0xf4f3f0} />
+      <directionalLight position={[3, 6, 4]} intensity={0.4} color={0xfff5e8} />
+      <directionalLight position={[-2, -1, -3]} intensity={0.08} color={0x2d5f6b} />
+
+      <group ref={groupRef}>
+        <TreeLinks links={links} />
+        {nodes.map((node, i) => (
+          <TreeNodeMesh
+            key={`${node.name}-${i}`}
+            node={node}
+            showLabel={hoveredRef.current}
+          />
+        ))}
+      </group>
+    </>
+  );
+}
+
+/* ---- Exported Component ---- */
 
 interface Props {
   isHovered: boolean;
 }
 
 export default function CommonPlaceVisual3D({ isHovered }: Props) {
-  const canvasRef = useRef<HTMLCanvasElement>(null);
-  const hoveredRef = useRef(isHovered);
-  hoveredRef.current = isHovered;
-  const simRef = useRef<d3.Simulation<TreeNode, TreeLink> | null>(null);
   const prefersReducedMotion = usePrefersReducedMotion();
 
-  useEffect(() => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return;
-
-    const { nodes, links } = buildTree();
-
-    /* ---- Sizing ---- */
-    function getSize() {
-      const rect = canvas!.getBoundingClientRect();
-      return { w: rect.width, h: rect.height };
-    }
-
-    function resize() {
-      const { w, h } = getSize();
-      const dpr = window.devicePixelRatio || 1;
-      canvas!.width = w * dpr;
-      canvas!.height = h * dpr;
-      canvas!.style.width = w + 'px';
-      canvas!.style.height = h + 'px';
-      ctx!.setTransform(dpr, 0, 0, dpr, 0, 0);
-    }
-
-    resize();
-
-    /* ---- D3 Force Simulation ---- */
-    const { w, h } = getSize();
-
-    const simulation = d3.forceSimulation<TreeNode>(nodes)
-      .force('link', d3.forceLink<TreeNode, TreeLink>(links)
-        .id((d) => d.id)
-        .distance((d) => {
-          const src = d.source as TreeNode;
-          const tgt = d.target as TreeNode;
-          if (src.depth === 0 || tgt.depth === 0) return 70;
-          return 35;
-        })
-        .strength(0.8)
-      )
-      .force('charge', d3.forceManyBody<TreeNode>()
-        .strength((d) => d.depth === 0 ? -300 : d.depth === 1 ? -80 : -30)
-      )
-      .force('center', d3.forceCenter(w / 2, h / 2))
-      .force('collide', d3.forceCollide<TreeNode>()
-        .radius((d) => d.depth === 0 ? 22 : d.depth === 1 ? 14 : 8)
-      )
-      .alphaDecay(0.02)
-      .velocityDecay(0.35);
-
-    /* Pin root roughly center */
-    const root = nodes.find((n) => n.id === 'root');
-    if (root) {
-      root.fx = w / 2;
-      root.fy = h / 2;
-    }
-
-    simRef.current = simulation;
-
-    /* ---- Render ---- */
-
-    let animId = 0;
-
-    function draw() {
-      if (!canvas || !ctx) return;
-      const { w: cw, h: ch } = getSize();
-      ctx.clearRect(0, 0, cw, ch);
-
-      const showLabels = hoveredRef.current;
-
-      /* Draw links */
-      for (const link of links) {
-        const src = link.source as TreeNode;
-        const tgt = link.target as TreeNode;
-        if (src.x == null || tgt.x == null) continue;
-
-        ctx.beginPath();
-        ctx.moveTo(src.x, src.y!);
-        ctx.lineTo(tgt.x, tgt.y!);
-
-        /* Depth-based opacity: root links brighter */
-        const isRootLink = src.depth === 0 || tgt.depth === 0;
-        ctx.strokeStyle = isRootLink
-          ? 'rgba(45, 95, 107, 0.25)'
-          : 'rgba(45, 95, 107, 0.12)';
-        ctx.lineWidth = isRootLink ? 1.5 : 0.8;
-        ctx.stroke();
-      }
-
-      /* Draw nodes */
-      for (const node of nodes) {
-        if (node.x == null) continue;
-        const r = node.depth === 0 ? 16 : node.depth === 1 ? 8 : 4;
-
-        /* Glow for depth-0 and depth-1 */
-        if (node.depth < 2) {
-          ctx.beginPath();
-          ctx.arc(node.x, node.y!, r + (node.depth === 0 ? 10 : 5), 0, Math.PI * 2);
-          ctx.fillStyle = node.color + (node.depth === 0 ? '18' : '0C');
-          ctx.fill();
-        }
-
-        /* Node circle */
-        ctx.beginPath();
-        ctx.arc(node.x, node.y!, r, 0, Math.PI * 2);
-        ctx.fillStyle = node.color + (node.depth === 2 ? '80' : 'CC');
-        ctx.fill();
-
-        /* Thin border on depth-1 nodes */
-        if (node.depth === 1) {
-          ctx.strokeStyle = node.color + '40';
-          ctx.lineWidth = 1;
-          ctx.stroke();
-        }
-
-        /* Labels */
-        const alwaysLabel = node.depth === 0;
-        if (alwaysLabel || (showLabels && node.depth <= 1)) {
-          ctx.font = node.depth === 0
-            ? '600 11px "JetBrains Mono", monospace'
-            : '500 8px "JetBrains Mono", monospace';
-          ctx.textAlign = 'center';
-          ctx.fillStyle = node.color;
-          ctx.fillText(node.label, node.x, node.y! + r + (node.depth === 0 ? 14 : 11));
-        }
-
-        /* Leaf labels only on hover */
-        if (showLabels && node.depth === 2) {
-          ctx.font = '400 6.5px "JetBrains Mono", monospace';
-          ctx.textAlign = 'center';
-          ctx.fillStyle = node.color + '90';
-          ctx.fillText(node.label, node.x, node.y! + r + 8);
-        }
-      }
-    }
-
-    /* Simulation tick handler */
-    simulation.on('tick', () => {
-      draw();
-    });
-
-    /* Animation loop for hover reheat and continuous rendering */
-    function frame() {
-      /* Gently reheat on hover so the tree breathes */
-      if (hoveredRef.current && simulation.alpha() < 0.15) {
-        simulation.alpha(0.15).restart();
-      }
-      animId = requestAnimationFrame(frame);
-    }
-
-    if (!prefersReducedMotion) {
-      animId = requestAnimationFrame(frame);
-    }
-
-    /* Let simulation settle, then draw static frame for reduced-motion */
-    if (prefersReducedMotion) {
-      simulation.tick(120);
-      draw();
-      simulation.stop();
-    }
-
-    const handleResize = () => {
-      resize();
-      const { w: nw, h: nh } = getSize();
-      const centerForce = simulation.force('center') as d3.ForceCenter<TreeNode> | undefined;
-      if (centerForce) {
-        centerForce.x(nw / 2).y(nh / 2);
-      }
-      if (root) {
-        root.fx = nw / 2;
-        root.fy = nh / 2;
-      }
-      simulation.alpha(0.3).restart();
-    };
-    window.addEventListener('resize', handleResize);
-
-    return () => {
-      cancelAnimationFrame(animId);
-      simulation.stop();
-      window.removeEventListener('resize', handleResize);
-    };
-  }, [prefersReducedMotion]);
+  if (prefersReducedMotion) {
+    return <CommonPlaceVisual isHovered={isHovered} />;
+  }
 
   return (
-    <canvas
-      ref={canvasRef}
-      style={{
-        width: '100%',
-        height: '100%',
-        display: 'block',
-        background: 'transparent',
-      }}
-    />
+    <Suspense fallback={<CommonPlaceVisual isHovered={isHovered} />}>
+      <Canvas
+        gl={{ alpha: true, antialias: true }}
+        camera={{ fov: 45, near: 0.1, far: 100, position: [0, 3, 6] }}
+        style={{
+          position: 'absolute',
+          inset: 0,
+          width: '100%',
+          height: '100%',
+          background: 'transparent',
+        }}
+      >
+        <ForceTreeScene isHovered={isHovered} />
+      </Canvas>
+    </Suspense>
   );
 }
