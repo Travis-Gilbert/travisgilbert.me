@@ -3,8 +3,8 @@
 import type { ObjectCardProps } from './ObjectRenderer';
 import { getObjectTypeIdentity } from '@/lib/commonplace';
 import { readString, readStringArray, formatDate } from './shared';
-import TerminalBlock from '../TerminalBlock';
-import RoughBorder from '../RoughBorder';
+import TerminalBlock from '../engine/TerminalBlock';
+import RoughBorder from '../shared/RoughBorder';
 
 const STATUS_COLORS: Record<string, string> = {
   active: '#4ADE80', running: '#4ADE80', idle: '#94A3B8',

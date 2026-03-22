@@ -1,7 +1,7 @@
 'use client';
 
 import { getObjectTypeIdentity } from '@/lib/commonplace';
-import RoughBorder from '../RoughBorder';
+import RoughBorder from '../shared/RoughBorder';
 
 export interface PinnedBadgeObject {
   edge_id: number;

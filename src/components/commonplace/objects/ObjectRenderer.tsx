@@ -18,7 +18,7 @@ import PlacePin from './PlacePin';
 import { useState, useCallback, useRef, useEffect, type ComponentType } from 'react';
 import { createPin } from '@/lib/commonplace-api';
 import { useWorkspace } from '@/lib/providers/workspace-provider';
-import RoughBorder from '../RoughBorder';
+import RoughBorder from '../shared/RoughBorder';
 
 /* ── Types ── */
 
