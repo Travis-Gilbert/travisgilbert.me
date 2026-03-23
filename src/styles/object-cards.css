@@ -9,12 +9,13 @@
 
 .cp-obj {
   --obj-color: var(--cp-text-faint);
+  --obj-tint: rgba(42, 36, 32, 0.04);
   display: block;
   width: 100%;
   text-align: left;
-  background: rgba(242, 236, 224, 0.15);
-  backdrop-filter: blur(4px);
-  -webkit-backdrop-filter: blur(4px);
+  background: var(--obj-tint);
+  backdrop-filter: blur(3px);
+  -webkit-backdrop-filter: blur(3px);
   border: none;
   cursor: pointer;
   color: var(--cp-text);
@@ -31,20 +32,20 @@
 
 /* Quotes: lighter tint (left-border is the identity) */
 .cp-obj-quote.cp-obj--module {
-  background: rgba(242, 236, 224, 0.10);
+  background: var(--obj-tint);
 }
 
-/* Per-type color via data attribute */
-.cp-obj[data-type="note"]    { --obj-color: var(--cp-type-note); }
-.cp-obj[data-type="source"]  { --obj-color: var(--cp-type-source); }
-.cp-obj[data-type="person"]  { --obj-color: var(--cp-type-person); }
-.cp-obj[data-type="place"]   { --obj-color: var(--cp-type-place); }
-.cp-obj[data-type="concept"] { --obj-color: var(--cp-type-concept); }
-.cp-obj[data-type="quote"]   { --obj-color: var(--cp-type-quote); }
-.cp-obj[data-type="hunch"]   { --obj-color: var(--cp-type-hunch); }
-.cp-obj[data-type="script"]  { --obj-color: var(--cp-type-script); }
-.cp-obj[data-type="task"]    { --obj-color: var(--cp-type-task); }
-.cp-obj[data-type="event"]   { --obj-color: var(--cp-type-task); }
+/* Per-type color + tint via data attribute */
+.cp-obj[data-type="note"]    { --obj-color: var(--cp-type-note);    --obj-tint: rgba(138, 130, 121, 0.06); }
+.cp-obj[data-type="source"]  { --obj-color: var(--cp-type-source);  --obj-tint: rgba(45, 95, 107, 0.08); }
+.cp-obj[data-type="person"]  { --obj-color: var(--cp-type-person);  --obj-tint: rgba(180, 90, 45, 0.07); }
+.cp-obj[data-type="place"]   { --obj-color: var(--cp-type-place);   --obj-tint: rgba(196, 154, 74, 0.06); }
+.cp-obj[data-type="concept"] { --obj-color: var(--cp-type-concept); --obj-tint: rgba(139, 111, 160, 0.07); }
+.cp-obj[data-type="quote"]   { --obj-color: var(--cp-type-quote);   --obj-tint: rgba(196, 154, 74, 0.06); }
+.cp-obj[data-type="hunch"]   { --obj-color: var(--cp-type-hunch);   --obj-tint: rgba(176, 96, 128, 0.06); }
+.cp-obj[data-type="script"]  { --obj-color: var(--cp-type-script);  --obj-tint: var(--cp-term); }
+.cp-obj[data-type="task"]    { --obj-color: var(--cp-type-task);     --obj-tint: rgba(196, 122, 58, 0.06); }
+.cp-obj[data-type="event"]   { --obj-color: var(--cp-type-task);     --obj-tint: rgba(74, 122, 154, 0.06); }
 
 /* ── Shared sub-patterns ── */
 

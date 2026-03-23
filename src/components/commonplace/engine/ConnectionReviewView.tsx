@@ -159,12 +159,13 @@ export default function ConnectionReviewView() {
           gap: 8px;
         }
         .cr-card {
-          background: rgba(242, 236, 224, 0.20);
+          background: rgba(45, 95, 107, 0.08);
           backdrop-filter: blur(4px);
           -webkit-backdrop-filter: blur(4px);
-          border: 1px solid var(--cp-border);
+          border: none;
           border-radius: 8px;
           padding: 14px 16px;
+          box-shadow: 0 1px 2px rgba(42, 36, 32, 0.05);
           transition: opacity 0.2s ease, transform 0.2s ease;
         }
         .cr-card--exiting {
@@ -344,7 +345,7 @@ export default function ConnectionReviewView() {
                 width: `${progressPct}%`,
                 background: isTrainingReady
                   ? 'rgba(90, 160, 90, 0.7)'
-                  : 'var(--cp-accent, #c49a4a)',
+                  : 'var(--cp-red)',
               }}
             />
           </div>
@@ -396,8 +397,8 @@ export default function ConnectionReviewView() {
               edge.strength >= 0.7
                 ? 'rgba(90, 160, 90, 0.8)'
                 : edge.strength >= 0.4
-                  ? 'var(--cp-accent, #c49a4a)'
-                  : 'var(--cp-text-faint, #6a6258)';
+                  ? 'var(--cp-red)'
+                  : 'var(--cp-text-faint)';
 
             return (
               <div
