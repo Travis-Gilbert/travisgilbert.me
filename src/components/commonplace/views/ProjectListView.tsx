@@ -9,8 +9,9 @@
  * a template badge when applicable.
  */
 
-import { useMemo } from 'react';
-import { fetchProjects, useApiData } from '@/lib/commonplace-api';
+import { useMemo, useState, useCallback } from 'react';
+import { toast } from 'sonner';
+import { fetchProjects, fetchNotebooks, createProject, useApiData } from '@/lib/commonplace-api';
 import { useLayout } from '@/lib/providers/layout-provider';
 import type { ApiProjectListItem } from '@/lib/commonplace';
 
@@ -34,7 +35,33 @@ export default function ProjectListView() {
     () => fetchProjects(),
     [],
   );
+  const { data: notebooks } = useApiData(() => fetchNotebooks(), []);
   const { launchView } = useLayout();
+  const [showCreate, setShowCreate] = useState(false);
+  const [newName, setNewName] = useState('');
+  const [newMode, setNewMode] = useState('collect');
+  const [newNotebook, setNewNotebook] = useState('');
+  const [creating, setCreating] = useState(false);
+
+  const handleCreate = useCallback(async () => {
+    if (!newName.trim()) return;
+    setCreating(true);
+    try {
+      const p = await createProject({
+        name: newName.trim(),
+        mode: newMode,
+        notebook: newNotebook || undefined,
+      });
+      setNewName('');
+      setShowCreate(false);
+      refetch();
+      launchView('project', { slug: p.slug });
+    } catch {
+      toast.error('Failed to create project');
+    } finally {
+      setCreating(false);
+    }
+  }, [newName, newMode, newNotebook, refetch, launchView]);
 
   /* Group by status */
   const grouped = useMemo(() => {
@@ -88,21 +115,72 @@ export default function ProjectListView() {
     );
   }
 
+  const notebookItems = notebooks ?? [];
+
+  const createForm = (
+    <div className="cp-inline-create" style={{ padding: '0 16px 12px', display: 'flex', flexDirection: 'column', gap: 6 }}>
+      <input
+        type="text"
+        value={newName}
+        onChange={(e) => setNewName(e.target.value)}
+        placeholder="Project name"
+        autoFocus
+        className="cp-input"
+        style={{ fontSize: 12 }}
+        onKeyDown={(e) => { if (e.key === 'Enter') handleCreate(); if (e.key === 'Escape') setShowCreate(false); }}
+      />
+      <select value={newMode} onChange={(e) => setNewMode(e.target.value)} className="cp-input" style={{ fontSize: 11 }}>
+        <option value="collect">Collect</option>
+        <option value="write">Write</option>
+        <option value="review">Review</option>
+      </select>
+      {notebookItems.length > 0 && (
+        <select value={newNotebook} onChange={(e) => setNewNotebook(e.target.value)} className="cp-input" style={{ fontSize: 11 }}>
+          <option value="">No notebook</option>
+          {notebookItems.map((nb) => (
+            <option key={nb.slug} value={nb.slug}>{nb.name}</option>
+          ))}
+        </select>
+      )}
+      <div style={{ display: 'flex', gap: 4 }}>
+        <button type="button" className="cp-btn-accent" style={{ flex: 1 }} onClick={handleCreate} disabled={creating || !newName.trim()}>
+          {creating ? 'Creating...' : 'Create'}
+        </button>
+        <button type="button" className="cp-btn-ghost" onClick={() => setShowCreate(false)}>Cancel</button>
+      </div>
+    </div>
+  );
+
   /* Empty */
   if (grouped.length === 0) {
     return (
       <div className="cp-list-view">
         <h2 className="cp-list-view-title">Projects</h2>
-        <div className="cp-empty-state">
-          No projects yet. Create one from the Django admin.
-        </div>
+        {showCreate ? createForm : (
+          <div className="cp-empty-state">
+            <p>No projects yet.</p>
+            <button type="button" className="cp-btn-accent" onClick={() => setShowCreate(true)} style={{ marginTop: 8 }}>
+              <span className="cp-btn-accent-dot" />
+              Create your first project
+            </button>
+          </div>
+        )}
       </div>
     );
   }
 
   return (
     <div className="cp-list-view cp-scrollbar">
-      <h2 className="cp-list-view-title">Projects</h2>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 16px' }}>
+        <h2 className="cp-list-view-title" style={{ padding: 0 }}>Projects</h2>
+        {!showCreate && (
+          <button type="button" className="cp-btn-accent" onClick={() => setShowCreate(true)} style={{ fontSize: 11, padding: '4px 10px' }}>
+            <span className="cp-btn-accent-dot" />
+            New
+          </button>
+        )}
+      </div>
+      {showCreate && createForm}
 
       {grouped.map((group) => (
         <div key={group.status} className="cp-status-group">

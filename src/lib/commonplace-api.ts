@@ -505,6 +505,18 @@ export async function fetchNotebooks(): Promise<ApiNotebookListItem[]> {
   return Array.isArray(data) ? data : data.results;
 }
 
+/** Create a new notebook */
+export async function createNotebook(data: {
+  name: string;
+  description?: string;
+  color?: string;
+}): Promise<ApiNotebookListItem> {
+  return apiFetch<ApiNotebookListItem>('/notebooks/', {
+    method: 'POST',
+    body: JSON.stringify(data),
+  });
+}
+
 /** Fetch a single notebook by slug */
 export async function fetchNotebookBySlug(
   slug: string,
@@ -583,6 +595,19 @@ export async function fetchProjects(params?: {
     { results: ApiProjectListItem[] } | ApiProjectListItem[]
   >(`/projects/${qs ? `?${qs}` : ''}`);
   return Array.isArray(data) ? data : data.results;
+}
+
+/** Create a new project */
+export async function createProject(data: {
+  name: string;
+  notebook?: string;
+  mode?: string;
+  description?: string;
+}): Promise<ApiProjectListItem> {
+  return apiFetch<ApiProjectListItem>('/projects/', {
+    method: 'POST',
+    body: JSON.stringify(data),
+  });
 }
 
 /** Fetch a single project by slug */

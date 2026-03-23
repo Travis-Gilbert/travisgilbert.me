@@ -288,9 +288,10 @@ export function shouldDiscardPersistedLayout(node: PaneNode): boolean {
   const summary = summarizeLayout(node);
 
   if (summary.meaningfulLeafCount === 0) return true;
-  if (summary.emptyLeafCount >= 3) return true;
+  if (summary.emptyLeafCount >= 2) return true;
+  if (summary.leafCount > 3) return true;
 
-  return summary.leafCount >= 4 && summary.emptyLeafCount >= summary.meaningfulLeafCount;
+  return false;
 }
 
 /* ─────────────────────────────────────────────────

@@ -2,9 +2,10 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { toast } from 'sonner';
-import type { EpistemicModelSummary } from '@/lib/commonplace-models';
+import type { EpistemicModelSummary, ModelType } from '@/lib/commonplace-models';
 import {
   fetchModels,
+  createModel,
   MODEL_TYPE_META,
   ASSUMPTION_STATUS_META,
 } from '@/lib/commonplace-models';
@@ -71,16 +72,38 @@ export default function ModelListPane({
 }: ModelListPaneProps): React.ReactElement {
   const [models, setModels] = useState<EpistemicModelSummary[]>([]);
   const [loading, setLoading] = useState(true);
+  const [showCreate, setShowCreate] = useState(false);
+  const [newTitle, setNewTitle] = useState('');
+  const [newType, setNewType] = useState<ModelType>('explanatory');
+  const [creating, setCreating] = useState(false);
 
-  useEffect(() => {
+  const loadModels = useCallback(() => {
+    setLoading(true);
     fetchModels()
       .then(setModels)
       .finally(() => setLoading(false));
   }, []);
 
-  const handleCreateModel = useCallback(() => {
-    toast.info('Model creation coming soon');
-  }, []);
+  useEffect(() => { loadModels(); }, [loadModels]);
+
+  const handleCreateModel = useCallback(async () => {
+    if (!newTitle.trim()) return;
+    setCreating(true);
+    try {
+      const created = await createModel({
+        title: newTitle.trim(),
+        model_type: newType,
+      });
+      setNewTitle('');
+      setShowCreate(false);
+      loadModels();
+      onSelectModel(created.id);
+    } catch (err) {
+      toast.error('Failed to create model');
+    } finally {
+      setCreating(false);
+    }
+  }, [newTitle, newType, loadModels, onSelectModel]);
 
   if (loading) {
     return (
@@ -131,6 +154,9 @@ export default function ModelListPane({
         flexDirection: 'column',
         height: '100%',
         overflow: 'hidden',
+        background: 'rgba(42, 36, 32, 0.04)',
+        backdropFilter: 'blur(6px)',
+        WebkitBackdropFilter: 'blur(6px)',
       }}
     >
       {/* Header */}
@@ -165,16 +191,59 @@ export default function ModelListPane({
         </div>
       </div>
 
-      {/* New Model button */}
-      <button
-        type="button"
-        onClick={handleCreateModel}
-        className="cp-btn-accent"
-        style={{ margin: '8px 10px', width: 'calc(100% - 20px)' }}
-      >
-        <span className="cp-btn-accent-dot" />
-        New Model
-      </button>
+      {/* New Model button / inline form */}
+      {showCreate ? (
+        <div style={{ margin: '8px 10px', display: 'flex', flexDirection: 'column', gap: 6 }}>
+          <input
+            type="text"
+            value={newTitle}
+            onChange={(e) => setNewTitle(e.target.value)}
+            placeholder="Model title"
+            autoFocus
+            className="cp-input"
+            style={{ fontSize: 12 }}
+            onKeyDown={(e) => { if (e.key === 'Enter') handleCreateModel(); if (e.key === 'Escape') setShowCreate(false); }}
+          />
+          <select
+            value={newType}
+            onChange={(e) => setNewType(e.target.value as ModelType)}
+            className="cp-input"
+            style={{ fontSize: 11 }}
+          >
+            {(Object.keys(MODEL_TYPE_META) as ModelType[]).map((t) => (
+              <option key={t} value={t}>{MODEL_TYPE_META[t].label}</option>
+            ))}
+          </select>
+          <div style={{ display: 'flex', gap: 4 }}>
+            <button
+              type="button"
+              className="cp-btn-accent"
+              style={{ flex: 1 }}
+              onClick={handleCreateModel}
+              disabled={creating || !newTitle.trim()}
+            >
+              {creating ? 'Creating...' : 'Create'}
+            </button>
+            <button
+              type="button"
+              className="cp-btn-ghost"
+              onClick={() => setShowCreate(false)}
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
+      ) : (
+        <button
+          type="button"
+          onClick={() => setShowCreate(true)}
+          className="cp-btn-accent"
+          style={{ margin: '8px 10px', width: 'calc(100% - 20px)' }}
+        >
+          <span className="cp-btn-accent-dot" />
+          New Model
+        </button>
+      )}
 
       {/* Card list */}
       <div

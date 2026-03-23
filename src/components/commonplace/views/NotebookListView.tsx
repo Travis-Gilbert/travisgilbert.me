@@ -8,7 +8,9 @@
  * Clicking a card opens the notebook detail via launchView().
  */
 
-import { fetchNotebooks, useApiData } from '@/lib/commonplace-api';
+import { useState, useCallback } from 'react';
+import { toast } from 'sonner';
+import { fetchNotebooks, createNotebook, useApiData } from '@/lib/commonplace-api';
 import { useLayout } from '@/lib/providers/layout-provider';
 
 export default function NotebookListView() {
@@ -17,6 +19,26 @@ export default function NotebookListView() {
     [],
   );
   const { launchView } = useLayout();
+  const [showCreate, setShowCreate] = useState(false);
+  const [newName, setNewName] = useState('');
+  const [newColor, setNewColor] = useState('#8B6FA0');
+  const [creating, setCreating] = useState(false);
+
+  const handleCreate = useCallback(async () => {
+    if (!newName.trim()) return;
+    setCreating(true);
+    try {
+      const nb = await createNotebook({ name: newName.trim(), color: newColor });
+      setNewName('');
+      setShowCreate(false);
+      refetch();
+      launchView('notebook', { slug: nb.slug });
+    } catch {
+      toast.error('Failed to create notebook');
+    } finally {
+      setCreating(false);
+    }
+  }, [newName, newColor, refetch, launchView]);
 
   /* Loading */
   if (loading) {
@@ -55,21 +77,61 @@ export default function NotebookListView() {
 
   const items = notebooks ?? [];
 
+  const createForm = (
+    <div className="cp-inline-create" style={{ padding: '0 16px 12px', display: 'flex', flexDirection: 'column', gap: 6 }}>
+      <input
+        type="text"
+        value={newName}
+        onChange={(e) => setNewName(e.target.value)}
+        placeholder="Notebook name"
+        autoFocus
+        className="cp-input"
+        style={{ fontSize: 12 }}
+        onKeyDown={(e) => { if (e.key === 'Enter') handleCreate(); if (e.key === 'Escape') setShowCreate(false); }}
+      />
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+        <label style={{ fontFamily: 'var(--cp-font-mono)', fontSize: 10, color: 'var(--cp-text-faint)' }}>Color</label>
+        <input type="color" value={newColor} onChange={(e) => setNewColor(e.target.value)} style={{ width: 24, height: 24, border: 'none', padding: 0, cursor: 'pointer' }} />
+      </div>
+      <div style={{ display: 'flex', gap: 4 }}>
+        <button type="button" className="cp-btn-accent" style={{ flex: 1 }} onClick={handleCreate} disabled={creating || !newName.trim()}>
+          {creating ? 'Creating...' : 'Create'}
+        </button>
+        <button type="button" className="cp-btn-ghost" onClick={() => setShowCreate(false)}>Cancel</button>
+      </div>
+    </div>
+  );
+
   /* Empty */
   if (items.length === 0) {
     return (
       <div className="cp-list-view">
         <h2 className="cp-list-view-title">Notebooks</h2>
-        <div className="cp-empty-state">
-          No notebooks yet. Create one from the Django admin.
-        </div>
+        {showCreate ? createForm : (
+          <div className="cp-empty-state">
+            <p>No notebooks yet.</p>
+            <button type="button" className="cp-btn-accent" onClick={() => setShowCreate(true)} style={{ marginTop: 8 }}>
+              <span className="cp-btn-accent-dot" />
+              Create your first notebook
+            </button>
+          </div>
+        )}
       </div>
     );
   }
 
   return (
     <div className="cp-list-view cp-scrollbar">
-      <h2 className="cp-list-view-title">Notebooks</h2>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 16px' }}>
+        <h2 className="cp-list-view-title" style={{ padding: 0 }}>Notebooks</h2>
+        {!showCreate && (
+          <button type="button" className="cp-btn-accent" onClick={() => setShowCreate(true)} style={{ fontSize: 11, padding: '4px 10px' }}>
+            <span className="cp-btn-accent-dot" />
+            New
+          </button>
+        )}
+      </div>
+      {showCreate && createForm}
       <div className="cp-list-view-grid">
         {items.map((nb) => (
           <button

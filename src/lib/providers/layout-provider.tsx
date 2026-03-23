@@ -14,7 +14,7 @@ import {
   shouldDiscardPersistedLayout,
 } from '@/lib/commonplace-layout';
 
-const STORAGE_KEY = 'commonplace-layout-v6';
+const STORAGE_KEY = 'commonplace-layout-v7';
 
 function loadPersistedLayout(): PaneNode | null {
   if (typeof window === 'undefined') return null;
@@ -42,6 +42,7 @@ export interface LayoutContextValue {
   navigateToScreen: (screen: ScreenType) => void;
   launchView: (viewId: ViewType, context?: Record<string, unknown>, forceNewPane?: boolean) => void;
   exitScreen: () => void;
+  resetLayout: () => void;
 }
 
 const NOOP = () => {};
@@ -58,6 +59,7 @@ const LayoutContext = createContext<LayoutContextValue>({
   navigateToScreen: NOOP,
   launchView: NOOP,
   exitScreen: NOOP,
+  resetLayout: NOOP,
 });
 
 export function LayoutProvider({ children }: { children: ReactNode }) {
@@ -90,6 +92,14 @@ export function LayoutProvider({ children }: { children: ReactNode }) {
 
   const exitScreen = useCallback(() => {
     setActiveScreen(null);
+  }, []);
+
+  const resetLayout = useCallback(() => {
+    if (typeof window !== 'undefined') {
+      try { localStorage.removeItem(STORAGE_KEY); } catch { /* ignore */ }
+    }
+    setLayoutRaw(LAYOUT_PRESETS[0].tree);
+    setFullscreenPaneId(null);
   }, []);
 
   const launchView = useCallback(
@@ -142,6 +152,7 @@ export function LayoutProvider({ children }: { children: ReactNode }) {
       navigateToScreen,
       launchView,
       exitScreen,
+      resetLayout,
     }),
     [
       layout,
@@ -154,6 +165,7 @@ export function LayoutProvider({ children }: { children: ReactNode }) {
       navigateToScreen,
       launchView,
       exitScreen,
+      resetLayout,
     ],
   );
 

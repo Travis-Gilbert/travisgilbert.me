@@ -293,6 +293,7 @@ export interface EngineStatusInfo {
 
 export interface EpistemicModelSummary {
   id: number;
+  slug: string;
   title: string;
   thesis: string;
   modelType: ModelType;
@@ -412,7 +413,7 @@ const DEMO_NARRATIVES: Narrative[] = [
 ];
 
 const DEMO_MODEL_DETAIL: EpistemicModelDetail = {
-  id: 1,
+  id: 1, slug: 'corridor-decline',
   title: 'Corridor decline persists because disinvestment preceded the infrastructure plan, not the other way around',
   thesis: 'The corridor was already failing before the city intervened.',
   modelType: 'explanatory',
@@ -437,7 +438,7 @@ const DEMO_MODEL_DETAIL: EpistemicModelDetail = {
 
 const DEMO_MODELS: EpistemicModelSummary[] = [
   {
-    id: 1,
+    id: 1, slug: 'corridor-decline',
     title: 'Corridor decline persists because disinvestment preceded the infrastructure plan, not the other way around',
     thesis: 'The corridor was already failing before the city intervened.',
     modelType: 'explanatory', modelStatus: 'active', modelConfidence: 0.62,
@@ -445,7 +446,7 @@ const DEMO_MODELS: EpistemicModelSummary[] = [
     createdAt: '2026-02-15T10:00:00Z', updatedAt: '2026-03-13T14:30:00Z',
   },
   {
-    id: 2,
+    id: 2, slug: 'stigmergy-engine',
     title: 'Stigmergy explains why the connection engine improves with use without explicit training',
     thesis: 'The engine behaves like a stigmergic system.',
     modelType: 'explanatory', modelStatus: 'active', modelConfidence: 0.55,
@@ -453,7 +454,7 @@ const DEMO_MODELS: EpistemicModelSummary[] = [
     createdAt: '2026-01-20T08:00:00Z', updatedAt: '2026-03-14T11:00:00Z',
   },
   {
-    id: 3,
+    id: 3, slug: 'tiptap-save-bug',
     title: 'The Tiptap save bug is a state management race condition, not a backend issue',
     thesis: 'Race condition between state update and serialization.',
     modelType: 'causal', modelStatus: 'draft', modelConfidence: 0.71,
@@ -463,7 +464,7 @@ const DEMO_MODELS: EpistemicModelSummary[] = [
 ];
 
 const STIGMERGY_DETAIL: EpistemicModelDetail = {
-  id: 2,
+  id: 2, slug: 'stigmergy-engine',
   title: 'Stigmergy explains why the connection engine improves with use without explicit training',
   thesis: 'The engine behaves like a stigmergic system.',
   modelType: 'explanatory', modelStatus: 'active', modelConfidence: 0.55,
@@ -492,7 +493,7 @@ const STIGMERGY_DETAIL: EpistemicModelDetail = {
 };
 
 const TIPTAP_DETAIL: EpistemicModelDetail = {
-  id: 3,
+  id: 3, slug: 'tiptap-save-bug',
   title: 'The Tiptap save bug is a state management race condition, not a backend issue',
   thesis: 'Race condition between state update and serialization.',
   modelType: 'causal', modelStatus: 'draft', modelConfidence: 0.71,
@@ -534,31 +535,200 @@ const DEMO_CANDIDATES: EngineCandidate[] = [
 ];
 
 /* ─────────────────────────────────────────────────
-   API functions (demo; swap to real fetch later)
+   API mappers (DRF snake_case → frontend camelCase)
+   ───────────────────────────────────────────────── */
+
+import { apiFetch } from '@/lib/commonplace-api';
+
+/* eslint-disable @typescript-eslint/no-explicit-any */
+
+function mapModelSummary(raw: any): EpistemicModelSummary {
+  return {
+    id: raw.id,
+    slug: raw.slug ?? '',
+    title: raw.title,
+    thesis: raw.description || '',
+    modelType: (raw.model_type ?? 'explanatory') as ModelType,
+    modelStatus: raw.status,
+    modelConfidence: raw.confidence ?? 0,
+    assumptionCount: raw.claim_count ?? 0,
+    methodCount: raw.method_count ?? 0,
+    questionCount: raw.question_count ?? 0,
+    createdAt: raw.created_at,
+    updatedAt: raw.updated_at,
+  };
+}
+
+function mapAssumption(raw: any): Assumption {
+  return {
+    id: raw.id,
+    claimId: raw.claim ?? raw.claim_id ?? 0,
+    text: raw.text ?? raw.claim_text ?? '',
+    status: (raw.role ?? raw.status ?? 'proposed') as AssumptionStatus,
+    confidence: raw.confidence ?? 0,
+    positionIndex: raw.position ?? raw.position_index ?? 0,
+    evidence: Array.isArray(raw.evidence_links) ? raw.evidence_links.map(mapEvidenceLink) : [],
+  };
+}
+
+function mapEvidenceLink(raw: any): EvidenceLink {
+  return {
+    id: raw.id,
+    objectRef: raw.object ?? raw.object_ref ?? 0,
+    objectTitle: raw.object_title ?? '',
+    objectType: (raw.object_type ?? 'note') as EvidenceObjectType,
+    relation: (raw.relation ?? 'supports') as EvidenceRelation,
+    confidence: raw.confidence ?? 0,
+    isCandidate: raw.is_candidate ?? false,
+    contentText: raw.content_text ?? raw.finding ?? undefined,
+    domain: raw.domain ?? undefined,
+    date: raw.date ?? undefined,
+    attribution: raw.attribution ?? undefined,
+  };
+}
+
+function mapModelDetail(raw: any): EpistemicModelDetail {
+  const summary = mapModelSummary(raw);
+  return {
+    ...summary,
+    question: raw.question ?? null,
+    scope: raw.scope ?? undefined,
+    domains: raw.domains ?? undefined,
+    summary: raw.summary ?? undefined,
+    assumptions: Array.isArray(raw.claims) ? raw.claims.map(mapAssumption) : [],
+    tensions: Array.isArray(raw.tensions) ? raw.tensions.map((t: any) => ({
+      id: t.id,
+      text: t.text ?? t.description ?? '',
+      severity: (t.severity ?? 'medium') as TensionSeverity,
+      linkedAssumptionIds: t.linked_claims ?? t.linked_assumption_ids ?? [],
+    })) : [],
+    methods: Array.isArray(raw.methods) ? raw.methods.map((m: any) => ({
+      id: m.id,
+      title: m.title,
+      description: m.description ?? '',
+      status: m.status ?? 'draft',
+      runs: m.runs ?? 0,
+    })) : [],
+    canonicalReferences: Array.isArray(raw.canonical_references) ? raw.canonical_references.map((c: any) => ({
+      id: c.id,
+      objectRef: c.object ?? 0,
+      objectTitle: c.object_title ?? '',
+      objectType: c.object_type ?? 'source',
+      agreement: (c.agreement ?? 'mixed') as AgreementLevel,
+      summary: c.summary ?? '',
+      source: c.source ?? undefined,
+    })) : [],
+    falsificationCriteria: Array.isArray(raw.falsification_criteria) ? raw.falsification_criteria.map((f: any) => ({
+      id: f.id,
+      text: f.text,
+      status: f.status ?? 'untested',
+    })) : [],
+    narratives: Array.isArray(raw.narratives) ? raw.narratives.map((n: any) => ({
+      id: n.id,
+      title: n.title,
+      objectRef: n.object ?? 0,
+      narrativeType: n.narrative_type ?? undefined,
+      narrativeStatus: n.status ?? undefined,
+    })) : [],
+  };
+}
+
+/* eslint-enable @typescript-eslint/no-explicit-any */
+
+/* ─────────────────────────────────────────────────
+   API functions (real API with demo fallback)
    ───────────────────────────────────────────────── */
 
 export async function fetchModels(): Promise<EpistemicModelSummary[]> {
-  return DEMO_MODELS;
+  try {
+    const data = await apiFetch<any>('/models/');
+    const results = Array.isArray(data) ? data : data.results ?? [];
+    if (results.length === 0) return DEMO_MODELS;
+    return results.map(mapModelSummary);
+  } catch {
+    return DEMO_MODELS;
+  }
 }
 
 export async function fetchModelDetail(id: number): Promise<EpistemicModelDetail> {
-  if (id === 1) return DEMO_MODEL_DETAIL;
-  if (id === 2) return STIGMERGY_DETAIL;
-  if (id === 3) return TIPTAP_DETAIL;
-  const summary = DEMO_MODELS.find((m) => m.id === id);
-  if (!summary) throw new Error(`Model ${id} not found`);
-  return { ...summary, question: null, assumptions: [], tensions: [], methods: [], canonicalReferences: [], falsificationCriteria: [], narratives: [] };
+  try {
+    const data = await apiFetch<any>(`/models/${id}/`);
+    return mapModelDetail(data);
+  } catch {
+    // Fallback to demo data
+    if (id === 1) return DEMO_MODEL_DETAIL;
+    if (id === 2) return STIGMERGY_DETAIL;
+    if (id === 3) return TIPTAP_DETAIL;
+    const summary = DEMO_MODELS.find((m) => m.id === id);
+    if (!summary) throw new Error(`Model ${id} not found`);
+    return { ...summary, question: null, assumptions: [], tensions: [], methods: [], canonicalReferences: [], falsificationCriteria: [], narratives: [] };
+  }
 }
 
 export async function fetchEngineLog(modelId?: number): Promise<EngineLogEntry[]> {
-  if (modelId) return DEMO_ENGINE_LOG.filter((e) => e.modelId === modelId || !e.modelId);
-  return DEMO_ENGINE_LOG;
+  try {
+    const qs = modelId ? `?model=${modelId}` : '';
+    const data = await apiFetch<any>(`/models/${modelId ?? ''}/engine-log/${qs}`);
+    const results = Array.isArray(data) ? data : data.results ?? [];
+    return results.map((e: any) => ({
+      id: String(e.id),
+      timestamp: e.created_at ?? e.timestamp,
+      pass: e.pass_name ?? e.pass ?? 'sbert',
+      message: e.message ?? e.summary ?? '',
+      modelId: e.model ?? undefined,
+    }));
+  } catch {
+    if (modelId) return DEMO_ENGINE_LOG.filter((e) => e.modelId === modelId || !e.modelId);
+    return DEMO_ENGINE_LOG;
+  }
 }
 
-export async function fetchStressResult(_modelId: number): Promise<StressResult> {
-  return DEMO_STRESS_RESULT;
+export async function fetchStressResult(modelId: number): Promise<StressResult> {
+  try {
+    const data = await apiFetch<any>(`/models/${modelId}/stress-test/`);
+    return {
+      drift: data.drift ?? 0,
+      unlinkedCount: data.unlinked_count ?? 0,
+      findings: Array.isArray(data.findings) ? data.findings.map((f: any) => ({
+        id: f.id,
+        severity: f.severity ?? 'medium',
+        text: f.text ?? f.message ?? '',
+        linkedAssumptionId: f.linked_claim ?? f.linked_assumption_id ?? undefined,
+      })) : [],
+    };
+  } catch {
+    return DEMO_STRESS_RESULT;
+  }
 }
 
-export async function fetchCandidates(_modelId: number): Promise<EngineCandidate[]> {
-  return DEMO_CANDIDATES;
+export async function fetchCandidates(modelId: number): Promise<EngineCandidate[]> {
+  try {
+    const data = await apiFetch<any>(`/models/${modelId}/candidates/`);
+    const results = Array.isArray(data) ? data : data.results ?? [];
+    return results.map((c: any) => ({
+      id: c.id,
+      objectRef: c.object ?? 0,
+      objectTitle: c.object_title ?? '',
+      objectType: c.object_type ?? '',
+      suggestedAssumptionId: c.suggested_claim ?? c.suggested_assumption_id ?? 0,
+      relation: c.relation ?? 'supports',
+      confidence: c.confidence ?? 0,
+      status: c.status ?? 'pending',
+    }));
+  } catch {
+    return DEMO_CANDIDATES;
+  }
+}
+
+export async function createModel(data: {
+  title: string;
+  model_type: ModelType;
+  description?: string;
+  notebook?: string;
+}): Promise<EpistemicModelSummary> {
+  const resp = await apiFetch<any>('/models/', {
+    method: 'POST',
+    body: JSON.stringify(data),
+  });
+  return mapModelSummary(resp);
 }

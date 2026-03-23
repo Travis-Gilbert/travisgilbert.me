@@ -1,6 +1,7 @@
 'use client';
 
 import { LAYOUT_PRESETS } from '@/lib/commonplace-layout';
+import { useLayout } from '@/lib/providers/layout-provider';
 
 interface LayoutPresetSelectorProps {
   activePresetName: string | null;
@@ -20,6 +21,8 @@ export default function LayoutPresetSelector({
   activePresetName,
   onSelect,
 }: LayoutPresetSelectorProps) {
+  const { resetLayout } = useLayout();
+
   return (
     <div className="cp-layout-selector">
       {LAYOUT_PRESETS.map((preset, i) => (
@@ -34,6 +37,14 @@ export default function LayoutPresetSelector({
           <PresetIcon name={preset.name} />
         </button>
       ))}
+      <button
+        className="cp-layout-preset cp-layout-reset"
+        onClick={() => { resetLayout(); onSelect(0); }}
+        title="Reset layout"
+        aria-label="Reset layout to Focus"
+      >
+        <ResetIcon />
+      </button>
     </div>
   );
 }
@@ -80,4 +91,14 @@ function PresetIcon({ name }: { name: string }) {
     default:
       return null;
   }
+}
+
+/** Small circular-arrow icon for the reset button */
+function ResetIcon() {
+  return (
+    <svg width={14} height={14} viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth={1.2} strokeLinecap="round" strokeLinejoin="round">
+      <path d="M1.5 2.5v3.5h3.5" />
+      <path d="M1.5 6C2.1 3.4 4.3 1.5 7 1.5c3 0 5.5 2.5 5.5 5.5s-2.5 5.5-5.5 5.5a5.5 5.5 0 0 1-4.7-2.7" />
+    </svg>
+  );
 }
