@@ -1,96 +1,68 @@
 'use client';
 
-import { useState, useCallback } from 'react';
-import { useIsAppShellMobile } from '@/hooks/useIsAppShellMobile';
+import { useCallback, useEffect } from 'react';
 import CommonPlaceSidebar from './CommonPlaceSidebar';
-import CommonPlaceTopBar from './CommonPlaceTopBar';
-import CommonPlaceRail from './CommonPlaceRail';
-import CaptureFAB from '../capture/CaptureFAB';
-import DropZone from '../board/DropZone';
 import SplitPaneContainer from '../panes/SplitPaneContainer';
+import DropZone from '../board/DropZone';
 import { useCapture } from '@/lib/providers/capture-provider';
 import { syncCapture } from '@/lib/commonplace-capture';
 import type { CapturedObject } from '@/lib/commonplace';
-import styles from './CommonPlaceShell.module.css';
 
-/**
- * CommonPlaceShell: client-side layout switcher.
- *
- * Reads `cp-nav-mode` from localStorage to choose between:
- *   - 'topbar': top command strip + optional icon rail + FAB (desktop only)
- *   - 'sidebar': traditional 200px sidebar (default on mobile, fallback)
- *
- * The sidebar is not deleted. Users can switch back via console:
- *   localStorage.setItem('cp-nav-mode', 'sidebar')
- */
 export default function CommonPlaceShell() {
-  const isMobile = useIsAppShellMobile();
   const { notifyCaptured } = useCapture();
-
-  const [navMode] = useState<'topbar' | 'sidebar'>(() => {
-    if (typeof window === 'undefined') return 'topbar';
-    return (localStorage.getItem('cp-nav-mode') as 'topbar' | 'sidebar') || 'topbar';
-  });
-
-  const [railVisible, setRailVisible] = useState(() => {
-    if (typeof window === 'undefined') return true;
-    return localStorage.getItem('cp-rail-visible') !== 'false';
-  });
-
-  const toggleRail = useCallback(() => {
-    setRailVisible((prev) => {
-      const next = !prev;
-      localStorage.setItem('cp-rail-visible', String(next));
-      return next;
-    });
-  }, []);
 
   const handleDropZoneCapture = useCallback(async (object: CapturedObject) => {
     await syncCapture(object);
     notifyCaptured();
   }, [notifyCaptured]);
 
-  // Mobile always uses sidebar layout
-  if (isMobile || navMode === 'sidebar') {
-    return (
-      <>
-        <CommonPlaceSidebar />
-        <main
-          className="cp-main-surface cp-grain"
-          style={{
-            flex: 1,
-            minWidth: 0,
-            display: 'flex',
-            flexDirection: 'column',
-            position: 'relative',
-          }}
-        >
-          <SplitPaneContainer />
-        </main>
-      </>
-    );
-  }
+  /* Keyboard shortcuts migrated from CaptureFAB:
+     C = focus the capture area in the sidebar
+     T = scroll the sidebar to the toolbox section */
+  useEffect(() => {
+    function handleKey(e: KeyboardEvent) {
+      const target = e.target as HTMLElement;
+      if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable) return;
+      if (e.metaKey || e.ctrlKey || e.altKey) return;
 
-  // Desktop topbar layout
+      if (e.key === 'c') {
+        e.preventDefault();
+        /* Focus the capture button/textarea in the sidebar */
+        const captureEl = document.querySelector('.cp-sidebar-desktop .cp-capture-collapsed, .cp-sidebar-desktop .cp-capture-expanded textarea') as HTMLElement | null;
+        if (captureEl) {
+          captureEl.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+          captureEl.click();
+        }
+      }
+
+      if (e.key === 't') {
+        e.preventDefault();
+        /* Scroll to the toolbox section in the sidebar */
+        const toolbox = document.querySelector('.cp-sidebar-desktop [data-section="work"]') as HTMLElement | null;
+        if (toolbox) {
+          toolbox.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+        }
+      }
+    }
+    document.addEventListener('keydown', handleKey);
+    return () => document.removeEventListener('keydown', handleKey);
+  }, []);
+
   return (
     <>
-      <CommonPlaceTopBar railVisible={railVisible} onToggleRail={toggleRail} />
-      <div className={styles.bodyArea}>
-        <CommonPlaceRail visible={railVisible} />
-        <main
-          className="cp-main-surface cp-grain"
-          style={{
-            flex: 1,
-            minWidth: 0,
-            display: 'flex',
-            flexDirection: 'column',
-            position: 'relative',
-          }}
-        >
-          <SplitPaneContainer />
-        </main>
-      </div>
-      <CaptureFAB />
+      <CommonPlaceSidebar />
+      <main
+        className="cp-main-surface cp-grain"
+        style={{
+          flex: 1,
+          minWidth: 0,
+          display: 'flex',
+          flexDirection: 'column',
+          position: 'relative',
+        }}
+      >
+        <SplitPaneContainer />
+      </main>
       <DropZone onCapture={handleDropZoneCapture} />
     </>
   );

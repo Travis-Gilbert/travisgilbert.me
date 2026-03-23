@@ -1,46 +1,18 @@
 /* ─────────────────────────────────────────────────
    CommonPlace Sidebar: CSS Module
-   Extracted from commonplace.css. Scoped automatically
-   by CSS Modules (no .commonplace-theme wrapper needed).
+   Scoped automatically by CSS Modules.
+   Cool-slate palette (Spec F).
    ───────────────────────────────────────────────── */
 
 /* Focus-visible: softer ring on dark chrome sidebar surfaces */
 .sidebarItem:focus-visible,
-.pinnedItem:focus-visible,
-.railBtn:focus-visible {
+.pinnedItem:focus-visible {
   outline-color: var(--cp-focus-ring-sidebar);
 }
 
 /* ─────────────────────────────────────────────────
-   Icon rail: 48px vertical navigation strip
-   ───────────────────────────────────────────────── */
-
-.rail {
-  width: 48px;
-  flex-shrink: 0;
-  background: linear-gradient(180deg, rgba(21, 17, 15, 0.78) 0%, rgba(27, 21, 18, 0.82) 100%);
-  border-right: 1px solid rgba(181, 120, 74, 0.18);
-  box-shadow: inset 0 0 40px rgba(198, 121, 61, 0.04);
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  padding: 12px 0;
-  gap: 2px;
-  overflow: hidden;
-  transition: width 250ms cubic-bezier(0.34, 1.56, 0.64, 1),
-              opacity 200ms;
-}
-
-.railHidden {
-  width: 0;
-  opacity: 0;
-  border-right: none;
-  padding: 0;
-}
-
-/* ─────────────────────────────────────────────────
-   Sidebar glow: terracotta bloom from top-left,
-   warm studio light falling on the desk edge.
+   Sidebar glow: subtle warm wash from top,
+   hints at brand without fighting cool slate.
    ───────────────────────────────────────────────── */
 
 .sidebarGlow {
@@ -49,9 +21,27 @@
   pointer-events: none;
   background: radial-gradient(
     ellipse at 50% 0%,
-    rgba(184, 98, 61, 0.08) 0%,
-    transparent 40%
+    rgba(184, 98, 61, 0.03) 0%,
+    transparent 35%
   );
+}
+
+/* ─────────────────────────────────────────────────
+   Capture button: terracotta glow wrapper
+   ───────────────────────────────────────────────── */
+
+.captureGlow {
+  position: relative;
+  border-radius: 8px;
+  background: rgba(198, 122, 74, 0.07);
+  border: 1px solid rgba(198, 122, 74, 0.10);
+  padding: 2px;
+  transition: background-color 150ms, border-color 150ms;
+}
+
+.captureGlow:hover {
+  background: rgba(198, 122, 74, 0.13);
+  border-color: rgba(198, 122, 74, 0.18);
 }
 
 /* ─────────────────────────────────────────────────
@@ -92,9 +82,9 @@
   left: 0;
   top: 4px;
   bottom: 4px;
-  width: 2px;
-  border-radius: 1px;
-  background: var(--sidebar-section-color, var(--cp-red));
+  width: 2.5px;
+  border-radius: 0 2px 2px 0;
+  background: var(--sidebar-section-color, #C67A4A);
   opacity: 0;
   transition: opacity 120ms ease;
 }
@@ -114,46 +104,50 @@
 }
 
 .sidebarItem[data-active="true"] {
-  background-color: var(--cp-red-soft);
-  box-shadow: inset 0 0 0 1px var(--cp-red-line);
+  background-color: rgba(255, 255, 255, 0.06);
+  box-shadow: none;
   color: var(--cp-sidebar-text);
 }
 
 /* Section-colored sidebar icons */
-.sidebarItem[data-section="capture"] svg { color: var(--cp-red); opacity: 0.5; }
+.sidebarItem[data-section="capture"] svg { color: #C67A4A; opacity: 0.5; }
 .sidebarItem[data-section="capture"]:hover svg { opacity: 0.8; }
 .sidebarItem[data-section="capture"][data-active="true"] svg { opacity: 1; }
 
-.sidebarItem[data-section="views"] svg { color: var(--cp-teal); opacity: 0.5; }
+.sidebarItem[data-section="views"] svg { color: #5D9B78; opacity: 0.5; }
 .sidebarItem[data-section="views"]:hover svg { opacity: 0.8; }
 .sidebarItem[data-section="views"][data-active="true"] svg { opacity: 1; }
 
-.sidebarItem[data-section="work"] svg { color: var(--cp-gold); opacity: 0.5; }
+.sidebarItem[data-section="work"] svg { color: #7B8FA0; opacity: 0.5; }
 .sidebarItem[data-section="work"]:hover svg { opacity: 0.8; }
 .sidebarItem[data-section="work"][data-active="true"] svg { opacity: 1; }
 
-.sidebarItem[data-section="system"] svg { color: var(--cp-purple); opacity: 0.5; }
+.sidebarItem[data-section="system"] svg { color: #6E7078; opacity: 0.5; }
 .sidebarItem[data-section="system"]:hover svg { opacity: 0.8; }
 .sidebarItem[data-section="system"][data-active="true"] svg { opacity: 1; }
 
 /* Section title labels use section color at 72% opacity */
-.sectionTitle[data-section="capture"] { color: var(--cp-red); opacity: 0.72; }
-.sectionTitle[data-section="views"] { color: var(--cp-teal); opacity: 0.72; }
-.sectionTitle[data-section="work"] { color: var(--cp-gold); opacity: 0.72; }
-.sectionTitle[data-section="system"] { color: var(--cp-purple); opacity: 0.72; }
+.sectionTitle[data-section="capture"] { color: #C67A4A; opacity: 0.72; }
+.sectionTitle[data-section="views"] { color: #5D9B78; opacity: 0.72; }
+.sectionTitle[data-section="work"] { color: #7B8FA0; opacity: 0.72; }
+.sectionTitle[data-section="system"] { color: #6E7078; opacity: 0.72; }
 
 /* Active section sidebar item uses section-specific accent */
+.sidebarItem[data-section="capture"][data-active="true"] {
+  background-color: rgba(198, 122, 74, 0.08);
+  box-shadow: inset 0 0 0 1px rgba(198, 122, 74, 0.14);
+}
 .sidebarItem[data-section="views"][data-active="true"] {
-  background-color: rgba(45, 95, 107, 0.12);
-  box-shadow: inset 0 0 0 1px rgba(45, 95, 107, 0.25);
+  background-color: rgba(93, 155, 120, 0.12);
+  box-shadow: inset 0 0 0 1px rgba(93, 155, 120, 0.25);
 }
 .sidebarItem[data-section="work"][data-active="true"] {
-  background-color: rgba(196, 154, 74, 0.12);
-  box-shadow: inset 0 0 0 1px rgba(196, 154, 74, 0.25);
+  background-color: rgba(123, 143, 160, 0.12);
+  box-shadow: inset 0 0 0 1px rgba(123, 143, 160, 0.25);
 }
 .sidebarItem[data-section="system"][data-active="true"] {
-  background-color: rgba(139, 111, 160, 0.12);
-  box-shadow: inset 0 0 0 1px rgba(139, 111, 160, 0.25);
+  background-color: rgba(110, 112, 120, 0.12);
+  box-shadow: inset 0 0 0 1px rgba(110, 112, 120, 0.25);
 }
 
 /* ─────────────────────────────────────────────────
@@ -161,29 +155,29 @@
    ───────────────────────────────────────────────── */
 
 .sidebarSectionCapture {
-  --sidebar-section-color: var(--cp-red);
-  background: rgba(196, 80, 60, 0.025);
+  --sidebar-section-color: #C67A4A;
+  background: rgba(198, 122, 74, 0.01);
   border-radius: 4px;
   margin: 2px 0;
   padding: 2px 0 4px;
 }
 .sidebarSectionViews {
-  --sidebar-section-color: var(--cp-teal);
-  background: rgba(45, 95, 107, 0.025);
+  --sidebar-section-color: #5D9B78;
+  background: rgba(93, 155, 120, 0.025);
   border-radius: 4px;
   margin: 2px 0;
   padding: 2px 0 4px;
 }
 .sidebarSectionWork {
-  --sidebar-section-color: var(--cp-gold);
-  background: rgba(196, 154, 74, 0.02);
+  --sidebar-section-color: #7B8FA0;
+  background: rgba(123, 143, 160, 0.02);
   border-radius: 4px;
   margin: 2px 0;
   padding: 2px 0 4px;
 }
 .sidebarSectionSystem {
-  --sidebar-section-color: var(--cp-purple);
-  background: rgba(139, 111, 160, 0.02);
+  --sidebar-section-color: #6E7078;
+  background: rgba(110, 112, 120, 0.02);
   border-radius: 4px;
   margin: 2px 0;
   padding: 2px 0 4px;
@@ -202,26 +196,6 @@
     color-mix(in srgb, var(--cp-sidebar-border) 30%, transparent) 60%,
     transparent 100%
   );
-}
-
-/* ─────────────────────────────────────────────────
-   Sidebar resize handle (right edge drag)
-   ───────────────────────────────────────────────── */
-
-.sidebarResize {
-  position: absolute;
-  top: 0;
-  right: 0;
-  width: 5px;
-  height: 100%;
-  cursor: col-resize;
-  z-index: 10;
-  transition: background-color 150ms;
-}
-
-.sidebarResize:hover,
-.sidebarResizeDragging {
-  background: rgba(184, 98, 61, 0.28);
 }
 
 /* ─────────────────────────────────────────────────
@@ -279,60 +253,4 @@
   font-size: 9px;
   color: var(--cp-sidebar-text-faint);
   margin-top: 1px;
-}
-
-/* ─────────────────────────────────────────────────
-   Brand section stats
-   ───────────────────────────────────────────────── */
-
-.brandStats {
-  font-family: var(--cp-font-mono);
-  font-weight: 500;
-  font-size: 9px;
-  color: var(--cp-sidebar-text-faint);
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  margin-top: 2px;
-}
-
-/* ─────────────────────────────────────────────────
-   Icon rail: collapsed sidebar buttons + tooltips
-   ───────────────────────────────────────────────── */
-
-.railBtn {
-  width: 32px;
-  height: 32px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border: none;
-  border-radius: 6px;
-  background: transparent;
-  color: var(--cp-sidebar-text-muted, var(--cp-text-muted));
-  cursor: pointer;
-  transition: background 150ms, color 150ms;
-  margin: 2px 0;
-}
-
-.railBtn:hover {
-  background: var(--cp-sidebar-surface, var(--cp-surface-hover));
-  color: var(--cp-sidebar-text);
-}
-
-.railTooltip {
-  position: absolute;
-  left: calc(100% + 8px);
-  top: 50%;
-  transform: translateY(-50%);
-  background: var(--cp-chrome-raise, #2a2a30);
-  color: var(--cp-vellum, #f4f3f0);
-  font-family: var(--cp-font-mono);
-  font-weight: 500;
-  font-size: 9px;
-  letter-spacing: 0.08em;
-  padding: 4px 8px;
-  border-radius: 4px;
-  white-space: nowrap;
-  z-index: 9999;
-  pointer-events: none;
 }

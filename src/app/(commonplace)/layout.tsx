@@ -58,7 +58,6 @@ export default function CommonPlaceLayout({
       className={`commonplace-theme ${shellStyles.shellRoot}`}
       style={{
         display: 'flex',
-        flexDirection: 'column',
         height: '100vh',
         overflow: 'hidden',
         color: 'var(--cp-text)',

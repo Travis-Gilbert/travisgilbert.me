@@ -13,7 +13,7 @@
   --color-card: #FBF0E2;           /* alias → surface */
   --color-code: #EBD8C0;           /* alias → bg-alt */
   --color-theseus-panel: rgba(251, 240, 226, 0.80); /* transparent parchment for light */
-  --color-nav-bg: #221A1C;         /* nav: warm dark wine, no cool purple cast */
+  --color-nav-bg: #1C1C20;         /* nav: dark slate instrument panel */
 
   /* Text */
   --color-ink: #2A2420;
@@ -35,11 +35,28 @@
   --color-gold: #C49A4A;
   --color-gold-light: #D4AA5A;
 
-  /* Nav link colors: tuned for 4.5:1+ contrast on --color-nav-bg (#221A1C)
-     Earthy hues: brick H~13, teal H~173, amber H~38 */
+  /* Nav link colors (legacy, kept for any remaining references) */
   --color-nav-terracotta: #CC6A4E;
   --color-nav-teal: #5AA89F;
   --color-nav-gold: #C89C52;
+
+  /* Nav tab colors: full (active), muted (dormant text), dim (dormant LED)
+     Muted stops tuned for 4.5:1+ contrast on #1C1C20 (WCAG AA small text) */
+  --nav-terracotta:       #CC7E52;
+  --nav-terracotta-muted: #B47A54;
+  --nav-terracotta-dim:   #5C3D28;
+
+  --nav-teal:       #4A9AAA;
+  --nav-teal-muted: #4A8E98;
+  --nav-teal-dim:   #1F4148;
+
+  --nav-gold:       #C49A4A;
+  --nav-gold-muted: #A08548;
+  --nav-gold-dim:   #5C4B26;
+
+  --nav-cream:       #F0EBE4;
+  --nav-cream-muted: #8A8580;
+  --nav-cream-dim:   #3A3835;
 
   /* Ink (rough.js strokes) */
   --color-rough: #3A3632;
@@ -103,6 +120,35 @@
 }
 
 /* ─────────────────────────────────────────────────
+   README Page Tokens
+   Separate from @theme inline because these are
+   referenced via var() in inline styles, not
+   Tailwind utilities.
+   ───────────────────────────────────────────────── */
+
+:root {
+  /* README page surfaces */
+  --color-readme-bg: #1C1C20;
+  --color-readme-bg-soft: #222226;
+  --color-readme-border: #2E2E34;
+  --color-readme-text: #F0EBE4;
+  --color-readme-text-muted: #B8AFA5;
+  --color-readme-text-dim: #7A746C;
+
+  /* Patent surface */
+  --color-patent-bg: #F0EBE4;
+  --color-patent-text: #2A2420;
+  --color-patent-text-secondary: #6B6358;
+  --color-patent-text-tertiary: #9B9488;
+  --color-patent-border: #D4CFC7;
+  --color-patent-grid: rgba(45, 95, 107, 0.045);
+
+  /* Connector lines for tree schematics */
+  --color-connector: #2E2E34;
+  --color-connector-patent: #C8C2B8;
+}
+
+/* ─────────────────────────────────────────────────
    Dark Mode Token Overrides
    Applied via html[data-theme="dark"] (set by ThemeProvider
    or blocking script in layout.tsx). Every token that changes
@@ -113,7 +159,7 @@
 html[data-theme="dark"] {
   /* Backgrounds: warm charcoal, not blue-gray */
   --color-paper: #1B1815;
-  --color-nav-bg: #221A1C;
+  --color-nav-bg: #1C1C20;
   --color-surface: #252016;
   --color-bg-alt: #302A24;
   --color-card: #252016;
@@ -475,7 +521,7 @@ body::after {
 
 /* Nav atmospheric fade: dark spill below sticky nav into parchment.
    Uses position: absolute on ::after; sticky nav is a positioned ancestor.
-   rgb(34, 26, 28) matches --color-nav-bg (#221A1C). */
+   rgb(28, 28, 32) matches --color-nav-bg (#1C1C20). */
 .nav-fade::after {
   content: '';
   position: absolute;
@@ -486,12 +532,30 @@ body::after {
   background: linear-gradient(
     in srgb,
     to bottom,
-    rgba(34, 26, 28, 0.55),
-    rgba(34, 26, 28, 0.25) 40%,
-    rgba(34, 26, 28, 0)
+    rgba(28, 28, 32, 0.55),
+    rgba(28, 28, 32, 0.25) 40%,
+    rgba(28, 28, 32, 0)
   );
   pointer-events: none;
   z-index: 30;
+}
+
+/* Nav tab hover: brighten text and LED to full section color.
+   Uses CSS custom properties set via inline style on each tab element. */
+.nav-tab:not([aria-current="page"]):hover {
+  color: var(--tab-color) !important;
+}
+.nav-tab:not([aria-current="page"]):hover .nav-tab-icon {
+  opacity: 0.7 !important;
+}
+.nav-tab:not([aria-current="page"]):hover .led-dot {
+  background: var(--tab-color-muted) !important;
+}
+
+/* Nav tab focus-visible: section-colored ring instead of generic blue */
+.nav-tab:focus-visible {
+  outline: 2px solid var(--tab-color);
+  outline-offset: 2px;
 }
 
 /* Hero artifact: subtle scale on hover, disabled for reduced-motion */
@@ -2091,4 +2155,26 @@ html {
   vertical-align: middle;
   background: rgba(107, 79, 122, 0.1);
   color: #6B4F7A;
+}
+
+/* ─────────────────────────────────────────────────
+   README Page Responsive
+   ───────────────────────────────────────────────── */
+
+/* Hide margin schematics when there's no margin space */
+@media (max-width: 1200px) {
+  .margin-schematic { display: none !important; }
+}
+
+@media (max-width: 800px) {
+  .readme-name { font-size: 32px !important; }
+  .readme-ver-tag { display: block !important; margin-left: 0 !important; margin-top: 4px !important; }
+  .readme-claim-item { grid-template-columns: 28px 1fr !important; }
+  .readme-claim-schematic { display: none !important; }
+  .readme-limitation-item { grid-template-columns: 1fr !important; gap: 4px !important; }
+  .readme-prior-art-grid { grid-template-columns: 1fr !important; }
+}
+
+@media (max-width: 480px) {
+  .readme-name { font-size: 28px !important; }
 }

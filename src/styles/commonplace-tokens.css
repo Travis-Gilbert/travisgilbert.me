@@ -22,15 +22,16 @@
   --cp-chrome-muted: #88868E;
   --cp-chrome-dim: #807E86;          /* AA 4.5:1 on #1C1C20 */
 
-  /* Sidebar (chrome shell, not warm dark) */
-  --cp-sidebar: var(--cp-chrome);
-  --cp-sidebar-surface: var(--cp-chrome-mid);
-  --cp-sidebar-surface-hover: var(--cp-chrome-raise);
-  --cp-sidebar-text: var(--cp-chrome-text);
-  --cp-sidebar-text-muted: var(--cp-chrome-muted);
-  --cp-sidebar-text-faint: var(--cp-chrome-dim);
-  --cp-sidebar-border: var(--cp-chrome-line);
-  --cp-sidebar-border-strong: rgba(216, 214, 220, 0.15);
+  /* Sidebar: cool-slate palette (blue-gray, no warm undertone) */
+  --cp-sidebar: #23252B;
+  --cp-sidebar-surface: rgba(255, 255, 255, 0.025);
+  --cp-sidebar-surface-hover: rgba(255, 255, 255, 0.055);
+  --cp-sidebar-text: #E2E3E7;
+  --cp-sidebar-text-muted: #858790;
+  --cp-sidebar-text-faint: #50525A;
+  --cp-sidebar-border: rgba(255, 255, 255, 0.05);
+  --cp-sidebar-border-strong: rgba(255, 255, 255, 0.08);
+  --cp-sidebar-edge: rgba(255, 255, 255, 0.04);
 
   /* Content surfaces (opaque dark chrome) */
   --cp-bg: #1E1B18;

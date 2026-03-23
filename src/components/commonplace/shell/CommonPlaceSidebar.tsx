@@ -22,17 +22,6 @@ import {
   Settings,
   UserStar,
 } from 'iconoir-react';
-import {
-  autoUpdate,
-  FloatingPortal,
-  offset,
-  shift,
-  useDismiss,
-  useFloating,
-  useHover,
-  useInteractions,
-  useRole,
-} from '@floating-ui/react';
 import { toast } from 'sonner';
 import { SIDEBAR_SECTIONS } from '@/lib/commonplace';
 import type { CapturedObject, ViewType } from '@/lib/commonplace';
@@ -60,21 +49,6 @@ import ObjectPalette from '../shared/ObjectPalette';
 import RecentCaptures from '../capture/RecentCaptures';
 import DropZone from '../board/DropZone';
 import ComponentToolbox from '../shared/ComponentToolbox';
-import BoardCatalogSidebar from '../board/BoardCatalogSidebar';
-
-const SIDEBAR_MIN = 192;
-const SIDEBAR_MAX = 280;
-const SIDEBAR_DEFAULT = 200;
-
-function getInitialSidebarWidth(): number {
-  if (typeof window === 'undefined') return SIDEBAR_DEFAULT;
-  const saved = window.localStorage.getItem('cp-sidebar-width');
-  if (!saved) return SIDEBAR_DEFAULT;
-
-  const parsed = parseInt(saved, 10);
-  if (Number.isNaN(parsed)) return SIDEBAR_DEFAULT;
-  return Math.min(SIDEBAR_MAX, Math.max(SIDEBAR_MIN, parsed));
-}
 
 export default function CommonPlaceSidebar() {
   const pathname = usePathname();
@@ -88,8 +62,6 @@ export default function CommonPlaceSidebar() {
   const {
     mobileSidebarOpen,
     closeMobileSidebar,
-    sidebarCollapsed,
-    setSidebarCollapsed,
   } = useWorkspace();
   const { notifyCaptured } = useCapture();
   const [expandedGroups, setExpandedGroups] = useState<Set<string>>(
@@ -97,8 +69,6 @@ export default function CommonPlaceSidebar() {
   );
   const [isPaletteOpen, setIsPaletteOpen] = useState(false);
   const [captures, setCaptures] = useState<CapturedObject[]>([]);
-  const [sidebarWidth, setSidebarWidth] = useState(getInitialSidebarWidth);
-  const [isDragging, setIsDragging] = useState(false);
   const isMobile = useIsAppShellMobile();
 
   /* Fetch notebooks, projects, and pinned objects */
@@ -183,69 +153,27 @@ export default function CommonPlaceSidebar() {
     });
   }, [notifyCaptured, closeDrawerIfMobile]);
 
-  /* Right-edge drag-to-resize handler.
-   * startX and startWidth are captured at mousedown via closure,
-   * so onMove and onUp never read stale state during the drag. */
-  const handleResizeStart = useCallback((e: React.MouseEvent) => {
-    e.preventDefault();
-    const startX = e.clientX;
-    const startWidth = sidebarWidth;
-
-    function onMove(ev: MouseEvent) {
-      const newWidth = Math.min(
-        SIDEBAR_MAX,
-        Math.max(SIDEBAR_MIN, startWidth + (ev.clientX - startX)),
-      );
-      setSidebarWidth(newWidth);
-    }
-
-    function onUp(ev: MouseEvent) {
-      const finalWidth = Math.min(
-        SIDEBAR_MAX,
-        Math.max(SIDEBAR_MIN, startWidth + (ev.clientX - startX)),
-      );
-      setSidebarWidth(finalWidth);
-      localStorage.setItem('cp-sidebar-width', String(finalWidth));
-      document.removeEventListener('mousemove', onMove);
-      document.removeEventListener('mouseup', onUp);
-      setIsDragging(false);
-    }
-
-    setIsDragging(true);
-    document.addEventListener('mousemove', onMove);
-    document.addEventListener('mouseup', onUp);
-  }, [sidebarWidth]);
-
-  /* Detect if a board view is active in the layout */
-  const isBoardActive = !activeScreen && !!findLeafWithView(layout, 'board');
-
-  /* Demo catalog data for the board sidebar (will be replaced with API data) */
-  const boardCatalogObjects = [
-    { id: 10, title: 'Governing the Commons', type: 'source', connections: 6 },
-    { id: 11, title: 'Cities have the capability...', type: 'quote', connections: 2 },
-    { id: 12, title: 'Pull Ostrom chapter notes', type: 'task', connections: 1 },
-  ];
-  const boardCatalogComponents = [
-    { id: 'c1', label: 'Claim: Buildings adapt', parent: 'How Buildings Learn', color: '#2D5F6B' },
-    { id: 'c2', label: 'Entity: Stewart Brand', parent: 'How Buildings Learn', color: '#B45A2D' },
-  ];
-
   const sidebarInner = (
     <>
       {/* Chrome shell glow */}
       <div className={styles.sidebarGlow} aria-hidden="true" />
 
-      <div style={{ padding: '18px 14px 10px', position: 'relative', zIndex: 2 }}>
+      {/* Brand zone */}
+      <div style={{
+        padding: '16px 18px 12px',
+        position: 'relative',
+        zIndex: 2,
+      }}>
         <Link
           href="/commonplace"
           onClick={closeDrawerIfMobile}
           style={{
             fontFamily: 'var(--cp-font-title)',
-            fontSize: 18,
-            fontWeight: 700,
+            fontSize: 24,
+            fontWeight: 800,
             color: 'var(--cp-sidebar-text)',
             textDecoration: 'none',
-            letterSpacing: '-0.01em',
+            letterSpacing: '-0.02em',
           }}
         >
           CommonPlace
@@ -264,9 +192,9 @@ export default function CommonPlaceSidebar() {
           const sectionGroupClass = SECTION_GROUP_STYLES[sectionKey] ?? '';
           /* Divider color hints at the NEXT section's accent */
           const DIVIDER_COLORS: Record<string, string> = {
-            views: 'rgba(45, 95, 107, 0.25)',
-            work: 'rgba(196, 154, 74, 0.25)',
-            system: 'rgba(139, 111, 160, 0.25)',
+            views: 'rgba(93, 155, 120, 0.25)',
+            work: 'rgba(123, 143, 160, 0.25)',
+            system: 'rgba(110, 112, 120, 0.25)',
           };
           return (
             <div key={section.title || `section-${sectionIdx}`} style={{ position: 'relative' }}>
@@ -283,8 +211,9 @@ export default function CommonPlaceSidebar() {
 
             {section.title === 'Capture' ? (
               <div style={{ padding: '0 4px' }}>
-                <div className={styles.sectionTitle}>Capture</div>
-                <CaptureButton onCapture={handleCapture} />
+                <div className={styles.captureGlow}>
+                  <CaptureButton onCapture={handleCapture} />
+                </div>
                 <ObjectPalette
                   isOpen={isPaletteOpen}
                   onClose={() => setIsPaletteOpen(false)}
@@ -488,7 +417,7 @@ export default function CommonPlaceSidebar() {
                             width: 6,
                             height: 6,
                             borderRadius: '50%',
-                            backgroundColor: '#B8623D',
+                            backgroundColor: '#C67A4A',
                             flexShrink: 0,
                           }}
                         />
@@ -580,143 +509,64 @@ export default function CommonPlaceSidebar() {
       {/* Component toolbox: drag tiles onto objects */}
       <ComponentToolbox />
 
-      {/* Bottom: back to main site */}
-      <div
+      {/* Engine bar: anchored at bottom */}
+      <button
+        type="button"
+        onClick={() => navigateToScreen('engine')}
         style={{
-          padding: '8px 14px',
-          borderTop: '1px solid var(--cp-sidebar-border)',
+          marginTop: 'auto',
+          padding: '10px 14px',
+          borderTop: '1px solid rgba(255, 255, 255, 0.04)',
+          display: 'flex',
+          alignItems: 'center',
+          gap: 8,
+          background: 'transparent',
+          border: 'none',
+          borderTopStyle: 'solid',
+          borderTopWidth: 1,
+          borderTopColor: 'rgba(255, 255, 255, 0.04)',
+          cursor: 'pointer',
           position: 'relative',
           zIndex: 2,
+          width: '100%',
         }}
       >
-        <Link
-          href="/"
-          onClick={closeDrawerIfMobile}
-          className={styles.sidebarItem}
+        {/* Green status dot */}
+        <span
+          style={{
+            width: 6,
+            height: 6,
+            borderRadius: '50%',
+            background: '#5D9B78',
+            flexShrink: 0,
+          }}
+        />
+        <span
           style={{
             fontFamily: 'var(--cp-font-mono)',
-            fontSize: 10,
-            color: 'var(--cp-sidebar-text-faint)',
-            textDecoration: 'none',
-            letterSpacing: '0.05em',
-            padding: '4px 0',
+            fontWeight: 500,
+            fontSize: 10.5,
+            letterSpacing: '0.1em',
+            textTransform: 'uppercase' as const,
+            color: '#5D9B78',
           }}
         >
-          <SidebarIcon name="arrow-left" />
-          travisgilbert.me
-        </Link>
-      </div>
+          Engine
+        </span>
+        <span
+          style={{
+            marginLeft: 'auto',
+            fontFamily: 'var(--cp-font-mono)',
+            fontWeight: 500,
+            fontSize: 10.5,
+            color: '#50525A',
+          }}
+        >
+          {/* Event count placeholder */}
+        </span>
+      </button>
     </>
   );
-
-  /* ── Collapsed 48px icon rail (desktop, compose mode) ── */
-  if (!isMobile && sidebarCollapsed) {
-    const railItems: Array<
-      | { key: string; icon: string; label: string; section: string; accentColor?: string; onClick: (e: React.MouseEvent) => void }
-      | { key: string; divider: true }
-    > = [
-      { key: 'library', icon: 'grid', label: 'Library', section: 'capture', accentColor: activeScreen === 'library' ? LABEL_ACCENT['Library'] : undefined, onClick: () => navigateToScreen('library') },
-      { key: 'models', icon: 'cube-scan', label: 'Models', section: 'capture', accentColor: activeScreen === 'models' ? LABEL_ACCENT['Models'] : undefined, onClick: () => navigateToScreen('models') },
-      { key: 'compose', icon: 'note-pencil', label: 'Compose', section: 'capture', accentColor: findLeafWithView(layout, 'compose') ? LABEL_ACCENT['Compose'] : undefined, onClick: (e) => launchView('compose', undefined, e.shiftKey) },
-      { key: 'timeline', icon: 'timeline', label: 'Timeline', section: 'views', accentColor: findLeafWithView(layout, 'timeline') ? LABEL_ACCENT['Timeline'] : undefined, onClick: (e) => launchView('timeline', undefined, e.shiftKey) },
-      { key: 'map', icon: 'graph', label: 'Map', section: 'views', accentColor: findLeafWithView(layout, 'network') ? LABEL_ACCENT['Map'] : undefined, onClick: (e) => launchView('network', undefined, e.shiftKey) },
-      { key: 'calendar', icon: 'calendar', label: 'Calendar', section: 'views', accentColor: findLeafWithView(layout, 'calendar') ? LABEL_ACCENT['Calendar'] : undefined, onClick: (e) => launchView('calendar', undefined, e.shiftKey) },
-      { key: 'loose-ends', icon: 'scatter', label: 'Loose Ends', section: 'views', accentColor: findLeafWithView(layout, 'loose-ends') ? LABEL_ACCENT['Loose Ends'] : undefined, onClick: (e) => launchView('loose-ends', undefined, e.shiftKey) },
-      { key: 'divider-1', divider: true },
-      { key: 'notebooks', icon: 'book', label: 'Notebooks', section: 'work', onClick: () => navigateToScreen('notebooks') },
-      { key: 'projects', icon: 'briefcase', label: 'Projects', section: 'work', onClick: () => navigateToScreen('projects') },
-      { key: 'divider-2', divider: true },
-      { key: 'engine', icon: 'engine', label: 'Engine', section: 'system', accentColor: activeScreen === 'engine' ? LABEL_ACCENT['Connection Engine'] : undefined, onClick: () => navigateToScreen('engine') },
-      { key: 'settings', icon: 'gear', label: 'Settings', section: 'system', onClick: () => navigateToScreen('settings') },
-    ];
-    return (
-      <aside
-        style={{
-          width: 48,
-          flexShrink: 0,
-          backgroundColor: 'var(--cp-sidebar)',
-          display: 'flex',
-          flexDirection: 'column',
-          alignItems: 'center',
-          overflowY: 'auto',
-          scrollbarWidth: 'none',
-          height: '100vh',
-          position: 'sticky',
-          top: 0,
-          paddingTop: 12,
-          paddingBottom: 8,
-          gap: 2,
-        }}
-      >
-        <div className={styles.sidebarGlow} aria-hidden="true" />
-        <Link
-          href="/commonplace"
-          title="CommonPlace"
-          style={{
-            fontFamily: 'var(--cp-font-title)',
-            fontSize: 15,
-            fontWeight: 700,
-            color: 'var(--cp-sidebar-text)',
-            textDecoration: 'none',
-            width: 32,
-            height: 32,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            borderRadius: 6,
-            marginBottom: 8,
-            flexShrink: 0,
-            position: 'relative',
-            zIndex: 2,
-          }}
-        >
-          C
-        </Link>
-        {railItems.map((item) => {
-          if ('divider' in item) {
-            return (
-              <div
-                key={item.key}
-                style={{
-                  width: 24,
-                  height: 1,
-                  margin: '4px 0',
-                  background: 'var(--cp-sidebar-border)',
-                  position: 'relative',
-                  zIndex: 2,
-                }}
-              />
-            );
-          }
-
-          return (
-            <RailIconButton
-              key={item.key}
-              icon={item.icon}
-              label={item.label}
-              section={item.section}
-              accentColor={item.accentColor}
-              onClick={item.onClick}
-            />
-          );
-        })}
-        <div style={{ flex: 1 }} />
-        <button
-          type="button"
-          className={styles.railBtn}
-          title="Expand sidebar"
-          aria-label="Expand sidebar"
-          onClick={() => setSidebarCollapsed(false)}
-          style={{ position: 'relative', zIndex: 2 }}
-        >
-          <NavArrowRight width={16} height={16} />
-        </button>
-
-        {/* DropZone must be mounted even when sidebar is collapsed (fixed overlay) */}
-        <DropZone onCapture={handleCapture} />
-      </aside>
-    );
-  }
 
   if (isMobile) {
     return (
@@ -744,9 +594,10 @@ export default function CommonPlaceSidebar() {
     <aside
       className="cp-scrollbar cp-grain cp-grain-sidebar cp-sidebar-desktop"
       style={{
-        width: sidebarWidth,
+        width: 232,
         flexShrink: 0,
         backgroundColor: 'var(--cp-sidebar)',
+        borderRight: '1px solid var(--cp-sidebar-edge)',
         display: 'flex',
         flexDirection: 'column',
         overflowY: 'auto',
@@ -756,91 +607,8 @@ export default function CommonPlaceSidebar() {
         top: 0,
       }}
     >
-      {/* Right-edge resize handle (desktop only) */}
-      <div
-        className={`${styles.sidebarResize}${isDragging ? ` ${styles.sidebarResizeDragging}` : ''}`}
-        onMouseDown={handleResizeStart}
-        aria-hidden="true"
-      />
-      {isBoardActive ? (
-        <>
-          {/* Chrome shell glow */}
-          <div className={styles.sidebarGlow} aria-hidden="true" />
-          <div style={{ display: 'flex', flexDirection: 'column', flex: 1, overflow: 'hidden', position: 'relative', zIndex: 2 }}>
-            <BoardCatalogSidebar
-              objects={boardCatalogObjects}
-              components={boardCatalogComponents}
-              onExitBoard={() => navigateToScreen('library')}
-            />
-          </div>
-          <DropZone onCapture={handleCapture} />
-        </>
-      ) : (
-        sidebarInner
-      )}
+      {sidebarInner}
     </aside>
-  );
-}
-
-/* ─────────────────────────────────────────────────
-   Icon rail button with hover tooltip
-   ───────────────────────────────────────────────── */
-
-function RailIconButton({
-  icon,
-  label,
-  section,
-  accentColor,
-  onClick,
-}: {
-  icon: string;
-  label: string;
-  section?: string;
-  accentColor?: string;
-  onClick: (e: React.MouseEvent) => void;
-}) {
-  const [hovered, setHovered] = useState(false);
-  const { refs, floatingStyles, context } = useFloating({
-    open: hovered,
-    onOpenChange: setHovered,
-    placement: 'right',
-    middleware: [offset(8), shift({ padding: 8 })],
-    whileElementsMounted: autoUpdate,
-  });
-  const hover = useHover(context);
-  const dismiss = useDismiss(context);
-  const role = useRole(context, { role: 'tooltip' });
-  const { getReferenceProps, getFloatingProps } = useInteractions([hover, dismiss, role]);
-  const Icon = RAIL_ICON_COMPONENTS[icon] ?? Activity;
-
-  return (
-    <div style={{ position: 'relative', zIndex: 2 }}>
-      <button
-        ref={refs.setReference}
-        type="button"
-        className={`${styles.railBtn} ${styles.sidebarItem}`}
-        aria-label={label}
-        title={label}
-        data-section={section}
-        data-active={accentColor ? 'true' : undefined}
-        onClick={onClick}
-        {...getReferenceProps()}
-      >
-        <Icon width={16} height={16} />
-      </button>
-      {hovered && (
-        <FloatingPortal>
-          <div
-            ref={refs.setFloating}
-            className={styles.railTooltip}
-            style={floatingStyles}
-            {...getFloatingProps()}
-          >
-            {label}
-          </div>
-        </FloatingPortal>
-      )}
-    </div>
   );
 }
 
@@ -867,26 +635,27 @@ const RAIL_ICON_COMPONENTS: Record<string, ComponentType<{ width?: number; heigh
   'substract': SubstractIcon,
 };
 
-/* Per-section accent colors: shown on the icon when the item is active. */
+/* Per-section accent colors: shown on the icon when the item is active.
+   Updated for the cool-slate sidebar palette per Spec F. */
 const LABEL_ACCENT: Record<string, string> = {
   /* Capture section: terracotta */
-  'Library':            '#B8623D',
-  'Models':             '#B8623D',
-  'Artifacts':          '#B8623D',
-  'Compose':            '#B8623D',
-  /* Views section: teal */
-  'Timeline':           '#2D5F6B',
-  'Map':                '#2D5F6B',
-  'Calendar':           '#2D5F6B',
-  'Loose Ends':         '#2D5F6B',
-  /* Work section: gold */
-  'Notebooks':          '#C49A4A',
-  'Projects':           '#C49A4A',
-  /* System section: purple */
-  'Connection Engine':  '#8B6FA0',
-  'Engine':             '#8B6FA0',
-  'Review Queue':       '#8B6FA0',
-  'Settings':           '#8B6FA0',
+  'Library':            '#C67A4A',
+  'Models':             '#C67A4A',
+  'Artifacts':          '#C67A4A',
+  'Compose':            '#C67A4A',
+  /* Views section: green */
+  'Timeline':           '#5D9B78',
+  'Map':                '#5D9B78',
+  'Calendar':           '#5D9B78',
+  'Loose Ends':         '#5D9B78',
+  /* Work section: slate-blue */
+  'Notebooks':          '#7B8FA0',
+  'Projects':           '#7B8FA0',
+  /* System section: neutral gray */
+  'Connection Engine':  '#6E7078',
+  'Engine':             '#6E7078',
+  'Review Queue':       '#6E7078',
+  'Settings':           '#6E7078',
 };
 
 /* Sidebar icons: Iconoir 24x24 path data, rendered at 16px display size.
@@ -1073,10 +842,6 @@ function SidebarIcon({ name, color }: { name: string; color?: string }) {
     </svg>
   );
 }
-
-/* ─────────────────────────────────────────────────
-   Chevron icon for expandable groups
-   ───────────────────────────────────────────────── */
 
 function ChevronIcon({ open }: { open: boolean }) {
   return (
