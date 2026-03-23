@@ -110,12 +110,134 @@ No new npm dependencies. The page uses only libraries already in the project:
 
 ---
 
+## Animation Choreography (CRITICAL)
+
+The schematic build animation is the visual centerpiece of this page. The user
+should be able to watch each line materialize and read it before the next one
+appears. This is not a fast stagger; it is a deliberate, readable unfold.
+
+### Purpose Test (animation-design)
+
+1. **Relationship**: The build order reveals the architecture's structure.
+   Sections appear first, establishing categories; then rows fill in beneath
+   them, showing what each category contains.
+2. **Orientation**: The top-to-bottom build direction mirrors how someone
+   reads a file tree, reinforcing that this IS a codebase you're looking at.
+
+### Build Sequence for Full-Height Schematics
+
+The build has four phases. Each phase completes before the next begins.
+All timing is from the moment the schematic enters the viewport.
+
+**Phase 1: Container entrance (0ms to 800ms)**
+The entire schematic container fades in and slides up.
+- `opacity: 0 -> 1`, `translateY(40px) -> 0`
+- Duration: 800ms
+- Easing: `cubic-bezier(0.22, 1, 0.36, 1)` (smooth deceleration)
+- Nothing inside is visible yet. The container is a blank space that settles
+  into position.
+
+**Phase 2: Header builds (800ms to 1300ms)**
+After the container has settled, the header materializes:
+- The colored pip slides in from the left (translateX(-8px) -> 0, 400ms)
+- The title text fades in simultaneously (opacity 0 -> 1, 400ms)
+- The subtitle fades in 150ms after the title (opacity 0 -> 1, 300ms)
+- Total phase duration: ~500ms
+
+**Phase 3: Tree rows build, one by one (1300ms onward)**
+This is the main event. Each tree element (section headers and node rows)
+appears sequentially with a 120ms gap between each.
+
+For each **section header**:
+- The colored pip appears (opacity 0 -> 1, 100ms)
+- The label and subtitle fade in (opacity 0 -> 1, 350ms, ease-out)
+- An extra 200ms pause follows before the next element (breathing room
+  between groups). This pause is critical: it separates logical groups
+  visually, so the viewer perceives the architecture's structure.
+
+For each **node row**:
+- The wobble connector SVG draws itself via `stroke-dashoffset` animation:
+  set `stroke-dasharray` to the path length, animate `stroke-dashoffset`
+  from path-length to 0 over 350ms with `ease-out`. The line appears to
+  be drawn from top-left toward the node name.
+- The node name fades in as the connector reaches it (opacity 0 -> 1,
+  `translateX(-6px) -> 0`, 350ms, ease-out). Start 100ms after the
+  connector begins drawing, so there is a slight overlap.
+- The `#` comment text fades in 150ms after the node name starts appearing
+  (opacity 0 -> 1, 300ms, ease-out). This secondary stagger makes the
+  comment feel like an annotation added after the structure, not part of it.
+
+For **[REDACTED] rows** specifically:
+- The connector draws as dashed (stroke-dasharray pattern, not solid)
+- The `[REDACTED]` text appears in dim color
+- The strikethrough comment fades in at lower opacity (0.4 instead of 1)
+- The whole row takes the same timing but feels visually muted
+
+**Phase 4: Footer materializes (last row + 300ms)**
+- 300ms gap after the last tree row finishes
+- Footer left text fades in (opacity 0 -> 0.6, 400ms)
+- Complexity pips fill one by one with 80ms between each (opacity 0 -> 1,
+  scale(0.8) -> scale(1), 200ms each)
+
+### Total build time examples
+
+- Theseus (15 rows + 4 sections): ~1300ms + (19 * 120ms) + (4 * 200ms extra)
+  + 300ms footer = ~4680ms (~4.7 seconds)
+- CommonPlace (10 rows + 3 sections): ~1300ms + (13 * 120ms) + (3 * 200ms)
+  + 300ms footer = ~3760ms (~3.8 seconds)
+- Compliance (5 rows + 2 sections): ~1300ms + (7 * 120ms) + (2 * 200ms)
+  + 300ms footer = ~2640ms (~2.6 seconds)
+
+These durations are intentional. The viewer should have time to read each line
+as it appears. The Theseus schematic in particular should feel like watching
+an engineering document being typed out.
+
+### Connector SVG Stroke Animation (implementation detail)
+
+Each wobble connector SVG path needs:
+```typescript
+// On mount or when becoming visible:
+const pathRef = useRef<SVGPathElement>(null);
+
+useEffect(() => {
+  if (!pathRef.current || !isVisible) return;
+  const length = pathRef.current.getTotalLength();
+  pathRef.current.style.strokeDasharray = `${length}`;
+  pathRef.current.style.strokeDashoffset = `${length}`;
+  // Trigger draw animation after the row's stagger delay
+  requestAnimationFrame(() => {
+    pathRef.current!.style.transition =
+      `stroke-dashoffset 350ms ease-out ${delayMs}ms`;
+    pathRef.current!.style.strokeDashoffset = '0';
+  });
+}, [isVisible, delayMs]);
+```
+
+### Reduced Motion Strategy
+
+When `prefers-reduced-motion: reduce`:
+- Skip all four phases. Everything is visible immediately at full opacity.
+- No stroke-dashoffset animation on connectors.
+- No translateY/translateX on any element.
+- The schematic simply appears, fully formed, when it enters the viewport.
+- This is an **instant cut**, not a reduced-speed version.
+
+### Section fade-ins (non-schematic content)
+
+README and Patent text sections use a simpler reveal:
+- `opacity: 0 -> 1`, `translateY(16px) -> 0`
+- Duration: 500ms, ease
+- Triggered by IntersectionObserver (threshold 0.08, rootMargin `0px 0px -30px 0px`)
+- These are NOT the showcase. Keep them simple so the schematics stand out.
+
+---
+
 ## Build Order
 
 1. Extract `mulberry32` + `wobblePath` to shared util
 2. Create data file + page shell + surface wrappers
 3. Create `PatentMazeBackground` + `ReadmeHeader`
-4. Create `SchematicTree` + `SchematicInterstitial`
+4. Create `SchematicTree` + `SchematicInterstitial` (with full choreography)
 5. Create `ClaimsList` + `SchematicMini` + remaining sections
 6. Responsive + reduced-motion + final polish
 
@@ -167,175 +289,18 @@ Add the new CSS custom properties listed above to `global.css` inside `:root`.
 Create `src/app/(main)/readme/readme-data.ts` containing ALL content for the
 page. This is the single source of truth. No content strings in components.
 
-The data file exports:
-
-```typescript
-export interface ReadmeBadge {
-  label: string;
-  value: string;
-  color: 'green' | 'teal' | 'terracotta';
-}
-
-export interface SchematicSection {
-  color: 'terracotta' | 'teal' | 'gold' | 'purple' | 'dim';
-  label: string;
-  sub?: string;
-}
-
-export interface SchematicRow {
-  name: string;
-  comment?: string;
-  color: 'terracotta' | 'teal' | 'gold' | 'purple' | 'dim';
-  depth: number;
-}
-
-export interface SchematicData {
-  id: string;
-  title: string;
-  subtitle?: string;
-  accentColor: string;
-  complexityLevel: 1 | 2 | 3 | 4 | 5;
-  sections: SchematicSection[];
-  rows: SchematicRow[];
-  footerLeft: string;
-  footerRight?: string;
-}
-
-export interface ClaimData {
-  number: number;
-  title: string;
-  description: string;
-  stack: string[];
-  schematic: SchematicData;
-  /** URL for project link (GitHub, live site, etc) */
-  url?: string;
-}
-
-export interface PriorArtItem {
-  name: string;
-  note: string;
-}
-
-export interface LimitationItem {
-  label: string;
-  description: string;
-}
-
-// Exports:
-export const BADGES: ReadmeBadge[];
-export const TAGLINE: string;
-export const ABSTRACT_PARAGRAPHS: string[];
-export const DESCRIPTION_PARAGRAPHS: { text: string; muted?: boolean }[];
-export const HOW_I_THINK_PARAGRAPHS: { text: string; muted?: boolean }[];
-
-// Five showcase schematics (full-height interstitials)
-export const SHOWCASE_SCHEMATICS: SchematicData[];
-
-// All claims (includes the 5 showcases + additional)
-export const CLAIMS: ClaimData[];
-
-export const PRIOR_ART: PriorArtItem[];
-export const LIMITATIONS: LimitationItem[];
-export const LOOKING_FOR_PARAGRAPHS: { text: string; muted?: boolean }[];
-```
-
-**Content for the data file:**
-
-#### Badges
-```
-build: passing (green)
-subscribers: 30k (teal)
-status: building in public (terracotta)
-videos: 70+ (teal)
-```
-
-#### Tagline
-"Writer, researcher, self-taught developer. I build tools that think about
-information and I make videos about whatever makes me curious."
-
-Sub-line (dim): "I don't have a computer science degree. I do have projects."
-
-#### Abstract (patent register)
-3 paragraphs. See Content: Patent Abstract section below.
-
-#### Five showcase schematics (complex to simple)
-
-**1. Theseus Engine** (5/5 complexity)
-See Content: Theseus Schematic section below for full tree with redactions.
-
-**2. Index-API** (4/5 complexity)
-Sections: APPS (Django + DRF), EPISTEMIC, INFRA
-Rows: commonplace/ # core models, connections/ # edge manager,
-claims # extracted assertions, epistemic_models # belief structures,
-questions # open threads, tensions # stored contradictions,
-pgvector # semantic search, PostGIS # geographic queries,
-Redis / RQ # task queues
-Footer: "Railway, PostgreSQL"
-
-**3. CommonPlace** (4/5 complexity)
-Sections: FRONTEND (Next.js + React 19), API (Index-API), DESIGN
-Rows: Library/ # cluster cards + D3 graphs, ObjectRenderer/ # polymorphic by type,
-Compose/ # authoring + engine terminal, Sidebar/ # Cmd+K + Resurface,
-objects/ # notes sources hunches, connections/ # Theseus-generated edges,
-epistemic/ # models claims tensions,
-rough.js # hand-drawn elements, D3 force # cluster visualization,
-DotGrid # spring-physics canvas
-Footer: "Tailwind v4, Vercel + Railway"
-
-**4. Compliance.Thelandbank.org** (2/5 complexity)
-Sections: DJANGO, INTEGRATION
-Rows: compliance/ # tracking engine, models.py # 2K+ homes,
-views.py # SOP automation, filemaker/ # fixed connection, postgresql
-Footer: "7 steps to 4 buttons"
-
-**5. Codex Plugins: Epistemic ML** (4/5 complexity)
-Sections: TWO-SURFACE ARCHITECTURE, EPISTEMIC LAYER, PLUGINS (11 specialists)
-Rows: chat_skills/ # planning surface, claude_code/ # implementation surface,
-knowledge/ # claims.jsonl + tensions, confidence # Bayesian updating,
-session_log/ # per-session observations,
-ml-pro # PyTorch + GNNs, scipy-pro # NLP + graph theory,
-ui-design-pro # 140 claims @ 0.667 conf, django-engine-pro # 111 claims,
-d3-pro # Observable canon, animation-pro # spring physics
-Footer: "Self-improving development tools"
-
-#### 12 Claims (complex to simple)
-
-1. Theseus: Epistemic Intelligence Engine
-2. Index-API: Knowledge Backend
-3. CommonPlace: Knowledge Management Interface
-4. Codex Plugins: Epistemic ML Development Tools
-5. Publishing API: Writing Studio Backend
-6. GitHub-MCP: Custom MCP Server
-7. GCLBA Property Sales Portal
-8. Compliance.Thelandbank.org
-9. Compliance Inspection Tracker
-10. travisgilbert.me
-11. Curious Tangents: YouTube Channel (30K subs, 70+ videos)
-12. Porchfest: Community Music Festival (3,000 people, 30+ acts, 50+ vendors)
-
-Each has a compressed SchematicData for the mini schematic in the third column.
-
-#### Prior Art
-Claude Shannon, Vannevar Bush, Edward Tufte, Jane Jacobs
-
-#### Limitations
-ADHD, OCD, Dyslexia, No CS Degree, Resources
-
-#### What I'm Looking For
-3 paragraphs: "Mentally stimulating work. Reasonable people. Fair compensation."
-Then specifics. Then "If you have something that fits..."
+(See data file type definitions and content descriptions from original spec.
+All content sections remain unchanged.)
 
 ### 1d. Create the page shell
 
 Create `src/app/(main)/readme/page.tsx` as a server component.
-See the page shell structure in the spec body above.
 
 ### 1e. Create surface wrapper components
 
 **ReadmeSection.tsx**: Dark slate wrapper.
 **PatentSection.tsx**: Vellum wrapper with teal grid + maze background.
 **PatentLabel**: Section header with trailing line.
-See full specifications in the spec body above.
 
 ### Verification
 - `npm run build` passes
@@ -354,11 +319,11 @@ See full specifications in the spec body above.
 Client component. Simplified patent maze SVG at 8% opacity.
 Renders WALLS as SVG paths with slight jitter, LABELS as text elements.
 No mouse path, foxing, splatter, or cross-hatching.
-Tinted teal for wall strokes. See full specification above.
+Tinted teal for wall strokes.
 
 ### 2b. ReadmeHeader.tsx
 
-File tab + name + version + tagline + badges. See full specification above.
+File tab + name + version + tagline + badges.
 
 ### Verification
 - `npm run build` passes
@@ -367,29 +332,146 @@ File tab + name + version + tagline + badges. See full specification above.
 
 ---
 
-## Batch 3: Schematic Tree + Interstitials
+## Batch 3: Schematic Tree + Interstitials (Animation-Critical)
 
 ### Read first
+- **The Animation Choreography section above (read it in full before coding)**
 - `src/lib/prng.ts`
-- `src/components/ArchitectureEasterEgg.tsx` (lines 293-386 for ConnectorSVG)
+- `src/components/ArchitectureEasterEgg.tsx` (lines 260-386 for ConnectorSVG
+  depth logic, wobble path seeding, L-shape vs T-shape branching)
 - `src/hooks/usePrefersReducedMotion.ts`
 
 ### 3a. SchematicTree.tsx
 
-Shared tree-notation renderer with full and mini variants.
-Wobble connector SVGs, stagger animation, redacted row styling.
-See full specification above.
+Shared client component that renders a tree-notation architecture schematic.
+This is the core rendering engine used by both `SchematicInterstitial` (full
+height, animated) and `SchematicMini` (compressed, static).
+
+**Props:**
+```typescript
+interface SchematicTreeProps {
+  data: SchematicData;
+  variant: 'full' | 'mini';
+  /** For full variant: whether the schematic is currently visible */
+  isVisible?: boolean;
+  /** For full variant: whether the container entrance has completed */
+  isSettled?: boolean;
+}
+```
+
+**The `isSettled` prop is critical.** The tree rows do NOT begin their stagger
+until `isSettled` is true. This means the container entrance (Phase 1) must
+complete before any rows appear. `SchematicInterstitial` sets `isSettled` to
+true after an 800ms delay following `isVisible` becoming true.
+
+**Rendering logic:**
+
+The tree interleaves section headers and node rows. Each element tracks its
+sequential index in the flat list (0, 1, 2, ...) to compute its stagger delay.
+
+For `variant: 'full'` with `isSettled: true`:
+
+Each element gets a computed delay:
+```typescript
+function computeDelay(flatIndex: number, isSectionHeader: boolean): number {
+  // Base: 120ms per element in sequence
+  let delay = flatIndex * 120;
+  // Section headers add an extra 200ms pause for breathing room
+  // (accumulated for all previous sections)
+  const priorSections = countSectionsBeforeIndex(flatIndex);
+  delay += priorSections * 200;
+  return delay;
+}
+```
+
+**Node row rendering (full variant):**
+```
+[ConnectorSVG] [name text] [# comment text]
+```
+
+- ConnectorSVG: wobble-path SVG using `wobblePath()` from `prng.ts`
+  - Depth indentation: 16px per level (matches Easter egg `DEPTH_WIDTH`)
+  - L-shaped connectors for last-child, T-shaped for others
+  - Vertical continuation lines for non-last ancestors
+  - **Stroke-dashoffset animation**: path draws itself over 350ms ease-out,
+    starting at the element's computed delay
+- Name text: fades in from `opacity: 0; translateX(-6px)` to visible
+  - Duration: 350ms, ease-out
+  - Starts 100ms after the connector begins (overlap creates smoothness)
+- Comment text: fades in from `opacity: 0` to visible
+  - Duration: 300ms, ease-out
+  - Starts 150ms after the name starts (secondary stagger)
+
+**Section header rendering (full variant):**
+- Colored pip: `opacity: 0 -> 1`, 100ms
+- Label: `opacity: 0 -> 1`, 350ms ease-out (starts with pip)
+- Subtitle: `opacity: 0 -> 1`, 300ms ease-out (starts 150ms after label)
+
+**Footer rendering (full variant):**
+- Starts 300ms after the last tree element completes
+- Left text: `opacity: 0 -> 0.6`, 400ms
+- Complexity pips: fill sequentially, 80ms between each, 200ms duration per pip
+
+**For `variant: 'mini'`:**
+All elements are static. No stagger, no stroke animation, no connector SVGs.
+Row height 14px. Name font 8px. See original spec for mini details.
+
+**Redacted rows** (where `name === '[REDACTED]'`):
+- Name renders in dim color
+- Comment gets `text-decoration: line-through`, opacity 0.4
+- Connector draws as dashed pattern (not solid wobble)
+- Same timing as normal rows, just visually muted
 
 ### 3b. SchematicInterstitial.tsx
 
-Full-height scroll container wrapping SchematicTree.
-85vh min-height, IntersectionObserver trigger, fade+slide entrance.
-See full specification above.
+Client component that wraps `SchematicTree` in a full-height scroll-triggered
+container and manages the phased build sequence.
+
+**Props:**
+```typescript
+interface SchematicInterstitialProps {
+  data: SchematicData;
+}
+```
+
+**State machine:**
+```typescript
+type BuildPhase = 'hidden' | 'entering' | 'settled' | 'building';
+
+// hidden -> entering: IntersectionObserver fires (threshold 0.15)
+// entering -> settled: 800ms timer after entering
+// settled -> building: immediate (isSettled passed to SchematicTree)
+```
+
+**Container:**
+- Outer: `min-height: 85vh`, flex centered, transparent background
+- Inner wrapper: `width: 340px` (desktop), `280px` (mobile)
+
+**Phase 1 (entering):**
+- Container transitions from `opacity: 0; translateY(40px)` to
+  `opacity: 1; translateY(0)` over 800ms with
+  `cubic-bezier(0.22, 1, 0.36, 1)`
+- `SchematicTree` receives `isVisible: true, isSettled: false`
+  (tree renders but all rows are hidden)
+
+**Phase 2-4 (settled/building):**
+- After 800ms, state advances to `settled`
+- `SchematicTree` receives `isSettled: true`, which triggers the internal
+  phased build (header, rows, footer) per the choreography above
+
+**Responsive:**
+- Below 800px: `min-height: 70vh`, inner width `280px`
+- Below 480px: `min-height: 60vh`, inner width `260px`
 
 ### Verification
 - `npm run build` passes
-- Five interstitials render and animate on scroll
-- Reduced motion shows all rows immediately
+- Scroll to the Theseus interstitial: container fades in over ~0.8s, then
+  the header builds, then rows build one by one over ~3+ seconds
+- You can READ each row as it appears
+- Connector lines visibly draw themselves
+- Comments appear slightly after their row names
+- Section headers have a visible pause before the next group of rows
+- Reduced motion: everything appears instantly, no animation
 
 ---
 
@@ -399,14 +481,25 @@ See full specification above.
 - `src/app/(main)/readme/readme-data.ts`
 - `src/app/(main)/readme/SchematicTree.tsx`
 
-### 4a-4e: SchematicMini, ClaimsList, PriorArtGrid, LimitationsGrid, InstallBlock
+### 4a. SchematicMini.tsx
 
-See full specifications above.
+Wrapper around `SchematicTree variant="mini"`. Static, no animation.
+Container: `border: 1px solid var(--color-patent-border)`, radius 4px,
+background `rgba(255,255,255,0.2)`, padding 10px 8px.
+
+### 4b. ClaimsList.tsx
+
+12 claims in a 3-column grid: `36px 1fr 180px`.
+Mini schematic in the third column. Responsive: drops to 2-column below 800px.
+
+### 4c-4e. PriorArtGrid, LimitationsGrid, InstallBlock
+
+See original spec for full descriptions. Unchanged.
 
 ### Verification
 - `npm run build` passes
-- Claims section shows 12 claims with mini schematics
-- All sections render correctly
+- Claims show mini schematics (static) alongside descriptions
+- All remaining sections render correctly
 
 ---
 
@@ -417,15 +510,33 @@ See full specifications above.
 - `src/styles/global.css`
 - `src/components/TopNav.tsx`
 
-### 5a-5e: Responsive audit, reduced motion, scroll animations, nav integration, SEO
+### 5a. Responsive audit
 
-See full specifications above.
+Test at: 375px, 430px, 768px, 1024px, 1440px, 1920px.
+
+Key breakpoints:
+- **< 480px**: Name 28px, schematics 260px, claims single-column
+- **< 640px**: Name 32px, version tag on own line, prior art single column
+- **< 800px**: Claims drop mini schematic column, interstitials 280px
+- **>= 1024px**: Full layout, interstitials 340px, claims 3-column
+
+### 5b. Reduced motion (instant cut strategy)
+
+When `prefers-reduced-motion: reduce`:
+- SchematicInterstitial: skip all phases, render fully visible immediately
+- SchematicTree: all rows at full opacity, no transitions, no stroke animation
+- Section fade-ins: disabled
+- No translateY, translateX, or opacity transitions on any element
+
+### 5c. Navigation + SEO
+
+Add "README" to TopNav. Standard metadata on page.tsx.
 
 ### Verification
 - `npm run build` and `npm run lint` pass
-- Page renders at 375px, 430px, 768px, 1024px, 1440px, 1920px
-- Reduced motion works
-- WCAG AA contrast
+- All 6 test widths render correctly
+- Reduced motion verified
+- WCAG AA contrast on both surfaces
 
 ---
 
@@ -459,16 +570,6 @@ See full specifications above.
 | gold | var(--color-gold) | Infrastructure, design, composition |
 | purple | #6B4F7A / #9B84AD | MCP, community projects, plugins |
 | dim | var(--color-readme-text-dim) | Data stores, static files, redacted |
-
-### Animation timing
-
-| Animation | Duration | Easing | Delay pattern |
-|-----------|----------|--------|---------------|
-| Section fade-in | 450ms | ease | None |
-| Schematic entrance | 600ms | cubic-bezier(0.22, 1, 0.36, 1) | None |
-| Tree row stagger | 250ms | ease | +40ms per row |
-| Tree section stagger | 300ms | ease | +40ms per row |
-| Tree footer | 400ms | ease | +150ms after last row |
 
 ---
 
