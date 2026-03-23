@@ -270,8 +270,8 @@ function PipelineSummaryBar({
       gap: 0,
       padding: '10px 12px',
       borderRadius: 8,
-      backgroundColor: 'var(--cp-surface)',
-      border: '1px solid var(--cp-chrome-line)',
+      backgroundColor: 'transparent',
+      border: 'none',
     }}>
       {PIPELINE_STAGES.map((stage, idx) => {
         const isActive = activeStage === stage;
@@ -298,7 +298,7 @@ function PipelineSummaryBar({
                 width: 10,
                 height: 10,
                 borderRadius: '50%',
-                backgroundColor: count > 0 ? 'var(--cp-teal)' : 'var(--cp-chrome-line)',
+                backgroundColor: count > 0 ? 'var(--cp-teal)' : 'var(--cp-text-faint)',
                 border: isActive ? '2px solid var(--cp-text)' : '2px solid transparent',
                 transition: 'all 150ms',
               }} />
@@ -308,7 +308,7 @@ function PipelineSummaryBar({
                 fontFamily: 'var(--cp-font-mono)',
                 textTransform: 'uppercase' as const,
                 letterSpacing: '0.04em',
-                color: isActive ? 'var(--cp-text)' : 'var(--cp-text-faint)',
+                color: isActive ? 'var(--cp-teal-light)' : 'var(--cp-teal)',
               }}>
                 {stage.slice(0, 4)}
               </span>
@@ -316,8 +316,8 @@ function PipelineSummaryBar({
               <span style={{
                 fontSize: 11,
                 fontFamily: 'var(--cp-font-mono)',
-                color: isActive ? 'var(--cp-text)' : 'var(--cp-text-muted)',
-                fontWeight: isActive ? 700 : 400,
+                color: isActive ? 'var(--cp-text)' : 'var(--cp-text)',
+                fontWeight: isActive ? 700 : 500,
               }}>
                 {count}
               </span>
@@ -334,10 +334,10 @@ function PipelineSummaryBar({
             {/* Connector line */}
             {idx < PIPELINE_STAGES.length - 1 && (
               <div style={{
-                height: 1,
+                height: 1.5,
                 flex: 1,
                 minWidth: 8,
-                backgroundColor: 'var(--cp-chrome-line)',
+                backgroundColor: 'var(--cp-text-faint)',
                 alignSelf: 'flex-start',
                 marginTop: 5,
               }} />
@@ -442,7 +442,7 @@ function ArtifactFilterBar({
           );
         })}
 
-        <span style={{ borderLeft: '1px solid var(--cp-chrome-line)', margin: '0 4px' }} />
+        <span style={{ borderLeft: '1px solid var(--cp-border)', margin: '0 4px' }} />
 
         {/* Status filters */}
         {(['all', 'captured', 'parsed', 'extracted', 'failed'] as StatusFilter[]).map((status) => (
@@ -490,7 +490,7 @@ export function StageTrack({
       {PIPELINE_STAGES.map((stage, idx) => {
         const isReached = currentIdx >= idx;
         const isFailed = failed && idx === currentIdx;
-        let dotColor = 'var(--cp-chrome-line)';
+        let dotColor = 'var(--cp-text-ghost)';
         if (isFailed) dotColor = 'var(--cp-red)';
         else if (isReached) dotColor = 'var(--cp-teal)';
 
@@ -510,7 +510,7 @@ export function StageTrack({
               <div style={{
                 width: 10,
                 height: 1,
-                backgroundColor: isReached ? 'var(--cp-teal)' : 'var(--cp-chrome-line)',
+                backgroundColor: isReached ? 'var(--cp-teal)' : 'var(--cp-text-ghost)',
               }} />
             )}
           </div>
@@ -610,7 +610,7 @@ function ArtifactRow({
       style={{
         borderRadius: 6,
         backgroundColor: 'var(--cp-surface)',
-        border: '1px solid var(--cp-chrome-line)',
+        border: '1px solid var(--cp-border)',
         overflow: 'hidden',
       }}
     >
@@ -774,7 +774,7 @@ function ArtifactDetail({
   });
 
   return (
-    <div style={{ padding: '0 14px 14px', borderTop: '1px solid var(--cp-chrome-line)' }}>
+    <div style={{ padding: '0 14px 14px', borderTop: '1px solid var(--cp-border)' }}>
       <div style={{ paddingTop: 12, display: 'flex', flexDirection: 'column', gap: 10 }}>
         {/* Metadata */}
         <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap' }}>
@@ -805,7 +805,7 @@ function ArtifactDetail({
               const isCurrent = idx === currentIdx;
               const isFailed = artifact.ingestion_status === 'failed' && isCurrent;
 
-              let dotColor = 'var(--cp-chrome-line)';
+              let dotColor = 'var(--cp-text-ghost)';
               if (isFailed) dotColor = 'var(--cp-red)';
               else if (isReached) dotColor = 'var(--cp-teal)';
 
@@ -850,7 +850,7 @@ function ArtifactDetail({
             padding: '8px 10px',
             borderRadius: 5,
             backgroundColor: 'var(--cp-chrome-bg)',
-            border: '1px solid var(--cp-chrome-line)',
+            border: '1px solid var(--cp-border)',
             fontStyle: 'italic',
           }}>
             {artifact.raw_text_preview}
@@ -968,7 +968,7 @@ const searchInputStyle: React.CSSProperties = {
   fontFamily: 'var(--cp-font-mono)',
   color: 'var(--cp-text)',
   backgroundColor: 'var(--cp-surface)',
-  border: '1px solid var(--cp-chrome-line)',
+  border: '1px solid var(--cp-border)',
   borderRadius: 6,
   outline: 'none',
   boxSizing: 'border-box' as const,

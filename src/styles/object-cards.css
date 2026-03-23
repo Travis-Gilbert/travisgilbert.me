@@ -12,11 +12,26 @@
   display: block;
   width: 100%;
   text-align: left;
-  background: transparent;
+  background: rgba(242, 236, 224, 0.15);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
   border: none;
   cursor: pointer;
   color: var(--cp-text);
   box-sizing: border-box;
+  transition: background 150ms ease;
+}
+
+/* Scripts: dark terminal background, no blur */
+.cp-obj-script.cp-obj--module {
+  background: var(--cp-term);
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+
+/* Quotes: lighter tint (left-border is the identity) */
+.cp-obj-quote.cp-obj--module {
+  background: rgba(242, 236, 224, 0.10);
 }
 
 /* Per-type color via data attribute */

@@ -82,8 +82,8 @@ export default function ConnectionReviewView() {
           height: 100%;
           overflow-y: auto;
           padding: 24px 16px;
-          font-family: var(--cp-font-body, sans-serif);
-          color: var(--cp-text, #e8e0d4);
+          font-family: var(--cp-font-body);
+          color: var(--cp-text);
         }
         .cr-header {
           max-width: 640px;
@@ -91,15 +91,15 @@ export default function ConnectionReviewView() {
           width: 100%;
         }
         .cr-title {
-          font-family: var(--cp-font-title, serif);
+          font-family: var(--cp-font-title);
           font-size: 20px;
           font-weight: 600;
           margin-bottom: 4px;
-          color: var(--cp-text, #e8e0d4);
+          color: var(--cp-text);
         }
         .cr-subtitle {
           font-size: 13px;
-          color: var(--cp-text-muted, #9a8e82);
+          color: var(--cp-text-muted);
           margin-bottom: 12px;
         }
         .cr-progress-wrap {
@@ -111,7 +111,7 @@ export default function ConnectionReviewView() {
           flex: 1;
           height: 4px;
           border-radius: 2px;
-          background: var(--cp-border, #3a352f);
+          background: var(--cp-border);
           overflow: hidden;
         }
         .cr-progress-fill {
@@ -121,8 +121,8 @@ export default function ConnectionReviewView() {
         }
         .cr-progress-label {
           font-size: 12px;
-          font-family: var(--cp-font-mono, monospace);
-          color: var(--cp-text-faint, #6a6258);
+          font-family: var(--cp-font-mono);
+          color: var(--cp-text-faint);
           white-space: nowrap;
         }
         .cr-training-badge {
@@ -146,8 +146,10 @@ export default function ConnectionReviewView() {
           gap: 8px;
         }
         .cr-card {
-          background: var(--cp-surface, #2a2520);
-          border: 1px solid var(--cp-border, #3a352f);
+          background: rgba(242, 236, 224, 0.20);
+          backdrop-filter: blur(4px);
+          -webkit-backdrop-filter: blur(4px);
+          border: 1px solid var(--cp-border);
           border-radius: 8px;
           padding: 14px 16px;
           transition: opacity 0.2s ease, transform 0.2s ease;
@@ -179,7 +181,7 @@ export default function ConnectionReviewView() {
         .cr-obj-title {
           font-size: 13px;
           font-weight: 500;
-          color: var(--cp-text, #e8e0d4);
+          color: var(--cp-text);
           cursor: pointer;
           white-space: nowrap;
           overflow: hidden;
@@ -187,11 +189,11 @@ export default function ConnectionReviewView() {
         }
         .cr-obj-title:hover {
           text-decoration: underline;
-          color: var(--cp-accent, #c49a4a);
+          color: var(--cp-red);
         }
         .cr-arrow {
           font-size: 11px;
-          color: var(--cp-text-faint, #6a6258);
+          color: var(--cp-text-faint);
           flex-shrink: 0;
         }
         .cr-strength-wrap {
@@ -204,7 +206,7 @@ export default function ConnectionReviewView() {
           width: 48px;
           height: 3px;
           border-radius: 2px;
-          background: var(--cp-border, #3a352f);
+          background: var(--cp-border);
           overflow: hidden;
         }
         .cr-strength-fill {
@@ -213,14 +215,14 @@ export default function ConnectionReviewView() {
         }
         .cr-strength-val {
           font-size: 11px;
-          font-family: var(--cp-font-mono, monospace);
-          color: var(--cp-text-faint, #6a6258);
+          font-family: var(--cp-font-mono);
+          color: var(--cp-text-faint);
           min-width: 28px;
           text-align: right;
         }
         .cr-reason {
           font-size: 12px;
-          color: var(--cp-text-muted, #9a8e82);
+          color: var(--cp-text-muted);
           margin-bottom: 8px;
           line-height: 1.4;
         }
@@ -232,8 +234,8 @@ export default function ConnectionReviewView() {
         }
         .cr-engine {
           font-size: 11px;
-          font-family: var(--cp-font-mono, monospace);
-          color: var(--cp-text-faint, #6a6258);
+          font-family: var(--cp-font-mono);
+          color: var(--cp-text-faint);
         }
         .cr-actions {
           display: flex;
@@ -247,38 +249,38 @@ export default function ConnectionReviewView() {
           font-weight: 500;
           padding: 4px 12px;
           border-radius: 6px;
-          border: 1px solid var(--cp-border, #3a352f);
+          border: 1px solid var(--cp-border);
           background: transparent;
-          color: var(--cp-text-muted, #9a8e82);
+          color: var(--cp-text-muted);
           cursor: pointer;
           transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
         }
         .cr-btn--useful:hover {
           background: rgba(90, 160, 90, 0.12);
-          border-color: rgba(90, 160, 90, 0.3);
-          color: #7ac47a;
+          border-color: rgba(61, 122, 61, 0.4);
+          color: #3D7A3D;
         }
         .cr-btn--not-useful:hover {
           background: rgba(180, 90, 90, 0.12);
-          border-color: rgba(180, 90, 90, 0.3);
-          color: #c47a7a;
+          border-color: rgba(154, 64, 64, 0.4);
+          color: #9A4040;
         }
         .cr-empty {
           max-width: 640px;
           margin: 60px auto;
           text-align: center;
-          color: var(--cp-text-muted, #9a8e82);
+          color: var(--cp-text-muted);
         }
         .cr-empty-icon {
           margin-bottom: 12px;
           opacity: 0.4;
         }
         .cr-empty-title {
-          font-family: var(--cp-font-title, serif);
+          font-family: var(--cp-font-title);
           font-size: 18px;
           font-weight: 600;
           margin-bottom: 6px;
-          color: var(--cp-text, #e8e0d4);
+          color: var(--cp-text);
         }
         .cr-empty-detail {
           font-size: 13px;
@@ -287,19 +289,19 @@ export default function ConnectionReviewView() {
           max-width: 640px;
           margin: 60px auto;
           text-align: center;
-          color: var(--cp-text-muted, #9a8e82);
+          color: var(--cp-text-muted);
           font-size: 13px;
         }
         .cr-error {
           max-width: 640px;
           margin: 40px auto;
           text-align: center;
-          color: var(--cp-red, #c47a7a);
+          color: var(--cp-red);
           font-size: 13px;
         }
         .cr-refetch {
           font-size: 12px;
-          color: var(--cp-accent, #c49a4a);
+          color: var(--cp-red);
           background: none;
           border: none;
           cursor: pointer;

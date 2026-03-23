@@ -35,7 +35,7 @@ function CardCBar({
           width: 28,
           height: 2,
           borderRadius: 1,
-          background: 'var(--cp-border-faint, #ECEAE6)',
+          background: 'var(--cp-border-faint)',
           position: 'relative',
           overflow: 'hidden',
         }}
@@ -56,7 +56,7 @@ function CardCBar({
         style={{
           fontFamily: 'var(--cp-font-mono)',
           fontSize: 7,
-          color: 'var(--cp-text-faint, #68666E)',
+          color: 'var(--cp-text-faint)',
         }}
       >
         {pct}%
@@ -89,7 +89,7 @@ export default function ModelListPane({
           padding: 20,
           fontFamily: 'var(--cp-font-mono)',
           fontSize: 11,
-          color: 'var(--cp-text-faint, #68666E)',
+          color: 'var(--cp-text-faint)',
         }}
       >
         Loading models...
@@ -104,7 +104,7 @@ export default function ModelListPane({
           style={{
             fontFamily: 'var(--cp-font-mono)',
             fontSize: 11,
-            color: 'var(--cp-text-faint, #68666E)',
+            color: 'var(--cp-text-faint)',
             letterSpacing: '0.04em',
             marginBottom: 6,
           }}
@@ -115,7 +115,7 @@ export default function ModelListPane({
           style={{
             fontFamily: 'var(--cp-font-body)',
             fontSize: 12,
-            color: 'var(--cp-text-faint, #68666E)',
+            color: 'var(--cp-text-faint)',
           }}
         >
           Create a model to start structuring your thinking.
@@ -137,7 +137,7 @@ export default function ModelListPane({
       <div
         style={{
           padding: '14px 16px 10px',
-          borderBottom: '1px solid var(--cp-border-faint, #ECEAE6)',
+          borderBottom: '1px solid var(--cp-border-faint)',
           flexShrink: 0,
         }}
       >
@@ -146,7 +146,7 @@ export default function ModelListPane({
             fontFamily: 'var(--cp-font-title)',
             fontSize: 16,
             fontWeight: 600,
-            color: 'var(--cp-text, #18181B)',
+            color: 'var(--cp-text)',
             margin: 0,
           }}
         >
@@ -156,7 +156,7 @@ export default function ModelListPane({
           style={{
             fontFamily: 'var(--cp-font-mono)',
             fontSize: 10,
-            color: 'var(--cp-text-faint, #68666E)',
+            color: 'var(--cp-text-faint)',
             marginTop: 4,
             letterSpacing: '0.04em',
           }}
@@ -207,10 +207,10 @@ export default function ModelListPane({
                 overflow: 'hidden',
                 border: isSelected
                   ? `1px solid ${typeMeta.color}66`
-                  : '1px solid var(--cp-border-faint, #ECEAE6)',
+                  : '1px solid var(--cp-border-faint)',
                 background: isSelected
                   ? `${typeMeta.color}08`
-                  : 'var(--cp-surface, #F8F7F4)',
+                  : 'var(--cp-surface)',
                 cursor: 'pointer',
                 textAlign: 'left',
                 width: '100%',
@@ -232,7 +232,7 @@ export default function ModelListPane({
                     fontFamily: 'var(--cp-font-body)',
                     fontSize: 12,
                     fontWeight: 500,
-                    color: 'var(--cp-text, #18181B)',
+                    color: 'var(--cp-text)',
                     lineHeight: 1.35,
                     marginBottom: 4,
                   }}
