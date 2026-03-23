@@ -148,7 +148,7 @@ export default function TopNav({ navItems }: TopNavProps) {
 
       <div className="relative w-full" style={{ zIndex: 1 }}>
         {/* Header row: site name + utilities */}
-        <div className="flex items-center py-2.5 pb-1.5 px-4">
+        <div className="flex items-center py-1.5 pb-1 px-4">
           {/* Site title (left) */}
           <Link
             href="/"
@@ -174,7 +174,7 @@ export default function TopNav({ navItems }: TopNavProps) {
             {/* Search trigger */}
             <button
               onClick={() => window.dispatchEvent(new Event('open-terminal'))}
-              className="hover:text-terracotta transition-colors px-2 py-1 bg-transparent border-none cursor-pointer min-h-[44px] inline-flex items-center gap-1.5"
+              className="hover:text-terracotta transition-colors px-2 py-0.5 bg-transparent border-none min-h-[36px] inline-flex items-center gap-1.5 cursor-pointer"
               aria-label="Search (Cmd+K)"
               style={{ color: 'var(--color-hero-text-muted)' }}
             >
@@ -242,10 +242,10 @@ export default function TopNav({ navItems }: TopNavProps) {
                 className="nav-tab group relative no-underline uppercase"
                 style={{
                   fontFamily: 'var(--font-code)',
-                  fontSize: 10.5,
+                  fontSize: 11.5,
                   fontWeight: active ? 700 : 600,
                   letterSpacing: '0.06em',
-                  padding: '6px 10px 8px',
+                  padding: '4px 10px 6px',
                   display: 'flex',
                   alignItems: 'center',
                   gap: 5,
@@ -332,10 +332,10 @@ export default function TopNav({ navItems }: TopNavProps) {
                 className="nav-tab nav-tab-readme no-underline uppercase"
                 style={{
                   fontFamily: 'var(--font-code)',
-                  fontSize: 11,
+                  fontSize: 12,
                   fontWeight: 900,
                   letterSpacing: '0.1em',
-                  padding: '6px 10px 8px',
+                  padding: '4px 10px 6px',
                   display: 'flex',
                   alignItems: 'center',
                   borderRadius: '5px 5px 0 0',
