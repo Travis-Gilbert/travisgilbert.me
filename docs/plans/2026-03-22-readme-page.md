@@ -88,6 +88,10 @@ No new npm dependencies. The page uses only libraries already in the project:
 --color-readme-text-muted: #B8AFA5;
 --color-readme-text-dim: #7A746C;
 
+/* Schematic interstitial surface (distinctly darker than README) */
+--color-interstitial-bg: #141416;
+--color-interstitial-border: rgba(240, 235, 228, 0.06);
+
 /* Patent surface (reuse existing vellum tokens if they exist, else add) */
 --color-patent-bg: #F0EBE4;
 --color-patent-text: #2A2420;
@@ -107,6 +111,90 @@ No new npm dependencies. The page uses only libraries already in the project:
 --color-terracotta, --color-teal, --color-gold
 --color-bg (parchment), --color-ink-primary, --color-ink-secondary
 ```
+
+---
+
+## Interstitial Isolation (CRITICAL LAYOUT RULE)
+
+Schematic interstitials MUST read as their own distinct visual events, not as
+extensions of the content sections above or below them. Without explicit
+isolation, they visually merge with adjacent ReadmeSections (same dark
+background) or collide with each other (back-to-back interstitials).
+
+### The problem
+
+The page has three surface types side by side:
+```
+PatentSection  (vellum #F0EBE4)
+Interstitial   (transparent = dark slate leaks through = #1C1C20)
+ReadmeSection  (dark slate #1C1C20)    <-- SAME COLOR, no separation
+Interstitial   (transparent = #1C1C20)  <-- merges with above
+ReadmeSection  (dark slate #1C1C20)    <-- merges with above
+```
+
+Two interstitials back-to-back (Compliance + Codex Plugins after Claims) are
+even worse: two 85vh sections with nothing distinguishing them.
+
+### The fix: three layers of isolation
+
+**1. Own background color.** Interstitials get `--color-interstitial-bg: #141416`,
+which is noticeably darker than the README slate (`#1C1C20`). This creates a
+visible darkening when you scroll from a ReadmeSection into an interstitial.
+The schematic tree notation, rendered in cream and accent colors, floats on
+this darker ground. The effect is similar to a dimmed stage before a spotlight
+comes on.
+
+**2. Top and bottom border lines.** Each interstitial has `border-top` and
+`border-bottom` of `1px solid var(--color-interstitial-border)` (cream at 6%
+opacity). These are faint but visible, creating a "this is a different zone"
+signal. On the vellum-to-interstitial transition (Patent section above), the
+top border reinforces the surface change. On the slate-to-interstitial
+transition (ReadmeSection above), the border + background shift together
+create separation.
+
+**3. Generous internal padding.** Each interstitial has `padding: 80px 0`
+in addition to the `min-height: 85vh` and flex centering. This ensures the
+tree notation never visually touches the border lines, and the border lines
+never visually touch the adjacent section's content. The padding creates
+at least 80px of breathing room on each side.
+
+### Back-to-back interstitials
+
+When two interstitials are adjacent (Compliance + Codex Plugins), they share
+a single border between them (the bottom border of the first doubles as the
+top border of the second). Between them, insert a thin spacer element:
+
+```html
+<div className="interstitial-divider" />
+```
+
+Styled as:
+```css
+.interstitial-divider {
+  height: 1px;
+  background: var(--color-interstitial-border);
+  margin: 0;
+}
+```
+
+This prevents the two interstitials from reading as one giant empty space.
+
+### Transition between surfaces
+
+The page reads as a rhythm of three distinct surfaces:
+
+```
+DARK SLATE    (README: content you read)
+DEEP BLACK    (Interstitial: architecture you watch build)
+WARM VELLUM   (Patent: formal claims you inspect)
+DEEP BLACK    (Interstitial: architecture you watch build)
+DARK SLATE    (README: content you read)
+```
+
+Each transition should be perceptible but not jarring. The background color
+differences are subtle (slate #1C1C20 to deep #141416 is a 5% luminance
+drop), but combined with the border lines and the change in content type
+(prose to animation), the viewer registers "I'm in a different zone."
 
 ---
 
@@ -256,18 +344,10 @@ README and Patent text sections use a simpler reveal:
 
 Create `src/lib/prng.ts`:
 ```typescript
-/**
- * Seeded PRNG (mulberry32) for deterministic animations.
- * Extracted from ArchitectureEasterEgg.tsx for reuse.
- */
 export function mulberry32(seed: number): () => number {
   // Copy exact implementation from ArchitectureEasterEgg.tsx
 }
 
-/**
- * Generate a wobble path between two points.
- * Used for hand-drawn connector SVGs in tree schematics.
- */
 export function wobblePath(
   x1: number, y1: number,
   x2: number, y2: number,
@@ -277,34 +357,65 @@ export function wobblePath(
 }
 ```
 
-Then update `ArchitectureEasterEgg.tsx` to import from `@/lib/prng` instead of
-using its local copies. Verify the Easter egg still works identically.
+Then update `ArchitectureEasterEgg.tsx` to import from `@/lib/prng`.
+Verify the Easter egg still works identically.
 
 ### 1b. Add design tokens
 
 Add the new CSS custom properties listed above to `global.css` inside `:root`.
+This includes the new `--color-interstitial-bg` and `--color-interstitial-border`
+tokens.
 
 ### 1c. Create the data file
 
-Create `src/app/(main)/readme/readme-data.ts` containing ALL content for the
-page. This is the single source of truth. No content strings in components.
-
-(See data file type definitions and content descriptions from original spec.
-All content sections remain unchanged.)
+Create `src/app/(main)/readme/readme-data.ts` with ALL content.
+(See data file type definitions and content descriptions from original spec.)
 
 ### 1d. Create the page shell
 
 Create `src/app/(main)/readme/page.tsx` as a server component.
 
+**CRITICAL: Page shell must include interstitial-divider elements between
+back-to-back interstitials.**
+
+```tsx
+{/* Claims (patent) */}
+<PatentSection>
+  <PatentLabel>Claims</PatentLabel>
+  <h2>What is Claimed is:</h2>
+  <ClaimsList claims={CLAIMS} />
+</PatentSection>
+
+{/* Schematic interstitial: Compliance */}
+<SchematicInterstitial data={SHOWCASE_SCHEMATICS[3]} />
+
+{/* Divider between back-to-back interstitials */}
+<div className="interstitial-divider" />
+
+{/* Schematic interstitial: Codex Plugins */}
+<SchematicInterstitial data={SHOWCASE_SCHEMATICS[4]} />
+```
+
 ### 1e. Create surface wrapper components
 
-**ReadmeSection.tsx**: Dark slate wrapper.
+**ReadmeSection.tsx**: Dark slate wrapper (`--color-readme-bg`).
+
 **PatentSection.tsx**: Vellum wrapper with teal grid + maze background.
+
+**SchematicInterstitial wrapper styling** (applied in SchematicInterstitial.tsx):
+- `background: var(--color-interstitial-bg)` (deep black #141416)
+- `border-top: 1px solid var(--color-interstitial-border)`
+- `border-bottom: 1px solid var(--color-interstitial-border)`
+- `padding: 80px 0` in addition to flex centering and min-height
+
 **PatentLabel**: Section header with trailing line.
 
 ### Verification
 - `npm run build` passes
-- Page renders at `/readme` with alternating dark/light sections
+- Page renders at `/readme` with three visually distinct surface types
+- Interstitials are noticeably darker than README sections
+- Faint border lines visible at interstitial boundaries
+- Back-to-back interstitials have a divider between them
 
 ---
 
@@ -336,6 +447,7 @@ File tab + name + version + tagline + badges.
 
 ### Read first
 - **The Animation Choreography section above (read it in full before coding)**
+- **The Interstitial Isolation section above (read it in full before coding)**
 - `src/lib/prng.ts`
 - `src/components/ArchitectureEasterEgg.tsx` (lines 260-386 for ConnectorSVG
   depth logic, wobble path seeding, L-shape vs T-shape branching)
@@ -343,135 +455,69 @@ File tab + name + version + tagline + badges.
 
 ### 3a. SchematicTree.tsx
 
-Shared client component that renders a tree-notation architecture schematic.
-This is the core rendering engine used by both `SchematicInterstitial` (full
-height, animated) and `SchematicMini` (compressed, static).
+Shared client component. Core rendering engine for both full and mini variants.
 
 **Props:**
 ```typescript
 interface SchematicTreeProps {
   data: SchematicData;
   variant: 'full' | 'mini';
-  /** For full variant: whether the schematic is currently visible */
   isVisible?: boolean;
-  /** For full variant: whether the container entrance has completed */
   isSettled?: boolean;
 }
 ```
 
-**The `isSettled` prop is critical.** The tree rows do NOT begin their stagger
-until `isSettled` is true. This means the container entrance (Phase 1) must
-complete before any rows appear. `SchematicInterstitial` sets `isSettled` to
-true after an 800ms delay following `isVisible` becoming true.
+The `isSettled` prop is critical. Tree rows do NOT begin stagger until
+`isSettled` is true. Container entrance (Phase 1) must complete first.
 
-**Rendering logic:**
-
-The tree interleaves section headers and node rows. Each element tracks its
-sequential index in the flat list (0, 1, 2, ...) to compute its stagger delay.
-
-For `variant: 'full'` with `isSettled: true`:
-
-Each element gets a computed delay:
-```typescript
-function computeDelay(flatIndex: number, isSectionHeader: boolean): number {
-  // Base: 120ms per element in sequence
-  let delay = flatIndex * 120;
-  // Section headers add an extra 200ms pause for breathing room
-  // (accumulated for all previous sections)
-  const priorSections = countSectionsBeforeIndex(flatIndex);
-  delay += priorSections * 200;
-  return delay;
-}
-```
-
-**Node row rendering (full variant):**
-```
-[ConnectorSVG] [name text] [# comment text]
-```
-
-- ConnectorSVG: wobble-path SVG using `wobblePath()` from `prng.ts`
-  - Depth indentation: 16px per level (matches Easter egg `DEPTH_WIDTH`)
-  - L-shaped connectors for last-child, T-shaped for others
-  - Vertical continuation lines for non-last ancestors
-  - **Stroke-dashoffset animation**: path draws itself over 350ms ease-out,
-    starting at the element's computed delay
-- Name text: fades in from `opacity: 0; translateX(-6px)` to visible
-  - Duration: 350ms, ease-out
-  - Starts 100ms after the connector begins (overlap creates smoothness)
-- Comment text: fades in from `opacity: 0` to visible
-  - Duration: 300ms, ease-out
-  - Starts 150ms after the name starts (secondary stagger)
-
-**Section header rendering (full variant):**
-- Colored pip: `opacity: 0 -> 1`, 100ms
-- Label: `opacity: 0 -> 1`, 350ms ease-out (starts with pip)
-- Subtitle: `opacity: 0 -> 1`, 300ms ease-out (starts 150ms after label)
-
-**Footer rendering (full variant):**
-- Starts 300ms after the last tree element completes
-- Left text: `opacity: 0 -> 0.6`, 400ms
-- Complexity pips: fill sequentially, 80ms between each, 200ms duration per pip
-
-**For `variant: 'mini'`:**
-All elements are static. No stagger, no stroke animation, no connector SVGs.
-Row height 14px. Name font 8px. See original spec for mini details.
-
-**Redacted rows** (where `name === '[REDACTED]'`):
-- Name renders in dim color
-- Comment gets `text-decoration: line-through`, opacity 0.4
-- Connector draws as dashed pattern (not solid wobble)
-- Same timing as normal rows, just visually muted
+Full implementation details for rendering logic, node rows, section headers,
+footer, redacted rows, and mini variant are specified in the Animation
+Choreography section above. Follow those timings exactly.
 
 ### 3b. SchematicInterstitial.tsx
 
-Client component that wraps `SchematicTree` in a full-height scroll-triggered
-container and manages the phased build sequence.
+Client component wrapping SchematicTree in a full-height container.
 
-**Props:**
-```typescript
-interface SchematicInterstitialProps {
-  data: SchematicData;
+**Container styling (isolation):**
+```css
+.schematic-interstitial {
+  min-height: 85vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 80px 24px;
+  background: var(--color-interstitial-bg);
+  border-top: 1px solid var(--color-interstitial-border);
+  border-bottom: 1px solid var(--color-interstitial-border);
+  position: relative;
 }
 ```
 
-**State machine:**
-```typescript
-type BuildPhase = 'hidden' | 'entering' | 'settled' | 'building';
+The `background`, `border-top`, and `border-bottom` are what prevent the
+interstitial from merging with adjacent sections. Without these, the
+schematic floats on the same dark slate as the README text and the viewer
+cannot tell where content ends and the schematic zone begins.
 
-// hidden -> entering: IntersectionObserver fires (threshold 0.15)
-// entering -> settled: 800ms timer after entering
-// settled -> building: immediate (isSettled passed to SchematicTree)
+**State machine:**
+```
+hidden -> entering (IntersectionObserver, threshold 0.15)
+entering -> settled (800ms timer)
+settled -> building (immediate, isSettled passed to SchematicTree)
 ```
 
-**Container:**
-- Outer: `min-height: 85vh`, flex centered, transparent background
-- Inner wrapper: `width: 340px` (desktop), `280px` (mobile)
-
-**Phase 1 (entering):**
-- Container transitions from `opacity: 0; translateY(40px)` to
-  `opacity: 1; translateY(0)` over 800ms with
-  `cubic-bezier(0.22, 1, 0.36, 1)`
-- `SchematicTree` receives `isVisible: true, isSettled: false`
-  (tree renders but all rows are hidden)
-
-**Phase 2-4 (settled/building):**
-- After 800ms, state advances to `settled`
-- `SchematicTree` receives `isSettled: true`, which triggers the internal
-  phased build (header, rows, footer) per the choreography above
-
 **Responsive:**
-- Below 800px: `min-height: 70vh`, inner width `280px`
-- Below 480px: `min-height: 60vh`, inner width `260px`
+- Below 800px: `min-height: 70vh`, padding `60px 20px`, inner width `280px`
+- Below 480px: `min-height: 60vh`, padding `48px 16px`, inner width `260px`
 
 ### Verification
 - `npm run build` passes
-- Scroll to the Theseus interstitial: container fades in over ~0.8s, then
-  the header builds, then rows build one by one over ~3+ seconds
-- You can READ each row as it appears
-- Connector lines visibly draw themselves
-- Comments appear slightly after their row names
-- Section headers have a visible pause before the next group of rows
-- Reduced motion: everything appears instantly, no animation
+- Interstitials are visually distinct from adjacent sections (darker bg, border lines)
+- Scroll from a ReadmeSection into an interstitial: the background darkens
+  slightly and border lines appear. This is perceptible.
+- Two back-to-back interstitials are separated by the divider element
+- Schematics build with the full 4-phase choreography
+- Connector lines draw themselves
+- Reduced motion: instant cut, everything visible at once
 
 ---
 
@@ -494,11 +540,11 @@ Mini schematic in the third column. Responsive: drops to 2-column below 800px.
 
 ### 4c-4e. PriorArtGrid, LimitationsGrid, InstallBlock
 
-See original spec for full descriptions. Unchanged.
+Unchanged from original spec.
 
 ### Verification
 - `npm run build` passes
-- Claims show mini schematics (static) alongside descriptions
+- Claims show mini schematics alongside descriptions
 - All remaining sections render correctly
 
 ---
@@ -515,28 +561,28 @@ See original spec for full descriptions. Unchanged.
 Test at: 375px, 430px, 768px, 1024px, 1440px, 1920px.
 
 Key breakpoints:
-- **< 480px**: Name 28px, schematics 260px, claims single-column
+- **< 480px**: Name 28px, schematics 260px, claims single-column,
+  interstitial padding 48px
 - **< 640px**: Name 32px, version tag on own line, prior art single column
-- **< 800px**: Claims drop mini schematic column, interstitials 280px
-- **>= 1024px**: Full layout, interstitials 340px, claims 3-column
+- **< 800px**: Claims drop mini schematic column, interstitials 280px,
+  interstitial padding 60px
+- **>= 1024px**: Full layout, interstitials 340px, padding 80px
 
-### 5b. Reduced motion (instant cut strategy)
+### 5b. Reduced motion (instant cut)
 
 When `prefers-reduced-motion: reduce`:
-- SchematicInterstitial: skip all phases, render fully visible immediately
-- SchematicTree: all rows at full opacity, no transitions, no stroke animation
-- Section fade-ins: disabled
-- No translateY, translateX, or opacity transitions on any element
+- All animations disabled. Instant visibility.
 
 ### 5c. Navigation + SEO
 
-Add "README" to TopNav. Standard metadata on page.tsx.
+Add "README" to TopNav. Standard metadata.
 
 ### Verification
 - `npm run build` and `npm run lint` pass
 - All 6 test widths render correctly
+- Three distinct surfaces are visible at every width
 - Reduced motion verified
-- WCAG AA contrast on both surfaces
+- WCAG AA contrast on all three surfaces
 
 ---
 
@@ -570,6 +616,14 @@ Add "README" to TopNav. Standard metadata on page.tsx.
 | gold | var(--color-gold) | Infrastructure, design, composition |
 | purple | #6B4F7A / #9B84AD | MCP, community projects, plugins |
 | dim | var(--color-readme-text-dim) | Data stores, static files, redacted |
+
+### Three-surface system
+
+| Surface | Background | Text | Use |
+|---------|-----------|------|-----|
+| README (dark slate) | #1C1C20 | #F0EBE4 | Personal voice, prose content |
+| Interstitial (deep black) | #141416 | accent colors | Architecture schematics |
+| Patent (warm vellum) | #F0EBE4 | #2A2420 | Formal claims, prior art |
 
 ---
 
