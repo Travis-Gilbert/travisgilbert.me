@@ -2342,6 +2342,23 @@
   height: 100%;
   overflow-y: auto;
   position: relative;
+
+  /* Parchment-context token overrides (not inside cp-pane-content) */
+  --cp-text: #2A2520;
+  --cp-text-muted: #5C554D;
+  --cp-text-faint: #8A8279;
+  --cp-text-ghost: #AEA89F;
+  --cp-color-text: var(--cp-text);
+  --cp-color-text-muted: var(--cp-text-muted);
+  --cp-color-border: rgba(42, 37, 32, 0.12);
+  --cp-color-surface: transparent;
+  --cp-color-accent: var(--cp-red);
+  --cp-border: rgba(42, 37, 32, 0.12);
+  --cp-border-faint: rgba(42, 37, 32, 0.07);
+  --cp-surface: rgba(237, 228, 214, 0.65);
+  --cp-surface-hover: rgba(237, 228, 214, 0.75);
+  --cp-red-soft: rgba(184, 98, 61, 0.08);
+  --cp-red-line: rgba(184, 98, 61, 0.20);
 }
 
 .cp-nb-toolbar {
@@ -2402,6 +2419,9 @@
   gap: 16px;
   padding: 24px 16px 16px;
   align-items: flex-start;
+  background: rgba(242, 236, 224, 0.20);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
 }
 .cp-nb-icon {
   width: 44px;
@@ -2455,7 +2475,7 @@
 .cp-nb-stat-label {
   font-family: var(--cp-font-body, 'IBM Plex Sans', sans-serif);
   font-size: 10px;
-  color: var(--cp-chrome-muted, #7A786F);
+  color: var(--cp-text-faint);
   text-transform: uppercase;
   letter-spacing: 0.06em;
 }
@@ -2464,6 +2484,9 @@
   flex: 1;
   overflow-y: auto;
   padding: 12px 16px;
+  background: rgba(242, 236, 224, 0.15);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
 }
 
 .cp-nb-dropzone {

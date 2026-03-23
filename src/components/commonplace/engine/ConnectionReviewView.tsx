@@ -83,6 +83,19 @@ export default function ConnectionReviewView() {
           overflow-y: auto;
           padding: 24px 16px;
           font-family: var(--cp-font-body);
+
+          /* Parchment-context token overrides (not inside cp-pane-content) */
+          --cp-text: #2A2520;
+          --cp-text-muted: #5C554D;
+          --cp-text-faint: #8A8279;
+          --cp-text-ghost: #AEA89F;
+          --cp-color-text: var(--cp-text);
+          --cp-color-text-muted: var(--cp-text-muted);
+          --cp-border: rgba(42, 37, 32, 0.12);
+          --cp-border-faint: rgba(42, 37, 32, 0.07);
+          --cp-surface: rgba(237, 228, 214, 0.65);
+          --cp-red-soft: rgba(184, 98, 61, 0.08);
+          --cp-red-line: rgba(184, 98, 61, 0.20);
           color: var(--cp-text);
         }
         .cr-header {
