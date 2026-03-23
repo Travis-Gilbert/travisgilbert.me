@@ -117,16 +117,7 @@
   /* Legacy aliases (prevent breaking existing Tailwind classes) */
   --font-heading: var(--font-vollkorn), Georgia, serif;
   --font-display: var(--font-vollkorn), Georgia, serif;
-}
 
-/* ─────────────────────────────────────────────────
-   README Page Tokens
-   Separate from @theme inline because these are
-   referenced via var() in inline styles, not
-   Tailwind utilities.
-   ───────────────────────────────────────────────── */
-
-:root {
   /* README page surfaces */
   --color-readme-bg: #1C1C20;
   --color-readme-bg-soft: #222226;
