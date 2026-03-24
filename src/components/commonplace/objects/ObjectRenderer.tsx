@@ -215,6 +215,9 @@ export default function ObjectRenderer(props: ObjectCardProps) {
       {isDropTarget && pointerInside && (
         <div className="cp-drop-label">Drop to attach component</div>
       )}
+      {dragOver && (
+        <div className="cp-drop-label" style={{ color: 'var(--cp-red, #B8623D)' }}>Pin</div>
+      )}
       {props.object.tag_summary?.badge && (
         <div className="cp-tag-footer">
           <StatusBadge status={props.object.tag_summary.badge} confirmed={props.object.tag_summary.badge_confirmed} />

@@ -99,6 +99,7 @@ function PlacedCard({
   return (
     <div
       data-board-item
+      data-object-id={item.object.id}
       data-selected={isSelected || undefined}
       data-dragging={isDragging || undefined}
       data-connect-target={isConnectTarget || undefined}

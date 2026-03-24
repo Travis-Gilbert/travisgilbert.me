@@ -139,7 +139,7 @@ function ToolboxTile({
     <>
       <motion.div
         className={`${styles.toolboxTile} ${styles.toolboxTileSource}`}
-        style={{ '--comp-color': comp.color } as React.CSSProperties}
+        style={{ '--comp-color': comp.color, pointerEvents: dragging ? 'none' : undefined } as React.CSSProperties}
         drag
         dragSnapToOrigin
         dragElastic={0.15}
