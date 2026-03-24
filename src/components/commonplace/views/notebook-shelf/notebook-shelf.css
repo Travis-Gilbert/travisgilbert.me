@@ -1,0 +1,608 @@
+/* ─────────────────────────────────────────────────
+   Notebook Bookshelf styles.
+   Scoped under .cp-bookshelf-* prefix.
+   ───────────────────────────────────────────────── */
+
+/* ═══ Layout ═══ */
+
+.cp-bookshelf {
+  padding: 48px 32px 80px;
+  max-width: 960px;
+  margin: 0 auto;
+}
+
+.cp-bookshelf-header {
+  margin-bottom: 56px;
+}
+
+.cp-bookshelf-header h2 {
+  font-family: var(--font-title, Vollkorn, serif);
+  font-size: 32px;
+  font-weight: 500;
+  color: var(--cp-text);
+  letter-spacing: -0.01em;
+  margin: 0 0 6px;
+}
+
+.cp-bookshelf-header span {
+  font-family: var(--cp-font-mono, 'Courier Prime', monospace);
+  font-size: 12px;
+  color: var(--cp-text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+}
+
+/* ═══ Section labels ═══ */
+
+.cp-bookshelf-section-label {
+  font-family: var(--cp-font-mono, 'Courier Prime', monospace);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.16em;
+  color: var(--cp-text-faint);
+  opacity: 0.45;
+  margin-bottom: 28px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.cp-bookshelf-section-label::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: linear-gradient(90deg, rgba(155, 143, 160, 0.12) 0%, transparent 100%);
+}
+
+/* ═══ Shared cover elements ═══ */
+
+.cp-bookshelf-cover-title {
+  font-family: var(--font-title, Vollkorn, serif);
+  font-weight: 600;
+  line-height: 1.35;
+  color: rgba(255, 255, 255, 0.92);
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+}
+
+.cp-bookshelf-cover-footer {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.cp-bookshelf-cover-line {
+  height: 1px;
+  background: rgba(255, 255, 255, 0.25);
+}
+
+.cp-bookshelf-cover-count {
+  font-family: var(--cp-font-mono, 'Courier Prime', monospace);
+  color: rgba(255, 255, 255, 0.45);
+  letter-spacing: 0.08em;
+}
+
+/* Emboss overlay (shared by both featured and shelf covers) */
+.cp-bookshelf-cover::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    135deg,
+    rgba(255, 255, 255, 0.08) 0%,
+    transparent 40%,
+    transparent 60%,
+    rgba(0, 0, 0, 0.12) 100%
+  );
+  pointer-events: none;
+  border-radius: inherit;
+}
+
+/* ═══════════════════════════════════
+   FEATURED BOOKS (3D angled, large)
+═══════════════════════════════════ */
+
+.cp-bookshelf-featured-section {
+  margin-bottom: 72px;
+}
+
+.cp-bookshelf-featured-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 24px;
+}
+
+.cp-bookshelf-featured-card {
+  cursor: pointer;
+  border-radius: 8px;
+  padding: 28px 20px 24px;
+  transition: background 0.3s ease, transform 0.35s cubic-bezier(0.23, 1, 0.32, 1);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  background: transparent;
+  border: none;
+  text-align: center;
+  color: inherit;
+}
+
+.cp-bookshelf-featured-card:hover {
+  background: rgba(255, 255, 255, 0.025);
+  transform: translateY(-4px);
+}
+
+.cp-bookshelf-featured-card:hover .cp-bookshelf-book-3d-inner {
+  transform: rotateY(-18deg);
+}
+
+/* 3D book mechanics */
+.cp-bookshelf-book-3d {
+  perspective: 600px;
+  flex-shrink: 0;
+  margin-bottom: 20px;
+}
+
+.cp-bookshelf-book-3d-inner {
+  position: relative;
+  transform-style: preserve-3d;
+  transform: rotateY(-25deg);
+  transition: transform 0.5s cubic-bezier(0.23, 1, 0.32, 1);
+}
+
+/* Featured cover dimensions */
+.cp-bookshelf-featured-card .cp-bookshelf-cover {
+  width: 130px;
+  height: 180px;
+  padding: 20px 16px;
+  border-radius: 1px 4px 4px 1px;
+  position: relative;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  box-shadow:
+    4px 4px 16px rgba(0, 0, 0, 0.25),
+    8px 8px 32px rgba(0, 0, 0, 0.5);
+}
+
+.cp-bookshelf-featured-card .cp-bookshelf-cover-title {
+  font-size: 15px;
+}
+
+.cp-bookshelf-featured-card .cp-bookshelf-cover-count {
+  font-size: 10px;
+}
+
+.cp-bookshelf-featured-card .cp-bookshelf-cover-line {
+  width: 28px;
+}
+
+/* Page edges (right side) */
+.cp-bookshelf-book-3d-inner::before {
+  content: '';
+  position: absolute;
+  top: 2%;
+  right: -14px;
+  width: 14px;
+  height: 96%;
+  transform-origin: left center;
+  transform: rotateY(90deg);
+  background: repeating-linear-gradient(
+    180deg,
+    #e8e0d0 0px,
+    #d0c8b8 1px,
+    #e8e0d0 2px
+  );
+  border-radius: 0 1px 1px 0;
+}
+
+/* Back cover */
+.cp-bookshelf-book-3d-inner::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 2px;
+  width: 100%;
+  height: 100%;
+  transform: translateZ(-14px);
+  border-radius: 1px 4px 4px 1px;
+  background: rgba(0, 0, 0, 0.3);
+}
+
+/* Featured metadata */
+.cp-bookshelf-featured-info {
+  text-align: center;
+  max-width: 190px;
+}
+
+.cp-bookshelf-featured-title {
+  font-family: var(--font-title, Vollkorn, serif);
+  font-size: 16px;
+  font-weight: 500;
+  color: var(--cp-text);
+  margin-bottom: 6px;
+  line-height: 1.3;
+}
+
+.cp-bookshelf-featured-meta {
+  font-family: var(--cp-font-mono, 'Courier Prime', monospace);
+  font-size: 11px;
+  color: var(--cp-text-muted);
+  letter-spacing: 0.04em;
+  margin-bottom: 8px;
+}
+
+.cp-bookshelf-featured-desc {
+  font-family: var(--font-body, 'IBM Plex Sans', sans-serif);
+  font-size: 13px;
+  font-weight: 400;
+  color: var(--cp-text-muted);
+  line-height: 1.55;
+}
+
+/* ═══════════════════════════════════
+   SHELF BOOKS (flat, smaller)
+═══════════════════════════════════ */
+
+.cp-bookshelf-section {
+  margin-bottom: 56px;
+}
+
+.cp-bookshelf-grid-container {
+  position: relative;
+  padding-bottom: 14px;
+}
+
+/* Shelf line */
+.cp-bookshelf-grid-container::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: -16px;
+  right: -16px;
+  height: 1px;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    rgba(155, 143, 160, 0.12) 10%,
+    rgba(155, 143, 160, 0.12) 90%,
+    transparent 100%
+  );
+}
+
+/* Shelf shadow */
+.cp-bookshelf-grid-container::before {
+  content: '';
+  position: absolute;
+  bottom: -3px;
+  left: 0;
+  right: 0;
+  height: 6px;
+  background: radial-gradient(ellipse at 50% 0%, rgba(0, 0, 0, 0.1) 0%, transparent 70%);
+  pointer-events: none;
+}
+
+.cp-bookshelf-grid {
+  display: flex;
+  align-items: flex-end;
+  gap: 20px;
+  flex-wrap: wrap;
+}
+
+.cp-bookshelf-shelf-book {
+  cursor: pointer;
+  transition: transform 0.3s cubic-bezier(0.23, 1, 0.32, 1);
+  position: relative;
+  background: none;
+  border: none;
+  padding: 0;
+  color: inherit;
+  text-align: left;
+}
+
+.cp-bookshelf-shelf-book:hover {
+  transform: translateY(-8px);
+  z-index: 10;
+}
+
+.cp-bookshelf-shelf-book:hover .cp-bookshelf-flat-cover {
+  box-shadow:
+    0 10px 28px rgba(0, 0, 0, 0.25),
+    0 4px 12px rgba(0, 0, 0, 0.3);
+}
+
+.cp-bookshelf-shelf-book:hover .cp-bookshelf-tooltip {
+  opacity: 1;
+  transform: translateX(-50%) translateY(0);
+  pointer-events: auto;
+}
+
+/* Flat cover (no 3D) */
+.cp-bookshelf-flat-cover {
+  width: 90px;
+  height: 125px;
+  border-radius: 3px;
+  position: relative;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  padding: 12px 10px;
+  box-shadow:
+    0 2px 8px rgba(0, 0, 0, 0.2),
+    0 4px 16px rgba(0, 0, 0, 0.15);
+  transition: box-shadow 0.3s ease;
+}
+
+/* Flat cover emboss (slightly softer than featured) */
+.cp-bookshelf-flat-cover::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    135deg,
+    rgba(255, 255, 255, 0.06) 0%,
+    transparent 40%,
+    transparent 60%,
+    rgba(0, 0, 0, 0.1) 100%
+  );
+  pointer-events: none;
+  border-radius: inherit;
+}
+
+.cp-bookshelf-flat-cover .cp-bookshelf-cover-title {
+  font-size: 11px;
+  line-height: 1.3;
+}
+
+.cp-bookshelf-flat-cover .cp-bookshelf-cover-line {
+  width: 18px;
+}
+
+.cp-bookshelf-flat-cover .cp-bookshelf-cover-count {
+  font-size: 9px;
+}
+
+/* ═══ Tooltip ═══ */
+
+.cp-bookshelf-tooltip {
+  position: absolute;
+  top: calc(100% + 12px);
+  left: 50%;
+  transform: translateX(-50%) translateY(4px);
+  background: var(--cp-chrome-raise, #2E2A26);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 6px;
+  padding: 10px 14px;
+  white-space: nowrap;
+  opacity: 0;
+  pointer-events: none;
+  transition: all 0.25s cubic-bezier(0.23, 1, 0.32, 1);
+  z-index: 100;
+  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.5);
+  text-align: center;
+}
+
+.cp-bookshelf-tooltip::before {
+  content: '';
+  position: absolute;
+  top: -5px;
+  left: 50%;
+  transform: translateX(-50%) rotate(45deg);
+  width: 8px;
+  height: 8px;
+  background: var(--cp-chrome-raise, #2E2A26);
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+  border-left: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.cp-bookshelf-tooltip-title {
+  font-family: var(--font-title, Vollkorn, serif);
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--cp-text);
+  margin-bottom: 2px;
+}
+
+.cp-bookshelf-tooltip-meta {
+  font-family: var(--cp-font-mono, 'Courier Prime', monospace);
+  font-size: 10px;
+  color: var(--cp-text-muted);
+  letter-spacing: 0.04em;
+}
+
+/* ═══ Add button ═══ */
+
+.cp-bookshelf-add {
+  width: 90px;
+  height: 125px;
+  border: 1.5px dashed rgba(155, 143, 160, 0.12);
+  border-radius: 3px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  background: transparent;
+  padding: 0;
+}
+
+.cp-bookshelf-add:hover {
+  border-color: rgba(155, 143, 160, 0.3);
+  background: rgba(255, 255, 255, 0.015);
+  transform: translateY(-4px);
+}
+
+.cp-bookshelf-add span {
+  font-size: 20px;
+  color: var(--cp-text-faint);
+  opacity: 0.45;
+  transition: color 0.3s ease, opacity 0.3s ease;
+  line-height: 1;
+}
+
+.cp-bookshelf-add:hover span {
+  color: var(--cp-text-muted);
+  opacity: 1;
+}
+
+/* ═══ Loose Ends cover ═══ */
+
+.cp-bookshelf-cover-loose {
+  background: repeating-linear-gradient(
+    -45deg,
+    rgba(46, 42, 52, 1) 0px,
+    rgba(46, 42, 52, 1) 4px,
+    rgba(54, 50, 60, 1) 4px,
+    rgba(54, 50, 60, 1) 8px
+  ) !important;
+  border: 1px dashed rgba(155, 143, 160, 0.15);
+}
+
+.cp-bookshelf-cover-loose .cp-bookshelf-cover-title {
+  font-style: italic;
+  color: rgba(255, 255, 255, 0.4);
+  font-weight: 400;
+}
+
+.cp-bookshelf-cover-loose .cp-bookshelf-cover-count {
+  color: rgba(255, 255, 255, 0.2);
+}
+
+/* ═══ Create form ═══ */
+
+.cp-bookshelf-create-form {
+  padding: 20px;
+  margin-bottom: 24px;
+  border-radius: 8px;
+  background: var(--cp-chrome-raise, #2E2A26);
+  border: 1px solid var(--cp-border-faint);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-width: 320px;
+}
+
+.cp-bookshelf-create-form .cp-bookshelf-create-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.cp-bookshelf-create-form .cp-bookshelf-create-actions {
+  display: flex;
+  gap: 4px;
+}
+
+/* ═══ Loading skeletons ═══ */
+
+.cp-bookshelf-skeleton-featured {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 24px;
+  margin-bottom: 72px;
+}
+
+.cp-bookshelf-skeleton-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 28px 20px 24px;
+}
+
+.cp-bookshelf-skeleton-book {
+  width: 130px;
+  height: 180px;
+  border-radius: 4px;
+  margin-bottom: 20px;
+}
+
+.cp-bookshelf-skeleton-shelf {
+  display: flex;
+  gap: 20px;
+  margin-bottom: 56px;
+}
+
+.cp-bookshelf-skeleton-spine {
+  width: 90px;
+  height: 125px;
+  border-radius: 3px;
+}
+
+/* ═══ RESPONSIVE ═══ */
+
+@media (max-width: 780px) {
+  .cp-bookshelf-featured-grid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 16px;
+  }
+
+  .cp-bookshelf-featured-grid .cp-bookshelf-featured-card:last-child {
+    grid-column: span 2;
+    max-width: 50%;
+    margin: 0 auto;
+  }
+}
+
+@media (max-width: 560px) {
+  .cp-bookshelf {
+    padding: 32px 20px 60px;
+  }
+
+  .cp-bookshelf-featured-grid {
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
+
+  .cp-bookshelf-featured-grid .cp-bookshelf-featured-card:last-child {
+    grid-column: auto;
+    max-width: none;
+  }
+
+  .cp-bookshelf-featured-card {
+    flex-direction: row;
+    align-items: center;
+    gap: 20px;
+    padding: 16px;
+  }
+
+  .cp-bookshelf-featured-card .cp-bookshelf-book-3d {
+    margin-bottom: 0;
+  }
+
+  .cp-bookshelf-featured-card .cp-bookshelf-cover {
+    width: 90px;
+    height: 125px;
+    padding: 14px 11px;
+  }
+
+  .cp-bookshelf-featured-card .cp-bookshelf-cover-title {
+    font-size: 12px;
+  }
+
+  .cp-bookshelf-featured-info {
+    text-align: left;
+  }
+
+  .cp-bookshelf-grid {
+    gap: 14px;
+  }
+
+  .cp-bookshelf-flat-cover {
+    width: 74px;
+    height: 103px;
+    padding: 10px 8px;
+  }
+
+  .cp-bookshelf-flat-cover .cp-bookshelf-cover-title {
+    font-size: 10px;
+  }
+
+  .cp-bookshelf-tooltip {
+    display: none;
+  }
+
+  .cp-bookshelf-add {
+    width: 74px;
+    height: 103px;
+  }
+}
