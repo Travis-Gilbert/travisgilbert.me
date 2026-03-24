@@ -137,6 +137,10 @@
   /* Skeleton tokens */
   --cp-skeleton-base: rgba(237, 228, 214, 0.6);
   --cp-skeleton-shine: rgba(248, 243, 234, 0.5);
+
+  /* RoughBox stroke colors for dark surfaces */
+  --cp-rough-stroke: #4A4A4E;
+  --cp-rough-stroke-accent: rgba(180, 90, 45, 0.4);
 }
 
 /* ─────────────────────────────────────────────────
@@ -185,8 +189,12 @@
   --cp-shadow-sm: 0 1px 3px rgba(42, 37, 32, 0.06);
   --cp-shadow: 0 2px 8px rgba(42, 37, 32, 0.05);
   --cp-shadow-lg: 0 8px 24px rgba(42, 37, 32, 0.08);
+  --cp-shadow-card: 0 2px 8px rgba(42, 37, 32, 0.08), 0 1px 3px rgba(42, 37, 32, 0.05);
+  --cp-shadow-card-hover: 0 6px 20px rgba(42, 37, 32, 0.12), 0 2px 6px rgba(42, 37, 32, 0.06);
   --cp-skeleton-base: rgba(237, 228, 214, 0.6);
   --cp-skeleton-shine: rgba(248, 243, 234, 0.5);
+  --cp-rough-stroke: #4A4A4E;
+  --cp-rough-stroke-accent: rgba(180, 90, 45, 0.4);
 }
 
 /* ─────────────────────────────────────────────────
@@ -375,6 +383,73 @@ select.cp-input {
 }
 
 /* Empty state */
+/* ─────────────────────────────────────────────────
+   Library hero: search wrapper
+   ───────────────────────────────────────────────── */
+
+.cp-search-hero-wrap {
+  position: relative;
+  border-radius: 12px;
+  backdrop-filter: blur(8px);
+  background: rgba(30, 30, 33, 0.6);
+  border: 1px solid rgba(255, 255, 255, 0.04);
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.15);
+  transition: background 250ms ease, border-color 250ms ease, box-shadow 250ms ease;
+  overflow: hidden;
+}
+.cp-search-hero-wrap[data-focused] {
+  background: rgba(34, 34, 37, 0.9);
+  border-color: rgba(180, 90, 45, 0.2);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3), 0 0 0 1px rgba(180, 90, 45, 0.08);
+}
+
+/* ─────────────────────────────────────────────────
+   Library hero: section label anatomy
+   ───────────────────────────────────────────────── */
+
+.cp-library-section-label {
+  font-family: var(--cp-font-mono);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+.cp-library-section-subtitle {
+  font-family: var(--cp-font-body);
+  font-size: 11.5px;
+  font-weight: 300;
+  color: #4A4A4E;
+  margin-top: 2px;
+  margin-bottom: 10px;
+}
+
+/* ─────────────────────────────────────────────────
+   Library hero: type dot with radial halo
+   ───────────────────────────────────────────────── */
+
+.cp-type-halo {
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+.cp-type-halo-dot {
+  border-radius: 50%;
+}
+
+/* ─────────────────────────────────────────────────
+   Library hero: metadata separator
+   ───────────────────────────────────────────────── */
+
+.cp-meta-sep {
+  width: 1px;
+  height: 10px;
+  background: #2a2a2e;
+  margin: 0 8px;
+  flex-shrink: 0;
+}
+
 .cp-empty-state {
   font-family: var(--cp-font-mono);
   font-size: 10px;
@@ -2550,9 +2625,9 @@ select.cp-input {
 }
 .cp-nb-title {
   font-family: var(--font-title, 'Vollkorn', serif);
-  font-size: 22px;
-  font-weight: 600;
-  color: var(--cp-color-text, #F4F3F0);
+  font-size: 25px;
+  font-weight: 800;
+  color: var(--cp-color-text, #2A2520);
   margin: 0 0 4px;
   line-height: 1.25;
 }
@@ -2563,30 +2638,6 @@ select.cp-input {
   margin: 0 0 10px;
   line-height: 1.5;
 }
-.cp-nb-stats {
-  display: flex;
-  gap: 16px;
-  flex-wrap: wrap;
-}
-.cp-nb-stat {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-}
-.cp-nb-stat-value {
-  font-family: var(--cp-font-mono, 'JetBrains Mono', monospace);
-  font-weight: 500;
-  font-size: 14px;
-  color: var(--cp-color-text, #F4F3F0);
-}
-.cp-nb-stat-label {
-  font-family: var(--cp-font-body, 'IBM Plex Sans', sans-serif);
-  font-size: 10px;
-  color: var(--cp-text-faint);
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-}
-
 .cp-nb-tab-content {
   flex: 1;
   overflow-y: auto;
@@ -3426,10 +3477,18 @@ select.cp-input {
 
 .cp-list-view-title {
   font-family: var(--font-title, 'Vollkorn', serif);
-  font-size: 22px;
-  font-weight: 600;
+  font-size: 24px;
+  font-weight: 700;
   color: var(--cp-color-text);
   margin: 0;
+}
+
+/* Vertical stack layout for notebook collection */
+.cp-list-view-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 0 20px 24px;
 }
 
 .cp-list-view-grid {
@@ -5056,6 +5115,7 @@ select.cp-input {
 
 /* Lego composition: pinned badge strip below cards */
 .cp-lego-card-wrapper {
+  position: relative;
   display: flex;
   flex-direction: column;
   gap: 0;
@@ -9004,22 +9064,31 @@ select.cp-input {
 
 /* Drop target feedback for component toolbox drag */
 .cp-object-card--receptive {
-  transition: outline 150ms, background 150ms;
+  transition: outline 150ms, background 150ms, box-shadow 150ms;
+  outline: 1px dashed rgba(45, 95, 107, 0.25);
+  outline-offset: 2px;
 }
 
 .cp-object-card--hover-drop {
   outline: 2px dashed #2D5F6B;
   outline-offset: -2px;
   background: rgba(45, 95, 107, 0.08);
+  box-shadow: 0 0 12px rgba(45, 95, 107, 0.15);
 }
 
 .cp-drop-label {
+  position: absolute;
+  bottom: -18px;
+  left: 50%;
+  transform: translateX(-50%);
   font-family: var(--cp-font-mono);
   font-size: 9px;
   color: #2D5F6B;
   letter-spacing: 0.04em;
   text-transform: uppercase;
-  margin-top: 6px;
+  white-space: nowrap;
+  pointer-events: none;
+  z-index: 5;
 }
 
 /* Absorption glow on component drop */

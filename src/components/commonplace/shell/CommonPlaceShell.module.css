@@ -6,8 +6,9 @@
 .shellRoot {
   position: relative;
   isolation: isolate;
-  /* Background is now the DotGrid canvas (warm parchment + dark gradient) */
-  background: transparent;
+  /* Warm parchment ground: overrides html dark-mode background so the
+     DotGrid canvas (transparent + dots) sits on a light surface. */
+  background: #F5E6D2;
 }
 
 /* Construction grid disabled: DotGrid provides its own dot texture */

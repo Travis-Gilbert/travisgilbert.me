@@ -27,22 +27,23 @@ export const EPISTEMIC_BASE = `${RESEARCH_API}/api/v1`;
 export interface ObjectTypeIdentity {
   slug: string;
   label: string;
+  plural: string;
   color: string;
   icon: string;
 }
 
 export const OBJECT_TYPES: ObjectTypeIdentity[] = [
-  { slug: 'note', label: 'Note', color: '#F5F0E8', icon: 'note-pencil' },
-  { slug: 'source', label: 'Source', color: '#2D5F6B', icon: 'book-open' },
-  { slug: 'person', label: 'Person', color: '#B45A2D', icon: 'person' },
-  { slug: 'place', label: 'Place', color: '#C49A4A', icon: 'map-pin' },
-  { slug: 'organization', label: 'Org', color: '#5A7A4A', icon: 'building' },
-  { slug: 'concept', label: 'Concept', color: '#8B6FA0', icon: 'lightbulb' },
-  { slug: 'quote', label: 'Quote', color: '#C49A4A', icon: 'quote' },
-  { slug: 'hunch', label: 'Hunch', color: '#B06080', icon: 'sparkle' },
-  { slug: 'event', label: 'Event', color: '#4A6A8A', icon: 'calendar' },
-  { slug: 'script', label: 'Script', color: '#6B7A8A', icon: 'code' },
-  { slug: 'task', label: 'Task', color: '#C47A3A', icon: 'check-circle' },
+  { slug: 'note', label: 'Note', plural: 'Notes', color: '#F5F0E8', icon: 'note-pencil' },
+  { slug: 'source', label: 'Source', plural: 'Sources', color: '#2D5F6B', icon: 'book-open' },
+  { slug: 'person', label: 'Person', plural: 'People', color: '#B45A2D', icon: 'person' },
+  { slug: 'place', label: 'Place', plural: 'Places', color: '#C49A4A', icon: 'map-pin' },
+  { slug: 'organization', label: 'Org', plural: 'Orgs', color: '#5A7A4A', icon: 'building' },
+  { slug: 'concept', label: 'Concept', plural: 'Concepts', color: '#8B6FA0', icon: 'lightbulb' },
+  { slug: 'quote', label: 'Quote', plural: 'Quotes', color: '#C49A4A', icon: 'quote' },
+  { slug: 'hunch', label: 'Hunch', plural: 'Hunches', color: '#B06080', icon: 'sparkle' },
+  { slug: 'event', label: 'Event', plural: 'Events', color: '#4A6A8A', icon: 'calendar' },
+  { slug: 'script', label: 'Script', plural: 'Scripts', color: '#6B7A8A', icon: 'code' },
+  { slug: 'task', label: 'Task', plural: 'Tasks', color: '#C47A3A', icon: 'check-circle' },
 ];
 
 export function getObjectTypeIdentity(slug: string): ObjectTypeIdentity {
@@ -50,6 +51,7 @@ export function getObjectTypeIdentity(slug: string): ObjectTypeIdentity {
     OBJECT_TYPES.find((t) => t.slug === slug) ?? {
       slug,
       label: slug,
+      plural: slug,
       color: '#9A8E82',
       icon: 'note-pencil',
     }
@@ -622,12 +624,25 @@ export interface ApiNotebookListItem {
   object_count: number;
 }
 
+export interface NotebookObjectCompact {
+  id: number;
+  title: string;
+  object_type: string;
+  body_preview: string;
+  edge_count: number;
+  captured_at: string;
+  url: string;
+  is_starred: boolean;
+  is_pinned: boolean;
+  status: string;
+}
+
 export interface ApiNotebookDetail extends ApiNotebookListItem {
   engine_config: Record<string, unknown>;
   available_types: string[];
   default_layout: Record<string, unknown> | null;
   theme: Record<string, unknown>;
-  objects: { id: number; title: string; object_type: string }[];
+  objects: NotebookObjectCompact[];
   visibility?: string;
 }
 

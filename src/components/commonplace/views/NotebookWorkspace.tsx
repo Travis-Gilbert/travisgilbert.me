@@ -32,7 +32,7 @@ import type {
   GraphNode,
   GraphLink,
 } from '@/lib/commonplace';
-import { OBJECT_TYPES, getObjectTypeIdentity } from '@/lib/commonplace';
+import { OBJECT_TYPES } from '@/lib/commonplace';
 import {
   INTENSITY_LABELS,
   mapIntensityToConfig,
@@ -44,6 +44,7 @@ import {
 } from '@/lib/commonplace-notebook';
 import ViewSubTabs from '../panes/ViewSubTabs';
 import ScopedTimelinePanel from './ScopedTimelinePanel';
+import NotebookObjectsTab from './notebook/NotebookObjectsTab';
 
 /* Lazy-load KnowledgeMap (canvas component, heavy) */
 const LazyKnowledgeMap = dynamic(() => import('./KnowledgeMap'), {
@@ -231,12 +232,20 @@ export default function NotebookWorkspace({ slug, onOpenObject }: NotebookWorksp
           {notebook.description && (
             <p className="cp-nb-description">{notebook.description}</p>
           )}
-          <div className="cp-nb-stats">
-            <Stat label="objects" value={health?.object_count} />
-            <Stat label="edges" value={health?.edge_count} />
-            <Stat label="density" value={health?.density != null ? (health.density * 100).toFixed(1) + '%' : null} />
-            <Stat label="clusters" value={health?.cluster_count} />
-          </div>
+          {health && (
+            <p
+              style={{
+                fontFamily: 'var(--font-body, IBM Plex Sans, sans-serif)',
+                fontSize: 13,
+                fontWeight: 600,
+                color: 'var(--cp-text-muted)',
+                margin: '2px 0 0',
+                lineHeight: 1.4,
+              }}
+            >
+              {health.object_count} objects connected by {health.edge_count} edges at {(health.density * 100).toFixed(1)}% density across {health.cluster_count} cluster{health.cluster_count !== 1 ? 's' : ''}.
+            </p>
+          )}
         </div>
       </div>
 
@@ -246,7 +255,7 @@ export default function NotebookWorkspace({ slug, onOpenObject }: NotebookWorksp
       {/* ── Tab content ── */}
       <div className="cp-nb-tab-content">
         {activeTab === 'objects' && (
-          <ObjectsTab notebook={notebook} slug={slug} onOpenObject={onOpenObject} />
+          <ObjectsTab notebook={notebook} slug={slug} health={health ?? null} onOpenObject={onOpenObject} />
         )}
         {activeTab === 'graph' && (
           <GraphTab slug={slug} onOpenObject={onOpenObject} />
@@ -278,218 +287,29 @@ export default function NotebookWorkspace({ slug, onOpenObject }: NotebookWorksp
 }
 
 /* ────────────────────────────────────────────────────
-   Stat pill (used in banner)
-   ──────────────────────────────────────────────────── */
-
-function Stat({ label, value }: { label: string; value: number | string | null | undefined }) {
-  return (
-    <div className="cp-nb-stat">
-      <span className="cp-nb-stat-value">{value ?? '...'}</span>
-      <span className="cp-nb-stat-label">{label}</span>
-    </div>
-  );
-}
-
-/* ────────────────────────────────────────────────────
    Objects tab
    ──────────────────────────────────────────────────── */
-
-type ObjectSortKey = 'recent' | 'connected' | 'alpha';
 
 function ObjectsTab({
   notebook,
   slug,
+  health,
   onOpenObject,
 }: {
   notebook: ApiNotebookDetail;
   slug: string;
+  health: ApiNotebookHealth | null;
   onOpenObject?: (objectRef: number, title?: string) => void;
 }) {
-  const [sortBy, setSortBy] = useState<ObjectSortKey>('recent');
-  const [typeFilter, setTypeFilter] = useState<string>('all');
-  const [stripDragOver, setStripDragOver] = useState(false);
-
-  const allTypes = useMemo(() => {
-    const types = new Set(notebook.objects.map((o) => o.object_type));
-    return Array.from(types).sort();
-  }, [notebook.objects]);
-
-  const sortedObjects = useMemo(() => {
-    let list = [...notebook.objects];
-
-    // Filter by type
-    if (typeFilter !== 'all') {
-      list = list.filter((o) => o.object_type === typeFilter);
-    }
-
-    // Sort
-    switch (sortBy) {
-      case 'connected':
-        list.sort((a, b) => ((b as ObjectWithConnections).connection_count ?? 0) - ((a as ObjectWithConnections).connection_count ?? 0));
-        break;
-      case 'alpha':
-        list.sort((a, b) => a.title.localeCompare(b.title));
-        break;
-      default: // 'recent': keep API order (already sorted by recency)
-        break;
-    }
-    return list;
-  }, [notebook.objects, sortBy, typeFilter]);
-
   return (
     <div>
-      {/* Sort and filter controls */}
-      <div style={{
-        display: 'flex',
-        alignItems: 'center',
-        gap: 8,
-        padding: '8px 0',
-        flexWrap: 'wrap',
-      }}>
-        {/* Sort */}
-        <select
-          value={sortBy}
-          onChange={(e) => setSortBy(e.target.value as ObjectSortKey)}
-          style={selectStyle}
-        >
-          <option value="recent">Recent</option>
-          <option value="connected">Most connected</option>
-          <option value="alpha">Alphabetical</option>
-        </select>
-
-        {/* Type filter */}
-        <select
-          value={typeFilter}
-          onChange={(e) => setTypeFilter(e.target.value)}
-          style={selectStyle}
-        >
-          <option value="all">All types</option>
-          {allTypes.map((t) => (
-            <option key={t} value={t}>{getObjectTypeIdentity(t).label}</option>
-          ))}
-        </select>
-      </div>
-
-      {/* Inline drop strip */}
-      <div
-        onDragOver={(e) => { e.preventDefault(); setStripDragOver(true); }}
-        onDragLeave={() => setStripDragOver(false)}
-        onDrop={() => setStripDragOver(false)}
-        style={{
-          height: stripDragOver ? 80 : 40,
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          border: '1px dashed var(--cp-border)',
-          borderRadius: 6,
-          color: 'var(--cp-text-faint)',
-          fontSize: 11,
-          fontFamily: 'var(--cp-font-mono)',
-          background: stripDragOver
-            ? 'color-mix(in srgb, var(--cp-teal) 8%, var(--cp-surface))'
-            : 'transparent',
-          transition: 'height 200ms cubic-bezier(0.34, 1.56, 0.64, 1), background-color 200ms',
-          marginBottom: 8,
-        }}
-      >
-        Drop objects here to add to {notebook.name}
-      </div>
-
-      {/* Object rows */}
-      {sortedObjects.length === 0 ? (
-        <div className="cp-empty-state">
-          No objects in this collection yet.
-          <span className="cp-empty-state-hint">
-            Drag objects here or capture with this notebook selected.
-          </span>
-        </div>
-      ) : (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
-          {sortedObjects.map((obj) => {
-            const typeId = getObjectTypeIdentity(obj.object_type);
-            const connCount = (obj as ObjectWithConnections).connection_count;
-            return (
-              <button
-                key={obj.id}
-                type="button"
-                onClick={() => onOpenObject?.(obj.id, obj.title)}
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: 8,
-                  width: '100%',
-                  padding: '8px 12px',
-                  background: 'none',
-                  border: 'none',
-                  borderRadius: 4,
-                  cursor: 'pointer',
-                  textAlign: 'left',
-                  transition: 'background-color 100ms',
-                }}
-                onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.background = 'var(--cp-surface-hover)'; }}
-                onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.background = 'none'; }}
-              >
-                {/* Type dot */}
-                <span style={{
-                  width: 6,
-                  height: 6,
-                  borderRadius: '50%',
-                  background: typeId.color,
-                  flexShrink: 0,
-                }} />
-
-                {/* Title */}
-                <span style={{
-                  flex: 1,
-                  minWidth: 0,
-                  fontSize: 13,
-                  color: 'var(--cp-text)',
-                  overflow: 'hidden',
-                  textOverflow: 'ellipsis',
-                  whiteSpace: 'nowrap' as const,
-                }}>
-                  {obj.title}
-                </span>
-
-                {/* Connection count */}
-                {connCount != null && connCount > 0 && (
-                  <span style={{
-                    fontSize: 10,
-                    fontFamily: 'var(--cp-font-mono)',
-                    color: 'var(--cp-text-faint)',
-                    flexShrink: 0,
-                  }}>
-                    {connCount}
-                  </span>
-                )}
-              </button>
-            );
-          })}
-        </div>
-      )}
+      <NotebookObjectsTab
+        objects={notebook.objects}
+        onOpenObject={onOpenObject}
+      />
     </div>
   );
 }
-
-/** Extended object type with optional connection_count from API. */
-interface ObjectWithConnections {
-  id: number;
-  title: string;
-  object_type: string;
-  connection_count?: number;
-}
-
-const selectStyle: React.CSSProperties = {
-  padding: '4px 8px',
-  fontSize: 11,
-  fontFamily: 'var(--cp-font-mono)',
-  color: 'var(--cp-text-muted)',
-  background: 'var(--cp-surface)',
-  border: '1px solid var(--cp-border)',
-  borderRadius: 4,
-  cursor: 'pointer',
-  outline: 'none',
-};
 
 /* ────────────────────────────────────────────────────
    Graph tab (scoped KnowledgeMap)

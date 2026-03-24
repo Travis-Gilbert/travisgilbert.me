@@ -64,8 +64,8 @@ export default function CommonPlaceLayout({
         margin: 0,
       }}
     >
-      {/* Site DotGrid: warm parchment with dark gradient on top */}
-      <DotGrid />
+      {/* Site DotGrid: warm parchment (no hero gradient in CommonPlace) */}
+      <DotGrid noGradient />
 
       {/* Ambient red-pencil glow */}
       <div className={shellStyles.ambientGlow} aria-hidden="true" />
