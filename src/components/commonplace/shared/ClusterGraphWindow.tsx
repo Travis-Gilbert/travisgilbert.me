@@ -368,7 +368,7 @@ export default function ClusterGraphWindow({
                   x={pos.x}
                   y={pos.y - 10}
                   textAnchor="middle"
-                  fill="var(--cp-text, #e8e4df)"
+                  fill="var(--cp-text)"
                   fontSize={8}
                   fontFamily="var(--cp-font-mono, monospace)"
                   fontWeight={600}

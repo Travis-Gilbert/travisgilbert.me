@@ -28,8 +28,8 @@ export default function LibraryTypeFilters({
           fontSize: 9.5,
           fontWeight: 500,
           background: active === null ? 'rgba(196,80,60,0.08)' : 'transparent',
-          color: active === null ? '#C4503C' : '#4A4A4E',
-          border: `1px solid ${active === null ? 'rgba(196,80,60,0.18)' : 'rgba(255,255,255,0.04)'}`,
+          color: active === null ? '#C4503C' : '#5C554D',
+          border: `1px solid ${active === null ? 'rgba(196,80,60,0.18)' : 'rgba(0,0,0,0.08)'}`,
           cursor: 'pointer',
           transition: 'all 150ms ease',
         }}
@@ -55,8 +55,8 @@ export default function LibraryTypeFilters({
               fontSize: 9.5,
               fontWeight: 500,
               background: on ? `rgba(${rgb},0.08)` : 'transparent',
-              color: on ? identity.color : '#4A4A4E',
-              border: `1px solid ${on ? `rgba(${rgb},0.18)` : 'rgba(255,255,255,0.04)'}`,
+              color: on ? identity.color : '#5C554D',
+              border: `1px solid ${on ? `rgba(${rgb},0.18)` : 'rgba(0,0,0,0.08)'}`,
               cursor: 'pointer',
               transition: 'all 150ms ease',
             }}

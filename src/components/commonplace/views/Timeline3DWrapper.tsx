@@ -97,9 +97,9 @@ class Timeline3DErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundar
               zIndex: 10,
               fontFamily: 'var(--cp-font-mono, monospace)',
               fontSize: 10,
-              color: 'var(--cp-text-faint, #8A7E72)',
-              background: 'var(--cp-surface, #2A2420)',
-              border: '1px solid var(--cp-border, #3D3530)',
+              color: 'var(--cp-text-faint)',
+              background: 'var(--cp-surface)',
+              border: '1px solid var(--cp-border)',
               borderRadius: 4,
               padding: '4px 8px',
             }}
@@ -303,7 +303,7 @@ export default function Timeline3DWrapper() {
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
-            background: 'var(--cp-surface, #2A2420)',
+            background: 'var(--cp-surface)',
           }}
         >
           <div className="cp-loading-spinner" aria-label="Loading timeline" />

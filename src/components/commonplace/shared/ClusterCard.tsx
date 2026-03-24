@@ -30,7 +30,7 @@ function NodeTooltip({
         left: position.x + 14,
         top: position.y - 10,
         zIndex: 1000,
-        background: 'var(--cp-surface, #2c2c30)',
+        background: 'var(--cp-surface)',
         border: `1px solid ${color}40`,
         borderRadius: 5,
         padding: '6px 10px',

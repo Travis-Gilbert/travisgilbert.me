@@ -130,11 +130,11 @@ export default function Timeline3DExpander({
           <div
             className="commonplace-theme"
             style={{
-              background: 'var(--cp-surface, #2A2420)',
-              border: '1px solid var(--cp-border, #3D3530)',
+              background: 'var(--cp-surface)',
+              border: '1px solid var(--cp-border)',
               borderRadius: 8,
               padding: 16,
-              color: 'var(--cp-text, #E8E0D4)',
+              color: 'var(--cp-text)',
               fontFamily: 'var(--cp-font-body, sans-serif)',
               maxHeight: 300,
               overflowY: 'auto',
@@ -162,7 +162,7 @@ export default function Timeline3DExpander({
                   style={{
                     fontFamily: 'var(--cp-font-mono, monospace)',
                     fontSize: 8,
-                    color: 'var(--cp-text-faint, #8A7E72)',
+                    color: 'var(--cp-text-faint)',
                     letterSpacing: '0.06em',
                   }}
                 >
@@ -190,7 +190,7 @@ export default function Timeline3DExpander({
                 style={{
                   fontSize: 12,
                   lineHeight: 1.5,
-                  color: 'var(--cp-text-muted, #B0A898)',
+                  color: 'var(--cp-text-muted)',
                   margin: '0 0 10px 0',
                 }}
               >
@@ -208,7 +208,7 @@ export default function Timeline3DExpander({
                     fontFamily: 'var(--cp-font-mono, monospace)',
                     fontSize: 8,
                     letterSpacing: '0.08em',
-                    color: 'var(--cp-text-faint, #8A7E72)',
+                    color: 'var(--cp-text-faint)',
                     marginBottom: 4,
                   }}
                 >
@@ -227,9 +227,9 @@ export default function Timeline3DExpander({
                           fontSize: 10,
                           padding: '2px 6px',
                           borderRadius: 3,
-                          border: '1px solid var(--cp-border, #3D3530)',
+                          border: '1px solid var(--cp-border)',
                           background: 'transparent',
-                          color: 'var(--cp-text-muted, #B0A898)',
+                          color: 'var(--cp-text-muted)',
                           cursor: 'pointer',
                           fontFamily: 'var(--cp-font-body, sans-serif)',
                         }}
@@ -254,9 +254,9 @@ export default function Timeline3DExpander({
                   fontSize: 10,
                   padding: '4px 10px',
                   borderRadius: 4,
-                  border: '1px solid var(--cp-border, #3D3530)',
-                  background: 'var(--cp-surface-raised, #332E28)',
-                  color: 'var(--cp-text, #E8E0D4)',
+                  border: '1px solid var(--cp-border)',
+                  background: 'var(--cp-surface-raised)',
+                  color: 'var(--cp-text)',
                   cursor: 'pointer',
                   fontFamily: 'var(--cp-font-mono, monospace)',
                   letterSpacing: '0.04em',
@@ -271,9 +271,9 @@ export default function Timeline3DExpander({
                   fontSize: 10,
                   padding: '4px 10px',
                   borderRadius: 4,
-                  border: '1px solid var(--cp-border, #3D3530)',
+                  border: '1px solid var(--cp-border)',
                   background: 'transparent',
-                  color: 'var(--cp-text-faint, #8A7E72)',
+                  color: 'var(--cp-text-faint)',
                   cursor: 'pointer',
                   fontFamily: 'var(--cp-font-mono, monospace)',
                   letterSpacing: '0.04em',

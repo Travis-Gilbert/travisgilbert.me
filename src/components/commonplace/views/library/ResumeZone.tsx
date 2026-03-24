@@ -126,7 +126,7 @@ function LeftPanel({
           fontFamily: 'var(--cp-font-title)',
           fontSize: 18,
           fontWeight: 700,
-          color: '#E8E4DC',
+          color: '#2A2520',
           margin: '0 0 6px',
           lineHeight: 1.25,
         }}
@@ -141,7 +141,7 @@ function LeftPanel({
             fontFamily: 'var(--cp-font-body)',
             fontSize: 13,
             fontWeight: 300,
-            color: '#7A7670',
+            color: '#5C554D',
             lineHeight: 1.55,
             margin: '0 0 12px',
           }}
@@ -157,7 +157,7 @@ function LeftPanel({
           alignItems: 'center',
           fontFamily: 'var(--cp-font-mono)',
           fontSize: 9.5,
-          color: '#3E3E42',
+          color: '#8A8279',
           marginTop: 'auto',
         }}
       >
@@ -196,7 +196,7 @@ function RightPanel({
     <div
       style={{
         padding: '18px 18px',
-        borderLeft: showDivider ? '1px solid rgba(255,255,255,0.04)' : undefined,
+        borderLeft: showDivider ? '1px solid rgba(0,0,0,0.08)' : undefined,
       }}
     >
       <span
@@ -251,7 +251,7 @@ function RightPanel({
                     fontFamily: 'var(--cp-font-body)',
                     fontSize: 12,
                     fontWeight: 400,
-                    color: '#B0ACA4',
+                    color: '#4A4540',
                     lineHeight: 1.3,
                     overflow: 'hidden',
                     textOverflow: 'ellipsis',
@@ -264,7 +264,7 @@ function RightPanel({
                   style={{
                     fontFamily: 'var(--cp-font-mono)',
                     fontSize: 9,
-                    color: '#4A4A4E',
+                    color: '#8A8279',
                     display: 'flex',
                     gap: 6,
                     marginTop: 1,

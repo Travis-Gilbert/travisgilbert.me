@@ -114,14 +114,14 @@ export default function ThreadChain({
                   border: `1px solid ${
                     isCurrent
                       ? `rgba(${rgb},0.15)`
-                      : 'rgba(255,255,255,0.03)'
+                      : 'rgba(0,0,0,0.05)'
                   }`,
                   transition: 'background 150ms ease',
                   position: 'relative',
                 }}
                 onMouseEnter={(e) => {
                   if (!isCurrent) {
-                    e.currentTarget.style.background = 'rgba(255,255,255,0.02)';
+                    e.currentTarget.style.background = 'rgba(0,0,0,0.02)';
                   }
                 }}
                 onMouseLeave={(e) => {
@@ -180,7 +180,7 @@ export default function ThreadChain({
                     fontFamily: 'var(--cp-font-body)',
                     fontSize: isCurrent ? 12 : 11,
                     fontWeight: isCurrent ? 500 : 400,
-                    color: isCurrent ? '#E8E4DC' : '#6A6660',
+                    color: isCurrent ? '#2A2520' : '#5C554D',
                     lineHeight: 1.3,
                     display: '-webkit-box',
                     WebkitLineClamp: 2,
@@ -197,7 +197,7 @@ export default function ThreadChain({
                     style={{
                       fontFamily: 'var(--cp-font-mono)',
                       fontSize: 9,
-                      color: '#3A3A3E',
+                      color: '#8A8279',
                       marginTop: 4,
                     }}
                   >
@@ -213,7 +213,7 @@ export default function ThreadChain({
                     width: 6,
                     minWidth: 6,
                     height: 1,
-                    background: 'rgba(255,255,255,0.06)',
+                    background: 'rgba(0,0,0,0.08)',
                     flexShrink: 0,
                   }}
                 />

@@ -93,7 +93,7 @@ function ResurfacedCard({
             fontFamily: 'var(--cp-font-body)',
             fontSize: 12.5,
             fontWeight: 500,
-            color: '#D4D0C8',
+            color: '#3A3632',
             lineHeight: 1.35,
             flex: 1,
             display: '-webkit-box',
@@ -126,7 +126,7 @@ function ResurfacedCard({
           fontFamily: 'var(--cp-font-body)',
           fontSize: 11,
           fontWeight: 300,
-          color: '#5A585E',
+          color: '#6A6560',
           lineHeight: 1.45,
         }}
       >

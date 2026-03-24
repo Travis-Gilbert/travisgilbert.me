@@ -392,7 +392,7 @@ select.cp-input {
   border-radius: 12px;
   backdrop-filter: blur(8px);
   background: rgba(30, 30, 33, 0.6);
-  border: 1px solid rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(0, 0, 0, 0.08);
   box-shadow: 0 2px 12px rgba(0, 0, 0, 0.15);
   transition: background 250ms ease, border-color 250ms ease, box-shadow 250ms ease;
   overflow: hidden;
@@ -418,7 +418,7 @@ select.cp-input {
   font-family: var(--cp-font-body);
   font-size: 11.5px;
   font-weight: 300;
-  color: #4A4A4E;
+  color: #6A6560;
   margin-top: 2px;
   margin-bottom: 10px;
 }
@@ -2712,7 +2712,7 @@ select.cp-input {
   align-items: baseline;
   font-family: var(--cp-font-body, 'IBM Plex Sans', sans-serif);
   font-size: 13px;
-  color: var(--cp-color-text, #F4F3F0);
+  color: var(--cp-color-text, #2A2520);
 }
 .cp-nb-slider-semantic {
   font-family: var(--cp-font-mono, 'JetBrains Mono', monospace);
@@ -2774,7 +2774,7 @@ select.cp-input {
   background: transparent;
   font-family: var(--cp-font-body, 'IBM Plex Sans', sans-serif);
   font-size: 12px;
-  color: var(--cp-color-text, #F4F3F0);
+  color: var(--cp-color-text, #2A2520);
   cursor: pointer;
   transition: opacity 0.15s, border-color 0.15s;
 }
@@ -2814,7 +2814,7 @@ select.cp-input {
   font-family: var(--cp-font-body, 'IBM Plex Sans', sans-serif);
   font-size: 13px;
   font-weight: 500;
-  color: var(--cp-color-text, #F4F3F0);
+  color: var(--cp-color-text, #2A2520);
 }
 .cp-nb-module-desc {
   font-family: var(--cp-font-body, 'IBM Plex Sans', sans-serif);
@@ -2948,7 +2948,7 @@ select.cp-input {
 .cp-engine-row-name {
   font-family: var(--cp-font-body, 'IBM Plex Sans', sans-serif);
   font-size: 12px;
-  color: var(--cp-color-text, #F4F3F0);
+  color: var(--cp-color-text, #2A2520);
 }
 .cp-engine-row-source {
   font-family: var(--cp-font-mono, 'JetBrains Mono', monospace);
@@ -3043,7 +3043,7 @@ select.cp-input {
   font-family: var(--cp-font-body, 'IBM Plex Sans', sans-serif);
   font-size: 13px;
   font-weight: 500;
-  color: var(--cp-color-text, #F4F3F0);
+  color: var(--cp-color-text, #2A2520);
   margin-bottom: 2px;
 }
 .cp-nb-visibility-desc {
@@ -3066,7 +3066,7 @@ select.cp-input {
   font-family: var(--cp-font-mono, 'JetBrains Mono', monospace);
   font-weight: 500;
   font-size: 11px;
-  color: var(--cp-color-text, #F4F3F0);
+  color: var(--cp-color-text, #2A2520);
   min-width: 0;
 }
 .cp-nb-share-copy {
@@ -3076,7 +3076,7 @@ select.cp-input {
   background: var(--cp-chrome-raise, #27272C);
   font-family: var(--cp-font-body, 'IBM Plex Sans', sans-serif);
   font-size: 12px;
-  color: var(--cp-color-text, #F4F3F0);
+  color: var(--cp-color-text, #2A2520);
   cursor: pointer;
   white-space: nowrap;
   transition: background 0.1s;
@@ -3118,7 +3118,7 @@ select.cp-input {
   font-family: var(--cp-font-body, 'IBM Plex Sans', sans-serif);
   font-size: 16px;
   font-weight: 600;
-  color: var(--cp-color-text, #F4F3F0);
+  color: var(--cp-color-text, #2A2520);
   margin: 0;
 }
 .cp-temporal-controls {
@@ -3134,7 +3134,7 @@ select.cp-input {
   font-family: var(--cp-font-mono, 'JetBrains Mono', monospace);
   font-weight: 500;
   font-size: 11px;
-  color: var(--cp-color-text, #F4F3F0);
+  color: var(--cp-color-text, #2A2520);
 }
 .cp-temporal-select-label {
   font-family: var(--cp-font-body, 'IBM Plex Sans', sans-serif);
@@ -3193,7 +3193,7 @@ select.cp-input {
 }
 .cp-temporal-table td {
   padding: 6px 10px;
-  color: var(--cp-color-text, #F4F3F0);
+  color: var(--cp-color-text, #2A2520);
   border-bottom: 1px solid rgba(53, 53, 60, 0.4);
 }
 .cp-temporal-table tr:hover td {
@@ -3220,7 +3220,7 @@ select.cp-input {
   font-family: var(--cp-font-mono, 'JetBrains Mono', monospace);
   font-weight: 500;
   font-size: 22px;
-  color: var(--cp-color-text, #F4F3F0);
+  color: var(--cp-color-text, #2A2520);
   line-height: 1.2;
 }
 .cp-temporal-card-label {
@@ -3295,7 +3295,7 @@ select.cp-input {
 .cp-temporal-empty-title {
   font-family: var(--cp-font-body, 'IBM Plex Sans', sans-serif);
   font-size: 14px;
-  color: var(--cp-color-text, #F4F3F0);
+  color: var(--cp-color-text, #2A2520);
   font-weight: 500;
 }
 .cp-temporal-empty-desc {
@@ -4111,7 +4111,7 @@ select.cp-input {
   background: transparent;
   padding: 0;
   font-size: 13px;
-  color: #E8E0D4;
+  color: var(--cp-text, #2A2520);
 }
 
 .cp-editor-wrapper .studio-prose a {

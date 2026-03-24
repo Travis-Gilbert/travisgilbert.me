@@ -153,7 +153,7 @@ function ClusterCard({
             fontFamily: 'var(--cp-font-title)',
             fontSize: 14.5,
             fontWeight: 600,
-            color: '#E8E4DC',
+            color: '#2A2520',
             margin: '0 0 4px',
             lineHeight: 1.3,
           }}
@@ -165,7 +165,7 @@ function ClusterCard({
             fontFamily: 'var(--cp-font-body)',
             fontSize: 11.5,
             fontWeight: 300,
-            color: '#5A585E',
+            color: '#6A6560',
             margin: '0 0 8px',
             lineHeight: 1.45,
           }}
@@ -180,13 +180,13 @@ function ClusterCard({
             alignItems: 'center',
             fontFamily: 'var(--cp-font-mono)',
             fontSize: 9.5,
-            color: '#4A4A4E',
+            color: '#8A8279',
           }}
         >
           <span>{cluster.members.length} objects</span>
-          <span className="cp-meta-sep" style={{ background: 'rgba(255,255,255,0.06)' }} />
+          <span className="cp-meta-sep" style={{ background: 'rgba(0,0,0,0.1)' }} />
           <span>{clusterEdges.length} edges</span>
-          <span className="cp-meta-sep" style={{ background: 'rgba(255,255,255,0.06)' }} />
+          <span className="cp-meta-sep" style={{ background: 'rgba(0,0,0,0.1)' }} />
           <div style={{ display: 'flex', gap: 3 }}>
             {getMemberTypes(cluster, objectTypeMap).map((slug) => (
               <span
@@ -253,7 +253,7 @@ function ClusterCard({
                     style={{
                       fontFamily: 'var(--cp-font-body)',
                       fontSize: 11.5,
-                      color: '#9A9690',
+                      color: '#5C554D',
                     }}
                   >
                     {member.title}

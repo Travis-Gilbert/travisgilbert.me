@@ -369,8 +369,8 @@
   top: calc(100% + 12px);
   left: 50%;
   transform: translateX(-50%) translateY(4px);
-  background: var(--cp-chrome-raise, #2E2A26);
-  border: 1px solid rgba(255, 255, 255, 0.06);
+  background: var(--cp-chrome-raise);
+  border: 1px solid rgba(0, 0, 0, 0.1);
   border-radius: 6px;
   padding: 10px 14px;
   white-space: nowrap;
@@ -390,9 +390,9 @@
   transform: translateX(-50%) rotate(45deg);
   width: 8px;
   height: 8px;
-  background: var(--cp-chrome-raise, #2E2A26);
-  border-top: 1px solid rgba(255, 255, 255, 0.06);
-  border-left: 1px solid rgba(255, 255, 255, 0.06);
+  background: var(--cp-chrome-raise);
+  border-top: 1px solid rgba(0, 0, 0, 0.1);
+  border-left: 1px solid rgba(0, 0, 0, 0.1);
 }
 
 .cp-bookshelf-tooltip-title {
@@ -474,7 +474,7 @@
   padding: 20px;
   margin-bottom: 24px;
   border-radius: 8px;
-  background: var(--cp-chrome-raise, #2E2A26);
+  background: var(--cp-chrome-raise);
   border: 1px solid var(--cp-border-faint);
   display: flex;
   flex-direction: column;
