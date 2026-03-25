@@ -78,18 +78,20 @@ def publish_essay(essay: Essay):
     if result["success"]:
         essay.save(update_fields=["draft", "stage", "updated_at"])
     else:
-        # Roll back in-memory state on failure
         essay.draft, essay.stage = old_draft, old_stage
 
     return log
 
 
 def publish_field_note(note: FieldNote):
-    """Serialize and commit a field note to GitHub."""
-    # Set published state BEFORE serializing.
-    old_draft, old_stage = note.draft, note.stage
+    """Serialize and commit a field note to GitHub.
+
+    Note: FieldNote uses 'status' as its stage field (not 'stage').
+    The serializer reads note.status, so we set that here.
+    """
+    old_draft, old_status = note.draft, note.status
     note.draft = False
-    note.stage = "published"
+    note.status = "published"
 
     markdown = serialize_field_note(note)
     file_path = f"{CONTENT_PATHS['field_note']}/{note.slug}.md"
@@ -99,9 +101,9 @@ def publish_field_note(note: FieldNote):
     log = _log_result("field_note", note.slug, note.title, result)
 
     if result["success"]:
-        note.save(update_fields=["draft", "stage", "updated_at"])
+        note.save(update_fields=["draft", "status", "updated_at"])
     else:
-        note.draft, note.stage = old_draft, old_stage
+        note.draft, note.status = old_draft, old_status
 
     return log
 
@@ -119,7 +121,6 @@ def publish_shelf_entry(entry: ShelfEntry):
 
 def publish_project(project: Project):
     """Serialize and commit a project to GitHub."""
-    # Set published state BEFORE serializing.
     old_draft, old_stage = project.draft, project.stage
     project.draft = False
     project.stage = "published"
