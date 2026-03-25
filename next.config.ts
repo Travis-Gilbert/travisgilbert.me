@@ -1,9 +1,11 @@
 import type { NextConfig } from 'next';
 
-// RESEARCH_API_PROXY_URL: server-only var for the rewrite destination (not exposed to browser).
-// Falls back to NEXT_PUBLIC_RESEARCH_API_URL for backward compat, then to Railway production.
+// INDEX_API_PROXY_URL: server-only var for the rewrite destination (not exposed to browser).
+// Falls back through old names for backward compat, then to Railway production.
 const backendUrl =
+  process.env.INDEX_API_PROXY_URL ||
   process.env.RESEARCH_API_PROXY_URL ||
+  process.env.NEXT_PUBLIC_INDEX_API_URL ||
   process.env.NEXT_PUBLIC_RESEARCH_API_URL ||
   'https://index-api-production-a5f7.up.railway.app';
 

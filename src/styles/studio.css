@@ -146,7 +146,7 @@
   --studio-chrome-teal: #5EC4D6;
   --studio-chrome-gold: #E8C060;
   --studio-chrome-green: #7EC06A;
-  --studio-chrome-purple: #B898CC;
+  --studio-chrome-purple: #C8AADC;
 
   /* Mobile shell */
   --mobile-shell-surface: rgba(43, 53, 68, 0.96);
@@ -287,6 +287,19 @@
 .studio-theme-light .studio-nav-badge {
   background: rgba(184, 78, 30, 0.12);
   color: var(--studio-tc);
+}
+
+/* Light mode: Timeline button sits in dark chrome but uses --studio-dusty-purple
+   which flips to light lavender. Pin it to the dark palette for contrast. */
+.studio-theme-light .studio-nav-item-timeline {
+  background: rgba(46, 33, 49, 0.85);
+  color: #d6c4df;
+  border-color: rgba(138, 106, 154, 0.4);
+}
+
+.studio-theme-light .studio-nav-item-timeline:hover {
+  background: rgba(60, 42, 64, 0.95);
+  color: var(--studio-chrome-text-bright);
 }
 
 /* Sonner toast overrides: match studio tokens */

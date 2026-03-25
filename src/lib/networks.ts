@@ -1,7 +1,7 @@
 /**
  * Networks API client and shared constants.
  *
- * Centralizes the research_api base URL, node type visual identity,
+ * Centralizes the Index API base URL, node type visual identity,
  * and fetch helpers for all Networks components.
  */
 
@@ -10,11 +10,12 @@
    ───────────────────────────────────────────────── */
 
 // Browser: relative URL (rewrite proxy handles it). SSR: use env var if set.
-const RESEARCH_API = typeof window !== 'undefined'
+const INDEX_API = typeof window !== 'undefined'
   ? ''
-  : (process.env.NEXT_PUBLIC_RESEARCH_API_URL ?? '');
+  : (process.env.NEXT_PUBLIC_INDEX_API_URL
+     ?? process.env.NEXT_PUBLIC_RESEARCH_API_URL ?? '');
 
-const API_BASE = `${RESEARCH_API}/api/v1/notebook`;
+const API_BASE = `${INDEX_API}/api/v1/notebook`;
 
 /* ─────────────────────────────────────────────────
    Node type visual identity

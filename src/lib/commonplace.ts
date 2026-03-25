@@ -1,7 +1,7 @@
 /**
  * CommonPlace shared constants, types, and sidebar structure.
  *
- * Centralizes the research_api base URL, object type visual identity,
+ * Centralizes the Index API base URL, object type visual identity,
  * sidebar navigation, capture placeholders, and view registry.
  */
 
@@ -10,14 +10,15 @@
    ───────────────────────────────────────────────── */
 
 // Client-side: always use relative URLs so Next.js rewrite proxy handles routing.
-// The rewrite in next.config.ts reads NEXT_PUBLIC_RESEARCH_API_URL for the actual
+// The rewrite in next.config.ts reads NEXT_PUBLIC_INDEX_API_URL for the actual
 // backend destination. Client code should never build absolute URLs to the backend.
-const RESEARCH_API = typeof window !== 'undefined'
+const INDEX_API = typeof window !== 'undefined'
   ? ''  // browser: relative URL, goes through Next.js rewrite proxy
-  : (process.env.NEXT_PUBLIC_RESEARCH_API_URL ?? '');  // SSR: can use direct URL
+  : (process.env.NEXT_PUBLIC_INDEX_API_URL
+     ?? process.env.NEXT_PUBLIC_RESEARCH_API_URL ?? '');  // SSR: can use direct URL
 
-export const API_BASE = `${RESEARCH_API}/api/v1/notebook`;
-export const EPISTEMIC_BASE = `${RESEARCH_API}/api/v1`;
+export const API_BASE = `${INDEX_API}/api/v1/notebook`;
+export const EPISTEMIC_BASE = `${INDEX_API}/api/v1`;
 
 /* ─────────────────────────────────────────────────
    Object type visual identity

@@ -24,16 +24,21 @@ import {
   THREAD_ENTRY_COLORS,
 } from '@/lib/studio-mock-data';
 import {
-  fetchResearchTrail,
-  ResearchTimeoutError,
+  fetchIndexTrail,
+  IndexApiTimeoutError,
   fetchMentionBacklinks,
   searchCommonplace,
   fetchAllTasks,
   updateTask,
+  submitSourceUrl,
+  uploadSourceFile,
+  pollSourceStatus,
+  fetchSourceboxList,
   type ResearchTrail,
   type MentionBacklink,
   type CommonplaceSearchResult,
   type TaskGroup,
+  type SourceboxSource,
 } from '@/lib/studio-api';
 import {
   Search,
@@ -322,7 +327,8 @@ export default function WorkbenchPanel({
           style={{
             position: 'absolute',
             left: '-28px',
-            top: '12px',
+            top: '50%',
+            transform: 'translateY(-50%)',
             width: '24px',
             height: '24px',
             backgroundColor: 'var(--studio-surface)',
@@ -882,7 +888,7 @@ function LinksMode({
   >([]);
   useEffect(() => {
     let cancelled = false;
-    fetchResearchTrail(slug)
+    fetchIndexTrail(slug)
       .then((data) => {
         if (!cancelled) setSources(data?.sources ?? []);
       })
@@ -913,6 +919,222 @@ function LinksMode({
   );
 }
 
+/* ── Sourcebox polling helper ────────────────── */
+
+async function pollUntilComplete(
+  sourceId: number,
+  onUpdate: (source: SourceboxSource) => void,
+  maxAttempts = 15,
+) {
+  for (let i = 0; i < maxAttempts; i++) {
+    await new Promise(r => setTimeout(r, 2000));
+    try {
+      const updated = await pollSourceStatus(sourceId);
+      onUpdate(updated);
+      if (updated.scrapeStatus !== 'pending') return;
+    } catch {
+      return;
+    }
+  }
+}
+
+/* ── Source intake form ──────────────────────── */
+
+function SourceIntakeForm({
+  onSourceAdded,
+}: {
+  contentSlug: string;
+  onSourceAdded: (source: SourceboxSource) => void;
+}) {
+  const [url, setUrl] = useState('');
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const handleSubmitUrl = async () => {
+    if (!url.trim()) return;
+    setSubmitting(true);
+    setError(null);
+    try {
+      const source = await submitSourceUrl(url.trim());
+      onSourceAdded(source);
+      setUrl('');
+      if (source.scrapeStatus === 'pending') {
+        pollUntilComplete(source.id, onSourceAdded);
+      }
+    } catch {
+      setError('Could not submit URL');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setSubmitting(true);
+    setError(null);
+    try {
+      const source = await uploadSourceFile(file);
+      onSourceAdded(source);
+    } catch {
+      setError('Could not upload file');
+    } finally {
+      setSubmitting(false);
+      if (fileInputRef.current) fileInputRef.current.value = '';
+    }
+  };
+
+  return (
+    <div style={{ marginBottom: '16px' }}>
+      <div style={{ display: 'flex', gap: '4px', marginBottom: '6px' }}>
+        <input
+          type="url"
+          value={url}
+          onChange={(e) => setUrl(e.target.value)}
+          onKeyDown={(e) => { if (e.key === 'Enter') handleSubmitUrl(); }}
+          placeholder="Paste a URL..."
+          disabled={submitting}
+          style={{
+            flex: 1,
+            padding: '5px 8px',
+            fontFamily: 'var(--studio-font-mono)',
+            fontSize: '10px',
+            color: 'var(--studio-text-bright)',
+            backgroundColor: 'var(--studio-surface)',
+            border: '1px solid var(--studio-border)',
+            borderRadius: '3px',
+            outline: 'none',
+          }}
+        />
+        <button
+          type="button"
+          onClick={handleSubmitUrl}
+          disabled={submitting || !url.trim()}
+          style={{
+            padding: '5px 10px',
+            fontFamily: 'var(--studio-font-mono)',
+            fontSize: '9px',
+            fontWeight: 600,
+            letterSpacing: '0.06em',
+            textTransform: 'uppercase',
+            color: 'var(--studio-tc-bright)',
+            backgroundColor: 'transparent',
+            border: '1px solid var(--studio-border-tc)',
+            borderRadius: '3px',
+            cursor: submitting ? 'default' : 'pointer',
+            opacity: submitting || !url.trim() ? 0.5 : 1,
+          }}
+        >
+          {submitting ? '...' : 'Add'}
+        </button>
+      </div>
+
+      <label
+        style={{
+          display: 'block',
+          padding: '6px 0',
+          fontFamily: 'var(--studio-font-mono)',
+          fontSize: '9px',
+          fontWeight: 600,
+          color: 'var(--studio-text-3)',
+          cursor: 'pointer',
+          letterSpacing: '0.04em',
+        }}
+      >
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept=".pdf,application/pdf"
+          onChange={handleFileChange}
+          style={{ display: 'none' }}
+        />
+        + Upload PDF
+      </label>
+
+      {error && (
+        <div style={{
+          fontFamily: 'var(--studio-font-body)',
+          fontSize: '11px',
+          color: '#C04020',
+          marginTop: '4px',
+        }}>
+          {error}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ── Source preview card ─────────────────────── */
+
+function SourcePreviewCard({ source }: { source: SourceboxSource }) {
+  const isPending = source.scrapeStatus === 'pending';
+  return (
+    <div style={{
+      padding: '8px 10px',
+      backgroundColor: 'var(--studio-surface)',
+      borderRadius: '3px',
+      borderLeft: '2px solid var(--studio-gold)',
+    }}>
+      <div style={{
+        display: 'flex',
+        alignItems: 'center',
+        gap: '6px',
+        marginBottom: '3px',
+      }}>
+        {isPending && (
+          <span className="studio-pulse" style={{ width: 4, height: 4 }} />
+        )}
+        <span style={{
+          fontFamily: 'var(--studio-font-mono)',
+          fontSize: '8px',
+          fontWeight: 700,
+          letterSpacing: '0.08em',
+          textTransform: 'uppercase',
+          color: isPending ? 'var(--studio-gold)' : 'var(--studio-green)',
+        }}>
+          {isPending ? 'Scraping...' : source.inputType === 'file' ? 'PDF' : 'URL'}
+        </span>
+      </div>
+      <div style={{
+        fontFamily: 'var(--studio-font-body)',
+        fontSize: '12px',
+        fontWeight: 600,
+        color: 'var(--studio-text-bright)',
+        lineHeight: 1.3,
+      }}>
+        {source.title}
+      </div>
+      {source.description && (
+        <div style={{
+          fontFamily: 'var(--studio-font-body)',
+          fontSize: '11px',
+          color: 'var(--studio-text-2)',
+          marginTop: '3px',
+          lineHeight: 1.4,
+          display: '-webkit-box',
+          WebkitLineClamp: 2,
+          WebkitBoxOrient: 'vertical',
+          overflow: 'hidden',
+        }}>
+          {source.description}
+        </div>
+      )}
+      {source.siteName && (
+        <div style={{
+          fontFamily: 'var(--studio-font-mono)',
+          fontSize: '9px',
+          color: 'var(--studio-text-3)',
+          marginTop: '2px',
+        }}>
+          {source.siteName}
+        </div>
+      )}
+    </div>
+  );
+}
+
 /* ── Research mode ────────────────────────────── */
 
 function ResearchMode({
@@ -934,7 +1156,7 @@ function ResearchMode({
     let cancelled = false;
     setLoading(true);
     setTimedOut(false);
-    fetchResearchTrail(slug)
+    fetchIndexTrail(slug)
       .then((data) => {
         if (cancelled) return;
         setTrail(data);
@@ -942,7 +1164,7 @@ function ResearchMode({
       })
       .catch((err) => {
         if (cancelled) return;
-        if (err instanceof ResearchTimeoutError) {
+        if (err instanceof IndexApiTimeoutError) {
           setTimedOut(true);
         }
         setLoading(false);
@@ -1012,6 +1234,14 @@ function ResearchMode({
   /* Corkboard vs flat list toggle for sources */
   const [corkboardView, setCorkboardView] = useState(false);
 
+  /* Sourcebox: recently submitted sources (shown when trail has no sources) */
+  const [recentSources, setRecentSources] = useState<SourceboxSource[]>([]);
+  useEffect(() => {
+    fetchSourceboxList('inbox')
+      .then(setRecentSources)
+      .catch(() => {});
+  }, [slug]);
+
   /* Loading skeleton */
   if (loading) {
     return (
@@ -1065,7 +1295,7 @@ function ResearchMode({
             marginBottom: '8px',
           }}
         >
-          Research API unavailable
+          Index API unavailable
         </div>
         <div style={{ marginBottom: '12px' }}>
           The request timed out after 5 seconds.
@@ -1105,7 +1335,7 @@ function ResearchMode({
           lineHeight: 1.5,
         }}
       >
-        No research data yet. Add sources in the Research API to see them here.
+        No research data yet. Add sources in the Index API to see them here.
       </div>
     );
   }
@@ -1217,26 +1447,27 @@ function ResearchMode({
                 No sources linked yet.
               </div>
             )}
-            <button
-              type="button"
-              style={{
-                padding: '6px 0',
-                fontFamily: 'var(--studio-font-mono)',
-                fontSize: '9px',
-                fontWeight: 600,
-                color: 'var(--studio-text-3)',
-                backgroundColor: 'transparent',
-                border: '1px dashed var(--studio-border)',
-                borderRadius: '3px',
-                cursor: 'pointer',
-                letterSpacing: '0.06em',
+            <SourceIntakeForm
+              contentSlug={slug}
+              onSourceAdded={(source) => {
+                setRecentSources(prev => [source, ...prev.filter(s => s.id !== source.id)]);
               }}
-            >
-              + Add source
-            </button>
+            />
           </div>
         )}
       </div>
+
+      {/* Pending Sourcebox items (when trail has no sources) */}
+      {trail.sources.length === 0 && recentSources.length > 0 && (
+        <div>
+          <ToolboxLabel>Pending Sources</ToolboxLabel>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', marginTop: '8px' }}>
+            {recentSources.map(src => (
+              <SourcePreviewCard key={src.id} source={src} />
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* 1b. Research graph (d3-zoom) */}
       <LiveResearchGraph

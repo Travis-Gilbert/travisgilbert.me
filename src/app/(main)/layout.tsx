@@ -4,6 +4,7 @@ import TopNav from '@/components/TopNav';
 import Footer from '@/components/Footer';
 import ConsoleEasterEgg from '@/components/ConsoleEasterEgg';
 import StudioShortcut from '@/components/StudioShortcut';
+import OwnerSignIn from '@/components/OwnerSignIn';
 import ArchitectureEasterEgg from '@/components/ArchitectureEasterEgg';
 import ResearchAPIEasterEgg from '@/components/ResearchAPIEasterEgg';
 import SourceGraphEasterEgg from '@/components/SourceGraphEasterEgg';
@@ -60,6 +61,7 @@ export default function MainLayout({
         latestEssaySlug={latestEssay?.slug ?? ''}
       />
       <StudioShortcut />
+      <OwnerSignIn />
       <ArchitectureEasterEgg />
       <ResearchAPIEasterEgg />
       <SourceGraphEasterEgg />

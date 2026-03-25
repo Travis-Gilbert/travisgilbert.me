@@ -397,11 +397,13 @@ export async function fetchDashboardStats(): Promise<StudioDashboardStats> {
 }
 
 /* ─────────────────────────────────────────────────
-   Research API (separate service)
+   Index API (separate service, formerly "Research API")
    ───────────────────────────────────────────────── */
 
-const RESEARCH_API_BASE =
-  process.env.NEXT_PUBLIC_RESEARCH_API_URL ?? 'http://localhost:8001';
+const INDEX_API_BASE =
+  process.env.NEXT_PUBLIC_INDEX_API_URL
+  ?? process.env.NEXT_PUBLIC_RESEARCH_API_URL  // backwards compat
+  ?? 'http://localhost:8001';
 
 export interface ResearchTrailSource {
   id: number;
@@ -455,19 +457,22 @@ export interface ResearchTrail {
   }>;
 }
 
-export class ResearchTimeoutError extends Error {
+export class IndexApiTimeoutError extends Error {
   constructor() {
-    super('Research API request timed out');
-    this.name = 'ResearchTimeoutError';
+    super('Index API request timed out');
+    this.name = 'IndexApiTimeoutError';
   }
 }
 
-export async function fetchResearchTrail(
+/** @deprecated Use IndexApiTimeoutError instead */
+export const ResearchTimeoutError = IndexApiTimeoutError;
+
+export async function fetchIndexTrail(
   slug: string,
   timeoutMs = 5000,
 ): Promise<ResearchTrail | null> {
   try {
-    const res = await fetch(`${RESEARCH_API_BASE}/api/v1/trail/${slug}/`, {
+    const res = await fetch(`${INDEX_API_BASE}/api/v1/trail/${slug}/`, {
       credentials: 'omit',
       cache: 'no-store',
       signal: AbortSignal.timeout(timeoutMs),
@@ -476,11 +481,14 @@ export async function fetchResearchTrail(
     return await res.json();
   } catch (err) {
     if (err instanceof DOMException && err.name === 'TimeoutError') {
-      throw new ResearchTimeoutError();
+      throw new IndexApiTimeoutError();
     }
     return null;
   }
 }
+
+/** @deprecated Use fetchIndexTrail instead */
+export const fetchResearchTrail = fetchIndexTrail;
 
 /* ─────────────────────────────────────────────────
    Connections graph
@@ -1539,6 +1547,75 @@ export async function mergeSheetWithNext(
   } catch {
     return null;
   }
+}
+
+/* ─────────────────────────────────────────────────
+   Sourcebox (URL + PDF intake)
+   ───────────────────────────────────────────────── */
+
+export interface SourceboxSource {
+  id: number;
+  url: string;
+  title: string;
+  description: string;
+  image: string;
+  siteName: string;
+  phase: string;
+  scrapeStatus: 'pending' | 'complete' | 'failed';
+  inputType: 'url' | 'file';
+  importance: string;
+  decision: string;
+  tags: string[];
+  createdAt: string;
+}
+
+export async function submitSourceUrl(url: string): Promise<SourceboxSource> {
+  return studioFetch<SourceboxSource>('/sourcebox/capture/', {
+    method: 'POST',
+    body: JSON.stringify({ url }),
+  });
+}
+
+export async function uploadSourceFile(file: File): Promise<SourceboxSource> {
+  const formData = new FormData();
+  formData.append('source_file', file);
+
+  const url = `${STUDIO_API_BASE}/sourcebox/capture/`;
+  const studioToken = process.env.NEXT_PUBLIC_STUDIO_API_TOKEN;
+
+  const headers: Record<string, string> = {
+    Accept: 'application/json',
+  };
+  if (studioToken) {
+    headers['Authorization'] = `Bearer ${studioToken}`;
+  }
+  // Do NOT set Content-Type; browser sets multipart boundary automatically
+
+  const res = await fetch(url, {
+    method: 'POST',
+    headers,
+    body: formData,
+    credentials: 'omit',
+  });
+
+  if (!res.ok) throw new StudioApiError(res.status, 'Upload failed');
+  return res.json();
+}
+
+export async function pollSourceStatus(
+  id: number,
+): Promise<SourceboxSource> {
+  return studioFetch<SourceboxSource>(`/sourcebox/status/${id}/`);
+}
+
+export async function fetchSourceboxList(
+  phase?: string,
+): Promise<SourceboxSource[]> {
+  const qs = phase ? `?phase=${encodeURIComponent(phase)}` : '';
+  const data = await studioFetch<{ sources: SourceboxSource[] }>(
+    `/sourcebox/${qs}`,
+  );
+  return data.sources ?? [];
 }
 
 export async function publishSiteConfig(): Promise<{

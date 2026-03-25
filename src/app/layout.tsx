@@ -1,6 +1,8 @@
 import type { Metadata } from 'next';
 import { fontVariableClasses } from './fonts';
 import ThemeProvider from '@/components/ThemeProvider';
+import { auth } from '@/lib/auth';
+import { OwnerProvider } from '@/components/OwnerProvider';
 import { getSiteConfig } from '@/lib/siteConfig';
 import '@/styles/global.css';
 import '@/styles/print.css';
@@ -51,11 +53,13 @@ export async function generateMetadata(): Promise<Metadata> {
  * (main) route group layout. The (networks) route group adds its own
  * dark themed chrome.
  */
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
+  const session = await auth();
+  const isOwner = session?.user?.isOwner === true;
   // Blocking script: reads localStorage / matchMedia, sets data-theme on <html>
   // before first paint. Hardcoded string (no user input), safe for inline use.
   const themeScript = [
@@ -76,7 +80,9 @@ export default function RootLayout({
         {/* Theme detection runs before paint. Content is a hardcoded string with no user input. */}
         <script dangerouslySetInnerHTML={{ __html: themeScript }} />
         <ThemeProvider>
-          {children}
+          <OwnerProvider isOwner={isOwner}>
+            {children}
+          </OwnerProvider>
         </ThemeProvider>
       </body>
     </html>

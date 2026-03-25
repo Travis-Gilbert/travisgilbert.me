@@ -7,9 +7,10 @@
  */
 
 // Browser: relative URL (rewrite proxy handles it). SSR: use env var if set.
-const RESEARCH_API = typeof window !== 'undefined'
+const INDEX_API = typeof window !== 'undefined'
   ? ''
-  : (process.env.NEXT_PUBLIC_RESEARCH_API_URL ?? '');
+  : (process.env.NEXT_PUBLIC_INDEX_API_URL
+     ?? process.env.NEXT_PUBLIC_RESEARCH_API_URL ?? '');
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 
@@ -147,7 +148,7 @@ export interface SourceSuggestion {
 
 export async function fetchResearchTrail(slug: string): Promise<TrailResponse | null> {
   try {
-    const res = await fetch(`${RESEARCH_API}/api/v1/trail/${slug}/`, {
+    const res = await fetch(`${INDEX_API}/api/v1/trail/${slug}/`, {
       next: { revalidate: 300 },
     });
     if (!res.ok) return null;
@@ -159,7 +160,7 @@ export async function fetchResearchTrail(slug: string): Promise<TrailResponse | 
 
 export async function fetchApprovedSuggestions(slug: string): Promise<ApprovedSuggestion[]> {
   try {
-    const res = await fetch(`${RESEARCH_API}/api/v1/suggestions/${slug}/`, {
+    const res = await fetch(`${INDEX_API}/api/v1/suggestions/${slug}/`, {
       next: { revalidate: 300 },
     });
     if (!res.ok) return [];
@@ -171,7 +172,7 @@ export async function fetchApprovedSuggestions(slug: string): Promise<ApprovedSu
 
 export async function submitSourceSuggestion(data: SourceSuggestion): Promise<boolean> {
   try {
-    const res = await fetch(`${RESEARCH_API}/api/v1/suggest/source/`, {
+    const res = await fetch(`${INDEX_API}/api/v1/suggest/source/`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(data),
@@ -184,7 +185,7 @@ export async function submitSourceSuggestion(data: SourceSuggestion): Promise<bo
 
 export async function fetchSourceGraph(): Promise<GraphResponse | null> {
   try {
-    const res = await fetch(`${RESEARCH_API}/api/v1/graph/`, {
+    const res = await fetch(`${INDEX_API}/api/v1/graph/`, {
       next: { revalidate: 300 },
     });
     if (!res.ok) return null;
@@ -196,7 +197,7 @@ export async function fetchSourceGraph(): Promise<GraphResponse | null> {
 
 export async function fetchResearchActivity(days = 365): Promise<ActivityDay[]> {
   try {
-    const res = await fetch(`${RESEARCH_API}/api/v1/activity/?days=${days}`, {
+    const res = await fetch(`${INDEX_API}/api/v1/activity/?days=${days}`, {
       next: { revalidate: 300 },
     });
     if (!res.ok) return [];
@@ -209,7 +210,7 @@ export async function fetchResearchActivity(days = 365): Promise<ActivityDay[]> 
 
 export async function fetchActiveThreads(): Promise<ThreadListItem[]> {
   try {
-    const res = await fetch(`${RESEARCH_API}/api/v1/threads/?status=active`, {
+    const res = await fetch(`${INDEX_API}/api/v1/threads/?status=active`, {
       next: { revalidate: 300 },
     });
     if (!res.ok) return [];
