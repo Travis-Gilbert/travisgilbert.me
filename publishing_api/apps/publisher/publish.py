@@ -62,6 +62,12 @@ def _log_result(content_type, slug, title, result):
 
 def publish_essay(essay: Essay):
     """Serialize and commit an essay to GitHub."""
+    # Set published state BEFORE serializing so the committed markdown
+    # has draft: false and stage: published in its frontmatter.
+    old_draft, old_stage = essay.draft, essay.stage
+    essay.draft = False
+    essay.stage = "published"
+
     markdown = serialize_essay(essay)
     file_path = f"{CONTENT_PATHS['essay']}/{essay.slug}.md"
     commit_msg = f"feat(content): publish essay '{essay.title}'"
@@ -70,15 +76,21 @@ def publish_essay(essay: Essay):
     log = _log_result("essay", essay.slug, essay.title, result)
 
     if result["success"]:
-        essay.draft = False
-        essay.stage = "published"
         essay.save(update_fields=["draft", "stage", "updated_at"])
+    else:
+        # Roll back in-memory state on failure
+        essay.draft, essay.stage = old_draft, old_stage
 
     return log
 
 
 def publish_field_note(note: FieldNote):
     """Serialize and commit a field note to GitHub."""
+    # Set published state BEFORE serializing.
+    old_draft, old_stage = note.draft, note.stage
+    note.draft = False
+    note.stage = "published"
+
     markdown = serialize_field_note(note)
     file_path = f"{CONTENT_PATHS['field_note']}/{note.slug}.md"
     commit_msg = f"feat(content): publish field note '{note.title}'"
@@ -87,9 +99,9 @@ def publish_field_note(note: FieldNote):
     log = _log_result("field_note", note.slug, note.title, result)
 
     if result["success"]:
-        note.draft = False
-        note.stage = "published"
         note.save(update_fields=["draft", "stage", "updated_at"])
+    else:
+        note.draft, note.stage = old_draft, old_stage
 
     return log
 
@@ -107,6 +119,11 @@ def publish_shelf_entry(entry: ShelfEntry):
 
 def publish_project(project: Project):
     """Serialize and commit a project to GitHub."""
+    # Set published state BEFORE serializing.
+    old_draft, old_stage = project.draft, project.stage
+    project.draft = False
+    project.stage = "published"
+
     markdown = serialize_project(project)
     file_path = f"{CONTENT_PATHS['project']}/{project.slug}.md"
     commit_msg = f"feat(content): publish project '{project.title}'"
@@ -115,9 +132,9 @@ def publish_project(project: Project):
     log = _log_result("project", project.slug, project.title, result)
 
     if result["success"]:
-        project.draft = False
-        project.stage = "published"
         project.save(update_fields=["draft", "stage", "updated_at"])
+    else:
+        project.draft, project.stage = old_draft, old_stage
 
     return log
 
