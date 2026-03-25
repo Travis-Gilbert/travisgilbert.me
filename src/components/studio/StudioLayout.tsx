@@ -58,6 +58,7 @@ function StudioLayoutInner({
   const [zenMode, setZenModeState] = useState(false);
   const [themeMode, setThemeModeState] = useState<StudioThemeMode>('light');
   const [sidebarCollapsed, setSidebarCollapsedState] = useState(false);
+  const [sheetsMode, setSheetsModeState] = useState(false);
 
   const editorMode = useMemo(() => isEditorRoute(pathname), [pathname]);
   const setZenMode = useCallback((enabled: boolean) => {
@@ -145,6 +146,21 @@ function StudioLayoutInner({
     setSidebarCollapsedState((prev) => !prev);
   }, []);
 
+  /* Listen for sheets-mode toggle from Editor.tsx */
+  useEffect(() => {
+    const handler = (e: Event) => {
+      const detail = (e as CustomEvent<{ active: boolean }>).detail;
+      setSheetsModeState(detail.active);
+    };
+    window.addEventListener('studio:sheets-mode', handler);
+    return () => window.removeEventListener('studio:sheets-mode', handler);
+  }, []);
+
+  /* Exit sheets mode on route change */
+  useEffect(() => {
+    setSheetsModeState(false);
+  }, [pathname]);
+
   useEffect(() => {
     setMobileOpen(false);
     setMobileWorkbenchOpen(false);
@@ -172,6 +188,8 @@ function StudioLayoutInner({
           <StudioSidebar
             collapsed={sidebarCollapsed}
             onToggleCollapse={toggleSidebarCollapsed}
+            sheetsMode={sheetsMode}
+            onExitSheetsMode={() => setSheetsModeState(false)}
           />
         </div>
       )}

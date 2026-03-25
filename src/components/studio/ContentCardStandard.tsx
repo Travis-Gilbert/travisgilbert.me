@@ -1,9 +1,14 @@
 'use client';
 
+import { useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { getStage, normalizeStudioContentType } from '@/lib/studio';
 import type { StudioContentItem } from '@/lib/studio';
+import { deleteContentItem } from '@/lib/studio-api';
 import { relativeTime } from '@/lib/studio-time';
+import { toast } from 'sonner';
 import StudioCard from './StudioCard';
+import DeleteConfirmModal from './DeleteConfirmModal';
 
 /**
  * Rich card for the Writing Desk grid view.
@@ -20,6 +25,8 @@ export default function ContentCardStandard({
   color: string;
 }) {
   const stage = getStage(item.stage);
+  const router = useRouter();
+  const [deleteTarget, setDeleteTarget] = useState(false);
 
   return (
     <StudioCard
@@ -124,7 +131,40 @@ export default function ContentCardStandard({
         >
           {item.wordCount.toLocaleString()}w
         </span>
+        <button
+          type="button"
+          onClick={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            setDeleteTarget(true);
+          }}
+          className="studio-card-delete-btn"
+          aria-label={`Delete ${item.title}`}
+          title="Delete"
+        >
+          &times;
+        </button>
       </div>
+
+      {deleteTarget && (
+        <DeleteConfirmModal
+          title={item.title}
+          onConfirm={async () => {
+            try {
+              await deleteContentItem(
+                normalizeStudioContentType(item.contentType),
+                item.slug,
+              );
+              setDeleteTarget(false);
+              router.refresh();
+            } catch {
+              toast.error('Could not delete');
+              setDeleteTarget(false);
+            }
+          }}
+          onCancel={() => setDeleteTarget(false)}
+        />
+      )}
     </StudioCard>
   );
 }

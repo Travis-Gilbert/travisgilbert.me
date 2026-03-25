@@ -1,14 +1,16 @@
 'use client';
 
 import { useState, useMemo, useEffect, useRef } from 'react';
+import { useRouter } from 'next/navigation';
 import { useVirtualizer } from '@tanstack/react-virtual';
-import { fetchContentList } from '@/lib/studio-api';
+import { fetchContentList, createContentItem } from '@/lib/studio-api';
 import {
   getContentTypeIdentity,
   STAGES,
   normalizeStudioContentType,
 } from '@/lib/studio';
 import type { StudioContentItem } from '@/lib/studio';
+import { toast } from 'sonner';
 import HeroZone from './HeroZone';
 import ContentCardStandard from './ContentCardStandard';
 import BoardView from './BoardView';
@@ -29,6 +31,7 @@ export default function ContentList({
   const normalizedType = normalizeStudioContentType(contentType);
   const typeInfo = getContentTypeIdentity(normalizedType);
   const color = typeInfo?.color ?? 'var(--studio-text-3)';
+  const router = useRouter();
 
   const [items, setItems] = useState<StudioContentItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -122,7 +125,7 @@ export default function ContentList({
           {typeInfo?.label ?? normalizedType}
         </span>
         <span className="studio-section-line" />
-        <div style={{ display: 'flex', gap: '4px', flexShrink: 0 }}>
+        <div style={{ display: 'flex', gap: '4px', flexShrink: 0, alignItems: 'center' }}>
           <ViewToggleButton
             label="Desk"
             active={viewMode === 'desk'}
@@ -133,6 +136,33 @@ export default function ContentList({
             active={viewMode === 'board'}
             onClick={() => handleViewChange('board')}
           />
+          <button
+            type="button"
+            onClick={async () => {
+              try {
+                const created = await createContentItem(normalizedType, {});
+                router.push(`/studio/${normalizeStudioContentType(created.contentType)}/${created.slug}`);
+              } catch {
+                toast.error('Could not create');
+              }
+            }}
+            style={{
+              fontFamily: 'var(--studio-font-mono)',
+              fontSize: '10px',
+              fontWeight: 600,
+              letterSpacing: '0.08em',
+              textTransform: 'uppercase',
+              padding: '3px 10px',
+              borderRadius: '3px',
+              border: '1px solid var(--studio-border-tc)',
+              backgroundColor: 'transparent',
+              color: 'var(--studio-tc-bright)',
+              cursor: 'pointer',
+              marginLeft: '8px',
+            }}
+          >
+            + New
+          </button>
         </div>
       </div>
 
@@ -238,7 +268,17 @@ export default function ContentList({
           {filtered.length > 0 ? (
             <VirtualizedCardList items={filtered} color={color} />
           ) : (
-            <EmptyState />
+            <EmptyState
+              typeLabel={typeInfo?.label ?? normalizedType}
+              onNew={async () => {
+                try {
+                  const created = await createContentItem(normalizedType, {});
+                  router.push(`/studio/${normalizeStudioContentType(created.contentType)}/${created.slug}`);
+                } catch {
+                  toast.error('Could not create');
+                }
+              }}
+            />
           )}
         </>
       )}
@@ -248,7 +288,17 @@ export default function ContentList({
           {filtered.length > 0 ? (
             <BoardView items={filtered} color={color} />
           ) : (
-            <EmptyState />
+            <EmptyState
+              typeLabel={typeInfo?.label ?? normalizedType}
+              onNew={async () => {
+                try {
+                  const created = await createContentItem(normalizedType, {});
+                  router.push(`/studio/${normalizeStudioContentType(created.contentType)}/${created.slug}`);
+                } catch {
+                  toast.error('Could not create');
+                }
+              }}
+            />
           )}
         </>
       )}
@@ -346,17 +396,43 @@ function ViewToggleButton({
   );
 }
 
-function EmptyState() {
+function EmptyState({
+  typeLabel,
+  onNew,
+}: {
+  typeLabel: string;
+  onNew: () => void;
+}) {
   return (
-    <p
-      style={{
+    <div style={{
+      padding: '48px 24px',
+      textAlign: 'center',
+      borderRadius: '6px',
+      border: '1px dashed var(--studio-border-strong)',
+    }}>
+      <p style={{
         fontFamily: 'var(--studio-font-body)',
         fontSize: '14px',
         color: 'var(--studio-text-3)',
-        padding: '24px 0',
-      }}
-    >
-      No items match the current filter.
-    </p>
+        marginBottom: '12px',
+      }}>
+        No {typeLabel.toLowerCase()} yet.
+      </p>
+      <button type="button" onClick={onNew} style={{
+        fontFamily: 'var(--studio-font-mono)',
+        fontSize: '10px',
+        fontWeight: 600,
+        letterSpacing: '0.08em',
+        textTransform: 'uppercase',
+        padding: '8px 16px',
+        borderRadius: '4px',
+        border: '1px solid var(--studio-border-tc)',
+        backgroundColor: 'rgba(180, 90, 45, 0.08)',
+        color: 'var(--studio-tc-bright)',
+        cursor: 'pointer',
+      }}>
+        Create your first {typeLabel.toLowerCase()}
+      </button>
+    </div>
   );
 }

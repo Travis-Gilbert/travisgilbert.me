@@ -88,12 +88,12 @@
    ───────────────────────────────────────────────── */
 
 .studio-theme-light {
-  /* Grounds: parchment canvas with deep slate chrome */
-  --studio-bg: #F5E6D2;
+  /* Grounds: darker parchment canvas, slate chrome sidebar */
+  --studio-bg: #E8D8C4;
   --studio-bg-sidebar: #2B3544;
-  --studio-surface: #FBF0E2;
-  --studio-surface-hover: #F0E2D0;
-  --studio-surface-raised: #FBF0E2;
+  --studio-surface: #F4EBE0;
+  --studio-surface-hover: #EBE0D2;
+  --studio-surface-raised: #F4EBE0;
 
   /* Text: keep existing dark warm values */
   --studio-text-1: #2A2420;
@@ -167,11 +167,11 @@
 
 /* Light mode: writing surface chrome adjustments */
 .studio-theme-light .studio-writing-surface {
-  --studio-desk-bg: #EDE7DF;
-  --studio-writing-paper-bg: #E4D9CC;
+  --studio-desk-bg: var(--studio-bg);
+  --studio-writing-paper-bg: #FAF6F0;
   --studio-writing-paper-shadow:
-    0 1px 4px rgba(42, 36, 32, 0.06),
-    inset 0 1px 2px rgba(42, 36, 32, 0.04);
+    0 2px 12px rgba(42, 36, 32, 0.08),
+    0 0 0 1px rgba(42, 36, 32, 0.04);
   --studio-toolbar-bg: #F0EAE0;
   --studio-toolbar-border: rgba(180, 170, 158, 0.6);
   --studio-toolbar-shadow:
@@ -180,6 +180,19 @@
 
   background-color: var(--studio-desk-bg);
   background-image: none;
+}
+
+/* Light mode: page shadow for separation */
+.studio-theme-light .studio-page {
+  box-shadow:
+    0 2px 12px rgba(42, 36, 32, 0.08),
+    0 0 0 1px rgba(42, 36, 32, 0.04);
+  border-radius: 2px;
+}
+
+/* Light mode: section labels visible on light content area */
+.studio-theme-light .studio-section-label {
+  color: rgba(42, 36, 32, 0.35);
 }
 
 /* Light mode: stage stepper and topbar chrome */
@@ -438,6 +451,27 @@
 /* Min-height in dashboard grid for consistent card sizing */
 .studio-dashboard-grid .studio-card-glow {
   min-height: 72px;
+}
+
+.studio-card-delete-btn {
+  background: none;
+  border: none;
+  color: var(--studio-text-3);
+  font-size: 14px;
+  line-height: 1;
+  cursor: pointer;
+  padding: 0 2px;
+  opacity: 0;
+  transition: opacity 0.1s ease, color 0.1s ease;
+  flex-shrink: 0;
+}
+
+.studio-card-glow:hover .studio-card-delete-btn {
+  opacity: 1;
+}
+
+.studio-card-delete-btn:hover {
+  color: #c05050;
 }
 
 /* ─────────────────────────────────────────────────
@@ -4320,6 +4354,38 @@
 
 .studio-sheet-delete-btn:hover {
   color: #c05050;
+}
+
+/* ── Sheets Mode: Sidebar ─────────────────────── */
+
+.studio-sheets-back-nav {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 10px 14px;
+  color: var(--studio-text-3);
+  font-family: var(--studio-font-body);
+  font-size: 11px;
+  cursor: pointer;
+  border: none;
+  background: none;
+  border-bottom: 1px solid var(--studio-border);
+  width: 100%;
+  text-align: left;
+}
+
+.studio-sheets-back-nav:hover {
+  color: var(--studio-text-2);
+}
+
+.sheets-toggle {
+  border-color: rgba(180, 90, 45, 0.3);
+  color: var(--studio-tc-bright);
+}
+
+.sheets-toggle.active {
+  background: rgba(180, 90, 45, 0.12);
+  border-color: rgba(180, 90, 45, 0.4);
 }
 
 /* ── Video Tab Bar ────────────────────────────── */

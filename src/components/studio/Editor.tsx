@@ -367,6 +367,20 @@ export default function Editor({
     return () => { cancelled = true; };
   }, [normalizedContentType, slug]);
 
+  /* Load active sheet content into editor on initial mount when sheets exist */
+  const initialSheetLoadRef = useRef(false);
+  useEffect(() => {
+    if (!editor || !isSheetsMode || !activeSheetId || initialSheetLoadRef.current) return;
+    const sheet = sheets.find(s => s.id === activeSheetId);
+    if (sheet) {
+      initialSheetLoadRef.current = true;
+      editor.commands.setContent(sheet.body || '');
+    }
+  }, [editor, isSheetsMode, activeSheetId, sheets]);
+
+  /* Reset on slug change */
+  useEffect(() => { initialSheetLoadRef.current = false; }, [slug]);
+
   const autosaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const saveStateTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const currentTitleRef = useRef(currentTitle);
@@ -584,6 +598,14 @@ export default function Editor({
       setSaveState('saving');
       setAutosaveState('idle');
 
+      /* Sheet-aware: save current sheet body alongside main content */
+      if (isSheetsMode && activeSheetId && editor) {
+        const sheetMarkdown = getEditorMarkdown(editor) ?? '';
+        void updateSheet(normalizedContentType, slug, activeSheetId, {
+          body: sheetMarkdown,
+        });
+      }
+
       const RETRY_DELAYS = [1000, 2000, 4000]; // exponential backoff
       let lastError: unknown = null;
 
@@ -662,7 +684,7 @@ export default function Editor({
         setSaveState('idle');
       }, 5000);
     },
-    [currentBody, currentTitle, editor, normalizedContentType, slug, clearBuffer],
+    [currentBody, currentTitle, editor, normalizedContentType, slug, clearBuffer, isSheetsMode, activeSheetId],
   );
 
   const handleUpdate = useCallback((payload: TiptapUpdatePayload) => {
@@ -845,41 +867,119 @@ export default function Editor({
 
   /* ── Sheet callbacks (Batch 16) ─────────────────────────────────── */
 
+  /* Save current sheet content before switching */
+  const saveCurrentSheet = useCallback(async () => {
+    if (!activeSheetId || !editor) return;
+    const markdown = getEditorMarkdown(editor) ?? '';
+    try {
+      const updated = await updateSheet(normalizedContentType, slug, activeSheetId, {
+        body: markdown,
+      });
+      if (updated) {
+        setSheets(prev => prev.map(s =>
+          s.id === activeSheetId ? { ...s, body: markdown, wordCount: updated.wordCount } : s
+        ));
+      }
+    } catch {
+      /* Non-critical; content still in editor */
+    }
+  }, [activeSheetId, editor, normalizedContentType, slug]);
+
   const handleSetActiveSheet = useCallback(
-    (id: string) => {
-      setActiveSheetId(id);
-      if (!editor) return;
+    async (id: string) => {
+      if (id === activeSheetId) return;
+      await saveCurrentSheet();
       const sheet = sheets.find((s) => s.id === id);
-      if (!sheet) return;
+      if (!sheet || !editor) return;
       const format = detectEditorContentFormat(sheet.body);
       setContentFormat(format);
       setCurrentBody(sheet.body);
-      editor.commands.setContent(sheet.body, { emitUpdate: false });
+      editor.commands.setContent(sheet.body || '');
+      setActiveSheetId(id);
     },
-    [editor, sheets],
+    [activeSheetId, editor, sheets, saveCurrentSheet],
   );
 
-  const handleAddSheet = useCallback(() => {
-    createSheet(normalizedContentType, slug).then((sheet) => {
-      if (!sheet) return;
-      setSheets((prev) => [...prev, sheet]);
-      setActiveSheetId(sheet.id);
-    });
-  }, [normalizedContentType, slug]);
+  const handleAddSheet = useCallback(async () => {
+    await saveCurrentSheet();
+    try {
+      const newSheet = await createSheet(normalizedContentType, slug, {
+        title: '',
+        body: '',
+      });
+      if (!newSheet) return;
+      setSheets((prev) => [...prev, newSheet]);
+      setActiveSheetId(newSheet.id);
+      if (editor) {
+        editor.commands.setContent('');
+        editor.commands.focus();
+      }
+    } catch {
+      toast.error('Could not create sheet');
+    }
+  }, [saveCurrentSheet, normalizedContentType, slug, sheets.length, editor]);
+
+  /* Toggle sheets mode: first activation creates a sheet from current content */
+  const handleToggleSheets = useCallback(async () => {
+    if (isSheetsMode) {
+      window.dispatchEvent(new CustomEvent('studio:sheets-mode', {
+        detail: { active: false },
+      }));
+      return;
+    }
+
+    const currentMarkdown = getEditorMarkdown(editor) ?? currentBody;
+    try {
+      const firstSheet = await createSheet(normalizedContentType, slug, {
+        title: currentTitle || 'Untitled',
+        body: currentMarkdown,
+      });
+      if (!firstSheet) return;
+      setSheets([firstSheet]);
+      setActiveSheetId(firstSheet.id);
+      window.dispatchEvent(new CustomEvent('studio:sheets-mode', {
+        detail: { active: true },
+      }));
+    } catch {
+      toast.error('Could not create sheet');
+    }
+  }, [isSheetsMode, editor, currentBody, currentTitle, normalizedContentType, slug]);
 
   const handleDeleteSheet = useCallback(
-    (id: string) => {
-      setSheets((prev) => {
-        const next = prev.filter((s) => s.id !== id);
-        setActiveSheetId((current) => {
-          if (current !== id) return current;
-          return next.length > 0 ? next[0].id : null;
-        });
-        return next;
-      });
-      deleteSheetApi(normalizedContentType, slug, id);
+    async (id: string) => {
+      if (sheets.length <= 1) {
+        /* Last sheet: merge content back to main body, exit sheets mode */
+        const sheet = sheets.find(s => s.id === id);
+        if (sheet && editor) {
+          editor.commands.setContent(sheet.body || '');
+        }
+        try {
+          await deleteSheetApi(normalizedContentType, slug, id);
+          setSheets([]);
+          setActiveSheetId(null);
+          window.dispatchEvent(new CustomEvent('studio:sheets-mode', {
+            detail: { active: false },
+          }));
+        } catch {
+          toast.error('Could not delete sheet');
+        }
+        return;
+      }
+
+      const idx = sheets.findIndex(s => s.id === id);
+      const nextSheet = sheets[idx === 0 ? 1 : idx - 1];
+      try {
+        await deleteSheetApi(normalizedContentType, slug, id);
+        setSheets(prev => prev.filter(s => s.id !== id));
+        if (activeSheetId === id && nextSheet) {
+          setActiveSheetId(nextSheet.id);
+          if (editor) editor.commands.setContent(nextSheet.body || '');
+        }
+      } catch {
+        toast.error('Could not delete sheet');
+      }
     },
-    [normalizedContentType, slug],
+    [sheets, activeSheetId, editor, normalizedContentType, slug],
   );
 
   const handleReorderSheets = useCallback(
@@ -1117,6 +1217,8 @@ export default function Editor({
           autosaveState={autosaveState}
           onStageChange={handleStageChange}
           onPublish={handlePublish}
+          sheetsActive={isSheetsMode}
+          onToggleSheets={handleToggleSheets}
         />
 
         <div className="studio-mobile-editor-actions studio-editor-column">

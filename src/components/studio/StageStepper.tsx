@@ -38,6 +38,8 @@ export default function StageStepper({
   autosaveState,
   onStageChange,
   onPublish,
+  sheetsActive,
+  onToggleSheets,
 }: {
   stage: string;
   contentType: string;
@@ -46,6 +48,8 @@ export default function StageStepper({
   autosaveState: WorkbenchAutosaveState;
   onStageChange: (newStage: string) => void;
   onPublish?: () => Promise<void>;
+  sheetsActive?: boolean;
+  onToggleSheets?: () => void;
 }) {
   const [pendingStage, setPendingStage] = useState<string | null>(null);
   const [anchorDirection, setAnchorDirection] = useState<'back' | 'forward' | null>(
@@ -233,6 +237,17 @@ export default function StageStepper({
             Advance
           </button>
         </div>
+
+        {onToggleSheets && (
+          <button
+            type="button"
+            className={`stage-stepper-btn sheets-toggle${sheetsActive ? ' active' : ''}`}
+            onClick={onToggleSheets}
+            title={sheetsActive ? 'Exit sheets mode' : 'Split into sheets'}
+          >
+            Sheets
+          </button>
+        )}
 
         {onPublish && (
           <PublishButton

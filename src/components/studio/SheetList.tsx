@@ -36,7 +36,7 @@ function DragHandle() {
  * at least one sheet. Supports drag-to-reorder, status dots, material badge,
  * and add/delete.
  */
-export default function SheetList() {
+export default function SheetList({ fullPanel = false }: { fullPanel?: boolean } = {}) {
   const { editorState } = useStudioWorkbench();
   const {
     sheets,
@@ -59,7 +59,7 @@ export default function SheetList() {
   }
 
   return (
-    <div className="studio-sheet-list-section">
+    <div className="studio-sheet-list-section" style={fullPanel ? { flex: 1, overflowY: 'auto' } : undefined}>
       <div
         style={{
           display: 'flex',

@@ -40,9 +40,13 @@ import NewContentModal from './NewContentModal';
 export default function StudioSidebar({
   collapsed = false,
   onToggleCollapse,
+  sheetsMode = false,
+  onExitSheetsMode,
 }: {
   collapsed?: boolean;
   onToggleCollapse?: () => void;
+  sheetsMode?: boolean;
+  onExitSheetsMode?: () => void;
 } = {}) {
   const pathname = usePathname();
   const { themeMode, toggleThemeMode } = useStudioView();
@@ -103,12 +107,47 @@ export default function StudioSidebar({
     '/studio/toolkit': 'toolkit',
   };
 
+  /* ── Sheets mode: full sidebar replacement ── */
+  if (sheetsMode && !collapsed) {
+    return (
+      <aside
+        className="studio-sidebar-desktop studio-sidebar-grid studio-grain"
+        style={{
+          width: 'var(--studio-sidebar-width)',
+          flexShrink: 0,
+          height: '100%',
+          backgroundColor: 'var(--studio-bg-sidebar)',
+          borderRight: '1px solid var(--studio-border)',
+          display: 'flex',
+          flexDirection: 'column',
+          position: 'relative',
+          overflow: 'hidden',
+        }}
+      >
+        <div className="studio-sidebar-glow" aria-hidden="true" />
+
+        <button
+          type="button"
+          onClick={onExitSheetsMode}
+          className="studio-sheets-back-nav"
+        >
+          &larr; Back to navigation
+        </button>
+
+        <SheetList fullPanel />
+
+        <SheetsFooter />
+      </aside>
+    );
+  }
+
   return (
     <aside
       className="studio-sidebar-desktop studio-sidebar-grid studio-scrollbar studio-grain"
       style={{
         width: collapsed ? 56 : 'var(--studio-sidebar-width)',
         flexShrink: 0,
+        height: '100%',
         backgroundColor: 'var(--studio-bg-sidebar)',
         borderRight: '1px solid var(--studio-border)',
         display: 'flex',
@@ -187,8 +226,6 @@ export default function StudioSidebar({
           {collapsed ? '+' : '+ New'}
         </button>
       </div>
-
-      {!collapsed && editorState.isSheetsMode && <SheetList />}
 
       <nav
         style={{
@@ -310,5 +347,36 @@ export default function StudioSidebar({
         <NewContentModal onClose={() => setShowNewModal(false)} />
       )}
     </aside>
+  );
+}
+
+/**
+ * Footer for sheets mode sidebar: total word count + compile button.
+ */
+function SheetsFooter() {
+  const { editorState } = useStudioWorkbench();
+  const totalWords = editorState.sheets.reduce((sum, s) => sum + (s.wordCount ?? 0), 0);
+
+  return (
+    <div
+      style={{
+        padding: '10px 14px',
+        borderTop: '1px solid var(--studio-border)',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        marginTop: 'auto',
+      }}
+    >
+      <span
+        style={{
+          fontFamily: 'var(--studio-font-mono)',
+          fontSize: '10px',
+          color: 'var(--studio-text-3)',
+        }}
+      >
+        {totalWords.toLocaleString()} words total
+      </span>
+    </div>
   );
 }

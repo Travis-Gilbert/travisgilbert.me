@@ -454,8 +454,31 @@ export default function TiptapEditor({
     const fragment = yjsDoc.getXmlFragment('prosemirror');
     if (initialContent) {
       /* Always seed from server content. If the fragment already has
-       * data it may be stale (e.g. from before a revision restore). */
-      editor.commands.setContent(initialContent);
+       * data it may be stale (e.g. from before a revision restore).
+       *
+       * When content is markdown, the Markdown extension's setContent
+       * override normally auto-detects the format. But the Collaboration
+       * extension can interfere with this. Detect format explicitly and,
+       * for markdown, parse through the Markdown extension's parser so
+       * headings, lists, etc. render correctly instead of as raw text. */
+      const isMarkdown =
+        initialContentFormat === 'markdown' ||
+        (!initialContentFormat && !/<\/?[a-z][\s\S]*>/i.test(initialContent));
+      if (isMarkdown) {
+        const mdExt = editor.extensionManager.extensions.find(
+          (e) => e.name === 'markdown',
+        );
+        const parser = mdExt?.storage?.parser;
+        if (parser) {
+          const parsed = parser.parse(initialContent);
+          editor.commands.setContent(parsed);
+        } else {
+          /* Fallback: Markdown extension should handle auto-detection */
+          editor.commands.setContent(initialContent);
+        }
+      } else {
+        editor.commands.setContent(initialContent);
+      }
     } else if (fragment.length === 0) {
       /* No server content and empty fragment: new document, nothing to do */
     }
@@ -475,7 +498,7 @@ export default function TiptapEditor({
       html: editor.getHTML(),
       markdown: md,
     });
-  }, [yjsDoc, yjsSynced, editor, initialContent, onUpdate]);
+  }, [yjsDoc, yjsSynced, editor, initialContent, initialContentFormat, onUpdate]);
 
   /* Reset seed flag when content item changes */
   useEffect(() => {
