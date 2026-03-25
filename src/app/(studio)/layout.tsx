@@ -79,6 +79,13 @@ export default function StudioGroupLayout({
           },
         }}
       />
+
+      {/* Service worker registration for offline support */}
+      <script
+        dangerouslySetInnerHTML={{
+          __html: `if('serviceWorker' in navigator&&window.location.pathname.startsWith('/studio')){navigator.serviceWorker.register('/studio-sw.js',{scope:'/studio'}).catch(function(){})}`,
+        }}
+      />
     </div>
   );
 }
