@@ -1,11 +1,14 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
+import { useRouter } from 'next/navigation';
 import { Command } from 'cmdk';
 import {
   type StudioCommand,
   STUDIO_COMMANDS,
 } from '@/lib/studio-commands';
+import { searchContent, type ContentSearchResult } from '@/lib/studio-api';
+import { getContentTypeIdentity } from '@/lib/studio';
 
 const CATEGORY_LABELS: Record<string, string> = {
   editor: 'Editor',
@@ -28,6 +31,9 @@ interface CommandPaletteProps {
  *
  * Portals into the .studio-theme container so CSS custom
  * properties (--studio-*) resolve in both dark and light mode.
+ *
+ * Includes debounced content search: type 2+ chars to search
+ * across all Studio content items alongside static commands.
  */
 export default function CommandPalette({
   open,
@@ -35,11 +41,19 @@ export default function CommandPalette({
   onExecute,
   isEditorActive,
 }: CommandPaletteProps) {
+  const router = useRouter();
   const [container, setContainer] = useState<HTMLElement | null>(null);
+  const [searchResults, setSearchResults] = useState<ContentSearchResult[]>([]);
+  const searchTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     setContainer(document.querySelector('.studio-theme') as HTMLElement);
   }, []);
+
+  /* Clear search results when palette closes */
+  useEffect(() => {
+    if (!open) setSearchResults([]);
+  }, [open]);
 
   const commands = isEditorActive
     ? STUDIO_COMMANDS
@@ -52,6 +66,25 @@ export default function CommandPalette({
     groups[cmd.category].push(cmd);
   }
 
+  /* Debounced content search on input change */
+  const handleValueChange = useCallback((value: string) => {
+    if (searchTimerRef.current) clearTimeout(searchTimerRef.current);
+
+    if (value.length < 2) {
+      setSearchResults([]);
+      return;
+    }
+
+    searchTimerRef.current = setTimeout(async () => {
+      try {
+        const results = await searchContent(value);
+        setSearchResults(results);
+      } catch {
+        setSearchResults([]);
+      }
+    }, 200);
+  }, []);
+
   return (
     <Command.Dialog
       open={open}
@@ -59,7 +92,10 @@ export default function CommandPalette({
       label="Command palette"
       container={container ?? undefined}
     >
-      <Command.Input placeholder="Type a command..." />
+      <Command.Input
+        placeholder="Search or type a command..."
+        onValueChange={handleValueChange}
+      />
       <Command.List>
         <Command.Empty>No commands found</Command.Empty>
 
@@ -91,6 +127,35 @@ export default function CommandPalette({
             ))}
           </Command.Group>
         ))}
+
+        {searchResults.length > 0 && (
+          <Command.Group heading="Content">
+            {searchResults.map((result) => (
+              <Command.Item
+                key={result.id}
+                value={`content:${result.label}`}
+                onSelect={() => {
+                  router.push(`/studio/${getContentTypeIdentity(result.contentType).route}/${result.slug}`);
+                  onOpenChange(false);
+                }}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <span style={{
+                    width: '6px',
+                    height: '6px',
+                    borderRadius: '50%',
+                    backgroundColor: getContentTypeIdentity(result.contentType).color,
+                    flexShrink: 0,
+                  }} />
+                  <div>
+                    <div className="studio-cmdk-label">{result.label}</div>
+                    <div className="studio-cmdk-desc">{getContentTypeIdentity(result.contentType).label}</div>
+                  </div>
+                </div>
+              </Command.Item>
+            ))}
+          </Command.Group>
+        )}
       </Command.List>
 
       <div className="studio-cmdk-footer">

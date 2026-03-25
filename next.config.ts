@@ -10,6 +10,9 @@ const backendUrl =
   'https://index-api-production-a5f7.up.railway.app';
 
 const nextConfig: NextConfig = {
+  experimental: {
+    viewTransition: true,
+  },
   reactCompiler: true,
   images: {
     unoptimized: true,

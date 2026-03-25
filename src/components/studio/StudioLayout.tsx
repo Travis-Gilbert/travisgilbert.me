@@ -167,6 +167,7 @@ function StudioLayoutInner({
   }, [pathname]);
 
   useHotkeys('mod+k', (e) => { e.preventDefault(); setCommandPaletteOpen((prev) => !prev); });
+  useHotkeys('mod+n', (e) => { e.preventDefault(); setShowNewModal(true); });
   useHotkeys('mod+shift+z', (e) => { e.preventDefault(); toggleZenMode(); }, [toggleZenMode]);
   useHotkeys('mod+shift+t', (e) => { e.preventDefault(); toggleThemeMode(); }, [toggleThemeMode]);
   useHotkeys('mod+b', (e) => { e.preventDefault(); toggleSidebarCollapsed(); }, [toggleSidebarCollapsed]);
@@ -218,6 +219,7 @@ function StudioLayoutInner({
           overflowY: 'auto',
           position: 'relative',
           height: '100vh',
+          viewTransitionName: 'studio-content',
         }}
       >
         {!zenMode && isAppShellMobile && (

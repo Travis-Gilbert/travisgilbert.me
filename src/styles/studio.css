@@ -707,6 +707,15 @@
 /* (continue-card styles removed: replaced by intelligence dashboard in Batch 5) */
 
 /* ─────────────────────────────────────────────────
+   Skeleton loading pulse
+   ───────────────────────────────────────────────── */
+
+@keyframes studio-skeleton-pulse {
+  0%, 100% { opacity: 0.4; }
+  50% { opacity: 0.8; }
+}
+
+/* ─────────────────────────────────────────────────
    Pulse animation (active work indicator)
    ───────────────────────────────────────────────── */
 
@@ -5477,4 +5486,40 @@
 
 @keyframes spin {
   to { transform: rotate(360deg); }
+}
+
+/* ─────────────────────────────────────────────────
+   View Transitions: crossfade content panel only
+   Sidebar and workbench persist and should NOT animate.
+   ───────────────────────────────────────────────── */
+
+::view-transition-old(studio-content),
+::view-transition-new(studio-content) {
+  animation-duration: 150ms;
+  animation-timing-function: ease;
+}
+
+::view-transition-old(studio-content) {
+  animation-name: studio-vt-fade-out;
+}
+
+::view-transition-new(studio-content) {
+  animation-name: studio-vt-fade-in;
+}
+
+@keyframes studio-vt-fade-out {
+  from { opacity: 1; }
+  to { opacity: 0; }
+}
+
+@keyframes studio-vt-fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  ::view-transition-old(studio-content),
+  ::view-transition-new(studio-content) {
+    animation: none;
+  }
 }

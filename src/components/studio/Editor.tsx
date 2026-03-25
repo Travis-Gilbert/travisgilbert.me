@@ -275,6 +275,14 @@ export default function Editor({
 
   const [editor, setEditor] = useState<TiptapEditorType | null>(null);
   const [currentTitle, setCurrentTitle] = useState(title);
+
+  /* 4E: Update browser tab title as user types */
+  useEffect(() => {
+    if (currentTitle) {
+      document.title = `${currentTitle} | Studio`;
+    }
+  }, [currentTitle]);
+
   const [currentBody, setCurrentBody] = useState(initialContent ?? '');
   const [contentFormat, setContentFormat] = useState<EditorContentFormat>(
     detectEditorContentFormat(initialContent ?? ''),

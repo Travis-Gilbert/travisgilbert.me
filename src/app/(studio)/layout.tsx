@@ -11,6 +11,7 @@ export const metadata: Metadata = {
   },
   description:
     'Publishing workbench. Write, manage, and track content through the creative pipeline.',
+  manifest: '/studio/manifest',
   icons: {
     icon: [
       { url: '/studio/icon.svg', type: 'image/svg+xml' },
