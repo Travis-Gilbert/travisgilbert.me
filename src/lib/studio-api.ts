@@ -1638,3 +1638,82 @@ export async function publishSiteConfig(): Promise<{
     };
   }
 }
+
+// -- ML Analysis ------------------------------------------------------
+
+export interface DraftConnection {
+  id: string;
+  title: string;
+  objectType: string;
+  score: number;
+  signals: { semantic: number; entity_overlap: number; keyword: number };
+  sharedEntities: string[];
+  excerpt: string;
+}
+
+export interface DraftAnalysisResult {
+  connections: DraftConnection[];
+  entities: string[];
+  graph: {
+    nodes: Array<{ id: string; label: string; type: string; score?: number; isDraft?: boolean }>;
+    edges: Array<{ source: string; target: string; weight: number }>;
+  };
+}
+
+export interface SimilarObject {
+  id: string;
+  title: string;
+  objectType: string;
+  similarity: number;
+  excerpt: string;
+}
+
+export interface ClaimAuditResult {
+  claims: Array<{
+    text: string;
+    position: number;
+    supported: boolean;
+    supportingSource: string | null;
+    confidence: number | null;
+  }>;
+  summary: { total: number; supported: number; unsupported: number };
+}
+
+export async function analyzeDraft(
+  text: string,
+  contentType: string,
+  slug: string,
+): Promise<DraftAnalysisResult> {
+  return studioFetch<DraftAnalysisResult>('/ml/draft-connections/', {
+    method: 'POST',
+    body: JSON.stringify({ text, content_type: contentType, slug }),
+  });
+}
+
+export async function findSimilarText(
+  text: string,
+): Promise<{ similar: SimilarObject[] }> {
+  return studioFetch<{ similar: SimilarObject[] }>('/ml/similar-text/', {
+    method: 'POST',
+    body: JSON.stringify({ text, top: 8, threshold: 0.4 }),
+  });
+}
+
+export async function auditClaims(
+  text: string,
+  sourceSlugs: string[],
+): Promise<ClaimAuditResult> {
+  return studioFetch<ClaimAuditResult>('/ml/claim-audit/', {
+    method: 'POST',
+    body: JSON.stringify({ text, source_slugs: sourceSlugs }),
+  });
+}
+
+export async function extractEntities(
+  text: string,
+): Promise<{ entities: string[]; tags: string[] }> {
+  return studioFetch<{ entities: string[]; tags: string[] }>(
+    '/ml/extract-entities/',
+    { method: 'POST', body: JSON.stringify({ text }) },
+  );
+}

@@ -34,11 +34,16 @@ import {
   uploadSourceFile,
   pollSourceStatus,
   fetchSourceboxList,
+  analyzeDraft,
+  findSimilarText,
   type ResearchTrail,
   type MentionBacklink,
   type CommonplaceSearchResult,
   type TaskGroup,
   type SourceboxSource,
+  type DraftAnalysisResult,
+  type DraftConnection,
+  type SimilarObject,
 } from '@/lib/studio-api';
 import {
   Search,
@@ -61,6 +66,8 @@ import CorkboardPanel from './CorkboardPanel';
 import OutlineDragWall from './OutlineDragWall';
 import RelationshipMap from './RelationshipMap';
 import LiveResearchGraph from './LiveResearchGraph';
+import ConnectionConstellation from './ConnectionConstellation';
+import ClaimAuditPanel from './ClaimAuditPanel';
 
 /* Stage definitions for PipelinePanel per content type */
 const CONTENT_STAGE_MAP: Record<string, Array<{ key: string; label: string }>> = {
@@ -399,6 +406,7 @@ export default function WorkbenchPanel({
                 <ResearchMode
                   editor={editor ?? null}
                   contentItem={contentItem ?? null}
+                  saveState={saveState}
                 />
               )}
               {editorPanelMode === 'outline' && (
@@ -430,6 +438,7 @@ export default function WorkbenchPanel({
                 <LinksMode
                   editor={editor ?? null}
                   contentItem={contentItem ?? null}
+                  saveState={saveState}
                 />
               )}
             </>
@@ -867,14 +876,16 @@ const ROLE_COLORS: Record<string, string> = {
   inspiration: '#D4AA4A',
 };
 
-/* ── Links mode: relationship map ──────────── */
+/* ── Links mode: relationship map + connection constellation ── */
 
 function LinksMode({
   editor,
   contentItem,
+  saveState,
 }: {
   editor: TiptapEditorType | null;
   contentItem: StudioContentItem | null;
+  saveState: SaveState;
 }) {
   const slug = contentItem?.slug ?? 'untitled';
   const contentType = contentItem?.contentType ?? 'essay';
@@ -906,8 +917,111 @@ function LinksMode({
     return () => { cancelled = true; };
   }, [contentType, slug]);
 
+  /* Draft analysis: run analyzeDraft() after save with debounce */
+  const [analysisResult, setAnalysisResult] = useState<DraftAnalysisResult | null>(null);
+  const [analyzing, setAnalyzing] = useState(false);
+  const saveStateRef = useRef(saveState);
+  saveStateRef.current = saveState;
+
+  useEffect(() => {
+    if (saveState !== 'success') return;
+    if (!editor || !contentItem) return;
+
+    const timer = setTimeout(() => {
+      const text = editor.getText();
+      if (!text || text.length < 20) return;
+
+      setAnalyzing(true);
+      analyzeDraft(text, contentItem.contentType, contentItem.slug)
+        .then((result) => {
+          setAnalysisResult(result);
+        })
+        .catch(() => {
+          /* silently ignore analysis failures */
+        })
+        .finally(() => {
+          setAnalyzing(false);
+        });
+    }, 1000);
+
+    return () => clearTimeout(timer);
+  }, [saveState, editor, contentItem]);
+
+  const draftTitle = contentItem?.title ?? 'Untitled';
+  const connections = analysisResult?.connections ?? [];
+  const entities = analysisResult?.entities ?? [];
+
   return (
     <div style={{ marginTop: '6px' }}>
+      {/* Constellation graph */}
+      <div style={{
+        height: 220,
+        marginBottom: 12,
+        borderRadius: 6,
+        overflow: 'hidden',
+        background: 'var(--studio-surface)',
+        border: '1px solid var(--studio-border)',
+        position: 'relative',
+      }}>
+        <ConnectionConstellation
+          analysis={analysisResult}
+          draftTitle={draftTitle}
+          contentType={contentType}
+        />
+        {analyzing && (
+          <div style={{
+            position: 'absolute',
+            top: 8,
+            right: 8,
+            fontFamily: 'var(--studio-font-mono)',
+            fontSize: '9px',
+            color: 'var(--studio-text-3)',
+            letterSpacing: '0.04em',
+          }}>
+            Analyzing...
+          </div>
+        )}
+      </div>
+
+      {/* Connection list */}
+      {connections.length > 0 && (
+        <div style={{ marginBottom: 16 }}>
+          <ToolboxLabel>Connections</ToolboxLabel>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+            {connections.map((conn) => (
+              <ConnectionCard key={conn.id} connection={conn} />
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Entity pills */}
+      {entities.length > 0 && (
+        <div style={{ marginBottom: 16 }}>
+          <ToolboxLabel>Entities</ToolboxLabel>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
+            {entities.map((entity) => (
+              <span
+                key={entity}
+                style={{
+                  fontFamily: 'var(--studio-font-mono)',
+                  fontSize: '9px',
+                  padding: '2px 6px',
+                  borderRadius: 3,
+                  border: '1px solid var(--studio-border)',
+                  color: 'var(--studio-text-2)',
+                  background: 'transparent',
+                  letterSpacing: '0.02em',
+                }}
+              >
+                {entity}
+              </span>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Existing relationship map */}
       <RelationshipMap
         contentItem={contentItem}
         editor={editor}
@@ -915,6 +1029,60 @@ function LinksMode({
         backlinks={backlinks}
         stageColor={stageColor}
       />
+    </div>
+  );
+}
+
+/* ── Connection card for draft analysis results ── */
+
+function ConnectionCard({ connection }: { connection: DraftConnection }) {
+  const scorePercent = Math.round(connection.score * 100);
+  const { semantic, entity_overlap, keyword } = connection.signals;
+
+  return (
+    <div style={{
+      padding: '8px 10px',
+      borderRadius: 4,
+      border: '1px solid var(--studio-border)',
+      background: 'var(--studio-surface)',
+    }}>
+      <div style={{
+        fontFamily: 'var(--studio-font-body)',
+        fontSize: '11px',
+        fontWeight: 600,
+        color: 'var(--studio-text-bright)',
+        marginBottom: 3,
+        lineHeight: 1.3,
+      }}>
+        {connection.title}
+      </div>
+      <div style={{
+        fontFamily: 'var(--studio-font-mono)',
+        fontSize: '9px',
+        color: 'var(--studio-text-3)',
+        marginBottom: 3,
+        letterSpacing: '0.02em',
+      }}>
+        {connection.objectType} \u00b7 {scorePercent}%
+      </div>
+      {connection.sharedEntities.length > 0 && (
+        <div style={{
+          fontFamily: 'var(--studio-font-mono)',
+          fontSize: '9px',
+          color: 'var(--studio-text-2)',
+          marginBottom: 3,
+        }}>
+          {connection.sharedEntities.join(', ')}
+        </div>
+      )}
+      <div style={{
+        fontFamily: 'var(--studio-font-mono)',
+        fontSize: '8px',
+        color: 'var(--studio-text-3)',
+        letterSpacing: '0.03em',
+      }}>
+        sem {(semantic * 100).toFixed(0)} / ent {(entity_overlap * 100).toFixed(0)} / kw {(keyword * 100).toFixed(0)}
+      </div>
     </div>
   );
 }
@@ -1140,9 +1308,11 @@ function SourcePreviewCard({ source }: { source: SourceboxSource }) {
 function ResearchMode({
   editor,
   contentItem,
+  saveState = 'idle',
 }: {
   editor: TiptapEditorType | null;
   contentItem: StudioContentItem | null;
+  saveState?: SaveState;
 }) {
   const slug = contentItem?.slug ?? 'untitled';
 
@@ -1241,6 +1411,35 @@ function ResearchMode({
       .then(setRecentSources)
       .catch(() => {});
   }, [slug]);
+
+  /* Source suggestions: run findSimilarText() after save with debounce */
+  const [suggestions, setSuggestions] = useState<SimilarObject[]>([]);
+  const suggestSaveRef = useRef(saveState);
+  suggestSaveRef.current = saveState;
+
+  useEffect(() => {
+    if (saveState !== 'success') return;
+    if (!editor) return;
+
+    const timer = setTimeout(() => {
+      const text = editor.getText();
+      if (!text || text.length < 100) return;
+
+      findSimilarText(text)
+        .then((data) => {
+          setSuggestions(data.similar);
+        })
+        .catch(() => {
+          /* silently ignore suggestion failures */
+        });
+    }, 1000);
+
+    return () => clearTimeout(timer);
+  }, [saveState, editor]);
+
+  /* Stage for gating ClaimAuditPanel */
+  const stage = contentItem?.stage ?? '';
+  const showClaimAudit = ['revising', 'production', 'published'].includes(stage);
 
   /* Loading skeleton */
   if (loading) {
@@ -1467,6 +1666,77 @@ function ResearchMode({
             ))}
           </div>
         </div>
+      )}
+
+      {/* 1c. Source suggestions (ML similarity) */}
+      {suggestions.length > 0 && (
+        <div>
+          <ToolboxLabel>Suggested Sources</ToolboxLabel>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', marginTop: '8px' }}>
+            {suggestions.map((s) => (
+              <div
+                key={s.id}
+                style={{
+                  padding: '6px 8px',
+                  borderLeft: '2px solid #2D5F6B',
+                  backgroundColor: 'color-mix(in srgb, #2D5F6B 6%, transparent)',
+                  borderRadius: '2px',
+                }}
+              >
+                <div style={{
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'baseline',
+                }}>
+                  <div
+                    style={{
+                      fontFamily: 'var(--studio-font-serif)',
+                      fontSize: '12px',
+                      fontWeight: 600,
+                      color: 'var(--studio-text-bright)',
+                      lineHeight: 1.3,
+                      flex: 1,
+                      minWidth: 0,
+                    }}
+                  >
+                    {s.title}
+                  </div>
+                  <div
+                    style={{
+                      fontFamily: 'var(--studio-font-mono)',
+                      fontSize: '9px',
+                      color: '#2D5F6B',
+                      flexShrink: 0,
+                      marginLeft: '8px',
+                    }}
+                  >
+                    {Math.round(s.similarity * 100)}%
+                  </div>
+                </div>
+                <div
+                  style={{
+                    fontFamily: 'var(--studio-font-mono)',
+                    fontSize: '9px',
+                    color: 'var(--studio-text-3)',
+                    marginTop: '2px',
+                  }}
+                >
+                  {s.objectType}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* 1d. Claim Audit (stage-gated: revising, production, published) */}
+      {showClaimAudit && (
+        <ClaimAuditPanel
+          getEditorText={() => editor?.getText() ?? ''}
+          contentType={contentType}
+          slug={slug}
+          sourceSlugs={trail.sources.map((src) => src.slug)}
+        />
       )}
 
       {/* 1b. Research graph (d3-zoom) */}

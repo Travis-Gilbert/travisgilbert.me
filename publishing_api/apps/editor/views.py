@@ -4129,3 +4129,64 @@ class StudioApiSheetMergeView(StudioApiBaseView):
         next_sheet.delete()
 
         return self._json(request, {"sheet": _serialize_sheet(sheet)})
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# ML Analysis API (proxies to Index-API)
+# ═══════════════════════════════════════════════════════════════════════════
+
+
+class StudioApiDraftConnectionsView(StudioApiBaseView):
+    """POST: Analyze draft connections via Index-API."""
+
+    def post(self, request):
+        payload = self._parse_json_body(request)
+        if payload is None:
+            return self._error(request, "Invalid JSON", status=400)
+        result = services.analyze_draft(
+            payload.get("text", ""),
+            payload.get("content_type", "essay"),
+            payload.get("slug", ""),
+            payload.get("top", 10),
+        )
+        return self._json(request, result)
+
+
+class StudioApiSimilarTextView(StudioApiBaseView):
+    """POST: Find similar objects to raw text."""
+
+    def post(self, request):
+        payload = self._parse_json_body(request)
+        if payload is None:
+            return self._error(request, "Invalid JSON", status=400)
+        result = services.find_similar_text(
+            payload.get("text", ""),
+            payload.get("top", 8),
+            payload.get("threshold", 0.4),
+        )
+        return self._json(request, result)
+
+
+class StudioApiClaimAuditView(StudioApiBaseView):
+    """POST: Audit claims against linked sources."""
+
+    def post(self, request):
+        payload = self._parse_json_body(request)
+        if payload is None:
+            return self._error(request, "Invalid JSON", status=400)
+        result = services.audit_claims(
+            payload.get("text", ""),
+            payload.get("source_slugs", []),
+        )
+        return self._json(request, result)
+
+
+class StudioApiExtractEntitiesView(StudioApiBaseView):
+    """POST: Extract entities for tag suggestions."""
+
+    def post(self, request):
+        payload = self._parse_json_body(request)
+        if payload is None:
+            return self._error(request, "Invalid JSON", status=400)
+        result = services.extract_entities(payload.get("text", ""))
+        return self._json(request, result)

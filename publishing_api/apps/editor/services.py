@@ -113,3 +113,82 @@ def fetch_research_graph(slug: str | None = None) -> dict:
     except httpx.HTTPError as exc:
         logger.warning("Research graph error: %s", exc)
         return empty
+
+
+# -- ML Analysis Proxies ------------------------------------------------
+
+
+def analyze_draft(text, content_type, content_slug, top_n=10):
+    """Proxy draft analysis to Index-API."""
+    base_url, api_key = _api_config()
+    if not base_url:
+        return {"connections": [], "entities": [], "graph": {"nodes": [], "edges": []}}
+    try:
+        resp = httpx.post(
+            f"{base_url}/api/v1/connections/draft/",
+            json={"text": text, "content_type": content_type, "slug": content_slug, "top": top_n},
+            headers=_auth_headers(api_key),
+            timeout=_TIMEOUT,
+        )
+        resp.raise_for_status()
+        return resp.json()
+    except Exception as exc:
+        logger.warning("Draft analysis failed: %s", exc)
+        return {"connections": [], "entities": [], "graph": {"nodes": [], "edges": []}}
+
+
+def find_similar_text(text, top_n=8, threshold=0.4):
+    """Proxy text similarity to Index-API."""
+    base_url, api_key = _api_config()
+    if not base_url:
+        return {"similar": []}
+    try:
+        resp = httpx.post(
+            f"{base_url}/api/v1/similar/text/",
+            json={"text": text, "top": top_n, "threshold": threshold},
+            headers=_auth_headers(api_key),
+            timeout=_TIMEOUT,
+        )
+        resp.raise_for_status()
+        return resp.json()
+    except Exception as exc:
+        logger.warning("Text similarity failed: %s", exc)
+        return {"similar": []}
+
+
+def audit_claims(text, source_slugs):
+    """Proxy claim audit to Index-API."""
+    base_url, api_key = _api_config()
+    if not base_url:
+        return {"claims": [], "summary": {"total": 0, "supported": 0, "unsupported": 0}}
+    try:
+        resp = httpx.post(
+            f"{base_url}/api/v1/claims/audit/",
+            json={"text": text, "source_slugs": source_slugs},
+            headers=_auth_headers(api_key),
+            timeout=httpx.Timeout(30.0, connect=5.0),
+        )
+        resp.raise_for_status()
+        return resp.json()
+    except Exception as exc:
+        logger.warning("Claim audit failed: %s", exc)
+        return {"claims": [], "summary": {"total": 0, "supported": 0, "unsupported": 0}}
+
+
+def extract_entities(text):
+    """Proxy entity extraction to Index-API."""
+    base_url, api_key = _api_config()
+    if not base_url:
+        return {"entities": [], "tags": []}
+    try:
+        resp = httpx.post(
+            f"{base_url}/api/v1/entities/extract/",
+            json={"text": text},
+            headers=_auth_headers(api_key),
+            timeout=_TIMEOUT,
+        )
+        resp.raise_for_status()
+        return resp.json()
+    except Exception as exc:
+        logger.warning("Entity extraction failed: %s", exc)
+        return {"entities": [], "tags": []}

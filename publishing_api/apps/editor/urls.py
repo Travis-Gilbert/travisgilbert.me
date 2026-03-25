@@ -309,4 +309,28 @@ urlpatterns = [
         views.StudioApiSheetMergeView.as_view(),
         name="api-sheet-merge-next",
     ),
+
+    # -----------------------------------------------------------------------
+    # ML Analysis API (proxies to Index-API)
+    # -----------------------------------------------------------------------
+    path(
+        "editor/api/ml/draft-connections/",
+        views.StudioApiDraftConnectionsView.as_view(),
+        name="api-draft-connections",
+    ),
+    path(
+        "editor/api/ml/similar-text/",
+        views.StudioApiSimilarTextView.as_view(),
+        name="api-similar-text",
+    ),
+    path(
+        "editor/api/ml/claim-audit/",
+        views.StudioApiClaimAuditView.as_view(),
+        name="api-claim-audit",
+    ),
+    path(
+        "editor/api/ml/extract-entities/",
+        views.StudioApiExtractEntitiesView.as_view(),
+        name="api-extract-entities",
+    ),
 ]
