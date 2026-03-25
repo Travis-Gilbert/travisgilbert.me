@@ -6,8 +6,8 @@ youtubeId: ''
 tags: []
 sources: []
 related: []
-stage: research
-draft: true
+stage: published
+draft: false
 ---
 
 Hi my name is Travis Gilbert. This a test
