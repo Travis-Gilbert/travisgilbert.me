@@ -1,7 +1,7 @@
 'use client';
 
 import { useRef, useEffect, useState, useCallback } from 'react';
-import { X } from '@phosphor-icons/react';
+import { Xmark } from 'iconoir-react';
 import rough from 'roughjs';
 import { readCssVar, useThemeVersion } from '@/hooks/useThemeColor';
 
@@ -760,7 +760,7 @@ export default function DesignLanguageEasterEgg() {
               }}
               aria-label="Close design language panel"
             >
-              <X size={14} weight="regular" />
+              <Xmark width={14} height={14} strokeWidth={1.5} />
             </button>
           </div>
 

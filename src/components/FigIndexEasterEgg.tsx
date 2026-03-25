@@ -6,7 +6,7 @@ import { readCssVar, hexToRgb, useThemeVersion } from '@/hooks/useThemeColor';
 import { usePrefersReducedMotion } from '@/hooks/usePrefersReducedMotion';
 
 // ---------------------------------------------------------------------------
-// Close icon (Iconoir Xmark, inline SVG; no @phosphor-icons/react)
+// Close icon (Iconoir Xmark, inline SVG)
 // ---------------------------------------------------------------------------
 
 const XMARK_PATH =

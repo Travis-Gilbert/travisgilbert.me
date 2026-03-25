@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { ArrowSquareOut, CaretDown } from '@phosphor-icons/react/dist/ssr';
+import { OpenNewWindow, NavArrowDown } from 'iconoir-react';
 import TagList from './TagList';
 
 interface ProjectUrl {
@@ -104,9 +104,10 @@ function ProjectTimelineEntry({ project }: { project: ProjectEntry }) {
             </div>
 
             {/* Chevron */}
-            <CaretDown
-              size={16}
-              weight="thin"
+            <NavArrowDown
+              width={16}
+              height={16}
+              strokeWidth={1}
               className={`ptl-chevron text-ink-faint flex-shrink-0 transition-transform duration-200 ${
                 open ? 'rotate-180' : ''
               }`}
@@ -134,7 +135,7 @@ function ProjectTimelineEntry({ project }: { project: ProjectEntry }) {
                         className="inline-flex items-center gap-1 font-mono text-xs text-terracotta hover:text-terracotta-hover no-underline"
                       >
                         {link.label}
-                        <ArrowSquareOut size={12} weight="thin" />
+                        <OpenNewWindow width={12} height={12} strokeWidth={1} />
                       </a>
                     ))}
                   </div>

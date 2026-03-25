@@ -1,6 +1,6 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
-import { ArrowRight } from '@phosphor-icons/react/dist/ssr';
+import { ArrowRight } from 'iconoir-react';
 import { getCollection } from '@/lib/content';
 import type { Essay, FieldNote, Project } from '@/lib/content';
 import DateStamp from '@/components/DateStamp';
@@ -179,7 +179,7 @@ export default function HomePage() {
               href="/field-notes"
               className="inline-flex items-center gap-1 font-mono text-sm text-teal hover:text-teal/80 no-underline"
             >
-              All field notes <ArrowRight size={14} weight="bold" />
+              All field notes <ArrowRight width={14} height={14} strokeWidth={2.5} />
             </Link>
           </p>
         </section>
@@ -279,7 +279,7 @@ export default function HomePage() {
               href="/projects"
               className="inline-flex items-center gap-1 font-mono text-sm text-gold hover:text-gold/80 no-underline"
             >
-              All projects <ArrowRight size={14} weight="bold" />
+              All projects <ArrowRight width={14} height={14} strokeWidth={2.5} />
             </Link>
           </p>
         </section>

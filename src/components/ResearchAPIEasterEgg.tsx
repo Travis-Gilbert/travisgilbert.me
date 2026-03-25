@@ -1,7 +1,7 @@
 'use client';
 
 import { useRef, useEffect, useState, useCallback } from 'react';
-import { X } from '@phosphor-icons/react';
+import { Xmark } from 'iconoir-react';
 import rough from 'roughjs';
 
 // ── Seeded PRNG (mulberry32) ──────────────────────────────────────
@@ -777,7 +777,7 @@ export default function ResearchAPIEasterEgg() {
               }}
               aria-label="Close research API panel"
             >
-              <X size={14} weight="regular" />
+              <Xmark width={14} height={14} strokeWidth={1.5} />
             </button>
           </div>
 

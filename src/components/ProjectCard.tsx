@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { ArrowSquareOut } from '@phosphor-icons/react/dist/ssr';
+import { OpenNewWindow } from 'iconoir-react';
 import TagList from './TagList';
 import RoughBox from './rough/RoughBox';
 
@@ -61,7 +61,7 @@ export default function ProjectCard({
                 className="inline-flex items-center gap-1 font-mono text-xs text-terracotta hover:text-terracotta-hover no-underline min-h-[44px]"
               >
                 {link.label}
-                <ArrowSquareOut size={12} weight="thin" />
+                <OpenNewWindow width={12} height={12} strokeWidth={1} />
               </a>
             ))}
           </div>

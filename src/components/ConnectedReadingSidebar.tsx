@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { CaretLeft, CaretRight } from '@phosphor-icons/react';
+import { NavArrowLeft, NavArrowRight } from 'iconoir-react';
 import type { Connection } from '@/lib/connectionEngine';
 
 const TYPE_URL_PREFIX: Record<string, string> = {
@@ -51,7 +51,7 @@ export default function ConnectedReadingSidebar({
         aria-label={expanded ? 'Collapse sidebar' : 'Expand sidebar'}
         style={{ minHeight: 44 }}
       >
-        {expanded ? <CaretRight size={16} /> : <CaretLeft size={16} />}
+        {expanded ? <NavArrowRight width={16} height={16} /> : <NavArrowLeft width={16} height={16} />}
         {!expanded && (
           <span
             className="font-mono text-[11px] mt-1"

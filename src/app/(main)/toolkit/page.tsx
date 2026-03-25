@@ -5,7 +5,7 @@ import type { ToolkitEntry } from '@/lib/content';
 import SectionLabel from '@/components/SectionLabel';
 import ToolkitAccordion from '@/components/ToolkitAccordion';
 import DrawOnIcon from '@/components/rough/DrawOnIcon';
-import { ArrowRight } from '@phosphor-icons/react/dist/ssr';
+import { ArrowRight } from 'iconoir-react';
 
 export const metadata: Metadata = {
   title: 'Toolkit',
@@ -74,7 +74,7 @@ export default async function ToolkitPage() {
           href="/shelf"
           className="inline-flex items-center gap-1.5 font-mono text-sm text-gold hover:text-gold/80 transition-colors"
         >
-          Browse the shelf <ArrowRight size={14} weight="bold" />
+          Browse the shelf <ArrowRight width={14} height={14} strokeWidth={2.5} />
         </Link>
       </section>
     </>

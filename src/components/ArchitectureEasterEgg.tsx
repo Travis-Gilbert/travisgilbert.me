@@ -1,7 +1,7 @@
 'use client';
 
 import { useRef, useEffect, useState, useCallback } from 'react';
-import { X } from '@phosphor-icons/react';
+import { Xmark } from 'iconoir-react';
 import rough from 'roughjs';
 import { readCssVar, hexToRgb as hexToRgbUtil, useThemeVersion } from '@/hooks/useThemeColor';
 import { mulberry32, wobblePath } from '@/lib/prng';
@@ -917,7 +917,7 @@ export default function ArchitectureEasterEgg() {
               }}
               aria-label="Close file tree"
             >
-              <X size={14} weight="regular" />
+              <Xmark width={14} height={14} strokeWidth={1.5} />
             </button>
           </div>
 

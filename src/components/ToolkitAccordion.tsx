@@ -1,7 +1,7 @@
 'use client';
 
 import * as Accordion from '@radix-ui/react-accordion';
-import { CaretDown } from '@phosphor-icons/react';
+import { NavArrowDown } from 'iconoir-react';
 import RoughBox from './rough/RoughBox';
 
 interface ToolkitItem {
@@ -29,9 +29,10 @@ export default function ToolkitAccordion({ items }: ToolkitAccordionProps) {
               <h3 className="m-0">
                 <Accordion.Trigger className="group flex w-full items-center justify-between gap-3 bg-transparent border-none cursor-pointer p-6 text-left font-title text-lg font-bold text-ink hover:text-terracotta transition-colors">
                   <span>{item.title}</span>
-                  <CaretDown
-                    size={18}
-                    weight="bold"
+                  <NavArrowDown
+                    width={18}
+                    height={18}
+                    strokeWidth={2.5}
                     className="text-ink-muted flex-shrink-0 transition-transform duration-200 group-data-[state=open]:rotate-180"
                   />
                 </Accordion.Trigger>

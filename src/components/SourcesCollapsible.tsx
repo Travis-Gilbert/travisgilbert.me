@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import * as Collapsible from '@radix-ui/react-collapsible';
-import { CaretDown } from '@phosphor-icons/react';
+import { NavArrowDown } from 'iconoir-react';
 import Link from 'next/link';
 
 interface Source {
@@ -43,9 +43,10 @@ export default function SourcesCollapsible({
       <Collapsible.Trigger className="group flex w-full items-center gap-2 bg-transparent border-none cursor-pointer p-0 text-left font-title text-xl font-bold text-ink hover:text-terracotta transition-colors">
         <span>Sources &amp; Further Reading</span>
         <span className="font-mono text-xs text-ink-muted font-normal">({totalCount})</span>
-        <CaretDown
-          size={16}
-          weight="bold"
+        <NavArrowDown
+          width={16}
+          height={16}
+          strokeWidth={2.5}
           className="text-ink-muted flex-shrink-0 transition-transform duration-200 group-data-[state=open]:rotate-180"
         />
       </Collapsible.Trigger>

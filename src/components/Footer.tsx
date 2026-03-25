@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { GitBranch } from '@phosphor-icons/react/dist/ssr';
+import { GitBranch } from 'iconoir-react';
 import { getSiteConfig } from '@/lib/siteConfig';
 
 export default function Footer() {
@@ -52,7 +52,7 @@ export default function Footer() {
             className="inline-flex items-center gap-1 text-ink-light hover:text-terracotta no-underline min-h-[44px]"
             style={{ fontSize: 11 }}
           >
-            <GitBranch size={12} weight="regular" />
+            <GitBranch width={12} height={12} strokeWidth={1.5} />
             Paper Trails
           </Link>
           <Link
