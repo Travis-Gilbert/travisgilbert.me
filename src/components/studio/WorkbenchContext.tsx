@@ -51,6 +51,7 @@ export interface WorkbenchEditorState {
   onSplitSheet?: (id: string, position: number) => void;
   onMergeWithNext?: (id: string) => void;
   onToggleMaterial?: (id: string) => void;
+  onUpdateSheetTarget?: (id: string, target: number | null) => void;
 }
 
 interface WorkbenchContextValue {

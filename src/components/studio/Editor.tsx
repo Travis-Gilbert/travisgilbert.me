@@ -1045,6 +1045,20 @@ export default function Editor({
     [normalizedContentType, slug],
   );
 
+  const handleUpdateSheetTarget = useCallback(
+    (id: string, target: number | null) => {
+      setSheets((prev) => {
+        const idx = prev.findIndex((s) => s.id === id);
+        if (idx === -1) return prev;
+        updateSheet(normalizedContentType, slug, id, { wordCountTarget: target });
+        const next = [...prev];
+        next[idx] = { ...prev[idx], wordCountTarget: target };
+        return next;
+      });
+    },
+    [normalizedContentType, slug],
+  );
+
   const handleSendToCommonPlace = useCallback(
     (text: string) => {
       toast('Sending to CommonPlace...');
@@ -1113,6 +1127,7 @@ export default function Editor({
       onSplitSheet: handleSplitSheet,
       onMergeWithNext: handleMergeWithNext,
       onToggleMaterial: handleToggleMaterial,
+      onUpdateSheetTarget: handleUpdateSheetTarget,
     });
   }, [
     autosaveState,
@@ -1137,6 +1152,7 @@ export default function Editor({
     handleSplitSheet,
     handleMergeWithNext,
     handleToggleMaterial,
+    handleUpdateSheetTarget,
   ]);
 
   useEffect(() => {

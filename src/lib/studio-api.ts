@@ -1427,6 +1427,7 @@ export interface Sheet {
   isMaterial: boolean;
   status: 'idea' | 'drafting' | 'locked' | null;
   wordCount: number;
+  wordCountTarget: number | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -1448,7 +1449,7 @@ export async function fetchSheets(
 export async function createSheet(
   contentType: string,
   slug: string,
-  opts: Partial<Pick<Sheet, 'title' | 'body' | 'isMaterial' | 'status'>> = {},
+  opts: Partial<Pick<Sheet, 'title' | 'body' | 'isMaterial' | 'status' | 'wordCountTarget'>> = {},
 ): Promise<Sheet | null> {
   try {
     return await studioFetch<Sheet>(
@@ -1464,7 +1465,7 @@ export async function updateSheet(
   contentType: string,
   slug: string,
   id: string,
-  payload: Partial<Pick<Sheet, 'title' | 'body' | 'order' | 'isMaterial' | 'status'>>,
+  payload: Partial<Pick<Sheet, 'title' | 'body' | 'order' | 'isMaterial' | 'status' | 'wordCountTarget'>>,
 ): Promise<Sheet | null> {
   try {
     return await studioFetch<Sheet>(

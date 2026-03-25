@@ -88,12 +88,12 @@
    ───────────────────────────────────────────────── */
 
 .studio-theme-light {
-  /* Grounds: darker parchment canvas, slate chrome sidebar */
-  --studio-bg: #E8D8C4;
+  /* Grounds: cool parchment canvas, slate chrome sidebar */
+  --studio-bg: #DDD4C6;
   --studio-bg-sidebar: #2B3544;
-  --studio-surface: #F4EBE0;
-  --studio-surface-hover: #EBE0D2;
-  --studio-surface-raised: #F4EBE0;
+  --studio-surface: #E8DFD4;
+  --studio-surface-hover: #E0D6C8;
+  --studio-surface-raised: #E8DFD4;
 
   /* Text: keep existing dark warm values */
   --studio-text-1: #2A2420;
@@ -168,7 +168,7 @@
 /* Light mode: writing surface chrome adjustments */
 .studio-theme-light .studio-writing-surface {
   --studio-desk-bg: var(--studio-bg);
-  --studio-writing-paper-bg: #FAF6F0;
+  --studio-writing-paper-bg: #D8C8B2;
   --studio-writing-paper-shadow:
     0 2px 12px rgba(42, 36, 32, 0.08),
     0 0 0 1px rgba(42, 36, 32, 0.04);
@@ -4319,6 +4319,65 @@
   font-size: 9px;
   color: var(--studio-text-3);
   letter-spacing: 0.02em;
+}
+
+.studio-sheet-progress {
+  width: 100%;
+  height: 2px;
+  background: rgba(237, 231, 220, 0.06);
+  border-radius: 1px;
+  overflow: hidden;
+  margin-top: 2px;
+}
+
+.studio-sheet-progress-fill {
+  height: 100%;
+  background: var(--studio-tc);
+  border-radius: 1px;
+  transition: width 0.3s ease;
+}
+
+.studio-sheet-target-input {
+  width: 52px;
+  font-family: var(--studio-font-mono);
+  font-size: 9px;
+  color: var(--studio-text-1);
+  background: rgba(237, 231, 220, 0.06);
+  border: 1px solid var(--studio-border-strong);
+  border-radius: 3px;
+  padding: 1px 4px;
+  outline: none;
+  text-align: right;
+}
+
+.studio-sheet-target-input:focus {
+  border-color: var(--studio-tc);
+}
+
+/* Remove number input spinners */
+.studio-sheet-target-input::-webkit-inner-spin-button,
+.studio-sheet-target-input::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+.studio-sheet-footer {
+  padding: 8px 18px 12px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.studio-sheet-footer .studio-sheet-progress {
+  flex: 1;
+}
+
+.studio-sheet-footer-text {
+  font-family: var(--studio-font-mono);
+  font-size: 9px;
+  color: var(--studio-text-3);
+  letter-spacing: 0.02em;
+  flex-shrink: 0;
 }
 
 .studio-sheet-add-btn {

@@ -126,7 +126,7 @@ const TAB_CONFIG: Record<EditorPanelMode, { Icon: IconoirIconType; label: string
   stash:    { Icon: Archive,          label: 'Stash'    },
   history:  { Icon: ClockRotateRight, label: 'History'  },
   collage:  { Icon: CollageFrame,     label: 'Collage'  },
-  links:    { Icon: LinkIcon,         label: 'Links'    },
+  links:    { Icon: LinkIcon,         label: 'Connections' },
 };
 
 function clampWidth(width: number): number {
