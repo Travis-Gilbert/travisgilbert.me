@@ -133,6 +133,27 @@ function detectEditorContentFormat(content: string): EditorContentFormat {
   return /<\/?[a-z][\s\S]*>/i.test(content) ? 'html' : 'markdown';
 }
 
+/**
+ * Set editor content with markdown format awareness.
+ * When body is markdown, parse it through the Markdown extension's parser
+ * so headings/lists/etc. render correctly instead of as raw text.
+ */
+function setEditorContentSafe(editor: TiptapEditorType, body: string) {
+  const format = detectEditorContentFormat(body);
+  if (format === 'markdown' && body.trim()) {
+    const mdExt = editor.extensionManager.extensions.find(
+      (e) => e.name === 'markdown',
+    );
+    const parser = mdExt?.storage?.manager;
+    if (parser) {
+      const parsed = parser.parse(body);
+      editor.commands.setContent(parsed);
+      return;
+    }
+  }
+  editor.commands.setContent(body);
+}
+
 function getEditorMarkdown(editor: TiptapEditorType | null): string | null {
   if (!editor) return null;
   const candidate = editor as TiptapEditorType & {
@@ -382,7 +403,7 @@ export default function Editor({
     const sheet = sheets.find(s => s.id === activeSheetId);
     if (sheet) {
       initialSheetLoadRef.current = true;
-      editor.commands.setContent(sheet.body || '');
+      setEditorContentSafe(editor, sheet.body || '');
     }
   }, [editor, isSheetsMode, activeSheetId, sheets]);
 
@@ -639,12 +660,12 @@ export default function Editor({
           setCurrentTitle(saved.title);
           setLastSaved(formatSavedTime(saved.updatedAt));
           setSaveState('success');
-          setSaveTrigger((prev) => prev + 1);
           clearBuffer();
 
           if (mode === 'autosave') {
             setAutosaveState('saved');
           } else {
+            setSaveTrigger((prev) => prev + 1);
             toast.success('Draft saved');
           }
 
@@ -721,7 +742,7 @@ export default function Editor({
     if (!draft) return;
     setCurrentTitle(draft.title);
     if (editor) {
-      editor.commands.setContent(draft.body);
+      setEditorContentSafe(editor, draft.body);
     }
     setCurrentBody(draft.body);
   }, [restoreDraft, editor]);
@@ -902,7 +923,7 @@ export default function Editor({
       const format = detectEditorContentFormat(sheet.body);
       setContentFormat(format);
       setCurrentBody(sheet.body);
-      editor.commands.setContent(sheet.body || '');
+      setEditorContentSafe(editor, sheet.body || '');
       setActiveSheetId(id);
     },
     [activeSheetId, editor, sheets, saveCurrentSheet],
@@ -959,7 +980,7 @@ export default function Editor({
         /* Last sheet: merge content back to main body, exit sheets mode */
         const sheet = sheets.find(s => s.id === id);
         if (sheet && editor) {
-          editor.commands.setContent(sheet.body || '');
+          setEditorContentSafe(editor, sheet.body || '');
         }
         try {
           await deleteSheetApi(normalizedContentType, slug, id);
@@ -981,7 +1002,7 @@ export default function Editor({
         setSheets(prev => prev.filter(s => s.id !== id));
         if (activeSheetId === id && nextSheet) {
           setActiveSheetId(nextSheet.id);
-          if (editor) editor.commands.setContent(nextSheet.body || '');
+          if (editor) setEditorContentSafe(editor, nextSheet.body || '');
         }
       } catch {
         toast.error('Could not delete sheet');

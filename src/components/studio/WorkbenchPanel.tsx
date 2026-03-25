@@ -1045,11 +1045,11 @@ function SourceIntakeForm({
         <input
           ref={fileInputRef}
           type="file"
-          accept=".pdf,application/pdf"
+          accept=".pdf,.docx,.md,.txt,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,text/markdown,text/plain"
           onChange={handleFileChange}
           style={{ display: 'none' }}
         />
-        + Upload PDF
+        + Upload file
       </label>
 
       {error && (

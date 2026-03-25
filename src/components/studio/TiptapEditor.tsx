@@ -468,7 +468,7 @@ export default function TiptapEditor({
         const mdExt = editor.extensionManager.extensions.find(
           (e) => e.name === 'markdown',
         );
-        const parser = mdExt?.storage?.parser;
+        const parser = mdExt?.storage?.manager;
         if (parser) {
           const parsed = parser.parse(initialContent);
           editor.commands.setContent(parsed);
