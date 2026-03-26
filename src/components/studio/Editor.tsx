@@ -334,6 +334,7 @@ export default function Editor({
   const [tasks, setTasks] = useState<StashTask[]>([]);
   const [sheets, setSheets] = useState<Sheet[]>([]);
   const [activeSheetId, setActiveSheetId] = useState<string | null>(null);
+  const [sheetsPanelVisible, setSheetsPanelVisible] = useState(false);
   const isSheetsMode = sheets.length > 0;
 
   /* Draft buffer: localStorage crash recovery */
@@ -392,6 +393,7 @@ export default function Editor({
         setSheets(items);
         if (items.length > 0) {
           setActiveSheetId((prev) => prev ?? items[0].id);
+          setSheetsPanelVisible(true);
           window.dispatchEvent(new CustomEvent('studio:sheets-mode', {
             detail: { active: true },
           }));
@@ -413,7 +415,10 @@ export default function Editor({
   }, [editor, isSheetsMode, activeSheetId, sheets]);
 
   /* Reset on slug change */
-  useEffect(() => { initialSheetLoadRef.current = false; }, [slug]);
+  useEffect(() => {
+    initialSheetLoadRef.current = false;
+    setSheetsPanelVisible(false);
+  }, [slug]);
 
   /* Reset when active sheet is cleared (e.g. new sheet created, sheets re-fetched) */
   useEffect(() => {
@@ -960,15 +965,20 @@ export default function Editor({
     }
   }, [saveCurrentSheet, normalizedContentType, slug, sheets.length, editor]);
 
-  /* Toggle sheets mode: first activation creates a sheet from current content */
+  /* Toggle sheets mode: if sheets exist, toggle sidebar visibility.
+     If no sheets yet, create the first one from current content. */
   const handleToggleSheets = useCallback(async () => {
+    /* Sheets already exist: toggle the panel on/off */
     if (isSheetsMode) {
+      const next = !sheetsPanelVisible;
+      setSheetsPanelVisible(next);
       window.dispatchEvent(new CustomEvent('studio:sheets-mode', {
-        detail: { active: false },
+        detail: { active: next },
       }));
       return;
     }
 
+    /* No sheets yet: create the first one */
     const currentMarkdown = getEditorMarkdown(editor) ?? currentBody;
     try {
       const firstSheet = await createSheet(normalizedContentType, slug, {
@@ -981,13 +991,14 @@ export default function Editor({
       }
       setSheets([firstSheet]);
       setActiveSheetId(firstSheet.id);
+      setSheetsPanelVisible(true);
       window.dispatchEvent(new CustomEvent('studio:sheets-mode', {
         detail: { active: true },
       }));
     } catch {
       toast.error('Could not create sheet');
     }
-  }, [isSheetsMode, editor, currentBody, currentTitle, normalizedContentType, slug]);
+  }, [isSheetsMode, sheetsPanelVisible, editor, currentBody, currentTitle, normalizedContentType, slug]);
 
   const handleDeleteSheet = useCallback(
     async (id: string) => {
@@ -1001,6 +1012,7 @@ export default function Editor({
           await deleteSheetApi(normalizedContentType, slug, id);
           setSheets([]);
           setActiveSheetId(null);
+          setSheetsPanelVisible(false);
           window.dispatchEvent(new CustomEvent('studio:sheets-mode', {
             detail: { active: false },
           }));
@@ -1277,7 +1289,7 @@ export default function Editor({
           autosaveState={autosaveState}
           onStageChange={handleStageChange}
           onPublish={handlePublish}
-          sheetsActive={isSheetsMode}
+          sheetsActive={sheetsPanelVisible}
           onToggleSheets={handleToggleSheets}
         />
 
