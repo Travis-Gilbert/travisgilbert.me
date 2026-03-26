@@ -1449,7 +1449,8 @@ export async function fetchSheets(
       `/content/${contentType}/${slug}/sheets/`,
     );
     return data.sheets ?? [];
-  } catch {
+  } catch (err) {
+    console.warn('[Studio] fetchSheets failed:', contentType, slug, err);
     return [];
   }
 }
@@ -1464,7 +1465,8 @@ export async function createSheet(
       `/content/${contentType}/${slug}/sheets/`,
       { method: 'POST', body: JSON.stringify(opts) },
     );
-  } catch {
+  } catch (err) {
+    console.warn('[Studio] createSheet failed:', contentType, slug, err);
     return null;
   }
 }

@@ -390,7 +390,12 @@ export default function Editor({
       .then((items) => {
         if (cancelled) return;
         setSheets(items);
-        if (items.length > 0) setActiveSheetId((prev) => prev ?? items[0].id);
+        if (items.length > 0) {
+          setActiveSheetId((prev) => prev ?? items[0].id);
+          window.dispatchEvent(new CustomEvent('studio:sheets-mode', {
+            detail: { active: true },
+          }));
+        }
       })
       .catch(() => { /* sheet fetch failure is non-critical; sheets panel stays empty */ });
     return () => { cancelled = true; };
@@ -970,7 +975,10 @@ export default function Editor({
         title: currentTitle || 'Untitled',
         body: currentMarkdown,
       });
-      if (!firstSheet) return;
+      if (!firstSheet) {
+        toast.error('Could not create sheet. Check Studio connection.');
+        return;
+      }
       setSheets([firstSheet]);
       setActiveSheetId(firstSheet.id);
       window.dispatchEvent(new CustomEvent('studio:sheets-mode', {
