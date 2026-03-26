@@ -11,6 +11,7 @@ import logging
 import threading
 
 import httpx
+import trafilatura
 from bs4 import BeautifulSoup
 from django.conf import settings
 
@@ -33,6 +34,7 @@ def scrape_og_metadata(url: str) -> dict:
         "description": "",
         "image": "",
         "site_name": "",
+        "content": "",
     }
 
     try:
@@ -73,6 +75,21 @@ def scrape_og_metadata(url: str) -> dict:
         desc_tag = soup.find("meta", attrs={"name": "description"})
         if desc_tag and desc_tag.get("content"):
             result["description"] = desc_tag["content"].strip()
+
+    # Extract readable body text via trafilatura
+    try:
+        extracted = trafilatura.extract(
+            response.text,
+            include_links=False,
+            include_images=False,
+            include_tables=True,
+            output_format="txt",
+            favor_precision=True,
+        )
+        if extracted:
+            result["content"] = extracted[:50000]
+    except Exception as exc:
+        logger.warning("Content extraction failed for %s: %s", url, exc)
 
     return result
 
@@ -179,9 +196,11 @@ def scrape_og_async(source_pk: int) -> None:
         source.og_description = og["description"]
         source.og_image = og["image"][:2000]
         source.og_site_name = og["site_name"][:300]
+        source.extracted_content = og.get("content", "")
         source.scrape_status = RawSource.ScrapeStatus.COMPLETE
         source.save(update_fields=[
-            "og_title", "og_description", "og_image", "og_site_name", "scrape_status",
+            "og_title", "og_description", "og_image", "og_site_name",
+            "extracted_content", "scrape_status",
         ])
     except Exception as exc:
         logger.error("scrape_og_async failed for RawSource %s: %s", source_pk, exc)

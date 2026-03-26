@@ -1567,6 +1567,7 @@ export interface SourceboxSource {
   decision: string;
   tags: string[];
   createdAt: string;
+  content: string;
 }
 
 export async function submitSourceUrl(url: string): Promise<SourceboxSource> {

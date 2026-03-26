@@ -4190,3 +4190,78 @@ class StudioApiExtractEntitiesView(StudioApiBaseView):
             return self._error(request, "Invalid JSON", status=400)
         result = services.extract_entities(payload.get("text", ""))
         return self._json(request, result)
+
+
+# ---------------------------------------------------------------------------
+# Sourcebox JSON API (for Next.js Studio frontend)
+# ---------------------------------------------------------------------------
+
+
+def _serialize_raw_source(source):
+    """Serialize a RawSource instance to a JSON-friendly dict."""
+    return {
+        "id": source.pk,
+        "url": source.url,
+        "title": source.og_title or source.url or str(source.source_file),
+        "description": source.og_description,
+        "image": source.og_image,
+        "siteName": source.og_site_name,
+        "phase": source.phase,
+        "scrapeStatus": source.scrape_status,
+        "inputType": source.input_type,
+        "importance": source.importance,
+        "decision": source.decision,
+        "tags": source.tags if isinstance(source.tags, list) else [],
+        "createdAt": source.created_at.isoformat() if source.created_at else "",
+        "content": source.extracted_content,
+    }
+
+
+class StudioApiSourceboxListView(StudioApiBaseView):
+    """GET /editor/api/sourcebox/ (optional query: phase)."""
+
+    def get(self, request):
+        from apps.intake.models import RawSource
+
+        phase = request.GET.get("phase")
+        qs = RawSource.objects.all()
+        if phase:
+            qs = qs.filter(phase=phase)
+        sources = [_serialize_raw_source(s) for s in qs[:200]]
+        return self._json(request, {"sources": sources})
+
+
+class StudioApiSourceboxCaptureView(StudioApiBaseView):
+    """POST /editor/api/sourcebox/capture/ (JSON body: { url })."""
+
+    def post(self, request):
+        from apps.intake.models import RawSource
+        from apps.intake.services import start_scrape_thread
+
+        payload = self._parse_json_body(request)
+        if not payload or not payload.get("url"):
+            return self._error(request, "url is required")
+
+        url = payload["url"].strip()
+        existing = RawSource.objects.filter(url=url).first()
+        if existing:
+            return self._json(request, _serialize_raw_source(existing))
+
+        source = RawSource.objects.create(
+            url=url,
+            input_type=RawSource.InputType.URL,
+            phase=RawSource.Phase.INBOX,
+            scrape_status=RawSource.ScrapeStatus.PENDING,
+        )
+        start_scrape_thread(source.pk)
+        return self._json(request, _serialize_raw_source(source), status=201)
+
+
+class StudioApiSourceboxStatusView(StudioApiBaseView):
+    """GET /editor/api/sourcebox/status/<id>/ (poll for scrape completion)."""
+
+    def get(self, request, pk):
+        from apps.intake.models import RawSource
+
+        source = get_object_or_404(RawSource, pk=pk)
+        return self._json(request, _serialize_raw_source(source))

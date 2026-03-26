@@ -410,6 +410,11 @@ export default function Editor({
   /* Reset on slug change */
   useEffect(() => { initialSheetLoadRef.current = false; }, [slug]);
 
+  /* Reset when active sheet is cleared (e.g. new sheet created, sheets re-fetched) */
+  useEffect(() => {
+    if (!activeSheetId) initialSheetLoadRef.current = false;
+  }, [activeSheetId]);
+
   const autosaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const saveStateTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const currentTitleRef = useRef(currentTitle);
@@ -900,6 +905,7 @@ export default function Editor({
   const saveCurrentSheet = useCallback(async () => {
     if (!activeSheetId || !editor) return;
     const markdown = getEditorMarkdown(editor) ?? '';
+    console.log('[sheets] saving sheet', activeSheetId, 'body length:', markdown.length);
     try {
       const updated = await updateSheet(normalizedContentType, slug, activeSheetId, {
         body: markdown,
@@ -909,8 +915,9 @@ export default function Editor({
           s.id === activeSheetId ? { ...s, body: markdown, wordCount: updated.wordCount } : s
         ));
       }
-    } catch {
-      /* Non-critical; content still in editor */
+    } catch (err) {
+      console.error('[sheets] save failed for sheet', activeSheetId, err);
+      toast.error('Could not save sheet');
     }
   }, [activeSheetId, editor, normalizedContentType, slug]);
 

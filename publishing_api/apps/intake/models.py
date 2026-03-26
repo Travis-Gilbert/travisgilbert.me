@@ -53,6 +53,7 @@ class RawSource(TimeStampedModel):
     og_description = models.TextField(blank=True, default="")
     og_image = models.URLField(max_length=2000, blank=True, default="")
     og_site_name = models.CharField(max_length=300, blank=True, default="")
+    extracted_content = models.TextField(blank=True, default="", help_text="Readable body text extracted from the page.")
 
     # Kanban phase (board position, separate from decision outcome)
     phase = models.CharField(

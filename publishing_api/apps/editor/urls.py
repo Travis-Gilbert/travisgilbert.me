@@ -333,4 +333,23 @@ urlpatterns = [
         views.StudioApiExtractEntitiesView.as_view(),
         name="api-extract-entities",
     ),
+
+    # -----------------------------------------------------------------------
+    # Sourcebox JSON API (for Next.js Studio frontend)
+    # -----------------------------------------------------------------------
+    path(
+        "editor/api/sourcebox/",
+        views.StudioApiSourceboxListView.as_view(),
+        name="api-sourcebox-list",
+    ),
+    path(
+        "editor/api/sourcebox/capture/",
+        views.StudioApiSourceboxCaptureView.as_view(),
+        name="api-sourcebox-capture",
+    ),
+    path(
+        "editor/api/sourcebox/status/<int:pk>/",
+        views.StudioApiSourceboxStatusView.as_view(),
+        name="api-sourcebox-status",
+    ),
 ]

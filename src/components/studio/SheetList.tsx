@@ -118,7 +118,10 @@ export default function SheetList({ fullPanel = false }: { fullPanel?: boolean }
           <div className="studio-sheet-progress">
             <div
               className="studio-sheet-progress-fill"
-              style={{ width: `${Math.min(100, (totalWords / totalTarget) * 100)}%` }}
+              style={{
+                width: `${Math.min(100, (totalWords / totalTarget) * 100)}%`,
+                ...(totalWords >= totalTarget ? { background: '#5A7A4A' } : {}),
+              }}
             />
           </div>
           <span className="studio-sheet-footer-text">
@@ -257,7 +260,10 @@ function SheetItem({
             <div className="studio-sheet-progress">
               <div
                 className="studio-sheet-progress-fill"
-                style={{ width: `${progress}%` }}
+                style={{
+                  width: `${progress}%`,
+                  ...(progress >= 100 ? { background: '#5A7A4A' } : {}),
+                }}
               />
             </div>
           )}

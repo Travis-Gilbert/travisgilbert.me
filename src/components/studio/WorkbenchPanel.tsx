@@ -1169,7 +1169,7 @@ function SourceIntakeForm({
             fontFamily: 'var(--studio-font-mono)',
             fontSize: '10px',
             color: 'var(--studio-text-bright)',
-            backgroundColor: 'var(--studio-surface)',
+            backgroundColor: 'var(--studio-bg-sidebar)',
             border: '1px solid var(--studio-border)',
             borderRadius: '3px',
             outline: 'none',
@@ -1298,6 +1298,37 @@ function SourcePreviewCard({ source }: { source: SourceboxSource }) {
         }}>
           {source.siteName}
         </div>
+      )}
+      {source.content && (
+        <details style={{ marginTop: '6px' }}>
+          <summary style={{
+            fontFamily: 'var(--studio-font-mono)',
+            fontSize: '9px',
+            fontWeight: 600,
+            color: 'var(--studio-text-3)',
+            cursor: 'pointer',
+            userSelect: 'none',
+          }}>
+            Extracted content ({Math.round(source.content.length / 1000)}k chars)
+          </summary>
+          <div style={{
+            fontFamily: 'var(--studio-font-body)',
+            fontSize: '11px',
+            color: 'var(--studio-text-2)',
+            marginTop: '4px',
+            lineHeight: 1.5,
+            maxHeight: '200px',
+            overflowY: 'auto',
+            whiteSpace: 'pre-wrap',
+            padding: '6px 8px',
+            backgroundColor: 'var(--studio-bg)',
+            borderRadius: '2px',
+            border: '1px solid var(--studio-border)',
+          }}>
+            {source.content.slice(0, 3000)}
+            {source.content.length > 3000 && '\n\n[truncated]'}
+          </div>
+        </details>
       )}
     </div>
   );
