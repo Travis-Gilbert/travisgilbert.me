@@ -211,7 +211,7 @@ function StudioLayoutInner({
       )}
 
       <main
-        className="studio-main studio-scrollbar"
+        className="studio-main studio-scrollbar-hidden"
         data-zen-mode={zenMode ? 'true' : undefined}
         style={{
           flex: 1,

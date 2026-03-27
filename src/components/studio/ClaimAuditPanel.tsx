@@ -16,16 +16,19 @@ export default function ClaimAuditPanel({
 }) {
   const [result, setResult] = useState<ClaimAuditResult | null>(null);
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const runAudit = useCallback(async () => {
     const text = getEditorText();
     if (text.length < 50) return;
     setLoading(true);
+    setError(null);
     try {
       const data = await auditClaims(text, sourceSlugs);
       setResult(data);
     } catch {
       setResult(null);
+      setError('Claim audit is not available yet. The backend endpoint needs to be deployed.');
     } finally {
       setLoading(false);
     }
@@ -47,23 +50,61 @@ export default function ClaimAuditPanel({
         }}>
           Claim Audit
         </span>
-        <button
-          onClick={runAudit}
-          disabled={loading}
-          style={{
-            fontFamily: 'var(--studio-font-mono)',
-            fontSize: '9px',
-            padding: '2px 8px',
-            borderRadius: '3px',
-            border: '1px solid var(--studio-border)',
-            backgroundColor: 'transparent',
-            color: 'var(--studio-text-2)',
-            cursor: loading ? 'wait' : 'pointer',
-          }}
-        >
-          {loading ? 'Auditing...' : 'Run Audit'}
-        </button>
+        {sourceSlugs.length === 0 ? (
+          <span style={{
+            fontFamily: 'var(--studio-font-body)',
+            fontSize: '11px',
+            color: 'var(--studio-text-3)',
+            fontStyle: 'italic',
+          }}>
+            Add sources to enable auditing.
+          </span>
+        ) : (
+          <button
+            onClick={runAudit}
+            disabled={loading}
+            style={{
+              fontFamily: 'var(--studio-font-mono)',
+              fontSize: '9px',
+              padding: '2px 8px',
+              borderRadius: '3px',
+              border: '1px solid var(--studio-border)',
+              backgroundColor: 'transparent',
+              color: 'var(--studio-text-2)',
+              cursor: loading ? 'wait' : 'pointer',
+            }}
+          >
+            {loading ? 'Auditing...' : 'Run Audit'}
+          </button>
+        )}
       </div>
+
+      {loading && (
+        <div style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: '8px',
+          marginTop: '8px',
+          fontFamily: 'var(--studio-font-mono)',
+          fontSize: '10px',
+          color: 'var(--studio-text-2)',
+        }}>
+          <span className="studio-pulse" />
+          Analyzing claims against sources...
+        </div>
+      )}
+
+      {error && (
+        <div style={{
+          marginTop: '8px',
+          fontFamily: 'var(--studio-font-mono)',
+          fontSize: '10px',
+          color: 'var(--studio-tc)',
+          lineHeight: 1.4,
+        }}>
+          {error}
+        </div>
+      )}
 
       {result && (
         <div style={{ marginTop: '8px' }}>

@@ -1612,6 +1612,7 @@ function ResearchMode({
               return (
                 <div
                   key={src.id}
+                  className="studio-source-card-body"
                   style={{
                     display: 'flex',
                     gap: '8px',
@@ -1640,6 +1641,7 @@ function ResearchMode({
                   </div>
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <div
+                      className="studio-source-card-title"
                       style={{
                         fontFamily: 'var(--studio-font-serif)',
                         fontSize: '12.5px',
@@ -1651,6 +1653,7 @@ function ResearchMode({
                       {src.title}
                     </div>
                     <div
+                      className="studio-source-card-domain"
                       style={{
                         fontFamily: 'var(--studio-font-mono)',
                         fontSize: '9px',

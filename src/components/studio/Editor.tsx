@@ -743,7 +743,33 @@ export default function Editor({
         body: payload.markdown,
       });
     }
-  }, []);
+
+    /* Sync sheet title with first heading */
+    if (isSheetsMode && activeSheetId && editor) {
+      let found = '';
+      editor.state.doc.descendants((node) => {
+        if (found) return false;
+        if (node.type.name === 'heading' && node.attrs.level === 1) {
+          found = node.textContent.trim();
+          return false;
+        }
+        if (!found && node.type.name === 'heading' && node.attrs.level === 2) {
+          found = node.textContent.trim();
+        }
+        return true;
+      });
+
+      if (found) {
+        setSheets((prev) =>
+          prev.map((s) =>
+            s.id === activeSheetId && s.title !== found
+              ? { ...s, title: found }
+              : s,
+          ),
+        );
+      }
+    }
+  }, [isSheetsMode, activeSheetId, editor]);
 
   const handleSave = useCallback(() => {
     if (autosaveTimerRef.current) {
@@ -1245,7 +1271,7 @@ export default function Editor({
   return (
     <div style={{ display: 'flex', height: '100vh', maxHeight: '100vh' }}>
       <div
-        className="studio-writing-surface studio-editor-shell"
+        className="studio-writing-surface studio-editor-shell studio-scrollbar-hidden"
         data-writing-focused={isWritingFocused ? 'true' : 'false'}
         style={writingSurfaceStyle}
       >

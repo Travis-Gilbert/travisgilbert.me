@@ -264,6 +264,26 @@
 .studio-theme-light .studio-workbench-grid::before { opacity: 0.15; }
 .studio-theme-light .studio-workbench-glow { opacity: 0.3; }
 
+/* Light mode: source cards in workbench get readable contrast */
+.studio-theme-light .studio-workbench .studio-source-card-body {
+  background: rgba(240, 234, 224, 0.08);
+  border: 1px solid rgba(240, 234, 224, 0.10);
+  border-radius: 6px;
+  padding: 10px 12px;
+}
+
+.studio-theme-light .studio-workbench .studio-source-card-title {
+  color: var(--studio-chrome-text-1);
+}
+
+.studio-theme-light .studio-workbench .studio-source-card-excerpt {
+  color: var(--studio-chrome-text-2);
+}
+
+.studio-theme-light .studio-workbench .studio-source-card-domain {
+  color: var(--studio-chrome-text-3);
+}
+
 /* Section labels in slate chrome get the contrasting hue */
 .studio-theme-light .studio-sidebar-desktop .studio-nav-section-label,
 .studio-theme-light .studio-workbench .studio-workbench-section-label {
@@ -785,6 +805,15 @@
   background: var(--studio-text-1);
 }
 
+/* Invisible scrollbar: scroll works, bar hidden */
+.studio-scrollbar-hidden {
+  scrollbar-width: none; /* Firefox */
+  -ms-overflow-style: none; /* IE/Edge legacy */
+}
+.studio-scrollbar-hidden::-webkit-scrollbar {
+  display: none; /* Chrome/Safari/Opera */
+}
+
 /* ─────────────────────────────────────────────────
    Override root body grain for Studio.
    Suppress the global body::after grain since
@@ -1066,7 +1095,7 @@
   --studio-writing-margin-rule: rgba(180, 90, 45, 0.28);
   --studio-writing-ruled-line: rgba(42, 36, 32, 0.045);
   --studio-desk-bg: #1A1614;
-  --studio-editor-column-width: min(100%, calc(72ch + 128px));
+  --studio-editor-column-width: min(100%, calc(80ch + 128px));
   --studio-reading-font-family: var(--studio-font-writing), 'Iowan Old Style', Georgia, 'Times New Roman', serif;
   --studio-reading-font-size: 19px;
   --studio-reading-line-height: 1.75;
@@ -2583,7 +2612,7 @@
 
 .studio-page {
   position: relative;
-  width: min(100%, calc(72ch + 128px));
+  width: min(100%, calc(80ch + 128px));
   margin: 32px auto;
   border-radius: 0 0 3px 3px;
   background-color: var(--studio-writing-paper-bg);
@@ -2631,7 +2660,7 @@
 
 /* Stage progress strip: colored bar above paper top edge */
 .studio-stage-strip {
-  width: min(100%, calc(72ch + 128px));
+  width: min(100%, calc(80ch + 128px));
   margin: 0 auto;
   height: 2px;
   border-radius: 2px 2px 0 0;
@@ -2662,7 +2691,7 @@
   outline: none;
   /* Faint ruled lines in writing body */
   background-image: linear-gradient(var(--studio-writing-ruled-line) 1px, transparent 1px);
-  background-size: 100% 32px;
+  background-size: 100% calc(var(--studio-reading-font-size) * var(--studio-reading-line-height));
 }
 
 /* Stage-scoped ruled line tinting: subtle hue shift per stage */

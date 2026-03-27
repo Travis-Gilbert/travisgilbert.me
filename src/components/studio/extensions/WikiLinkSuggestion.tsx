@@ -42,12 +42,30 @@ const WikiLinkSuggestion = Extension.create<WikiLinkSuggestionOptions>({
           init() {
             return { active: false, query: '', from: 0 };
           },
-          apply(tr, prev) {
+          apply(tr, prev, _oldState, newState) {
             const meta = tr.getMeta(pluginKey);
             if (meta) return meta;
             if (!prev.active) return prev;
-            const { from } = tr.selection;
-            if (from < prev.from) return { active: false, query: '', from: 0 };
+
+            // Close if selection moved before the trigger
+            const { from } = newState.selection;
+            if (from < prev.from) {
+              return { active: false, query: '', from: 0 };
+            }
+
+            // Check if the text between trigger and cursor still matches [[...
+            const $pos = newState.selection.$from;
+            const textBefore = $pos.parent.textBetween(
+              0,
+              $pos.parentOffset,
+              undefined,
+              '\uFFFC',
+            );
+            const match = textBefore.match(/\[\[([^\]]*?)$/);
+            if (!match) {
+              return { active: false, query: '', from: 0 };
+            }
+
             return prev;
           },
         },
@@ -103,6 +121,37 @@ const WikiLinkSuggestion = Extension.create<WikiLinkSuggestionOptions>({
                 }, 0);
               }
             }
+
+            return false;
+          },
+
+          handleClick(view) {
+            const state = pluginKey.getState(view.state);
+            if (!state?.active) return false;
+
+            // After click, check if cursor is still in [[ context
+            setTimeout(() => {
+              const newState = view.state;
+              const $pos = newState.selection.$from;
+              const textBefore = $pos.parent.textBetween(
+                0,
+                $pos.parentOffset,
+                undefined,
+                '\uFFFC',
+              );
+              const match = textBefore.match(/\[\[([^\]]*?)$/);
+              if (!match) {
+                isOpen = false;
+                onClose();
+                view.dispatch(
+                  view.state.tr.setMeta(pluginKey, {
+                    active: false,
+                    query: '',
+                    from: 0,
+                  }),
+                );
+              }
+            }, 0);
 
             return false;
           },
