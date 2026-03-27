@@ -1314,16 +1314,16 @@ function SourcePreviewCard({ source }: { source: SourceboxSource }) {
           <div style={{
             fontFamily: 'var(--studio-font-body)',
             fontSize: '11px',
-            color: '#3A3430',
+            color: 'var(--studio-text-2)',
             marginTop: '4px',
             lineHeight: 1.5,
             maxHeight: '200px',
             overflowY: 'auto',
             whiteSpace: 'pre-wrap',
             padding: '6px 8px',
-            backgroundColor: '#E8DFD4',
+            backgroundColor: 'var(--studio-bg)',
             borderRadius: '2px',
-            border: '1px solid rgba(42, 36, 32, 0.12)',
+            border: '1px solid var(--studio-border)',
           }}>
             {source.content.slice(0, 3000)}
             {source.content.length > 3000 && '\n\n[truncated]'}
