@@ -2209,8 +2209,8 @@
 .studio-word-count-band {
   display: flex;
   align-items: baseline;
-  gap: 12px;
-  padding: 10px 52px 12px 76px;
+  gap: 10px;
+  padding: 5px 52px 6px 76px;
   border-top: 1px solid rgba(42,36,32,0.08);
   background: rgba(42,36,32,0.03);
   position: relative;
@@ -2219,7 +2219,7 @@
 
 .studio-word-count-primary {
   font-family: var(--studio-font-mono);
-  font-size: 36px;
+  font-size: 18px;
   font-weight: 700;
   line-height: 1;
   font-variant-numeric: tabular-nums;

@@ -180,7 +180,7 @@ function StudioLayoutInner({
             position: 'sticky',
             top: 0,
             height: '100vh',
-            width: sidebarCollapsed ? 56 : sheetsMode ? 268 : 232,
+            width: sidebarCollapsed ? 56 : sheetsMode ? 290 : 256,
             flexShrink: 0,
             transition: 'width 0.2s ease',
             display: isAppShellMobile ? 'none' : 'block',
@@ -220,6 +220,7 @@ function StudioLayoutInner({
           position: 'relative',
           height: '100vh',
           viewTransitionName: 'studio-content',
+          backgroundColor: 'var(--studio-bg)',
         }}
       >
         {!zenMode && isAppShellMobile && (
