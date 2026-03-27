@@ -180,7 +180,7 @@ function StudioLayoutInner({
             position: 'sticky',
             top: 0,
             height: '100vh',
-            width: sidebarCollapsed ? 56 : 232,
+            width: sidebarCollapsed ? 56 : sheetsMode ? 268 : 232,
             flexShrink: 0,
             transition: 'width 0.2s ease',
             display: isAppShellMobile ? 'none' : 'block',

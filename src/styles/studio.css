@@ -2617,7 +2617,9 @@
   margin: 0 auto;
   border-radius: 0;
   background-color: var(--studio-writing-paper-bg);
-  box-shadow: none;
+  box-shadow:
+    inset 0 1px 3px rgba(20, 14, 8, 0.04),
+    inset 0 -1px 0 rgba(255, 255, 255, 0.06);
   overflow: hidden;
 }
 
@@ -2668,9 +2670,12 @@
   background: linear-gradient(90deg, var(--stage-color, #B45A2D) 0%, color-mix(in srgb, var(--stage-color, #B45A2D) 55%, transparent) 60%, transparent 100%);
 }
 
-/* Subtle top-edge highlight when editor is focused */
+/* Subtle inset shadow when editor is focused (paper is flush, not floating) */
 .studio-editor-shell[data-writing-focused="true"] .studio-page {
-  box-shadow: none;
+  box-shadow:
+    inset 0 1px 4px rgba(20, 14, 8, 0.06),
+    inset 0 0 0 1px rgba(180, 90, 45, 0.08);
+  transition: box-shadow 0.3s ease;
 }
 
 .studio-prose {
