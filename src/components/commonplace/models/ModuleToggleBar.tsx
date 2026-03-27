@@ -41,35 +41,31 @@ export default function ModuleToggleBar({
             style={{
               display: 'inline-flex',
               alignItems: 'center',
-              gap: 4,
-              padding: '2px 7px',
-              borderRadius: 9,
-              border: active
-                ? `1px solid ${meta.accentColor}40`
-                : '1px solid transparent',
-              background: active ? `${meta.accentColor}0D` : 'transparent',
+              gap: 5,
+              padding: '3px 10px',
+              borderRadius: 99,
+              border: 'none',
+              background: active ? 'rgba(26, 24, 22, 0.06)' : 'transparent',
               cursor: 'pointer',
               fontFamily: 'var(--cp-font-mono)',
-              fontSize: 7,
-              fontWeight: 500,
+              fontSize: 10,
+              fontWeight: active ? 500 : 400,
               letterSpacing: '0.04em',
               textTransform: 'uppercase',
               color: active
-                ? meta.accentColor
-                : 'var(--cp-text-faint, #68666E)',
-              transition: 'all 0.12s ease',
+                ? 'rgba(26, 24, 22, 0.6)'
+                : 'rgba(26, 24, 22, 0.3)',
+              transition: 'all 150ms ease',
               lineHeight: '14px',
             }}
           >
             {/* Accent dot */}
             <span
               style={{
-                width: 4,
-                height: 4,
+                width: 5,
+                height: 5,
                 borderRadius: '50%',
-                background: active
-                  ? meta.accentColor
-                  : 'var(--cp-border, #E2E0DC)',
+                background: meta.accentColor,
                 flexShrink: 0,
               }}
             />

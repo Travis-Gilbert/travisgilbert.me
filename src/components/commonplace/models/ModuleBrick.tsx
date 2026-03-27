@@ -37,6 +37,7 @@ export default function ModuleBrick({
           gap: 6,
           padding: '4px 8px',
           borderBottom: '1px solid var(--cp-border-faint, #ECEAE6)',
+          borderLeft: `2px solid ${accentColor}`,
           background: 'var(--cp-surface, #F8F7F4)',
           userSelect: 'none',
         }}
@@ -53,26 +54,15 @@ export default function ModuleBrick({
           {'::'}
         </span>
 
-        {/* Accent pip */}
-        <span
-          style={{
-            width: 5,
-            height: 5,
-            borderRadius: '50%',
-            background: accentColor,
-            flexShrink: 0,
-          }}
-        />
-
         {/* Title */}
         <span
           style={{
             fontFamily: 'var(--cp-font-mono)',
-            fontSize: 8,
+            fontSize: 9,
             fontWeight: 600,
-            letterSpacing: '0.06em',
+            letterSpacing: '0.7px',
             textTransform: 'uppercase',
-            color: accentColor,
+            color: 'rgba(26, 24, 22, 0.28)',
             flex: 1,
           }}
         >

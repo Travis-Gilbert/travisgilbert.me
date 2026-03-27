@@ -91,26 +91,27 @@ export default function ModelView({
             >
               <div
                 style={{
-                  fontFamily: 'var(--cp-font-title)',
-                  fontSize: 18,
-                  fontWeight: 600,
+                  fontFamily: 'var(--cp-font-body)',
+                  fontSize: 16,
+                  fontWeight: 500,
                   color: 'var(--cp-text, #18181B)',
                   marginBottom: 8,
                 }}
               >
-                Models
+                Select a model to begin
               </div>
               <div
                 style={{
-                  fontFamily: 'var(--cp-font-body)',
-                  fontSize: 13,
-                  color: 'var(--cp-text-muted, #48464E)',
+                  fontFamily: 'var(--cp-font-mono)',
+                  fontSize: 10,
+                  color: 'var(--cp-text-faint, #8A8279)',
                   maxWidth: 320,
-                  lineHeight: 1.5,
+                  lineHeight: 1.6,
+                  letterSpacing: '0.02em',
                 }}
               >
-                Select a model from the list to explore its argument
-                structure, evidence, and tensions.
+                Models encode your understanding.
+                Each one is a testable argument.
               </div>
             </div>
           </div>

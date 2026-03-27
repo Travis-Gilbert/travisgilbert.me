@@ -259,8 +259,6 @@ export default function ModelListPane({
         {models.map((model) => {
           const isSelected = model.id === selectedModelId;
           const typeMeta = MODEL_TYPE_META[model.modelType];
-          const statusKey = (model.modelStatus ?? 'proposed') as keyof typeof ASSUMPTION_STATUS_META;
-          const statusMeta = ASSUMPTION_STATUS_META[statusKey] ?? ASSUMPTION_STATUS_META.proposed;
           const confidence = model.modelConfidence ?? 0;
 
           return (
@@ -269,82 +267,63 @@ export default function ModelListPane({
               onClick={() => onSelectModel(model.id)}
               style={{
                 display: 'flex',
-                flexDirection: 'column',
-                gap: 4,
-                padding: 0,
-                borderRadius: 4,
-                overflow: 'hidden',
-                border: isSelected
-                  ? `1px solid ${typeMeta.color}66`
-                  : '1px solid var(--cp-border-faint)',
+                alignItems: 'center',
+                gap: 10,
+                padding: '8px 10px',
+                borderRadius: 5,
+                border: 'none',
                 background: isSelected
-                  ? `${typeMeta.color}08`
-                  : 'var(--cp-surface)',
+                  ? 'rgba(107, 79, 122, 0.06)'
+                  : 'transparent',
                 cursor: 'pointer',
                 textAlign: 'left',
                 width: '100%',
-                transition: 'all 0.1s ease',
+                transition: 'background 150ms ease',
+              }}
+              onMouseEnter={(e) => {
+                if (!isSelected) e.currentTarget.style.background = 'rgba(26, 24, 22, 0.03)';
+              }}
+              onMouseLeave={(e) => {
+                if (!isSelected) e.currentTarget.style.background = 'transparent';
               }}
             >
-              {/* Gradient top bar */}
-              <div
-                style={{
-                  height: 2,
-                  background: `linear-gradient(to right, ${typeMeta.color}33, ${typeMeta.color}80)`,
-                }}
-              />
+              {/* Purple concept-style type mark */}
+              <div style={{
+                width: 22, height: 22, borderRadius: '50%',
+                background: 'rgba(107, 79, 122, 0.1)',
+                border: '1.5px solid rgba(107, 79, 122, 0.3)',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                flexShrink: 0,
+              }}>
+                <div style={{ width: 7, height: 7, borderRadius: '50%', background: '#6B4F7A' }} />
+              </div>
 
-              <div style={{ padding: '6px 10px 8px' }}>
-                {/* Title */}
-                <div
-                  style={{
-                    fontFamily: 'var(--cp-font-body)',
-                    fontSize: 12,
-                    fontWeight: 500,
-                    color: 'var(--cp-text)',
-                    lineHeight: 1.35,
-                    marginBottom: 4,
-                  }}
-                >
+              {/* Title + type badge */}
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{
+                  fontFamily: 'var(--cp-font-body)',
+                  fontSize: 12,
+                  fontWeight: 500,
+                  color: 'var(--cp-text)',
+                  lineHeight: 1.35,
+                  overflow: 'hidden',
+                  textOverflow: 'ellipsis',
+                  whiteSpace: 'nowrap',
+                }}>
                   {model.title}
                 </div>
-
-                {/* Type + status + confidence */}
-                <div
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: 6,
-                    flexWrap: 'wrap',
-                  }}
-                >
-                  <span
-                    style={{
-                      fontFamily: 'var(--cp-font-mono)',
-                      fontSize: 7,
-                      fontWeight: 600,
-                      letterSpacing: '0.04em',
-                      textTransform: 'uppercase',
-                      color: typeMeta.color,
-                    }}
-                  >
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 2 }}>
+                  <span style={{
+                    fontFamily: 'var(--cp-font-mono)',
+                    fontSize: 8,
+                    fontWeight: 600,
+                    letterSpacing: '0.06em',
+                    textTransform: 'uppercase',
+                    color: typeMeta.color,
+                  }}>
                     {typeMeta.label}
                   </span>
-
-                  <span
-                    style={{
-                      fontFamily: 'var(--cp-font-mono)',
-                      fontSize: 7,
-                      fontWeight: 500,
-                      letterSpacing: '0.04em',
-                      textTransform: 'uppercase',
-                      color: statusMeta.color,
-                    }}
-                  >
-                    {statusMeta.label}
-                  </span>
-
-                  <CardCBar value={confidence} color={statusMeta.color} />
+                  <CardCBar value={confidence} color={typeMeta.color} />
                 </div>
               </div>
             </button>
