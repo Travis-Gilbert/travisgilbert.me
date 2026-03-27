@@ -1,9 +1,7 @@
 'use client';
 
-import { getObjectTypeIdentity } from '@/lib/commonplace';
+import { useMemo } from 'react';
 import type { RenderableObject } from '../../objects/ObjectRenderer';
-import RoughBox from '@/components/rough/RoughBox';
-import { timeAgo, countWords, truncate, hexToRgb } from './library-data';
 
 interface ResumeZoneProps {
   lastEdited?: RenderableObject | null;
@@ -11,277 +9,128 @@ interface ResumeZoneProps {
   onOpenObject?: (objectRef: number) => void;
 }
 
+/** Relative time label: "2h", "1d", "3d", etc. */
+function shortTimeAgo(iso?: string): string {
+  if (!iso) return '';
+  const ms = Date.now() - new Date(iso).getTime();
+  const hours = Math.floor(ms / 3600000);
+  if (hours < 1) return '<1h';
+  if (hours < 24) return `${hours}h`;
+  const days = Math.floor(hours / 24);
+  return `${days}d`;
+}
+
+interface PulseRow {
+  time: string;
+  icon: string;
+  segments: { text: string; color: string }[];
+}
+
 export default function ResumeZone({
   lastEdited,
   recentActivity = [],
   onOpenObject,
 }: ResumeZoneProps) {
-  if (!lastEdited && recentActivity.length === 0) return null;
+  const allItems = useMemo(() => {
+    const items: RenderableObject[] = [];
+    if (lastEdited) items.push(lastEdited);
+    items.push(...recentActivity);
+    return items;
+  }, [lastEdited, recentActivity]);
+
+  const pulseRows = useMemo<PulseRow[]>(() => {
+    const rows: PulseRow[] = [];
+    for (const item of allItems.slice(0, 4)) {
+      const time = shortTimeAgo(item.captured_at);
+      const edgeCount = item.edge_count ?? 0;
+
+      if (edgeCount > 0) {
+        rows.push({
+          time,
+          icon: '\u21a6',
+          segments: [
+            { text: 'NLI pass', color: '#5DCAA5' },
+            { text: ' found connection: ', color: 'rgba(244, 243, 240, 0.55)' },
+            { text: item.display_title ?? item.title, color: 'rgba(244, 243, 240, 0.8)' },
+            { text: ` (${edgeCount} conn.)`, color: '#C49A4A' },
+          ],
+        });
+      } else {
+        rows.push({
+          time,
+          icon: '\u25CB',
+          segments: [
+            { text: item.display_title ?? item.title, color: 'rgba(244, 243, 240, 0.8)' },
+            { text: ' waiting for connections', color: 'rgba(244, 243, 240, 0.35)' },
+          ],
+        });
+      }
+    }
+    return rows;
+  }, [allItems]);
+
+  if (allItems.length === 0) return null;
+
+  const awayCount = recentActivity.filter((r) => (r.edge_count ?? 0) > 0).length;
 
   return (
     <div style={{ marginBottom: 32 }}>
-      <RoughBox
-        variant="dark"
-        tint="terracotta"
-        roughness={1.0}
-        strokeWidth={0.8}
-        elevated
-        hover={false}
-        padding={0}
-      >
-        <div
-          style={{
-            display: 'grid',
-            gridTemplateColumns:
-              lastEdited && recentActivity.length > 0
-                ? '1fr 260px'
-                : '1fr',
-            gap: 0,
-          }}
-        >
-          {/* Left panel: last edited object */}
-          {lastEdited && (
-            <LeftPanel
-              object={lastEdited}
-              onOpenObject={onOpenObject}
-            />
-          )}
-
-          {/* Right panel: activity feed */}
-          {recentActivity.length > 0 && (
-            <RightPanel
-              items={recentActivity}
-              showDivider={!!lastEdited}
-              onOpenObject={onOpenObject}
-            />
-          )}
-        </div>
-      </RoughBox>
-    </div>
-  );
-}
-
-/* ── Left panel: pick up where you left off ── */
-
-function LeftPanel({
-  object,
-  onOpenObject,
-}: {
-  object: RenderableObject;
-  onOpenObject?: (objectRef: number) => void;
-}) {
-  const identity = getObjectTypeIdentity(object.object_type_slug);
-  const wordCount = object.body ? countWords(object.body) : 0;
-
-  return (
-    <button
-      type="button"
-      onClick={() => onOpenObject?.(object.id)}
-      className="cp-resume-left-panel"
-      style={{
-        all: 'unset',
-        cursor: 'pointer',
-        padding: '18px 22px',
-        display: 'flex',
-        flexDirection: 'column',
-      }}
-      onMouseEnter={(e) => {
-        e.currentTarget.style.background = 'rgba(180,90,45,0.03)';
-      }}
-      onMouseLeave={(e) => {
-        e.currentTarget.style.background = 'transparent';
-      }}
-    >
-      {/* Section label + type tag row */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
-        <span
-          style={{
-            fontFamily: 'var(--cp-font-mono)',
-            fontSize: 9.5,
-            fontWeight: 600,
-            color: '#B45A2D',
-            letterSpacing: '0.1em',
-            textTransform: 'uppercase',
-          }}
-        >
-          Pick up where you left off
-        </span>
-        <span
-          style={{
-            fontFamily: 'var(--cp-font-mono)',
-            fontSize: 8.5,
-            color: identity.color,
-            opacity: 0.6,
-            textTransform: 'uppercase',
-            letterSpacing: '0.06em',
-          }}
-        >
-          {identity.label}
-        </span>
-      </div>
-
-      {/* Title */}
-      <h3
-        style={{
-          fontFamily: 'var(--cp-font-title)',
-          fontSize: 18,
-          fontWeight: 700,
-          color: '#2A2520',
-          margin: '0 0 6px',
-          lineHeight: 1.25,
-        }}
-      >
-        {object.display_title ?? object.title}
-      </h3>
-
-      {/* Body preview */}
-      {object.body && (
-        <p
-          style={{
-            fontFamily: 'var(--cp-font-body)',
-            fontSize: 13,
-            fontWeight: 300,
-            color: '#5C554D',
-            lineHeight: 1.55,
-            margin: '0 0 12px',
-          }}
-        >
-          {truncate(object.body, 180)}
-        </p>
-      )}
-
-      {/* Metadata row */}
+      {/* Engine Pulse terminal block */}
       <div
         style={{
-          display: 'flex',
-          alignItems: 'center',
+          background: '#1A1C22',
+          borderRadius: 5,
+          padding: '14px 16px',
           fontFamily: 'var(--cp-font-mono)',
-          fontSize: 9.5,
-          color: '#8A8279',
-          marginTop: 'auto',
+          fontSize: 10,
+          lineHeight: 1.7,
         }}
       >
-        {wordCount > 0 && <span>{wordCount} words</span>}
-        {object.captured_at && (
-          <>
-            {wordCount > 0 && <span className="cp-meta-sep" />}
-            <span>{timeAgo(object.captured_at)}</span>
-          </>
-        )}
-        {(object.edge_count ?? 0) > 0 && (
-          <>
-            <span className="cp-meta-sep" />
-            <span>
-              {object.edge_count} connection{object.edge_count !== 1 ? 's' : ''}
+        {pulseRows.map((row, i) => (
+          <div
+            key={i}
+            style={{ display: 'flex', gap: 8, alignItems: 'baseline' }}
+          >
+            <span style={{ color: 'rgba(244, 243, 240, 0.2)', width: 32, flexShrink: 0, textAlign: 'right' }}>
+              {row.time}
             </span>
-          </>
-        )}
+            <span style={{ color: 'rgba(244, 243, 240, 0.35)', width: 14, flexShrink: 0, textAlign: 'center' }}>
+              {row.icon}
+            </span>
+            <span>
+              {row.segments.map((seg, j) => (
+                <span key={j} style={{ color: seg.color }}>{seg.text}</span>
+              ))}
+            </span>
+          </div>
+        ))}
       </div>
-    </button>
-  );
-}
 
-/* ── Right panel: while you were away ── */
-
-function RightPanel({
-  items,
-  showDivider,
-  onOpenObject,
-}: {
-  items: RenderableObject[];
-  showDivider: boolean;
-  onOpenObject?: (objectRef: number) => void;
-}) {
-  return (
-    <div
-      style={{
-        padding: '18px 18px',
-        borderLeft: showDivider ? '1px solid rgba(0,0,0,0.08)' : undefined,
-      }}
-    >
-      <span
-        style={{
-          fontFamily: 'var(--cp-font-mono)',
-          fontSize: 9.5,
-          fontWeight: 600,
-          color: '#2D5F6B',
-          letterSpacing: '0.1em',
-          textTransform: 'uppercase',
-          display: 'block',
-          marginBottom: 12,
-        }}
-      >
-        While you were away
-      </span>
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-        {items.map((item) => {
-          const identity = getObjectTypeIdentity(item.object_type_slug);
-          const rgb = hexToRgb(identity.color);
-          return (
-            <button
-              key={item.id}
-              type="button"
-              onClick={() => onOpenObject?.(item.id)}
-              style={{
-                all: 'unset',
-                display: 'flex',
-                gap: 8,
-                alignItems: 'flex-start',
-                cursor: 'pointer',
-              }}
-            >
-              {/* Type dot with halo */}
-              <div
-                className="cp-type-halo"
-                style={{
-                  width: 16,
-                  height: 16,
-                  background: `radial-gradient(circle, rgba(${rgb},0.19) 0%, transparent 70%)`,
-                  marginTop: 1,
-                }}
-              >
-                <span
-                  className="cp-type-halo-dot"
-                  style={{ width: 5, height: 5, background: identity.color }}
-                />
-              </div>
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <div
-                  style={{
-                    fontFamily: 'var(--cp-font-body)',
-                    fontSize: 12,
-                    fontWeight: 400,
-                    color: '#4A4540',
-                    lineHeight: 1.3,
-                    overflow: 'hidden',
-                    textOverflow: 'ellipsis',
-                    whiteSpace: 'nowrap',
-                  }}
-                >
-                  {item.display_title ?? item.title}
-                </div>
-                <div
-                  style={{
-                    fontFamily: 'var(--cp-font-mono)',
-                    fontSize: 9,
-                    color: '#8A8279',
-                    display: 'flex',
-                    gap: 6,
-                    marginTop: 1,
-                  }}
-                >
-                  <span style={{ color: '#5D9B78' }}>
-                    {(item.edge_count ?? 0) > 0
-                      ? `${item.edge_count} connection${item.edge_count !== 1 ? 's' : ''}`
-                      : 'Captured'}
-                  </span>
-                  {item.captured_at && <span>{timeAgo(item.captured_at)}</span>}
-                </div>
-              </div>
-            </button>
-          );
-        })}
-      </div>
+      {/* "While you were away" strip */}
+      {awayCount > 0 && (
+        <div
+          style={{
+            background: 'rgba(45, 95, 107, 0.04)',
+            borderLeft: '2px solid rgba(45, 95, 107, 0.2)',
+            padding: '8px 14px',
+            marginTop: 6,
+            fontFamily: 'var(--cp-font-mono)',
+            fontSize: 10,
+            color: '#2D5F6B',
+            display: 'flex',
+            alignItems: 'center',
+            gap: 6,
+          }}
+        >
+          <span style={{ fontSize: 12 }}>{'\u29D7'}</span>
+          {awayCount} new connection{awayCount !== 1 ? 's' : ''} while you were away
+          {recentActivity[0]?.captured_at && (
+            <span style={{ color: 'rgba(45, 95, 107, 0.5)', marginLeft: 'auto' }}>
+              last active {shortTimeAgo(recentActivity[0].captured_at)} ago
+            </span>
+          )}
+        </div>
+      )}
     </div>
   );
 }

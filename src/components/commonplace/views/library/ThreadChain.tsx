@@ -68,13 +68,27 @@ export default function ThreadChain({
 
   return (
     <div style={{ marginBottom: 32 }}>
-      <div style={{ marginBottom: 4 }}>
-        <span className="cp-library-section-label" style={{ color: '#B45A2D' }}>
+      <div style={{ marginBottom: 8, display: 'flex', alignItems: 'baseline', gap: 6 }}>
+        <span style={{
+          fontFamily: 'var(--cp-font-mono)',
+          fontSize: 9,
+          fontWeight: 600,
+          letterSpacing: '0.7px',
+          textTransform: 'uppercase' as const,
+          color: 'rgba(26, 24, 22, 0.28)',
+        }}>
           Recent Thread
         </span>
-      </div>
-      <div className="cp-library-section-subtitle">
-        How recent captures are connecting
+        <span style={{
+          fontFamily: 'var(--cp-font-mono)',
+          fontSize: 9,
+          fontWeight: 400,
+          letterSpacing: '0.7px',
+          textTransform: 'uppercase' as const,
+          color: 'rgba(26, 24, 22, 0.18)',
+        }}>
+          How recent captures connect
+        </span>
       </div>
       <div
         style={{

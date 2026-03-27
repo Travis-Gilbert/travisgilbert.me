@@ -205,11 +205,17 @@ export default function LibraryView({ onOpenObject }: LibraryViewProps) {
 
             {reminderProjects.length > 0 && (
               <div style={{ marginBottom: 24 }}>
-                <div className="cp-section-header">
-                  <span className="cp-section-header-label" style={{ color: 'var(--cp-type-task, var(--cp-chrome-muted))' }}>
+                <div style={{ marginBottom: 8, display: 'flex', alignItems: 'baseline', gap: 6 }}>
+                  <span style={{
+                    fontFamily: 'var(--cp-font-mono)',
+                    fontSize: 9,
+                    fontWeight: 600,
+                    letterSpacing: '0.7px',
+                    textTransform: 'uppercase' as const,
+                    color: 'rgba(26, 24, 22, 0.28)',
+                  }}>
                     Reminders
                   </span>
-                  <div className="cp-section-header-rule" />
                 </div>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
                   {reminderProjects.map((project) => (

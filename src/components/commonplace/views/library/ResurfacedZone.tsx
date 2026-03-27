@@ -14,9 +14,26 @@ export default function ResurfacedZone({ cards, onOpenObject }: ResurfacedZonePr
 
   return (
     <div style={{ marginBottom: 32 }}>
-      <div style={{ marginBottom: 12 }}>
-        <span className="cp-library-section-label" style={{ color: '#C4503C' }}>
+      <div style={{ marginBottom: 12, display: 'flex', alignItems: 'baseline', gap: 6 }}>
+        <span style={{
+          fontFamily: 'var(--cp-font-mono)',
+          fontSize: 9,
+          fontWeight: 600,
+          letterSpacing: '0.7px',
+          textTransform: 'uppercase' as const,
+          color: 'rgba(26, 24, 22, 0.28)',
+        }}>
           Resurfaced
+        </span>
+        <span style={{
+          fontFamily: 'var(--cp-font-mono)',
+          fontSize: 9,
+          fontWeight: 400,
+          letterSpacing: '0.7px',
+          textTransform: 'uppercase' as const,
+          color: 'rgba(26, 24, 22, 0.18)',
+        }}>
+          Engine chose these for review
         </span>
       </div>
       <div
