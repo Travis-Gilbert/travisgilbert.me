@@ -1,7 +1,6 @@
 'use client';
 
 import { getObjectTypeIdentity } from '@/lib/commonplace';
-import { hexToRgb } from './library-data';
 
 interface LibraryTypeFiltersProps {
   types: string[];
@@ -18,61 +17,81 @@ export default function LibraryTypeFilters({
 
   return (
     <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5, marginBottom: 20 }}>
-      <button
-        type="button"
+      <PillButton
+        label="All"
+        isActive={active === null}
         onClick={() => onFilter(null)}
-        style={{
-          padding: '3px 10px',
-          borderRadius: 14,
-          fontFamily: 'var(--cp-font-mono)',
-          fontSize: 9.5,
-          fontWeight: 500,
-          background: active === null ? 'rgba(196,80,60,0.08)' : 'transparent',
-          color: active === null ? '#C4503C' : '#5C554D',
-          border: `1px solid ${active === null ? 'rgba(196,80,60,0.18)' : 'rgba(0,0,0,0.08)'}`,
-          cursor: 'pointer',
-          transition: 'all 150ms ease',
-        }}
-      >
-        All
-      </button>
+      />
       {types.map((slug) => {
         const identity = getObjectTypeIdentity(slug);
         const on = active === slug;
-        const rgb = hexToRgb(identity.color);
         return (
-          <button
+          <PillButton
             key={slug}
-            type="button"
+            label={identity.label}
+            dotColor={identity.color}
+            isActive={on}
             onClick={() => onFilter(on ? null : slug)}
-            style={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: 5,
-              padding: '3px 10px',
-              borderRadius: 14,
-              fontFamily: 'var(--cp-font-mono)',
-              fontSize: 9.5,
-              fontWeight: 500,
-              background: on ? `rgba(${rgb},0.08)` : 'transparent',
-              color: on ? identity.color : '#5C554D',
-              border: `1px solid ${on ? `rgba(${rgb},0.18)` : 'rgba(0,0,0,0.08)'}`,
-              cursor: 'pointer',
-              transition: 'all 150ms ease',
-            }}
-          >
-            <span
-              style={{
-                width: 5,
-                height: 5,
-                borderRadius: '50%',
-                background: identity.color,
-              }}
-            />
-            {identity.label}
-          </button>
+          />
         );
       })}
     </div>
+  );
+}
+
+function PillButton({
+  label,
+  dotColor,
+  isActive,
+  onClick,
+}: {
+  label: string;
+  dotColor?: string;
+  isActive: boolean;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      style={{
+        display: 'inline-flex',
+        alignItems: 'center',
+        gap: 5,
+        padding: '3px 10px',
+        borderRadius: 99,
+        fontFamily: 'var(--cp-font-mono)',
+        fontSize: 10,
+        fontWeight: isActive ? 500 : 400,
+        background: isActive ? 'rgba(26, 24, 22, 0.06)' : 'transparent',
+        color: isActive ? 'rgba(26, 24, 22, 0.6)' : 'rgba(26, 24, 22, 0.3)',
+        border: 'none',
+        cursor: 'pointer',
+        transition: 'all 150ms ease',
+      }}
+      onMouseEnter={(e) => {
+        if (!isActive) {
+          e.currentTarget.style.background = 'rgba(26, 24, 22, 0.04)';
+        }
+      }}
+      onMouseLeave={(e) => {
+        if (!isActive) {
+          e.currentTarget.style.background = 'transparent';
+        }
+      }}
+    >
+      {dotColor && (
+        <span
+          style={{
+            width: 5,
+            height: 5,
+            borderRadius: '50%',
+            background: dotColor,
+            flexShrink: 0,
+          }}
+        />
+      )}
+      {label}
+    </button>
   );
 }

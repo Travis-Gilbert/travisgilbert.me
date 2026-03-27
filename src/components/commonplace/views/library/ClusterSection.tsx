@@ -29,13 +29,27 @@ export default function ClusterSection({
 
   return (
     <div style={{ marginBottom: 32 }}>
-      <div style={{ marginBottom: 4 }}>
-        <span className="cp-library-section-label" style={{ color: '#8B6FA0' }}>
+      <div style={{ marginBottom: 8, display: 'flex', alignItems: 'baseline', gap: 6 }}>
+        <span style={{
+          fontFamily: 'var(--cp-font-mono)',
+          fontSize: 9,
+          fontWeight: 600,
+          letterSpacing: '0.7px',
+          textTransform: 'uppercase' as const,
+          color: 'rgba(26, 24, 22, 0.28)',
+        }}>
           Clusters
         </span>
-      </div>
-      <div className="cp-library-section-subtitle">
-        Objects sharing enough connections to form natural groups
+        <span style={{
+          fontFamily: 'var(--cp-font-mono)',
+          fontSize: 9,
+          fontWeight: 400,
+          letterSpacing: '0.7px',
+          textTransform: 'uppercase' as const,
+          color: 'rgba(26, 24, 22, 0.18)',
+        }}>
+          Natural groups from shared connections
+        </span>
       </div>
       <div
         style={{
