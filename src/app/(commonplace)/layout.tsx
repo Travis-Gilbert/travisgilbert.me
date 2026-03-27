@@ -64,8 +64,8 @@ export default function CommonPlaceLayout({
         margin: 0,
       }}
     >
-      {/* Site DotGrid: warm parchment (no hero gradient in CommonPlace) */}
-      <DotGrid noGradient />
+      {/* Site DotGrid: inverse vignette (clean center, dots fade in at edges) */}
+      <DotGrid noGradient inverseVignette dotOpacity={0.12} />
 
       {/* Ambient red-pencil glow */}
       <div className={shellStyles.ambientGlow} aria-hidden="true" />

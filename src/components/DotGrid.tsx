@@ -33,6 +33,8 @@ interface DotGridProps {
   binaryDensity?: number;
   /** Skip the hero zone inversion gradient; use uniform dotColor. For dark contexts like Networks. */
   noGradient?: boolean;
+  /** Radial inverse vignette: center is clean, dots fade in toward edges. For CommonPlace. */
+  inverseVignette?: boolean;
 }
 
 // Seeded PRNG (mulberry32): deterministic per grid position
@@ -59,6 +61,7 @@ export default function DotGrid({
   repulsionStrength = 5,
   binaryDensity = 0.20,
   noGradient = false,
+  inverseVignette = false,
 }: DotGridProps) {
   const themeVersion = useThemeVersion();
   const prefersReducedMotion = usePrefersReducedMotion();
@@ -82,11 +85,30 @@ export default function DotGrid({
 
   // Pre-compute kite-shaped fade per dot:
   // Full width at top, sides taper starting ~40% down, rounded bottom
+  // When inverseVignette is true: radial fade where center is clean, dots appear at edges
   const computeFade = useCallback((
     gx: Float32Array, gy: Float32Array, fade: Float32Array,
     count: number, w: number, h: number,
   ) => {
-    const cx = w / 2;
+    if (inverseVignette) {
+      // Inverse vignette: center is clean reading area, dots fade in toward edges
+      const cx = w * 0.5;
+      const cy = h * 0.35; // slightly above center for reading position
+      const maxR = Math.sqrt(cx * cx + cy * cy);
+
+      for (let i = 0; i < count; i++) {
+        const ddx = gx[i] - cx;
+        const ddy = gy[i] - cy;
+        const dist = Math.sqrt(ddx * ddx + ddy * ddy);
+        const norm = dist / maxR;
+
+        // Zero at center (~15% radius), grows quadratically toward edges
+        const fadeCurve = Math.pow(Math.max(0, norm - 0.15) / 0.85, 1.8);
+        fade[i] = fadeCurve;
+      }
+      return;
+    }
+
     // Vertical position where side tapering begins (fraction of height)
     const taperStart = 0.35;
     // Bottom fade zone (fraction of height from bottom)
@@ -119,7 +141,7 @@ export default function DotGrid({
 
       fade[i] = sideFade * bottomAlpha;
     }
-  }, [fadeStart]);
+  }, [fadeStart, inverseVignette]);
 
   const initDots = useCallback((w: number, h: number) => {
     const cols = Math.ceil(w / spacing) + 1;
@@ -484,7 +506,7 @@ export default function DotGrid({
       window.removeEventListener('resize', debouncedResize);
       document.removeEventListener('mouseleave', onMouseLeave);
     };
-  }, [dotRadius, spacing, dotColor, dotOpacity, stiffness, damping, influenceRadius, repulsionStrength, initDots, themeVersion, noGradient, prefersReducedMotion]);
+  }, [dotRadius, spacing, dotColor, dotOpacity, stiffness, damping, influenceRadius, repulsionStrength, initDots, themeVersion, noGradient, inverseVignette, prefersReducedMotion]);
 
   return (
     <canvas
