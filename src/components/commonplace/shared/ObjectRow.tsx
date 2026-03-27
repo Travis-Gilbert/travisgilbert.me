@@ -123,9 +123,29 @@ export default function ObjectRow({
 function TypeMark({ typeSlug, title }: { typeSlug: string; title: string }) {
   const slug = typeSlug.toLowerCase();
 
-  if (slug === 'source' || slug === 'url') {
+  if (slug === 'source') {
     return (
       <div style={{ width: 3, height: 32, borderRadius: 1, background: '#2D5F6B', flexShrink: 0 }} />
+    );
+  }
+
+  if (slug === 'url' || slug === 'file') {
+    return (
+      <div style={{
+        width: 22, height: 28, borderRadius: 2,
+        background: 'rgba(45, 95, 107, 0.06)',
+        border: '1px solid rgba(45, 95, 107, 0.15)',
+        flexShrink: 0,
+        position: 'relative',
+        overflow: 'hidden',
+      }}>
+        {/* Corner fold */}
+        <div style={{
+          position: 'absolute', top: 0, right: 0,
+          width: 7, height: 7,
+          background: 'linear-gradient(135deg, rgba(45,95,107,0.12) 50%, rgba(45,95,107,0.04) 50%)',
+        }} />
+      </div>
     );
   }
 
@@ -191,12 +211,29 @@ function TypeMark({ typeSlug, title }: { typeSlug: string; title: string }) {
   }
 
   if (slug === 'quote') {
+    const snippet = title.length > 20 ? title.slice(0, 18) + '\u2026' : title;
     return (
       <div style={{
-        width: 3, height: 28, borderRadius: 1,
-        background: '#B45A2D',
-        flexShrink: 0,
-      }} />
+        display: 'flex', alignItems: 'center', gap: 6,
+        flexShrink: 0, maxWidth: 120, overflow: 'hidden',
+      }}>
+        <div style={{
+          width: 3, height: 28, borderRadius: 1,
+          background: '#B45A2D',
+          flexShrink: 0,
+        }} />
+        <span style={{
+          fontFamily: 'var(--cp-font-title)',
+          fontStyle: 'italic',
+          fontSize: 10,
+          color: 'rgba(180, 90, 45, 0.45)',
+          whiteSpace: 'nowrap',
+          overflow: 'hidden',
+          textOverflow: 'ellipsis',
+        }}>
+          {snippet}
+        </span>
+      </div>
     );
   }
 
@@ -221,12 +258,12 @@ function TypeMark({ typeSlug, title }: { typeSlug: string; title: string }) {
     );
   }
 
-  // Default: file/url folded-corner rect
+  // Default: subtle neutral rect
   return (
     <div style={{
-      width: 22, height: 28, borderRadius: 2,
-      background: 'rgba(45, 95, 107, 0.06)',
-      border: '1px solid rgba(45, 95, 107, 0.15)',
+      width: 24, height: 24, borderRadius: 3,
+      background: 'rgba(26, 24, 22, 0.04)',
+      border: '1px solid rgba(26, 24, 22, 0.08)',
       flexShrink: 0,
     }} />
   );

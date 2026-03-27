@@ -122,7 +122,11 @@ export default function ResumeZone({
             gap: 6,
           }}
         >
-          <span style={{ fontSize: 12 }}>{'\u29D7'}</span>
+          <svg width="12" height="12" viewBox="0 0 12 12" fill="none" style={{ flexShrink: 0 }}>
+            <circle cx="6" cy="6" r="5" stroke="#2D5F6B" strokeWidth="1" />
+            <line x1="6" y1="6" x2="6" y2="3" stroke="#2D5F6B" strokeWidth="1" strokeLinecap="round" />
+            <line x1="6" y1="6" x2="8.5" y2="6" stroke="#2D5F6B" strokeWidth="1" strokeLinecap="round" />
+          </svg>
           {awayCount} new connection{awayCount !== 1 ? 's' : ''} while you were away
           {recentActivity[0]?.captured_at && (
             <span style={{ color: 'rgba(45, 95, 107, 0.5)', marginLeft: 'auto' }}>

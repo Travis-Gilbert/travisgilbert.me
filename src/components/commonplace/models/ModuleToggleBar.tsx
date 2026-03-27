@@ -38,6 +38,16 @@ export default function ModuleToggleBar({
           <button
             key={id}
             onClick={() => onToggle(id)}
+            onMouseEnter={(e) => {
+              if (!active) {
+                e.currentTarget.style.background = 'rgba(26, 24, 22, 0.04)';
+              }
+            }}
+            onMouseLeave={(e) => {
+              if (!active) {
+                e.currentTarget.style.background = 'transparent';
+              }
+            }}
             style={{
               display: 'inline-flex',
               alignItems: 'center',

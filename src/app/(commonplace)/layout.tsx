@@ -54,21 +54,23 @@ export default function CommonPlaceLayout({
   children: React.ReactNode;
 }) {
   return (
-    <div
-      className={`commonplace-theme ${shellStyles.shellRoot}`}
-      style={{
-        display: 'flex',
-        height: '100vh',
-        overflow: 'hidden',
-        color: 'var(--cp-text)',
-        margin: 0,
-      }}
-    >
-      {/* Site DotGrid: inverse vignette (clean center, dots fade in at edges) */}
-      <DotGrid noGradient inverseVignette dotOpacity={0.12} />
+    <>
+      {/* DotGrid sits outside shellRoot so z-index:-1 renders above html bg
+          but below the semi-transparent shell chrome */}
+      <DotGrid noGradient inverseVignette dotOpacity={0.18} />
 
-      {/* Ambient red-pencil glow */}
-      <div className={shellStyles.ambientGlow} aria-hidden="true" />
+      <div
+        className={`commonplace-theme ${shellStyles.shellRoot}`}
+        style={{
+          display: 'flex',
+          height: '100vh',
+          overflow: 'hidden',
+          color: 'var(--cp-text)',
+          margin: 0,
+        }}
+      >
+        {/* Ambient red-pencil glow */}
+        <div className={shellStyles.ambientGlow} aria-hidden="true" />
 
       {/* Provider: lets navigation notify Timeline of new captures */}
       <CommonPlaceProviders>
@@ -95,6 +97,7 @@ export default function CommonPlaceLayout({
           }}
         />
       </CommonPlaceProviders>
-    </div>
+      </div>
+    </>
   );
 }

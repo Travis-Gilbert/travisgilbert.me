@@ -6,9 +6,9 @@
 .shellRoot {
   position: relative;
   isolation: isolate;
-  /* Warm parchment ground: overrides html dark-mode background so the
-     DotGrid canvas (transparent + dots) sits on a light surface. */
-  background: #F5E6D2;
+  /* Semi-transparent parchment: lets DotGrid inverse vignette dots
+     bleed through at the edges while keeping center reading area clean. */
+  background: rgba(245, 230, 210, 0.88);
 }
 
 /* Construction grid disabled: DotGrid provides its own dot texture */
