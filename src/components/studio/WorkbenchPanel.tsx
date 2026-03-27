@@ -1239,7 +1239,7 @@ function SourceIntakeForm({
 function SourcePreviewCard({ source }: { source: SourceboxSource }) {
   const isPending = source.scrapeStatus === 'pending';
   return (
-    <div style={{
+    <div className="studio-source-card-body" style={{
       padding: '8px 10px',
       backgroundColor: 'var(--studio-surface)',
       borderRadius: '3px',
@@ -1265,7 +1265,7 @@ function SourcePreviewCard({ source }: { source: SourceboxSource }) {
           {isPending ? 'Scraping...' : source.inputType === 'file' ? 'PDF' : 'URL'}
         </span>
       </div>
-      <div style={{
+      <div className="studio-source-card-title" style={{
         fontFamily: 'var(--studio-font-body)',
         fontSize: '12px',
         fontWeight: 600,
@@ -1275,7 +1275,7 @@ function SourcePreviewCard({ source }: { source: SourceboxSource }) {
         {source.title}
       </div>
       {source.description && (
-        <div style={{
+        <div className="studio-source-card-excerpt" style={{
           fontFamily: 'var(--studio-font-body)',
           fontSize: '11px',
           color: 'var(--studio-text-2)',
@@ -1290,7 +1290,7 @@ function SourcePreviewCard({ source }: { source: SourceboxSource }) {
         </div>
       )}
       {source.siteName && (
-        <div style={{
+        <div className="studio-source-card-domain" style={{
           fontFamily: 'var(--studio-font-mono)',
           fontSize: '9px',
           color: 'var(--studio-text-3)',

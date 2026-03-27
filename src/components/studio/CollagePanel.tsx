@@ -19,12 +19,27 @@ async function uploadCollageImage(file: File): Promise<boolean> {
   formData.append('image', file);
 
   try {
-    const res = await fetch(`${STUDIO_URL}/upload/collage/`, {
+    // Step 1: Try removing background via rembg
+    const bgRes = await fetch(`${STUDIO_URL}/upload/remove-bg/`, {
       method: 'POST',
       body: formData,
       credentials: 'omit',
     });
-    return res.ok;
+
+    if (bgRes.ok) {
+      const data = await bgRes.json();
+      return data.success === true;
+    }
+
+    // Step 2: Fallback to direct upload (already a cutout)
+    const fallbackForm = new FormData();
+    fallbackForm.append('image', file);
+    const fallbackRes = await fetch(`${STUDIO_URL}/upload/collage/`, {
+      method: 'POST',
+      body: fallbackForm,
+      credentials: 'omit',
+    });
+    return fallbackRes.ok;
   } catch {
     return false;
   }
@@ -181,7 +196,7 @@ export default function CollagePanel({ slug, editor }: CollagePanelProps) {
             letterSpacing: '0.04em',
           }}
         >
-          {uploading ? 'Uploading...' : 'Drop cutout images here'}
+          {uploading ? 'Removing backgrounds...' : 'Drop images here (backgrounds auto-removed)'}
         </span>
       </div>
 

@@ -1055,6 +1055,21 @@
   z-index: 1;
 }
 
+/* Dark mode: source cards in workbench need elevation for readability */
+.studio-workbench .studio-source-card-body {
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 4px;
+}
+
+.studio-workbench .studio-source-card-title {
+  color: #F0EAE0;
+}
+
+.studio-workbench .studio-source-card-domain {
+  color: rgba(240, 234, 224, 0.5);
+}
+
 /* ─────────────────────────────────────────────────
    Main content area backgrounds
    ───────────────────────────────────────────────── */
@@ -1117,22 +1132,8 @@
 
   position: relative;
   overflow-y: auto;
-  /* Desk surface: warm near-black, NOT cold slate */
-  background-color: var(--studio-desk-bg);
-  /* Three desk texture layers */
-  background-image:
-    /* Ambient desk lamp glow */
-    radial-gradient(ellipse 900px 600px at 54% 48%, rgba(245, 238, 220, 0.04) 0%, transparent 65%),
-    /* Blueprint grid */
-    linear-gradient(rgba(180, 90, 45, 0.032) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(180, 90, 45, 0.032) 1px, transparent 1px),
-    /* Dot field */
-    radial-gradient(circle, rgba(180, 90, 45, 0.08) 1px, transparent 1px);
-  background-size:
-    100% 100%,
-    40px 40px,
-    40px 40px,
-    28px 28px;
+  /* Full-surface paper: no desk, paper fills the entire writing area */
+  background-color: var(--studio-writing-paper-bg);
 }
 
 /* Interactive desk lamp: stage-reactive glow overlay */
@@ -2612,11 +2613,11 @@
 
 .studio-page {
   position: relative;
-  width: min(100%, calc(80ch + 128px));
-  margin: 32px auto;
-  border-radius: 0 0 3px 3px;
+  width: 100%;
+  margin: 0 auto;
+  border-radius: 0;
   background-color: var(--studio-writing-paper-bg);
-  box-shadow: var(--studio-writing-paper-shadow);
+  box-shadow: none;
   overflow: hidden;
 }
 
@@ -2660,22 +2661,16 @@
 
 /* Stage progress strip: colored bar above paper top edge */
 .studio-stage-strip {
-  width: min(100%, calc(80ch + 128px));
-  margin: 0 auto;
+  width: 100%;
+  margin: 0;
   height: 2px;
   border-radius: 2px 2px 0 0;
   background: linear-gradient(90deg, var(--stage-color, #B45A2D) 0%, color-mix(in srgb, var(--stage-color, #B45A2D) 55%, transparent) 60%, transparent 100%);
 }
 
-/* Warm focused glow when editor is active (NOT floating modal shadow) */
+/* Subtle top-edge highlight when editor is focused */
 .studio-editor-shell[data-writing-focused="true"] .studio-page {
-  box-shadow:
-    0 1px 3px rgba(20, 14, 8, 0.14),
-    0 4px 12px rgba(20, 14, 8, 0.2),
-    0 10px 28px rgba(20, 14, 8, 0.15),
-    0 0 0 1px rgba(180, 90, 45, 0.12),
-    inset 0 -1px 0 rgba(255, 255, 255, 0.08);
-  transition: box-shadow 0.3s ease;
+  box-shadow: none;
 }
 
 .studio-prose {

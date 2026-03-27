@@ -132,6 +132,11 @@ urlpatterns = [
         views.UploadCollageImageView.as_view(),
         name="upload-collage",
     ),
+    path(
+        "upload/remove-bg/",
+        views.RemoveBackgroundView.as_view(),
+        name="remove-bg",
+    ),
 
     # -----------------------------------------------------------------------
     # Compose (page compositions)

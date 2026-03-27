@@ -1570,6 +1570,65 @@ class UploadCollageImageView(LoginRequiredMixin, View):
         )
 
 
+class RemoveBackgroundView(LoginRequiredMixin, View):
+    """POST: accept an image, remove background with rembg, commit cutout PNG to repo."""
+
+    def post(self, request):
+        import re
+        import io
+
+        uploaded = request.FILES.get("image")
+        if not uploaded:
+            return JsonResponse({"error": "No image provided"}, status=400)
+
+        try:
+            from rembg import remove
+            from PIL import Image
+        except ImportError:
+            return JsonResponse(
+                {"error": "rembg not installed on this server"},
+                status=501,
+            )
+
+        try:
+            input_image = Image.open(uploaded)
+            if input_image.mode != "RGBA":
+                input_image = input_image.convert("RGBA")
+
+            output_image = remove(input_image)
+
+            buf = io.BytesIO()
+            output_image.save(buf, "PNG")
+            raw_bytes = buf.getvalue()
+
+            base_name = uploaded.name.rsplit(".", 1)[0] if "." in uploaded.name else uploaded.name
+            safe_name = re.sub(r"[^a-z0-9]+", "-", base_name.lower()).strip("-")
+            if not safe_name:
+                safe_name = "cutout"
+            filename = f"{safe_name}.png"
+
+            repo_path = f"public/collage/{filename}"
+            result = publish_binary_file(
+                file_path=repo_path,
+                content_bytes=raw_bytes,
+                commit_message=f"feat(collage): auto-cutout {filename}",
+            )
+
+            if result["success"]:
+                return JsonResponse({
+                    "success": True,
+                    "path": f"/collage/{filename}",
+                    "name": safe_name,
+                })
+
+            return JsonResponse(
+                {"success": False, "error": result.get("error", "Upload failed.")},
+                status=500,
+            )
+        except Exception as exc:
+            return JsonResponse({"error": str(exc)}, status=500)
+
+
 # ---------------------------------------------------------------------------
 # Video API endpoints (for Orchestra Conductor + frontend)
 # ---------------------------------------------------------------------------
