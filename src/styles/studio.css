@@ -60,7 +60,7 @@
   --studio-font-plex: var(--font-ibm-plex), 'Segoe UI', sans-serif;
 
   /* Layout constants */
-  --studio-sidebar-width: 197px;
+  --studio-sidebar-width: 220px;
   --studio-topbar-height: 42px;
   --studio-stage-bar-height: 48px;
 
@@ -167,7 +167,6 @@
 
 /* Light mode: writing surface chrome adjustments */
 .studio-theme-light .studio-writing-surface {
-  --studio-desk-bg: var(--studio-bg);
   --studio-writing-paper-bg: #D8C8B2;
   --studio-writing-paper-shadow:
     0 2px 12px rgba(42, 36, 32, 0.08),
@@ -178,16 +177,17 @@
     0 4px 12px rgba(42, 36, 32, 0.06),
     0 1px 2px rgba(42, 36, 32, 0.08);
 
-  background-color: var(--studio-desk-bg);
+  /* Paper fills the entire writing area; no desk gap */
+  background-color: var(--studio-writing-paper-bg);
   background-image: none;
 }
 
-/* Light mode: page shadow for separation */
+/* Light mode: page shadow for paper edge definition */
 .studio-theme-light .studio-page {
   box-shadow:
-    0 2px 12px rgba(42, 36, 32, 0.08),
-    0 0 0 1px rgba(42, 36, 32, 0.04);
-  border-radius: 2px;
+    inset 0 1px 3px rgba(20, 14, 8, 0.04),
+    inset 0 -1px 0 rgba(255, 255, 255, 0.06);
+  border-radius: 0;
 }
 
 /* Light mode: section labels visible on light content area */
@@ -2229,7 +2229,7 @@
   display: flex;
   align-items: baseline;
   gap: 10px;
-  padding: 5px 52px 6px 76px;
+  padding: 2px 52px 3px 76px;
   border-top: 1px solid rgba(42,36,32,0.08);
   background: rgba(42,36,32,0.03);
   position: relative;
@@ -2238,7 +2238,7 @@
 
 .studio-word-count-primary {
   font-family: var(--studio-font-mono);
-  font-size: 18px;
+  font-size: 14px;
   font-weight: 700;
   line-height: 1;
   font-variant-numeric: tabular-nums;
