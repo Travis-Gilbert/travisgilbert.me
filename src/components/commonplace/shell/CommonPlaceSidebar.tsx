@@ -167,16 +167,26 @@ export default function CommonPlaceSidebar() {
         <Link
           href="/commonplace"
           onClick={closeDrawerIfMobile}
-          style={{
-            fontFamily: 'var(--cp-font-title)',
-            fontSize: 24,
-            fontWeight: 800,
-            color: 'var(--cp-sidebar-text)',
-            textDecoration: 'none',
-            letterSpacing: '-0.02em',
-          }}
+          style={{ textDecoration: 'none', display: 'block' }}
         >
-          CommonPlace
+          <span style={{
+            display: 'block',
+            fontFamily: 'var(--cp-font-title)',
+            fontSize: 22,
+            fontWeight: 700,
+            color: 'var(--cp-sidebar-text)',
+            lineHeight: 1.1,
+            letterSpacing: '-0.02em',
+          }}>Common</span>
+          <span style={{
+            display: 'block',
+            fontFamily: 'var(--cp-font-title)',
+            fontSize: 22,
+            fontWeight: 700,
+            color: 'rgba(55, 120, 130, 0.6)',
+            lineHeight: 1.1,
+            letterSpacing: '-0.02em',
+          }}>Place</span>
         </Link>
       </div>
 

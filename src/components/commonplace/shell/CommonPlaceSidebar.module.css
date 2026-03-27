@@ -109,28 +109,26 @@
   color: var(--cp-sidebar-text);
 }
 
-/* Section-colored sidebar icons */
-.sidebarItem[data-section="capture"] svg { color: #C67A4A; opacity: 0.5; }
-.sidebarItem[data-section="capture"]:hover svg { opacity: 0.8; }
-.sidebarItem[data-section="capture"][data-active="true"] svg { opacity: 1; }
+/* Section-colored sidebar icons: monochrome at rest, color on hover/active */
+.sidebarItem svg { color: var(--cp-sidebar-text-muted); opacity: 0.5; transition: color 200ms, opacity 200ms; }
 
-.sidebarItem[data-section="views"] svg { color: #5D9B78; opacity: 0.5; }
-.sidebarItem[data-section="views"]:hover svg { opacity: 0.8; }
-.sidebarItem[data-section="views"][data-active="true"] svg { opacity: 1; }
+.sidebarItem[data-section="capture"]:hover svg { color: #C67A4A; opacity: 1; }
+.sidebarItem[data-section="capture"][data-active="true"] svg { color: #C67A4A; opacity: 1; }
 
-.sidebarItem[data-section="work"] svg { color: #7B8FA0; opacity: 0.5; }
-.sidebarItem[data-section="work"]:hover svg { opacity: 0.8; }
-.sidebarItem[data-section="work"][data-active="true"] svg { opacity: 1; }
+.sidebarItem[data-section="views"]:hover svg { color: #5D9B78; opacity: 1; }
+.sidebarItem[data-section="views"][data-active="true"] svg { color: #5D9B78; opacity: 1; }
 
-.sidebarItem[data-section="system"] svg { color: #6E7078; opacity: 0.5; }
-.sidebarItem[data-section="system"]:hover svg { opacity: 0.8; }
-.sidebarItem[data-section="system"][data-active="true"] svg { opacity: 1; }
+.sidebarItem[data-section="work"]:hover svg { color: #7B8FA0; opacity: 1; }
+.sidebarItem[data-section="work"][data-active="true"] svg { color: #7B8FA0; opacity: 1; }
 
-/* Section title labels use section color at 72% opacity */
-.sectionTitle[data-section="capture"] { color: #C67A4A; opacity: 0.72; }
-.sectionTitle[data-section="views"] { color: #5D9B78; opacity: 0.72; }
-.sectionTitle[data-section="work"] { color: #7B8FA0; opacity: 0.72; }
-.sectionTitle[data-section="system"] { color: #6E7078; opacity: 0.72; }
+.sidebarItem[data-section="system"]:hover svg { color: #6E7078; opacity: 1; }
+.sidebarItem[data-section="system"][data-active="true"] svg { color: #6E7078; opacity: 1; }
+
+/* Section title labels: muted monochrome, not colored */
+.sectionTitle[data-section="capture"],
+.sectionTitle[data-section="views"],
+.sectionTitle[data-section="work"],
+.sectionTitle[data-section="system"] { color: var(--cp-sidebar-text-faint); opacity: 0.6; }
 
 /* Active section sidebar item uses section-specific accent */
 .sidebarItem[data-section="capture"][data-active="true"] {

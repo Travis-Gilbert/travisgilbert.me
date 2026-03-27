@@ -171,17 +171,10 @@ function ToolboxTile({
           onDragCancel();
         }}
       >
-        <div
-          className={styles.toolboxGlowIcon}
-          style={{
-            background: `radial-gradient(circle, ${comp.color}50, ${comp.color}15)`,
-            color: comp.color,
-            boxShadow: `0 0 8px ${comp.color}30`,
-          }}
-        >
+        <div className={styles.toolboxGlowIcon}>
           {initial}
         </div>
-        <span className={styles.toolboxTileLabel} style={{ opacity: 0.85 }}>
+        <span className={styles.toolboxTileLabel}>
           {comp.label}
         </span>
       </motion.div>
