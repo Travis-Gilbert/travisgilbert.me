@@ -220,7 +220,7 @@ function StudioLayoutInner({
           position: 'relative',
           height: '100vh',
           viewTransitionName: 'studio-content',
-          backgroundColor: 'var(--studio-bg)',
+          backgroundColor: editorMode ? '#D8D0C4' : 'var(--studio-bg)',
         }}
       >
         {!zenMode && isAppShellMobile && (

@@ -1055,19 +1055,38 @@
   z-index: 1;
 }
 
-/* Dark mode: source cards in workbench need elevation for readability */
+/* Dark mode: source/preview cards in workbench use dark text on cream bg */
 .studio-workbench .studio-source-card-body {
-  background: rgba(255, 255, 255, 0.06);
-  border: 1px solid rgba(255, 255, 255, 0.06);
+  background: #E8DFD4;
+  border: 1px solid rgba(42, 36, 32, 0.08);
   border-radius: 4px;
+  color: #2A2420;
 }
 
 .studio-workbench .studio-source-card-title {
-  color: #F0EAE0;
+  color: #1A1614 !important;
+}
+
+.studio-workbench .studio-source-card-excerpt {
+  color: #5E5548 !important;
 }
 
 .studio-workbench .studio-source-card-domain {
-  color: rgba(240, 234, 224, 0.5);
+  color: #7A7268 !important;
+}
+
+/* Workbench form elements on cream backgrounds need dark text */
+.studio-workbench select,
+.studio-workbench .studio-collage-select,
+.studio-workbench input[type="text"],
+.studio-workbench input[type="number"] {
+  color: #2A2420 !important;
+  background-color: #E8DFD4 !important;
+}
+
+.studio-workbench option {
+  color: #2A2420;
+  background-color: #E8DFD4;
 }
 
 /* ─────────────────────────────────────────────────
