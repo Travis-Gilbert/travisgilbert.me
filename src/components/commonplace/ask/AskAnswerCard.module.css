@@ -1,0 +1,72 @@
+.card {
+  background: var(--cp-card);
+  border: 1px solid var(--cp-border-faint);
+  border-radius: 8px;
+  margin-top: 16px;
+  overflow: hidden;
+}
+
+.question {
+  padding: 16px 20px 0;
+  font-family: var(--cp-font-title);
+  font-size: 15px;
+  color: var(--cp-text-muted);
+  font-style: italic;
+}
+
+.body {
+  padding: 12px 20px 16px;
+  font-family: var(--cp-font-body);
+  font-size: 14px;
+  color: var(--cp-text);
+  line-height: 1.65;
+}
+
+.body p {
+  margin-bottom: 10px;
+}
+
+.body p:last-child {
+  margin-bottom: 0;
+}
+
+.objGroup {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 0 20px 14px;
+}
+
+.provStrip {
+  padding: 10px 20px;
+  border-top: 1px solid rgba(255, 255, 255, 0.03);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.provLabel {
+  font-family: var(--cp-font-mono);
+  font-size: 9px;
+  color: var(--cp-text-faint);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  margin-right: 4px;
+}
+
+.engBadge {
+  font-family: var(--cp-font-mono);
+  font-size: 9px;
+  color: var(--cp-text-faint);
+  background: rgba(255, 255, 255, 0.04);
+  padding: 2px 8px;
+  border-radius: 3px;
+}
+
+.objCount {
+  font-family: var(--cp-font-mono);
+  font-size: 9px;
+  color: var(--cp-terracotta-light);
+  margin-left: auto;
+}

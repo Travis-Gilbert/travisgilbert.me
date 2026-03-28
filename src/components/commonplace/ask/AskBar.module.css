@@ -1,0 +1,61 @@
+.askBar {
+  display: flex;
+  align-items: center;
+  background: var(--cp-search-bg, rgba(255, 255, 255, 0.015));
+  border: 1px solid var(--cp-search-border, var(--cp-border-faint));
+  border-radius: 8px;
+  transition: border-color 200ms;
+}
+
+.askBar:focus-within {
+  border-color: var(--cp-search-focus-border, rgba(184, 98, 61, 0.3));
+}
+
+.icon {
+  padding: 12px 0 12px 14px;
+  color: var(--cp-text-faint);
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+}
+
+.input {
+  flex: 1;
+  background: none;
+  border: none;
+  outline: none;
+  font-family: var(--cp-font-body);
+  font-size: 14px;
+  color: var(--cp-text);
+  padding: 12px 10px;
+}
+
+.input::placeholder {
+  color: var(--cp-search-placeholder, var(--cp-text-faint));
+}
+
+.send {
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 12px 14px 12px 8px;
+  color: var(--cp-text-faint);
+  display: flex;
+  align-items: center;
+  transition: color 150ms;
+}
+
+.send:hover:not(:disabled) {
+  color: var(--cp-terracotta-light);
+}
+
+.send:disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
+}
+
+.slash {
+  font-family: var(--cp-font-mono);
+  font-size: 13px;
+  font-weight: 600;
+}

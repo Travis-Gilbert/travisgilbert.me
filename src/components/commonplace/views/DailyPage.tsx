@@ -1,24 +1,27 @@
 'use client';
 
-import { useMemo, useCallback, useState, useEffect } from 'react';
+import { useCallback, useState, useEffect } from 'react';
 import { toast } from 'sonner';
 import { WarningTriangle } from 'iconoir-react';
-import SearchIngestBar from './SearchIngestBar';
 import EngineDiscoveryFeed from './EngineDiscoveryFeed';
 import type { EngineDiscovery } from './EngineDiscoveryFeed';
-import { apiFetch, useApiData } from '@/lib/commonplace-api';
-import { quickCapture } from '@/lib/commonplace';
+import GraphWeatherHeader from './GraphWeatherHeader';
+import AskBar from '../ask/AskBar';
+import SuggestionPills from '../ask/SuggestionPills';
+import AskRetrievalStrip from '../ask/AskRetrievalStrip';
+import AskAnswerCard from '../ask/AskAnswerCard';
+import { apiFetch } from '@/lib/commonplace-api';
+import {
+  submitQuestion,
+  synthesizeAnswer,
+  fetchAskSuggestions,
+} from '@/lib/ask-theseus';
+import type {
+  AskRetrievalResponse,
+  AskSynthesisResponse,
+  AskSuggestion,
+} from '@/lib/ask-theseus';
 import styles from './DailyPage.module.css';
-
-const DAY_NAMES = [
-  'SUNDAY', 'MONDAY', 'TUESDAY', 'WEDNESDAY',
-  'THURSDAY', 'FRIDAY', 'SATURDAY',
-] as const;
-
-const MONTH_NAMES = [
-  'January', 'February', 'March', 'April', 'May', 'June',
-  'July', 'August', 'September', 'October', 'November', 'December',
-] as const;
 
 /* ─── Mock data (used until backend is reachable) ─── */
 
@@ -152,87 +155,127 @@ const TYPE_COLORS: Record<string, string> = {
 };
 
 export default function DailyPage() {
-  const today = useMemo(() => new Date(), []);
-  const dayName = DAY_NAMES[today.getDay()];
-  const dateLabel = `${MONTH_NAMES[today.getMonth()]} ${today.getDate()}`;
-
   /* Try fetching real data; fall back to mock */
   const [discoveries, setDiscoveries] = useState<EngineDiscovery[]>(MOCK_DISCOVERIES);
-  const [usingMock, setUsingMock] = useState(true);
 
   useEffect(() => {
     apiFetch<{ discoveries: EngineDiscovery[] }>('/engine/discoveries/?limit=20')
       .then((data) => {
         if (data.discoveries?.length) {
           setDiscoveries(data.discoveries);
-          setUsingMock(false);
         }
       })
       .catch(() => { /* stay on mock */ });
   }, []);
 
-  const handleSearch = useCallback(async (query: string) => {
+  /* ── Ask Theseus state ── */
+  const [askQuestion, setAskQuestion] = useState('');
+  const [askLoading, setAskLoading] = useState(false);
+  const [retrievalResult, setRetrievalResult] = useState<AskRetrievalResponse | null>(null);
+  const [synthesisResult, setSynthesisResult] = useState<AskSynthesisResponse | null>(null);
+  const [submittedQuestion, setSubmittedQuestion] = useState('');
+  const [suggestions, setSuggestions] = useState<AskSuggestion[]>([]);
+
+  /* Fetch suggestions on mount */
+  useEffect(() => {
+    fetchAskSuggestions()
+      .then(setSuggestions)
+      .catch(() => { /* no suggestions is fine */ });
+  }, []);
+
+  const handleAsk = useCallback(async (question: string) => {
+    setAskLoading(true);
+    setSubmittedQuestion(question);
+    setRetrievalResult(null);
+    setSynthesisResult(null);
+
     try {
-      const results = await apiFetch<{ results: unknown[] }>(
-        `/search/?q=${encodeURIComponent(query)}`,
-      );
-      toast(`${results.results?.length ?? 0} results for "${query}"`);
+      const retrieval = await submitQuestion(question);
+      setRetrievalResult(retrieval);
+
+      try {
+        const synthesis = await synthesizeAnswer(question, retrieval.retrieval);
+        setSynthesisResult(synthesis);
+      } catch {
+        toast.error('Answer synthesis failed. Retrieval results are shown below.');
+      }
     } catch {
-      toast.error('Search failed');
+      toast.error('Could not reach the knowledge graph. Try again later.');
+      setSubmittedQuestion('');
+    } finally {
+      setAskLoading(false);
     }
   }, []);
 
-  const handleIngest = useCallback(async (url: string) => {
-    toast('Ingesting URL...');
-    const result = await quickCapture({ url });
-    if (result.ok) {
-      toast.success('Ingested successfully');
-    } else {
-      toast.error(result.error ?? 'Ingest failed');
-    }
+  const handleSuggestionSelect = useCallback((text: string) => {
+    setAskQuestion(text);
+  }, []);
+
+  const handleOpenObject = useCallback((id: number) => {
+    toast(`Opening object ${id}`);
   }, []);
 
   return (
     <div className={styles.dailyPage}>
       <div className={styles.content}>
-        {/* HEADER */}
-        <header className={styles.header}>
-          <div className={styles.headerLeft}>
-            <div className={styles.dayLabel}>{dayName}</div>
-            <h1 className={styles.dateTitle}>{dateLabel}</h1>
-          </div>
-          <div className={styles.headerRight}>
-            <div className={styles.iqScore}>71.2</div>
-            <div className={styles.iqLabel}>COMPOSITE IQ</div>
-            <div className={styles.stats}>21,569 objects &middot; 11,946 edges</div>
-          </div>
-        </header>
+        {/* GRAPH WEATHER HEADER */}
+        <GraphWeatherHeader />
 
-        {/* SEARCH BAR */}
-        <SearchIngestBar onSearch={handleSearch} onIngest={handleIngest} />
+        {/* ASK BAR */}
+        <AskBar
+          onSubmit={handleAsk}
+          disabled={askLoading}
+          value={askQuestion}
+          onChange={setAskQuestion}
+        />
 
-        {/* TIER 1: Engine Discoveries */}
-        <section className={styles.section}>
-          <div className={styles.sectionHeader}>
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#5D9B78" strokeWidth="2" strokeLinecap="round">
-              <circle cx="6" cy="12" r="3" /><circle cx="18" cy="6" r="3" /><circle cx="18" cy="18" r="3" />
-              <path d="M8.6 10.4L15.4 7.6M8.6 13.6l6.8 2.8" />
-            </svg>
-            Engine found <span className={styles.sectionCount}>{discoveries.length}</span> connections
-            <span className={styles.sectionLine} />
-          </div>
-          <EngineDiscoveryFeed discoveries={discoveries} />
-        </section>
+        {/* SUGGESTION PILLS */}
+        {!retrievalResult && (
+          <SuggestionPills
+            suggestions={suggestions}
+            onSelect={handleSuggestionSelect}
+          />
+        )}
 
-        {/* TIER 2: Today's Objects */}
-        <section className={styles.section}>
-          <div className={styles.sectionHeader}>
-            Today
-            <span className={styles.sectionCount}>{MOCK_OBJECTS.length}</span>
-            <span className={styles.sectionLine} />
-          </div>
-          <ObjectFeed objects={MOCK_OBJECTS} />
-        </section>
+        {/* RETRIEVAL STRIP (while loading synthesis) */}
+        {retrievalResult && !synthesisResult && (
+          <AskRetrievalStrip objects={retrievalResult.retrieval.objects} />
+        )}
+
+        {/* ANSWER CARD (replaces discovery + object feeds when shown) */}
+        {retrievalResult && synthesisResult ? (
+          <AskAnswerCard
+            question={submittedQuestion}
+            retrieval={retrievalResult}
+            synthesis={synthesisResult}
+            onOpenObject={handleOpenObject}
+          />
+        ) : (
+          <>
+            {/* TIER 1: Engine Discoveries */}
+            <section className={styles.section}>
+              <div className={styles.sectionHeader}>
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#5D9B78" strokeWidth="2" strokeLinecap="round">
+                  <circle cx="6" cy="12" r="3" /><circle cx="18" cy="6" r="3" /><circle cx="18" cy="18" r="3" />
+                  <path d="M8.6 10.4L15.4 7.6M8.6 13.6l6.8 2.8" />
+                </svg>
+                Engine found <span className={styles.sectionCount}>{discoveries.length}</span> connections
+                <span className={styles.sectionLine} />
+              </div>
+              <EngineDiscoveryFeed discoveries={discoveries} />
+            </section>
+
+            {/* TIER 2: Today's Objects */}
+            <section className={styles.section}>
+              <div className={styles.sectionHeader}>
+                Today
+                <span className={styles.sectionCount}>{MOCK_OBJECTS.length}</span>
+                <span className={styles.sectionLine} />
+              </div>
+              <ObjectFeed objects={MOCK_OBJECTS} />
+            </section>
+          </>
+        )}
 
         {/* TIER 3: Tensions */}
         <section className={styles.section}>

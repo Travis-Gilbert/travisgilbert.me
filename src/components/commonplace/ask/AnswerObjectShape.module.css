@@ -1,0 +1,299 @@
+.shape {
+  border-radius: 6px;
+  background: rgba(34, 34, 37, 0.6);
+  border: 1px solid var(--cp-border-faint);
+  padding: 12px 14px;
+  cursor: pointer;
+  transition: border-color 200ms, background 200ms;
+}
+
+.shape:hover {
+  border-color: rgba(255, 255, 255, 0.12);
+  background: rgba(42, 42, 46, 1);
+}
+
+/* ─── Task ─── */
+.task {
+  border-left: 3px solid var(--cp-ask-glyph, var(--cp-red));
+  border-radius: 0 6px 6px 0;
+}
+
+.priHigh { border-left-color: #D85A30; }
+.priLow { border-left-color: var(--cp-ask-positive); }
+
+.taskRow { display: flex; align-items: flex-start; gap: 10px; }
+
+.taskChk {
+  width: 18px;
+  height: 18px;
+  border-radius: 4px;
+  flex-shrink: 0;
+  border: 2px solid var(--cp-ask-glyph, var(--cp-red));
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 10px;
+  color: #fff;
+  margin-top: 1px;
+}
+
+.taskChk.done {
+  background: var(--cp-ask-positive);
+  border-color: var(--cp-ask-positive);
+}
+
+.taskTitle {
+  font-family: var(--cp-font-title);
+  font-size: 14px;
+  font-weight: 600;
+  flex: 1;
+  min-width: 0;
+}
+
+.doneText {
+  text-decoration: line-through;
+  opacity: 0.5;
+}
+
+.taskMeta {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  margin-top: 4px;
+  padding-left: 28px;
+}
+
+.taskDue {
+  font-family: var(--cp-font-mono);
+  font-size: 9px;
+  color: var(--cp-text-faint);
+}
+
+.taskProject {
+  font-family: var(--cp-font-mono);
+  font-size: 9px;
+  padding: 1px 6px;
+  border-radius: 3px;
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--cp-text-faint);
+}
+
+.provBadge {
+  font-family: var(--cp-font-mono);
+  font-size: 9px;
+  color: var(--cp-text-faint);
+  background: rgba(255, 255, 255, 0.04);
+  padding: 2px 6px;
+  border-radius: 3px;
+}
+
+.taskSubs {
+  padding-left: 28px;
+  margin-top: 6px;
+}
+
+.taskSub {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  font-size: 12px;
+  color: var(--cp-text-muted);
+  padding: 2px 0;
+}
+
+.taskSub.done span:last-child {
+  text-decoration: line-through;
+  opacity: 0.5;
+}
+
+.subChk {
+  font-size: 10px;
+  flex-shrink: 0;
+}
+
+.taskProgress {
+  height: 3px;
+  border-radius: 2px;
+  background: rgba(255, 255, 255, 0.06);
+  margin: 6px 0 0 28px;
+  overflow: hidden;
+}
+
+.taskProgressFill {
+  height: 100%;
+  border-radius: 2px;
+}
+
+/* ─── Event ─── */
+.event {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+}
+
+.calMini {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  border-radius: 5px;
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  width: 40px;
+  flex-shrink: 0;
+}
+
+.calMo {
+  font-family: var(--cp-font-mono);
+  font-size: 8px;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: #fff;
+  background: var(--cp-blue, #4A7A9A);
+  width: 100%;
+  text-align: center;
+  padding: 2px 0;
+  font-weight: 600;
+}
+
+.calDay {
+  font-family: var(--cp-font-title);
+  font-size: 17px;
+  font-weight: 700;
+  color: var(--cp-text);
+  width: 100%;
+  text-align: center;
+  background: var(--cp-card);
+  padding: 2px 0 4px;
+}
+
+.eventTitle {
+  font-family: var(--cp-font-title);
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.eventTime {
+  font-family: var(--cp-font-mono);
+  font-size: 12px;
+  color: var(--cp-blue, #4A7A9A);
+  font-weight: 600;
+  margin-top: 2px;
+}
+
+.eventBody {
+  font-family: var(--cp-font-body);
+  font-size: 12px;
+  color: var(--cp-text-muted);
+  margin-top: 4px;
+  line-height: 1.5;
+}
+
+/* ─── Source ─── */
+.source {
+  border-top: 3px solid var(--cp-teal-light, #3A7A88);
+  border-radius: 6px 6px 0 0;
+  padding-top: 10px;
+}
+
+.sourceHeader {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 4px;
+}
+
+.sourceTitle {
+  font-family: var(--cp-font-title);
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.sourceAuthor {
+  font-family: var(--cp-font-mono);
+  font-size: 10px;
+  color: var(--cp-text-faint);
+  margin-bottom: 4px;
+}
+
+.sourceBody {
+  font-family: var(--cp-font-body);
+  font-size: 12px;
+  color: var(--cp-text-muted);
+  line-height: 1.5;
+}
+
+/* ─── Hunch ─── */
+.hunch {
+  border-left: 3px dashed var(--cp-pink, #B06080);
+  transform: rotate(-0.4deg);
+  padding-left: 12px;
+}
+
+.hunchLabel {
+  font-family: var(--cp-font-mono);
+  font-size: 9px;
+  color: var(--cp-pink, #B06080);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  margin-bottom: 4px;
+}
+
+.hunchText {
+  font-family: var(--cp-font-title);
+  font-size: 14px;
+  font-style: italic;
+  color: var(--cp-pink, #B06080);
+  line-height: 1.45;
+}
+
+.hunchBody {
+  font-family: var(--cp-font-body);
+  font-size: 12px;
+  color: var(--cp-text-muted);
+  margin-top: 4px;
+  line-height: 1.5;
+}
+
+.hunchConfidence {
+  font-family: var(--cp-font-mono);
+  font-size: 9px;
+  color: var(--cp-text-faint);
+  margin-top: 4px;
+}
+
+/* ─── Default ─── */
+.defaultHeader {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 4px;
+}
+
+.defaultTitle {
+  font-family: var(--cp-font-title);
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.defaultBody {
+  font-family: var(--cp-font-body);
+  font-size: 12px;
+  color: var(--cp-text-muted);
+  line-height: 1.5;
+}
+
+/* ─── Shared ─── */
+.dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 2px;
+  flex-shrink: 0;
+  display: inline-block;
+}
+
+.edgeCount {
+  font-family: var(--cp-font-mono);
+  font-size: 10px;
+  color: var(--cp-terracotta-light);
+  margin-top: 6px;
+}

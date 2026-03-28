@@ -1,0 +1,25 @@
+.ref {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 1px 7px;
+  border-radius: 3px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid var(--cp-border-faint);
+  font-family: var(--cp-font-body);
+  font-size: 12px;
+  cursor: pointer;
+  transition: border-color 150ms, background 150ms;
+  vertical-align: baseline;
+}
+
+.ref:hover {
+  border-color: rgba(180, 90, 45, 0.3);
+  background: rgba(180, 90, 45, 0.08);
+}
+
+.dot {
+  border-radius: 2px;
+  flex-shrink: 0;
+  display: inline-block;
+}

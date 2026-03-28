@@ -1,0 +1,88 @@
+.bar {
+  padding: 0 20px 14px;
+  display: flex;
+  align-items: center;
+  gap: 0;
+}
+
+.btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 14px;
+  border-radius: 6px;
+  border: 1px solid transparent;
+  background: none;
+  cursor: pointer;
+  font-family: var(--cp-font-mono);
+  font-size: 11px;
+  color: var(--cp-text-faint);
+  transition: all 150ms;
+}
+
+.btn svg { width: 16px; height: 16px; }
+
+.btn:hover:not(:disabled) {
+  color: var(--cp-text-muted);
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.btn:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+.downOn {
+  color: var(--cp-ask-negative) !important;
+  background: var(--cp-ask-negative-bg) !important;
+  border-color: rgba(192, 80, 77, 0.2);
+}
+
+.upOn {
+  color: var(--cp-ask-positive) !important;
+  background: var(--cp-ask-positive-bg) !important;
+  border-color: rgba(90, 122, 74, 0.2);
+}
+
+.spacer { flex: 1; }
+
+.save {
+  border: 1px solid var(--cp-border-faint);
+  padding: 8px 16px;
+}
+
+.save:hover:not(:disabled) {
+  border-color: rgba(180, 90, 45, 0.3);
+  color: var(--cp-terracotta-light);
+  background: var(--cp-ask-save-bg);
+}
+
+/* ─── Saved confirmation ─── */
+.savedMsg {
+  padding: 0 20px 14px;
+  font-family: var(--cp-font-mono);
+  font-size: 11px;
+  color: var(--cp-terracotta-light);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.savedMsg svg { width: 14px; height: 14px; }
+
+.chkPath {
+  stroke-dasharray: 20;
+  stroke-dashoffset: 20;
+  animation: drawCheck 400ms ease-out 100ms forwards;
+}
+
+@keyframes drawCheck {
+  to { stroke-dashoffset: 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .chkPath {
+    animation: none;
+    stroke-dashoffset: 0;
+  }
+}

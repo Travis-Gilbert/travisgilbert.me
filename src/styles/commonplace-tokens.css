@@ -190,6 +190,17 @@
   --cp-search-focus-border: rgba(184,98,61,0.3);
   --cp-search-placeholder: var(--cp-text-faint);
 
+  /* Ask Theseus */
+  --cp-ask-bg: var(--cp-card);
+  --cp-ask-border: var(--cp-border);
+  --cp-ask-glyph: var(--cp-terra, var(--cp-red));
+  --cp-ask-positive: #5A7A4A;
+  --cp-ask-positive-bg: rgba(90, 122, 74, 0.08);
+  --cp-ask-negative: #C0504D;
+  --cp-ask-negative-bg: rgba(192, 80, 77, 0.08);
+  --cp-ask-save: var(--cp-terra, var(--cp-red));
+  --cp-ask-save-bg: rgba(180, 90, 45, 0.10);
+
   /* State tokens */
   --cp-disabled-opacity: 0.35;
 

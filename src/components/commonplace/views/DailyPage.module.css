@@ -13,58 +13,9 @@
   padding: 40px 36px 120px;
 }
 
-.header {
-  display: flex;
-  align-items: flex-end;
-  justify-content: space-between;
-  margin-bottom: var(--cp-space-8);
-}
-
-.headerLeft {}
-
-.dayLabel {
-  font-family: var(--cp-font-mono);
-  font-size: 10px;
-  color: var(--cp-text-faint);
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-  margin-bottom: var(--cp-space-1);
-}
-
-.dateTitle {
-  font-family: var(--cp-font-title);
-  font-size: 30px;
-  font-weight: 700;
-  color: var(--cp-text);
-  line-height: 1.1;
-  margin: 0;
-}
-
-.headerRight {
-  text-align: right;
-}
-
-.iqScore {
-  font-family: var(--cp-font-title);
-  font-size: 28px;
-  font-weight: 700;
-  color: var(--cp-red);
-  line-height: 1;
-}
-
-.iqLabel {
-  font-family: var(--cp-font-mono);
-  font-size: 9px;
-  color: var(--cp-text-faint);
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-}
-
-.stats {
-  font-family: var(--cp-font-mono);
-  font-size: 10px;
-  color: var(--cp-text-faint);
-  margin-top: var(--cp-space-1);
+/* Ask zone spacing (between ask bar and discovery feed) */
+.askZone {
+  margin-bottom: 28px;
 }
 
 .section {

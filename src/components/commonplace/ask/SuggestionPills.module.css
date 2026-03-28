@@ -1,0 +1,35 @@
+.pills {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin-top: 8px;
+}
+
+.pill {
+  font-family: var(--cp-font-body);
+  font-size: 12px;
+  color: var(--cp-text-faint);
+  padding: 5px 12px;
+  border-radius: 16px;
+  border: 1px solid var(--cp-border-faint);
+  background: transparent;
+  cursor: pointer;
+  transition: all 150ms;
+}
+
+.pill:hover {
+  border-color: var(--cp-ask-glyph, var(--cp-red));
+  color: var(--cp-terracotta-light);
+  background: rgba(180, 90, 45, 0.08);
+}
+
+.pill:active {
+  transform: scale(0.95);
+}
+
+.prefix {
+  font-family: var(--cp-font-mono);
+  font-size: 10px;
+  color: var(--cp-ask-glyph, var(--cp-red));
+  margin-right: 3px;
+}

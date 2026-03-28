@@ -1,0 +1,56 @@
+.weather {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  margin-bottom: var(--cp-space-4, 8px);
+}
+
+.weatherMain {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.weatherTitle {
+  font-family: var(--cp-font-title);
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--cp-text);
+}
+
+.weatherSub {
+  font-family: var(--cp-font-body);
+  font-size: 12px;
+  color: var(--cp-text-faint);
+}
+
+.weatherStats {
+  display: flex;
+  gap: 16px;
+  align-items: center;
+}
+
+.ws {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1px;
+}
+
+.wsVal {
+  font-family: var(--cp-font-mono);
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.iq { color: var(--cp-terracotta-light); }
+.obj { color: var(--cp-text-muted); }
+.edge { color: var(--cp-teal-light, #3A7A88); }
+
+.wsLabel {
+  font-family: var(--cp-font-mono);
+  font-size: 8px;
+  color: var(--cp-text-faint);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
