@@ -2,7 +2,7 @@
 
 > **For Claude Code. One batch per session.**
 > **Depends on: OBJECT-RENDERER-REFACTOR.md (Batch R3+ for polymorphic ObjectRenderer)**
-> **Reference prototype: commonplace-v3.html (attached to project knowledge)**
+> **Reference prototypes: commonplace-v3.html, discovery-shapes.html (project knowledge)**
 
 ## The Problem
 
@@ -24,10 +24,10 @@ visual tiers of hierarchy:
 
 **Tier 1 (Dominant): Engine Discoveries.**
 Connections the engine found since the user's last visit. These are the
-reason you open CommonPlace. They get the most visual weight: dark terminal
-background, colored node indicators, strength scores in terracotta circles,
-human-readable reasons. The most important discovery renders larger than the
-rest.
+reason you open CommonPlace. Rendered as a *conversation* between connected
+objects: discoveries alternate left and right like a dialog, with the engine
+as the intermediary that noticed the relationship. The most important discovery
+is physically larger than the rest.
 
 **Tier 2 (Primary): Today's Objects.**
 Captures, MCP-ingested content (emails, calendar events, documents), and
@@ -53,6 +53,25 @@ the daily page is a **search and ingest bar**:
 This makes the daily page serve double duty: review what the engine found, and
 quickly search or ingest new content.
 
+## Discovery Feed Layout Patterns (Reusable Library)
+
+Six layout patterns were prototyped in `discovery-shapes.html`. The daily page
+uses **Pattern E (Conversation)** for the discovery feed. The other patterns
+are documented here for reuse across CommonPlace surfaces:
+
+| Pattern | Shape | Best For |
+|---------|-------|----------|
+| A. Stacked | Uniform vertical cards | Simple lists, review queues |
+| B. Hero + List | One expanded card, rest as inline table rows | Feeds where one item dominates |
+| C. Carousel | Horizontal scroll cards | Compact scanning, dashboard widgets |
+| D. Ticker | Accordion rows, first expanded | Terminal/log aesthetic, dense feeds |
+| E. Conversation | Alternating left/right bubbles | **Discovery feed (selected)** |
+| F. Mosaic | Magazine grid, mixed sizes | Editorial feeds, mixed content |
+
+Pattern B is a strong candidate for the Connection Review view (one connection
+expanded for rating, others queued as rows). Pattern D fits the Engine Terminal.
+Pattern F is what the object feed below discoveries already uses.
+
 ## Route and File Map
 
 ```
@@ -64,8 +83,8 @@ src/
     views/
       DailyPage.tsx                  NEW: the daily page (client component)
       DailyPage.module.css           NEW: scoped styles
-      EngineDiscoveryFeed.tsx         NEW: Tier 1 discovery cards
-      EngineDiscoveryFeed.module.css  NEW: terminal-style discovery styles
+      EngineDiscoveryFeed.tsx         NEW: Tier 1 conversation layout
+      EngineDiscoveryFeed.module.css  NEW: conversation bubble styles
       SearchIngestBar.tsx             NEW: search/URL ingest bar
       SearchIngestBar.module.css      NEW: bar styles
       TensionStrip.tsx               NEW: gold tension summary
@@ -125,8 +144,7 @@ already present.
 ### GET /api/v1/notebook/engine/discoveries/
 
 Returns recent engine-discovered connections, newest first, with both objects
-and the edge metadata. Replaces the current approach of fetching all edges
-and filtering client-side.
+and the edge metadata.
 
 ```json
 {
@@ -147,9 +165,8 @@ and filtering client-side.
 
 Query params: `?since=<iso_datetime>&limit=20`
 
-If this endpoint does not exist in the Django backend yet, it needs to be
-built. It is a read-only view over Edge objects filtered by `is_auto=True`
-and `created_at > since`, ordered by `-created_at`, with related from_object
+Read-only view over Edge objects filtered by `is_auto=True` and
+`created_at > since`, ordered by `-created_at`, with related from_object
 and to_object serialized inline.
 
 ### GET /api/v1/notebook/tensions/summary/
@@ -170,13 +187,9 @@ Returns open tension count and the highest-priority tensions.
 }
 ```
 
-If this does not exist, it is a trivial view over the Tension model filtered
-by `status='open'`, ordered by priority.
-
 ### GET /api/v1/notebook/iq/latest/
 
-Returns the most recent IQ snapshot. If this already exists in the
-`iq_report` management command output, expose it as an API endpoint.
+Returns the most recent IQ snapshot.
 
 ```json
 {
@@ -195,7 +208,7 @@ Returns the most recent IQ snapshot. If this already exists in the
 | Batch | What Ships | Depends On |
 |-------|-----------|------------|
 | D1 | SearchIngestBar + DailyPage shell | Nothing |
-| D2 | EngineDiscoveryFeed | D1, backend discoveries endpoint |
+| D2 | EngineDiscoveryFeed (conversation layout) | D1, backend discoveries endpoint |
 | D3 | Polymorphic object rendering in daily feed | D1, OBJECT-RENDERER-REFACTOR R3 |
 | D4 | TensionStrip + NotebookShelf + IQ header | D1 |
 | D5 | CommonPlaceRail (sidebar collapse) | D1 |
@@ -231,7 +244,6 @@ Add the daily case:
 ```typescript
 import DailyPage from '../views/DailyPage';
 
-// In the switch:
 case 'daily':
   return <DailyPage />;
 ```
@@ -247,258 +259,208 @@ const [activeScreen, setActiveScreen] = useState<ScreenType | null>('daily');
 #### `src/components/commonplace/views/SearchIngestBar.tsx` (NEW)
 
 Client component. Single text input that:
-1. On empty/text input: shows "Search your graph or paste a URL..." placeholder
-2. On typing: debounces 300ms, calls `/api/v1/notebook/search/` (existing endpoint)
-3. On URL detected (starts with http/https): shows "Ingest with Firecrawl" action
-4. On Enter with URL: calls the existing scrape/ingest pipeline
-5. Keyboard: `/` focuses from anywhere on daily page (unless inside another input)
+1. Shows "Search your graph or paste a URL..." placeholder
+2. On typing: debounces 300ms, calls `/api/v1/notebook/search/`
+3. On URL detected (http/https): shows "Ingest with Firecrawl" action
+4. On Enter with URL: calls existing scrape/ingest pipeline
+5. Keyboard: `/` focuses from anywhere on daily page
 
-```typescript
-'use client';
-
-interface SearchIngestBarProps {
-  onSearch?: (query: string) => void;
-  onIngest?: (url: string) => void;
-}
-```
-
-**Styling:** Uses CSS Module. Border is `var(--cp-search-border)`, focus
-border is `var(--cp-search-focus-border)`. Height: 44px. Font: `var(--cp-font-body)`
-at 14px. The search icon is on the left. When a URL is detected, a small
-"Ingest" button appears on the right with the Firecrawl globe icon.
+**Styling:** CSS Module. Height: 44px. Search icon on left. When URL detected,
+"Ingest" button appears on right.
 
 #### `src/components/commonplace/views/DailyPage.tsx` (NEW)
 
-Client component. The page shell with three-tier layout.
-
-```typescript
-'use client';
-
-import { useState, useEffect } from 'react';
-import SearchIngestBar from './SearchIngestBar';
-import styles from './DailyPage.module.css';
-
-export default function DailyPage() {
-  // Fetch IQ, discoveries, tensions, recent objects
-  // Render: header, search bar, then sections
-}
-```
-
-**Layout structure:**
-
-```
-<div className={styles.dailyPage}>
-  <div className={styles.content}>
-    <!-- HEADER: date + IQ (Tier 3) -->
-    <header className={styles.header}>
-      <div className={styles.headerLeft}>
-        <div className={styles.dayLabel}>FRIDAY</div>
-        <h1 className={styles.dateTitle}>March 27</h1>
-      </div>
-      <div className={styles.headerRight}>
-        <div className={styles.iqScore}>71.2</div>
-        <div className={styles.iqLabel}>COMPOSITE IQ</div>
-        <div className={styles.stats}>21,569 objects ... 11,946 edges</div>
-      </div>
-    </header>
-
-    <!-- SEARCH BAR -->
-    <SearchIngestBar />
-
-    <!-- TIER 1: Engine Discoveries (placeholder in D1) -->
-    <section className={styles.section}>
-      <div className={styles.sectionLabel}>Engine Discoveries</div>
-      <!-- Populated in D2 -->
-    </section>
-
-    <!-- TIER 2: Today's Objects (placeholder in D1) -->
-    <section className={styles.section}>
-      <div className={styles.sectionLabel}>Today</div>
-      <!-- Populated in D3 -->
-    </section>
-
-    <!-- TIER 3: Tensions, Notebooks (placeholder in D1) -->
-    <!-- Populated in D4 -->
-  </div>
-</div>
-```
+Client component. The page shell with three-tier layout:
+- Header (date + IQ)
+- SearchIngestBar
+- Placeholder sections for discoveries, objects, tensions, notebooks
 
 #### `src/components/commonplace/views/DailyPage.module.css` (NEW)
 
-```css
-.dailyPage {
-  flex: 1;
-  overflow-y: auto;
-  overflow-x: hidden;
-  scrollbar-width: thin;
-  scrollbar-color: var(--cp-chrome-line) transparent;
-}
-
-.content {
-  max-width: 800px;
-  margin: 0 auto;
-  padding: 40px 36px 120px;
-}
-
-.header {
-  display: flex;
-  align-items: flex-end;
-  justify-content: space-between;
-  margin-bottom: var(--cp-space-8);
-}
-
-.dayLabel {
-  font-family: var(--cp-font-mono);
-  font-size: 10px;
-  color: var(--cp-text-dim);
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-  margin-bottom: var(--cp-space-1);
-}
-
-.dateTitle {
-  font-family: var(--cp-font-title);
-  font-size: 30px;
-  font-weight: 700;
-  color: var(--cp-text);
-  line-height: 1.1;
-  margin: 0;
-}
-
-.headerRight {
-  text-align: right;
-}
-
-.iqScore {
-  font-family: var(--cp-font-title);
-  font-size: 28px;
-  font-weight: 700;
-  color: var(--cp-red);
-  line-height: 1;
-}
-
-.iqLabel {
-  font-family: var(--cp-font-mono);
-  font-size: 9px;
-  color: var(--cp-text-dim);
-  letter-spacing: 0.08em;
-}
-
-.stats {
-  font-family: var(--cp-font-mono);
-  font-size: 10px;
-  color: var(--cp-text-dim);
-  margin-top: var(--cp-space-1);
-}
-
-.section {
-  margin-bottom: 40px;
-}
-
-.sectionLabel {
-  font-family: var(--cp-font-mono);
-  font-size: 10px;
-  color: var(--cp-text-dim);
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-  margin-bottom: 14px;
-  display: flex;
-  align-items: center;
-  gap: var(--cp-space-2);
-}
-
-.sectionLabel .count {
-  color: var(--cp-terracotta-light);
-  font-weight: 600;
-}
-
-.sectionLabel .line {
-  flex: 1;
-  height: 1px;
-  background: var(--cp-border-faint);
-}
-```
+Max-width 800px container, serif date title, mono stats, section labels with
+count badges and horizontal rule lines.
 
 **Verification:**
-- Navigate to `/commonplace` and see the daily page instead of the empty fragment
+- Navigate to `/commonplace` and see the daily page
 - Date header shows today's date
 - Search bar renders and focuses on `/` keypress
-- Placeholder sections are visible
+- Placeholder sections visible
 - `npm run build` passes
 
 ---
 
-## Batch D2: EngineDiscoveryFeed
+## Batch D2: EngineDiscoveryFeed (Conversation Layout)
 
 **Read first:**
 - `src/components/commonplace/views/DailyPage.tsx` (from D1)
 - `src/lib/commonplace-api.ts` (API fetch patterns)
 - `apps/notebook/engine.py` (Edge model, engine field values)
+- Reference: `discovery-shapes.html` Layout E
 
-**Goal:** The discovery feed renders real engine-discovered connections
-with the terminal visual language. Discoveries have size variation based
-on strength.
+**Goal:** The discovery feed renders as a conversation between connected
+objects. Discoveries alternate left and right, creating visual variety
+through position and size rather than uniform stacking.
 
-### Changes
+### The Conversation Layout
 
-#### `src/lib/commonplace-api.ts`
+Discoveries are a dialog. The engine noticed that Object A and Object B
+are related. The layout renders this as two speech bubbles facing each
+other, with the engine's reasoning as the bridge between them.
 
-Add:
+**Hierarchy through three tiers of discovery size:**
+
+#### Tier 1: Hero discovery (the strongest or most recent)
+
+Full-width conversation row. Both objects render as large bubbles
+(max-width: 55%) with:
+- Type-colored dot (10px, rounded square)
+- Object name in type color, 15px, font-weight 600
+- Strength circle (28px) centered between the bubbles
+- Reason text below the bubbles spanning full width (13px, --cp-text-f)
+- Engine badges (mono, 9px, pill-shaped)
+
+The left bubble contains the from-object. The right bubble contains
+the to-object. A vertical connector line in terracotta connects them.
+
+```
+    +---------------------------+      +---------------------------+
+    | [purple dot]              |      |              [cream dot]  |
+    | Hamming's generative      |  87  | Shannon's relay memory    |
+    | learning                  |      |                           |
+    +---------------------------+      +---------------------------+
+
+    Both describe systems that encode knowledge through operation
+    rather than explicit instruction.
+
+    [sbert]  [cosine: 0.87]
+```
+
+#### Tier 2: Secondary discoveries
+
+Medium conversation rows. Only the "from" side gets a full bubble
+(max-width: 50%). The "to" side renders as a compact name-only bubble
+(max-width: 40%, less padding). The row alternates direction:
+- Discovery 2: from-bubble left, to-name right (same as hero)
+- Discovery 3: from-bubble RIGHT, to-name left (flipped)
+
+This alternation creates the conversational rhythm.
+
+```
+                  +---------------------------+         +---------+
+                  | [blue dot]                |   94    | [teal]  |
+                  | Re: TPU Research Cloud    |         | Google  |
+                  |                           |         | TRC     |
+                  +---------------------------+         +---------+
+                  Entity match: TPU, Google, Theseus.
+                  [shared_entity]
+
+    +---------+         +---------------------------+
+    | [cream] |   72    | [steel dot]               |
+    | CAP     |         | Redis concurrency guards  |
+    | theorem |         |                           |
+    +---------+         +---------------------------+
+                        Shared terms: partition tolerance.
+                        [bm25]
+```
+
+Each secondary discovery is roughly 70% the visual weight of the hero:
+smaller text (13px names), smaller score circle (24px), 1-line reason
+(truncated with ellipsis if longer), single engine badge.
+
+#### Tier 3: Compact pair
+
+If 4+ discoveries, the last two render as a tight horizontal pair
+(side by side, 50/50 grid). Each compact discovery is a single row:
+dot + name + score + name + dot + engine badge. No reason text. No
+alternation. This is the "and also" tier that doesn't demand attention.
+
+```
+    [teal] Buehler 2025 --|81|-- Self-org spec [teal]  sbert
+```
+
+### CSS Classes
+
+```css
+.convo                    /* flex column container, gap: 12px */
+.convo-row                /* flex row, one discovery */
+.convo-row.flipped        /* flex-direction: row-reverse */
+.convo-bubble             /* the speech bubble: term bg, border, rounded */
+.convo-bubble.primary     /* large: max-width 55%, padding 18px */
+.convo-bubble.secondary   /* compact name-only: max-width 40%, padding 10px 14px */
+.convo-connector          /* vertical terracotta line between bubbles */
+.convo-names              /* flex row of dot + name inside bubble */
+.convo-reason             /* reason text spanning below the bubbles */
+.convo-compact-row        /* 2-column grid for Tier 3 compact pair */
+```
+
+### Component Structure
 
 ```typescript
-export interface EngineDiscovery {
-  edge_id: number;
-  from_object: { id: number; title: string; object_type_slug: string };
-  to_object: { id: number; title: string; object_type_slug: string };
-  engine: string;
-  strength: number;
-  reason: string;
-  created_at: string;
+interface EngineDiscoveryFeedProps {
+  discoveries: EngineDiscovery[];
 }
 
-export async function fetchDiscoveries(
-  since?: string,
-  limit: number = 20,
-): Promise<EngineDiscovery[]> {
-  const params = new URLSearchParams();
-  if (since) params.set('since', since);
-  params.set('limit', String(limit));
-  const data = await apiFetch(`/engine/discoveries/?${params}`);
-  return data.discoveries ?? [];
+export default function EngineDiscoveryFeed({ discoveries }: EngineDiscoveryFeedProps) {
+  if (!discoveries.length) return <EmptyDiscoveries />;
+
+  // Sort by strength descending
+  const sorted = [...discoveries].sort((a, b) => b.strength - a.strength);
+  const hero = sorted[0];
+  const secondary = sorted.slice(1, 3);   // up to 2 medium
+  const compact = sorted.slice(3);         // rest as compact pairs
+
+  return (
+    <div className={styles.convo}>
+      <HeroDiscovery discovery={hero} />
+      {secondary.map((d, i) => (
+        <SecondaryDiscovery key={d.edge_id} discovery={d} flipped={i % 2 === 1} />
+      ))}
+      {compact.length > 0 && (
+        <div className={styles.compactRow}>
+          {compact.map(d => <CompactDiscovery key={d.edge_id} discovery={d} />)}
+        </div>
+      )}
+    </div>
+  );
 }
 ```
 
-#### `src/components/commonplace/views/EngineDiscoveryFeed.tsx` (NEW)
+### Type Color Resolution
 
-Client component. Renders a list of discovery cards with the terminal aesthetic.
+Each object's type-colored dot uses the `--cp-type-{slug}` token. The
+component maps `object_type_slug` to the CSS variable:
 
-**Visual rules:**
-- Container: `background: var(--cp-term-bg)`, `border: 1px solid var(--cp-term-border)`,
-  `border-radius: 8px`
-- Each discovery shows: from-object (type-colored square + name), edge line with
-  strength circle, to-object (type-colored square + name), reason text below,
-  engine badge
-- The first discovery (highest strength or most recent) renders at 1.3x scale:
-  larger text (15px names vs 12px), more padding (22px vs 14px), full reason text
-  vs truncated
-- Remaining discoveries render at compact scale
-- If 4+ discoveries, the bottom two sit in a 2-column grid
+```typescript
+const TYPE_COLORS: Record<string, string> = {
+  note: 'var(--cp-type-note)',
+  source: 'var(--cp-type-source)',
+  person: 'var(--cp-type-person)',
+  concept: 'var(--cp-type-concept)',
+  // ... all 10+ types
+};
+```
 
-**Type color mapping:** Uses `--cp-type-{slug}` tokens from `commonplace-tokens.css`.
-The colored squares next to each object name use these colors. The edge gradient
-line runs from the from-type color through terracotta to the to-type color.
+This is set as an inline `style={{ background: TYPE_COLORS[slug] }}` on
+the dot element (one of the few acceptable inline styles, per invariant 2).
 
-**Strength circle:** Centered on the edge line, `background: var(--cp-discovery-score-bg)`,
-white text, shows the integer strength percentage.
+### Empty State
 
-#### `src/components/commonplace/views/EngineDiscoveryFeed.module.css` (NEW)
+When no discoveries exist, render a centered terminal-style message:
 
-Full terminal styling. See the prototype's `.discovery` and `.discovery-edge` classes
-for the reference implementation.
+```
+    +-----------------------------------------+
+    |  $ engine idle. No new connections       |
+    |    since your last visit.                |
+    |                                          |
+    |    Run the engine or capture new objects  |
+    |    to generate discoveries.              |
+    +-----------------------------------------+
+```
 
-#### `src/components/commonplace/views/DailyPage.tsx`
+Background: `var(--cp-term-bg)`. Mono font. Muted text. The `$` prompt
+in cyan.
 
-Import and render `EngineDiscoveryFeed` in the Tier 1 section:
+### Integration with DailyPage
 
 ```typescript
 import EngineDiscoveryFeed from './EngineDiscoveryFeed';
@@ -510,18 +472,25 @@ const { data: discoveries } = useApiData(
   [],
 );
 
-// In JSX:
+// In JSX, Tier 1 section:
 <section className={styles.section}>
+  <div className={styles.sectionLabel}>
+    <ConnectionIcon />
+    Engine found <span className={styles.count}>{discoveries.length}</span> connections
+    <span className={styles.line} />
+  </div>
   <EngineDiscoveryFeed discoveries={discoveries} />
 </section>
 ```
 
 **Verification:**
-- Discoveries render with terminal styling
-- First discovery is visually larger than the rest
-- Type colors match the object types
+- Hero discovery renders as large left/right conversation
+- Secondary discoveries alternate direction
+- Compact pair renders as tight inline row
+- Type colors match object types
 - Strength scores render in terracotta circles
-- Empty state: "No new discoveries" message in terminal style
+- Empty state renders when no discoveries
+- Visual weight decreases from hero to secondary to compact
 - `npm run build` passes
 
 ---
@@ -595,7 +564,7 @@ larger scale (this is added to the ObjectVariant union in R1).
 - `src/components/commonplace/views/DailyPage.tsx` (from D1-D3)
 - `apps/notebook/tensions.py` (Tension model)
 - `apps/notebook/iq_measurement.py` (IQ snapshot)
-- `src/components/commonplace/views/NotebookListView.tsx` (existing notebook rendering)
+- `src/components/commonplace/views/NotebookListView.tsx`
 
 **Goal:** Complete the Tier 3 ambient elements.
 
@@ -610,25 +579,18 @@ Uses `--cp-gold` tokens.
 ### NotebookShelf
 
 A horizontal scrolling row of notebook spines matching the 3D book aesthetic
-from the existing NotebookListView (see screenshot). Each spine is ~88px wide
-with the notebook color, name, and object count.
-
-Implementation: Reuse the notebook color and name data from `fetchNotebooks()`.
-The 3D effect uses CSS `box-shadow` and `border-radius` (no Three.js needed for
-the shelf view, that is the full NotebookListView's territory).
+from the existing NotebookListView. Each spine is ~88px wide with the notebook
+color, name, and object count. CSS `box-shadow` for the 3D effect.
 
 ### IQ Header
 
-The header already has placeholder IQ score from D1. In D4, wire it to the
-real `/iq/latest/` endpoint. Show the composite score, and on hover, show a
-tooltip with all 7 axis scores.
+Wire the header IQ score to the real `/iq/latest/` endpoint. On hover, show
+a tooltip with all 7 axis scores.
 
 **Verification:**
-- Tensions strip shows real tension count and top tension
-- Clicking tension navigates to the review view
-- Notebook shelf scrolls horizontally with spine visuals
-- Clicking a spine opens the notebook workspace
-- IQ score updates from real data
+- Tensions strip shows real data, clicking navigates
+- Notebook shelf scrolls with spine visuals, clicking opens workspace
+- IQ score updates from real data with hover tooltip
 - `npm run build` passes
 
 ---
@@ -642,64 +604,21 @@ tooltip with all 7 axis scores.
 - `src/lib/providers/workspace-provider.tsx`
 
 **Goal:** The sidebar can collapse to a 48px icon rail. The rail is the
-default state on the daily page. The full sidebar expands on click or hover.
+default state on the daily page.
 
 ### Changes
 
-#### `src/lib/providers/workspace-provider.tsx`
-
-Add `sidebarMode: 'rail' | 'expanded'` state and `toggleSidebarMode` action.
-Default: `'rail'`.
-
-#### `src/components/commonplace/shell/CommonPlaceRail.tsx` (REPLACE)
-
-The 48px icon rail with:
-- Logo "C" at top (click toggles to full sidebar)
-- 5 nav icons: Home, Library, Map, Notebooks, Engine
-- Active state: terracotta background glow
-- Bottom: green engine status dot
-
-Icons use Iconoir (already installed). Each button calls `navigateToScreen()`
-or `launchView()` from the LayoutProvider.
-
-#### `src/components/commonplace/shell/CommonPlaceShell.tsx`
-
-Conditionally render `CommonPlaceRail` or `CommonPlaceSidebar` based on
-`sidebarMode`. When mode is `'rail'`, the main content area gets the full
-viewport width minus 52px.
-
-```typescript
-const { sidebarMode, toggleSidebarMode } = useWorkspace();
-
-return (
-  <>
-    {sidebarMode === 'rail'
-      ? <CommonPlaceRail onExpand={toggleSidebarMode} />
-      : <CommonPlaceSidebar onCollapse={toggleSidebarMode} />
-    }
-    <main ...>
-      <SplitPaneContainer />
-    </main>
-  </>
-);
-```
-
-#### Sidebar expand trigger
-
-The rail has a hover zone on its right edge (8px wide, invisible) that shows
-a subtle expand indicator on hover. Clicking the "C" logo or the expand
-indicator toggles to full sidebar.
-
-The full sidebar gains a collapse button (left-arrow icon at the top right
-of the sidebar header) that returns to rail mode.
+- Add `sidebarMode: 'rail' | 'expanded'` to WorkspaceProvider (default: `'rail'`)
+- Implement CommonPlaceRail: "C" logo, 5 nav icons, green engine dot
+- CommonPlaceShell renders Rail or Sidebar based on mode
+- Click "C" to expand, collapse button in sidebar to return
+- Mobile: rail hidden, existing mobile drawer unchanged
 
 **Verification:**
 - App loads with 48px rail by default
-- All 5 nav icons work and show active state
-- Clicking "C" expands to full sidebar
-- Collapse button in sidebar returns to rail
+- All nav icons work with active state
+- Toggle between rail and sidebar works
 - Content area width adjusts correctly
-- Mobile: rail is hidden, sidebar uses existing mobile drawer
 - `npm run build` passes
 
 ---
@@ -708,80 +627,47 @@ of the sidebar header) that returns to rail mode.
 
 **Read first:**
 - OBJECT-RENDERER-REFACTOR.md Batch R5 (EmailCard)
-- `src/components/commonplace/objects/` (existing renderers)
+- `src/components/commonplace/objects/`
 - `src/styles/object-cards.css` (from R2)
 
 **Goal:** Email objects ingested via Gmail MCP render as literal emails.
 
-**Depends on:** OBJECT-RENDERER-REFACTOR R3 (multi-variant renderers) and
-the Django backend having an `email` ObjectType registered.
-
 ### EmailCard Visual Design
 
-The email renderer borrows the visual language of email clients:
-
-**Header bar** (light colored background):
-- Envelope icon in a rounded square (type-colored)
-- Sender name (bold, 12px)
-- Sender address (mono, 10px, muted)
-- Source badge: "Gmail" with globe icon, pill-shaped
-- Timestamp (mono, 10px, right-aligned)
+**Header bar** (colored background):
+- Envelope icon in rounded square
+- Sender name (bold, 12px) + address (mono, 10px)
+- Source badge: "Gmail" pill with globe icon
+- Timestamp (mono, 10px)
 
 **Body area:**
-- Subject line (bold, 14px, full color)
+- Subject line (bold, 14px)
 - Preview text (12.5px, muted, 2-line clamp)
 
-**Footer** (if connections exist):
-- Terracotta dot + "{n} connections found by engine"
+**Footer** (if connections): Terracotta dot + "{n} connections found by engine"
 
-**Compact variant** (for grid/feed placement):
-- Single row: envelope icon, subject (truncated), source badge, timestamp
-- No sender address, no body preview
-
-**Hero variant** (for daily page hero slot):
-- Full header bar with all fields
-- Extended preview (4-line clamp instead of 2)
-- Connection footer
-- Top accent stripe in type color
-
-### CSS Classes
-
-```css
-.cp-obj-email { /* inherits .cp-obj */ }
-.cp-obj-email .email-header { ... }
-.cp-obj-email .email-icon { ... }
-.cp-obj-email .email-from { ... }
-.cp-obj-email .email-subject { ... }
-.cp-obj-email .email-preview { ... }
-.cp-obj-email .email-source-badge { ... }
-.cp-obj-email .email-footer { ... }
-```
+**Variants:**
+- Compact: icon + subject + source badge + timestamp (single row)
+- Hero: full header, 4-line preview, footer, top accent stripe
 
 ### Data Mapping
-
-Email objects from MCP ingestion store metadata in the Object's `properties`
-JSON field (or dedicated model fields if added):
 
 | Email field | Object field |
 |-------------|-------------|
 | Subject | `title` |
 | From name | `properties.from_name` |
 | From address | `properties.from_address` |
-| Preview/snippet | `body` (first 500 chars) |
+| Preview | `body` (first 500 chars) |
 | Source system | `properties.source_system` ("gmail") |
 | Thread ID | `properties.thread_id` |
 | Has attachments | `properties.has_attachments` |
 | Received at | `captured_at` |
 
-The renderer reads `properties.from_name` and `properties.source_system` to
-render the email-specific chrome.
-
 **Verification:**
-- Email objects render with the literal email visual
+- Email objects render with literal email visual
 - Source badge shows "Gmail" (or other MCP source)
-- Compact variant works in grid layouts
-- Hero variant works when email is the top daily object
-- Objects without email properties fall back gracefully to default card
+- All three variants work (default, compact, hero)
+- Graceful fallback for objects without email properties
 - `npm run build` passes
 
 ---
@@ -789,38 +675,41 @@ render the email-specific chrome.
 ## Invariants
 
 1. **The daily page is a screen, not a pane view.** It replaces the content
-   area entirely (like Library or Engine). It is not renderable inside a
-   split pane. The split-pane workspace is a separate mode.
+   area entirely (like Library or Engine). Not renderable in a split pane.
 
 2. **All styles use CSS Modules and tokens.** No inline styles except for
-   dynamic values that must be computed at runtime (e.g., type colors set
-   via CSS custom properties on data attributes).
+   dynamic type colors set via CSS custom properties.
 
 3. **The search bar is not a capture field.** It searches the graph or
    ingests URLs. Capture stays in the sidebar.
 
-4. **Discovery feed uses terminal visual language.** Dark background, mono
-   font, colored node indicators. This matches the existing engine terminal
-   aesthetic that already has character in the app.
+4. **Discovery feed uses conversation layout.** Alternating left/right
+   bubbles with three tiers of hierarchy: hero (large, full reason),
+   secondary (medium, alternating direction), compact (tight inline pair).
+   This is Pattern E from the shape explorer prototype.
 
 5. **Editorial layout, not uniform grid.** Objects in the daily feed have
-   size variation based on importance. Hero objects are large. Grid items
-   are compact. Tasks are full-width rows. The layout function assigns
+   size variation based on importance. The `layoutObjects()` function assigns
    slots based on connection count and recency.
 
-6. **The rail is the default sidebar state.** The full sidebar is available
-   but not the default. Content is the main character.
+6. **The rail is the default sidebar state.** Content is the main character.
 
-7. **Email objects look like emails.** Header bar with sender, subject in
-   the body, source badge showing provenance. The type's visual identity
-   communicates "this came from your inbox" before any label is read.
+7. **Email objects look like emails.** Header bar with sender, subject,
+   source badge. The visual identity communicates provenance before any
+   label is read.
+
+8. **Layout patterns are reusable.** The six patterns (A-F) from the shape
+   explorer are available for any surface in CommonPlace. Pattern B for
+   Connection Review. Pattern D for Engine Terminal. Pattern F for the
+   object feed. Each pattern is a CSS Module that can be imported by any
+   view component.
 
 ## Estimated Timeline
 
 | Batch | Sessions | What Ships |
 |-------|----------|-----------|
 | D1 | 1 | Daily page shell, search bar, default screen |
-| D2 | 1-2 | Engine discovery feed with real data |
+| D2 | 1-2 | Engine discovery conversation feed |
 | D3 | 2-3 | Polymorphic object feed with editorial layout |
 | D4 | 1 | Tensions, notebooks, live IQ |
 | D5 | 1-2 | Sidebar rail collapse |
