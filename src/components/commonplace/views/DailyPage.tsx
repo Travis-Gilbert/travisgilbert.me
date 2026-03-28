@@ -11,13 +11,15 @@ import SuggestionPills from '../ask/SuggestionPills';
 import AskRetrievalStrip from '../ask/AskRetrievalStrip';
 import AskAnswerCard from '../ask/AskAnswerCard';
 import { apiFetch } from '@/lib/commonplace-api';
+import { useDrawer } from '@/lib/providers/drawer-provider';
 import {
   submitQuestion,
-  synthesizeAnswer,
   fetchAskSuggestions,
+  fetchDailyBriefing,
 } from '@/lib/ask-theseus';
 import type {
   AskRetrievalResponse,
+  AskRetrievalObject,
   AskSynthesisResponse,
   AskSuggestion,
 } from '@/lib/ask-theseus';
@@ -154,7 +156,54 @@ const TYPE_COLORS: Record<string, string> = {
   event: '#4A6A8A',
 };
 
+/* ─── Template summary helpers (Option 1: no LLM) ─── */
+
+function groupByType(objects: AskRetrievalObject[]) {
+  const groups: Record<string, AskRetrievalObject[]> = {};
+  for (const obj of objects) {
+    const type = obj.object_type_slug;
+    if (!groups[type]) groups[type] = [];
+    groups[type].push(obj);
+  }
+  return groups;
+}
+
+function buildTemplateSummary(
+  _question: string,
+  groups: Record<string, AskRetrievalObject[]>,
+): string {
+  const total = Object.values(groups).reduce((sum, arr) => sum + arr.length, 0);
+  if (total === 0) return 'No objects found in your graph for this question.';
+
+  const parts: string[] = [];
+
+  if (groups.task?.length) {
+    const incomplete = groups.task.filter((t) => !t.done);
+    if (incomplete.length > 0) {
+      parts.push(`${incomplete.length} task${incomplete.length !== 1 ? 's' : ''} related to your question`);
+    }
+  }
+  if (groups.event?.length) {
+    parts.push(`${groups.event.length} upcoming event${groups.event.length !== 1 ? 's' : ''}`);
+  }
+  if (groups.source?.length) {
+    parts.push(`${groups.source.length} source${groups.source.length !== 1 ? 's' : ''}`);
+  }
+  if (groups.note?.length) {
+    parts.push(`${groups.note.length} note${groups.note.length !== 1 ? 's' : ''}`);
+  }
+  if (groups.hunch?.length) {
+    parts.push(`${groups.hunch.length} hunch${groups.hunch.length !== 1 ? 'es' : ''}`);
+  }
+
+  return parts.length > 0
+    ? `Found ${parts.join(', ')}.`
+    : `Found ${total} object${total !== 1 ? 's' : ''}.`;
+}
+
 export default function DailyPage() {
+  const { openDrawer } = useDrawer();
+
   /* Try fetching real data; fall back to mock */
   const [discoveries, setDiscoveries] = useState<EngineDiscovery[]>(MOCK_DISCOVERIES);
 
@@ -174,6 +223,7 @@ export default function DailyPage() {
   const [retrievalResult, setRetrievalResult] = useState<AskRetrievalResponse | null>(null);
   const [synthesisResult, setSynthesisResult] = useState<AskSynthesisResponse | null>(null);
   const [submittedQuestion, setSubmittedQuestion] = useState('');
+  const [isBriefing, setIsBriefing] = useState(false);
   const MOCK_SUGGESTIONS: AskSuggestion[] = [
     { text: 'What should I be working on?', type: 'question' },
     { text: 'How does Shannon connect to Hamming?', type: 'question' },
@@ -188,24 +238,53 @@ export default function DailyPage() {
       .catch(() => { /* keep mock suggestions */ });
   }, []);
 
+  /* ── Daily briefing on mount (Batch 3) ── */
+  useEffect(() => {
+    fetchDailyBriefing()
+      .then((briefing) => {
+        if (briefing.retrieval.objects.length > 0) {
+          setIsBriefing(true);
+          setSubmittedQuestion(briefing.question);
+          setRetrievalResult({
+            question_id: 'briefing',
+            retrieval: briefing.retrieval,
+          });
+          const groups = groupByType(briefing.retrieval.objects);
+          setSynthesisResult({
+            answer: buildTemplateSummary(briefing.question, groups),
+            referenced_object_ids: briefing.retrieval.objects.map((o) => o.id),
+          });
+        }
+      })
+      .catch(() => {});
+
+    // Background refresh for next load
+    fetch('/api/v1/notebook/briefing/?refresh=true').catch(() => {});
+  }, []);
+
+  /* ── Option 1: Retrieval only, no LLM call ── */
   const handleAsk = useCallback(async (question: string) => {
     setAskLoading(true);
     setSubmittedQuestion(question);
     setRetrievalResult(null);
     setSynthesisResult(null);
+    setIsBriefing(false);
 
     try {
       const retrieval = await submitQuestion(question);
       setRetrievalResult(retrieval);
 
-      try {
-        const synthesis = await synthesizeAnswer(question, retrieval.retrieval);
-        setSynthesisResult(synthesis);
-      } catch {
-        toast.error('Answer synthesis failed. Retrieval results are shown below.');
-      }
+      // Template-based summary, no LLM call
+      const objects = retrieval.retrieval.objects;
+      const typeGroups = groupByType(objects);
+      const summary = buildTemplateSummary(question, typeGroups);
+
+      setSynthesisResult({
+        answer: summary,
+        referenced_object_ids: objects.map((o) => o.id),
+      });
     } catch {
-      toast.error('Could not reach the knowledge graph. Try again later.');
+      toast.error('Could not reach the knowledge graph.');
       setSubmittedQuestion('');
     } finally {
       setAskLoading(false);
@@ -214,11 +293,18 @@ export default function DailyPage() {
 
   const handleSuggestionSelect = useCallback((text: string) => {
     setAskQuestion(text);
-  }, []);
+    handleAsk(text);
+  }, [handleAsk]);
 
   const handleOpenObject = useCallback((id: number) => {
-    toast(`Opening object ${id}`);
-  }, []);
+    // Look up slug from retrieval objects if available
+    const obj = retrievalResult?.retrieval.objects.find((o) => o.id === id);
+    if (obj?.slug) {
+      openDrawer(obj.slug);
+    } else {
+      openDrawer(String(id));
+    }
+  }, [retrievalResult, openDrawer]);
 
   return (
     <div className={styles.dailyPage}>
@@ -249,12 +335,17 @@ export default function DailyPage() {
 
         {/* ANSWER CARD (replaces discovery + object feeds when shown) */}
         {retrievalResult && synthesisResult ? (
-          <AskAnswerCard
-            question={submittedQuestion}
-            retrieval={retrievalResult}
-            synthesis={synthesisResult}
-            onOpenObject={handleOpenObject}
-          />
+          <>
+            {isBriefing && (
+              <div className={styles.briefingLabel}>DAILY BRIEFING</div>
+            )}
+            <AskAnswerCard
+              question={submittedQuestion}
+              retrieval={retrievalResult}
+              synthesis={synthesisResult}
+              onOpenObject={handleOpenObject}
+            />
+          </>
         ) : (
           <>
             {/* TIER 1: Engine Discoveries */}
@@ -267,7 +358,7 @@ export default function DailyPage() {
                 Engine found <span className={styles.sectionCount}>{discoveries.length}</span> connections
                 <span className={styles.sectionLine} />
               </div>
-              <EngineDiscoveryFeed discoveries={discoveries} />
+              <EngineDiscoveryFeed discoveries={discoveries} onOpenObject={(slug) => openDrawer(slug)} />
             </section>
 
             {/* TIER 2: Today's Objects */}

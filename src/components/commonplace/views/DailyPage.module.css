@@ -45,6 +45,17 @@
   background: var(--cp-border-faint);
 }
 
+/* ─── Briefing label ─── */
+
+.briefingLabel {
+  font-family: var(--cp-font-mono);
+  font-size: 9px;
+  color: var(--cp-text-faint);
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  margin-bottom: 6px;
+}
+
 /* ─── Tension strip ─── */
 
 .tension {

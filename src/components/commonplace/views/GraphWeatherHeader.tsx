@@ -37,10 +37,12 @@ export default function GraphWeatherHeader() {
       </div>
       {weather && (
         <div className={styles.weatherStats}>
-          <div className={styles.ws}>
-            <span className={`${styles.wsVal} ${styles.iq}`}>{iq.toFixed(1)}</span>
-            <span className={styles.wsLabel}>IQ</span>
-          </div>
+          {iq > 0 && (
+            <div className={styles.ws}>
+              <span className={`${styles.wsVal} ${styles.iq}`}>{iq.toFixed(1)}</span>
+              <span className={styles.wsLabel}>IQ</span>
+            </div>
+          )}
           <div className={styles.ws}>
             <span className={`${styles.wsVal} ${styles.obj}`}>{objects.toLocaleString()}</span>
             <span className={styles.wsLabel}>Objects</span>

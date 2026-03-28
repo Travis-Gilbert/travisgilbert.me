@@ -53,9 +53,3 @@
   opacity: 0.3;
   cursor: not-allowed;
 }
-
-.slash {
-  font-family: var(--cp-font-mono);
-  font-size: 13px;
-  font-weight: 600;
-}

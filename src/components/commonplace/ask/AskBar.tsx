@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useCallback, useRef, useEffect } from 'react';
+import { SearchWindow } from 'iconoir-react';
 import styles from './AskBar.module.css';
 
 interface AskBarProps {
@@ -41,16 +42,13 @@ export default function AskBar({ onSubmit, disabled, value, onChange }: AskBarPr
   return (
     <div className={styles.askBar}>
       <span className={styles.icon}>
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-          <circle cx="11" cy="11" r="8" />
-          <line x1="21" y1="21" x2="16.65" y2="16.65" />
-        </svg>
+        <SearchWindow width={16} height={16} strokeWidth={1.5} />
       </span>
       <input
         ref={inputRef}
         className={styles.input}
         type="text"
-        placeholder="Ask your graph a question..."
+        placeholder="Ask your graph something..."
         value={text}
         onChange={(e) => setText(e.target.value)}
         onKeyDown={(e) => { if (e.key === 'Enter') handleSubmit(); }}
@@ -63,7 +61,9 @@ export default function AskBar({ onSubmit, disabled, value, onChange }: AskBarPr
         disabled={disabled || !text.trim()}
         aria-label="Submit question"
       >
-        <span className={styles.slash}>/</span>
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <polyline points="9 18 15 12 9 6" />
+        </svg>
       </button>
     </div>
   );

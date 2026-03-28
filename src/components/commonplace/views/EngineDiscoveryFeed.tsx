@@ -15,9 +15,10 @@ export interface EngineDiscovery {
 
 interface EngineDiscoveryFeedProps {
   discoveries: EngineDiscovery[];
+  onOpenObject?: (slug: string) => void;
 }
 
-export default function EngineDiscoveryFeed({ discoveries }: EngineDiscoveryFeedProps) {
+export default function EngineDiscoveryFeed({ discoveries, onOpenObject }: EngineDiscoveryFeedProps) {
   if (discoveries.length === 0) {
     return (
       <div className={styles.convo}>
@@ -36,18 +37,18 @@ export default function EngineDiscoveryFeed({ discoveries }: EngineDiscoveryFeed
   return (
     <div className={styles.convo}>
       {/* Hero: large conversation row */}
-      <HeroDiscovery discovery={hero} />
+      <HeroDiscovery discovery={hero} onOpenObject={onOpenObject} />
 
       {/* Secondary: alternating direction */}
       {secondary.map((d, i) => (
-        <SecondaryDiscovery key={d.edge_id} discovery={d} flipped={i % 2 === 1} />
+        <SecondaryDiscovery key={d.edge_id} discovery={d} flipped={i % 2 === 1} onOpenObject={onOpenObject} />
       ))}
 
       {/* Compact pair: tight inline row */}
       {compact.length > 0 && (
         <div className={styles.compactRow}>
           {compact.map((d) => (
-            <CompactDiscovery key={d.edge_id} discovery={d} />
+            <CompactDiscovery key={d.edge_id} discovery={d} onOpenObject={onOpenObject} />
           ))}
         </div>
       )}
@@ -55,7 +56,7 @@ export default function EngineDiscoveryFeed({ discoveries }: EngineDiscoveryFeed
   );
 }
 
-function HeroDiscovery({ discovery }: { discovery: EngineDiscovery }) {
+function HeroDiscovery({ discovery, onOpenObject }: { discovery: EngineDiscovery; onOpenObject?: (slug: string) => void }) {
   const fromType = getObjectTypeIdentity(discovery.from_object.object_type_slug);
   const toType = getObjectTypeIdentity(discovery.to_object.object_type_slug);
   const pct = Math.round(discovery.strength * 100);
@@ -63,7 +64,7 @@ function HeroDiscovery({ discovery }: { discovery: EngineDiscovery }) {
   return (
     <div className={styles.convoRow}>
       {/* Primary bubble (from object) */}
-      <div className={`${styles.bubble} ${styles.bubblePrimary}`}>
+      <div className={`${styles.bubble} ${styles.bubblePrimary}`} onClick={() => onOpenObject?.(String(discovery.from_object.id))} style={{ cursor: onOpenObject ? 'pointer' : undefined }}>
         <div className={styles.bubbleNames}>
           <div className={styles.dot} style={{ background: fromType.color }} />
           <div className={styles.bubbleName} style={{ color: fromType.color, fontSize: 15 }}>
@@ -83,7 +84,7 @@ function HeroDiscovery({ discovery }: { discovery: EngineDiscovery }) {
       </div>
 
       {/* Secondary bubble (to object) */}
-      <div className={`${styles.bubble} ${styles.bubbleSecondary}`}>
+      <div className={`${styles.bubble} ${styles.bubbleSecondary}`} onClick={() => onOpenObject?.(String(discovery.to_object.id))} style={{ cursor: onOpenObject ? 'pointer' : undefined }}>
         <div className={styles.bubbleNames}>
           <div className={styles.dot} style={{ background: toType.color }} />
           <div className={styles.bubbleName} style={{ color: toType.color, fontSize: 13 }}>
@@ -95,7 +96,7 @@ function HeroDiscovery({ discovery }: { discovery: EngineDiscovery }) {
   );
 }
 
-function SecondaryDiscovery({ discovery, flipped }: { discovery: EngineDiscovery; flipped: boolean }) {
+function SecondaryDiscovery({ discovery, flipped, onOpenObject }: { discovery: EngineDiscovery; flipped: boolean; onOpenObject?: (slug: string) => void }) {
   const fromType = getObjectTypeIdentity(discovery.from_object.object_type_slug);
   const toType = getObjectTypeIdentity(discovery.to_object.object_type_slug);
   const scoreInt = Math.round(discovery.strength * 100);
@@ -108,7 +109,7 @@ function SecondaryDiscovery({ discovery, flipped }: { discovery: EngineDiscovery
   return (
     <div className={`${styles.convoRow} ${flipped ? styles.convoRowFlipped : ''}`}>
       {/* Primary bubble */}
-      <div className={styles.bubble}>
+      <div className={styles.bubble} onClick={() => onOpenObject?.(String(primaryObj.id))} style={{ cursor: onOpenObject ? 'pointer' : undefined }}>
         <div className={`${styles.bubbleNames} ${flipped ? styles.bubbleNamesRight : ''}`}>
           <div className={styles.dot} style={{ background: primaryType.color }} />
           <div className={styles.bubbleName} style={{ color: primaryType.color, fontSize: 14 }}>
@@ -130,7 +131,7 @@ function SecondaryDiscovery({ discovery, flipped }: { discovery: EngineDiscovery
       </div>
 
       {/* Secondary bubble (compact) */}
-      <div className={`${styles.bubble} ${styles.bubbleSecondary}`}>
+      <div className={`${styles.bubble} ${styles.bubbleSecondary}`} onClick={() => onOpenObject?.(String(secondaryObj.id))} style={{ cursor: onOpenObject ? 'pointer' : undefined }}>
         <div className={`${styles.bubbleNames} ${flipped ? '' : styles.bubbleNamesRight}`}>
           <div className={styles.dot} style={{ background: secondaryType.color }} />
           <div className={styles.bubbleName} style={{ color: secondaryType.color, fontSize: 13 }}>
@@ -156,13 +157,13 @@ function StrengthBar({ pct, flipped, compact }: { pct: number; flipped?: boolean
   );
 }
 
-function CompactDiscovery({ discovery }: { discovery: EngineDiscovery }) {
+function CompactDiscovery({ discovery, onOpenObject }: { discovery: EngineDiscovery; onOpenObject?: (slug: string) => void }) {
   const fromType = getObjectTypeIdentity(discovery.from_object.object_type_slug);
   const toType = getObjectTypeIdentity(discovery.to_object.object_type_slug);
   const scoreInt = Math.round(discovery.strength * 100);
 
   return (
-    <div className={styles.compactBubble}>
+    <div className={styles.compactBubble} onClick={() => onOpenObject?.(String(discovery.from_object.id))} style={{ cursor: onOpenObject ? 'pointer' : undefined }}>
       <div className={styles.compactNames}>
         <div className={styles.dot} style={{ background: fromType.color }} />
         <div className={styles.compactName} style={{ color: fromType.color }}>

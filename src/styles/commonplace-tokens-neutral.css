@@ -1,0 +1,200 @@
+/* ─────────────────────────────────────────────────
+   CommonPlace: Neutral Cool Chrome tokens.
+   Swap for commonplace-tokens.css in layout.tsx to compare.
+   Cooler neutral darks (slate/charcoal) vs warm browns.
+   ───────────────────────────────────────────────── */
+
+@import './reader-tokens.css';
+
+.commonplace-theme {
+  /* Chrome shell (cooler neutral) */
+  --cp-chrome: #1a1a1d;
+  --cp-chrome-mid: #222225;
+  --cp-chrome-raise: #2b2b2f;
+  --cp-chrome-line: #3a3a3e;
+  --cp-chrome-text: #D8D6DC;
+  --cp-chrome-muted: #88868E;
+  --cp-chrome-dim: #807E86;
+
+  /* Sidebar: cool slate */
+  --cp-sidebar: #151517;
+  --cp-sidebar-surface: rgba(255, 255, 255, 0.025);
+  --cp-sidebar-surface-hover: rgba(255, 255, 255, 0.05);
+  --cp-sidebar-text: #E8E6EC;
+  --cp-sidebar-text-muted: #9A98A0;
+  --cp-sidebar-text-faint: #7A7880;
+  --cp-sidebar-border: rgba(255, 255, 255, 0.05);
+  --cp-sidebar-border-strong: rgba(255, 255, 255, 0.08);
+  --cp-sidebar-edge: rgba(255, 255, 255, 0.05);
+
+  /* Content surfaces (cooler neutral) */
+  --cp-bg: #1a1a1d;
+  --cp-surface: #222225;
+  --cp-surface-hover: #2b2b2f;
+  --cp-card: #1e1e22;
+  --cp-card-hover: #27272b;
+
+  /* Text (slightly cooler cream) */
+  --cp-text: #F2F1EE;
+  --cp-text-muted: #BDBBC0;
+  --cp-text-faint: #96949A;
+
+  /* Accent: Terracotta pencil (unchanged) */
+  --cp-red: #B8623D;
+  --cp-red-rgb: 184, 98, 61;
+  --cp-red-soft: #2A2018;
+  --cp-red-line: rgba(184, 98, 61, 0.22);
+  --cp-red-glow: rgba(184, 98, 61, 0.12);
+  --cp-accent: var(--cp-red);
+
+  --cp-terracotta: var(--cp-red);
+  --cp-terracotta-light: #D4896A;
+  --cp-terracotta-glow: var(--cp-red-soft);
+  --cp-cream: #F6F5F2;
+
+  /* Secondary palette (unchanged) */
+  --cp-teal: #2D5F6B;
+  --cp-teal-light: #3A7A88;
+  --cp-gold: #C49A4A;
+  --cp-gold-light: #E0BC60;
+  --cp-green: #5A7A4A;
+  --cp-purple: #8B6FA0;
+  --cp-blue: #4A7A9A;
+  --cp-pink: #B06080;
+  --cp-amber: #C49A4A;
+  --cp-orange: #C47A3A;
+  --cp-steel: #6B7A8A;
+
+  /* Object type colors (unchanged) */
+  --cp-type-note: #F5F0E8;
+  --cp-type-source: #2D5F6B;
+  --cp-type-person: #B45A2D;
+  --cp-type-place: #C49A4A;
+  --cp-type-organization: #5A7A4A;
+  --cp-type-concept: #8B6FA0;
+  --cp-type-quote: #C49A4A;
+  --cp-type-hunch: #B06080;
+  --cp-type-script: #6B7A8A;
+  --cp-type-task: #C47A3A;
+
+  /* Tab bar */
+  --cp-tab-bg: var(--cp-chrome);
+  --cp-tab-border: var(--cp-chrome-line);
+
+  /* Terminal / card surfaces (cooler charcoal) */
+  --cp-term: #181819;
+  --cp-term-elevated: #1c1c1e;
+  --cp-term-hover: #212123;
+  --cp-term-border: rgba(255, 255, 255, 0.05);
+  --cp-term-border-hover: rgba(201, 122, 74, 0.14);
+  --cp-term-text: #EDE8E2;
+  --cp-term-text-secondary: #B5AEA8;
+  --cp-term-muted: #8A847E;
+  --cp-term-green: #6AAA6A;
+  --cp-term-amber: #CCAA44;
+  --cp-term-red: #CC6644;
+  --cp-term-cyan: #5AAABA;
+  --cp-term-glow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.02),
+    0 10px 28px rgba(0, 0, 0, 0.198);
+
+  /* Borders */
+  --cp-border: rgba(242, 241, 238, 0.14);
+  --cp-border-faint: rgba(242, 241, 238, 0.08);
+
+  /* Shadows */
+  --cp-shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.3);
+  --cp-shadow: 0 2px 8px rgba(24, 24, 27, 0.08);
+  --cp-shadow-lg: 0 8px 24px rgba(24, 24, 27, 0.12);
+
+  /* Construction grid */
+  --cp-grid-color: rgba(255, 255, 255, 0.012);
+
+  /* Typography (unchanged) */
+  --cp-font-title: var(--font-vollkorn), Georgia, serif;
+  --cp-font-body: var(--font-ibm-plex), 'IBM Plex Sans', system-ui, sans-serif;
+  --cp-font-mono: var(--font-jetbrains-mono), 'JetBrains Mono', monospace;
+  --cp-font-code: var(--font-jetbrains-mono), 'JetBrains Mono', monospace;
+
+  /* Font feature settings */
+  --cp-kern-title: 'kern' 1, 'liga' 1, 'calt' 1, 'onum' 1;
+  --cp-kern-body: 'kern' 1, 'liga' 1, 'calt' 1;
+  --cp-kern-mono: 'kern' 1, 'liga' 1, 'calt' 1, 'zero' 1, 'ss01' 1, 'ss02' 1;
+
+  /* Spacing scale (unchanged) */
+  --cp-space-0: 0px;
+  --cp-space-px: 1px;
+  --cp-space-1: 4px;
+  --cp-space-2: 8px;
+  --cp-space-3: 12px;
+  --cp-space-4: 16px;
+  --cp-space-5: 20px;
+  --cp-space-6: 24px;
+  --cp-space-8: 32px;
+  --cp-space-10: 40px;
+  --cp-space-12: 48px;
+  --cp-space-16: 64px;
+
+  /* Layout constants (unchanged) */
+  --cp-sidebar-width: 256px;
+  --cp-grid-size: 40px;
+  --cp-grid-opacity: 0.055;
+  --cp-pane-gap: 1px;
+  --cp-tab-height: 40px;
+  --cp-drag-handle-size: 5px;
+  --cp-safe-area-top: env(safe-area-inset-top, 0px);
+  --cp-safe-area-bottom: env(safe-area-inset-bottom, 0px);
+  --cp-mobile-topbar-height: 52px;
+  --cp-mobile-tab-height: 56px;
+
+  /* Mobile shell overrides */
+  --mobile-shell-surface: rgba(248, 247, 244, 0.96);
+  --mobile-shell-surface-solid: var(--cp-surface);
+  --mobile-shell-border: var(--cp-border);
+  --mobile-shell-text: var(--cp-text);
+  --mobile-shell-text-muted: var(--cp-text-muted);
+
+  /* Interaction tokens */
+  --cp-focus-ring: var(--cp-red);
+  --cp-focus-ring-offset: 2px;
+  --cp-focus-ring-width: 2px;
+  --cp-focus-ring-sidebar: rgba(184, 98, 61, 0.5);
+
+  /* Timing tokens */
+  --cp-transition-fast: 100ms;
+  --cp-transition-base: 150ms;
+  --cp-transition-slow: 250ms;
+  --cp-spring-ease: cubic-bezier(0.34, 1.56, 0.64, 1);
+  --cp-ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+
+  /* Skeleton tokens */
+  --cp-skeleton-base: var(--cp-surface);
+  --cp-skeleton-shine: color-mix(in srgb, var(--cp-red) 6%, var(--cp-surface));
+
+  /* Discovery edge */
+  --cp-discovery-score-bg: var(--cp-red);
+  --cp-discovery-score-text: #fff;
+
+  /* Search bar */
+  --cp-search-bg: rgba(255,255,255,0.015);
+  --cp-search-border: var(--cp-border-faint);
+  --cp-search-focus-border: rgba(184,98,61,0.3);
+  --cp-search-placeholder: var(--cp-text-faint);
+
+  /* Ask Theseus */
+  --cp-ask-bg: var(--cp-card);
+  --cp-ask-border: var(--cp-border);
+  --cp-ask-glyph: var(--cp-terra, var(--cp-red));
+  --cp-ask-positive: #5A7A4A;
+  --cp-ask-positive-bg: rgba(90, 122, 74, 0.08);
+  --cp-ask-negative: #C0504D;
+  --cp-ask-negative-bg: rgba(192, 80, 77, 0.08);
+  --cp-ask-save: var(--cp-terra, var(--cp-red));
+  --cp-ask-save-bg: rgba(180, 90, 45, 0.10);
+
+  /* State tokens */
+  --cp-disabled-opacity: 0.35;
+
+  font-feature-settings: var(--cp-kern-body);
+  font-kerning: normal;
+}

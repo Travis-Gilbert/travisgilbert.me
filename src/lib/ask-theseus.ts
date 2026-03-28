@@ -137,3 +137,18 @@ export async function fetchAskSuggestions(): Promise<AskSuggestion[]> {
   const data = await apiFetch<{ suggestions: AskSuggestion[] }>('/ask/suggestions/');
   return data.suggestions;
 }
+
+/* ─────────────────────────────────────────────────
+   Daily Briefing
+   ───────────────────────────────────────────────── */
+
+export interface DailyBriefingResponse {
+  question: string;
+  retrieval: AskRetrievalResponse['retrieval'];
+  generated_at: string;
+}
+
+/** Fetch today's proactive briefing. Generates one if none exists. */
+export async function fetchDailyBriefing(): Promise<DailyBriefingResponse> {
+  return apiFetch<DailyBriefingResponse>('/briefing/');
+}
