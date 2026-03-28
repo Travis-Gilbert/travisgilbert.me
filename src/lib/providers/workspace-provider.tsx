@@ -18,7 +18,11 @@ function dedupeRenderableObjects(items: RenderableObject[]): RenderableObject[] 
   return next;
 }
 
+export type SidebarMode = 'expanded' | 'rail';
+
 export interface WorkspaceContextValue {
+  sidebarMode: SidebarMode;
+  toggleSidebarMode: () => void;
   sidebarCollapsed: boolean;
   setSidebarCollapsed: (collapsed: boolean) => void;
   mobileSidebarOpen: boolean;
@@ -41,6 +45,8 @@ export interface WorkspaceContextValue {
 const NOOP = () => {};
 
 const WorkspaceContext = createContext<WorkspaceContextValue>({
+  sidebarMode: 'expanded',
+  toggleSidebarMode: NOOP,
   sidebarCollapsed: false,
   setSidebarCollapsed: NOOP,
   mobileSidebarOpen: false,
@@ -61,6 +67,7 @@ const WorkspaceContext = createContext<WorkspaceContextValue>({
 });
 
 export function WorkspaceProvider({ children }: { children: ReactNode }) {
+  const [sidebarMode, setSidebarMode] = useState<SidebarMode>('expanded');
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
   const [viewMode, setViewMode] = useState<'grid' | 'timeline' | 'graph'>('grid');
@@ -68,6 +75,9 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
   const [stashedObjects, setStashedObjects] = useState<RenderableObject[]>([]);
   const [draggedComponent, setDraggedComponent] = useState<string | null>(null);
 
+  const toggleSidebarMode = useCallback(() => {
+    setSidebarMode((m) => (m === 'expanded' ? 'rail' : 'expanded'));
+  }, []);
   const openMobileSidebar = useCallback(() => setMobileSidebarOpen(true), []);
   const closeMobileSidebar = useCallback(() => setMobileSidebarOpen(false), []);
   const toggleMobileSidebar = useCallback(() => setMobileSidebarOpen((o) => !o), []);
@@ -83,6 +93,8 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
 
   const value = useMemo(
     () => ({
+      sidebarMode,
+      toggleSidebarMode,
       sidebarCollapsed,
       setSidebarCollapsed,
       mobileSidebarOpen,
@@ -102,6 +114,8 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
       setDraggedComponent,
     }),
     [
+      sidebarMode,
+      toggleSidebarMode,
       sidebarCollapsed,
       mobileSidebarOpen,
       openMobileSidebar,

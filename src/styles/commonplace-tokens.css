@@ -22,16 +22,16 @@
   --cp-chrome-muted: #88868E;
   --cp-chrome-dim: #807E86;          /* AA 4.5:1 on #1C1C20 */
 
-  /* Sidebar: cool-slate palette (blue-gray, no warm undertone) */
-  --cp-sidebar: #23252B;
+  /* Sidebar: cool control rail (charcoal with restrained indigo-teal undertone) */
+  --cp-sidebar: #16171A;
   --cp-sidebar-surface: rgba(255, 255, 255, 0.025);
-  --cp-sidebar-surface-hover: rgba(255, 255, 255, 0.055);
-  --cp-sidebar-text: #E2E3E7;
-  --cp-sidebar-text-muted: #858790;
-  --cp-sidebar-text-faint: #50525A;
+  --cp-sidebar-surface-hover: rgba(255, 255, 255, 0.05);
+  --cp-sidebar-text: #EDE3D8;
+  --cp-sidebar-text-muted: #9C9892;
+  --cp-sidebar-text-faint: #7E7A75;
   --cp-sidebar-border: rgba(255, 255, 255, 0.05);
   --cp-sidebar-border-strong: rgba(255, 255, 255, 0.08);
-  --cp-sidebar-edge: rgba(255, 255, 255, 0.04);
+  --cp-sidebar-edge: rgba(255, 255, 255, 0.05);
 
   /* Content surfaces (opaque dark chrome) */
   --cp-bg: #1E1B18;
@@ -88,15 +88,22 @@
   --cp-tab-bg: var(--cp-chrome);
   --cp-tab-border: var(--cp-chrome-line);
 
-  /* Terminal (always dark, global) */
-  --cp-term: #1A1C22;
-  --cp-term-border: #2A2C32;
-  --cp-term-text: #C0C8D8;
-  --cp-term-muted: #6A7080;
+  /* Terminal / card surfaces (editorial charcoal) */
+  --cp-term: #1A1715;
+  --cp-term-elevated: #1D1917;
+  --cp-term-hover: #221D1A;
+  --cp-term-border: rgba(255, 255, 255, 0.05);
+  --cp-term-border-hover: rgba(201, 122, 74, 0.14);
+  --cp-term-text: #F1E7DB;
+  --cp-term-text-secondary: #B7AAA0;
+  --cp-term-muted: #8D8178;
   --cp-term-green: #6AAA6A;
   --cp-term-amber: #CCAA44;
   --cp-term-red: #CC6644;
   --cp-term-cyan: #5AAABA;
+  --cp-term-glow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.02),
+    0 10px 28px rgba(0, 0, 0, 0.22);
 
   /* Borders (light on dark) */
   --cp-border: rgba(244, 243, 240, 0.16);
@@ -172,6 +179,16 @@
   /* Skeleton tokens */
   --cp-skeleton-base: var(--cp-surface);
   --cp-skeleton-shine: color-mix(in srgb, var(--cp-red) 6%, var(--cp-surface));
+
+  /* Discovery edge */
+  --cp-discovery-score-bg: var(--cp-red);
+  --cp-discovery-score-text: #fff;
+
+  /* Search bar */
+  --cp-search-bg: rgba(255,255,255,0.015);
+  --cp-search-border: var(--cp-border-faint);
+  --cp-search-focus-border: rgba(184,98,61,0.3);
+  --cp-search-placeholder: var(--cp-text-faint);
 
   /* State tokens */
   --cp-disabled-opacity: 0.35;

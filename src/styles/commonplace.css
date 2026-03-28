@@ -812,29 +812,28 @@ select.cp-input {
   align-items: center;
   gap: 8px;
   padding: 10px 12px;
-  border: 1px solid var(--cp-sidebar-border);
-  border-radius: 4px;
-  background: rgba(255, 255, 255, 0.03);
-  color: var(--cp-sidebar-text-faint);
+  border: 1px solid rgba(201, 122, 74, 0.18);
+  border-radius: 6px;
+  background: rgba(201, 122, 74, 0.04);
+  color: rgba(214, 160, 112, 0.7);
   font-family: var(--cp-font-body);
   font-size: 12px;
   cursor: text;
   text-align: left;
-  transition: border-color 200ms, background-color 200ms;
+  transition: border-color 200ms;
   min-height: 40px;
 }
 
 .cp-capture-collapsed:hover {
-  border-color: var(--cp-sidebar-border-strong);
-  background: rgba(255, 255, 255, 0.05);
+  border-color: rgba(201, 122, 74, 0.3);
+  background: rgba(201, 122, 74, 0.07);
 }
 
 .cp-capture-plus {
-  color: var(--cp-sidebar-text-faint);
+  color: rgba(201, 122, 74, 0.6);
   font-size: 14px;
   line-height: 1;
   flex-shrink: 0;
-  opacity: 0.8;
 }
 
 .cp-capture-placeholder {

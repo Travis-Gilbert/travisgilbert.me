@@ -98,7 +98,7 @@ export type ViewType =
 
 export type NavigationMode = 'screen' | 'view';
 
-export type ScreenType = 'library' | 'models' | 'notebooks' | 'projects' | 'engine' | 'settings';
+export type ScreenType = 'daily' | 'library' | 'models' | 'notebooks' | 'projects' | 'engine' | 'settings';
 
 export interface ViewDefinition {
   type: ViewType;
@@ -174,6 +174,7 @@ export const SIDEBAR_SECTIONS: SidebarSection[] = [
   {
     title: '',
     items: [
+      { label: 'Home', href: '#daily', icon: 'cellar', mode: 'screen', screenType: 'daily' },
       { label: 'Library', href: '#library', icon: 'grid', mode: 'screen', screenType: 'library' },
       {
         label: 'Models',
@@ -187,8 +188,8 @@ export const SIDEBAR_SECTIONS: SidebarSection[] = [
           { label: 'Free', href: '#boards', icon: 'substract', mode: 'view', viewType: 'board' },
         ],
       },
-      { label: 'Artifacts', href: '#artifacts', icon: 'archive', mode: 'view', viewType: 'artifacts' },
-      { label: 'Compose', href: '#compose', icon: 'note-pencil', mode: 'view', viewType: 'compose' },
+      { label: 'Artifacts', href: '#artifacts', icon: 'lens-plus', mode: 'view', viewType: 'artifacts' },
+      { label: 'Compose', href: '#compose', icon: 'design-nib', mode: 'view', viewType: 'compose' },
     ],
   },
   {
@@ -203,11 +204,11 @@ export const SIDEBAR_SECTIONS: SidebarSection[] = [
         expandable: true,
         children: [
           { label: 'Temporal', href: '#temporal', icon: 'timeline', mode: 'view', viewType: 'temporal-evolution' },
+          { label: 'Calendar', href: '#calendar', icon: 'calendar', mode: 'view', viewType: 'calendar' },
+          { label: 'Loose Ends', href: '#loose-ends', icon: 'scatter', mode: 'view', viewType: 'loose-ends' },
         ],
       },
       { label: 'Map', href: '#networks', icon: 'graph', mode: 'view', viewType: 'network' },
-      { label: 'Calendar', href: '#calendar', icon: 'calendar', mode: 'view', viewType: 'calendar' },
-      { label: 'Loose Ends', href: '#loose-ends', icon: 'scatter', mode: 'view', viewType: 'loose-ends' },
     ],
   },
   {
@@ -227,7 +228,7 @@ export const SIDEBAR_SECTIONS: SidebarSection[] = [
       {
         label: 'Projects',
         href: '/commonplace/projects',
-        icon: 'briefcase',
+        icon: 'strategy',
         mode: 'screen',
         screenType: 'projects',
         expandable: true,
@@ -248,10 +249,10 @@ export const SIDEBAR_SECTIONS: SidebarSection[] = [
         children: [
           { label: 'Emergent Types', href: '#emergent-types', icon: 'round-flask', mode: 'view', viewType: 'emergent-types' },
           { label: 'Entity Promotions', href: '#entity-promotions', icon: 'user-star', mode: 'view', viewType: 'entity-promotions' },
+          { label: 'Review Queue', href: '#review', icon: 'check-list', mode: 'view', viewType: 'promotion-queue' },
+          { label: 'Connection Review', href: '#connection-review', icon: 'check-circle', mode: 'view', viewType: 'connection-review' },
         ],
       },
-      { label: 'Review Queue', href: '#review', icon: 'check-list', mode: 'view', viewType: 'promotion-queue' },
-      { label: 'Connection Review', href: '#connection-review', icon: 'check-circle', mode: 'view', viewType: 'connection-review' },
       { label: 'Settings', href: '#settings', icon: 'gear', mode: 'screen', screenType: 'settings' },
     ],
   },

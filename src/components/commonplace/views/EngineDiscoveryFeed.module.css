@@ -1,0 +1,212 @@
+.feed {
+  margin-bottom: 44px;
+}
+
+/* ─── Base card ─── */
+
+.discovery {
+  padding: 14px 18px;
+  border-radius: 8px;
+  background:
+    radial-gradient(100% 120% at 0% 0%, rgba(255, 255, 255, 0.025) 0%, transparent 35%),
+    linear-gradient(180deg, rgba(27, 24, 22, 0.9) 0%, rgba(23, 20, 18, 0.9) 100%);
+  border: 1px solid var(--cp-term-border);
+  box-shadow: var(--cp-term-glow);
+  margin-bottom: 10px;
+  cursor: pointer;
+  transition: border-color 200ms, transform 200ms, box-shadow 200ms;
+}
+
+.discovery:hover {
+  border-color: var(--cp-term-border-hover);
+  background:
+    radial-gradient(100% 120% at 0% 0%, rgba(255, 255, 255, 0.03) 0%, transparent 35%),
+    linear-gradient(180deg, rgba(33, 28, 25, 0.9) 0%, rgba(26, 22, 20, 0.9) 100%);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.025),
+    0 14px 34px rgba(0, 0, 0, 0.26);
+  transform: translateY(-1px);
+}
+
+/* ─── Hero (dominant) card: more breathing room ─── */
+
+.discoveryLarge {
+  padding: 24px 28px;
+  border-radius: 10px;
+  margin-bottom: 14px;
+}
+
+/* ─── Edge row ─── */
+
+.edge {
+  display: flex;
+  align-items: center;
+  gap: 0;
+  margin-bottom: 10px;
+}
+
+.discoveryLarge .edge {
+  margin-bottom: 14px;
+}
+
+.node {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 1;
+  min-width: 0;
+}
+
+.nodeRight {
+  justify-content: flex-end;
+}
+
+.dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 3px;
+  flex-shrink: 0;
+}
+
+.name {
+  font-family: var(--cp-font-title);
+  font-size: 13px;
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.nameLarge {
+  font-size: 15px;
+}
+
+/* ─── Edge line + score chip ─── */
+
+.lineWrap {
+  width: 80px;
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+  padding: 0 6px;
+}
+
+.lineWrapLarge {
+  width: 100px;
+}
+
+.line {
+  flex: 1;
+  height: 2px;
+  border-radius: 1px;
+}
+
+.score {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: var(--cp-discovery-score-bg);
+  opacity: 0.85;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--cp-font-mono);
+  font-size: 8px;
+  font-weight: 700;
+  color: var(--cp-discovery-score-text);
+  flex-shrink: 0;
+  margin: 0 -6px;
+  z-index: 1;
+}
+
+.scoreLarge {
+  width: 26px;
+  height: 26px;
+  font-size: 9px;
+}
+
+/* ─── Reason text ─── */
+
+.reason {
+  font-family: var(--cp-font-body);
+  font-size: 12px;
+  color: var(--cp-term-text-secondary);
+  line-height: 1.5;
+  margin-bottom: 8px;
+}
+
+.reasonLarge {
+  font-size: 13px;
+  margin-bottom: 10px;
+}
+
+/* ─── Meta / badges ─── */
+
+.meta {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.engineBadge {
+  font-family: var(--cp-font-mono);
+  font-size: 9px;
+  color: var(--cp-term-muted);
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.03);
+  padding: 2px 8px;
+  border-radius: 3px;
+  letter-spacing: 0.04em;
+}
+
+/* ─── Compact 2-column grid pair ─── */
+
+.grid2 {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+.grid2 .discovery {
+  margin-bottom: 0;
+  padding: 12px 14px;
+}
+
+.grid2 .edge {
+  margin-bottom: 6px;
+}
+
+.grid2 .lineWrap {
+  width: 50px;
+}
+
+.grid2 .name {
+  font-size: 11.5px;
+}
+
+.grid2 .score {
+  width: 18px;
+  height: 18px;
+  font-size: 7px;
+}
+
+/* Hide reason text in compact grid cards */
+.grid2 .reason {
+  display: none;
+}
+
+/* ─── Empty state ─── */
+
+.empty {
+  padding: 32px 20px;
+  border-radius: 8px;
+  background:
+    radial-gradient(100% 120% at 0% 0%, rgba(255, 255, 255, 0.025) 0%, transparent 35%),
+    linear-gradient(180deg, rgba(27, 24, 22, 0.9) 0%, rgba(23, 20, 18, 0.9) 100%);
+  border: 1px solid var(--cp-term-border);
+  box-shadow: var(--cp-term-glow);
+  text-align: center;
+  color: var(--cp-term-muted);
+  font-family: var(--cp-font-mono);
+  font-size: 11px;
+}

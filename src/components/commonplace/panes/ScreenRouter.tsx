@@ -14,6 +14,7 @@ import ModelsScreen from '../models/ModelsScreen';
 import NotebookListView from '../views/NotebookListView';
 import ProjectListView from '../views/ProjectListView';
 import EngineTerminal from '../engine/EngineTerminal';
+import DailyPage from '../views/DailyPage';
 
 interface ScreenRouterProps {
   screen: ScreenType;
@@ -21,6 +22,8 @@ interface ScreenRouterProps {
 
 export default function ScreenRouter({ screen }: ScreenRouterProps) {
   switch (screen) {
+    case 'daily':
+      return <DailyPage />;
     case 'library':
       return <LibraryScreen />;
     case 'models':

@@ -21,8 +21,8 @@
   pointer-events: none;
   background: radial-gradient(
     ellipse at 50% 0%,
-    rgba(184, 98, 61, 0.03) 0%,
-    transparent 35%
+    rgba(184, 98, 61, 0.015) 0%,
+    transparent 25%
   );
 }
 
@@ -33,15 +33,9 @@
 .captureGlow {
   position: relative;
   border-radius: 8px;
-  background: rgba(198, 122, 74, 0.07);
-  border: 1px solid rgba(198, 122, 74, 0.10);
-  padding: 2px;
-  transition: background-color 150ms, border-color 150ms;
-}
-
-.captureGlow:hover {
-  background: rgba(198, 122, 74, 0.13);
-  border-color: rgba(198, 122, 74, 0.18);
+  background: transparent;
+  border: none;
+  padding: 0;
 }
 
 /* ─────────────────────────────────────────────────
@@ -130,22 +124,22 @@
 .sectionTitle[data-section="work"],
 .sectionTitle[data-section="system"] { color: var(--cp-sidebar-text-faint); opacity: 0.6; }
 
-/* Active section sidebar item uses section-specific accent */
+/* Active section sidebar item: warm accent cue, not a wash */
 .sidebarItem[data-section="capture"][data-active="true"] {
-  background-color: rgba(198, 122, 74, 0.08);
-  box-shadow: inset 0 0 0 1px rgba(198, 122, 74, 0.14);
+  background-color: rgba(201, 122, 74, 0.08);
+  box-shadow: inset 0 0 0 1px rgba(201, 122, 74, 0.12);
 }
 .sidebarItem[data-section="views"][data-active="true"] {
-  background-color: rgba(93, 155, 120, 0.12);
-  box-shadow: inset 0 0 0 1px rgba(93, 155, 120, 0.25);
+  background-color: rgba(93, 155, 120, 0.06);
+  box-shadow: inset 0 0 0 1px rgba(93, 155, 120, 0.12);
 }
 .sidebarItem[data-section="work"][data-active="true"] {
-  background-color: rgba(123, 143, 160, 0.12);
-  box-shadow: inset 0 0 0 1px rgba(123, 143, 160, 0.25);
+  background-color: rgba(123, 143, 160, 0.06);
+  box-shadow: inset 0 0 0 1px rgba(123, 143, 160, 0.12);
 }
 .sidebarItem[data-section="system"][data-active="true"] {
-  background-color: rgba(110, 112, 120, 0.12);
-  box-shadow: inset 0 0 0 1px rgba(110, 112, 120, 0.25);
+  background-color: rgba(110, 112, 120, 0.06);
+  box-shadow: inset 0 0 0 1px rgba(110, 112, 120, 0.12);
 }
 
 /* ─────────────────────────────────────────────────
@@ -154,28 +148,24 @@
 
 .sidebarSectionCapture {
   --sidebar-section-color: #C67A4A;
-  background: rgba(198, 122, 74, 0.01);
   border-radius: 4px;
   margin: 2px 0;
   padding: 2px 0 4px;
 }
 .sidebarSectionViews {
   --sidebar-section-color: #5D9B78;
-  background: rgba(93, 155, 120, 0.025);
   border-radius: 4px;
   margin: 2px 0;
   padding: 2px 0 4px;
 }
 .sidebarSectionWork {
   --sidebar-section-color: #7B8FA0;
-  background: rgba(123, 143, 160, 0.02);
   border-radius: 4px;
   margin: 2px 0;
   padding: 2px 0 4px;
 }
 .sidebarSectionSystem {
   --sidebar-section-color: #6E7078;
-  background: rgba(110, 112, 120, 0.02);
   border-radius: 4px;
   margin: 2px 0;
   padding: 2px 0 4px;

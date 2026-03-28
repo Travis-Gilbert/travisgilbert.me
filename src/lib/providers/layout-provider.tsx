@@ -55,7 +55,7 @@ const LayoutContext = createContext<LayoutContextValue>({
   fullscreenPaneId: null,
   toggleFullscreen: NOOP,
   exitFullscreen: NOOP,
-  activeScreen: 'library',
+  activeScreen: 'daily',
   navigateToScreen: NOOP,
   launchView: NOOP,
   exitScreen: NOOP,
@@ -68,7 +68,7 @@ export function LayoutProvider({ children }: { children: ReactNode }) {
   );
   const [focusedPaneId, setFocusedPaneId] = useState<string | null>(null);
   const [fullscreenPaneId, setFullscreenPaneId] = useState<string | null>(null);
-  const [activeScreen, setActiveScreen] = useState<ScreenType | null>('library');
+  const [activeScreen, setActiveScreen] = useState<ScreenType | null>('daily');
 
   const setLayout = useCallback(
     (updater: PaneNode | ((prev: PaneNode) => PaneNode)) => {

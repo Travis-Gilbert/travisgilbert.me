@@ -2,14 +2,17 @@
 
 import { useCallback, useEffect } from 'react';
 import CommonPlaceSidebar from './CommonPlaceSidebar';
+import CommonPlaceRail from './CommonPlaceRail';
 import SplitPaneContainer from '../panes/SplitPaneContainer';
 import DropZone from '../board/DropZone';
 import { useCapture } from '@/lib/providers/capture-provider';
+import { useWorkspace } from '@/lib/providers/workspace-provider';
 import { syncCapture } from '@/lib/commonplace-capture';
 import type { CapturedObject } from '@/lib/commonplace';
 
 export default function CommonPlaceShell() {
   const { notifyCaptured } = useCapture();
+  const { sidebarMode, toggleSidebarMode } = useWorkspace();
 
   const handleDropZoneCapture = useCallback(async (object: CapturedObject) => {
     await syncCapture(object);
@@ -50,7 +53,10 @@ export default function CommonPlaceShell() {
 
   return (
     <>
-      <CommonPlaceSidebar />
+      {sidebarMode === 'rail'
+        ? <CommonPlaceRail onExpand={toggleSidebarMode} />
+        : <CommonPlaceSidebar onCollapse={toggleSidebarMode} />
+      }
       <main
         className="cp-main-surface cp-grain"
         style={{

@@ -50,7 +50,7 @@ import RecentCaptures from '../capture/RecentCaptures';
 import DropZone from '../board/DropZone';
 import ComponentToolbox from '../shared/ComponentToolbox';
 
-export default function CommonPlaceSidebar() {
+export default function CommonPlaceSidebar({ onCollapse }: { onCollapse?: () => void }) {
   const pathname = usePathname();
   const {
     activeScreen,
@@ -163,6 +163,9 @@ export default function CommonPlaceSidebar() {
         padding: '16px 18px 12px',
         position: 'relative',
         zIndex: 2,
+        display: 'flex',
+        alignItems: 'flex-start',
+        justifyContent: 'space-between',
       }}>
         <Link
           href="/commonplace"
@@ -188,6 +191,30 @@ export default function CommonPlaceSidebar() {
             letterSpacing: '-0.02em',
           }}>Place</span>
         </Link>
+        {onCollapse && !isMobile && (
+          <button
+            onClick={onCollapse}
+            title="Collapse to rail"
+            style={{
+              background: 'none',
+              border: 'none',
+              cursor: 'pointer',
+              padding: 4,
+              marginTop: 4,
+              opacity: 0.4,
+              transition: 'opacity 150ms',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+            }}
+            onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.opacity = '0.8'; }}
+            onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.opacity = '0.4'; }}
+          >
+            <svg width={14} height={14} viewBox="0 0 24 24" fill="none" stroke="var(--cp-sidebar-text-muted)" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round">
+              <path d="M15 6L9 12L15 18" />
+            </svg>
+          </button>
+        )}
       </div>
 
       <nav style={{ flex: 1, overflow: 'auto', scrollbarWidth: 'none', padding: '8px 6px', position: 'relative', zIndex: 2 }}>
@@ -606,8 +633,13 @@ export default function CommonPlaceSidebar() {
       style={{
         width: 232,
         flexShrink: 0,
-        backgroundColor: 'var(--cp-sidebar)',
-        borderRight: '1px solid var(--cp-sidebar-edge)',
+        background: [
+          'radial-gradient(120% 140% at 0% 0%, rgba(75, 141, 144, 0.035) 0%, transparent 28%)',
+          'radial-gradient(90% 120% at 100% 20%, rgba(86, 109, 150, 0.055) 0%, transparent 36%)',
+          'linear-gradient(180deg, #1A1B1F 0%, #151619 100%)',
+        ].join(', '),
+        borderRight: '1px solid rgba(255, 255, 255, 0.05)',
+        boxShadow: 'inset -1px 0 0 rgba(255, 255, 255, 0.02)',
         display: 'flex',
         flexDirection: 'column',
         overflowY: 'auto',
@@ -819,9 +851,51 @@ function SidebarIcon({ name, color }: { name: string; color?: string }) {
       'M12 22C17.5228 22 22 17.5228 22 12C22 6.47715 17.5228 2 12 2C6.47715 2 2 6.47715 2 12C2 17.5228 6.47715 22 12 22Z',
     ],
 
+    /* Custom: design-nib (Compose) */
+    'design-nib': [
+      'M17.6744 11.4075L15.7691 17.1233C15.7072 17.309 15.5586 17.4529 15.3709 17.5087L3.69348 20.9803C3.22819 21.1186 2.79978 20.676 2.95328 20.2155L6.74467 8.84131C6.79981 8.67588 6.92419 8.54263 7.08543 8.47624L12.472 6.25822C12.696 6.166 12.9535 6.21749 13.1248 6.38876L17.5294 10.7935C17.6901 10.9542 17.7463 11.1919 17.6744 11.4075Z',
+      'M3.2959 20.6016L9.65986 14.2376',
+      'M17.7917 11.0557L20.6202 8.22724C21.4012 7.44619 21.4012 6.17986 20.6202 5.39881L18.4989 3.27749C17.7178 2.49645 16.4515 2.49645 15.6704 3.27749L12.842 6.10592',
+      'M11.7814 12.1163C11.1956 11.5305 10.2458 11.5305 9.66004 12.1163C9.07426 12.7021 9.07426 13.6519 9.66004 14.2376C10.2458 14.8234 11.1956 14.8234 11.7814 14.2376C12.3671 13.6519 12.3671 12.7021 11.7814 12.1163Z',
+    ],
+    /* Custom: lens-plus (Artifacts) */
+    'lens-plus': [
+      'M2.99219 6H5.99219M8.99219 6H5.99219M5.99219 6V3M5.99219 6V9',
+      'M2.11169 13.5C2.83542 18.3113 6.98691 22 11.9999 22C17.5228 22 21.9999 17.5229 21.9999 12C21.9999 6.98697 18.3112 2.83548 13.4999 2.11176',
+      'M17.1973 9C17.0976 8.82774 16.9896 8.66089 16.8739 8.5',
+      'M17.811 13.5C17.2683 15.6084 15.6084 17.2683 13.5 17.811',
+    ],
+    /* Custom: cellar (Home) */
+    'cellar': [
+      'M3 21H21V12C21 9.61305 20.0518 7.32387 18.364 5.63604C16.6761 3.94821 14.3869 3 12 3C9.61305 3 7.32387 3.94821 5.63604 5.63604C3.94821 7.32387 3 9.61305 3 12V21Z',
+      'M3 17L21 17',
+      'M9 17V13H21',
+      'M13 13V9H20',
+    ],
+    /* Custom: strategy (Projects) */
+    'strategy': [
+      'M6 20.5C7 11 11.5 8 20 6',
+      'M15.9086 3.80941L20.3946 5.90126L18.3028 10.3873',
+      'M5 7C6.10457 7 7 6.10457 7 5C7 3.89543 6.10457 3 5 3C3.89543 3 3 3.89543 3 5C3 6.10457 3.89543 7 5 7Z',
+      'M16 20.2426L18.1213 18.1213M18.1213 18.1213L20.2426 16M18.1213 18.1213L16 16M18.1213 18.1213L20.2426 20.2426',
+    ],
+
     /* Utility */
     'arrow-left': 'M15 6L9 12L15 18',
     'plus': 'M6 12H12M18 12H12M12 12V6M12 12V18',
+    'check-list': [
+      'M7 12.5L10 15.5L17 8.5',
+      'M12 22C17.5228 22 22 17.5228 22 12C22 6.47715 17.5228 2 12 2C6.47715 2 2 6.47715 2 12C2 17.5228 6.47715 22 12 22Z',
+    ],
+    'round-flask': [
+      'M10 2L10 7L4 17C3 19 4 22 7 22L17 22C20 22 21 19 20 17L14 7L14 2',
+      'M8 2L16 2',
+      'M7 15L17 15',
+    ],
+    'user-star': [
+      'M5 20V19C5 15.134 8.13401 12 12 12V12C15.866 12 19 15.134 19 19V20',
+      'M12 12C14.2091 12 16 10.2091 16 8C16 5.79086 14.2091 4 12 4C9.79086 4 8 5.79086 8 8C8 10.2091 9.79086 12 12 12Z',
+    ],
   };
 
   const pathData = paths[name];
