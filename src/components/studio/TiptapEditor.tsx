@@ -397,7 +397,7 @@ export default function TiptapEditor({
           ];
         },
       }),
-      Highlight.configure({ multicolor: false }),
+      Highlight.configure({ multicolor: true }),
       Underline,
       Subscript,
       Superscript,
@@ -465,16 +465,23 @@ export default function TiptapEditor({
         initialContentFormat === 'markdown' ||
         (!initialContentFormat && !/<\/?[a-z][\s\S]*>/i.test(initialContent));
       if (isMarkdown) {
+        /* Clean HTML entities that survive in markdown content */
+        const cleaned = initialContent
+          .replace(/&nbsp;/g, ' ')
+          .replace(/&amp;/g, '&')
+          .replace(/&lt;/g, '<')
+          .replace(/&gt;/g, '>');
+
         const mdExt = editor.extensionManager.extensions.find(
           (e) => e.name === 'markdown',
         );
         const parser = mdExt?.storage?.manager;
         if (parser) {
-          const parsed = parser.parse(initialContent);
+          const parsed = parser.parse(cleaned);
           editor.commands.setContent(parsed);
         } else {
           /* Fallback: Markdown extension should handle auto-detection */
-          editor.commands.setContent(initialContent);
+          editor.commands.setContent(cleaned);
         }
       } else {
         editor.commands.setContent(initialContent);

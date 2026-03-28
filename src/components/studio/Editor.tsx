@@ -141,12 +141,18 @@ function detectEditorContentFormat(content: string): EditorContentFormat {
 function setEditorContentSafe(editor: TiptapEditorType, body: string) {
   const format = detectEditorContentFormat(body);
   if (format === 'markdown' && body.trim()) {
+    /* Clean HTML entities that survive in markdown content */
+    const cleaned = body
+      .replace(/&nbsp;/g, ' ')
+      .replace(/&amp;/g, '&')
+      .replace(/&lt;/g, '<')
+      .replace(/&gt;/g, '>');
     const mdExt = editor.extensionManager.extensions.find(
       (e) => e.name === 'markdown',
     );
     const parser = mdExt?.storage?.manager;
     if (parser) {
-      const parsed = parser.parse(body);
+      const parsed = parser.parse(cleaned);
       editor.commands.setContent(parsed);
       return;
     }
@@ -336,6 +342,28 @@ export default function Editor({
   const [activeSheetId, setActiveSheetId] = useState<string | null>(null);
   const [sheetsPanelVisible, setSheetsPanelVisible] = useState(false);
   const isSheetsMode = sheets.length > 0;
+
+  /* Toolbar auto-collapse during typing */
+  const [toolbarCollapsed, setToolbarCollapsed] = useState(false);
+  const [toolbarLocked, setToolbarLocked] = useState(false);
+  const typingTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const keystrokeCountRef = useRef(0);
+
+  const handleToolbarAutoCollapse = useCallback(() => {
+    if (toolbarLocked) return;
+
+    keystrokeCountRef.current += 1;
+
+    if (keystrokeCountRef.current > 5 && !toolbarCollapsed) {
+      setToolbarCollapsed(true);
+    }
+
+    if (typingTimerRef.current) clearTimeout(typingTimerRef.current);
+    typingTimerRef.current = setTimeout(() => {
+      keystrokeCountRef.current = 0;
+      setToolbarCollapsed(false);
+    }, 3000);
+  }, [toolbarLocked, toolbarCollapsed]);
 
   /* Draft buffer: localStorage crash recovery */
   const {
@@ -733,6 +761,7 @@ export default function Editor({
 
   const handleUpdate = useCallback((payload: TiptapUpdatePayload) => {
     setCurrentBody(payload.markdown);
+    handleToolbarAutoCollapse();
 
     /* When Y.js is active, the first onUpdate after seeding establishes
      * the baseline snapshot. Without this, the autosave effect sees a
@@ -769,7 +798,7 @@ export default function Editor({
         );
       }
     }
-  }, [isSheetsMode, activeSheetId, editor]);
+  }, [isSheetsMode, activeSheetId, editor, handleToolbarAutoCollapse]);
 
   const handleSave = useCallback(() => {
     if (autosaveTimerRef.current) {
@@ -1171,6 +1200,12 @@ export default function Editor({
     editor.chain().focus().insertContent('[[').run();
   }, { enableOnContentEditable: true }, [editor]);
 
+  useHotkeys('mod+shift+b', (e) => {
+    e.preventDefault();
+    setToolbarLocked((prev) => !prev);
+    if (toolbarCollapsed) setToolbarCollapsed(false);
+  }, { enableOnContentEditable: true }, [toolbarCollapsed]);
+
   useEffect(() => {
     setEditorState({
       editor,
@@ -1381,6 +1416,8 @@ export default function Editor({
             <>
               <EditorToolbar
                 editor={editor}
+                collapsed={toolbarCollapsed}
+                onMouseEnter={() => setToolbarCollapsed(false)}
                 onReadingToggle={() => setIsReadingPanelOpen((open) => !open)}
                 readingOpen={isReadingPanelOpen}
                 onCpToggle={() => setIsCpPanelOpen((open) => !open)}

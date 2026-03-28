@@ -3,6 +3,7 @@
 import type { ReactNode } from 'react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { Editor } from '@tiptap/react';
+import HighlightPicker from './HighlightPicker';
 
 type ToolbarItem = {
   id: string;
@@ -25,6 +26,8 @@ function fontFamilyForStyle(style?: 'title' | 'mono'): string {
  */
 export default function EditorToolbar({
   editor,
+  collapsed = false,
+  onMouseEnter,
   onReadingToggle,
   readingOpen,
   onCpToggle,
@@ -32,6 +35,8 @@ export default function EditorToolbar({
   exportSlot,
 }: {
   editor: Editor | null;
+  collapsed?: boolean;
+  onMouseEnter?: () => void;
   onReadingToggle?: () => void;
   readingOpen?: boolean;
   onCpToggle?: () => void;
@@ -39,6 +44,7 @@ export default function EditorToolbar({
   exportSlot?: ReactNode;
 }) {
   const [isMoreOpen, setIsMoreOpen] = useState(false);
+  const [isHighlightPickerOpen, setIsHighlightPickerOpen] = useState(false);
   const moreMenuRef = useRef<HTMLDivElement | null>(null);
   const firstMenuItemRef = useRef<HTMLButtonElement | null>(null);
 
@@ -249,15 +255,6 @@ export default function EditorToolbar({
 
   const overflowItems: ToolbarItem[] = [
     {
-      id: 'highlight',
-      label: 'Highlight',
-      icon: 'Hi',
-      action: () => editor.chain().focus().toggleHighlight().run(),
-      isActive: editor.isActive('highlight'),
-      tooltip: 'Highlight',
-      fontStyle: 'mono',
-    },
-    {
       id: 'inline-code',
       label: 'Inline code',
       icon: '`',
@@ -362,7 +359,24 @@ export default function EditorToolbar({
   };
 
   return (
-    <div className="studio-toolbar">
+    <div
+      className="studio-toolbar-collapse-zone"
+      onMouseEnter={() => {
+        if (collapsed) onMouseEnter?.();
+      }}
+    >
+      {collapsed && (
+        <div className="studio-toolbar-collapsed-indicator" />
+      )}
+      <div
+        className="studio-toolbar"
+        style={{
+          maxHeight: collapsed ? 0 : 200,
+          opacity: collapsed ? 0 : 1,
+          overflow: 'hidden',
+          transition: 'max-height 0.2s ease, opacity 0.15s ease',
+        }}
+      >
       <div
         className="studio-toolbar-inner"
         role="toolbar"
@@ -382,6 +396,25 @@ export default function EditorToolbar({
 
         <div className="studio-toolbar-group" aria-label="Insert tools">
           {insertItems.map((item) => renderTool(item))}
+          <div style={{ position: 'relative', display: 'inline-flex' }}>
+            <button
+              type="button"
+              className={`studio-tool${editor.isActive('highlight') ? ' studio-tool--active' : ''}`}
+              onClick={() => setIsHighlightPickerOpen((open) => !open)}
+              aria-label="Highlight text"
+              title="Highlight text"
+              data-tool-id="highlight"
+              style={{ fontFamily: "'JetBrains Mono', var(--studio-font-mono)" }}
+            >
+              <span>Hi</span>
+            </button>
+            {isHighlightPickerOpen && (
+              <HighlightPicker
+                editor={editor}
+                onClose={() => setIsHighlightPickerOpen(false)}
+              />
+            )}
+          </div>
         </div>
 
         <div className="studio-toolbar-spacer" />
@@ -454,6 +487,7 @@ export default function EditorToolbar({
           )}
         </div>
       </div>
+    </div>
     </div>
   );
 }

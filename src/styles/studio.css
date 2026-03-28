@@ -2433,6 +2433,30 @@
   color: #F3CEC8;
 }
 
+/* Toolbar collapse zone */
+.studio-toolbar-collapse-zone {
+  position: relative;
+  min-height: 2px;
+}
+
+.studio-toolbar-collapsed-indicator {
+  height: 2px;
+  background: linear-gradient(
+    90deg,
+    var(--studio-tc) 0%,
+    color-mix(in srgb, var(--studio-tc) 40%, transparent) 60%,
+    transparent 100%
+  );
+  border-radius: 1px;
+  cursor: pointer;
+  transition: opacity 0.2s ease;
+}
+
+.studio-toolbar-collapsed-indicator:hover {
+  height: 3px;
+  box-shadow: 0 0 8px rgba(180, 90, 45, 0.3);
+}
+
 /* Toolbar rail: sits inside the paper surface, not as chrome */
 .studio-toolbar {
   position: relative;
@@ -2754,8 +2778,80 @@
   height: 38vh;
 }
 
+/* ── Highlight Picker ────────────────────────── */
+
+.studio-highlight-picker {
+  position: absolute;
+  top: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 20;
+  background: var(--studio-surface-raised);
+  border: 1px solid var(--studio-border-strong);
+  border-radius: 6px;
+  padding: 6px 8px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
+  display: flex;
+  gap: 4px;
+}
+
+.studio-highlight-picker-swatches {
+  display: flex;
+  gap: 4px;
+  align-items: center;
+}
+
+.studio-highlight-swatch {
+  width: 24px;
+  height: 24px;
+  border-radius: 4px;
+  border: 2px solid transparent;
+  cursor: pointer;
+  position: relative;
+  transition: border-color 0.1s ease, transform 0.1s ease;
+}
+
+.studio-highlight-swatch:hover {
+  border-color: var(--studio-text-3);
+  transform: scale(1.1);
+}
+
+.studio-highlight-swatch--remove {
+  background: transparent;
+  border: 1px solid var(--studio-border);
+  color: var(--studio-text-3);
+  font-size: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.studio-highlight-swatch-label {
+  position: absolute;
+  top: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  font-family: var(--studio-font-mono);
+  font-size: 7px;
+  color: var(--studio-text-3);
+  white-space: nowrap;
+  margin-top: 2px;
+  pointer-events: none;
+}
+
+/* Multi-color mark styles */
+.studio-prose mark[data-color] {
+  border-radius: 2px;
+  padding: 1px 2px;
+}
+
+.studio-prose mark:not([data-color]) {
+  background-color: rgba(212, 170, 74, 0.25);
+  color: #2A2420;
+}
+
 .studio-tiptap-content {
-  max-width: 65ch;
+  max-width: 80ch;
   margin-left: 0;
   font-kerning: normal;
   font-feature-settings: 'kern' 1, 'liga' 1, 'calt' 1, 'onum' 1;
@@ -4310,46 +4406,50 @@
   padding-bottom: 8px;
 }
 
-.studio-sheet-item {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  padding: 5px 14px 5px 12px;
-  cursor: pointer;
-  transition: background 0.1s ease;
+/* ── Sheets-as-Paper ────────────────────────── */
+
+.studio-sheet-paper {
+  background: #F0EAE0;
+  border-radius: 3px;
+  padding: 14px 14px 10px;
+  cursor: grab;
   position: relative;
-  color: var(--studio-text-2);
-  font-family: var(--studio-font-body);
-  font-size: 12.5px;
-  user-select: none;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.15);
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+  margin-bottom: 8px;
 }
 
-.studio-sheet-item:hover {
-  background: rgba(180, 90, 45, 0.05);
-  color: var(--studio-text-1);
+.studio-sheet-paper:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
 }
 
-.studio-sheet-item[data-active='true'] {
-  color: var(--studio-text-bright);
-  background: rgba(180, 90, 45, 0.09);
+.studio-sheet-paper--active {
+  background: #FAF6F0;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25), 0 0 0 2px rgba(224, 112, 58, 0.4);
+  transform: translateY(-1px);
 }
 
-.studio-sheet-item[data-active='true']::before {
-  content: '';
+.studio-sheet-paper-accent {
   position: absolute;
-  left: 0;
   top: 0;
-  bottom: 0;
-  width: 2px;
+  left: 0;
+  right: 0;
+  height: 3px;
   background: var(--studio-tc);
-  box-shadow: 0 0 6px rgba(180, 90, 45, 0.5);
-  border-radius: 0 1px 1px 0;
+  border-radius: 3px 3px 0 0;
 }
 
-.studio-sheet-item[data-dragging='true'] {
-  background: rgba(180, 90, 45, 0.12);
-  border-radius: 4px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25);
+.studio-sheet-paper-content {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+}
+
+.studio-sheet-paper .studio-sheet-drag-handle {
+  flex-shrink: 0;
+  margin-top: 3px;
+  opacity: 0.25;
 }
 
 .studio-sheet-drag-handle {
@@ -4365,71 +4465,109 @@
   cursor: grabbing;
 }
 
-.studio-sheet-status-dot {
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  flex-shrink: 0;
-}
-
-.studio-sheet-title {
+.studio-sheet-paper-body {
   flex: 1;
   min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
 }
 
-.studio-sheet-meta {
+.studio-sheet-paper-title {
+  font-family: Georgia, serif;
+  font-size: 13px;
+  color: #2A2420;
+  font-weight: 600;
+  margin-bottom: 6px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.studio-sheet-paper--active .studio-sheet-paper-title {
+  color: #1A1614;
+}
+
+.studio-sheet-paper:not(.studio-sheet-paper--active) .studio-sheet-paper-title {
+  color: #5A5248;
+  font-weight: 500;
+}
+
+.studio-sheet-paper-meta {
   display: flex;
   align-items: center;
-  gap: 4px;
-  margin-left: auto;
+  gap: 6px;
+}
+
+.studio-sheet-paper-progress {
+  flex: 1;
+  height: 3px;
+  background: rgba(42, 36, 32, 0.08);
+  border-radius: 2px;
+  overflow: hidden;
+}
+
+.studio-sheet-paper-progress-fill {
+  height: 100%;
+  border-radius: 2px;
+  transition: width 0.3s ease;
+}
+
+.studio-sheet-paper-wordcount {
+  font-family: var(--studio-font-mono);
+  font-size: 9px;
+  color: #9A9088;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.studio-sheet-paper-delete {
+  background: none;
+  border: none;
+  color: rgba(42, 36, 32, 0.3);
+  font-size: 14px;
+  cursor: pointer;
+  padding: 0 2px;
+  opacity: 0;
+  transition: opacity 0.1s ease, color 0.1s ease;
   flex-shrink: 0;
 }
 
-.studio-sheet-material-badge {
-  font-family: var(--studio-font-mono);
-  font-size: 8px;
-  font-weight: 700;
-  letter-spacing: 0.06em;
-  color: var(--studio-gold);
-  border: 1px solid rgba(196, 154, 74, 0.4);
-  border-radius: 3px;
-  padding: 1px 4px;
-  line-height: 1;
+.studio-sheet-paper:hover .studio-sheet-paper-delete {
+  opacity: 1;
 }
 
-.studio-sheet-wordcount {
-  font-family: var(--studio-font-mono);
-  font-size: 9px;
-  color: var(--studio-text-3);
-  letter-spacing: 0.02em;
+.studio-sheet-paper-delete:hover {
+  color: #c05050;
 }
 
-.studio-sheet-progress {
-  width: 100%;
-  height: 2px;
-  background: rgba(237, 231, 220, 0.08);
-  border-radius: 1px;
-  overflow: hidden;
-  margin-top: 2px;
+/* Ruled lines for paper texture */
+.studio-sheet-paper-lines {
+  margin-top: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
 }
 
-.studio-sheet-progress-fill {
-  height: 100%;
-  background: var(--studio-tc);
-  border-radius: 1px;
-  transition: width 0.3s ease;
+.studio-sheet-paper-line {
+  border-top: 1px solid rgba(42, 36, 32, 0.06);
+}
+
+.studio-sheet-paper--active .studio-sheet-paper-line {
+  border-color: rgba(42, 36, 32, 0.08);
+}
+
+/* Dragging state */
+.studio-sheet-paper[data-dragging="true"] {
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
+  transform: rotate(1deg);
+  z-index: 10;
 }
 
 .studio-sheet-target-input {
   width: 60px;
   font-family: var(--studio-font-mono);
   font-size: 10px;
-  color: var(--studio-text-1);
-  background: rgba(237, 231, 220, 0.06);
-  border: 1px solid var(--studio-border-strong);
+  color: #2A2420;
+  background: rgba(42, 36, 32, 0.06);
+  border: 1px solid rgba(42, 36, 32, 0.15);
   border-radius: 3px;
   padding: 1px 4px;
   outline: none;
@@ -4447,25 +4585,6 @@
   margin: 0;
 }
 
-.studio-sheet-footer {
-  padding: 8px 18px 12px;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.studio-sheet-footer .studio-sheet-progress {
-  flex: 1;
-}
-
-.studio-sheet-footer-text {
-  font-family: var(--studio-font-mono);
-  font-size: 9px;
-  color: var(--studio-text-3);
-  letter-spacing: 0.02em;
-  flex-shrink: 0;
-}
-
 .studio-sheet-add-btn {
   background: none;
   border: none;
@@ -4479,26 +4598,6 @@
 
 .studio-sheet-add-btn:hover {
   color: var(--studio-tc);
-}
-
-.studio-sheet-delete-btn {
-  background: none;
-  border: none;
-  color: var(--studio-text-3);
-  font-size: 13px;
-  line-height: 1;
-  cursor: pointer;
-  padding: 0 1px;
-  opacity: 0;
-  transition: opacity 0.1s ease, color 0.1s ease;
-}
-
-.studio-sheet-item:hover .studio-sheet-delete-btn {
-  opacity: 1;
-}
-
-.studio-sheet-delete-btn:hover {
-  color: #c05050;
 }
 
 /* ── Sheets Mode: Sidebar ─────────────────────── */

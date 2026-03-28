@@ -6,12 +6,6 @@ import type { DropResult } from '@hello-pangea/dnd';
 import { useStudioWorkbench } from './WorkbenchContext';
 import type { Sheet } from '@/lib/studio-api';
 
-const STATUS_COLORS: Record<NonNullable<Sheet['status']>, string> = {
-  idea: '#C49A4A',
-  drafting: '#2D8A7A',
-  locked: '#4A72A8',
-};
-
 function DragHandle() {
   return (
     <svg
@@ -34,8 +28,8 @@ function DragHandle() {
 
 /**
  * SheetList renders in the StudioSidebar when the active content item has
- * at least one sheet. Supports drag-to-reorder, status dots, material badge,
- * word count targets with progress bars, and add/delete.
+ * at least one sheet. Paper card design with drag-to-reorder, progress bars,
+ * word count targets, and aggregate footer.
  */
 export default function SheetList({ fullPanel = false }: { fullPanel?: boolean } = {}) {
   const { editorState } = useStudioWorkbench();
@@ -94,6 +88,7 @@ export default function SheetList({ fullPanel = false }: { fullPanel?: boolean }
             <div
               ref={droppableProvided.innerRef}
               {...droppableProvided.droppableProps}
+              style={{ padding: '0 12px' }}
             >
               {sheets.map((sheet, index) => (
                 <SheetItem
@@ -113,27 +108,51 @@ export default function SheetList({ fullPanel = false }: { fullPanel?: boolean }
       </DragDropContext>
 
       {/* Footer: aggregate progress */}
-      {totalTarget > 0 && (
-        <div className="studio-sheet-footer">
-          <div className="studio-sheet-progress">
-            <div
-              className="studio-sheet-progress-fill"
-              style={{
-                width: `${Math.min(100, (totalWords / totalTarget) * 100)}%`,
-                ...(totalWords >= totalTarget ? { background: '#5A7A4A' } : {}),
-              }}
-            />
+      <div className="studio-sheet-footer" style={{
+        marginTop: 'auto',
+        paddingTop: '14px',
+        borderTop: '1px solid rgba(240, 234, 224, 0.10)',
+        padding: '14px 18px 10px',
+      }}>
+        {totalTarget > 0 && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
+            <div style={{
+              flex: 1,
+              height: '3px',
+              background: 'rgba(240, 234, 224, 0.08)',
+              borderRadius: '2px',
+              overflow: 'hidden',
+            }}>
+              <div style={{
+                width: `${totalTarget > 0 ? Math.min(100, (totalWords / totalTarget) * 100) : 0}%`,
+                height: '100%',
+                background: totalWords >= totalTarget ? '#5A7A4A' : 'var(--studio-tc-bright)',
+                borderRadius: '2px',
+                transition: 'width 0.3s ease',
+              }} />
+            </div>
+            <span style={{
+              fontFamily: 'var(--studio-font-mono)',
+              fontSize: '9px',
+              color: 'var(--studio-text-3)',
+            }}>
+              {totalWords.toLocaleString()} / {totalTarget.toLocaleString()}w
+            </span>
           </div>
-          <span className="studio-sheet-footer-text">
-            {totalWords.toLocaleString()} / {totalTarget.toLocaleString()}w
-          </span>
-        </div>
-      )}
+        )}
+        <span style={{
+          fontFamily: 'var(--studio-font-mono)',
+          fontSize: '9px',
+          color: 'var(--studio-text-3)',
+        }}>
+          {sheets.length} sheet{sheets.length !== 1 ? 's' : ''} total
+        </span>
+      </div>
     </div>
   );
 }
 
-/* ── Individual sheet row ─────────────────────── */
+/* ── Paper card sheet item ─────────────────────── */
 
 function SheetItem({
   sheet,
@@ -154,10 +173,10 @@ function SheetItem({
   const [targetInput, setTargetInput] = useState('');
 
   const label = sheet.title.trim() || null;
-  const statusColor = sheet.status ? STATUS_COLORS[sheet.status] : null;
   const progress = sheet.wordCountTarget
     ? Math.min(100, (sheet.wordCount / sheet.wordCountTarget) * 100)
     : null;
+  const isComplete = progress !== null && progress >= 100;
 
   const handleTargetClick = (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -181,69 +200,78 @@ function SheetItem({
         <div
           ref={draggableProvided.innerRef}
           {...draggableProvided.draggableProps}
-          className="studio-sheet-item"
-          data-active={isActive ? 'true' : undefined}
+          className={`studio-sheet-paper ${isActive ? 'studio-sheet-paper--active' : ''}`}
           data-dragging={snapshot.isDragging ? 'true' : undefined}
           onClick={onSelect}
+          style={{
+            ...draggableProvided.draggableProps.style,
+          }}
         >
-          <span
-            {...draggableProvided.dragHandleProps}
-            className="studio-sheet-drag-handle"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <DragHandle />
-          </span>
+          {/* Active indicator bar */}
+          {isActive && <div className="studio-sheet-paper-accent" />}
 
-          {statusColor && (
+          <div className="studio-sheet-paper-content">
             <span
-              className="studio-sheet-status-dot"
-              style={{ backgroundColor: statusColor }}
-              title={sheet.status ?? undefined}
-            />
-          )}
+              {...draggableProvided.dragHandleProps}
+              className="studio-sheet-drag-handle"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <DragHandle />
+            </span>
 
-          <span className="studio-sheet-title">
-            {label ?? (
-              <em style={{ opacity: 0.45 }}>Untitled</em>
-            )}
-          </span>
+            <div className="studio-sheet-paper-body">
+              <div className="studio-sheet-paper-title">
+                {label ?? (
+                  <em style={{ opacity: 0.45, fontStyle: 'italic' }}>Untitled</em>
+                )}
+              </div>
 
-          <span className="studio-sheet-meta">
-            {sheet.isMaterial && (
-              <span className="studio-sheet-material-badge">
-                REF
-              </span>
-            )}
-            {editingTarget ? (
-              <input
-                type="number"
-                className="studio-sheet-target-input"
-                value={targetInput}
-                onChange={(e) => setTargetInput(e.target.value)}
-                onBlur={commitTarget}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter') commitTarget();
-                  if (e.key === 'Escape') setEditingTarget(false);
-                }}
-                onClick={(e) => e.stopPropagation()}
-                autoFocus
-                placeholder="target"
-                min={1}
-              />
-            ) : (
-              <span
-                className="studio-sheet-wordcount"
-                onClick={handleTargetClick}
-                title="Click to set word count target"
-                style={{ cursor: 'pointer' }}
-              >
-                {sheet.wordCount > 0 ? `${sheet.wordCount}w` : '0w'}
-                {sheet.wordCountTarget ? ` / ${sheet.wordCountTarget}` : ''}
-              </span>
-            )}
+              {/* Progress bar + word count */}
+              <div className="studio-sheet-paper-meta">
+                {progress !== null && (
+                  <div className="studio-sheet-paper-progress">
+                    <div
+                      className="studio-sheet-paper-progress-fill"
+                      style={{
+                        width: `${progress}%`,
+                        background: isComplete ? '#5A7A4A' : 'var(--studio-tc)',
+                      }}
+                    />
+                  </div>
+                )}
+                {editingTarget ? (
+                  <input
+                    type="number"
+                    className="studio-sheet-target-input"
+                    value={targetInput}
+                    onChange={(e) => setTargetInput(e.target.value)}
+                    onBlur={commitTarget}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') commitTarget();
+                      if (e.key === 'Escape') setEditingTarget(false);
+                    }}
+                    onClick={(e) => e.stopPropagation()}
+                    autoFocus
+                    placeholder="target"
+                    min={1}
+                  />
+                ) : (
+                  <span
+                    className="studio-sheet-paper-wordcount"
+                    onClick={handleTargetClick}
+                    title="Click to set word count target"
+                  >
+                    {sheet.wordCount > 0 ? `${sheet.wordCount}w` : '0w'}
+                    {sheet.wordCountTarget ? ` / ${sheet.wordCountTarget}` : ''}
+                  </span>
+                )}
+              </div>
+            </div>
+
+            {/* Delete button, visible on hover */}
             <button
               type="button"
-              className="studio-sheet-delete-btn"
+              className="studio-sheet-paper-delete"
               onClick={(e) => {
                 e.stopPropagation();
                 onDelete();
@@ -253,20 +281,14 @@ function SheetItem({
             >
               &times;
             </button>
-          </span>
+          </div>
 
-          {/* Progress bar */}
-          {progress !== null && (
-            <div className="studio-sheet-progress">
-              <div
-                className="studio-sheet-progress-fill"
-                style={{
-                  width: `${progress}%`,
-                  ...(progress >= 100 ? { background: '#5A7A4A' } : {}),
-                }}
-              />
-            </div>
-          )}
+          {/* Faint ruled lines for paper feel */}
+          <div className="studio-sheet-paper-lines">
+            <div className="studio-sheet-paper-line" />
+            <div className="studio-sheet-paper-line" style={{ width: '85%' }} />
+            <div className="studio-sheet-paper-line" style={{ width: label ? '60%' : '75%', borderStyle: label ? 'solid' : 'dashed' }} />
+          </div>
         </div>
       )}
     </Draggable>

@@ -7,6 +7,7 @@
  */
 
 import { fetchSettings, type StudioSettingsLogItem } from '@/lib/studio-api';
+import HighlightSettings from '@/components/studio/HighlightSettings';
 
 export const dynamic = 'force-dynamic';
 
@@ -196,6 +197,11 @@ export default async function SettingsOverview() {
           </p>
         )}
       </section>
+
+      {/* Highlight color configuration */}
+      <div style={{ marginTop: '22px' }}>
+        <HighlightSettings />
+      </div>
     </>
   );
 }

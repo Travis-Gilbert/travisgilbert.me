@@ -1240,25 +1240,26 @@ function SourcePreviewCard({ source }: { source: SourceboxSource }) {
   const isPending = source.scrapeStatus === 'pending';
   return (
     <div className="studio-source-card-body" style={{
-      padding: '8px 10px',
+      padding: '12px 14px',
       backgroundColor: 'var(--studio-surface)',
-      borderRadius: '3px',
-      borderLeft: '2px solid var(--studio-gold)',
+      borderRadius: '4px',
+      borderLeft: '3px solid',
+      borderLeftColor: isPending ? 'var(--studio-gold)' : 'var(--studio-green)',
     }}>
       <div style={{
         display: 'flex',
         alignItems: 'center',
         gap: '6px',
-        marginBottom: '3px',
+        marginBottom: '4px',
       }}>
         {isPending && (
-          <span className="studio-pulse" style={{ width: 4, height: 4 }} />
+          <span className="studio-pulse" style={{ width: 5, height: 5 }} />
         )}
         <span style={{
           fontFamily: 'var(--studio-font-mono)',
-          fontSize: '8px',
+          fontSize: '8.5px',
           fontWeight: 700,
-          letterSpacing: '0.08em',
+          letterSpacing: '0.1em',
           textTransform: 'uppercase',
           color: isPending ? 'var(--studio-gold)' : 'var(--studio-green)',
         }}>
@@ -1266,23 +1267,24 @@ function SourcePreviewCard({ source }: { source: SourceboxSource }) {
         </span>
       </div>
       <div className="studio-source-card-title" style={{
-        fontFamily: 'var(--studio-font-body)',
-        fontSize: '12px',
-        fontWeight: 600,
+        fontFamily: 'var(--studio-font-title)',
+        fontSize: '14px',
+        fontWeight: 700,
         color: 'var(--studio-text-bright)',
         lineHeight: 1.3,
+        marginBottom: '4px',
       }}>
         {source.title}
       </div>
       {source.description && (
         <div className="studio-source-card-excerpt" style={{
           fontFamily: 'var(--studio-font-body)',
-          fontSize: '11px',
+          fontSize: '12px',
           color: 'var(--studio-text-2)',
-          marginTop: '3px',
-          lineHeight: 1.4,
+          marginTop: '4px',
+          lineHeight: 1.45,
           display: '-webkit-box',
-          WebkitLineClamp: 2,
+          WebkitLineClamp: 3,
           WebkitBoxOrient: 'vertical',
           overflow: 'hidden',
         }}>
@@ -1292,9 +1294,9 @@ function SourcePreviewCard({ source }: { source: SourceboxSource }) {
       {source.siteName && (
         <div className="studio-source-card-domain" style={{
           fontFamily: 'var(--studio-font-mono)',
-          fontSize: '9px',
+          fontSize: '10px',
           color: 'var(--studio-text-3)',
-          marginTop: '2px',
+          marginTop: '4px',
         }}>
           {source.siteName}
         </div>
@@ -1617,18 +1619,18 @@ function ResearchMode({
                     display: 'flex',
                     gap: '8px',
                     alignItems: 'flex-start',
-                    padding: '6px 8px',
-                    borderLeft: `2px solid ${roleColor}`,
+                    padding: '12px 14px',
+                    borderLeft: `3px solid ${roleColor}`,
                     backgroundColor: 'var(--studio-surface)',
-                    borderRadius: '2px',
+                    borderRadius: '4px',
                   }}
                 >
                   <div
                     style={{
                       fontFamily: 'var(--studio-font-mono)',
-                      fontSize: '8px',
+                      fontSize: '8.5px',
                       fontWeight: 700,
-                      letterSpacing: '0.08em',
+                      letterSpacing: '0.1em',
                       color: roleColor,
                       backgroundColor: `color-mix(in srgb, ${roleColor} 12%, transparent)`,
                       padding: '1px 4px',
@@ -1643,9 +1645,9 @@ function ResearchMode({
                     <div
                       className="studio-source-card-title"
                       style={{
-                        fontFamily: 'var(--studio-font-serif)',
-                        fontSize: '12.5px',
-                        fontWeight: 600,
+                        fontFamily: 'var(--studio-font-title)',
+                        fontSize: '14px',
+                        fontWeight: 700,
                         color: 'var(--studio-text-bright)',
                         lineHeight: 1.3,
                       }}
@@ -1656,9 +1658,9 @@ function ResearchMode({
                       className="studio-source-card-domain"
                       style={{
                         fontFamily: 'var(--studio-font-mono)',
-                        fontSize: '9px',
+                        fontSize: '10px',
                         color: 'var(--studio-text-3)',
-                        marginTop: '2px',
+                        marginTop: '4px',
                       }}
                     >
                       {src.creator} · {src.role}
