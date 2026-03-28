@@ -20,30 +20,34 @@ interface EngineDiscoveryFeedProps {
 export default function EngineDiscoveryFeed({ discoveries }: EngineDiscoveryFeedProps) {
   if (discoveries.length === 0) {
     return (
-      <div className={styles.feed}>
-        <div className={styles.empty}>No new discoveries</div>
+      <div className={styles.convo}>
+        <div className={styles.empty}>
+          <span className={styles.emptyPrompt}>$</span> engine idle. No new connections since your last visit.
+        </div>
       </div>
     );
   }
 
-  const [first, ...rest] = discoveries;
-  const compactPair = rest.length >= 3 ? rest.splice(-2, 2) : [];
+  const sorted = [...discoveries].sort((a, b) => b.strength - a.strength);
+  const hero = sorted[0];
+  const secondary = sorted.slice(1, 3);
+  const compact = sorted.slice(3);
 
   return (
-    <div className={styles.feed}>
-      {/* Dominant discovery: larger */}
-      <DiscoveryCard discovery={first} large />
+    <div className={styles.convo}>
+      {/* Hero: large conversation row */}
+      <HeroDiscovery discovery={hero} />
 
-      {/* Remaining: standard size */}
-      {rest.map((d) => (
-        <DiscoveryCard key={d.edge_id} discovery={d} />
+      {/* Secondary: alternating direction */}
+      {secondary.map((d, i) => (
+        <SecondaryDiscovery key={d.edge_id} discovery={d} flipped={i % 2 === 1} />
       ))}
 
-      {/* Bottom pair in 2-column grid */}
-      {compactPair.length === 2 && (
-        <div className={styles.grid2}>
-          {compactPair.map((d) => (
-            <DiscoveryCard key={d.edge_id} discovery={d} />
+      {/* Compact pair: tight inline row */}
+      {compact.length > 0 && (
+        <div className={styles.compactRow}>
+          {compact.map((d) => (
+            <CompactDiscovery key={d.edge_id} discovery={d} />
           ))}
         </div>
       )}
@@ -51,69 +55,128 @@ export default function EngineDiscoveryFeed({ discoveries }: EngineDiscoveryFeed
   );
 }
 
-function DiscoveryCard({ discovery, large }: { discovery: EngineDiscovery; large?: boolean }) {
+function HeroDiscovery({ discovery }: { discovery: EngineDiscovery }) {
+  const fromType = getObjectTypeIdentity(discovery.from_object.object_type_slug);
+  const toType = getObjectTypeIdentity(discovery.to_object.object_type_slug);
+  const pct = Math.round(discovery.strength * 100);
+
+  return (
+    <div className={styles.convoRow}>
+      {/* Primary bubble (from object) */}
+      <div className={`${styles.bubble} ${styles.bubblePrimary}`}>
+        <div className={styles.bubbleNames}>
+          <div className={styles.dot} style={{ background: fromType.color }} />
+          <div className={styles.bubbleName} style={{ color: fromType.color, fontSize: 15 }}>
+            {discovery.from_object.title}
+          </div>
+        </div>
+        <StrengthBar pct={pct} />
+        <div className={styles.bubbleReason}>{discovery.reason}</div>
+        <div className={styles.bubbleMeta}>
+          <span className={styles.engineBadge}>{discovery.engine}</span>
+        </div>
+      </div>
+
+      {/* Connector */}
+      <div className={styles.connector}>
+        <div className={styles.connectorLine} />
+      </div>
+
+      {/* Secondary bubble (to object) */}
+      <div className={`${styles.bubble} ${styles.bubbleSecondary}`}>
+        <div className={styles.bubbleNames}>
+          <div className={styles.dot} style={{ background: toType.color }} />
+          <div className={styles.bubbleName} style={{ color: toType.color, fontSize: 13 }}>
+            {discovery.to_object.title}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function SecondaryDiscovery({ discovery, flipped }: { discovery: EngineDiscovery; flipped: boolean }) {
+  const fromType = getObjectTypeIdentity(discovery.from_object.object_type_slug);
+  const toType = getObjectTypeIdentity(discovery.to_object.object_type_slug);
+  const scoreInt = Math.round(discovery.strength * 100);
+
+  const primaryObj = flipped ? discovery.to_object : discovery.from_object;
+  const secondaryObj = flipped ? discovery.from_object : discovery.to_object;
+  const primaryType = flipped ? toType : fromType;
+  const secondaryType = flipped ? fromType : toType;
+
+  return (
+    <div className={`${styles.convoRow} ${flipped ? styles.convoRowFlipped : ''}`}>
+      {/* Primary bubble */}
+      <div className={styles.bubble}>
+        <div className={`${styles.bubbleNames} ${flipped ? styles.bubbleNamesRight : ''}`}>
+          <div className={styles.dot} style={{ background: primaryType.color }} />
+          <div className={styles.bubbleName} style={{ color: primaryType.color, fontSize: 14 }}>
+            {primaryObj.title}
+          </div>
+        </div>
+        <StrengthBar pct={scoreInt} flipped={flipped} />
+        <div className={`${styles.bubbleReason} ${flipped ? styles.textRight : ''}`}>
+          {discovery.reason}
+        </div>
+        <div className={`${styles.bubbleMeta} ${flipped ? styles.metaRight : ''}`}>
+          <span className={styles.engineBadge}>{discovery.engine}</span>
+        </div>
+      </div>
+
+      {/* Connector */}
+      <div className={styles.connector}>
+        <div className={styles.connectorLine} />
+      </div>
+
+      {/* Secondary bubble (compact) */}
+      <div className={`${styles.bubble} ${styles.bubbleSecondary}`}>
+        <div className={`${styles.bubbleNames} ${flipped ? '' : styles.bubbleNamesRight}`}>
+          <div className={styles.dot} style={{ background: secondaryType.color }} />
+          <div className={styles.bubbleName} style={{ color: secondaryType.color, fontSize: 13 }}>
+            {secondaryObj.title}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function StrengthBar({ pct, flipped, compact }: { pct: number; flipped?: boolean; compact?: boolean }) {
+  return (
+    <div className={`${styles.strengthBar} ${compact ? styles.strengthBarCompact : ''}`}>
+      <div className={styles.strengthTrack}>
+        <div
+          className={styles.strengthFill}
+          style={{ width: `${pct}%` }}
+        />
+      </div>
+      <span className={`${styles.strengthLabel} ${flipped ? styles.textRight : ''}`}>{pct}</span>
+    </div>
+  );
+}
+
+function CompactDiscovery({ discovery }: { discovery: EngineDiscovery }) {
   const fromType = getObjectTypeIdentity(discovery.from_object.object_type_slug);
   const toType = getObjectTypeIdentity(discovery.to_object.object_type_slug);
   const scoreInt = Math.round(discovery.strength * 100);
 
   return (
-    <div className={`${styles.discovery} ${large ? styles.discoveryLarge : ''}`}>
-      <div className={styles.edge}>
-        {/* From node */}
-        <div className={styles.node}>
-          <div className={styles.dot} style={{ background: fromType.color }} />
-          <div
-            className={`${styles.name} ${large ? styles.nameLarge : ''}`}
-            style={{ color: fromType.color }}
-          >
-            {discovery.from_object.title}
-          </div>
+    <div className={styles.compactBubble}>
+      <div className={styles.compactNames}>
+        <div className={styles.dot} style={{ background: fromType.color }} />
+        <div className={styles.compactName} style={{ color: fromType.color }}>
+          {discovery.from_object.title}
         </div>
-
-        {/* Edge line with score */}
-        <div className={`${styles.lineWrap} ${large ? styles.lineWrapLarge : ''}`}>
-          <div
-            className={styles.line}
-            style={{
-              background: `linear-gradient(90deg, ${fromType.color}, var(--cp-red), ${toType.color})`,
-            }}
-          />
-          <div className={`${styles.score} ${large ? styles.scoreLarge : ''}`}>
-            {scoreInt}
-          </div>
-          <div
-            className={styles.line}
-            style={{
-              background: `linear-gradient(90deg, var(--cp-red), ${toType.color})`,
-            }}
-          />
+        <span className={styles.compactSep}>&middot;</span>
+        <div className={styles.compactName} style={{ color: toType.color }}>
+          {discovery.to_object.title}
         </div>
-
-        {/* To node */}
-        <div className={`${styles.node} ${styles.nodeRight}`}>
-          <div
-            className={`${styles.name} ${large ? styles.nameLarge : ''}`}
-            style={{ color: toType.color }}
-          >
-            {discovery.to_object.title}
-          </div>
-          <div className={styles.dot} style={{ background: toType.color }} />
-        </div>
+        <div className={styles.dot} style={{ background: toType.color }} />
       </div>
-
-      {/* Reason (full for large, truncated for compact) */}
-      <div className={`${styles.reason} ${large ? styles.reasonLarge : ''}`}>
-        {discovery.reason}
-      </div>
-
-      {/* Engine badge */}
-      <div className={styles.meta}>
+      <StrengthBar pct={scoreInt} compact />
+      <div className={styles.bubbleMeta}>
         <span className={styles.engineBadge}>{discovery.engine}</span>
-        {large && (
-          <span className={styles.engineBadge}>
-            cosine: {discovery.strength.toFixed(2)}
-          </span>
-        )}
       </div>
     </div>
   );

@@ -103,7 +103,7 @@
   --cp-term-cyan: #5AAABA;
   --cp-term-glow:
     inset 0 1px 0 rgba(255, 255, 255, 0.02),
-    0 10px 28px rgba(0, 0, 0, 0.22);
+    0 10px 28px rgba(0, 0, 0, 0.198);
 
   /* Borders (light on dark) */
   --cp-border: rgba(244, 243, 240, 0.16);
