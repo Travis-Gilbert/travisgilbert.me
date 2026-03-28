@@ -174,13 +174,18 @@ export default function DailyPage() {
   const [retrievalResult, setRetrievalResult] = useState<AskRetrievalResponse | null>(null);
   const [synthesisResult, setSynthesisResult] = useState<AskSynthesisResponse | null>(null);
   const [submittedQuestion, setSubmittedQuestion] = useState('');
-  const [suggestions, setSuggestions] = useState<AskSuggestion[]>([]);
+  const MOCK_SUGGESTIONS: AskSuggestion[] = [
+    { text: 'What should I be working on?', type: 'question' },
+    { text: 'How does Shannon connect to Hamming?', type: 'question' },
+    { text: '3 evidence gaps', type: 'gap' },
+  ];
+  const [suggestions, setSuggestions] = useState<AskSuggestion[]>(MOCK_SUGGESTIONS);
 
-  /* Fetch suggestions on mount */
+  /* Fetch real suggestions; keep mock if backend unreachable */
   useEffect(() => {
     fetchAskSuggestions()
-      .then(setSuggestions)
-      .catch(() => { /* no suggestions is fine */ });
+      .then((real) => { if (real.length) setSuggestions(real); })
+      .catch(() => { /* keep mock suggestions */ });
   }, []);
 
   const handleAsk = useCallback(async (question: string) => {
