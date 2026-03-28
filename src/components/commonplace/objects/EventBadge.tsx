@@ -4,6 +4,64 @@ import type { ObjectCardProps } from './ObjectRenderer';
 import { getObjectTypeIdentity } from '@/lib/commonplace';
 import { readString, readStringArray, formatDate } from './shared';
 
+const EVENT_BLUE = 'var(--cp-event-color, #4A7A9A)';
+
+function parseDate(iso: string): { month: string; day: string; dayOfWeek: string } | null {
+  try {
+    const d = new Date(iso);
+    return {
+      month: d.toLocaleString('en-US', { month: 'short' }).toUpperCase(),
+      day: String(d.getDate()),
+      dayOfWeek: d.toLocaleString('en-US', { weekday: 'short' }).toUpperCase(),
+    };
+  } catch {
+    return null;
+  }
+}
+
+/* Mini calendar block: month header strip, day number, optional day-of-week */
+function CalendarBlock({ date, size }: { date: { month: string; day: string; dayOfWeek: string }; size: 'chip' | 'card' | 'expanded' }) {
+  const config = {
+    chip: { width: 26, monthFont: 7, dayFont: 12, showDow: false },
+    card: { width: 40, monthFont: 8, dayFont: 17, showDow: true },
+    expanded: { width: 54, monthFont: 9, dayFont: 24, showDow: true },
+  }[size];
+
+  return (
+    <div style={{
+      width: config.width, borderRadius: 5, overflow: 'hidden', flexShrink: 0,
+      border: '1px solid rgba(255,255,255,0.08)',
+    }}>
+      {/* Month strip */}
+      <div style={{
+        background: EVENT_BLUE, padding: '2px 0', textAlign: 'center',
+        fontFamily: 'var(--cp-font-mono)', fontSize: config.monthFont,
+        fontWeight: 700, color: '#fff', textTransform: 'uppercase',
+        letterSpacing: '0.05em', lineHeight: 1.4,
+      }}>{date.month}</div>
+      {/* Day number */}
+      <div style={{
+        background: 'var(--cp-card)', textAlign: 'center',
+        padding: size === 'chip' ? '1px 0' : '2px 0',
+      }}>
+        <div style={{
+          fontFamily: size === 'expanded' ? 'var(--cp-font-title)' : 'var(--cp-font-mono)',
+          fontSize: config.dayFont,
+          fontWeight: 700,
+          color: 'var(--cp-text)',
+          lineHeight: 1.2,
+        }}>{date.day}</div>
+        {config.showDow && (
+          <div style={{
+            fontFamily: 'var(--cp-font-mono)', fontSize: size === 'expanded' ? 9 : 8,
+            color: 'var(--cp-text-dim)', lineHeight: 1.3, marginTop: 1,
+          }}>{date.dayOfWeek}</div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 export default function EventBadge({ object, compact, variant = 'default', onClick, onContextMenu }: ObjectCardProps) {
   const title = object.display_title ?? object.title;
   const identity = getObjectTypeIdentity(object.object_type_slug);
@@ -12,6 +70,8 @@ export default function EventBadge({ object, compact, variant = 'default', onCli
   const score = typeof object.score === 'number' ? `${Math.round(object.score * 100)}%` : null;
   const timestamp = object.captured_at ? formatDate(object.captured_at) : null;
   const eventDate = object.captured_at ? parseDate(object.captured_at) : null;
+  const timeDisplay = readString(object.event_time);
+  const provenance = readString(object.source_label);
   const handler = {
     onClick: onClick ? () => onClick(object) : undefined,
     onContextMenu: onContextMenu ? (e: React.MouseEvent) => onContextMenu(e, object) : undefined,
@@ -19,15 +79,15 @@ export default function EventBadge({ object, compact, variant = 'default', onCli
 
   if (variant === 'module' || variant === 'timeline') {
     return (
-      <button type="button" className="cp-obj cp-obj--module cp-obj-event" data-type="event" data-compact={compact || undefined} {...handler}>
-        {!compact && eventDate && (
-          <div className="cp-obj-event-date">
-            <span className="cp-obj-event-month">{eventDate.month}</span>
-            <span className="cp-obj-event-day">{eventDate.day}</span>
-          </div>
-        )}
+      <button type="button" className="cp-obj cp-obj--module cp-obj-event" data-type="event" data-compact={compact || undefined} {...handler}
+        style={{ display: 'flex', alignItems: 'flex-start', gap: 10 }}
+      >
+        {!compact && eventDate && <CalendarBlock date={eventDate} size="card" />}
         <div style={{ flex: 1, minWidth: 0 }}>
           <div className="cp-obj-title">{title}</div>
+          {timeDisplay && (
+            <div style={{ fontFamily: 'var(--cp-font-mono)', fontSize: 12, color: EVENT_BLUE, fontWeight: 600, marginTop: 2 }}>{timeDisplay}</div>
+          )}
           {!compact && summary && <div className="cp-obj-body" style={{ WebkitLineClamp: 2 }}>{summary}</div>}
         </div>
         {compact && timestamp && <span className="cp-obj-timestamp">{timestamp}</span>}
@@ -37,9 +97,12 @@ export default function EventBadge({ object, compact, variant = 'default', onCli
 
   if (variant === 'chip') {
     return (
-      <button type="button" className="cp-obj cp-obj--chip cp-obj-event" data-type="event" {...handler}>
-        <span className="cp-obj-dot" />
+      <button type="button" className="cp-obj cp-obj--chip cp-obj-event" data-type="event" {...handler}
+        style={{ display: 'flex', alignItems: 'center', gap: 6 }}
+      >
+        {eventDate && <CalendarBlock date={eventDate} size="chip" />}
         <span className="cp-obj-title">{title}</span>
+        {provenance && <span className="cp-obj-provenance">{provenance}</span>}
         {edgeCount > 0 && <span className="cp-obj-edges">{edgeCount}</span>}
       </button>
     );
@@ -48,7 +111,7 @@ export default function EventBadge({ object, compact, variant = 'default', onCli
   if (variant === 'chain') {
     return (
       <button type="button" className="cp-obj cp-obj--chain cp-obj-event" data-type="event" {...handler}>
-        <span className="cp-obj-dot" />
+        {eventDate && <CalendarBlock date={eventDate} size="chip" />}
         <span className="cp-obj-title">{title}</span>
         {timestamp && <span className="cp-obj-timestamp">{timestamp}</span>}
       </button>
@@ -77,40 +140,47 @@ export default function EventBadge({ object, compact, variant = 'default', onCli
     );
   }
 
-  /* Default variant */
-  const date = object.captured_at ? parseDate(object.captured_at) : null;
+  /* Default (card) variant: calendar block left, content right */
   return (
     <button
       type="button"
       {...handler}
       style={{
-        display: 'flex', alignItems: 'stretch', width: '100%', textAlign: 'left',
-        background: 'var(--cp-card)', border: 'none', borderLeft: '3px solid var(--cp-accent)',
-        borderRadius: '0 6px 6px 0', overflow: 'hidden', cursor: 'pointer',
+        display: 'flex', alignItems: 'flex-start', gap: 12, width: '100%', textAlign: 'left',
+        background: 'var(--cp-card)', border: 'none', borderRadius: 6,
+        padding: compact ? '8px 10px' : '10px 12px', cursor: 'pointer',
       }}
       className="cp-object-card cp-object-event"
     >
-      {date && !compact && (
-        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '8px 12px', borderRight: '1px solid var(--cp-border-faint)', minWidth: 44 }}>
-          <span style={{ fontFamily: 'var(--cp-font-mono)', fontSize: 9, fontWeight: 700, color: 'var(--cp-accent)', textTransform: 'uppercase', letterSpacing: '0.08em', lineHeight: 1, fontFeatureSettings: 'var(--cp-kern-mono)' }}>{date.month}</span>
-          <span style={{ fontFamily: 'var(--cp-font-mono)', fontSize: 20, fontWeight: 700, color: 'var(--cp-text)', lineHeight: 1.1, fontFeatureSettings: 'var(--cp-kern-mono)' }}>{date.day}</span>
-        </div>
-      )}
-      <div style={{ padding: compact ? '8px 10px' : '10px 12px', flex: 1 }}>
-        <div style={{ fontFamily: 'var(--cp-font-title)', fontSize: compact ? 13 : 15, fontWeight: 500, color: 'var(--cp-text)', lineHeight: 1.3, fontFeatureSettings: 'var(--cp-kern-title)' }}>{title}</div>
-        {!compact && object.body && (
-          <div style={{ fontFamily: 'var(--cp-font-body)', fontSize: 12, color: 'var(--cp-text-muted)', lineHeight: 1.5, fontFeatureSettings: 'var(--cp-kern-body)', marginTop: 4, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>{object.body}</div>
+      {eventDate && !compact && <CalendarBlock date={eventDate} size="card" />}
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <div style={{
+          fontFamily: 'var(--cp-font-title)', fontSize: compact ? 13 : 15, fontWeight: 500,
+          color: 'var(--cp-text)', lineHeight: 1.3,
+        }}>{title}</div>
+        {timeDisplay && (
+          <div style={{
+            fontFamily: 'var(--cp-font-mono)', fontSize: 13, color: EVENT_BLUE,
+            fontWeight: 600, marginTop: 3,
+          }}>{timeDisplay}</div>
         )}
+        {!compact && summary && (
+          <div style={{
+            fontFamily: 'var(--cp-font-body)', fontSize: 12, color: 'var(--cp-text-muted)',
+            lineHeight: 1.5, marginTop: 4,
+            display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden',
+          }}>{summary}</div>
+        )}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 6, flexWrap: 'wrap' }}>
+          {provenance && (
+            <span style={{
+              fontFamily: 'var(--cp-font-mono)', fontSize: 9, color: 'var(--cp-text-dim)',
+              background: 'rgba(255,255,255,0.04)', padding: '1px 5px', borderRadius: 3,
+            }}>{provenance}</span>
+          )}
+          {edgeCount > 0 && <span style={{ fontFamily: 'var(--cp-font-mono)', fontSize: 10, color: 'var(--cp-text-faint)', marginLeft: 'auto' }}>{edgeCount} links</span>}
+        </div>
       </div>
     </button>
   );
-}
-
-function parseDate(iso: string): { month: string; day: string } | null {
-  try {
-    const d = new Date(iso);
-    return { month: d.toLocaleString('en-US', { month: 'short' }).toUpperCase(), day: String(d.getDate()) };
-  } catch {
-    return null;
-  }
 }

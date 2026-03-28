@@ -2,7 +2,7 @@
 
 import type { ObjectCardProps } from './ObjectRenderer';
 import { getObjectTypeIdentity } from '@/lib/commonplace';
-import { formatDate } from './shared';
+import { readString, readStringArray, formatDate } from './shared';
 
 export default function ConceptNode({ object, compact, variant = 'default', onClick, onContextMenu }: ObjectCardProps) {
   const label = object.display_title ?? object.title;
@@ -10,6 +10,7 @@ export default function ConceptNode({ object, compact, variant = 'default', onCl
   const edgeCount = object.edge_count ?? 0;
   const score = typeof object.score === 'number' ? `${Math.round(object.score * 100)}%` : null;
   const timestamp = object.captured_at ? formatDate(object.captured_at) : null;
+  const provenance = readString(object.source_label);
   const handler = {
     onClick: onClick ? () => onClick(object) : undefined,
     onContextMenu: onContextMenu ? (e: React.MouseEvent) => onContextMenu(e, object) : undefined,
@@ -29,9 +30,12 @@ export default function ConceptNode({ object, compact, variant = 'default', onCl
 
   if (variant === 'chip') {
     return (
-      <button type="button" className="cp-obj cp-obj--chip cp-obj-concept" data-type="concept" {...handler}>
+      <button type="button" className="cp-obj cp-obj--chip cp-obj-concept" data-type="concept" {...handler}
+        style={{ borderRadius: 12 }}
+      >
         <span className="cp-obj-dot" />
         <span className="cp-obj-title">{label}</span>
+        {provenance && <span className="cp-obj-provenance">{provenance}</span>}
         {edgeCount > 0 && <span className="cp-obj-edges">{edgeCount}</span>}
       </button>
     );
@@ -66,34 +70,34 @@ export default function ConceptNode({ object, compact, variant = 'default', onCl
     );
   }
 
-  /* Default variant (original rendering) */
+  /* Default variant: higher border-radius (16px card, softer/rounder shape) */
   return (
     <button
       type="button"
       {...handler}
       style={{
-        display: 'inline-flex',
-        alignItems: 'center',
-        gap: 8,
-        width: '100%',
-        textAlign: 'left',
-        background: 'var(--cp-card)',
-        border: 'none',
-        borderRadius: 100,
+        display: 'inline-flex', alignItems: 'center', gap: 8, width: '100%', textAlign: 'left',
+        background: 'var(--cp-card)', border: 'none',
+        borderRadius: 16,
         padding: compact ? '5px 10px 5px 8px' : '7px 12px 7px 10px',
         cursor: 'pointer',
-        transition: 'border-color 120ms ease',
       }}
       className="cp-object-card cp-object-concept"
     >
       <span style={{ width: compact ? 6 : 8, height: compact ? 6 : 8, borderRadius: '50%', background: 'var(--cp-accent)', flexShrink: 0 }} />
       <span style={{
         fontFamily: 'var(--cp-font-mono)', fontSize: compact ? 11 : 12, fontWeight: 500, color: 'var(--cp-text)',
-        fontFeatureSettings: 'var(--cp-kern-mono)', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+        flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
       }}>{label}</span>
+      {provenance && (
+        <span style={{
+          fontFamily: 'var(--cp-font-mono)', fontSize: 9, color: 'var(--cp-text-dim)',
+          background: 'rgba(255,255,255,0.04)', padding: '1px 5px', borderRadius: 3, flexShrink: 0,
+        }}>{provenance}</span>
+      )}
       {edgeCount > 0 && (
         <span style={{
-          fontFamily: 'var(--cp-font-mono)', fontSize: 10, color: '#fff', fontFeatureSettings: 'var(--cp-kern-mono)',
+          fontFamily: 'var(--cp-font-mono)', fontSize: 10, color: '#fff',
           background: 'var(--cp-accent)', borderRadius: 100, padding: '1px 6px', flexShrink: 0, lineHeight: 1.6,
         }}>{edgeCount}</span>
       )}

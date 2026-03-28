@@ -141,6 +141,31 @@
   /* RoughBox stroke colors for dark surfaces */
   --cp-rough-stroke: #4A4A4E;
   --cp-rough-stroke-accent: rgba(180, 90, 45, 0.4);
+
+  /* Object shape system: type-specific tokens */
+  --cp-note-wash: rgba(212, 204, 196, 0.06);
+  --cp-note-stroke: rgba(212, 204, 196, 0.35);
+  --cp-email-tint: rgba(74, 122, 154, 0.08);
+  --cp-email-border: rgba(74, 122, 154, 0.2);
+  --cp-email-color: #4A7A9A;
+  --cp-paper-surface: rgba(232, 228, 223, 0.06);
+  --cp-paper-border: rgba(232, 228, 223, 0.1);
+  --cp-paper-fold: rgba(232, 228, 223, 0.12);
+  --cp-hunch-border: rgba(180, 90, 106, 0.4);
+  --cp-hunch-wash: color-mix(in srgb, #B45A6A 4%, var(--cp-card));
+  --cp-quote-accent: #C4884A;
+  --cp-source-accent: #2D5F6B;
+  --cp-place-accent: #C49A4A;
+  --cp-person-color: #B45A2D;
+  --cp-org-color: #5A7A4A;
+  --cp-event-color: #4A7A9A;
+  --cp-script-bg: #1a1c22;
+  --cp-script-border: rgba(106, 122, 138, 0.15);
+  --cp-script-text: rgba(106, 122, 138, 0.8);
+  --cp-priority-high: #D85A30;
+  --cp-priority-medium: #C49A4A;
+  --cp-priority-low: #5A7A4A;
+  --cp-text-dim: var(--cp-text-faint);
 }
 
 /* ─────────────────────────────────────────────────
@@ -195,6 +220,31 @@
   --cp-skeleton-shine: rgba(248, 243, 234, 0.5);
   --cp-rough-stroke: #4A4A4E;
   --cp-rough-stroke-accent: rgba(180, 90, 45, 0.4);
+
+  /* Object shape system: type-specific tokens */
+  --cp-note-wash: rgba(212, 204, 196, 0.06);
+  --cp-note-stroke: rgba(212, 204, 196, 0.35);
+  --cp-email-tint: rgba(74, 122, 154, 0.08);
+  --cp-email-border: rgba(74, 122, 154, 0.2);
+  --cp-email-color: #4A7A9A;
+  --cp-paper-surface: rgba(232, 228, 223, 0.06);
+  --cp-paper-border: rgba(232, 228, 223, 0.1);
+  --cp-paper-fold: rgba(232, 228, 223, 0.12);
+  --cp-hunch-border: rgba(180, 90, 106, 0.4);
+  --cp-hunch-wash: color-mix(in srgb, #B45A6A 4%, var(--cp-card));
+  --cp-quote-accent: #C4884A;
+  --cp-source-accent: #2D5F6B;
+  --cp-place-accent: #C49A4A;
+  --cp-person-color: #B45A2D;
+  --cp-org-color: #5A7A4A;
+  --cp-event-color: #4A7A9A;
+  --cp-script-bg: #1a1c22;
+  --cp-script-border: rgba(106, 122, 138, 0.15);
+  --cp-script-text: rgba(106, 122, 138, 0.8);
+  --cp-priority-high: #D85A30;
+  --cp-priority-medium: #C49A4A;
+  --cp-priority-low: #5A7A4A;
+  --cp-text-dim: var(--cp-text-faint);
 }
 
 /* ─────────────────────────────────────────────────

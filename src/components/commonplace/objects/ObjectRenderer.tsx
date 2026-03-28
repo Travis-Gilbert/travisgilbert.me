@@ -15,6 +15,8 @@ import TaskRow from './TaskRow';
 import EventBadge from './EventBadge';
 import ScriptBlock from './ScriptBlock';
 import PlacePin from './PlacePin';
+import EmailCard from './EmailCard';
+import PaperCard from './PaperCard';
 import { useState, useCallback, useRef, useEffect, type ComponentType } from 'react';
 import { createPin } from '@/lib/commonplace-api';
 import { useWorkspace } from '@/lib/providers/workspace-provider';
@@ -73,6 +75,8 @@ const RENDERERS: Record<string, ComponentType<ObjectCardProps>> = {
   event: EventBadge,
   script: ScriptBlock,
   place: PlacePin,
+  email: EmailCard,
+  paper: PaperCard,
 };
 
 /* ── Fallback card ── */

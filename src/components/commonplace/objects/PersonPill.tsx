@@ -4,6 +4,8 @@ import type { ObjectCardProps } from './ObjectRenderer';
 import { getObjectTypeIdentity } from '@/lib/commonplace';
 import { readString, readStringArray, formatDate } from './shared';
 
+const PERSON_COLOR = 'var(--cp-person-color, #B45A2D)';
+
 export default function PersonPill({ object, compact, variant = 'default', onClick, onContextMenu }: ObjectCardProps) {
   const name = object.display_title ?? object.title;
   const initial = name.charAt(0).toUpperCase();
@@ -11,6 +13,7 @@ export default function PersonPill({ object, compact, variant = 'default', onCli
   const edgeCount = object.edge_count ?? 0;
   const score = typeof object.score === 'number' ? `${Math.round(object.score * 100)}%` : null;
   const timestamp = object.captured_at ? formatDate(object.captured_at) : null;
+  const provenance = readString(object.source_label);
   const handler = {
     onClick: onClick ? () => onClick(object) : undefined,
     onContextMenu: onContextMenu ? (e: React.MouseEvent) => onContextMenu(e, object) : undefined,
@@ -30,9 +33,12 @@ export default function PersonPill({ object, compact, variant = 'default', onCli
 
   if (variant === 'chip') {
     return (
-      <button type="button" className="cp-obj cp-obj--chip cp-obj-person" data-type="person" {...handler}>
-        <span className="cp-obj-dot" />
+      <button type="button" className="cp-obj cp-obj--chip cp-obj-person" data-type="person" {...handler}
+        style={{ borderRadius: 16 }}
+      >
+        <Avatar size={20} fontSize={9} initial={initial} />
         <span className="cp-obj-title">{name}</span>
+        {provenance && <span className="cp-obj-provenance">{provenance}</span>}
         {edgeCount > 0 && <span className="cp-obj-edges">{edgeCount}</span>}
       </button>
     );
@@ -41,7 +47,7 @@ export default function PersonPill({ object, compact, variant = 'default', onCli
   if (variant === 'chain') {
     return (
       <button type="button" className="cp-obj cp-obj--chain cp-obj-person" data-type="person" {...handler}>
-        <span className="cp-obj-dot" />
+        <Avatar size={20} fontSize={9} initial={initial} />
         <span className="cp-obj-title">{name}</span>
         {timestamp && <span className="cp-obj-timestamp">{timestamp}</span>}
       </button>
@@ -71,33 +77,45 @@ export default function PersonPill({ object, compact, variant = 'default', onCli
     );
   }
 
-  /* Default variant */
+  /* Default (card) variant: round at every tier */
   return (
     <button
       type="button"
       {...handler}
       style={{
         display: 'inline-flex', alignItems: 'center', gap: compact ? 8 : 10, width: '100%', textAlign: 'left',
-        background: 'var(--cp-card)', border: 'none', borderRadius: 100,
+        background: 'var(--cp-card)', border: 'none', borderRadius: 20,
         padding: compact ? '6px 10px 6px 6px' : '8px 14px 8px 8px', cursor: 'pointer',
       }}
       className="cp-object-card cp-object-person"
     >
-      <div style={{
-        width: compact ? 24 : 30, height: compact ? 24 : 30, borderRadius: '50%', background: 'var(--cp-red)',
-        display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
-      }}>
-        <span style={{ fontFamily: 'var(--cp-font-mono)', fontSize: compact ? 10 : 12, fontWeight: 700, color: '#fff', fontFeatureSettings: 'var(--cp-kern-mono)', lineHeight: 1 }}>{initial}</span>
-      </div>
+      <Avatar size={compact ? 24 : 40} fontSize={compact ? 10 : 16} initial={initial} />
       <div style={{ flex: 1, minWidth: 0 }}>
-        <div style={{ fontFamily: 'var(--cp-font-title)', fontSize: compact ? 13 : 14, fontWeight: 500, color: 'var(--cp-text)', lineHeight: 1.2, fontFeatureSettings: 'var(--cp-kern-title)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{name}</div>
+        <div style={{
+          fontFamily: 'var(--cp-font-title)', fontSize: compact ? 13 : 14, fontWeight: 500,
+          color: 'var(--cp-text)', lineHeight: 1.2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+        }}>{name}</div>
         {!compact && object.body && (
-          <div style={{ fontFamily: 'var(--cp-font-body)', fontSize: 11, color: 'var(--cp-text-muted)', fontFeatureSettings: 'var(--cp-kern-body)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', marginTop: 1 }}>{object.body}</div>
+          <div style={{
+            fontFamily: 'var(--cp-font-body)', fontSize: 11, color: 'var(--cp-text-muted)',
+            overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', marginTop: 1,
+          }}>{object.body}</div>
         )}
       </div>
       {edgeCount > 0 && (
-        <span style={{ fontFamily: 'var(--cp-font-mono)', fontSize: 10, color: 'var(--cp-text-faint)', fontFeatureSettings: 'var(--cp-kern-mono)', flexShrink: 0 }}>{edgeCount}</span>
+        <span style={{ fontFamily: 'var(--cp-font-mono)', fontSize: 10, color: 'var(--cp-text-faint)', flexShrink: 0 }}>{edgeCount}</span>
       )}
     </button>
+  );
+}
+
+function Avatar({ size, fontSize, initial }: { size: number; fontSize: number; initial: string }) {
+  return (
+    <div style={{
+      width: size, height: size, borderRadius: '50%', background: PERSON_COLOR,
+      display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
+    }}>
+      <span style={{ fontFamily: 'var(--cp-font-mono)', fontSize, fontWeight: 700, color: '#fff', lineHeight: 1 }}>{initial}</span>
+    </div>
   );
 }

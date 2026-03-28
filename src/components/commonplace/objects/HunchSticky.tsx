@@ -11,14 +11,21 @@ export default function HunchSticky({ object, compact, variant = 'default', onCl
   const summary = readString(object.body) ?? readString(object.explanation);
   const score = typeof object.score === 'number' ? `${Math.round(object.score * 100)}%` : null;
   const timestamp = object.captured_at ? formatDate(object.captured_at) : null;
+  const provenance = readString(object.source_label);
   const handler = {
     onClick: onClick ? () => onClick(object) : undefined,
     onContextMenu: onContextMenu ? (e: React.MouseEvent) => onContextMenu(e, object) : undefined,
   };
 
+  /* Dashed border style shared across tiers */
+  const dashedBorder = '1px dashed var(--cp-hunch-border, rgba(180,90,106,0.4))';
+  const hunchWash = 'var(--cp-hunch-wash, color-mix(in srgb, #B45A6A 4%, var(--cp-card)))';
+
   if (variant === 'module' || variant === 'timeline') {
     return (
-      <button type="button" className="cp-obj cp-obj--module cp-obj-hunch" data-type="hunch" data-compact={compact || undefined} {...handler}>
+      <button type="button" className="cp-obj cp-obj--module cp-obj-hunch" data-type="hunch" data-compact={compact || undefined} {...handler}
+        style={{ border: dashedBorder, background: hunchWash }}
+      >
         <div className="cp-obj-title">{title}</div>
         {!compact && summary && <div className="cp-obj-body">{summary}</div>}
         <div className="cp-obj-meta" style={{ marginTop: compact ? 3 : 5 }}>
@@ -31,9 +38,12 @@ export default function HunchSticky({ object, compact, variant = 'default', onCl
 
   if (variant === 'chip') {
     return (
-      <button type="button" className="cp-obj cp-obj--chip cp-obj-hunch" data-type="hunch" {...handler}>
+      <button type="button" className="cp-obj cp-obj--chip cp-obj-hunch" data-type="hunch" {...handler}
+        style={{ border: dashedBorder, background: hunchWash }}
+      >
         <span className="cp-obj-dot" />
         <span className="cp-obj-title">{title}</span>
+        {provenance && <span className="cp-obj-provenance">{provenance}</span>}
         {edgeCount > 0 && <span className="cp-obj-edges">{edgeCount}</span>}
       </button>
     );
@@ -71,26 +81,44 @@ export default function HunchSticky({ object, compact, variant = 'default', onCl
     );
   }
 
-  /* Default variant */
+  /* Default variant: dashed border, hunch wash, no rotation */
   return (
     <button
       type="button"
       {...handler}
       style={{
-        display: 'block', width: '100%', textAlign: 'left', background: 'var(--cp-card)', border: 'none',
-        borderRadius: 6, padding: compact ? '8px 10px' : '12px 14px', cursor: 'pointer', transition: 'transform 120ms ease',
+        display: 'block', width: '100%', textAlign: 'left',
+        background: hunchWash,
+        border: dashedBorder,
+        borderRadius: 6,
+        padding: compact ? '8px 10px' : '12px 14px',
+        cursor: 'pointer',
       }}
       className="cp-object-card cp-object-hunch"
     >
-      <div style={{ fontFamily: 'var(--cp-font-title)', fontSize: compact ? 13 : 15, fontWeight: 400, fontStyle: 'italic', color: 'var(--cp-text)', lineHeight: 1.4, fontFeatureSettings: 'var(--cp-kern-title)', marginBottom: object.body && !compact ? 6 : 0 }}>{title}</div>
-      {!compact && object.body && (
-        <div style={{ fontFamily: 'var(--cp-font-body)', fontSize: 12, fontStyle: 'italic', color: 'var(--cp-text-muted)', lineHeight: 1.55, fontFeatureSettings: 'var(--cp-kern-body)', display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical', overflow: 'hidden', marginBottom: 8 }}>{object.body}</div>
+      <div style={{
+        fontFamily: 'var(--cp-font-title)', fontSize: compact ? 13 : 15, fontWeight: 400, fontStyle: 'italic',
+        color: 'var(--cp-text)', lineHeight: 1.4,
+        marginBottom: summary && !compact ? 6 : 0,
+      }}>{title}</div>
+      {!compact && summary && (
+        <div style={{
+          fontFamily: 'var(--cp-font-body)', fontSize: 12, fontStyle: 'italic', color: 'var(--cp-text-muted)',
+          lineHeight: 1.55, display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical', overflow: 'hidden',
+          marginBottom: 8,
+        }}>{summary}</div>
       )}
-      {edgeCount > 0 && (
-        <div style={{ marginTop: 4 }}>
-          <span style={{ fontFamily: 'var(--cp-font-mono)', fontSize: 10, color: 'var(--cp-text-faint)', fontFeatureSettings: 'var(--cp-kern-mono)' }}>{edgeCount} links</span>
-        </div>
-      )}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 4 }}>
+        {provenance && (
+          <span style={{
+            fontFamily: 'var(--cp-font-mono)', fontSize: 9, color: 'var(--cp-text-dim)',
+            background: 'rgba(255,255,255,0.04)', padding: '1px 5px', borderRadius: 3,
+          }}>{provenance}</span>
+        )}
+        {edgeCount > 0 && (
+          <span style={{ fontFamily: 'var(--cp-font-mono)', fontSize: 10, color: 'var(--cp-text-faint)', marginLeft: 'auto' }}>{edgeCount} links</span>
+        )}
+      </div>
     </button>
   );
 }

@@ -93,6 +93,7 @@ export default function SourceCard({ object, compact, variant = 'default', onCli
       {...handler}
       style={{
         display: 'block', width: '100%', textAlign: 'left', background: 'var(--cp-card)', border: 'none',
+        borderTop: '2px solid var(--cp-source-accent, #2D5F6B)',
         borderRadius: 6, overflow: 'hidden', cursor: 'pointer', transition: 'border-color 120ms ease',
       }}
       className="cp-object-card cp-object-source"

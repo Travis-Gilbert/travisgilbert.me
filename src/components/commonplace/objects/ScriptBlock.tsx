@@ -81,13 +81,18 @@ export default function ScriptBlock({ object, compact, variant = 'default', onCl
     );
   }
 
-  /* Default variant (TerminalBlock) */
+  /* Default variant: dark terminal surface per shape spec */
   return (
     <RoughBorder seed={object.slug} glow glowColor={STEEL}>
       <button
         type="button"
         {...handler}
-        style={{ display: 'block', width: '100%', textAlign: 'left', padding: 0, background: 'transparent', border: 'none', cursor: 'pointer' }}
+        style={{
+          display: 'block', width: '100%', textAlign: 'left', padding: 0,
+          background: 'var(--cp-script-bg, #1a1c22)',
+          border: '1px solid var(--cp-script-border, rgba(106,122,138,0.15))',
+          borderRadius: 6, cursor: 'pointer', overflow: 'hidden',
+        }}
         className="cp-object-card cp-object-script"
       >
         <TerminalBlock
@@ -95,7 +100,14 @@ export default function ScriptBlock({ object, compact, variant = 'default', onCl
           status={status in STATUS_COLORS ? (status as 'idle' | 'running' | 'complete' | 'error' | 'degraded') : 'idle'}
           compact={compact}
         >
-          {!compact && object.body ? object.body : title}
+          {!compact && object.body ? (
+            <div style={{
+              fontFamily: 'var(--cp-font-mono)', fontSize: 12,
+              color: 'var(--cp-script-text, rgba(106,122,138,0.8))',
+              whiteSpace: 'pre-wrap', background: 'rgba(0,0,0,0.3)',
+              padding: 12, borderRadius: 4, marginTop: 6,
+            }}>{object.body}</div>
+          ) : title}
         </TerminalBlock>
       </button>
     </RoughBorder>

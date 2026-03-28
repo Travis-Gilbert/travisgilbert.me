@@ -42,9 +42,11 @@ export const OBJECT_TYPES: ObjectTypeIdentity[] = [
   { slug: 'concept', label: 'Concept', plural: 'Concepts', color: '#8B6FA0', icon: 'lightbulb' },
   { slug: 'quote', label: 'Quote', plural: 'Quotes', color: '#C49A4A', icon: 'quote' },
   { slug: 'hunch', label: 'Hunch', plural: 'Hunches', color: '#B06080', icon: 'sparkle' },
-  { slug: 'event', label: 'Event', plural: 'Events', color: '#4A6A8A', icon: 'calendar' },
+  { slug: 'event', label: 'Event', plural: 'Events', color: '#4A7A9A', icon: 'calendar' },
+  { slug: 'email', label: 'Email', plural: 'Emails', color: '#4A7A9A', icon: 'mail' },
   { slug: 'script', label: 'Script', plural: 'Scripts', color: '#6B7A8A', icon: 'code' },
   { slug: 'task', label: 'Task', plural: 'Tasks', color: '#C47A3A', icon: 'check-circle' },
+  { slug: 'paper', label: 'Paper', plural: 'Papers', color: '#9A8A7A', icon: 'page' },
 ];
 
 export function getObjectTypeIdentity(slug: string): ObjectTypeIdentity {

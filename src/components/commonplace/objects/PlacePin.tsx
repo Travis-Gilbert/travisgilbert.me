@@ -78,7 +78,9 @@ export default function PlacePin({ object, compact, variant = 'default', onClick
       {...handler}
       style={{
         display: 'flex', alignItems: compact ? 'center' : 'flex-start', gap: 9, width: '100%', textAlign: 'left',
-        background: 'var(--cp-card)', border: 'none', borderRadius: 6,
+        background: 'var(--cp-card)', border: 'none',
+        borderBottom: '3px solid var(--cp-place-accent, #C49A4A)',
+        borderRadius: 6,
         padding: compact ? '7px 10px' : '10px 12px', cursor: 'pointer',
       }}
       className="cp-object-card cp-object-place"
