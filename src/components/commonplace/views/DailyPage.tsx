@@ -2,11 +2,15 @@
 
 import { useCallback, useState, useEffect } from 'react';
 import { toast } from 'sonner';
+import { WarningTriangle } from 'iconoir-react';
+import EngineDiscoveryFeed from './EngineDiscoveryFeed';
+import type { EngineDiscovery } from './EngineDiscoveryFeed';
 import AskBar from '../ask/AskBar';
 import SuggestionPills from '../ask/SuggestionPills';
 import HomepageFlow from './HomepageFlow';
 import ProvenanceStrip from '../ask/ProvenanceStrip';
 import FeedbackBar from '../ask/FeedbackBar';
+import { apiFetch } from '@/lib/commonplace-api';
 import { useDrawer } from '@/lib/providers/drawer-provider';
 import {
   submitQuestion,
@@ -19,6 +23,47 @@ import type {
   AskSuggestion,
 } from '@/lib/ask-theseus';
 import styles from './DailyPage.module.css';
+
+/* ── Mock data (used until backend is reachable) ── */
+
+const MOCK_DISCOVERIES: EngineDiscovery[] = [
+  {
+    edge_id: 1,
+    from_object: { id: 42, title: "Hamming's generative learning", object_type_slug: 'concept' },
+    to_object: { id: 87, title: "Shannon's relay memory", object_type_slug: 'note' },
+    engine: 'sbert',
+    strength: 0.87,
+    reason: 'Both describe systems that encode knowledge through operation rather than explicit instruction.',
+    created_at: '2026-03-28T14:30:00Z',
+  },
+  {
+    edge_id: 2,
+    from_object: { id: 101, title: 'Re: TPU Research Cloud', object_type_slug: 'source' },
+    to_object: { id: 55, title: 'Google TRC program', object_type_slug: 'source' },
+    engine: 'shared_entity',
+    strength: 0.94,
+    reason: 'Entity match: TPU Research Cloud, Google, Theseus appear in both objects.',
+    created_at: '2026-03-28T12:00:00Z',
+  },
+  {
+    edge_id: 3,
+    from_object: { id: 200, title: 'CAP theorem failures', object_type_slug: 'note' },
+    to_object: { id: 201, title: 'Redis guards', object_type_slug: 'script' },
+    engine: 'bm25',
+    strength: 0.72,
+    reason: 'Both discuss partition tolerance strategies in distributed systems.',
+    created_at: '2026-03-28T10:00:00Z',
+  },
+  {
+    edge_id: 4,
+    from_object: { id: 300, title: 'Buehler 2025', object_type_slug: 'source' },
+    to_object: { id: 301, title: 'Self-organizing spec', object_type_slug: 'source' },
+    engine: 'sbert',
+    strength: 0.81,
+    reason: 'Both describe graph architectures that reorganize without external direction.',
+    created_at: '2026-03-28T09:00:00Z',
+  },
+];
 
 /* ── Template summary helpers ── */
 
@@ -81,6 +126,19 @@ const FALLBACK_OBJECTS: AskRetrievalObject[] = [
 
 export default function DailyPage() {
   const { openDrawer } = useDrawer();
+
+  /* ── Engine discoveries ── */
+  const [discoveries, setDiscoveries] = useState<EngineDiscovery[]>(MOCK_DISCOVERIES);
+
+  useEffect(() => {
+    apiFetch<{ discoveries: EngineDiscovery[] }>('/engine/discoveries/?limit=20')
+      .then((data) => {
+        if (data.discoveries?.length) {
+          setDiscoveries(data.discoveries);
+        }
+      })
+      .catch(() => { /* stay on mock */ });
+  }, []);
 
   /* ── Ask Theseus state ── */
   const [askQuestion, setAskQuestion] = useState('');
@@ -205,6 +263,34 @@ export default function DailyPage() {
             retrievedObjectIds={displayObjects.map((o) => o.id)}
           />
         )}
+
+        {/* Engine Discoveries */}
+        <section className={styles.section}>
+          <div className={styles.sectionHeader}>
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#5D9B78" strokeWidth="2" strokeLinecap="round">
+              <circle cx="6" cy="12" r="3" /><circle cx="18" cy="6" r="3" /><circle cx="18" cy="18" r="3" />
+              <path d="M8.6 10.4L15.4 7.6M8.6 13.6l6.8 2.8" />
+            </svg>
+            Engine found <span className={styles.sectionCount}>{discoveries.length}</span> connections
+            <span className={styles.sectionLine} />
+          </div>
+          <EngineDiscoveryFeed discoveries={discoveries} onOpenObject={(slug) => openDrawer(slug)} />
+        </section>
+
+        {/* Tensions */}
+        <section className={styles.section}>
+          <div className={styles.sectionHeader}>
+            <WarningTriangle width={11} height={11} color="var(--cp-gold)" strokeWidth={2.5} />
+            Open Tensions
+            <span className={styles.sectionCount} style={{ color: 'var(--cp-gold)' }}>383</span>
+            <span className={styles.sectionLine} />
+          </div>
+          <div className={styles.tension}>
+            <WarningTriangle width={14} height={14} color="var(--cp-gold)" strokeWidth={2} />
+            <div className={styles.tensionTitle}>Contradiction: Dan Lahav vs README.md</div>
+            <div className={styles.tensionBadge}>high priority</div>
+          </div>
+        </section>
       </div>
     </div>
   );

@@ -21,3 +21,65 @@
   margin-bottom: 20px;
   padding: 0 4px;
 }
+
+/* ── Sections ── */
+
+.section {
+  margin-top: 40px;
+  margin-bottom: 40px;
+}
+
+.sectionHeader {
+  font-family: var(--cp-font-mono);
+  font-size: 10px;
+  color: var(--cp-text-faint);
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  margin-bottom: 14px;
+  display: flex;
+  align-items: center;
+  gap: var(--cp-space-2);
+}
+
+.sectionCount {
+  color: var(--cp-terracotta-light);
+  font-weight: 600;
+}
+
+.sectionLine {
+  flex: 1;
+  height: 1px;
+  background: var(--cp-border-faint);
+}
+
+/* ── Tension strip ── */
+
+.tension {
+  padding: 10px 16px;
+  border-radius: 6px;
+  border-left: 3px solid var(--cp-gold);
+  background: rgba(196, 154, 74, 0.04);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  cursor: pointer;
+  transition: background 150ms;
+}
+
+.tension:hover {
+  background: rgba(196, 154, 74, 0.08);
+}
+
+.tensionTitle {
+  font-family: var(--cp-font-body);
+  font-size: 12.5px;
+  color: var(--cp-text);
+  font-weight: 500;
+  flex: 1;
+}
+
+.tensionBadge {
+  font-family: var(--cp-font-mono);
+  font-size: 9px;
+  color: var(--cp-gold);
+}
