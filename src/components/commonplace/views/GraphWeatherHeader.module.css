@@ -34,7 +34,7 @@
   display: flex;
   gap: 16px;
   padding: 12px 18px;
-  border-left: 1px solid rgba(255, 255, 255, 0.04);
+  border-left: 1px solid rgba(42, 36, 32, 0.06);
   align-items: center;
 }
 

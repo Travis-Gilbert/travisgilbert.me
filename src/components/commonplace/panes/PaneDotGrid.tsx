@@ -58,7 +58,7 @@ interface PaneDotGridProps {
   dotRadius?: number;
   /** Fraction of dots replaced with binary characters; defaults to 0.10 */
   binaryDensity?: number;
-  /** Pane background color as [r, g, b] for the vignette overlay; defaults to #F4F3F0 */
+  /** Pane background color as [r, g, b] for the vignette overlay; defaults to #F5E6D2 */
   bgColor?: [number, number, number];
   /** Enable radial inverted vignette (dots at corners, transparent center); defaults to true */
   vignette?: boolean;
@@ -73,7 +73,7 @@ export default function PaneDotGrid({
   spacing = 20,
   dotRadius = 0.75,
   binaryDensity = 0.07,
-  bgColor = [244, 243, 240],
+  bgColor = [245, 230, 210],
   vignette = true,
   className,
   style,

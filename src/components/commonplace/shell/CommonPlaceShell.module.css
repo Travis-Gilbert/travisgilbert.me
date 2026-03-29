@@ -6,9 +6,9 @@
 .shellRoot {
   position: relative;
   isolation: isolate;
-  /* Semi-transparent parchment: lets DotGrid inverse vignette dots
-     bleed through at the edges while keeping center reading area clean. */
-  background: rgba(245, 230, 210, 0.88);
+  /* Transparent shell: parchment comes from html background (--color-paper).
+     DotGrid canvas sits between html bg and shell, dots show directly. */
+  background: transparent;
 }
 
 /* Construction grid disabled: DotGrid provides its own dot texture */
@@ -29,5 +29,26 @@
     rgba(184, 98, 61, 0.04) 0%,
     rgba(184, 98, 61, 0.015) 20%,
     transparent 50%
+  );
+}
+
+/* Top gradient: dark chrome fades into parchment content.
+   CSS approach avoids DotGrid's dark mode gradient inversion.
+   Covers full width; sidebar's own dark bg obscures overlap. */
+.topGradient {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 35vh;
+  pointer-events: none;
+  z-index: 0;
+  background: linear-gradient(
+    to bottom,
+    rgba(28, 28, 32, 0.85) 0%,
+    rgba(28, 28, 32, 0.45) 12%,
+    rgba(42, 36, 32, 0.18) 35%,
+    rgba(42, 36, 32, 0.06) 60%,
+    transparent 100%
   );
 }

@@ -57,7 +57,7 @@ export default function CommonPlaceLayout({
     <>
       {/* DotGrid sits outside shellRoot so z-index:-1 renders above html bg
           but below the semi-transparent shell chrome */}
-      <DotGrid noGradient inverseVignette dotOpacity={0.18} />
+      <DotGrid noGradient inverseVignette dotOpacity={0.38} dotColor={[58, 54, 50]} />
 
       <div
         className={`commonplace-theme ${shellStyles.shellRoot}`}
@@ -71,6 +71,9 @@ export default function CommonPlaceLayout({
       >
         {/* Ambient red-pencil glow */}
         <div className={shellStyles.ambientGlow} aria-hidden="true" />
+
+        {/* Top gradient: dark nav fades into parchment (CSS, not canvas, to avoid dark mode inversion) */}
+        <div className={shellStyles.topGradient} aria-hidden="true" />
 
       {/* Provider: lets navigation notify Timeline of new captures */}
       <CommonPlaceProviders>
@@ -88,9 +91,9 @@ export default function CommonPlaceLayout({
           position="bottom-right"
           toastOptions={{
             style: {
-              background: '#2A2A2E',
-              border: '1px solid rgba(244, 243, 240, 0.12)',
-              color: '#F4F3F0',
+              background: '#FBF0E2',
+              border: '1px solid rgba(42, 36, 32, 0.12)',
+              color: '#2A2420',
               fontFamily: 'var(--font-metadata, "Courier Prime", monospace)',
               fontSize: '13px',
             },

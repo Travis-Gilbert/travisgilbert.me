@@ -75,7 +75,9 @@ export default function AskAnswerCard({
   const engines = retrieval.retrieval.engines_used;
 
   const referencedObjects = useMemo(
-    () => objects.filter((o) => synthesis.referenced_object_ids.includes(o.id)),
+    () => objects
+      .filter((o) => synthesis.referenced_object_ids.includes(o.id))
+      .slice(0, 3),
     [objects, synthesis.referenced_object_ids],
   );
 

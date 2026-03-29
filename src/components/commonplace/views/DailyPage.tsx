@@ -16,12 +16,14 @@ import {
   submitQuestion,
   fetchAskSuggestions,
   fetchDailyBriefing,
+  fetchGraphWeather,
 } from '@/lib/ask-theseus';
 import type {
   AskRetrievalResponse,
   AskRetrievalObject,
   AskSynthesisResponse,
   AskSuggestion,
+  GraphWeatherData,
 } from '@/lib/ask-theseus';
 import styles from './DailyPage.module.css';
 
@@ -217,6 +219,16 @@ export default function DailyPage() {
       .catch(() => { /* stay on mock */ });
   }, []);
 
+  /* ── Graph weather (shared with AskBar prefix) ── */
+  const [weather, setWeather] = useState<GraphWeatherData | null>(null);
+  useEffect(() => {
+    fetchGraphWeather()
+      .then(setWeather)
+      .catch(() => {});
+  }, []);
+
+  const dateLabel = new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+
   /* ── Ask Theseus state ── */
   const [askQuestion, setAskQuestion] = useState('');
   const [askLoading, setAskLoading] = useState(false);
@@ -310,7 +322,7 @@ export default function DailyPage() {
     <div className={styles.dailyPage}>
       <div className={styles.content}>
         {/* GRAPH WEATHER HEADER */}
-        <GraphWeatherHeader />
+        <GraphWeatherHeader weather={weather} />
 
         {/* ASK BAR */}
         <AskBar
@@ -318,6 +330,8 @@ export default function DailyPage() {
           disabled={askLoading}
           value={askQuestion}
           onChange={setAskQuestion}
+          dateLabel={dateLabel}
+          iq={weather?.composite_iq}
         />
 
         {/* SUGGESTION PILLS */}
@@ -333,8 +347,8 @@ export default function DailyPage() {
           <AskRetrievalStrip objects={retrievalResult.retrieval.objects} />
         )}
 
-        {/* ANSWER CARD (replaces discovery + object feeds when shown) */}
-        {retrievalResult && synthesisResult ? (
+        {/* ANSWER CARD (when available) */}
+        {retrievalResult && synthesisResult && (
           <>
             {isBriefing && (
               <div className={styles.briefingLabel}>DAILY BRIEFING</div>
@@ -346,32 +360,30 @@ export default function DailyPage() {
               onOpenObject={handleOpenObject}
             />
           </>
-        ) : (
-          <>
-            {/* TIER 1: Engine Discoveries */}
-            <section className={styles.section}>
-              <div className={styles.sectionHeader}>
-                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#5D9B78" strokeWidth="2" strokeLinecap="round">
-                  <circle cx="6" cy="12" r="3" /><circle cx="18" cy="6" r="3" /><circle cx="18" cy="18" r="3" />
-                  <path d="M8.6 10.4L15.4 7.6M8.6 13.6l6.8 2.8" />
-                </svg>
-                Engine found <span className={styles.sectionCount}>{discoveries.length}</span> connections
-                <span className={styles.sectionLine} />
-              </div>
-              <EngineDiscoveryFeed discoveries={discoveries} onOpenObject={(slug) => openDrawer(slug)} />
-            </section>
-
-            {/* TIER 2: Today's Objects */}
-            <section className={styles.section}>
-              <div className={styles.sectionHeader}>
-                Today
-                <span className={styles.sectionCount}>{MOCK_OBJECTS.length}</span>
-                <span className={styles.sectionLine} />
-              </div>
-              <ObjectFeed objects={MOCK_OBJECTS} />
-            </section>
-          </>
         )}
+
+        {/* TIER 1: Engine Discoveries (always visible) */}
+        <section className={styles.section}>
+          <div className={styles.sectionHeader}>
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#5D9B78" strokeWidth="2" strokeLinecap="round">
+              <circle cx="6" cy="12" r="3" /><circle cx="18" cy="6" r="3" /><circle cx="18" cy="18" r="3" />
+              <path d="M8.6 10.4L15.4 7.6M8.6 13.6l6.8 2.8" />
+            </svg>
+            Engine found <span className={styles.sectionCount}>{discoveries.length}</span> connections
+            <span className={styles.sectionLine} />
+          </div>
+          <EngineDiscoveryFeed discoveries={discoveries} onOpenObject={(slug) => openDrawer(slug)} />
+        </section>
+
+        {/* TIER 2: Today's Objects (always visible) */}
+        <section className={styles.section}>
+          <div className={styles.sectionHeader}>
+            Today
+            <span className={styles.sectionCount}>{MOCK_OBJECTS.length}</span>
+            <span className={styles.sectionLine} />
+          </div>
+          <ObjectFeed objects={MOCK_OBJECTS} />
+        </section>
 
         {/* TIER 3: Tensions */}
         <section className={styles.section}>

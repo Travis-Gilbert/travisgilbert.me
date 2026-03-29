@@ -468,10 +468,10 @@ function ClusterTerminal({
         background: 'var(--cp-term)',
         borderTop: '1px solid var(--cp-term-border)',
         overflow: 'hidden',
-        /* Re-establish light text for dark terminal surface */
-        ['--cp-text' as string]: '#F4F3F0',
-        ['--cp-text-muted' as string]: '#C0BDB5',
-        ['--cp-text-faint' as string]: '#8A8478',
+        /* Text tokens for terminal card surface */
+        ['--cp-text' as string]: '#2A2420',
+        ['--cp-text-muted' as string]: '#6A5E52',
+        ['--cp-text-faint' as string]: '#9A8E82',
       }}
     >
       {/* Header */}

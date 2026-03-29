@@ -39,7 +39,7 @@
 
 .provStrip {
   padding: 10px 20px;
-  border-top: 1px solid rgba(255, 255, 255, 0.03);
+  border-top: 1px solid rgba(42, 36, 32, 0.06);
   display: flex;
   align-items: center;
   gap: 6px;
@@ -59,7 +59,7 @@
   font-family: var(--cp-font-mono);
   font-size: 9px;
   color: var(--cp-text-faint);
-  background: rgba(255, 255, 255, 0.04);
+  background: rgba(42, 36, 32, 0.03);
   padding: 2px 8px;
   border-radius: 3px;
 }

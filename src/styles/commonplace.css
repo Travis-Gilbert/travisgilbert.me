@@ -4198,7 +4198,7 @@ select.cp-input {
   flex: 1;
   height: 100%;
   min-height: 0;
-  background: var(--cp-bg);
+  background: transparent;
   overflow: hidden;
 }
 
@@ -5341,8 +5341,46 @@ select.cp-input {
    ========================================================================== */
 
 .cp-main-surface {
+  position: relative;
   background: transparent;
   backdrop-filter: none;
+}
+
+/* Sidebar spill shadow (left edge: dark nav casts into parchment) */
+.cp-main-surface::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  bottom: 0;
+  width: 80px;
+  background: linear-gradient(
+    to right,
+    rgba(22, 23, 26, 0.12),
+    rgba(22, 23, 26, 0.03) 40%,
+    transparent
+  );
+  pointer-events: none;
+  z-index: 1;
+}
+
+/* Bottom warmth gradient (amber bloom at viewport floor) */
+.cp-main-surface::after {
+  content: '';
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 12vh;
+  pointer-events: none;
+  z-index: 1;
+  background: linear-gradient(
+    to bottom,
+    transparent 0%,
+    rgba(200, 160, 100, 0.03) 40%,
+    rgba(190, 140, 75, 0.08) 70%,
+    rgba(180, 125, 60, 0.12) 100%
+  );
 }
 
 .cp-pane-content {
@@ -5366,13 +5404,13 @@ select.cp-input {
   width: 44px;
   height: 30px;
   border-radius: 999px;
-  border-color: rgba(237, 226, 206, 0.12);
-  background: rgba(255, 255, 255, 0.02);
+  border-color: rgba(42, 36, 32, 0.10);
+  background: rgba(42, 36, 32, 0.02);
 }
 
 .cp-layout-preset:hover {
-  border-color: rgba(237, 226, 206, 0.2);
-  background: rgba(255, 255, 255, 0.04);
+  border-color: rgba(42, 36, 32, 0.18);
+  background: rgba(42, 36, 32, 0.04);
 }
 
 .cp-layout-preset[data-active="true"] {
@@ -5469,7 +5507,7 @@ select.cp-input {
 }
 
 .cp-compose-pane {
-  background: var(--cp-bg);
+  background: transparent;
   container-type: inline-size;
   container-name: compose-pane;
 }
@@ -5835,8 +5873,8 @@ select.cp-input {
   gap: 4px;
   padding: 10px;
   border-radius: 12px;
-  background: rgba(255, 255, 255, 0.04);
-  border: 1px solid rgba(241, 232, 219, 0.1);
+  background: rgba(42, 36, 32, 0.03);
+  border: 1px solid rgba(42, 36, 32, 0.08);
 }
 
 .cp-compose-summary-label {
@@ -5853,9 +5891,9 @@ select.cp-input {
 
 .cp-compose-open-saved {
   align-self: flex-start;
-  border: 1px solid rgba(241, 232, 219, 0.14);
+  border: 1px solid rgba(42, 36, 32, 0.12);
   border-radius: 999px;
-  background: rgba(255, 255, 255, 0.04);
+  background: rgba(42, 36, 32, 0.03);
   padding: 6px 10px;
   font-size: 10px;
   letter-spacing: 0.08em;
@@ -8244,7 +8282,7 @@ select.cp-input {
    ========================================================================== */
 
 .cp-compose-pane {
-  background: var(--cp-bg);
+  background: transparent;
 }
 
 .cp-compose-layout {
@@ -9225,7 +9263,7 @@ select.cp-input {
 }
 
 .cp-suggestion-row:hover {
-  background: rgba(255, 255, 255, 0.04);
+  background: rgba(42, 36, 32, 0.04);
 }
 
 .cp-suggestion-icon {

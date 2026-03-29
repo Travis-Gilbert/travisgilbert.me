@@ -7,17 +7,30 @@
 @import './reader-tokens.css';
 
 /* ─────────────────────────────────────────────────
-   CommonPlace: Dark Chrome Instrument tokens
-   Graphite shell, vellum work surface, red-pencil accents.
+   CommonPlace: Warm Parchment Instrument tokens
+   Dark chrome shell, parchment work surface, red-pencil accents.
    Loaded only inside the (commonplace) route group.
    ───────────────────────────────────────────────── */
 
+/* Override global vars for parchment context.
+   This file is only imported by the CommonPlace layout.
+   Must match html[data-theme="dark"] specificity from global.css. */
+:root, html[data-theme="dark"] {
+  --color-paper: #F5E6D2;
+}
+
+/* Reset grain to light-mode behavior on parchment (overlay darkens unnaturally) */
+html[data-theme="dark"] body::after {
+  mix-blend-mode: normal;
+  opacity: 0.025;
+}
+
 .commonplace-theme {
   /* Chrome shell */
-  --cp-chrome: #1E1B18;
-  --cp-chrome-mid: #252220;
-  --cp-chrome-raise: #2E2A26;
-  --cp-chrome-line: #3D3936;
+  --cp-chrome: #1C1C20;
+  --cp-chrome-mid: #222226;
+  --cp-chrome-raise: #2A2A30;
+  --cp-chrome-line: #35353C;
   --cp-chrome-text: #D8D6DC;
   --cp-chrome-muted: #88868E;
   --cp-chrome-dim: #807E86;          /* AA 4.5:1 on #1C1C20 */
@@ -33,22 +46,22 @@
   --cp-sidebar-border-strong: rgba(255, 255, 255, 0.08);
   --cp-sidebar-edge: rgba(255, 255, 255, 0.05);
 
-  /* Content surfaces (opaque dark chrome) */
-  --cp-bg: #1E1B18;
-  --cp-surface: #262320;
-  --cp-surface-hover: #2E2A26;
-  --cp-card: #242118;
-  --cp-card-hover: #2C2822;
+  /* Content surfaces (warm parchment) */
+  --cp-bg: #F5E6D2;
+  --cp-surface: #FBF0E2;
+  --cp-surface-hover: #EBD8C0;
+  --cp-card: #FBF0E2;
+  --cp-card-hover: #F0E4D0;
 
-  /* Text (cream on dark) */
-  --cp-text: #F4F3F0;
-  --cp-text-muted: #C0BDB5;
-  --cp-text-faint: #9A9890;
+  /* Text (ink on parchment) */
+  --cp-text: #2A2420;
+  --cp-text-muted: #6A5E52;
+  --cp-text-faint: #9A8E82;
 
   /* Accent: Terracotta pencil (engine/machine signal) */
   --cp-red: #B8623D;
   --cp-red-rgb: 184, 98, 61;
-  --cp-red-soft: #2D2219;
+  --cp-red-soft: rgba(180,90,45,0.06);
   --cp-red-line: rgba(184, 98, 61, 0.22);
   --cp-red-glow: rgba(184, 98, 61, 0.12);
   --cp-accent: var(--cp-red);
@@ -73,7 +86,7 @@
   --cp-steel: #6B7A8A;
 
   /* Object type colors */
-  --cp-type-note: #F5F0E8;
+  --cp-type-note: #68666E;
   --cp-type-source: #2D5F6B;
   --cp-type-person: #B45A2D;
   --cp-type-place: #C49A4A;
@@ -88,15 +101,15 @@
   --cp-tab-bg: var(--cp-chrome);
   --cp-tab-border: var(--cp-chrome-line);
 
-  /* Terminal / card surfaces (editorial charcoal) */
-  --cp-term: #1A1715;
-  --cp-term-elevated: #1D1917;
-  --cp-term-hover: #221D1A;
-  --cp-term-border: rgba(255, 255, 255, 0.05);
-  --cp-term-border-hover: rgba(201, 122, 74, 0.14);
-  --cp-term-text: #F1E7DB;
-  --cp-term-text-secondary: #B7AAA0;
-  --cp-term-muted: #8D8178;
+  /* Terminal / card surfaces (parchment card) */
+  --cp-term: #F0E4D0;
+  --cp-term-elevated: #FBF0E2;
+  --cp-term-hover: #EBD8C0;
+  --cp-term-border: rgba(42,36,32,0.10);
+  --cp-term-border-hover: rgba(180,90,45,0.22);
+  --cp-term-text: #2A2420;
+  --cp-term-text-secondary: #6A5E52;
+  --cp-term-muted: #9A8E82;
   --cp-term-green: #6AAA6A;
   --cp-term-amber: #CCAA44;
   --cp-term-red: #CC6644;
@@ -105,19 +118,19 @@
     inset 0 1px 0 rgba(255, 255, 255, 0.02),
     0 10px 28px rgba(0, 0, 0, 0.198);
 
-  /* Borders (light on dark) */
-  --cp-border: rgba(244, 243, 240, 0.16);
-  --cp-border-faint: rgba(244, 243, 240, 0.10);
+  /* Borders (warm on parchment) */
+  --cp-border: rgba(42,36,32,0.12);
+  --cp-border-faint: rgba(42,36,32,0.08);
 
-  /* Shadows: warm glow on dark */
-  --cp-shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.3);
-  --cp-shadow: 0 2px 8px rgba(24, 24, 27, 0.08);
-  --cp-shadow-lg: 0 8px 24px rgba(24, 24, 27, 0.12);
+  /* Shadows: warm on parchment */
+  --cp-shadow-sm: 0 1px 2px rgba(42,36,32,0.05);
+  --cp-shadow: 0 2px 8px rgba(42,36,32,0.07), 0 1px 3px rgba(42,36,32,0.04);
+  --cp-shadow-lg: 0 4px 16px rgba(42,36,32,0.10), 0 2px 6px rgba(42,36,32,0.05);
 
   /* Dot field */
 
-  /* Construction grid (chrome shell only) */
-  --cp-grid-color: rgba(255, 255, 255, 0.012);
+  /* Construction grid */
+  --cp-grid-color: rgba(42,36,32,0.04);
 
   /* Typography: Dark Chrome Instrument stack */
   --cp-font-title: var(--font-vollkorn), Georgia, serif;
@@ -185,8 +198,8 @@
   --cp-discovery-score-text: #fff;
 
   /* Search bar */
-  --cp-search-bg: rgba(255,255,255,0.015);
-  --cp-search-border: var(--cp-border-faint);
+  --cp-search-bg: rgba(42,36,32,0.03);
+  --cp-search-border: rgba(42,36,32,0.10);
   --cp-search-focus-border: rgba(184,98,61,0.3);
   --cp-search-placeholder: var(--cp-text-faint);
 

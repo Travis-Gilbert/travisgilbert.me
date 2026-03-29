@@ -11,8 +11,30 @@
   border-color: var(--cp-search-focus-border, rgba(184, 98, 61, 0.3));
 }
 
+.prefix {
+  font-family: var(--cp-font-mono);
+  font-size: 10px;
+  color: var(--cp-text-faint);
+  padding: 12px 10px 12px 14px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  border-right: 1px solid rgba(42, 36, 32, 0.06);
+  user-select: none;
+}
+
+.prefixDate {
+  color: var(--cp-text-faint);
+}
+
+.prefixIq {
+  color: var(--cp-terracotta-light);
+  font-weight: 600;
+}
+
 .icon {
-  padding: 12px 0 12px 14px;
+  padding: 12px 0 12px 12px;
   color: var(--cp-text-faint);
   display: flex;
   align-items: center;

@@ -4,7 +4,7 @@
   overflow-x: hidden;
   scrollbar-width: thin;
   scrollbar-color: var(--cp-chrome-line) transparent;
-  background: var(--cp-bg);
+  background: transparent;
 }
 
 .content {

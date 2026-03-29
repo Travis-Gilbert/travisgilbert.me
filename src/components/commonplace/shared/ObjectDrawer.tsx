@@ -998,7 +998,7 @@ export default function ObjectDrawer() {
       <Drawer.Portal>
         <Drawer.Overlay className="cp-drawer-overlay" />
         <Drawer.Content
-          className="cp-drawer-content"
+          className="commonplace-theme cp-drawer-content"
           aria-describedby="cp-drawer-desc"
         >
           {/* Visually-hidden description for screen readers */}

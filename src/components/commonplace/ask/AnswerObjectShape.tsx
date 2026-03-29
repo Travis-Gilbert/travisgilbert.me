@@ -5,6 +5,29 @@ import type { AskRetrievalObject } from '@/lib/ask-theseus';
 import { getObjectTypeIdentity } from '@/lib/commonplace';
 import styles from './AnswerObjectShape.module.css';
 
+/** Strip markdown/HTML artifacts from body_preview for clean display. */
+function cleanPreview(raw: string | undefined): string {
+  if (!raw) return '';
+  let t = raw;
+  t = t.replace(/!\[[^\]]*\]\([^)]*\)/g, '');           // ![alt](url)
+  t = t.replace(/\[([^\]]*)\]\([^)]*\)/g, '$1');         // [text](url) -> text
+  t = t.replace(/<[^>]+>/g, '');                          // HTML tags
+  t = t.replace(/^#{1,6}\s+/gm, '');                     // ## headers
+  t = t.replace(/\*{1,3}([^*]+)\*{1,3}/g, '$1');         // **bold**/*italic*
+  t = t.replace(/^[-*_]{3,}\s*$/gm, '');                  // horizontal rules
+  t = t.replace(/\|/g, ' ');                              // pipe tables
+  t = t.replace(/^[-|:\s]+$/gm, '');                      // table separator rows
+  t = t.replace(/^https?:\/\/\S+\s*$/gm, '');            // standalone URLs
+  t = t.replace(/\n{2,}/g, '\n').replace(/[ \t]+/g, ' ');
+  t = t.trim();
+  if (t.length > 200) {
+    const cut = t.slice(0, 200);
+    const sp = cut.lastIndexOf(' ');
+    t = (sp > 120 ? cut.slice(0, sp) : cut) + '...';
+  }
+  return t;
+}
+
 interface AnswerObjectShapeProps {
   object: AskRetrievalObject;
   index?: number;
@@ -99,7 +122,7 @@ function EventShape({ obj }: { obj: AskRetrievalObject }) {
             {obj.event_duration && ` (${obj.event_duration})`}
           </div>
         )}
-        {obj.body_preview && <div className={styles.eventBody}>{obj.body_preview}</div>}
+        {obj.body_preview && <div className={styles.eventBody}>{cleanPreview(obj.body_preview)}</div>}
         {obj.provenance && <span className={styles.provBadge}>{obj.provenance}</span>}
       </div>
     </div>
@@ -118,7 +141,7 @@ function SourceShape({ obj, identity }: { obj: AskRetrievalObject; identity: { c
           {obj.author}{obj.author && obj.year ? ', ' : ''}{obj.year}
         </div>
       )}
-      {obj.body_preview && <div className={styles.sourceBody}>{obj.body_preview}</div>}
+      {obj.body_preview && <div className={styles.sourceBody}>{cleanPreview(obj.body_preview)}</div>}
       {obj.edge_count > 0 && <div className={styles.edgeCount}>{obj.edge_count} edges</div>}
     </div>
   );
@@ -129,7 +152,7 @@ function HunchShape({ obj }: { obj: AskRetrievalObject }) {
     <div className={styles.hunch}>
       <div className={styles.hunchLabel}>Hunch</div>
       <div className={styles.hunchText}>{obj.title}</div>
-      {obj.body_preview && <div className={styles.hunchBody}>{obj.body_preview}</div>}
+      {obj.body_preview && <div className={styles.hunchBody}>{cleanPreview(obj.body_preview)}</div>}
       {obj.confidence && <div className={styles.hunchConfidence}>confidence: {obj.confidence}</div>}
     </div>
   );
@@ -142,7 +165,7 @@ function DefaultShape({ obj, identity }: { obj: AskRetrievalObject; identity: { 
         <span className={styles.dot} style={{ background: identity.color }} />
         <span className={styles.defaultTitle}>{obj.title}</span>
       </div>
-      {obj.body_preview && <div className={styles.defaultBody}>{obj.body_preview}</div>}
+      {obj.body_preview && <div className={styles.defaultBody}>{cleanPreview(obj.body_preview)}</div>}
       {obj.edge_count > 0 && <div className={styles.edgeCount}>{obj.edge_count} edges</div>}
     </div>
   );

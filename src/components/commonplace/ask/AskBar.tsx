@@ -9,9 +9,13 @@ interface AskBarProps {
   disabled?: boolean;
   value?: string;
   onChange?: (value: string) => void;
+  /** Date label for the integrated prefix (e.g. "Mar 28") */
+  dateLabel?: string;
+  /** IQ score for the integrated prefix */
+  iq?: number;
 }
 
-export default function AskBar({ onSubmit, disabled, value, onChange }: AskBarProps) {
+export default function AskBar({ onSubmit, disabled, value, onChange, dateLabel, iq }: AskBarProps) {
   const [local, setLocal] = useState('');
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -41,6 +45,12 @@ export default function AskBar({ onSubmit, disabled, value, onChange }: AskBarPr
 
   return (
     <div className={styles.askBar}>
+      {(dateLabel || (iq != null && iq > 0)) && (
+        <div className={styles.prefix}>
+          {dateLabel && <span className={styles.prefixDate}>{dateLabel}</span>}
+          {iq != null && iq > 0 && <span className={styles.prefixIq}>{iq.toFixed(1)}</span>}
+        </div>
+      )}
       <span className={styles.icon}>
         <SearchWindow width={16} height={16} strokeWidth={1.5} />
       </span>
@@ -62,7 +72,8 @@ export default function AskBar({ onSubmit, disabled, value, onChange }: AskBarPr
         aria-label="Submit question"
       >
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-          <polyline points="9 18 15 12 9 6" />
+          <line x1="22" y1="2" x2="11" y2="13" />
+          <polygon points="22 2 15 22 11 13 2 9 22 2" />
         </svg>
       </button>
     </div>

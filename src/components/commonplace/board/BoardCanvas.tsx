@@ -677,7 +677,7 @@ export default function BoardCanvas({
         width: '100%',
         height: '100%',
         overflow: 'hidden',
-        backgroundColor: '#F4F3F0',
+        backgroundColor: '#F5E6D2',
         cursor: isPanning.current ? 'grabbing' : 'default',
       }}
       onWheel={handleWheel}

@@ -157,7 +157,7 @@ export default function ModelWorkbench({
         position: 'relative',
         height: '100%',
         overflow: 'auto',
-        background: 'var(--cp-bg, #F4F3F0)',
+        background: 'var(--cp-bg, #F5E6D2)',
       }}
     >
       <DotField seed={`model-${modelId}`} />

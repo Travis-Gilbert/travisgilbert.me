@@ -1,22 +1,17 @@
 'use client';
 
-import { useState, useEffect } from 'react';
 import { motion, useReducedMotion } from 'motion/react';
-import { fetchGraphWeather } from '@/lib/ask-theseus';
 import type { GraphWeatherData } from '@/lib/ask-theseus';
 import styles from './GraphWeatherHeader.module.css';
 
 const SPRING_GENTLE = { stiffness: 200, damping: 20 };
 
-export default function GraphWeatherHeader() {
-  const reduced = useReducedMotion();
-  const [weather, setWeather] = useState<GraphWeatherData | null>(null);
+interface GraphWeatherHeaderProps {
+  weather?: GraphWeatherData | null;
+}
 
-  useEffect(() => {
-    fetchGraphWeather()
-      .then(setWeather)
-      .catch(() => { /* fallback renders below */ });
-  }, []);
+export default function GraphWeatherHeader({ weather }: GraphWeatherHeaderProps) {
+  const reduced = useReducedMotion();
 
   const headline = weather?.headline ?? 'Welcome to your graph';
   const detail = weather?.detail ?? 'Ask a question to explore what you know.';
