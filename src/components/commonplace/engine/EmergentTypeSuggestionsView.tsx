@@ -1,14 +1,19 @@
 'use client';
 
 import { useState, useCallback, useMemo } from 'react';
+import { motion, AnimatePresence } from 'motion/react';
 import {
   useApiData,
   fetchEmergentTypes,
   applyEmergentType,
+  fetchFeedbackStats,
 } from '@/lib/commonplace-api';
 import { useCapture } from '@/lib/providers/capture-provider';
+import { useLayout } from '@/lib/providers/layout-provider';
 import type { ApiEmergentTypeSuggestion } from '@/lib/commonplace';
 import { getObjectTypeIdentity } from '@/lib/commonplace';
+import EngineShell from './EngineShell';
+import { SHRINK_EXIT, useSpring } from './engine-motion';
 
 /* ─────────────────────────────────────────────────
    Emergent Type Suggestions View
@@ -34,12 +39,14 @@ type CardState = 'default' | 'customizing' | 'applying' | 'applied' | 'dismissed
 
 export default function EmergentTypeSuggestionsView() {
   const { captureVersion } = useCapture();
+  const { navigateToScreen } = useLayout();
   const [cardStates, setCardStates] = useState<Map<string, CardState>>(new Map());
 
   const { data: suggestions, loading, error, refetch } = useApiData(
     () => fetchEmergentTypes(),
     [captureVersion],
   );
+  const { data: feedbackStats } = useApiData(fetchFeedbackStats, []);
 
   const visibleSuggestions = useMemo(() => {
     if (!suggestions) return [];
@@ -53,38 +60,36 @@ export default function EmergentTypeSuggestionsView() {
     setCardStates((prev) => new Map(prev).set(slug, state));
   }, []);
 
+  const shellProps = {
+    title: 'Emergent Types',
+    subtitle: 'Apply to create new object types, or dismiss to skip.',
+    feedbackStats: feedbackStats,
+    onBack: () => navigateToScreen('engine'),
+  } as const;
+
   if (loading) {
     return (
-      <div className="cp-pane-content" style={containerStyle}>
+      <EngineShell {...shellProps}>
         <div style={centeredStyle}>
           <div style={monoLabel}>LOADING SUGGESTIONS...</div>
         </div>
-      </div>
+      </EngineShell>
     );
   }
 
   if (error) {
     return (
-      <div className="cp-pane-content" style={containerStyle}>
+      <EngineShell {...shellProps}>
         <div style={centeredStyle}>
           <div style={{ color: 'var(--cp-red)', fontSize: 13, marginBottom: 8 }}>{error.message}</div>
           <button onClick={refetch} style={actionBtnStyle('var(--cp-teal)')}>Retry</button>
         </div>
-      </div>
+      </EngineShell>
     );
   }
 
   return (
-    <div className="cp-pane-content" style={containerStyle}>
-      {/* Header */}
-      <div>
-        <h2 style={titleStyle}>Emergent Types</h2>
-        <p style={subtitleStyle}>
-          Clusters of objects sharing common patterns. Apply to create
-          new object types, or dismiss to skip (they may reappear next run).
-        </p>
-      </div>
-
+    <EngineShell {...shellProps}>
       {/* Stats */}
       {suggestions && suggestions.length > 0 && (
         <div style={statsBarStyle}>
@@ -97,7 +102,7 @@ export default function EmergentTypeSuggestionsView() {
         </div>
       )}
 
-      {/* Suggestion cards */}
+      {/* Suggestion cards with animated dismiss */}
       {visibleSuggestions.length === 0 ? (
         <div style={centeredStyle}>
           <div style={{ fontFamily: 'var(--cp-font-title)', fontSize: 18, color: 'var(--cp-text)', marginBottom: 6 }}>
@@ -111,17 +116,44 @@ export default function EmergentTypeSuggestionsView() {
         </div>
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-          {visibleSuggestions.map((suggestion) => (
-            <SuggestionCard
-              key={suggestion.suggested_slug}
-              suggestion={suggestion}
-              state={cardStates.get(suggestion.suggested_slug) ?? 'default'}
-              onSetState={(state) => setCardState(suggestion.suggested_slug, state)}
-            />
-          ))}
+          <AnimatePresence initial={false}>
+            {visibleSuggestions.map((suggestion) => (
+              <SuggestionCardAnimated
+                key={suggestion.suggested_slug}
+                suggestion={suggestion}
+                state={cardStates.get(suggestion.suggested_slug) ?? 'default'}
+                onSetState={(state) => setCardState(suggestion.suggested_slug, state)}
+              />
+            ))}
+          </AnimatePresence>
         </div>
       )}
-    </div>
+    </EngineShell>
+  );
+}
+
+/* ── Animated Suggestion Card wrapper ── */
+
+function SuggestionCardAnimated({
+  suggestion,
+  state,
+  onSetState,
+}: {
+  suggestion: ApiEmergentTypeSuggestion;
+  state: CardState;
+  onSetState: (state: CardState) => void;
+}) {
+  const spring = useSpring('natural');
+  return (
+    <motion.div
+      layout
+      initial={{ opacity: 0, y: 8 }}
+      animate={{ opacity: 1, y: 0 }}
+      exit={SHRINK_EXIT}
+      transition={spring}
+    >
+      <SuggestionCard suggestion={suggestion} state={state} onSetState={onSetState} />
+    </motion.div>
   );
 }
 
@@ -388,30 +420,6 @@ function TypeCustomizer({
 }
 
 /* ── Styles ── */
-
-const containerStyle: React.CSSProperties = {
-  padding: 20,
-  overflowY: 'auto',
-  height: '100%',
-  display: 'flex',
-  flexDirection: 'column',
-  gap: 14,
-};
-
-const titleStyle: React.CSSProperties = {
-  fontFamily: 'var(--cp-font-title)',
-  fontSize: 22,
-  color: 'var(--cp-text)',
-  margin: 0,
-  marginBottom: 4,
-};
-
-const subtitleStyle: React.CSSProperties = {
-  fontSize: 13,
-  color: 'var(--cp-text-muted)',
-  margin: 0,
-  lineHeight: 1.5,
-};
 
 const monoLabel: React.CSSProperties = {
   fontFamily: 'var(--cp-font-mono)',

@@ -1,13 +1,18 @@
 'use client';
 
 import { useState, useCallback, useMemo } from 'react';
+import { motion, AnimatePresence } from 'motion/react';
 import {
   useApiData,
   fetchPromotionQueue,
   submitReviewAction,
+  fetchFeedbackStats,
 } from '@/lib/commonplace-api';
 import { useCapture } from '@/lib/providers/capture-provider';
+import { useLayout } from '@/lib/providers/layout-provider';
 import type { ApiPromotionItem } from '@/lib/commonplace';
+import EngineShell from './EngineShell';
+import { DISMISS_EXIT, useSpring } from './engine-motion';
 
 /* ─────────────────────────────────────────────────
    Promotion Queue View
@@ -30,6 +35,7 @@ type FilterType = 'all' | ApiPromotionItem['item_type'];
 
 export default function PromotionQueueView() {
   const { captureVersion } = useCapture();
+  const { navigateToScreen } = useLayout();
   const [filter, setFilter] = useState<FilterType>('all');
   const [reviewedIds, setReviewedIds] = useState<Set<number>>(new Set());
 
@@ -37,6 +43,7 @@ export default function PromotionQueueView() {
     () => fetchPromotionQueue({ queue_state: 'pending' }),
     [captureVersion],
   );
+  const { data: feedbackStats } = useApiData(fetchFeedbackStats, []);
 
   const filteredItems = useMemo(() => {
     if (!items) return [];
@@ -88,36 +95,42 @@ export default function PromotionQueueView() {
 
   if (loading) {
     return (
-      <div className="cp-pane-content" style={containerStyle}>
+      <EngineShell
+        title="Review Queue"
+        subtitle="Items extracted from artifacts awaiting review."
+        feedbackStats={feedbackStats}
+        onBack={() => navigateToScreen('engine')}
+      >
         <div style={centeredStyle}>
           <div style={monoLabelStyle}>LOADING QUEUE...</div>
         </div>
-      </div>
+      </EngineShell>
     );
   }
 
   if (error) {
     return (
-      <div className="cp-pane-content" style={containerStyle}>
+      <EngineShell
+        title="Review Queue"
+        subtitle="Items extracted from artifacts awaiting review."
+        feedbackStats={feedbackStats}
+        onBack={() => navigateToScreen('engine')}
+      >
         <div style={centeredStyle}>
           <div style={{ color: 'var(--cp-red)', fontSize: 13, marginBottom: 8 }}>{error.message}</div>
           <button onClick={refetch} style={actionBtnStyle('var(--cp-teal)')}>Retry</button>
         </div>
-      </div>
+      </EngineShell>
     );
   }
 
   return (
-    <div className="cp-pane-content" style={containerStyle}>
-      {/* Header */}
-      <div style={headerStyle}>
-        <h2 style={titleStyle}>Review Queue</h2>
-        <p style={subtitleStyle}>
-          Items extracted from artifacts awaiting review.
-          Accept to promote, reject to discard.
-        </p>
-      </div>
-
+    <EngineShell
+      title="Review Queue"
+      subtitle="Accept to promote, reject to discard."
+      feedbackStats={feedbackStats}
+      onBack={() => navigateToScreen('engine')}
+    >
       {/* Stats bar */}
       <QueueStats total={totalVisible} typeCounts={typeCounts} />
 
@@ -150,22 +163,24 @@ export default function PromotionQueueView() {
         />
       )}
 
-      {/* Queue items */}
+      {/* Queue items with animated dismiss */}
       {filteredItems.length === 0 ? (
         <EmptyQueue hasItems={totalVisible > 0} />
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-          {filteredItems.map((item) => (
-            <QueueItem
-              key={item.id}
-              item={item}
-              onAccept={() => handleReview(item.id, 'accept')}
-              onReject={() => handleReview(item.id, 'reject')}
-            />
-          ))}
+          <AnimatePresence initial={false}>
+            {filteredItems.map((item) => (
+              <QueueItemAnimated
+                key={item.id}
+                item={item}
+                onAccept={() => handleReview(item.id, 'accept')}
+                onReject={() => handleReview(item.id, 'reject')}
+              />
+            ))}
+          </AnimatePresence>
         </div>
       )}
-    </div>
+    </EngineShell>
   );
 }
 
@@ -248,6 +263,31 @@ function FilterTab({
       {label}
       <span style={{ opacity: 0.6 }}>{count}</span>
     </button>
+  );
+}
+
+/* ── Animated Queue Item wrapper ── */
+
+function QueueItemAnimated({
+  item,
+  onAccept,
+  onReject,
+}: {
+  item: ApiPromotionItem;
+  onAccept: () => void;
+  onReject: () => void;
+}) {
+  const spring = useSpring('snappy');
+  return (
+    <motion.div
+      layout
+      initial={{ opacity: 0, y: 8 }}
+      animate={{ opacity: 1, y: 0 }}
+      exit={DISMISS_EXIT}
+      transition={spring}
+    >
+      <QueueItem item={item} onAccept={onAccept} onReject={onReject} />
+    </motion.div>
   );
 }
 
@@ -395,32 +435,6 @@ function EmptyQueue({ hasItems }: { hasItems: boolean }) {
 }
 
 /* ── Styles ── */
-
-const containerStyle: React.CSSProperties = {
-  padding: 20,
-  overflowY: 'auto',
-  height: '100%',
-  display: 'flex',
-  flexDirection: 'column',
-  gap: 12,
-};
-
-const headerStyle: React.CSSProperties = { marginBottom: 0 };
-
-const titleStyle: React.CSSProperties = {
-  fontFamily: 'var(--cp-font-title)',
-  fontSize: 22,
-  color: 'var(--cp-text)',
-  margin: 0,
-  marginBottom: 4,
-};
-
-const subtitleStyle: React.CSSProperties = {
-  fontSize: 13,
-  color: 'var(--cp-text-muted)',
-  margin: 0,
-  lineHeight: 1.5,
-};
 
 const monoLabelStyle: React.CSSProperties = {
   fontFamily: 'var(--cp-font-mono)',

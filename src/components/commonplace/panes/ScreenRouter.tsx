@@ -13,7 +13,7 @@ import LibraryScreen from '../models/LibraryScreen';
 import ModelsScreen from '../models/ModelsScreen';
 import NotebookListView from '../views/NotebookListView';
 import ProjectListView from '../views/ProjectListView';
-import EngineTerminal from '../engine/EngineTerminal';
+import EngineDashboard from '../engine/EngineDashboard';
 import DailyPage from '../views/DailyPage';
 
 interface ScreenRouterProps {
@@ -33,7 +33,7 @@ export default function ScreenRouter({ screen }: ScreenRouterProps) {
     case 'projects':
       return <ProjectListView />;
     case 'engine':
-      return <EngineTerminal />;
+      return <EngineDashboard />;
     case 'settings':
       return <SettingsPlaceholder />;
     default:

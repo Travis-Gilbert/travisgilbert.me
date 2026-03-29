@@ -50,12 +50,12 @@ import LibraryView from '../views/LibraryView';
 import ModelView from '../models/ModelView';
 import NotebookFormationView from '../engine/NotebookFormationView';
 import PromotionQueueView from '../engine/PromotionQueueView';
-import EntityPromotionView from '../engine/EntityPromotionView';
+import EntityBubbles from '../engine/EntityBubbles';
 import EmergentTypeSuggestionsView from '../engine/EmergentTypeSuggestionsView';
 import ArtifactBrowserView from '../ArtifactBrowserView';
 import TemporalEvolutionView from '../views/TemporalEvolutionView';
 import BoardView from '../board/BoardView';
-import ConnectionReviewView from '../engine/ConnectionReviewView';
+import ConnectionWorkshop from '../engine/ConnectionWorkshop';
 
 /* =============================================
    Main container: consumes layout from context,
@@ -878,7 +878,7 @@ function PaneViewContent({
 
   /* Entity Promotions */
   if (viewType === 'entity-promotions') {
-    return <EntityPromotionView />;
+    return <EntityBubbles />;
   }
 
   /* Emergent Types */
@@ -903,7 +903,7 @@ function PaneViewContent({
 
   /* Connection Review (Level 2 feedback) */
   if (viewType === 'connection-review') {
-    return <ConnectionReviewView />;
+    return <ConnectionWorkshop />;
   }
 
   /* Placeholder for views not yet implemented */
