@@ -1,0 +1,58 @@
+.bar {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 8px 4px;
+  margin-top: 8px;
+}
+
+.btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  color: var(--cp-text-faint);
+  font-family: var(--cp-font-body);
+  font-size: 12px;
+  transition: color 150ms;
+}
+
+.btn:hover {
+  color: var(--cp-text);
+}
+
+.downOn {
+  color: var(--cp-red);
+}
+
+.upOn {
+  color: var(--cp-ask-positive, #5D9B78);
+}
+
+.spacer {
+  flex: 1;
+}
+
+.save {
+  color: var(--cp-text-faint);
+}
+
+.save:hover {
+  color: var(--cp-accent);
+}
+
+.save:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.savedMsg {
+  font-family: var(--cp-font-mono);
+  font-size: 11px;
+  color: var(--cp-ask-positive, #5D9B78);
+  padding: 8px 4px;
+  margin-top: 8px;
+}

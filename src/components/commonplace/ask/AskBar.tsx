@@ -9,14 +9,11 @@ interface AskBarProps {
   disabled?: boolean;
   value?: string;
   onChange?: (value: string) => void;
-  /** Date label for the integrated prefix (e.g. "Mar 28") */
-  dateLabel?: string;
-  /** IQ score for the integrated prefix */
-  iq?: number;
 }
 
-export default function AskBar({ onSubmit, disabled, value, onChange, dateLabel, iq }: AskBarProps) {
+export default function AskBar({ onSubmit, disabled, value, onChange }: AskBarProps) {
   const [local, setLocal] = useState('');
+  const [focused, setFocused] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
   const text = value ?? local;
@@ -29,9 +26,17 @@ export default function AskBar({ onSubmit, disabled, value, onChange, dateLabel,
     setText('');
   }, [text, disabled, onSubmit, setText]);
 
-  /* Press `/` anywhere to focus the ask bar */
+  /* Press `/` or `Cmd+K` / `Ctrl+K` anywhere to focus the command bar */
   useEffect(() => {
     function onKeyDown(e: KeyboardEvent) {
+      // Cmd+K or Ctrl+K
+      if (e.key === 'k' && (e.metaKey || e.ctrlKey)) {
+        e.preventDefault();
+        inputRef.current?.focus();
+        return;
+      }
+
+      // `/` shortcut (skip when inside editable elements)
       if (e.key !== '/') return;
       const tag = (e.target as HTMLElement)?.tagName;
       if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
@@ -44,38 +49,29 @@ export default function AskBar({ onSubmit, disabled, value, onChange, dateLabel,
   }, []);
 
   return (
-    <div className={styles.askBar}>
-      {(dateLabel || (iq != null && iq > 0)) && (
-        <div className={styles.prefix}>
-          {dateLabel && <span className={styles.prefixDate}>{dateLabel}</span>}
-          {iq != null && iq > 0 && <span className={styles.prefixIq}>{iq.toFixed(1)}</span>}
-        </div>
-      )}
-      <span className={styles.icon}>
-        <SearchWindow width={16} height={16} strokeWidth={1.5} />
+    <div
+      className={`${styles.cmdBar} ${focused ? styles.focused : ''}`}
+      onClick={() => inputRef.current?.focus()}
+    >
+      <span className={styles.searchIcon}>
+        <SearchWindow width={18} height={18} strokeWidth={1.5} />
       </span>
       <input
         ref={inputRef}
-        className={styles.input}
+        className={styles.cmdInput}
         type="text"
-        placeholder="Ask your graph something..."
+        placeholder="What your notes want you to find"
         value={text}
         onChange={(e) => setText(e.target.value)}
         onKeyDown={(e) => { if (e.key === 'Enter') handleSubmit(); }}
+        onFocus={() => setFocused(true)}
+        onBlur={() => setFocused(false)}
         disabled={disabled}
         aria-label="Ask Theseus a question"
       />
-      <button
-        className={styles.send}
-        onClick={handleSubmit}
-        disabled={disabled || !text.trim()}
-        aria-label="Submit question"
-      >
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-          <line x1="22" y1="2" x2="11" y2="13" />
-          <polygon points="22 2 15 22 11 13 2 9 22 2" />
-        </svg>
-      </button>
+      <span className={styles.cmdKbd}>
+        <span className={styles.cmdSym}>{'\u2318'}</span>K
+      </span>
     </div>
   );
 }

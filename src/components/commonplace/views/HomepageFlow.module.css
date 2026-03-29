@@ -1,0 +1,48 @@
+.flow {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.connector {
+  width: 2px;
+  height: 20px;
+  background: var(--cp-accent);
+  opacity: 0.15;
+  border-radius: 1px;
+  margin: 0 auto;
+}
+
+/* Staggered row: left object top-aligned, right object offset down */
+.rowStaggered {
+  display: grid;
+  grid-template-columns: 48% 1fr;
+  gap: 10px;
+  align-items: start;
+}
+
+.staggerLeft {
+  cursor: pointer;
+}
+
+.staggerRight {
+  cursor: pointer;
+  margin-top: 28px;
+}
+
+/* Paired row: two objects, equal width */
+.rowPair {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+.pairCell {
+  cursor: pointer;
+}
+
+/* Single leftover object */
+.rowSingle {
+  max-width: 48%;
+  cursor: pointer;
+}

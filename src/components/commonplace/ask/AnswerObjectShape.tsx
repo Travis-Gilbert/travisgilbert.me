@@ -42,6 +42,7 @@ export default function AnswerObjectShape({ object: obj, index = 0, onClick }: A
   return (
     <motion.div
       className={styles.shape}
+      style={{ '--shape-glow': identity.color } as React.CSSProperties}
       onClick={() => onClick?.(obj.id)}
       role="button"
       tabIndex={0}

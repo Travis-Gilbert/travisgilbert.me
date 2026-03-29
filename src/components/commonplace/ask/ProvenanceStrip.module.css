@@ -1,0 +1,32 @@
+.strip {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 12px 4px;
+  margin-top: 16px;
+}
+
+.label {
+  font-family: var(--cp-font-mono);
+  font-size: 9px;
+  color: var(--cp-text-faint);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  flex-shrink: 0;
+}
+
+.badge {
+  font-family: var(--cp-font-mono);
+  font-size: 10px;
+  color: var(--cp-accent);
+  border: 1px solid var(--cp-border-faint);
+  border-radius: 10px;
+  padding: 2px 8px;
+}
+
+.counts {
+  font-family: var(--cp-font-mono);
+  font-size: 10px;
+  color: var(--cp-text-faint);
+  margin-left: auto;
+}

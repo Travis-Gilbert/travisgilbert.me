@@ -1,77 +1,66 @@
-.askBar {
+.cmdBar {
   display: flex;
   align-items: center;
-  background: var(--cp-search-bg, rgba(255, 255, 255, 0.015));
-  border: 1px solid var(--cp-search-border, var(--cp-border-faint));
+  gap: 0;
+  padding: 10px 12px;
+  margin-bottom: 16px;
+  border: 2px solid transparent;
   border-radius: 8px;
-  transition: border-color 200ms;
+  outline: none;
+  transition: border-color 200ms ease;
+  cursor: text;
 }
 
-.askBar:focus-within {
-  border-color: var(--cp-search-focus-border, rgba(184, 98, 61, 0.3));
+.cmdBar:focus-within {
+  border-color: var(--cp-accent);
 }
 
-.prefix {
-  font-family: var(--cp-font-mono);
-  font-size: 10px;
-  color: var(--cp-text-faint);
-  padding: 12px 10px 12px 14px;
+.cmdBar.focused {
+  border-color: var(--cp-accent);
+}
+
+.searchIcon {
   flex-shrink: 0;
   display: flex;
   align-items: center;
-  gap: 6px;
-  border-right: 1px solid rgba(42, 36, 32, 0.06);
-  user-select: none;
-}
-
-.prefixDate {
+  padding-right: 10px;
   color: var(--cp-text-faint);
+  transition: color 200ms ease;
 }
 
-.prefixIq {
-  color: var(--cp-terracotta-light);
-  font-weight: 600;
+.cmdBar.focused .searchIcon {
+  color: var(--cp-accent);
 }
 
-.icon {
-  padding: 12px 0 12px 12px;
-  color: var(--cp-text-faint);
-  display: flex;
-  align-items: center;
-  flex-shrink: 0;
-}
-
-.input {
+.cmdInput {
   flex: 1;
   background: none;
   border: none;
   outline: none;
   font-family: var(--cp-font-body);
-  font-size: 14px;
+  font-size: 15px;
   color: var(--cp-text);
-  padding: 12px 10px;
+  padding: 4px 0;
 }
 
-.input::placeholder {
-  color: var(--cp-search-placeholder, var(--cp-text-faint));
+.cmdInput::placeholder {
+  color: var(--cp-text-faint);
+  font-style: italic;
 }
 
-.send {
-  background: none;
-  border: none;
-  cursor: pointer;
-  padding: 12px 14px 12px 8px;
+.cmdKbd {
+  font-family: var(--cp-font-mono);
+  font-size: 10px;
   color: var(--cp-text-faint);
   display: flex;
   align-items: center;
-  transition: color 150ms;
+  gap: 2px;
+  padding-left: 12px;
+  flex-shrink: 0;
+  user-select: none;
+  opacity: 0.45;
 }
 
-.send:hover:not(:disabled) {
-  color: var(--cp-terracotta-light);
-}
-
-.send:disabled {
-  opacity: 0.3;
-  cursor: not-allowed;
+.cmdSym {
+  font-size: 12px;
 }

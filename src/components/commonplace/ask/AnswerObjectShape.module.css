@@ -1,15 +1,24 @@
 .shape {
   border-radius: 6px;
-  background: rgba(42, 36, 32, 0.03);
-  border: 1px solid var(--cp-border-faint);
-  padding: 12px 14px;
+  background: transparent;
+  border: 1px solid rgba(42, 36, 32, 0.06);
+  padding: 14px 12px;
+  min-height: 140px;
   cursor: pointer;
-  transition: border-color 200ms, background 200ms;
+  opacity: 0.85;
+  box-shadow:
+    0 0 8px color-mix(in srgb, var(--shape-glow, transparent) 10%, transparent),
+    inset 0 0 24px color-mix(in srgb, var(--shape-glow, transparent) 8%, transparent);
+  transition: border-color 200ms, background 200ms, opacity 200ms, box-shadow 200ms;
 }
 
 .shape:hover {
-  border-color: var(--cp-border);
-  background: rgba(42, 36, 32, 0.06);
+  border-color: rgba(42, 36, 32, 0.12);
+  background: rgba(42, 36, 32, 0.02);
+  opacity: 1;
+  box-shadow:
+    0 0 12px color-mix(in srgb, var(--shape-glow, transparent) 15%, transparent),
+    inset 0 0 30px color-mix(in srgb, var(--shape-glow, transparent) 12%, transparent);
 }
 
 /* ─── Task ─── */
@@ -206,6 +215,7 @@
   font-family: var(--cp-font-title);
   font-size: 14px;
   font-weight: 600;
+  color: var(--cp-text);
 }
 
 .sourceAuthor {
@@ -218,7 +228,7 @@
 .sourceBody {
   font-family: var(--cp-font-body);
   font-size: 12px;
-  color: var(--cp-text-muted);
+  color: var(--cp-text);
   line-height: 1.5;
 }
 
@@ -273,12 +283,13 @@
   font-family: var(--cp-font-title);
   font-size: 14px;
   font-weight: 600;
+  color: var(--cp-text);
 }
 
 .defaultBody {
   font-family: var(--cp-font-body);
   font-size: 12px;
-  color: var(--cp-text-muted);
+  color: var(--cp-text);
   line-height: 1.5;
 }
 
