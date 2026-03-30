@@ -133,7 +133,7 @@ export default function EngineDashboard() {
         .ed-list {
           border-radius: 10px;
           background: var(--cp-card, #242118);
-          border: 1px solid rgba(244,243,240,0.06);
+          border: 1px solid rgba(42,36,32,0.10);
           overflow: hidden;
         }
         .ed-row {
@@ -143,7 +143,7 @@ export default function EngineDashboard() {
           padding: 14px 18px;
           background: transparent;
           border: none;
-          border-bottom: 1px solid rgba(244,243,240,0.04);
+          border-bottom: 1px solid rgba(42,36,32,0.06);
           cursor: pointer;
           width: 100%;
           text-align: left;
@@ -165,11 +165,11 @@ export default function EngineDashboard() {
         .ed-row-label {
           font-size: 14px;
           font-weight: 500;
-          color: #f4f3f0;
+          color: #2A2520;
         }
         .ed-row-desc {
           font-size: 12px;
-          color: #c0bdb5;
+          color: #6A5E52;
           margin-top: 1px;
         }
         .ed-row-badge {
@@ -183,11 +183,11 @@ export default function EngineDashboard() {
         }
         .ed-row-badge--workshop {
           background: rgba(139,111,160,0.18);
-          color: #B99FCC;
+          color: #6B4F80;
         }
         .ed-row-badge--triage {
           background: rgba(180,90,45,0.15);
-          color: #D88A5A;
+          color: #B45A2D;
         }
         .ed-row-arrow {
           flex-shrink: 0;

@@ -210,7 +210,7 @@ function SuggestionCard({
             color: 'var(--cp-text-muted)',
             padding: '2px 8px',
             borderRadius: 10,
-            backgroundColor: 'var(--cp-chrome-line)',
+            backgroundColor: 'rgba(42,36,32,0.08)',
             flexShrink: 0,
             marginLeft: 8,
           }}>
@@ -310,7 +310,7 @@ function MemberPillList({
             borderRadius: 4,
             backgroundColor: 'transparent',
             color: 'var(--cp-text-faint)',
-            border: '1px dashed var(--cp-chrome-line)',
+            border: '1px dashed rgba(42,36,32,0.10)',
             cursor: 'pointer',
           }}
         >
@@ -444,13 +444,13 @@ const statsBarStyle: React.CSSProperties = {
   padding: '8px 12px',
   borderRadius: 8,
   backgroundColor: 'var(--cp-surface)',
-  border: '1px solid var(--cp-chrome-line)',
+  border: '1px solid rgba(42,36,32,0.10)',
 };
 
 const cardStyle: React.CSSProperties = {
   borderRadius: 8,
   backgroundColor: 'var(--cp-surface)',
-  border: '1px solid var(--cp-chrome-line)',
+  border: '1px solid rgba(42,36,32,0.10)',
   overflow: 'hidden',
 };
 
@@ -458,8 +458,8 @@ const customizerStyle: React.CSSProperties = {
   marginTop: 12,
   padding: 14,
   borderRadius: 6,
-  backgroundColor: 'var(--cp-chrome-bg)',
-  border: '1px solid var(--cp-chrome-line)',
+  backgroundColor: 'rgba(237,228,214,0.65)',
+  border: '1px solid rgba(42,36,32,0.10)',
 };
 
 const inputStyle: React.CSSProperties = {
@@ -469,7 +469,7 @@ const inputStyle: React.CSSProperties = {
   fontFamily: 'var(--cp-font-title)',
   color: 'var(--cp-text)',
   backgroundColor: 'var(--cp-surface)',
-  border: '1px solid var(--cp-chrome-line)',
+  border: '1px solid rgba(42,36,32,0.10)',
   borderRadius: 5,
   outline: 'none',
   boxSizing: 'border-box' as const,

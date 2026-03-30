@@ -108,7 +108,7 @@ export default function EntityBubbles() {
           padding: 16px;
           border-radius: 8px;
           background: var(--cp-surface, rgba(237,228,214,0.65));
-          border: 1px solid var(--cp-chrome-line, rgba(244,243,240,0.06));
+          border: 1px solid rgba(42,36,32,0.10);
           margin-bottom: 16px;
         }
         .eb-threshold-header {
