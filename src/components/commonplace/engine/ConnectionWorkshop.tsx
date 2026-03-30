@@ -21,6 +21,7 @@ import {
 import type { ReviewQueueEdge } from '@/lib/commonplace-api';
 import { getObjectTypeIdentity } from '@/lib/commonplace';
 import { useLayout } from '@/lib/providers/layout-provider';
+import { useDrawer } from '@/lib/providers/drawer-provider';
 import ObjectRenderer from '../objects/ObjectRenderer';
 import type { RenderableObject } from '../objects/ObjectRenderer';
 import EngineShell from './EngineShell';
@@ -33,6 +34,7 @@ type Verdict = 'useful' | 'not_useful' | 'skip';
 
 export default function ConnectionWorkshop() {
   const { navigateToScreen } = useLayout();
+  const { openDrawer } = useDrawer();
   const { data, loading, error, refetch } = useApiData(
     () => fetchReviewQueue({ limit: 40 }),
     [],
@@ -414,12 +416,16 @@ export default function ConnectionWorkshop() {
               {/* Side-by-side objects */}
               <div className="cw-objects">
                 <div className="cw-object-side">
-                  <div className="cw-object-label">FROM</div>
-                  <ObjectSide edge={current} side="from" />
+                  <div className="cw-object-label">
+                    {(getObjectTypeIdentity(current.from_type).label ?? 'OBJECT').toUpperCase()}
+                  </div>
+                  <ObjectSide edge={current} side="from" onClick={(obj) => openDrawer(obj.slug)} />
                 </div>
                 <div className="cw-object-side">
-                  <div className="cw-object-label">TO</div>
-                  <ObjectSide edge={current} side="to" />
+                  <div className="cw-object-label">
+                    {(getObjectTypeIdentity(current.to_type).label ?? 'OBJECT').toUpperCase()}
+                  </div>
+                  <ObjectSide edge={current} side="to" onClick={(obj) => openDrawer(obj.slug)} />
                 </div>
               </div>
             </motion.div>
@@ -466,7 +472,7 @@ export default function ConnectionWorkshop() {
 
 /* ── Object side renderer ── */
 
-function ObjectSide({ edge, side }: { edge: ReviewQueueEdge; side: 'from' | 'to' }) {
+function ObjectSide({ edge, side, onClick }: { edge: ReviewQueueEdge; side: 'from' | 'to'; onClick?: (obj: RenderableObject) => void }) {
   const id = side === 'from' ? edge.from_object : edge.to_object;
   const title = side === 'from' ? edge.from_title : edge.to_title;
   const slug = side === 'from' ? edge.from_slug : edge.to_slug;
@@ -493,7 +499,7 @@ function ObjectSide({ edge, side }: { edge: ReviewQueueEdge; side: 'from' | 'to'
     edge_count: extra[`${side}_edge_count`] as number | undefined,
   };
 
-  return <ObjectRenderer object={obj} variant="module" />;
+  return <ObjectRenderer object={obj} variant="module" onClick={onClick} />;
 }
 
 /* ── Helpers ── */
