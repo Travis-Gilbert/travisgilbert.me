@@ -91,9 +91,7 @@
   top: 0;
   z-index: 40;
   padding: 14px 0 6px;
-  background-color: var(--cp-bg, #F5E6D2);
-  background-image: radial-gradient(circle, rgba(42, 36, 32, 0.07) 1px, transparent 1px);
-  background-size: 24px 24px;
+  background: transparent;
 }
 
 /* ── Search results ── */

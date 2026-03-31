@@ -7,7 +7,6 @@ import ObjectDrawer from '@/components/commonplace/shared/ObjectDrawer';
 import ObjectContextMenu from '@/components/commonplace/shared/ObjectContextMenu';
 import ConnectionComposer from '@/components/commonplace/compose/ConnectionComposer';
 import EngineWidget from '@/components/commonplace/engine/EngineWidget';
-import TheseusBar from '@/components/commonplace/engine/TheseusBar';
 import ReaderOverlay from '@/components/commonplace/reader/ReaderOverlay';
 import { Toaster } from 'sonner';
 import shellStyles from '@/components/commonplace/shell/CommonPlaceShell.module.css';
@@ -88,7 +87,6 @@ export default function CommonPlaceLayout({
         <ObjectContextMenu />
         <ConnectionComposer />
         <EngineWidget />
-        <TheseusBar />
         <Toaster
           position="bottom-right"
           toastOptions={{

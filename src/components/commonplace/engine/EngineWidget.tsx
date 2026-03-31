@@ -13,6 +13,8 @@ import {
   fetchCandidates,
 } from '@/lib/commonplace-models';
 import TerminalCanvas from './TerminalCanvas';
+import EngineAskTab from './EngineAskTab';
+import EngineAnalyzeTab from './EngineAnalyzeTab';
 import { humanizeLogEntry, generateIdleThought } from './humanize';
 
 type WidgetTab = 'ask' | 'analyze' | 'log' | 'stress' | 'candidates';
@@ -38,10 +40,12 @@ export default function EngineWidget({ activeModelId }: EngineWidgetProps) {
   const [thoughtText, setThoughtText] = useState('');
   const [thoughtOpacity, setThoughtOpacity] = useState(1);
 
+  const [inputValue, setInputValue] = useState('');
   const [mounted, setMounted] = useState(false);
   const resizeRef = useRef<{ startY: number; startHeight: number } | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const logEndRef = useRef<HTMLDivElement>(null);
+  const askSendRef = useRef<((text: string) => void) | null>(null);
 
   useEffect(() => {
     setMounted(true);
@@ -327,10 +331,13 @@ export default function EngineWidget({ activeModelId }: EngineWidgetProps) {
               type="text"
               placeholder="ask the engine anything..."
               autoComplete="off"
+              value={inputValue}
+              onChange={(e) => setInputValue(e.target.value)}
               onKeyDown={(e) => {
-                if (e.key === 'Enter' && e.currentTarget.value.trim()) {
-                  // Batch 1 will handle message sending
-                  e.currentTarget.value = '';
+                if (e.key === 'Enter' && inputValue.trim()) {
+                  askSendRef.current?.(inputValue.trim());
+                  setInputValue('');
+                  if (activeTab !== 'ask') setActiveTab('ask');
                 }
               }}
               style={{
@@ -354,7 +361,11 @@ export default function EngineWidget({ activeModelId }: EngineWidgetProps) {
             `}</style>
             <button
               onClick={() => {
-                // Batch 1 will handle message sending
+                if (inputValue.trim()) {
+                  askSendRef.current?.(inputValue.trim());
+                  setInputValue('');
+                  if (activeTab !== 'ask') setActiveTab('ask');
+                }
               }}
               style={{
                 background: 'none',
@@ -475,10 +486,13 @@ export default function EngineWidget({ activeModelId }: EngineWidgetProps) {
             }}
           >
             {activeTab === 'ask' && (
-              <AskPlaceholder />
+              <EngineAskTab
+                logEntries={logEntries}
+                onSendReady={(fn) => { askSendRef.current = fn; }}
+              />
             )}
             {activeTab === 'analyze' && (
-              <AnalyzePlaceholder />
+              <EngineAnalyzeTab />
             )}
             {activeTab === 'log' && (
               <LogTab
@@ -516,40 +530,6 @@ export default function EngineWidget({ activeModelId }: EngineWidgetProps) {
   return createPortal(
     <div className="commonplace-theme">{content}</div>,
     document.body,
-  );
-}
-
-/* Placeholder tabs (Batch 1 and 2 will replace these) */
-
-function AskPlaceholder() {
-  return (
-    <div
-      style={{
-        fontFamily: 'var(--font-code)',
-        fontSize: 12,
-        color: '#7A756E',
-        padding: '14px 6px',
-        lineHeight: 1.65,
-      }}
-    >
-      Ask tab ready. Conversation UI coming in Batch 1.
-    </div>
-  );
-}
-
-function AnalyzePlaceholder() {
-  return (
-    <div
-      style={{
-        fontFamily: 'var(--font-code)',
-        fontSize: 12,
-        color: '#7A756E',
-        padding: '14px 6px',
-        lineHeight: 1.65,
-      }}
-    >
-      Analyze tab ready. Screen-context analysis coming in Batch 2.
-    </div>
   );
 }
 

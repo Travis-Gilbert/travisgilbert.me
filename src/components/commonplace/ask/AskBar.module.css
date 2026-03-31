@@ -1,71 +1,136 @@
 .cmdBar {
+  position: relative;
   display: flex;
   align-items: center;
-  gap: 0;
-  padding: 10px 12px;
-  margin-bottom: 16px;
-  border: 2px solid transparent;
-  border-radius: 8px;
+  gap: 10px;
+  width: min(980px, calc(100% - 112px));
+  margin: 16px auto 0;
+  min-height: 48px;
+  padding: 0 22px;
+  border: 1px solid rgba(244, 243, 240, 0.08);
+  border-radius: 20px;
+  background:
+    radial-gradient(
+      ellipse at center,
+      rgba(244, 243, 240, 0.045) 0%,
+      rgba(244, 243, 240, 0.016) 34%,
+      rgba(244, 243, 240, 0) 68%
+    ),
+    linear-gradient(
+      180deg,
+      rgba(255, 255, 255, 0.04) 0%,
+      rgba(255, 255, 255, 0.012) 24%,
+      rgba(0, 0, 0, 0.035) 100%
+    ),
+    rgba(34, 38, 44, 0.62);
+  backdrop-filter: blur(12px) saturate(115%);
+  -webkit-backdrop-filter: blur(12px) saturate(115%);
+  box-shadow:
+    0 8px 24px rgba(0, 0, 0, 0.16),
+    inset 0 0 12px rgba(58, 122, 136, 0.06),
+    inset 0 1px 0 rgba(255, 255, 255, 0.05),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.16);
   outline: none;
-  transition: border-color 200ms ease;
+  transition: border-color 200ms ease, box-shadow 200ms ease;
   cursor: text;
 }
 
+.cmdBar::before {
+  content: "";
+  position: absolute;
+  inset: 1px;
+  border-radius: 19px;
+  pointer-events: none;
+  background:
+    linear-gradient(
+      180deg,
+      rgba(255, 255, 255, 0.035) 0%,
+      rgba(255, 255, 255, 0.01) 35%,
+      rgba(255, 255, 255, 0) 100%
+    );
+  opacity: 0.9;
+}
+
 .cmdBar:focus-within {
-  border-color: var(--cp-accent);
+  border-color: rgba(58, 122, 136, 0.35);
+  box-shadow:
+    0 10px 28px rgba(0, 0, 0, 0.18),
+    0 0 0 1px rgba(58, 122, 136, 0.10),
+    inset 0 1px 0 rgba(255, 255, 255, 0.06),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.18);
 }
 
 .cmdBar.focused {
-  border-color: var(--cp-accent);
+  border-color: rgba(58, 122, 136, 0.35);
+  box-shadow:
+    0 10px 28px rgba(0, 0, 0, 0.18),
+    0 0 0 1px rgba(58, 122, 136, 0.10),
+    inset 0 1px 0 rgba(255, 255, 255, 0.06),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.18);
 }
 
 .cmdBar.active {
-  border-color: var(--cp-teal, #2D5F6B);
-  box-shadow: 0 2px 16px rgba(45, 95, 107, 0.08);
+  border-color: rgba(58, 122, 136, 0.45);
+  box-shadow:
+    0 10px 28px rgba(0, 0, 0, 0.18),
+    0 0 0 1px rgba(58, 122, 136, 0.15),
+    0 2px 20px rgba(45, 95, 107, 0.12),
+    inset 0 1px 0 rgba(255, 255, 255, 0.06),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.18);
 }
 
 .searchIcon {
+  position: relative;
+  z-index: 1;
   flex-shrink: 0;
   display: flex;
   align-items: center;
-  padding-right: 10px;
-  color: var(--cp-text-faint);
+  color: rgba(58, 122, 136, 0.95);
   transition: color 200ms ease;
 }
 
 .cmdBar.focused .searchIcon {
-  color: var(--cp-accent);
+  color: #5AABB8;
 }
 
 .cmdInput {
+  position: relative;
+  z-index: 1;
   flex: 1;
   background: none;
   border: none;
   outline: none;
-  font-family: var(--cp-font-body);
-  font-size: 15px;
-  color: var(--cp-text);
-  padding: 4px 0;
+  font-family: var(--font-body, 'IBM Plex Sans', sans-serif);
+  font-size: 14px;
+  color: rgba(244, 243, 240, 0.92);
+  padding: 3px 0;
+  caret-color: rgba(58, 122, 136, 0.95);
 }
 
 .cmdInput::placeholder {
-  color: var(--cp-text-faint);
-  font-style: italic;
+  color: rgba(151, 163, 177, 0.78);
+  font-family: var(--font-code, 'JetBrains Mono', monospace);
+  font-size: 12px;
+  font-style: normal;
 }
 
 .cmdKbd {
-  font-family: var(--cp-font-mono);
-  font-size: 10px;
-  color: var(--cp-text-faint);
+  position: relative;
+  z-index: 1;
+  font-family: var(--font-code, 'JetBrains Mono', monospace);
+  font-size: 9px;
+  color: #3A7A88;
   display: flex;
   align-items: center;
   gap: 2px;
-  padding-left: 12px;
   flex-shrink: 0;
   user-select: none;
-  opacity: 0.45;
+  background: rgba(58, 122, 136, 0.08);
+  border: 1px solid rgba(58, 122, 136, 0.18);
+  padding: 2px 6px;
+  border-radius: 3px;
 }
 
 .cmdSym {
-  font-size: 12px;
+  font-size: 11px;
 }
