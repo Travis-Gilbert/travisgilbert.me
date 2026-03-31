@@ -9,9 +9,11 @@ interface AskBarProps {
   disabled?: boolean;
   value?: string;
   onChange?: (value: string) => void;
+  /** When true, the bar border turns teal (search-active state) */
+  active?: boolean;
 }
 
-export default function AskBar({ onSubmit, disabled, value, onChange }: AskBarProps) {
+export default function AskBar({ onSubmit, disabled, value, onChange, active }: AskBarProps) {
   const [local, setLocal] = useState('');
   const [focused, setFocused] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -23,8 +25,9 @@ export default function AskBar({ onSubmit, disabled, value, onChange }: AskBarPr
     const q = text.trim();
     if (!q || disabled) return;
     onSubmit(q);
-    setText('');
-  }, [text, disabled, onSubmit, setText]);
+    // Only clear in uncontrolled mode; controlled parent manages its own state
+    if (value === undefined) setText('');
+  }, [text, disabled, onSubmit, setText, value]);
 
   /* Press `/` or `Cmd+K` / `Ctrl+K` anywhere to focus the command bar */
   useEffect(() => {
@@ -50,7 +53,7 @@ export default function AskBar({ onSubmit, disabled, value, onChange }: AskBarPr
 
   return (
     <div
-      className={`${styles.cmdBar} ${focused ? styles.focused : ''}`}
+      className={`${styles.cmdBar} ${focused ? styles.focused : ''} ${active ? styles.active : ''}`}
       onClick={() => inputRef.current?.focus()}
     >
       <span className={styles.searchIcon}>

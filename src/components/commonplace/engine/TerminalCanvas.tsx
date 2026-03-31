@@ -71,7 +71,7 @@ export default function TerminalCanvas({
       ctx!.setTransform(dpr, 0, 0, dpr, 0, 0);
 
       // Base fill
-      ctx!.fillStyle = '#1A1C22';
+      ctx!.fillStyle = '#171920';
       ctx!.fillRect(0, 0, cw, ch);
 
       // Teal gradient bloom from bottom left corner

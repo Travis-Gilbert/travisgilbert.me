@@ -8,7 +8,7 @@
 }
 
 .content {
-  max-width: 960px;
+  max-width: 1100px;
   margin: 0 auto;
   padding: 28px 40px 120px;
 }
@@ -82,4 +82,163 @@
   font-family: var(--cp-font-mono);
   font-size: 9px;
   color: var(--cp-gold);
+}
+
+/* ── AskBar sticky wrapper ── */
+
+.askBarSticky {
+  position: sticky;
+  top: 0;
+  z-index: 40;
+  padding: 14px 0 6px;
+  background-color: var(--cp-bg, #F5E6D2);
+  background-image: radial-gradient(circle, rgba(42, 36, 32, 0.07) 1px, transparent 1px);
+  background-size: 24px 24px;
+}
+
+/* ── Search results ── */
+
+.searchResults {
+  padding: 20px 0;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .searchResults {
+    animation: cp-fade-in 0.3s ease;
+  }
+}
+
+.searchGrid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+}
+
+@media (max-width: 700px) {
+  .searchGrid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.searchGridLabel {
+  font-family: var(--font-metadata, 'Courier Prime', monospace);
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--cp-text-faint);
+  margin-bottom: 8px;
+}
+
+/* ── Search result item ── */
+
+.searchResult {
+  padding: 11px 14px;
+  border-radius: 0 6px 6px 0;
+  border-left-width: 2px;
+  border-left-style: solid;
+  cursor: pointer;
+  margin-bottom: 5px;
+  transition: background 150ms;
+}
+
+.searchResult:hover {
+  filter: brightness(0.97);
+}
+
+.searchResultMeta {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 2px;
+}
+
+.searchResultIcon {
+  font-family: var(--font-metadata, 'Courier Prime', monospace);
+  font-size: 11px;
+}
+
+.searchResultType {
+  font-family: var(--font-metadata, 'Courier Prime', monospace);
+  font-size: 9px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.searchResultStrength {
+  font-family: var(--font-metadata, 'Courier Prime', monospace);
+  font-size: 9px;
+  color: var(--cp-text-faint);
+  margin-left: auto;
+}
+
+.searchResultTitle {
+  font-family: var(--cp-font-title);
+  font-size: 13.5px;
+  font-weight: 600;
+  color: var(--cp-text);
+  margin: 0 0 2px;
+}
+
+.searchResultSnippet {
+  font-family: var(--cp-font-body);
+  font-size: 11px;
+  color: var(--cp-text-muted);
+  margin: 0;
+  line-height: 1.4;
+}
+
+/* ── Hero answer card ── */
+
+.heroAnswer {
+  padding: 18px 22px;
+  background-color: rgba(45, 95, 107, 0.06);
+  border-radius: 8px;
+  border: 1px solid rgba(45, 95, 107, 0.12);
+  margin-bottom: 16px;
+}
+
+.heroAnswerLabel {
+  font-family: var(--font-metadata, 'Courier Prime', monospace);
+  font-size: 9px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--cp-teal);
+  margin-bottom: 8px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.heroAnswerDot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background-color: var(--cp-teal);
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .heroAnswerDot {
+    animation: cpPulse 2s ease infinite;
+  }
+}
+
+.heroAnswerTitle {
+  font-family: var(--cp-font-title);
+  font-size: 17px;
+  font-weight: 700;
+  color: var(--cp-text);
+  margin: 0 0 8px;
+  line-height: 1.35;
+}
+
+.heroAnswerText {
+  font-family: var(--cp-font-body);
+  font-size: 12px;
+  color: var(--cp-text-muted);
+  margin: 0 0 12px;
+  line-height: 1.5;
+}
+
+.heroAnswerBars {
+  max-width: 380px;
 }

@@ -1,0 +1,527 @@
+/* ── HomeView: hero + two-column layout ── */
+
+.homeView {
+  background: transparent;
+}
+
+.content {
+  max-width: 1100px;
+}
+
+/* ── Hero section ── */
+
+.hero {
+  padding: 24px 0 22px;
+  border-bottom: 1px solid rgba(42, 36, 32, 0.06);
+}
+
+.heroLabel {
+  font-family: var(--font-metadata, 'Courier Prime', monospace);
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--cp-teal);
+  margin-bottom: 12px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.heroPulseDot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background-color: var(--cp-teal);
+  box-shadow: 0 0 8px rgba(45, 95, 107, 0.27);
+  flex-shrink: 0;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .heroPulseDot {
+    animation: cpPulse 2s ease-in-out infinite;
+  }
+}
+
+.heroQuestion {
+  font-family: var(--cp-font-title);
+  font-size: 26px;
+  font-weight: 700;
+  color: var(--cp-text);
+  line-height: 1.35;
+  margin: 0 0 14px;
+  max-width: 680px;
+}
+
+.heroEvidence {
+  display: flex;
+  gap: 10px;
+  font-family: var(--font-metadata, 'Courier Prime', monospace);
+  font-size: 11px;
+  color: var(--cp-text-muted);
+  margin-bottom: 14px;
+}
+
+.heroEvidenceDot {
+  color: var(--cp-text-faint);
+}
+
+.heroBars {
+  max-width: 380px;
+}
+
+/* ── Two-column layout ── */
+
+.twoColumn {
+  display: grid;
+  grid-template-columns: 1fr 360px;
+  gap: 36px;
+  padding-top: 20px;
+}
+
+@media (max-width: 860px) {
+  .twoColumn {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* ── Section label ── */
+
+.sectionLabel {
+  font-family: var(--font-metadata, 'Courier Prime', monospace);
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--cp-text-faint);
+  margin-bottom: 4px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.sectionRule {
+  width: 20px;
+  height: 1px;
+  background-color: rgba(42, 36, 32, 0.12);
+  flex-shrink: 0;
+}
+
+/* ── Activity feed ── */
+
+.activityItem {
+  padding: 11px 0;
+  border-bottom: 1px solid rgba(42, 36, 32, 0.04);
+  cursor: pointer;
+  transition: background 150ms;
+}
+
+.activityRow {
+  display: flex;
+  gap: 9px;
+}
+
+.activityIcon {
+  font-family: var(--font-metadata, 'Courier Prime', monospace);
+  font-size: 12px;
+  margin-top: 1px;
+  flex-shrink: 0;
+}
+
+.activityBody {
+  flex: 1;
+  min-width: 0;
+}
+
+.activityMeta {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  margin-bottom: 2px;
+}
+
+.activityType {
+  font-family: var(--font-metadata, 'Courier Prime', monospace);
+  font-size: 9px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.activityNewDot {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .activityNewDot {
+    animation: cpPulse 2s ease-in-out infinite;
+  }
+}
+
+.activityTime {
+  font-family: var(--font-metadata, 'Courier Prime', monospace);
+  font-size: 9px;
+  color: var(--cp-text-faint);
+  margin-left: auto;
+}
+
+.activityText {
+  font-family: var(--cp-font-body);
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--cp-text);
+  margin: 0;
+}
+
+.activityStrength {
+  margin-top: 5px;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.strengthTrack {
+  width: 50px;
+  height: 2.5px;
+  background-color: rgba(42, 36, 32, 0.06);
+  border-radius: 2px;
+  overflow: hidden;
+}
+
+.strengthFill {
+  height: 100%;
+  border-radius: 2px;
+}
+
+.strengthValue {
+  font-family: var(--font-metadata, 'Courier Prime', monospace);
+  font-size: 9px;
+  color: var(--cp-text-faint);
+}
+
+/* ── Review CTA ── */
+
+.reviewCta {
+  margin-top: 16px;
+  padding: 12px 14px;
+  background-color: rgba(196, 154, 74, 0.08);
+  border-radius: 6px;
+  border: 1px solid rgba(196, 154, 74, 0.15);
+  cursor: pointer;
+  transition: background 150ms;
+}
+
+.reviewCta:hover {
+  background-color: rgba(196, 154, 74, 0.12);
+}
+
+.reviewCtaTitle {
+  font-family: var(--font-metadata, 'Courier Prime', monospace);
+  font-size: 9px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--cp-gold);
+  margin-bottom: 4px;
+}
+
+.reviewCtaText {
+  font-family: var(--cp-font-body);
+  font-size: 11px;
+  color: var(--cp-text-muted);
+  margin: 0;
+  line-height: 1.45;
+}
+
+/* ── Polymorphic thread cards ── */
+
+.threadCard {
+  margin-bottom: 10px;
+}
+
+/* Research thread */
+.researchCard {
+  padding: 16px 18px;
+  background-color: var(--cp-surface, #F0E4D4);
+  border-radius: 1px;
+  border-left: 3px solid var(--cp-terracotta, #C4503C);
+  box-shadow: 2px 2px 8px rgba(0, 0, 0, 0.06);
+  position: relative;
+}
+
+.researchFold {
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: 16px;
+  height: 16px;
+  background: linear-gradient(225deg, var(--cp-bg, #F5E6D2) 50%, rgba(212, 204, 196, 0.15) 50%);
+}
+
+.researchTitle {
+  font-family: var(--cp-font-title);
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--cp-text);
+  margin: 0 0 4px;
+  line-height: 1.3;
+}
+
+.researchAuthors {
+  font-family: var(--cp-font-body);
+  font-size: 11px;
+  color: var(--cp-text-muted);
+  margin: 0 0 3px;
+  font-style: italic;
+}
+
+.researchVenue {
+  font-family: var(--font-metadata, 'Courier Prime', monospace);
+  font-size: 9px;
+  color: var(--cp-text-faint);
+  margin: 0 0 8px;
+}
+
+.researchSubtitle {
+  font-family: var(--cp-font-body);
+  font-size: 11px;
+  color: var(--cp-text-muted);
+  margin: 0 0 8px;
+  line-height: 1.45;
+}
+
+.researchFooter {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.researchObjects {
+  font-family: var(--font-metadata, 'Courier Prime', monospace);
+  font-size: 9px;
+  color: var(--cp-text-faint);
+}
+
+/* Task thread */
+.taskCard {
+  padding: 14px 16px;
+  background-color: var(--cp-surface, #F0E4D4);
+  border-radius: 6px;
+}
+
+.taskHeader {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.taskCheckbox {
+  width: 16px;
+  height: 16px;
+  border-radius: 3px;
+  border-width: 2px;
+  border-style: solid;
+  flex-shrink: 0;
+}
+
+.taskTitle {
+  font-family: var(--cp-font-body);
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--cp-text);
+  margin: 0;
+  flex: 1;
+}
+
+.taskProject {
+  font-family: var(--font-metadata, 'Courier Prime', monospace);
+  font-size: 9px;
+  color: var(--cp-text-faint);
+  background-color: rgba(42, 36, 32, 0.04);
+  padding: 2px 6px;
+  border-radius: 3px;
+}
+
+.taskSubtask {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 3px 0 3px 24px;
+}
+
+.subtaskCheckbox {
+  width: 10px;
+  height: 10px;
+  border-radius: 2px;
+  border-width: 1.5px;
+  border-style: solid;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.subtaskCheck {
+  font-size: 7px;
+}
+
+.subtaskText {
+  font-family: var(--cp-font-body);
+  font-size: 11px;
+}
+
+.taskProgress {
+  margin-top: 10px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.progressTrack {
+  flex: 1;
+  height: 3px;
+  background-color: rgba(42, 36, 32, 0.06);
+  border-radius: 2px;
+  overflow: hidden;
+}
+
+.progressFill {
+  height: 100%;
+  border-radius: 2px;
+}
+
+.progressPct {
+  font-family: var(--font-metadata, 'Courier Prime', monospace);
+  font-size: 9px;
+  color: var(--cp-text-faint);
+}
+
+/* Concept thread */
+.conceptCard {
+  padding: 14px 16px;
+  background-color: var(--cp-surface, #F0E4D4);
+  border-radius: 20px;
+}
+
+.conceptHeader {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+
+.conceptBadge {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--font-metadata, 'Courier Prime', monospace);
+  font-size: 10px;
+  flex-shrink: 0;
+}
+
+.conceptTitle {
+  font-family: var(--cp-font-title);
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--cp-text);
+  margin: 0;
+}
+
+.conceptSnippet {
+  font-family: var(--cp-font-body);
+  font-size: 11px;
+  color: var(--cp-text-muted);
+  margin: 0 0 8px;
+  line-height: 1.45;
+}
+
+.conceptTags {
+  display: flex;
+  gap: 5px;
+  flex-wrap: wrap;
+}
+
+.conceptTag {
+  font-family: var(--font-metadata, 'Courier Prime', monospace);
+  font-size: 9px;
+  padding: 2px 8px;
+  border-radius: 10px;
+}
+
+/* Event thread */
+.eventCard {
+  padding: 14px 16px;
+  background-color: var(--cp-surface, #F0E4D4);
+  border-radius: 6px;
+  display: flex;
+  gap: 14px;
+}
+
+.eventCalendar {
+  width: 48px;
+  height: 52px;
+  border-radius: 4px;
+  overflow: hidden;
+  flex-shrink: 0;
+}
+
+.eventCalendarMonth {
+  padding: 3px 0;
+  text-align: center;
+  font-family: var(--font-metadata, 'Courier Prime', monospace);
+  font-size: 8px;
+  color: #fff;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+}
+
+.eventCalendarDay {
+  text-align: center;
+  padding: 6px 0;
+  font-family: var(--cp-font-title);
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--cp-text);
+  line-height: 1;
+}
+
+.eventTitle {
+  font-family: var(--cp-font-body);
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--cp-text);
+  margin: 0 0 4px;
+}
+
+.eventMeta {
+  font-family: var(--font-metadata, 'Courier Prime', monospace);
+  font-size: 10px;
+  color: var(--cp-text-muted);
+}
+
+.eventStatus {
+  margin-top: 6px;
+  font-family: var(--font-metadata, 'Courier Prime', monospace);
+  font-size: 9px;
+  padding: 2px 8px;
+  border-radius: 3px;
+  display: inline-block;
+}
+
+/* ── Heat bar (shared across thread types) ── */
+
+.heatBar {
+  margin-top: 10px;
+  height: 2px;
+  background-color: rgba(42, 36, 32, 0.05);
+  border-radius: 1px;
+  overflow: hidden;
+}
+
+.heatFill {
+  height: 100%;
+  border-radius: 1px;
+}

@@ -19,6 +19,11 @@
   border-color: var(--cp-accent);
 }
 
+.cmdBar.active {
+  border-color: var(--cp-teal, #2D5F6B);
+  box-shadow: 0 2px 16px rgba(45, 95, 107, 0.08);
+}
+
 .searchIcon {
   flex-shrink: 0;
   display: flex;
