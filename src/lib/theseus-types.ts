@@ -163,6 +163,8 @@ export interface GraphWeather {
   total_clusters: number;
   recent_activity: string;
   health_score: number;
+  iq_score?: number;
+  tensions_active?: number;
 }
 
 export interface AskOptions {

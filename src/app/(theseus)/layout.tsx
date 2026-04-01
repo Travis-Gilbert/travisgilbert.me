@@ -9,7 +9,8 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { fetchGraphWeather, type GraphWeather } from '@/lib/theseus-api';
+import { getGraphWeather } from '@/lib/theseus-api';
+import type { GraphWeather } from '@/lib/theseus-types';
 
 const T = {
   bg: '#0f1012',
@@ -45,9 +46,9 @@ function StatsStrip({ weather }: { weather: GraphWeather | null }) {
       <span>{weather.total_objects.toLocaleString()} objects</span>
       <span>{weather.total_edges.toLocaleString()} edges</span>
       <span style={{ color: T.tealLight }}>
-        IQ {Math.round(weather.iq_score)}
+        IQ {Math.round(weather.iq_score ?? 0)}
       </span>
-      {weather.tensions_active > 0 && (
+      {(weather.tensions_active ?? 0) > 0 && (
         <span style={{ color: T.terra }}>
           {weather.tensions_active} tension{weather.tensions_active !== 1 ? 's' : ''}
         </span>
@@ -64,8 +65,8 @@ export default function TheseusLayout({
   const [weather, setWeather] = useState<GraphWeather | null>(null);
 
   useEffect(() => {
-    fetchGraphWeather()
-      .then(setWeather)
+    getGraphWeather()
+      .then((res) => { if (res.ok) setWeather(res); })
       .catch(() => {});
   }, []);
 

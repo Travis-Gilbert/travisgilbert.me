@@ -11,7 +11,7 @@
 import { useRef, useState, useMemo, useCallback } from 'react';
 import { Canvas, useFrame, type ThreeEvent } from '@react-three/fiber';
 import { OrbitControls, Text, Line } from '@react-three/drei';
-import type { EvidencePath, EvidenceNode, EvidenceEdge } from '@/lib/theseus-api';
+import type { EvidencePathSection as EvidencePath, EvidenceNode, EvidenceEdge } from '@/lib/theseus-types';
 import * as THREE from 'three';
 
 /* ── Design tokens ── */
@@ -73,8 +73,8 @@ function EvidenceNodeMesh({
   onUnhover: () => void;
 }) {
   const meshRef = useRef<THREE.Mesh>(null);
-  const color = TYPE_COLORS[node.type] || '#9a958d';
-  const scale = ROLE_SCALE[node.role] || 0.4;
+  const color = TYPE_COLORS[node.object_type] || '#9a958d';
+  const scale = ROLE_SCALE[node.epistemic_role] || 0.4;
   const activeScale = isSelected ? scale * 1.3 : isHovered ? scale * 1.15 : scale;
 
   useFrame(() => {
@@ -134,7 +134,7 @@ function EvidenceNodeMesh({
         anchorY="bottom"
         font="/fonts/CourierPrime-Regular.ttf"
       >
-        {node.role.toUpperCase()}
+        {node.epistemic_role.toUpperCase()}
       </Text>
     </group>
   );
@@ -163,7 +163,7 @@ function EvidenceEdgeLine({
       points={[from, to]}
       color={color}
       lineWidth={1 + edge.strength * 2}
-      dashed={edge.acceptance_status !== 'accepted'}
+      dashed={edge.relation === 'contradicts' || edge.relation === 'neutral'}
       dashSize={0.3}
       gapSize={0.2}
       opacity={0.6}
@@ -181,15 +181,15 @@ function SceneContent({
 }: {
   evidence: EvidencePath;
   onSelectNode: (node: EvidenceNode) => void;
-  selectedNodeId: number | null;
+  selectedNodeId: string | null;
 }) {
-  const [hoveredId, setHoveredId] = useState<number | null>(null);
+  const [hoveredId, setHoveredId] = useState<string | null>(null);
   const positions = useMemo(
     () => layoutNodes(evidence.nodes.length),
     [evidence.nodes.length],
   );
   const posMap = useMemo(() => {
-    const m = new Map<number, [number, number, number]>();
+    const m = new Map<string, [number, number, number]>();
     evidence.nodes.forEach((n, i) => {
       m.set(n.object_id, positions[i]);
     });
@@ -246,7 +246,7 @@ export default function SceneRenderer({
 }: {
   evidence: EvidencePath;
   onSelectNode: (node: EvidenceNode) => void;
-  selectedNodeId: number | null;
+  selectedNodeId: string | null;
 }) {
   if (!evidence || evidence.nodes.length === 0) {
     return (
