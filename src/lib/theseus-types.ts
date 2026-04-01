@@ -29,7 +29,21 @@ export type ResponseSection =
   | WebEvidenceSection
   | VisualizationSection
   | ClusterContextSection
-  | HypothesisSection;
+  | HypothesisSection
+  | DataAcquisitionSection;
+
+export interface DataAcquisitionSection {
+  type: 'data_acquisition';
+  sources: DataSource[];
+  queries: string[];
+  fallback_description: string;
+}
+
+export interface DataSource {
+  url: string;
+  format: 'parquet' | 'csv' | 'json';
+  table_name: string;
+}
 
 export interface NarrativeSection {
   type: 'narrative';
