@@ -56,3 +56,46 @@
   padding: 8px 4px;
   margin-top: 8px;
 }
+
+/* ─── Problem-solving feedback strip ─── */
+.problemBar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 4px;
+  border-top: 1px solid var(--cp-border-faint, rgba(42,37,32,0.06));
+  margin-top: 4px;
+}
+
+.problemLabel {
+  font-family: var(--cp-font-mono);
+  font-size: 11px;
+  color: var(--cp-text-faint);
+  margin-right: 4px;
+}
+
+.problemBtn {
+  padding: 4px 10px;
+  border-radius: 6px;
+  border: 1px solid var(--cp-border-faint, rgba(42,37,32,0.1));
+  background: none;
+  cursor: pointer;
+  font-family: var(--cp-font-mono);
+  font-size: 11px;
+  transition: all 150ms;
+}
+
+.problemNot { color: var(--cp-text-faint); }
+.problemNot:hover { color: var(--cp-red, #C0504D); border-color: rgba(192, 80, 77, 0.2); }
+
+.problemSomewhat { color: var(--cp-text-muted); }
+.problemSomewhat:hover { color: #C49A4A; border-color: rgba(196, 154, 74, 0.2); }
+
+.problemSolved { color: #5A8A5A; }
+.problemSolved:hover { border-color: rgba(90, 138, 90, 0.3); background: rgba(90, 138, 90, 0.06); }
+
+.problemConfirm {
+  font-family: var(--cp-font-mono);
+  font-size: 11px;
+  color: var(--cp-text-faint);
+}

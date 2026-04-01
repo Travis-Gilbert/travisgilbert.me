@@ -294,6 +294,7 @@ export default function HomeView() {
                 <motion.div
                   key={item.id}
                   className={styles.activityItem}
+                  style={{ '--activity-accent': typeInfo.accent } as React.CSSProperties}
                   initial={reduced ? false : { opacity: 0, y: 5 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={reduced ? { duration: 0 } : {

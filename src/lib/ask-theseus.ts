@@ -63,6 +63,7 @@ export interface AskSynthesisResponse {
 }
 
 export type AskFeedbackSignal = 'positive' | 'negative' | 'save';
+export type ProblemSolvingSignal = 'not_helpful' | 'somewhat' | 'solved';
 
 export interface AskSuggestion {
   text: string;
@@ -122,6 +123,31 @@ export async function submitFeedback(
     body: JSON.stringify({
       question_id: questionId,
       signal,
+      retrieved_object_ids: objectIds,
+    }),
+  });
+}
+
+const PROBLEM_SOLVING_TO_API: Record<ProblemSolvingSignal, { signal: string; discovery_signal: string }> = {
+  solved:      { signal: 'positive', discovery_signal: 'solves_problem' },
+  somewhat:    { signal: 'positive', discovery_signal: 'relevant' },
+  not_helpful: { signal: 'negative', discovery_signal: 'obvious' },
+};
+
+/** Submit problem-solving outcome feedback on chain edges. */
+export async function submitProblemSolvingFeedback(
+  questionId: string,
+  signal: ProblemSolvingSignal,
+  objectIds: number[],
+): Promise<{ ok: boolean; count?: number }> {
+  const mapped = PROBLEM_SOLVING_TO_API[signal];
+  return apiFetch<{ ok: boolean; count?: number }>('/ask/feedback/', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      question_id: questionId,
+      signal: mapped.signal,
+      discovery_signal: mapped.discovery_signal,
       retrieved_object_ids: objectIds,
     }),
   });

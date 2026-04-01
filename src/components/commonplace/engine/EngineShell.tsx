@@ -37,9 +37,9 @@ export default function EngineShell({
           flex-direction: column;
           height: 100%;
           overflow-y: auto;
-          padding: 28px 32px;
+          padding: 48px 40px 28px;
           max-width: 820px;
-          margin: 0 auto;
+          margin: 0;
           width: 100%;
           font-family: var(--cp-font-body);
 

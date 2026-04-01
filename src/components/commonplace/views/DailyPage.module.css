@@ -87,8 +87,7 @@
 /* ── AskBar sticky wrapper ── */
 
 .askBarSticky {
-  position: sticky;
-  top: 0;
+  position: relative;
   z-index: 40;
   padding: 14px 0 6px;
   background: transparent;

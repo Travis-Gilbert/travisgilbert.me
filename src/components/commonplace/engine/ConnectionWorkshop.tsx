@@ -1,17 +1,17 @@
 'use client';
 
 /**
- * ConnectionWorkshop: one-at-a-time connection review with side-by-side
- * polymorphic object rendering.
+ * ConnectionWorkshop v2: graduated 6-level feedback for connection review.
  *
- * Replaces ConnectionReviewView. Workshop archetype: focused evaluation
- * with keyboard shortcuts and AnimatePresence crossfade.
+ * Verdict strip: Wrong | Obvious | Skip | Relevant | Surprising | Solves Problem
+ * Keyboard:       Left    Down    Space   Right       Up        Shift+Right
+ *
+ * The 'generates_hypothesis' signal is system-only and never appears in the UI.
  */
 
 import { useState, useCallback, useMemo } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { useHotkeys } from 'react-hotkeys-hook';
-import { CheckCircle, Xmark, NavArrowDown } from 'iconoir-react';
 import {
   fetchReviewQueue,
   submitConnectionFeedback,
@@ -30,7 +30,28 @@ import { CROSSFADE, useSpring } from './engine-motion';
 
 const PURPLE = '#8B6FA0';
 
-type Verdict = 'useful' | 'not_useful' | 'skip';
+type Verdict = 'wrong' | 'obvious' | 'skip' | 'relevant' | 'surprising' | 'solves_problem';
+
+const VERDICT_TO_API: Record<Exclude<Verdict, 'skip'>, { label: string; discovery_signal: string }> = {
+  wrong: { label: 'dismissed', discovery_signal: 'wrong' },
+  obvious: { label: 'dismissed', discovery_signal: 'obvious' },
+  relevant: { label: 'engaged', discovery_signal: 'relevant' },
+  surprising: { label: 'engaged', discovery_signal: 'surprising' },
+  solves_problem: { label: 'engaged', discovery_signal: 'solves_problem' },
+};
+
+const VERDICT_CONFIG: { key: Verdict; label: string; symbol: string; shortcut: string; color: string; cssClass: string }[] = [
+  { key: 'wrong', label: 'Wrong', symbol: '\u00D7', shortcut: '\u2190', color: '#D88A8A', cssClass: 'cw-verdict-btn--wrong' },
+  { key: 'obvious', label: 'Obvious', symbol: '~', shortcut: '\u2193', color: '#8A8279', cssClass: 'cw-verdict-btn--obvious' },
+  { key: 'skip', label: 'Skip', symbol: '\u2013', shortcut: 'space', color: '#AEA89F', cssClass: 'cw-verdict-btn--skip' },
+  { key: 'relevant', label: 'Relevant', symbol: '+', shortcut: '\u2192', color: '#2D5F6B', cssClass: 'cw-verdict-btn--relevant' },
+  { key: 'surprising', label: 'Surprising', symbol: '++', shortcut: '\u2191', color: '#C49A4A', cssClass: 'cw-verdict-btn--surprising' },
+  { key: 'solves_problem', label: 'Solves Problem', symbol: '+++', shortcut: '\u21E7\u2192', color: '#5A8A5A', cssClass: 'cw-verdict-btn--solves' },
+];
+
+const INITIAL_STATS: Record<Verdict, number> = {
+  wrong: 0, obvious: 0, skip: 0, relevant: 0, surprising: 0, solves_problem: 0,
+};
 
 export default function ConnectionWorkshop() {
   const { navigateToScreen } = useLayout();
@@ -42,7 +63,7 @@ export default function ConnectionWorkshop() {
   const { data: stats } = useApiData(fetchFeedbackStats, []);
 
   const [currentIndex, setCurrentIndex] = useState(0);
-  const [sessionStats, setSessionStats] = useState({ useful: 0, not_useful: 0, skip: 0 });
+  const [sessionStats, setSessionStats] = useState({ ...INITIAL_STATS });
   const [dismissed, setDismissed] = useState<Set<number>>(new Set());
 
   const edges = useMemo(
@@ -60,18 +81,16 @@ export default function ConnectionWorkshop() {
     async (verdict: Verdict) => {
       if (!current) return;
 
-      setSessionStats((prev) => ({
-        ...prev,
-        [verdict === 'useful' ? 'useful' : verdict === 'not_useful' ? 'not_useful' : 'skip']:
-          prev[verdict === 'useful' ? 'useful' : verdict === 'not_useful' ? 'not_useful' : 'skip'] + 1,
-      }));
+      setSessionStats((prev) => ({ ...prev, [verdict]: prev[verdict] + 1 }));
 
       if (verdict !== 'skip') {
+        const apiParams = VERDICT_TO_API[verdict];
         try {
           await submitConnectionFeedback({
             from_object: current.from_object,
             to_object: current.to_object,
-            label: verdict === 'useful' ? 'engaged' : 'dismissed',
+            label: apiParams.label as 'engaged' | 'dismissed',
+            discovery_signal: apiParams.discovery_signal,
             feature_vector: current.feature_vector,
             edge: current.edge_id,
           });
@@ -81,20 +100,24 @@ export default function ConnectionWorkshop() {
       }
 
       setDismissed((prev) => new Set(prev).add(current.edge_id));
-      // currentIndex stays, but edges array shrinks; effectively moves to next
     },
     [current],
   );
 
   // Keyboard shortcuts
-  useHotkeys('ArrowRight', () => judge('useful'), [judge]);
-  useHotkeys('ArrowLeft', () => judge('not_useful'), [judge]);
-  useHotkeys('ArrowDown', () => judge('skip'), [judge]);
+  useHotkeys('ArrowLeft', () => judge('wrong'), [judge]);
+  useHotkeys('ArrowDown', () => judge('obvious'), [judge]);
+  useHotkeys('Space', (e) => { e.preventDefault(); judge('skip'); }, [judge]);
+  useHotkeys('ArrowRight', () => judge('relevant'), [judge]);
+  useHotkeys('ArrowUp', () => judge('surprising'), [judge]);
+  useHotkeys('shift+ArrowRight', () => judge('solves_problem'), [judge]);
+
+  const reviewedTotal = Object.values(sessionStats).reduce((a, b) => a + b, 0);
 
   return (
     <EngineShell
       title="Connection Review"
-      subtitle="Rate engine-discovered connections one at a time"
+      subtitle="Rate engine-discovered connections with graduated feedback"
       feedbackStats={stats}
       onBack={() => navigateToScreen('engine')}
     >
@@ -102,20 +125,24 @@ export default function ConnectionWorkshop() {
         .cw-session-stats {
           display: flex;
           align-items: center;
-          gap: 12px;
+          gap: 10px;
           margin-bottom: 16px;
           font-family: var(--cp-font-mono);
-          font-size: 12px;
+          font-size: 11px;
           color: var(--cp-text-muted, #5C554D);
+          flex-wrap: wrap;
         }
         .cw-stat {
           display: flex;
           align-items: center;
-          gap: 4px;
+          gap: 3px;
         }
-        .cw-stat-useful { color: #5A8A5A; }
-        .cw-stat-not { color: #D88A8A; }
-        .cw-stat-skip { color: var(--cp-text-faint, #8A8279); }
+        .cw-stat-dot {
+          width: 6px;
+          height: 6px;
+          border-radius: 50%;
+          display: inline-block;
+        }
         .cw-nav-pills {
           display: flex;
           align-items: center;
@@ -237,43 +264,43 @@ export default function ConnectionWorkshop() {
         .cw-verdicts {
           display: flex;
           justify-content: center;
-          gap: 10px;
+          gap: 6px;
           padding: 16px 0 8px;
+          flex-wrap: wrap;
         }
         .cw-verdict-btn {
           display: inline-flex;
           align-items: center;
-          gap: 6px;
-          padding: 10px 20px;
+          gap: 4px;
+          padding: 8px 14px;
           border-radius: 8px;
           border: 1px solid var(--cp-border, rgba(42,37,32,0.12));
           background: transparent;
           cursor: pointer;
           font-family: var(--cp-font-body);
-          font-size: 13px;
+          font-size: 12px;
           font-weight: 500;
           transition: background 120ms ease, border-color 120ms ease, color 120ms ease;
         }
-        .cw-verdict-btn--useful {
+        .cw-verdict-btn--wrong { color: #D88A8A; }
+        .cw-verdict-btn--wrong:hover { background: rgba(216,138,138,0.1); border-color: rgba(216,138,138,0.3); }
+        .cw-verdict-btn--obvious { color: #8A8279; }
+        .cw-verdict-btn--obvious:hover { background: rgba(138,130,121,0.1); border-color: rgba(138,130,121,0.3); }
+        .cw-verdict-btn--skip { color: #AEA89F; }
+        .cw-verdict-btn--skip:hover { background: rgba(42,37,32,0.04); border-color: var(--cp-border); }
+        .cw-verdict-btn--relevant { color: #2D5F6B; }
+        .cw-verdict-btn--relevant:hover { background: rgba(45,95,107,0.1); border-color: rgba(45,95,107,0.3); }
+        .cw-verdict-btn--surprising { color: #C49A4A; }
+        .cw-verdict-btn--surprising:hover { background: rgba(196,154,74,0.1); border-color: rgba(196,154,74,0.3); }
+        .cw-verdict-btn--solves {
           color: #5A8A5A;
+          box-shadow: 0 0 0 0 rgba(90,138,90,0);
+          transition: background 120ms ease, border-color 120ms ease, color 120ms ease, box-shadow 200ms ease;
         }
-        .cw-verdict-btn--useful:hover {
+        .cw-verdict-btn--solves:hover {
           background: rgba(90,138,90,0.1);
           border-color: rgba(90,138,90,0.3);
-        }
-        .cw-verdict-btn--not {
-          color: #D88A8A;
-        }
-        .cw-verdict-btn--not:hover {
-          background: rgba(180,90,90,0.08);
-          border-color: rgba(180,90,90,0.25);
-        }
-        .cw-verdict-btn--skip {
-          color: var(--cp-text-faint, #8A8279);
-        }
-        .cw-verdict-btn--skip:hover {
-          background: rgba(42,37,32,0.04);
-          border-color: var(--cp-border);
+          box-shadow: 0 0 8px 0 rgba(90,138,90,0.15);
         }
         .cw-shortcut {
           font-family: var(--cp-font-mono);
@@ -332,8 +359,8 @@ export default function ConnectionWorkshop() {
         <div className="cw-empty">
           <div className="cw-empty-title">All caught up</div>
           <div style={{ fontSize: 13 }}>
-            {sessionStats.useful + sessionStats.not_useful + sessionStats.skip > 0
-              ? `Reviewed ${sessionStats.useful + sessionStats.not_useful + sessionStats.skip} connections this session.`
+            {reviewedTotal > 0
+              ? `Reviewed ${reviewedTotal} connections this session.`
               : 'No connections to review right now.'}
           </div>
           <button
@@ -358,15 +385,17 @@ export default function ConnectionWorkshop() {
         <>
           {/* Session stats */}
           <div className="cw-session-stats">
-            <span className="cw-stat cw-stat-useful">
-              <CheckCircle width={12} height={12} /> {sessionStats.useful}
-            </span>
-            <span className="cw-stat cw-stat-not">
-              <Xmark width={12} height={12} /> {sessionStats.not_useful}
-            </span>
-            <span className="cw-stat cw-stat-skip">
-              <NavArrowDown width={12} height={12} /> {sessionStats.skip}
-            </span>
+            {VERDICT_CONFIG.map((v) => (
+              sessionStats[v.key] > 0 ? (
+                <span key={v.key} className="cw-stat">
+                  <span className="cw-stat-dot" style={{ background: v.color }} />
+                  {sessionStats[v.key]} {v.label.toLowerCase()}
+                </span>
+              ) : null
+            ))}
+            {reviewedTotal === 0 && (
+              <span style={{ color: 'var(--cp-text-faint, #8A8279)' }}>No reviews yet</span>
+            )}
           </div>
 
           {/* Nav pills */}
@@ -433,36 +462,18 @@ export default function ConnectionWorkshop() {
 
           {/* Verdict buttons */}
           <div className="cw-verdicts">
-            <motion.button
-              className="cw-verdict-btn cw-verdict-btn--not"
-              onClick={() => judge('not_useful')}
-              whileTap={{ scale: 0.97 }}
-              transition={snappySpring}
-            >
-              <Xmark width={16} height={16} />
-              Not Useful
-              <span className="cw-shortcut">&larr;</span>
-            </motion.button>
-            <motion.button
-              className="cw-verdict-btn cw-verdict-btn--skip"
-              onClick={() => judge('skip')}
-              whileTap={{ scale: 0.97 }}
-              transition={snappySpring}
-            >
-              <NavArrowDown width={16} height={16} />
-              Skip
-              <span className="cw-shortcut">&darr;</span>
-            </motion.button>
-            <motion.button
-              className="cw-verdict-btn cw-verdict-btn--useful"
-              onClick={() => judge('useful')}
-              whileTap={{ scale: 0.97 }}
-              transition={snappySpring}
-            >
-              <CheckCircle width={16} height={16} />
-              Useful
-              <span className="cw-shortcut">&rarr;</span>
-            </motion.button>
+            {VERDICT_CONFIG.map((v) => (
+              <motion.button
+                key={v.key}
+                className={`cw-verdict-btn ${v.cssClass}`}
+                onClick={() => judge(v.key)}
+                whileTap={{ scale: 0.97 }}
+                transition={snappySpring}
+              >
+                {v.label}
+                <span className="cw-shortcut">{v.shortcut}</span>
+              </motion.button>
+            ))}
           </div>
         </>
       )}
@@ -470,7 +481,7 @@ export default function ConnectionWorkshop() {
   );
 }
 
-/* ── Object side renderer ── */
+/* -- Object side renderer -- */
 
 function ObjectSide({ edge, side, onClick }: { edge: ReviewQueueEdge; side: 'from' | 'to'; onClick?: (obj: RenderableObject) => void }) {
   const id = side === 'from' ? edge.from_object : edge.to_object;
@@ -502,10 +513,9 @@ function ObjectSide({ edge, side, onClick }: { edge: ReviewQueueEdge; side: 'fro
   return <ObjectRenderer object={obj} variant="module" onClick={onClick} />;
 }
 
-/* ── Helpers ── */
+/* -- Helpers -- */
 
 function parsePassesFromEngine(engine: string): string[] {
-  // Engine label like "bm25+sbert+nli scored" -> ['bm25', 'sbert', 'nli', 'scored']
   return engine
     .toLowerCase()
     .split(/[+\s,]+/)

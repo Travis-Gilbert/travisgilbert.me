@@ -1216,6 +1216,7 @@ export async function submitConnectionFeedback(data: {
   from_object: number;
   to_object: number;
   label: 'engaged' | 'dismissed';
+  discovery_signal?: string;
   feature_vector: Record<string, unknown>;
   edge?: number;
 }): Promise<unknown> {

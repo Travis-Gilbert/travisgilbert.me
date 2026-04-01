@@ -80,6 +80,73 @@
   to { stroke-dashoffset: 0; }
 }
 
+/* ─── Problem-solving feedback strip ─── */
+.problemBar {
+  padding: 0 20px 14px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  border-top: 1px solid var(--cp-border-faint, rgba(42,37,32,0.06));
+  padding-top: 10px;
+  margin-top: 2px;
+}
+
+.problemLabel {
+  font-family: var(--cp-font-mono);
+  font-size: 11px;
+  color: var(--cp-text-faint);
+  margin-right: 4px;
+}
+
+.problemBtn {
+  padding: 5px 12px;
+  border-radius: 6px;
+  border: 1px solid var(--cp-border-faint, rgba(42,37,32,0.1));
+  background: none;
+  cursor: pointer;
+  font-family: var(--cp-font-mono);
+  font-size: 11px;
+  transition: all 150ms;
+}
+
+.problemBtn:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+.problemNot {
+  color: var(--cp-text-faint);
+}
+.problemNot:hover:not(:disabled) {
+  color: var(--cp-ask-negative);
+  border-color: rgba(192, 80, 77, 0.2);
+  background: var(--cp-ask-negative-bg);
+}
+
+.problemSomewhat {
+  color: var(--cp-text-muted);
+}
+.problemSomewhat:hover:not(:disabled) {
+  color: #C49A4A;
+  border-color: rgba(196, 154, 74, 0.2);
+  background: rgba(196, 154, 74, 0.06);
+}
+
+.problemSolved {
+  color: #5A8A5A;
+}
+.problemSolved:hover:not(:disabled) {
+  border-color: rgba(90, 138, 90, 0.3);
+  background: rgba(90, 138, 90, 0.08);
+  box-shadow: 0 0 6px 0 rgba(90, 138, 90, 0.12);
+}
+
+.problemConfirm {
+  font-family: var(--cp-font-mono);
+  font-size: 11px;
+  color: var(--cp-text-faint);
+}
+
 @media (prefers-reduced-motion: reduce) {
   .chkPath {
     animation: none;
