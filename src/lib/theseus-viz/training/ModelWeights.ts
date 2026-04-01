@@ -1,21 +1,21 @@
-/* SPEC-VIE-3: IndexedDB weight persistence for viz model
+/* SPEC-VIE-3 v3: IndexedDB weight persistence for viz model
  *
- * Total: 9,517 parameters = ~38KB as Float32
+ * Total: ~12,415 parameters = ~50KB as Float32
  * Stored under key 'theseus-viz-model-v1'
  */
 
-import type { ModelWeightsBundle } from '../SceneSpec';
+import type { ModelWeightsBundle } from '../SceneDirective';
 
 const DB_NAME = 'theseus-viz';
 const STORE_NAME = 'model';
 const WEIGHTS_KEY = 'theseus-viz-model-v1';
 
 const ARRAY_FIELDS = [
-  'encoder_w1', 'encoder_b1', 'encoder_w2', 'encoder_b2',
-  'edge_w', 'head_w3', 'head_b3',
-  'head_w_rt', 'head_b_rt', 'head_w_lt', 'head_b_lt',
-  'head_w_dv', 'head_b_dv', 'head_w_cam', 'head_b_cam',
-  'node_w', 'node_b',
+  'encoder_w1', 'encoder_b1', 'encoder_w2', 'encoder_b2', 'edge_w',
+  'shared_w', 'shared_b',
+  'sal_w', 'sal_b', 'hyp_w', 'hyp_b', 'shelf_w', 'shelf_b',
+  'seq_w', 'seq_b', 'force_w', 'force_b', 'nf_w', 'nf_b',
+  'cam_w', 'cam_b', 'topo_w', 'topo_b', 'rt_w', 'rt_b', 'dv_w', 'dv_b',
 ] as const;
 
 type ArrayFieldKey = typeof ARRAY_FIELDS[number];
@@ -29,7 +29,7 @@ function getDB(): Promise<IDBDatabase> {
       reject(new Error('IndexedDB not available'));
       return;
     }
-    const req = indexedDB.open(DB_NAME, 1);
+    const req = indexedDB.open(DB_NAME, 2);
     req.onupgradeneeded = () => {
       const db = req.result;
       if (!db.objectStoreNames.contains(STORE_NAME)) {

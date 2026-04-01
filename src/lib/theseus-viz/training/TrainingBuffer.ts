@@ -1,11 +1,25 @@
-/* SPEC-VIE-3: Batches feedback for model updates */
+/* SPEC-VIE-3 v3: Batches feedback for model updates */
 
-import type { VizFeedback, TrainingSample, TrainingBatch } from '../SceneSpec';
-import { RENDER_TARGETS, LAYOUT_TYPES } from '../SceneSpec';
+import type { VizFeedback } from '../SceneDirective';
+import { RENDER_TARGETS, TOPOLOGY_SHAPES } from '../SceneDirective';
 
 const DB_NAME = 'theseus-viz';
 const STORE_NAME = 'feedback';
 const BATCH_SIZE = 50;
+
+export interface TrainingSample {
+  graph_features: number[];   // [16]
+  data_features: number[];    // [10]
+  node_count: number;
+  render_target_label: number;
+  topology_label: number;
+  engagement_score: number;
+}
+
+export interface TrainingBatch {
+  samples: TrainingSample[];
+  collected_at: string;
+}
 
 class TrainingBuffer {
   private dbPromise: Promise<IDBDatabase> | null = null;
@@ -17,7 +31,7 @@ class TrainingBuffer {
         reject(new Error('IndexedDB not available'));
         return;
       }
-      const req = indexedDB.open(DB_NAME, 1);
+      const req = indexedDB.open(DB_NAME, 2);
       req.onupgradeneeded = () => {
         const db = req.result;
         if (!db.objectStoreNames.contains(STORE_NAME)) {
@@ -40,7 +54,6 @@ class TrainingBuffer {
         tx.onerror = () => reject(tx.error);
       });
 
-      // Check if we've hit batch size
       const count = await this.count();
       if (count >= BATCH_SIZE) {
         await this.submitBatch();
@@ -79,11 +92,11 @@ class TrainingBuffer {
       if (feedbacks.length === 0) return;
 
       const samples: TrainingSample[] = feedbacks.map(f => ({
-        graph_features: new Array(16).fill(0), // would need to store with feedback
+        graph_features: new Array(16).fill(0),
         data_features: new Array(10).fill(0),
         node_count: f.node_count,
-        render_target_label: RENDER_TARGETS.indexOf(f.render_target as typeof RENDER_TARGETS[number]),
-        layout_type_label: LAYOUT_TYPES.indexOf(f.topology_type),
+        render_target_label: RENDER_TARGETS.indexOf(f.render_target_used as typeof RENDER_TARGETS[number]),
+        topology_label: TOPOLOGY_SHAPES.indexOf(f.topology_primary),
         engagement_score: computeEngagement(f),
       }));
 
@@ -93,8 +106,7 @@ class TrainingBuffer {
       };
 
       // TODO: POST to API endpoint when available
-      // await fetch('/api/v1/notebook/viz-feedback/', { method: 'POST', body: JSON.stringify(batch) });
-      void batch; // stub: batch ready for submission
+      void batch;
 
       // Clear submitted records
       const clearTx = db.transaction(STORE_NAME, 'readwrite');
@@ -110,7 +122,7 @@ class TrainingBuffer {
 }
 
 function computeEngagement(f: VizFeedback): number {
-  let score = 0.3; // base: user saw the visualization
+  let score = 0.3;
   if (f.nodes_clicked_within_3s.length > 0) score += 0.2;
   score += Math.min(0.2, f.what_if_removals * 0.1);
   if (f.follow_ups_asked > 0) score += 0.1;

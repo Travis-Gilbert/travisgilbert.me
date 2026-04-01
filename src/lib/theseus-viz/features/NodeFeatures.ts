@@ -1,7 +1,7 @@
 /* SPEC-VIE-3: Per-node feature extraction (20 dimensions) */
 
 import type { EvidenceNode, EvidenceEdge, EvidencePathSection } from '@/lib/theseus-types';
-import { OBJECT_TYPES, EPISTEMIC_ROLES } from '../SceneSpec';
+import { OBJECT_TYPES, EPISTEMIC_ROLES } from '../SceneDirective';
 
 /**
  * Dimensions 0-4:   object_type one-hot (source, concept, person, hunch, note)

@@ -1,22 +1,23 @@
-/* SPEC-VIE-3: Model orchestration with TF.js fallback to rules */
+/* SPEC-VIE-3 v3: Model orchestration with TF.js fallback to rules */
 
-import type {
-  TheseusResponse, EvidenceNode, EvidenceEdge,
-  TensionSection, ClusterContextSection, EvidencePathSection,
-} from '@/lib/theseus-types';
-import type { SceneSpec, SceneNode, SceneEdge, DataShape, ModelWeightsBundle } from '../SceneSpec';
-import { NODE_TYPE_COLORS, RELATION_COLORS } from '../SceneSpec';
+import type { TheseusResponse, EvidenceNode, EvidenceEdge, EvidencePathSection } from '@/lib/theseus-types';
+import type { SceneDirective, ModelWeightsBundle, RenderTargetDirective } from '../SceneDirective';
+import { RENDER_TARGETS, TOPOLOGY_SHAPES, DATA_VIZ_TYPES } from '../SceneDirective';
+import type { DataShape } from '../SceneSpec';
 import { extractNodeFeatures, NODE_FEATURE_DIM } from '../features/NodeFeatures';
 import { extractEdgeFeatures, EDGE_FEATURE_DIM } from '../features/EdgeFeatures';
 import { extractGraphFeatures } from '../features/GraphFeatures';
 import { extractDataFeatures } from '../features/DataFeatures';
 import { parseResponseSections } from '../features/parseResponse';
 import { loadWeights, saveWeights } from '../training/ModelWeights';
-import { ruleBasedConstruct, buildConstructionSequence, buildInteractionRules } from '../rules/RuleEngine';
-import { computeForceLayout } from '../layouts/ForceLayout';
-import { computeHierarchyLayout } from '../layouts/HierarchyLayout';
-import { computeTensionLayout } from '../layouts/TensionLayout';
-import { computeScatterLayout } from '../layouts/ScatterLayout';
+import { ruleBasedDirect } from '../rules/RuleEngine';
+import { scoreSalience } from '../intelligence/SalienceScorer';
+import { styleHypotheses } from '../intelligence/HypothesisStyler';
+import { selectContextShelf } from '../intelligence/ContextShelfSelector';
+import { composeSequence } from '../intelligence/SequenceComposer';
+import { configureForces } from '../intelligence/ForceConfigurator';
+import { composeCamera } from '../intelligence/CameraComposer';
+import { interpretTopology } from '../intelligence/TopologyInterpreter';
 
 type TFModule = typeof import('@tensorflow/tfjs');
 
@@ -25,10 +26,7 @@ class ModelManager {
   private tf: TFModule | null = null;
 
   async initialize(): Promise<void> {
-    // Load weights from IndexedDB
     this.weights = await loadWeights();
-
-    // Try loading TF.js
     try {
       this.tf = await import('@tensorflow/tfjs');
     } catch {
@@ -40,13 +38,13 @@ class ModelManager {
     return this.weights !== null && this.tf !== null;
   }
 
-  async construct(
+  async direct(
     response: TheseusResponse,
     processedData?: unknown[],
     dataShape?: DataShape | null,
-  ): Promise<SceneSpec> {
+  ): Promise<SceneDirective> {
     if (!this.isModelLoaded()) {
-      return ruleBasedConstruct(response, processedData, dataShape);
+      return ruleBasedDirect(response, processedData, dataShape);
     }
 
     const startTime = performance.now();
@@ -54,12 +52,12 @@ class ModelManager {
     const weights = this.weights!;
 
     try {
-      const { tensions, hypotheses, clusters, allNodes, allEdges } =
+      const { tensions, hypotheses, allNodes, allEdges } =
         parseResponseSections(response);
 
       const n = allNodes.length;
       if (n === 0) {
-        return ruleBasedConstruct(response, processedData, dataShape);
+        return ruleBasedDirect(response, processedData, dataShape);
       }
 
       // Build feature matrices
@@ -95,61 +93,55 @@ class ModelManager {
       const { encode } = await import('./GraphEncoder');
       const nodeEmbeddings = await encode(tf, nodeFeatures, adjacencyMatrix, edgeFeatureMatrix, weights);
 
-      // Run graph head
+      // Run intelligence heads
       const graphFeatures = extractGraphFeatures(allNodes, allEdges, tensions.length, hypotheses.length);
       const dataFeat = extractDataFeatures(dataShape ?? null);
-      const { classifyGraph } = await import('./GraphHead');
-      const graphDecision = await classifyGraph(tf, nodeEmbeddings, graphFeatures, dataFeat, weights);
+      const { runHeads } = await import('./IntelligenceHead');
+      const heads = await runHeads(tf, nodeEmbeddings, graphFeatures, dataFeat, weights);
 
-      // Run node head
-      const { predictNodeLayouts } = await import('./NodeHead');
-      const nodeLayouts = await predictNodeLayouts(tf, nodeEmbeddings, weights);
+      // Feed learned outputs into intelligence modules
 
-      // Refine positions with layout algorithm
-      const initialPositions = nodeLayouts.map(nl => nl.initial_position);
-      const positions = refinePositions(
-        graphDecision.layout_type, allNodes, allEdges, tensions, clusters, initialPositions,
+      // Job 7: Topology
+      const topology = interpretTopology(
+        allNodes, allEdges, tensions.length, hypotheses.length,
+        { logits: heads.topologyLogits },
       );
 
-      // Build scene
-      const sceneNodes: SceneNode[] = allNodes.map((nd, i) => ({
-        id: nd.object_id,
-        label: nd.title,
-        object_type: nd.object_type,
-        epistemic_role: nd.epistemic_role,
-        position: positions[i] || [0, 0, 0],
-        scale: nodeLayouts[i]?.scale ?? 1.0,
-        color: NODE_TYPE_COLORS[nd.object_type] || NODE_TYPE_COLORS.note,
-        opacity: nodeLayouts[i]?.opacity ?? 1.0,
-        claims: nd.claims,
-        gradual_strength: nd.gradual_strength,
-        metadata: {},
-        interactive: true,
-        is_hypothesis: nd.epistemic_role === 'hypothetical',
-        is_context_shelf: false,
-      }));
+      // Job 1: Salience
+      const salience = scoreSalience(allNodes, allEdges, {
+        perNode: heads.saliencePerNode,
+      });
 
-      const sceneEdges: SceneEdge[] = allEdges.map(e => ({
-        from: e.from_id,
-        to: e.to_id,
-        strength: e.strength,
-        signal_type: e.signal_type,
-        relation: e.relation,
-        dashed: e.signal_type === 'analogy' || e.strength < 0.2,
-        color: RELATION_COLORS[e.relation] || RELATION_COLORS.neutral,
-        width: 1 + e.strength * 2,
-      }));
+      // Job 2: Hypothesis styling
+      const hypothesisStyle = styleHypotheses(allNodes, allEdges, {
+        params: heads.hypothesisParams,
+      });
 
-      // Camera from model
-      const camera = {
-        position: graphDecision.camera_position,
-        lookAt: graphDecision.camera_lookAt,
-        fov: 50,
-        transition_duration_ms: 1200,
-      };
+      // Job 3: Context shelf
+      const is3D = !dataShape;
+      const contextShelf = selectContextShelf(allNodes, dataShape ?? null, is3D, {
+        perNode: heads.shelfPerNode,
+      });
 
-      const constructionSequence = buildConstructionSequence(sceneNodes, sceneEdges);
-      const interactions = buildInteractionRules(sceneNodes);
+      // Job 4: Construction sequence
+      const isConstructing = !!processedData && processedData.length > 0;
+      const construction = composeSequence(allNodes, allEdges, salience, isConstructing, {
+        params: heads.sequenceParams,
+      });
+
+      // Job 5: Force configuration
+      const forceConfig = configureForces(allNodes, allEdges, topology.primary_shape, {
+        globalParams: heads.forceParams,
+        perNode: heads.nodeForcePerNode,
+      });
+
+      // Job 6: Camera
+      const camera = composeCamera(allNodes, salience, {
+        params: heads.cameraParams,
+      });
+
+      // Render target from classification heads
+      const renderTarget = classifyRenderTarget(heads.renderTargetLogits, heads.dataVizLogits, allNodes.length);
 
       // Cleanup tensors
       nodeFeatures.dispose();
@@ -158,21 +150,19 @@ class ModelManager {
       nodeEmbeddings.dispose();
 
       return {
-        render_target: graphDecision.render_target,
-        nodes: sceneNodes,
-        edges: sceneEdges,
+        salience,
+        hypothesis_style: hypothesisStyle,
+        context_shelf: contextShelf,
+        construction,
+        force_config: forceConfig,
         camera,
-        construction_sequence: constructionSequence,
-        interactions,
-        confidence: graphDecision.render_target_confidence,
-        topology_type: graphDecision.layout_type,
-        layout_used: graphDecision.layout_type,
+        topology,
+        render_target: renderTarget,
         inference_method: 'learned',
         inference_time_ms: performance.now() - startTime,
       };
     } catch {
-      // Fall back to rules on any failure
-      return ruleBasedConstruct(response, processedData, dataShape);
+      return ruleBasedDirect(response, processedData, dataShape);
     }
   }
 
@@ -182,33 +172,39 @@ class ModelManager {
   }
 }
 
-function refinePositions(
-  layoutType: string,
-  nodes: EvidenceNode[],
-  edges: EvidenceEdge[],
-  tensions: TensionSection[],
-  clusters: ClusterContextSection[],
-  initialPositions: [number, number, number][],
-): [number, number, number][] {
-  switch (layoutType) {
-    case 'force':
-    case 'star':
-    case 'dense_cluster':
-    case 'mixed':
-      return computeForceLayout(nodes, edges, initialPositions);
-    case 'hierarchy':
-    case 'linear_chain':
-    case 'tree':
-      return computeHierarchyLayout(nodes, edges);
-    case 'bipartite_tension':
-    case 'tension':
-      return computeTensionLayout(nodes, edges, tensions);
-    case 'scatter':
-    case 'multi_cluster':
-      return computeScatterLayout(nodes, edges, clusters);
-    default:
-      return computeForceLayout(nodes, edges, initialPositions);
+function classifyRenderTarget(
+  rtLogits: Float32Array,
+  dvLogits: Float32Array,
+  nodeCount: number,
+): RenderTargetDirective {
+  const rtIdx = argmax(rtLogits);
+  const dvIdx = argmax(dvLogits);
+
+  const primary = RENDER_TARGETS[rtIdx] as RenderTargetDirective['primary'];
+  const dataVizType = DATA_VIZ_TYPES[dvIdx] as RenderTargetDirective['data_viz_type'];
+
+  // Determine fallback
+  const fallback: RenderTargetDirective['fallback'] =
+    primary === 'sigma-2d' ? 'force-graph-3d' : 'sigma-2d';
+
+  return {
+    primary,
+    fallback,
+    reason: `learned model selected ${primary} (${nodeCount} nodes)`,
+    data_viz_type: dataVizType,
+  };
+}
+
+function argmax(arr: Float32Array): number {
+  let maxIdx = 0;
+  let maxVal = arr[0];
+  for (let i = 1; i < arr.length; i++) {
+    if (arr[i] > maxVal) {
+      maxVal = arr[i];
+      maxIdx = i;
+    }
   }
+  return maxIdx;
 }
 
 export const modelManager = new ModelManager();

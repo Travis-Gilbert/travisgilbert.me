@@ -1,7 +1,7 @@
 /* SPEC-VIE-3: Per-edge feature extraction (14 dimensions) */
 
 import type { EvidenceEdge } from '@/lib/theseus-types';
-import { SIGNAL_TYPES, RELATION_TYPES } from '../SceneSpec';
+import { SIGNAL_TYPES, RELATION_TYPES } from '../SceneDirective';
 
 /**
  * Dimensions 0-6:  signal_type one-hot (bm25, sbert, entity, nli, kge, gnn, analogy)

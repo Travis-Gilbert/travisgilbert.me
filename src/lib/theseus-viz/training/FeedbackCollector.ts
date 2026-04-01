@@ -1,11 +1,11 @@
-/* SPEC-VIE-3: Captures interaction signals for model training */
+/* SPEC-VIE-3 v3: Captures interaction signals for model training */
 
-import type { SceneSpec, VizFeedback } from '../SceneSpec';
+import type { SceneDirective, VizFeedback } from '../SceneDirective';
 import { djb2 } from '@/lib/studio-prng';
 
 class FeedbackCollector {
   private recording = false;
-  private currentSpec: SceneSpec | null = null;
+  private currentDirective: SceneDirective | null = null;
   private startTime = 0;
   private firstInteractionTime = 0;
   private nodesClicked: string[] = [];
@@ -21,10 +21,10 @@ class FeedbackCollector {
   private usefulConnections: string[] = [];
   private constructionWatchedFully = false;
 
-  startRecording(spec: SceneSpec): void {
+  startRecording(directive: SceneDirective): void {
     this.stopRecording();
     this.recording = true;
-    this.currentSpec = spec;
+    this.currentDirective = directive;
     this.startTime = performance.now();
     this.firstInteractionTime = 0;
     this.nodesClicked = [];
@@ -104,24 +104,22 @@ class FeedbackCollector {
   }
 
   stopRecording(): VizFeedback | null {
-    if (!this.recording || !this.currentSpec) return null;
+    if (!this.recording || !this.currentDirective) return null;
 
-    const spec = this.currentSpec;
+    const d = this.currentDirective;
     const totalMs = performance.now() - this.startTime;
     const clickedSet = new Set(this.nodesClicked);
-    const visibleNotClicked = spec.nodes
-      .map(n => n.id)
-      .filter(id => !clickedSet.has(id));
+    const allNodeIds = d.salience.map(s => s.node_id);
+    const visibleNotClicked = allNodeIds.filter(id => !clickedSet.has(id));
 
     const feedback: VizFeedback = {
-      query_hash: djb2(spec.topology_type + spec.nodes.length.toString()).toString(36),
-      topology_type: spec.topology_type,
-      render_target: spec.render_target,
-      layout_used: spec.layout_used,
-      inference_method: spec.inference_method,
-      node_count: spec.nodes.length,
-      edge_count: spec.edges.length,
-      has_data_layer: !!spec.data_layer,
+      query_hash: djb2(d.topology.primary_shape + d.salience.length.toString()).toString(36),
+      topology_primary: d.topology.primary_shape,
+      render_target_used: d.render_target.primary,
+      inference_method: d.inference_method,
+      node_count: d.salience.length,
+      edge_count: d.hypothesis_style.edge_styles.length,
+      has_data_layer: d.context_shelf.enabled,
 
       nodes_clicked: this.nodesClicked,
       nodes_clicked_within_3s: this.nodesClickedWithin3s,
@@ -145,7 +143,7 @@ class FeedbackCollector {
     };
 
     this.recording = false;
-    this.currentSpec = null;
+    this.currentDirective = null;
     return feedback;
   }
 }

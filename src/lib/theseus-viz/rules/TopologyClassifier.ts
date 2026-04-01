@@ -1,8 +1,8 @@
-/* SPEC-VIE-3: Topology classifier (delegates to GraphFeatures) */
+/* SPEC-VIE-3 v3: Topology classifier (delegates to GraphFeatures) */
 
 import type { EvidenceNode, EvidenceEdge } from '@/lib/theseus-types';
-import type { TopologyType } from '../SceneSpec';
-import { extractGraphFeatures, getTopologyType, GRAPH_FEATURE_DIM } from '../features/GraphFeatures';
+import type { TopologyShape } from '../SceneDirective';
+import { extractGraphFeatures, getTopologyType } from '../features/GraphFeatures';
 
 export interface TopologyMetrics {
   density: number;
@@ -11,7 +11,7 @@ export interface TopologyMetrics {
   has_bridge_nodes: boolean;
   component_count: number;
   average_clustering: number;
-  topology: TopologyType;
+  topology: TopologyShape;
 }
 
 export function classifyTopology(

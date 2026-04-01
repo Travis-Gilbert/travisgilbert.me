@@ -1,7 +1,7 @@
 /* SPEC-VIE-3: Graph-level feature extraction (16 dimensions) */
 
 import type { EvidenceNode, EvidenceEdge } from '@/lib/theseus-types';
-import type { TopologyType } from '../SceneSpec';
+import type { TopologyShape } from '../SceneDirective';
 
 /**
  * Dimension 0:     node_count (log-scaled, normalized)
@@ -99,7 +99,7 @@ export function getTopologyType(
   features: Float32Array,
   nodes: EvidenceNode[],
   edges: EvidenceEdge[],
-): TopologyType {
+): TopologyShape {
   const n = nodes.length;
   const density = features[2];
   const diameter = features[3] * (n - 1); // un-normalize
