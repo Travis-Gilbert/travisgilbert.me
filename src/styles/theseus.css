@@ -1,0 +1,44 @@
+/* Theseus VIE: Visual Intelligence Engine tokens and base styles */
+/* Scoped to .theseus-root to avoid conflicts with CommonPlace --cp-* tokens */
+
+.theseus-root {
+  /* Backgrounds */
+  --vie-bg: #0f1012;
+  --vie-bg-subtle: #15161a;
+  --vie-card: rgba(26, 27, 31, 0.95);
+  --vie-border: rgba(255, 255, 255, 0.06);
+  --vie-border-active: rgba(45, 95, 107, 0.4);
+
+  /* Text */
+  --vie-text: #e8e5e0;
+  --vie-text-muted: #9a958d;
+  --vie-text-dim: #5c5851;
+
+  /* Accent colors */
+  --vie-teal: #2D5F6B;
+  --vie-teal-light: #4A8A96;
+  --vie-amber: #C49A4A;
+  --vie-amber-light: #D4B06A;
+  --vie-terra: #C4503C;
+  --vie-terra-light: #D47060;
+  --vie-purple: #7B5EA7;
+
+  /* Object type colors */
+  --vie-type-source: #2D5F6B;
+  --vie-type-concept: #7B5EA7;
+  --vie-type-person: #C4503C;
+  --vie-type-hunch: #C49A4A;
+  --vie-type-note: #e8e5e0;
+
+  /* Typography */
+  --vie-font-title: 'Vollkorn', Georgia, serif;
+  --vie-font-body: 'IBM Plex Sans', -apple-system, sans-serif;
+  --vie-font-mono: 'Courier Prime', 'Courier New', monospace;
+
+  /* Base surface */
+  background: var(--vie-bg);
+  color: var(--vie-text);
+  min-height: 100vh;
+  position: relative;
+  overflow: hidden;
+}

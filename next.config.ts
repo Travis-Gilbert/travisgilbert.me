@@ -21,6 +21,10 @@ const nextConfig: NextConfig = {
   async rewrites() {
     return [
       {
+        source: '/api/v2/theseus/:path*',
+        destination: `${backendUrl}/api/v2/theseus/:path*`,
+      },
+      {
         source: '/api/:path*',
         destination: `${backendUrl}/api/:path*`,
       },
