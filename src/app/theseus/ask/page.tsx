@@ -5,6 +5,8 @@ import { useEffect, useState, useRef, useCallback, Suspense } from 'react';
 import { askTheseus } from '../../../lib/theseus-api';
 import type { TheseusResponse, DataAcquisitionSection } from '../../../lib/theseus-types';
 import type { DataProcessingStatus } from '../../../lib/theseus-data/types';
+import { getModel } from '../../../lib/theseus-storage';
+import { SaveModelButton } from '../../../components/theseus/library/SaveModelButton';
 
 type AskState = 'IDLE' | 'THINKING' | 'MODEL' | 'CONSTRUCTING' | 'EXPLORING';
 
@@ -47,18 +49,34 @@ async function processDataAcquisition(
 function AskContent() {
   const searchParams = useSearchParams();
   const q = searchParams.get('q');
+  const savedId = searchParams.get('saved');
   const [state, setState] = useState<AskState>(q ? 'THINKING' : 'IDLE');
   const [response, setResponse] = useState<TheseusResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [dataStatus, setDataStatus] = useState<DataProcessingStatus | null>(null);
+  const [savedSceneSpec, setSavedSceneSpec] = useState<import('../../../lib/theseus-viz/SceneSpec').SceneSpec | null>(null);
+  const [savedQuery, setSavedQuery] = useState<string | null>(null);
   const cancelledRef = useRef(false);
+  const canvasRef = useRef<HTMLCanvasElement | null>(null);
 
   const handleDataStatus = useCallback((status: DataProcessingStatus) => {
     if (!cancelledRef.current) setDataStatus(status);
   }, []);
 
+  // Load saved model
   useEffect(() => {
-    if (!q) return;
+    if (!savedId) return;
+    getModel(savedId).then((model) => {
+      if (model) {
+        setSavedSceneSpec(model.scene_spec);
+        setSavedQuery(model.query);
+        setState('EXPLORING');
+      }
+    });
+  }, [savedId]);
+
+  useEffect(() => {
+    if (!q || savedId) return;
 
     cancelledRef.current = false;
 
@@ -97,7 +115,10 @@ function AskContent() {
     return () => {
       cancelledRef.current = true;
     };
-  }, [q, handleDataStatus]);
+  }, [q, savedId, handleDataStatus]);
+
+  const activeQuery = savedQuery || q || '';
+  const showSaveButton = (state === 'MODEL' || state === 'EXPLORING') && !savedId;
 
   return (
     <div
@@ -188,6 +209,47 @@ function AskContent() {
               </p>
             ))}
         </div>
+      )}
+
+      {state === 'EXPLORING' && savedSceneSpec && (
+        <div style={{ textAlign: 'center', maxWidth: '640px' }}>
+          <p style={{
+            fontFamily: 'var(--vie-font-title)',
+            fontSize: '1.5rem',
+            color: 'var(--vie-text)',
+            marginBottom: '16px',
+          }}>
+            {savedQuery}
+          </p>
+          <p style={{
+            color: 'var(--vie-text-muted)',
+            fontFamily: 'var(--vie-font-mono)',
+            fontSize: '0.875rem',
+          }}>
+            Confidence: {Math.round(savedSceneSpec.confidence * 100)}%
+            {' · '}{savedSceneSpec.nodes.length} nodes
+          </p>
+        </div>
+      )}
+
+      {showSaveButton && response && (
+        <SaveModelButton
+          query={activeQuery}
+          sceneSpec={{
+            render_target: 'r3f',
+            nodes: [],
+            edges: [],
+            camera: { position: [0, 0, 5], lookAt: [0, 0, 0], fov: 50, transition_duration_ms: 800 },
+            construction_sequence: [],
+            interactions: [],
+            confidence: response.confidence.combined,
+            topology_type: 'mixed',
+            layout_used: 'default',
+            inference_method: 'rule_based',
+            inference_time_ms: 0,
+          }}
+          canvasRef={canvasRef}
+        />
       )}
     </div>
   );
