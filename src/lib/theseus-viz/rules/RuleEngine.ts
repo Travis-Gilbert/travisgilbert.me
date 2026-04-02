@@ -16,6 +16,7 @@ import { composeSequence } from '../intelligence/SequenceComposer';
 import { configureForces } from '../intelligence/ForceConfigurator';
 import { composeCamera } from '../intelligence/CameraComposer';
 import { interpretTopology } from '../intelligence/TopologyInterpreter';
+import { buildRenderTargetSpecs } from '../data-viz/buildRenderTargetSpecs';
 
 export function ruleBasedDirect(
   response: TheseusResponse,
@@ -53,7 +54,11 @@ export function ruleBasedDirect(
   const camera = composeCamera(allNodes, salience);
 
   // Render target
-  const renderTarget = selectRenderTarget(dataShape ?? null, allNodes.length);
+  const renderTarget = buildRenderTargetSpecs(
+    selectRenderTarget(dataShape ?? null, allNodes.length),
+    processedData,
+    dataShape ?? null,
+  );
 
   return {
     salience,
