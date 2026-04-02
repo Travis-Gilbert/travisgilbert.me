@@ -22,19 +22,19 @@ const TYPE_LABEL: Record<string, string> = {
 };
 
 /**
- * Researcher backend base URL. Set NEXT_PUBLIC_RESEARCH_URL in .env.
- * Falls back to the production URL so links always resolve.
+ * Index API base URL for paper trail links.
+ * Falls back to the production Railway URL.
  */
-const RESEARCH_URL =
-  process.env.NEXT_PUBLIC_RESEARCH_URL ?? 'https://research.travisgilbert.me';
+const INDEX_API =
+  process.env.NEXT_PUBLIC_INDEX_API_URL ?? 'https://index-api-production-a5f7.up.railway.app';
 
 /**
  * Build a Researcher backend URL for a given connection.
  * Essays have dedicated paper trail pages; other types link to the main explorer.
  */
 function researcherHref(type: string, slug: string): string {
-  if (type === 'essay') return `${RESEARCH_URL}/paper-trail/essay-trail/${slug}/`;
-  return `${RESEARCH_URL}/paper-trail/`;
+  if (type === 'essay') return `${INDEX_API}/paper-trail/essay-trail/${slug}/`;
+  return `${INDEX_API}/paper-trail/`;
 }
 
 interface ConnectionDotsProps {

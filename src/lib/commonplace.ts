@@ -14,8 +14,7 @@
 // backend destination. Client code should never build absolute URLs to the backend.
 const INDEX_API = typeof window !== 'undefined'
   ? ''  // browser: relative URL, goes through Next.js rewrite proxy
-  : (process.env.NEXT_PUBLIC_INDEX_API_URL
-     ?? process.env.NEXT_PUBLIC_RESEARCH_API_URL ?? '');  // SSR: can use direct URL
+  : (process.env.NEXT_PUBLIC_INDEX_API_URL ?? '');  // SSR: can use direct URL
 
 export const API_BASE = `${INDEX_API}/api/v1/notebook`;
 export const EPISTEMIC_BASE = `${INDEX_API}/api/v1`;

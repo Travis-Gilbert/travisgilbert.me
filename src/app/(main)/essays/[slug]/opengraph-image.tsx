@@ -7,7 +7,8 @@ export const alt = 'Essay on travisgilbert.me';
 export const size = { width: 1200, height: 630 };
 export const contentType = 'image/png';
 
-const RESEARCH_API = 'https://research.travisgilbert.me';
+const INDEX_API =
+  process.env.NEXT_PUBLIC_INDEX_API_URL ?? 'https://index-api-production-a5f7.up.railway.app';
 
 interface TrailStats {
   sourceCount: number;
@@ -17,7 +18,7 @@ interface TrailStats {
 
 async function fetchTrailStats(slug: string): Promise<TrailStats> {
   try {
-    const res = await fetch(`${RESEARCH_API}/api/v1/trail/${slug}/`, {
+    const res = await fetch(`${INDEX_API}/api/v1/trail/${slug}/`, {
       next: { revalidate: 300 },
     });
     if (!res.ok) return { sourceCount: 0, backlinkCount: 0, threadStatus: null };
