@@ -12,8 +12,7 @@
 // Browser: relative URL (rewrite proxy handles it). SSR: use env var if set.
 const INDEX_API = typeof window !== 'undefined'
   ? ''
-  : (process.env.NEXT_PUBLIC_INDEX_API_URL
-     ?? process.env.NEXT_PUBLIC_RESEARCH_API_URL ?? '');
+  : (process.env.NEXT_PUBLIC_INDEX_API_URL ?? '');
 
 const API_BASE = `${INDEX_API}/api/v1/notebook`;
 

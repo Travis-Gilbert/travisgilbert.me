@@ -32,12 +32,12 @@ function getNowData(): NowData | null {
   return data as NowData;
 }
 
-const RESEARCH_API =
-  process.env.NEXT_PUBLIC_RESEARCH_URL ?? 'https://research.travisgilbert.me';
+const INDEX_API =
+  process.env.NEXT_PUBLIC_INDEX_API_URL ?? 'https://index-api-production-a5f7.up.railway.app';
 
 async function fetchResearchStats(): Promise<{ totalLinks: number }> {
   try {
-    const res = await fetch(`${RESEARCH_API}/api/v1/stats/`, {
+    const res = await fetch(`${INDEX_API}/api/v1/stats/`, {
       next: { revalidate: 3600 },
     });
     if (!res.ok) return { totalLinks: 0 };

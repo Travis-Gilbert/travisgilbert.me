@@ -15,8 +15,8 @@ export const metadata: Metadata = {
     'An interactive graph of sources, essays, and field notes. See how research connects to writing.',
 };
 
-const RESEARCH_URL =
-  process.env.NEXT_PUBLIC_RESEARCH_API_URL ?? 'http://localhost:8001';
+const INDEX_API =
+  process.env.NEXT_PUBLIC_INDEX_API_URL ?? 'https://index-api-production-a5f7.up.railway.app';
 
 async function fetchConnectionGraph(): Promise<{
   nodes: GraphNode[];
@@ -24,7 +24,7 @@ async function fetchConnectionGraph(): Promise<{
 }> {
   try {
     const res = await fetch(
-      `${RESEARCH_URL}/api/v1/connections/graph/?semantic=false`,
+      `${INDEX_API}/api/v1/connections/graph/?semantic=false`,
       { next: { revalidate: 300 } },
     );
     if (!res.ok) return { nodes: [], edges: [] };

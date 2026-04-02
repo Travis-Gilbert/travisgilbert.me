@@ -3,7 +3,7 @@
  * error handling, and the useApiData hook.
  *
  * Single source of truth for all communication with the Django
- * research_api notebook endpoints. Maps API response shapes to
+ * Index-API notebook endpoints. Maps API response shapes to
  * existing frontend types (MockNode, GraphNode, GraphLink) so
  * components don't need to change their rendering logic.
  *

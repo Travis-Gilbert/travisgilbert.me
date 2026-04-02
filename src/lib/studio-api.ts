@@ -402,7 +402,6 @@ export async function fetchDashboardStats(): Promise<StudioDashboardStats> {
 
 const INDEX_API_BASE =
   process.env.NEXT_PUBLIC_INDEX_API_URL
-  ?? process.env.NEXT_PUBLIC_RESEARCH_API_URL  // backwards compat
   ?? 'http://localhost:8001';
 
 export interface ResearchTrailSource {
