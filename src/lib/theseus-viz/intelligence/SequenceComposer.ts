@@ -62,20 +62,29 @@ export function composeSequence(
   });
   t += edgeDur;
 
-  // Phase 4 (CONSTRUCTING only): Data builds
-  if (isConstructing) {
-    const dataDur = 2000 * pauseFactor;
-    phases.push({
-      name: 'data_builds',
-      target_ids: [],
-      delay_ms: t,
-      duration_ms: dataDur,
-      easing: 'ease-in-out',
-    });
-    t += dataDur;
-  }
+  // Phase 4: Clusters coalesce
+  const clusterDur = 500 * timeMul * pauseFactor;
+  phases.push({
+    name: 'clusters_coalesce',
+    target_ids: [],
+    delay_ms: t,
+    duration_ms: clusterDur,
+    easing: theatricality > 0.6 ? 'spring' : 'ease-in-out',
+  });
+  t += clusterDur;
 
-  // Phase 5: Labels fade in
+  // Phase 5: Data builds
+  const dataDur = (isConstructing ? 2000 : 500) * pauseFactor;
+  phases.push({
+    name: 'data_builds',
+    target_ids: [],
+    delay_ms: t,
+    duration_ms: dataDur,
+    easing: 'ease-in-out',
+  });
+  t += dataDur;
+
+  // Phase 6: Labels fade in
   const labelDur = 400 * timeMul * pauseFactor;
   phases.push({
     name: 'labels_fade_in',
@@ -86,7 +95,7 @@ export function composeSequence(
   });
   t += labelDur;
 
-  // Phase 6: Crystallize
+  // Phase 7: Crystallize
   const crystalDur = 400 * timeMul * pauseFactor;
   phases.push({
     name: 'crystallize',

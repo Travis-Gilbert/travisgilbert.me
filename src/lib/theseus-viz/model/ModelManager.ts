@@ -18,6 +18,7 @@ import { composeSequence } from '../intelligence/SequenceComposer';
 import { configureForces } from '../intelligence/ForceConfigurator';
 import { composeCamera } from '../intelligence/CameraComposer';
 import { interpretTopology } from '../intelligence/TopologyInterpreter';
+import { buildRenderTargetSpecs } from '../data-viz/buildRenderTargetSpecs';
 
 type TFModule = typeof import('@tensorflow/tfjs');
 
@@ -141,7 +142,11 @@ class ModelManager {
       });
 
       // Render target from classification heads
-      const renderTarget = classifyRenderTarget(heads.renderTargetLogits, heads.dataVizLogits, allNodes.length);
+      const renderTarget = buildRenderTargetSpecs(
+        classifyRenderTarget(heads.renderTargetLogits, heads.dataVizLogits, allNodes.length),
+        processedData,
+        dataShape ?? null,
+      );
 
       // Cleanup tensors
       nodeFeatures.dispose();

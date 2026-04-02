@@ -1,17 +1,8 @@
 'use client';
 
-/**
- * VegaRenderer: Statistical charts via dynamically imported vega-embed.
- *
- * Dark theme overrides match VIE design tokens.
- * Sized to 60% viewport width, centered.
- * On bar/point click: sends data value to parent for narration.
- * vega-embed is NEVER imported at bundle level (dynamic import only).
- */
-
-import { useRef, useEffect, useState } from 'react';
-import type { DataLayerSpec } from '@/lib/theseus-viz/SceneSpec';
-import { clearContainer } from './domUtils';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import type { SceneDirective } from '@/lib/theseus-viz/SceneDirective';
+import { getDataBuildProgress, type ConstructionPlayback } from './rendering';
 
 const VEGA_THEME_OVERRIDES = {
   background: 'transparent',
@@ -19,82 +10,120 @@ const VEGA_THEME_OVERRIDES = {
   axis: {
     labelColor: '#9a958d',
     titleColor: '#e8e5e0',
-    gridColor: 'rgba(255, 255, 255, 0.06)',
-    domainColor: 'rgba(255, 255, 255, 0.12)',
-    tickColor: 'rgba(255, 255, 255, 0.06)',
+    gridColor: 'rgba(255,255,255,0.06)',
+    domainColor: 'rgba(255,255,255,0.12)',
+    tickColor: 'rgba(255,255,255,0.12)',
   },
-  legend: {
-    labelColor: '#9a958d',
-    titleColor: '#e8e5e0',
-  },
-  title: {
-    color: '#e8e5e0',
-    subtitleColor: '#9a958d',
-  },
-  range: {
-    category: ['#2D5F6B', '#C49A4A', '#7B5EA7', '#C4503C', '#4A8A96', '#5A7A4A'],
-  },
+  text: { color: '#e8e5e0' },
+  title: { color: '#e8e5e0', subtitleColor: '#9a958d' },
+  legend: { labelColor: '#9a958d', titleColor: '#e8e5e0' },
 };
 
 interface VegaRendererProps {
-  dataLayer: DataLayerSpec;
-  onValueClick?: (value: string) => void;
+  directive: SceneDirective;
+  playback: ConstructionPlayback;
+  onContextSelect?: (context: string) => void;
+  onError?: (error: Error) => void;
 }
 
-export default function VegaRenderer({ dataLayer, onValueClick }: VegaRendererProps) {
+function getBucket(playback: ConstructionPlayback): number {
+  return Math.floor(getDataBuildProgress(playback) * 20);
+}
+
+function cloneWithProgress(spec: Record<string, unknown>, progress: number): Record<string, unknown> {
+  const next = structuredClone(spec);
+  const data = next.data as Record<string, unknown> | undefined;
+  const values = Array.isArray(data?.values) ? data.values : null;
+
+  if (!values) {
+    return next;
+  }
+
+  const count = Math.max(1, Math.ceil(values.length * progress));
+  data!.values = values.slice(0, count);
+  return next;
+}
+
+export default function VegaRenderer({
+  directive,
+  playback,
+  onContextSelect,
+  onError,
+}: VegaRendererProps) {
   const containerRef = useRef<HTMLDivElement>(null);
-  const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const progressBucket = getBucket(playback);
+  const vegaSpec = directive.render_target.vega_spec as Record<string, unknown> | undefined;
+
+  const layoutStyle = useMemo(() => ({
+    position: 'absolute' as const,
+    left: '50%',
+    top: '50%',
+    transform: 'translate(-50%, -50%)',
+    width: directive.context_shelf.enabled && directive.context_shelf.shelf_position === 'left'
+      ? '62vw'
+      : '60vw',
+    zIndex: 5,
+    pointerEvents: 'auto' as const,
+  }), [directive.context_shelf]);
 
   useEffect(() => {
-    if (!containerRef.current) return;
-    const container = containerRef.current;
+    if (!containerRef.current || !vegaSpec) {
+      return;
+    }
+    const activeSpec = vegaSpec;
+
     let cancelled = false;
-    let vegaView: { finalize: () => void } | null = null;
+    let finalized = false;
+    let finalize: (() => void) | undefined;
 
     async function render() {
       try {
-        const vegaEmbedModule = await import('vega-embed');
-        const vegaEmbed = vegaEmbedModule.default;
-        if (cancelled || !container) return;
-
-        clearContainer(container);
-        setLoading(false);
-
-        const vegaSpec = dataLayer.vega_spec as object | undefined;
-        if (!vegaSpec) {
-          setError('No Vega-Lite spec provided');
+        const module = await import('vega-embed');
+        if (cancelled || !containerRef.current) {
           return;
         }
 
-        const result = await vegaEmbed(container, vegaSpec as import('vega-embed').VisualizationSpec, {
-          actions: false,
-          theme: 'dark',
-          config: VEGA_THEME_OVERRIDES,
-          renderer: 'svg',
+        containerRef.current.innerHTML = '';
+        const preparedSpec = cloneWithProgress(activeSpec, Math.max(0.05, getDataBuildProgress(playback)));
+        const result = await module.default(
+          containerRef.current,
+          preparedSpec as import('vega-embed').VisualizationSpec,
+          {
+            actions: false,
+            renderer: 'svg',
+            theme: 'dark',
+            config: VEGA_THEME_OVERRIDES,
+          },
+        );
+
+        finalize = () => {
+          if (finalized) return;
+          finalized = true;
+          result.view.finalize();
+        };
+
+        result.view.addEventListener('click', (_event: unknown, item: unknown) => {
+          const datum = (item as Record<string, unknown>)?.datum as Record<string, unknown> | undefined;
+          if (!datum) {
+            return;
+          }
+
+          const summary =
+            typeof datum.id === 'string'
+              ? datum.id
+              : typeof datum.name === 'string'
+                ? datum.name
+                : JSON.stringify(datum);
+
+          onContextSelect?.(summary);
         });
 
-        vegaView = result.view;
-
-        if (onValueClick) {
-          result.view.addEventListener('click', (_event: unknown, item: unknown) => {
-            if (cancelled) return;
-            const datum = (item as Record<string, unknown>)?.datum as Record<string, unknown> | undefined;
-            if (datum) {
-              const value =
-                (datum.id as string) ||
-                (datum.name as string) ||
-                (datum[dataLayer.x_field] as string) ||
-                JSON.stringify(datum);
-              onValueClick(value);
-            }
-          });
-        }
-      } catch (err) {
-        if (!cancelled) {
-          setError(err instanceof Error ? err.message : 'Vega render failed');
-          setLoading(false);
-        }
+        setError(null);
+      } catch (renderError) {
+        const message = renderError instanceof Error ? renderError.message : 'Failed to render Vega chart';
+        setError(message);
+        onError?.(renderError instanceof Error ? renderError : new Error(message));
       }
     }
 
@@ -102,42 +131,39 @@ export default function VegaRenderer({ dataLayer, onValueClick }: VegaRendererPr
 
     return () => {
       cancelled = true;
-      vegaView?.finalize();
+      finalize?.();
     };
-  }, [dataLayer, onValueClick]);
+  }, [onContextSelect, onError, playback, progressBucket, vegaSpec]);
 
   return (
-    <div
-      style={{
-        position: 'absolute',
-        top: '50%',
-        left: '50%',
-        transform: 'translate(-50%, -50%)',
-        width: '60vw',
-        zIndex: 5,
-        background: 'rgba(15, 16, 18, 0.85)',
-        borderRadius: '8px',
-        padding: '24px',
-        pointerEvents: 'auto',
-      }}
-    >
-      {loading && (
-        <div style={statusStyle}>Loading chart...</div>
-      )}
+    <div style={layoutStyle}>
+      <div
+        ref={containerRef}
+        style={{
+          width: '100%',
+          padding: '20px',
+          borderRadius: 18,
+          background: 'rgba(15,16,18,0.42)',
+          border: '1px solid rgba(255,255,255,0.06)',
+          backdropFilter: 'blur(18px)',
+        }}
+      />
       {error && (
-        <div style={{ ...statusStyle, color: '#C4503C' }}>{error}</div>
+        <div
+          style={{
+            position: 'absolute',
+            inset: 0,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            color: '#C4503C',
+            fontFamily: 'var(--vie-font-body)',
+            fontSize: 14,
+          }}
+        >
+          {error}
+        </div>
       )}
-      <div ref={containerRef} style={{ width: '100%' }} />
     </div>
   );
 }
-
-const statusStyle: React.CSSProperties = {
-  display: 'flex',
-  alignItems: 'center',
-  justifyContent: 'center',
-  minHeight: '200px',
-  color: '#5c5851',
-  fontFamily: "'Courier Prime', monospace",
-  fontSize: '12px',
-};

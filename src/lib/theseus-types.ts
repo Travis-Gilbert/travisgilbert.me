@@ -1,4 +1,4 @@
-/* Response Protocol v1 types for the Theseus Visual Intelligence Engine */
+/* Frontend-normalized Theseus response types. */
 
 export interface TheseusResponse {
   query: string;
@@ -6,18 +6,39 @@ export interface TheseusResponse {
   confidence: ConfidenceScore;
   sections: ResponseSection[];
   metadata: ResponseMetadata;
+  follow_ups?: FollowUp[];
+  raw_traversal?: TraversalMetadata;
 }
 
 export interface ConfidenceScore {
   evidence: number;   // 0.0-1.0
   tension: number;    // 0.0-1.0
+  coverage?: number;  // 0.0-1.0
+  source_independence?: number; // 0.0-1.0
   combined: number;   // 0.0-1.0
+}
+
+export interface TraversalMetadata {
+  objects_searched: number;
+  clusters_touched: number;
+  signals_used: string[];
+  duration_ms: number;
+  web_augmented: boolean;
 }
 
 export interface ResponseMetadata {
   duration_ms: number;
   objects_searched: number;
   engine_version: string;
+  clusters_touched?: number;
+  signals_used?: string[];
+  web_augmented?: boolean;
+}
+
+export interface FollowUp {
+  query: string;
+  reason: string;
+  gap_domains?: string[];
 }
 
 export type ResponseSection =
@@ -49,6 +70,7 @@ export interface NarrativeSection {
   type: 'narrative';
   content: string;
   tier: 1 | 2;
+  attribution?: Record<string, unknown> | null;
 }
 
 export interface EvidencePathSection {
@@ -61,22 +83,26 @@ export interface EvidenceNode {
   object_id: string;
   title: string;
   object_type: string;
-  epistemic_role: 'substantive' | 'referential' | 'meta' | 'hypothetical' | 'axiomatic';
+  epistemic_role: 'substantive' | 'referential' | 'meta' | 'hypothetical' | 'axiomatic' | string;
   gradual_strength: number;
   claims: string[];
+  metadata?: Record<string, unknown>;
 }
 
 export interface EvidenceEdge {
   from_id: string;
   to_id: string;
-  signal_type: 'bm25' | 'sbert' | 'entity' | 'nli' | 'kge' | 'gnn' | 'analogy';
+  signal_type: string;
   strength: number;
   relation: 'supports' | 'contradicts' | 'neutral' | 'elaborates' | 'temporal';
+  metadata?: Record<string, unknown>;
 }
 
 export interface ObjectsSection {
   type: 'objects';
   objects: TheseusObject[];
+  total_available?: number;
+  scope_applied?: string;
 }
 
 export interface TensionSection {
@@ -85,12 +111,15 @@ export interface TensionSection {
   claim_b: string;
   domain: string;
   severity: number;
+  status?: string;
 }
 
 export interface StructuralGapSection {
   type: 'structural_gap';
   message: string;
   domains: string[];
+  suggested_action?: string;
+  suggested_query?: string;
 }
 
 export interface HypothesisSection {
@@ -100,6 +129,10 @@ export interface HypothesisSection {
   confidence: number;
   supporting_objects: string[];
   structural_basis: string;
+  created_at?: string;
+  validation_status?: string;
+  hypothesis_type?: string;
+  search_queries?: string[];
 }
 
 export interface VisualizationSection {
@@ -114,6 +147,7 @@ export interface ClusterContextSection {
   label: string;
   member_count: number;
   bridging_objects: string[];
+  relevance?: number;
 }
 
 export interface WebEvidenceSection {
@@ -122,6 +156,7 @@ export interface WebEvidenceSection {
   title: string;
   snippet: string;
   relevance: number;
+  stance_vs_graph?: 'supports' | 'contradicts' | 'novel';
 }
 
 export interface TheseusObject {
@@ -129,7 +164,12 @@ export interface TheseusObject {
   title: string;
   object_type: string;
   summary: string;
-  created_at: string;
+  created_at?: string;
+  score?: number;
+  is_new?: boolean;
+  is_personal?: boolean;
+  epistemic_role?: string;
+  metadata?: Record<string, unknown>;
 }
 
 export interface ClusterSummary {
@@ -154,7 +194,9 @@ export interface Hypothesis {
   confidence: number;
   supporting_objects: string[];
   structural_basis: string;
-  created_at: string;
+  created_at?: string;
+  validation_status?: string;
+  hypothesis_type?: string;
 }
 
 export interface GraphWeather {
@@ -165,9 +207,14 @@ export interface GraphWeather {
   health_score: number;
   iq_score?: number;
   tensions_active?: number;
+  scorer_accuracy?: number;
+  last_engine_run?: string;
 }
 
 export interface AskOptions {
   mode?: 'full' | 'brief' | 'objects_only';
   personal_only?: boolean;
+  scope?: 'personal' | 'corpus' | 'all';
+  include_web?: boolean;
+  max_objects?: number;
 }
