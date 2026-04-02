@@ -540,33 +540,84 @@ const DEMO_CANDIDATES: EngineCandidate[] = [
 
 import { apiFetch } from '@/lib/commonplace-api';
 
-/* eslint-disable @typescript-eslint/no-explicit-any */
-
 function mapModelSummary(raw: any): EpistemicModelSummary {
   return {
     id: raw.id,
     slug: raw.slug ?? '',
     title: raw.title,
-    thesis: raw.description || '',
+    thesis: raw.description || raw.working_summary || '',
     modelType: (raw.model_type ?? 'explanatory') as ModelType,
     modelStatus: raw.status,
     modelConfidence: raw.confidence ?? 0,
-    assumptionCount: raw.claim_count ?? 0,
-    methodCount: raw.method_count ?? 0,
-    questionCount: raw.question_count ?? 0,
-    createdAt: raw.created_at,
-    updatedAt: raw.updated_at,
+    assumptionCount:
+      raw.claim_count
+      ?? raw.assumption_records?.length
+      ?? raw.assumption_roles?.length
+      ?? raw.assumptions?.length
+      ?? 0,
+    methodCount: raw.method_count ?? raw.methods?.length ?? 0,
+    questionCount: raw.question_count ?? raw.questions?.length ?? 0,
+    createdAt: raw.created_at ?? '',
+    updatedAt: raw.updated_at ?? '',
   };
+}
+
+function normalizeEvidenceRelation(raw: any): EvidenceRelation {
+  const relation = raw.relation ?? raw.relation_type;
+  return relation === 'contradicts' ? 'contradicts' : 'supports';
+}
+
+function normalizeEvidenceType(raw: any): EvidenceObjectType {
+  const type = raw.object_type ?? raw.object_type_slug ?? raw.type ?? 'source';
+  return (type in EVIDENCE_TYPE_COLOR ? type : 'source') as EvidenceObjectType;
+}
+
+function deriveDomain(raw: any): string | undefined {
+  if (raw.domain) return raw.domain;
+
+  const url = raw.artifact_source_url ?? raw.source_url;
+  if (!url) return undefined;
+
+  try {
+    return new URL(url).hostname.replace(/^www\./, '');
+  } catch {
+    return undefined;
+  }
+}
+
+function normalizeAssumptionStatus(raw: any): AssumptionStatus {
+  const explicit = raw.status ?? raw.claim_status;
+  if (explicit && explicit in ASSUMPTION_STATUS_META) {
+    return explicit as AssumptionStatus;
+  }
+
+  if (explicit === 'promoted' || raw.claim_epistemic_status === 'promoted') {
+    return 'accepted';
+  }
+
+  const evidenceLinks = Array.isArray(raw.evidence_links) ? raw.evidence_links : [];
+  const hasContradiction = evidenceLinks.some(
+    (link: any) => normalizeEvidenceRelation(link) === 'contradicts' && link.attached_by !== 'engine',
+  );
+  if (hasContradiction) return 'contested';
+
+  const hasSupport = evidenceLinks.some(
+    (link: any) => normalizeEvidenceRelation(link) === 'supports' && link.attached_by !== 'engine',
+  );
+  if (hasSupport) return 'supported';
+
+  if (evidenceLinks.length > 0) return 'proposed';
+  return 'gap';
 }
 
 function mapAssumption(raw: any): Assumption {
   return {
-    id: raw.id,
-    claimId: raw.claim ?? raw.claim_id ?? 0,
-    text: raw.text ?? raw.claim_text ?? '',
-    status: (raw.role ?? raw.status ?? 'proposed') as AssumptionStatus,
-    confidence: raw.confidence ?? 0,
-    positionIndex: raw.position ?? raw.position_index ?? 0,
+    id: raw.id ?? raw.claim_id ?? raw.claim ?? raw.assumption_index ?? 0,
+    claimId: raw.claim ?? raw.claim_id ?? raw.id ?? 0,
+    text: raw.text ?? raw.claim_text ?? raw.title ?? '',
+    status: normalizeAssumptionStatus(raw),
+    confidence: raw.local_confidence ?? raw.confidence ?? raw.claim_confidence ?? 0,
+    positionIndex: raw.position ?? raw.position_index ?? raw.assumption_index ?? 0,
     evidence: Array.isArray(raw.evidence_links) ? raw.evidence_links.map(mapEvidenceLink) : [],
   };
 }
@@ -574,38 +625,92 @@ function mapAssumption(raw: any): Assumption {
 function mapEvidenceLink(raw: any): EvidenceLink {
   return {
     id: raw.id,
-    objectRef: raw.object ?? raw.object_ref ?? 0,
-    objectTitle: raw.object_title ?? '',
-    objectType: (raw.object_type ?? 'note') as EvidenceObjectType,
-    relation: (raw.relation ?? 'supports') as EvidenceRelation,
+    objectRef: raw.object ?? raw.object_ref ?? raw.artifact ?? raw.artifact_id ?? 0,
+    objectTitle: raw.object_title ?? raw.artifact_title ?? raw.title ?? '',
+    objectType: normalizeEvidenceType(raw),
+    relation: normalizeEvidenceRelation(raw),
     confidence: raw.confidence ?? 0,
-    isCandidate: raw.is_candidate ?? false,
-    contentText: raw.content_text ?? raw.finding ?? undefined,
-    domain: raw.domain ?? undefined,
+    isCandidate: raw.is_candidate ?? raw.attached_by === 'engine',
+    contentText: raw.content_text ?? raw.reason ?? raw.finding ?? undefined,
+    domain: deriveDomain(raw),
     date: raw.date ?? undefined,
     attribution: raw.attribution ?? undefined,
   };
 }
 
+function mapInlineAssumptions(rawAssumptions: any[]): Assumption[] {
+  return rawAssumptions.map((assumption, index) => {
+    if (typeof assumption === 'string') {
+      return mapAssumption({
+        id: index + 1,
+        claim_id: index + 1,
+        text: assumption,
+        assumption_index: index,
+        status: 'proposed',
+      });
+    }
+
+    return mapAssumption({
+      ...assumption,
+      id: assumption.id ?? index + 1,
+      claim_id: assumption.claim_id ?? assumption.id ?? index + 1,
+      assumption_index: assumption.assumption_index ?? assumption.position_index ?? index,
+    });
+  });
+}
+
+function mapFalsificationCriteria(rawCriteria: any): FalsificationCriterion[] {
+  if (!Array.isArray(rawCriteria)) return [];
+
+  return rawCriteria.map((criterion: any, index: number) => {
+    if (typeof criterion === 'string') {
+      return {
+        id: index + 1,
+        text: criterion,
+        status: 'untested' as const,
+      };
+    }
+
+    return {
+      id: criterion.id ?? index + 1,
+      text: criterion.text ?? '',
+      status: criterion.status ?? 'untested',
+    };
+  });
+}
+
 function mapModelDetail(raw: any): EpistemicModelDetail {
   const summary = mapModelSummary(raw);
+  const assumptions =
+    Array.isArray(raw.assumption_roles) && raw.assumption_roles.length > 0
+      ? raw.assumption_roles.map(mapAssumption)
+      : Array.isArray(raw.assumption_records) && raw.assumption_records.length > 0
+        ? raw.assumption_records.map(mapAssumption)
+        : Array.isArray(raw.assumptions)
+          ? mapInlineAssumptions(raw.assumptions)
+          : [];
+
   return {
     ...summary,
-    question: raw.question ?? null,
+    question:
+      raw.question
+      ?? (Array.isArray(raw.questions) && raw.questions.length > 0
+        ? raw.questions[0]?.title ?? null
+        : null),
     scope: raw.scope ?? undefined,
     domains: raw.domains ?? undefined,
-    summary: raw.summary ?? undefined,
-    assumptions: Array.isArray(raw.claims) ? raw.claims.map(mapAssumption) : [],
+    summary: raw.summary ?? raw.working_summary ?? raw.description ?? undefined,
+    assumptions,
     tensions: Array.isArray(raw.tensions) ? raw.tensions.map((t: any) => ({
       id: t.id,
-      text: t.text ?? t.description ?? '',
+      text: t.text ?? t.title ?? t.description ?? '',
       severity: (t.severity ?? 'medium') as TensionSeverity,
       linkedAssumptionIds: t.linked_claims ?? t.linked_assumption_ids ?? [],
     })) : [],
     methods: Array.isArray(raw.methods) ? raw.methods.map((m: any) => ({
       id: m.id,
-      title: m.title,
-      description: m.description ?? '',
+      title: m.title ?? m.name ?? 'Untitled method',
+      description: m.description ?? [m.method_type, m.runtime_kind].filter(Boolean).join(' · '),
       status: m.status ?? 'draft',
       runs: m.runs ?? 0,
     })) : [],
@@ -618,11 +723,7 @@ function mapModelDetail(raw: any): EpistemicModelDetail {
       summary: c.summary ?? '',
       source: c.source ?? undefined,
     })) : [],
-    falsificationCriteria: Array.isArray(raw.falsification_criteria) ? raw.falsification_criteria.map((f: any) => ({
-      id: f.id,
-      text: f.text,
-      status: f.status ?? 'untested',
-    })) : [],
+    falsificationCriteria: mapFalsificationCriteria(raw.falsification_criteria),
     narratives: Array.isArray(raw.narratives) ? raw.narratives.map((n: any) => ({
       id: n.id,
       title: n.title,
@@ -632,8 +733,6 @@ function mapModelDetail(raw: any): EpistemicModelDetail {
     })) : [],
   };
 }
-
-/* eslint-enable @typescript-eslint/no-explicit-any */
 
 /* ─────────────────────────────────────────────────
    API functions (real API with demo fallback)
@@ -666,31 +765,36 @@ export async function fetchModelDetail(id: number): Promise<EpistemicModelDetail
 }
 
 export async function fetchEngineLog(modelId?: number): Promise<EngineLogEntry[]> {
+  if (!modelId) {
+    return DEMO_ENGINE_LOG;
+  }
+
   try {
-    const qs = modelId ? `?model=${modelId}` : '';
-    const data = await apiFetch<any>(`/models/${modelId ?? ''}/engine-log/${qs}`);
-    const results = Array.isArray(data) ? data : data.results ?? [];
-    return results.map((e: any) => ({
-      id: String(e.id),
-      timestamp: e.created_at ?? e.timestamp,
-      pass: e.pass_name ?? e.pass ?? 'sbert',
+    const data = await apiFetch<any>(`/models/${modelId}/engine-log/`);
+    const results = Array.isArray(data) ? data : data.entries ?? data.results ?? [];
+    return results.map((e: any, index: number) => ({
+      id: String(e.id ?? index + 1),
+      timestamp: e.created_at ?? e.timestamp ?? '',
+      pass: (e.pass_name ?? e.pass ?? e.process_type ?? 'sbert') as EnginePassName,
       message: e.message ?? e.summary ?? '',
-      modelId: e.model ?? undefined,
+      modelId: e.model ?? modelId,
     }));
   } catch {
-    if (modelId) return DEMO_ENGINE_LOG.filter((e) => e.modelId === modelId || !e.modelId);
-    return DEMO_ENGINE_LOG;
+    return DEMO_ENGINE_LOG.filter((e) => e.modelId === modelId || !e.modelId);
   }
 }
 
 export async function fetchStressResult(modelId: number): Promise<StressResult> {
   try {
-    const data = await apiFetch<any>(`/models/${modelId}/stress-test/`);
+    const data = await apiFetch<any>(`/models/${modelId}/stress-test/`, {
+      method: 'POST',
+      body: JSON.stringify({ trust_level: 'conservative' }),
+    });
     return {
       drift: data.drift ?? 0,
-      unlinkedCount: data.unlinked_count ?? 0,
-      findings: Array.isArray(data.findings) ? data.findings.map((f: any) => ({
-        id: f.id,
+      unlinkedCount: data.unlinked ?? data.unlinked_count ?? 0,
+      findings: Array.isArray(data.findings) ? data.findings.map((f: any, index: number) => ({
+        id: f.id ?? index + 1,
         severity: f.severity ?? 'medium',
         text: f.text ?? f.message ?? '',
         linkedAssumptionId: f.linked_claim ?? f.linked_assumption_id ?? undefined,
@@ -711,7 +815,7 @@ export async function fetchCandidates(modelId: number): Promise<EngineCandidate[
       objectTitle: c.object_title ?? '',
       objectType: c.object_type ?? '',
       suggestedAssumptionId: c.suggested_claim ?? c.suggested_assumption_id ?? 0,
-      relation: c.relation ?? 'supports',
+      relation: normalizeEvidenceRelation(c),
       confidence: c.confidence ?? 0,
       status: c.status ?? 'pending',
     }));
