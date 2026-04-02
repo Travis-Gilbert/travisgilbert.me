@@ -903,7 +903,7 @@ function PaneViewContent({
 
   /* Connection Review (Level 2 feedback) */
   if (viewType === 'connection-review') {
-    return <ConnectionWorkshop />;
+    return <ConnectionWorkshop notebookSlug={context?.slug as string | undefined} />;
   }
 
   /* Placeholder for views not yet implemented */

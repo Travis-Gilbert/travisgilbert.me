@@ -8,12 +8,14 @@
  * Each row navigates to its sub-view via launchView.
  */
 
-import { useRef, useEffect, useState } from 'react';
+import { useMemo, useRef, useEffect } from 'react';
 import { ArrowRight } from 'iconoir-react';
 import { fetchFeedbackStats, useApiData } from '@/lib/commonplace-api';
 import type { FeedbackStats } from '@/lib/commonplace-api';
 import { useLayout } from '@/lib/providers/layout-provider';
 import type { ViewType } from '@/lib/commonplace';
+import { findPane } from '@/lib/commonplace-layout';
+import type { PaneNode } from '@/lib/commonplace-layout';
 
 const PURPLE = '#6B4F80';
 
@@ -57,8 +59,15 @@ const QUEUE_ROWS: QueueRow[] = [
 ];
 
 export default function EngineDashboard() {
-  const { launchView } = useLayout();
-  const { data: stats } = useApiData(fetchFeedbackStats, []);
+  const { launchView, layout, focusedPaneId } = useLayout();
+  const activeNotebookSlug = useMemo(
+    () => resolveActiveNotebookSlug(layout, focusedPaneId),
+    [layout, focusedPaneId],
+  );
+  const { data: stats } = useApiData(
+    () => fetchFeedbackStats(activeNotebookSlug ? { notebook: activeNotebookSlug } : undefined),
+    [activeNotebookSlug],
+  );
 
   return (
     <div className="ed-root">
@@ -206,6 +215,7 @@ export default function EngineDashboard() {
               ? 'Learned scorer is active. Keep rating to improve accuracy.'
               : `${stats.needed_for_training} more ratings needed to unlock learned scoring.`
             : 'Loading training stats...'}
+          {activeNotebookSlug ? ` Scoped to ${activeNotebookSlug}.` : ''}
         </div>
         {stats && <TrainingProgressBar stats={stats} />}
       </div>
@@ -216,7 +226,12 @@ export default function EngineDashboard() {
           <button
             key={row.viewType}
             className="ed-row"
-            onClick={() => launchView(row.viewType)}
+            onClick={() => launchView(
+              row.viewType,
+              row.viewType === 'connection-review' && activeNotebookSlug
+                ? { slug: activeNotebookSlug }
+                : undefined,
+            )}
             onMouseEnter={(e) => {
               (e.currentTarget as HTMLElement).style.background = `${row.accentColor}18`;
             }}
@@ -240,6 +255,32 @@ export default function EngineDashboard() {
       </div>
     </div>
   );
+}
+
+function resolveActiveNotebookSlug(layout: PaneNode, focusedPaneId: string | null): string | undefined {
+  if (focusedPaneId) {
+    const focusedPane = findPane(layout, focusedPaneId);
+    if (
+      focusedPane?.type === 'leaf'
+      && focusedPane.viewId === 'notebook'
+      && typeof focusedPane.context?.slug === 'string'
+    ) {
+      return focusedPane.context.slug;
+    }
+  }
+
+  return findNotebookSlug(layout);
+}
+
+function findNotebookSlug(node: PaneNode): string | undefined {
+  if (node.type === 'leaf') {
+    if (node.viewId === 'notebook' && typeof node.context?.slug === 'string') {
+      return node.context.slug;
+    }
+    return undefined;
+  }
+
+  return findNotebookSlug(node.first) ?? findNotebookSlug(node.second);
 }
 
 /* ── Training progress bar with GSAP animation ── */

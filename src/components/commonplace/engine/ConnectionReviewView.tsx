@@ -19,11 +19,15 @@ import type { ReviewQueueEdge, FeedbackStats } from '@/lib/commonplace-api';
 import { useDrawer } from '@/lib/providers/drawer-provider';
 import { getObjectTypeIdentity } from '@/lib/commonplace';
 
-export default function ConnectionReviewView() {
+interface ConnectionReviewViewProps {
+  notebookSlug?: string;
+}
+
+export default function ConnectionReviewView({ notebookSlug }: ConnectionReviewViewProps) {
   const { openDrawer } = useDrawer();
   const { data, loading, error, refetch } = useApiData(
-    () => fetchReviewQueue({ limit: 40 }),
-    [],
+    () => fetchReviewQueue({ limit: 40, notebook: notebookSlug }),
+    [notebookSlug],
   );
 
   const [dismissed, setDismissed] = useState<Set<number>>(new Set());

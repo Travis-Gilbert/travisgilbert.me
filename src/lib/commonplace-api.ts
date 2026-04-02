@@ -1226,12 +1226,17 @@ export async function submitConnectionFeedback(data: {
   });
 }
 
-export async function fetchFeedbackStats(): Promise<FeedbackStats> {
+export async function fetchFeedbackStats(params?: {
+  notebook?: string;
+}): Promise<FeedbackStats> {
+  const search = new URLSearchParams();
+  if (params?.notebook) search.set('notebook', params.notebook);
+  const qs = search.toString();
   const resp = await apiFetch<{
     total: number;
     training_ready: boolean;
     training_tier: string;
-  }>('/feedback/stats/');
+  }>(`/feedback/stats/${qs ? `?${qs}` : ''}`);
   return {
     total: resp.total,
     training_ready: resp.training_ready,

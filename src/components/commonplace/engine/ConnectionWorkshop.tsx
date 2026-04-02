@@ -53,14 +53,21 @@ const INITIAL_STATS: Record<Verdict, number> = {
   wrong: 0, obvious: 0, skip: 0, relevant: 0, surprising: 0, solves_problem: 0,
 };
 
-export default function ConnectionWorkshop() {
+interface ConnectionWorkshopProps {
+  notebookSlug?: string;
+}
+
+export default function ConnectionWorkshop({ notebookSlug }: ConnectionWorkshopProps) {
   const { navigateToScreen } = useLayout();
   const { openDrawer } = useDrawer();
   const { data, loading, error, refetch } = useApiData(
-    () => fetchReviewQueue({ limit: 40 }),
-    [],
+    () => fetchReviewQueue({ limit: 40, notebook: notebookSlug }),
+    [notebookSlug],
   );
-  const { data: stats } = useApiData(fetchFeedbackStats, []);
+  const { data: stats } = useApiData(
+    () => fetchFeedbackStats(notebookSlug ? { notebook: notebookSlug } : undefined),
+    [notebookSlug],
+  );
 
   const [currentIndex, setCurrentIndex] = useState(0);
   const [sessionStats, setSessionStats] = useState({ ...INITIAL_STATS });
@@ -117,7 +124,11 @@ export default function ConnectionWorkshop() {
   return (
     <EngineShell
       title="Connection Review"
-      subtitle="Rate engine-discovered connections with graduated feedback"
+      subtitle={
+        notebookSlug
+          ? `Rate engine-discovered connections inside ${notebookSlug}`
+          : 'Rate engine-discovered connections with graduated feedback'
+      }
       feedbackStats={stats}
       onBack={() => navigateToScreen('engine')}
     >

@@ -115,7 +115,9 @@ export function LayoutProvider({ children }: { children: ReactNode }) {
         const existing = findLeafWithView(prev, viewId);
         if (existing) {
           setFocusedPaneId(existing.id);
-          return prev;
+          return context
+            ? replaceView(prev, existing.id, viewId, context)
+            : prev;
         }
 
         const leaves = collectLeafIds(prev);
