@@ -62,30 +62,20 @@ interface HomeData {
 }
 
 /* ─────────────────────────────────────────────────
-   Mock data (until backend endpoint exists)
+   Live-state fallback
    ───────────────────────────────────────────────── */
 
-const MOCK_HERO: HeroQuestion = {
-  text: "How does Shannon's information theory connect to Hamming's generative learning?",
-  evidence: { entities: 3, bridges: 2, holes: 1 },
-  evidence_score: 87,
-  tension_score: 72,
+const EMPTY_HOME_DATA: HomeData = {
+  hero_question: {
+    text: '',
+    evidence: { entities: 0, bridges: 0, holes: 0 },
+    evidence_score: 0,
+    tension_score: 0,
+  },
+  activity: [],
+  threads: [],
+  pending_reviews: 0,
 };
-
-const MOCK_ACTIVITY: ActivityItem[] = [
-  { id: 1, type: 'connection', time: '2m', text: 'TPU Research Cloud and Google TRC program now share 3 entities', strength: 94, is_new: true },
-  { id: 2, type: 'tension', time: '8m', text: 'Two sources disagree on evolutionary game theory\'s relationship to mechanism design', strength: null, is_new: true },
-  { id: 3, type: 'connection', time: '14m', text: 'Hamming\'s generative learning and Theseus encode knowledge through operation, not instruction', strength: 87, is_new: false },
-  { id: 4, type: 'cluster', time: '31m', text: 'Semiotics cluster expanded: 4 new objects joined via Saussure bridge', strength: null, is_new: false },
-  { id: 5, type: 'enrichment', time: '1h', text: 'NER extracted 12 new entities from your last 3 captures', strength: null, is_new: false },
-];
-
-const MOCK_THREADS: Thread[] = [
-  { id: 1, object_type: 'research', title: 'Self-organizing epistemic systems', heat: 0.92, objects: 23, color: '#C4503C', metadata: { authors: 'Maturana, Varela, Luhmann', venue: 'Systems Research & Behavioral Science', subtitle: 'Connected to autopoiesis via structural coupling' } },
-  { id: 2, object_type: 'task', title: 'Fix Django serializer null-safety', heat: 0.8, objects: 3, color: '#C49A4A', metadata: { priority: 'high', project: 'CommonPlace', subtasks: [{ text: 'Patch EdgeCompactSerializer', done: true }, { text: 'Patch ObjectConnectionSerializer', done: false }, { text: 'Add null guards to FK traversal', done: false }] } },
-  { id: 3, object_type: 'concept', title: 'Structural Hole Detection', heat: 0.65, objects: 12, color: '#2D5F6B', metadata: { connections: 17, clusters: ['Game Theory', 'Network Science', 'Sociology'], snippet: 'Gaps in a network where a bridge could form between disconnected clusters' } },
-  { id: 4, object_type: 'event', title: 'Corpus Crawl Batch 2', heat: 0.3, objects: 5, color: '#7B5EA7', metadata: { month: 'Apr', day: '3', time: '9:00 AM', duration: '~4h', status: 'upcoming' } },
-];
 
 /* ─────────────────────────────────────────────────
    Activity type map
@@ -231,23 +221,44 @@ const SPRING_GENTLE = { stiffness: 200, damping: 20 };
 
 export default function HomeView() {
   const reduced = useReducedMotion();
-  const [data, setData] = useState<HomeData>({
-    hero_question: MOCK_HERO,
-    activity: MOCK_ACTIVITY,
-    threads: MOCK_THREADS,
-    pending_reviews: 2,
-  });
+  const [data, setData] = useState<HomeData>(EMPTY_HOME_DATA);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
-  // Try to fetch real data from backend
   useEffect(() => {
+    let isMounted = true;
+
     apiFetch<HomeData>('/home/')
       .then((d) => {
-        if (d.hero_question) setData(d);
+        if (!isMounted) return;
+        if (d?.hero_question) {
+          setData(d);
+          setLoadError(null);
+          return;
+        }
+        setLoadError('Index API returned an incomplete CommonPlace home payload.');
       })
-      .catch(() => { /* stay on mock data */ });
+      .catch(() => {
+        if (!isMounted) return;
+        setLoadError('Could not load live CommonPlace home data from Index API.');
+      })
+      .finally(() => {
+        if (isMounted) setIsLoading(false);
+      });
+
+    return () => {
+      isMounted = false;
+    };
   }, []);
 
   const { hero_question: hero, activity, threads, pending_reviews } = data;
+  const heroLabel = isLoading
+    ? 'Connecting to Index API'
+    : loadError
+      ? 'Live home data unavailable'
+      : 'The engine has found a live question';
+  const heroText = hero.text || (isLoading ? 'Loading live CommonPlace activity...' : 'No live question is active yet.');
+  const sectionMessage = loadError || (isLoading ? 'Loading live graph activity…' : '');
 
   return (
     <div className={styles.homeView}>
@@ -261,9 +272,9 @@ export default function HomeView() {
         >
           <div className={styles.heroLabel}>
             <span className={styles.heroPulseDot} />
-            The engine has found a live question
+            {heroLabel}
           </div>
-          <h2 className={styles.heroQuestion}>{hero.text}</h2>
+          <h2 className={styles.heroQuestion}>{heroText}</h2>
           <div className={styles.heroEvidence}>
             <span>{hero.evidence.entities} shared entities</span>
             <span className={styles.heroEvidenceDot}>&middot;</span>
@@ -287,6 +298,17 @@ export default function HomeView() {
               <span className={styles.sectionRule} />
               Engine Activity
             </div>
+
+            {activity.length === 0 && (
+              <div className={styles.reviewCta}>
+                <div className={styles.reviewCtaTitle}>
+                  {sectionMessage || 'No engine activity yet'}
+                </div>
+                <p className={styles.reviewCtaText}>
+                  The CommonPlace home screen now reads directly from `Index-API`.
+                </p>
+              </div>
+            )}
 
             {activity.map((item, i) => {
               const typeInfo = TYPE_MAP[item.type] || TYPE_MAP.connection;
@@ -341,6 +363,17 @@ export default function HomeView() {
               <span className={styles.sectionRule} />
               Active Threads
             </div>
+
+            {threads.length === 0 && (
+              <div className={styles.reviewCta}>
+                <div className={styles.reviewCtaTitle}>
+                  {sectionMessage || 'No active threads yet'}
+                </div>
+                <p className={styles.reviewCtaText}>
+                  As questions, tasks, clusters, and events land in the graph, they will appear here.
+                </p>
+              </div>
+            )}
 
             {threads.map((thread, i) => {
               const Renderer = THREAD_RENDERERS[thread.object_type] || ResearchThread;
