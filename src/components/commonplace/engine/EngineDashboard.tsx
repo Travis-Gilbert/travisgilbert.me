@@ -10,7 +10,7 @@
 
 import { useMemo, useRef, useEffect } from 'react';
 import { ArrowRight } from 'iconoir-react';
-import { fetchFeedbackStats, useApiData } from '@/lib/commonplace-api';
+import { fetchFeedbackStats, fetchReviewQueue, useApiData } from '@/lib/commonplace-api';
 import type { FeedbackStats } from '@/lib/commonplace-api';
 import { useLayout } from '@/lib/providers/layout-provider';
 import type { ViewType } from '@/lib/commonplace';
@@ -66,6 +66,10 @@ export default function EngineDashboard() {
   );
   const { data: stats } = useApiData(
     () => fetchFeedbackStats(activeNotebookSlug ? { notebook: activeNotebookSlug } : undefined),
+    [activeNotebookSlug],
+  );
+  const { data: queueSnapshot } = useApiData(
+    () => fetchReviewQueue({ limit: 1, notebook: activeNotebookSlug }),
     [activeNotebookSlug],
   );
 
@@ -138,6 +142,12 @@ export default function EngineDashboard() {
           border-radius: 4px;
           background: rgba(139,111,160,0.10);
           color: ${PURPLE};
+        }
+        .ed-hero-badges {
+          display: flex;
+          flex-wrap: wrap;
+          gap: 8px;
+          margin-bottom: 14px;
         }
         .ed-list {
           border-radius: 10px;
@@ -212,10 +222,23 @@ export default function EngineDashboard() {
         <div className="ed-hero-sub">
           {stats
             ? stats.training_ready
-              ? 'Learned scorer is active. Keep rating to improve accuracy.'
+              ? 'Adaptive scoring is active. Keep rating to improve accuracy.'
               : `${stats.needed_for_training} more ratings needed to unlock learned scoring.`
             : 'Loading training stats...'}
           {activeNotebookSlug ? ` Scoped to ${activeNotebookSlug}.` : ''}
+        </div>
+        <div className="ed-hero-badges">
+          {activeNotebookSlug && (
+            <span className="ed-tier-badge">
+              Notebook {activeNotebookSlug}
+            </span>
+          )}
+          <span className="ed-tier-badge">
+            Strategy {(queueSnapshot?.strategy ?? 'auto').toUpperCase()}
+          </span>
+          <span className="ed-tier-badge">
+            Mode {(stats?.scorer_mode ?? 'fixed').toUpperCase()}
+          </span>
         </div>
         {stats && <TrainingProgressBar stats={stats} />}
       </div>

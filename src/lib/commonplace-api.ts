@@ -1180,6 +1180,20 @@ export interface ReviewQueueEdge {
   engine: string;
   feature_vector: Record<string, unknown>;
   created_at: string;
+  strategy?: 'uncertainty' | 'committee' | 'diversified';
+  predicted_prob?: number;
+  uncertainty?: number;
+  disagreement?: number;
+  mean_prob?: number;
+  min_prob?: number;
+  max_prob?: number;
+  scorer_diagnostics?: {
+    gbt?: number | null;
+    gnn?: number | null;
+    rl?: number | null;
+    bp?: number | null;
+    ensemble?: number | null;
+  };
 }
 
 export interface FeedbackStats {
@@ -1187,12 +1201,15 @@ export interface FeedbackStats {
   training_ready: boolean;
   training_tier: 'full' | 'blended' | 'fixed_weights';
   needed_for_training: number;
+  scorer_mode?: 'fixed' | 'blended' | 'learned' | 'ensemble';
 }
 
 export interface ReviewQueueResponse {
   results: ReviewQueueEdge[];
   count: number;
   feedback_stats: FeedbackStats;
+  strategy?: 'uncertainty' | 'committee' | 'diversified';
+  engine_distribution?: Record<string, number>;
 }
 
 export async function fetchReviewQueue(params?: {
@@ -1200,12 +1217,14 @@ export async function fetchReviewQueue(params?: {
   notebook?: string;
   engine?: string;
   min_strength?: number;
+  strategy?: 'uncertainty' | 'committee' | 'diversified';
 }): Promise<ReviewQueueResponse> {
   const search = new URLSearchParams();
   if (params?.limit) search.set('limit', String(params.limit));
   if (params?.notebook) search.set('notebook', params.notebook);
   if (params?.engine) search.set('engine', params.engine);
   if (params?.min_strength) search.set('min_strength', String(params.min_strength));
+  if (params?.strategy) search.set('strategy', params.strategy);
   const qs = search.toString();
   return apiFetch<ReviewQueueResponse>(
     `/feedback/review-queue/${qs ? `?${qs}` : ''}`,
@@ -1217,8 +1236,28 @@ export async function submitConnectionFeedback(data: {
   to_object: number;
   label: 'engaged' | 'dismissed';
   discovery_signal?: string;
-  feature_vector: Record<string, unknown>;
+  label_strength?: number;
+  feature_vector?: Record<string, unknown>;
   edge?: number;
+  event_type?: string;
+  event_metadata?: Record<string, unknown>;
+}): Promise<unknown> {
+  return apiFetch('/feedback/', {
+    method: 'POST',
+    body: JSON.stringify(data),
+  });
+}
+
+export async function submitStructuredConnectionFeedback(data: {
+  edge: number;
+  from_object: number;
+  to_object: number;
+  feature_vector?: Record<string, unknown>;
+  label: 'engaged' | 'dismissed';
+  discovery_signal?: string;
+  label_strength?: number;
+  event_type: 'structured_review';
+  event_metadata: Record<string, unknown>;
 }): Promise<unknown> {
   return apiFetch('/feedback/', {
     method: 'POST',
@@ -1236,11 +1275,13 @@ export async function fetchFeedbackStats(params?: {
     total: number;
     training_ready: boolean;
     training_tier: string;
+    scorer_mode?: string;
   }>(`/feedback/stats/${qs ? `?${qs}` : ''}`);
   return {
     total: resp.total,
     training_ready: resp.training_ready,
     training_tier: resp.training_tier as FeedbackStats['training_tier'],
     needed_for_training: Math.max(0, 50 - resp.total),
+    scorer_mode: resp.scorer_mode as FeedbackStats['scorer_mode'] | undefined,
   };
 }

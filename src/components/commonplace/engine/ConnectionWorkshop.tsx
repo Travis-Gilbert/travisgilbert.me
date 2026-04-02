@@ -1,57 +1,215 @@
 'use client';
 
-/**
- * ConnectionWorkshop v2: graduated 6-level feedback for connection review.
- *
- * Verdict strip: Wrong | Obvious | Skip | Relevant | Surprising | Solves Problem
- * Keyboard:       Left    Down    Space   Right       Up        Shift+Right
- *
- * The 'generates_hypothesis' signal is system-only and never appears in the UI.
- */
-
-import { useState, useCallback, useMemo } from 'react';
-import { motion, AnimatePresence } from 'motion/react';
+import { useCallback, useMemo, useState } from 'react';
+import { AnimatePresence, motion } from 'motion/react';
 import { useHotkeys } from 'react-hotkeys-hook';
 import {
-  fetchReviewQueue,
-  submitConnectionFeedback,
   fetchFeedbackStats,
+  fetchReviewQueue,
+  submitStructuredConnectionFeedback,
   useApiData,
 } from '@/lib/commonplace-api';
-import type { ReviewQueueEdge } from '@/lib/commonplace-api';
+import type { FeedbackStats, ReviewQueueEdge } from '@/lib/commonplace-api';
 import { getObjectTypeIdentity } from '@/lib/commonplace';
 import { useLayout } from '@/lib/providers/layout-provider';
 import { useDrawer } from '@/lib/providers/drawer-provider';
 import ObjectRenderer from '../objects/ObjectRenderer';
 import type { RenderableObject } from '../objects/ObjectRenderer';
-import EngineShell from './EngineShell';
 import EngineProvenance from './EngineProvenance';
+import EngineShell from './EngineShell';
+import ModelDiagnostics from './ModelDiagnostics';
 import { CROSSFADE, useSpring } from './engine-motion';
 
 const PURPLE = '#8B6FA0';
 
-type Verdict = 'wrong' | 'obvious' | 'skip' | 'relevant' | 'surprising' | 'solves_problem';
+type ReviewCorrectness = 'wrong' | 'unclear' | 'correct';
+type ReviewQuality = 'obvious' | 'relevant' | 'surprising' | 'useful';
+type ReviewConfidence = 'low' | 'medium' | 'high';
+type ReviewAction = 'accept' | 'defer' | 'reject';
 
-const VERDICT_TO_API: Record<Exclude<Verdict, 'skip'>, { label: string; discovery_signal: string }> = {
-  wrong: { label: 'dismissed', discovery_signal: 'wrong' },
-  obvious: { label: 'dismissed', discovery_signal: 'obvious' },
-  relevant: { label: 'engaged', discovery_signal: 'relevant' },
-  surprising: { label: 'engaged', discovery_signal: 'surprising' },
-  solves_problem: { label: 'engaged', discovery_signal: 'solves_problem' },
+interface ReviewModifiers {
+  weakEvidence: boolean;
+  strongEvidence: boolean;
+  tooVague: boolean;
+  duplicate: boolean;
+  sourceDisagreement: boolean;
+}
+
+interface StructuredConnectionReviewDraft {
+  edgeId: number | null;
+  correctness: ReviewCorrectness | null;
+  qualities: ReviewQuality[];
+  confidence: ReviewConfidence;
+  modifiers: ReviewModifiers;
+}
+
+const DEFAULT_MODIFIERS: ReviewModifiers = {
+  weakEvidence: false,
+  strongEvidence: false,
+  tooVague: false,
+  duplicate: false,
+  sourceDisagreement: false,
 };
 
-const VERDICT_CONFIG: { key: Verdict; label: string; symbol: string; shortcut: string; color: string; cssClass: string }[] = [
-  { key: 'wrong', label: 'Wrong', symbol: '\u00D7', shortcut: '\u2190', color: '#D88A8A', cssClass: 'cw-verdict-btn--wrong' },
-  { key: 'obvious', label: 'Obvious', symbol: '~', shortcut: '\u2193', color: '#8A8279', cssClass: 'cw-verdict-btn--obvious' },
-  { key: 'skip', label: 'Skip', symbol: '\u2013', shortcut: 'space', color: '#AEA89F', cssClass: 'cw-verdict-btn--skip' },
-  { key: 'relevant', label: 'Relevant', symbol: '+', shortcut: '\u2192', color: '#2D5F6B', cssClass: 'cw-verdict-btn--relevant' },
-  { key: 'surprising', label: 'Surprising', symbol: '++', shortcut: '\u2191', color: '#C49A4A', cssClass: 'cw-verdict-btn--surprising' },
-  { key: 'solves_problem', label: 'Solves Problem', symbol: '+++', shortcut: '\u21E7\u2192', color: '#5A8A5A', cssClass: 'cw-verdict-btn--solves' },
+const CORRECTNESS_OPTIONS: Array<{
+  key: ReviewCorrectness;
+  label: string;
+  shortcut: string;
+  tone: string;
+}> = [
+  { key: 'wrong', label: 'Wrong', shortcut: '\u2190', tone: 'danger' },
+  { key: 'unclear', label: 'Unclear', shortcut: '\u2193', tone: 'muted' },
+  { key: 'correct', label: 'Correct', shortcut: '\u2192', tone: 'positive' },
 ];
 
-const INITIAL_STATS: Record<Verdict, number> = {
-  wrong: 0, obvious: 0, skip: 0, relevant: 0, surprising: 0, solves_problem: 0,
-};
+const QUALITY_OPTIONS: Array<{
+  key: ReviewQuality;
+  label: string;
+  shortcut: string;
+}> = [
+  { key: 'obvious', label: 'Obvious', shortcut: '1' },
+  { key: 'relevant', label: 'Relevant', shortcut: '2' },
+  { key: 'surprising', label: 'Surprising', shortcut: '3' },
+  { key: 'useful', label: 'Useful', shortcut: '4' },
+];
+
+const MODIFIER_OPTIONS: Array<{
+  key: keyof ReviewModifiers;
+  label: string;
+}> = [
+  { key: 'weakEvidence', label: 'Weak evidence' },
+  { key: 'strongEvidence', label: 'Strong evidence' },
+  { key: 'tooVague', label: 'Too vague' },
+  { key: 'duplicate', label: 'Duplicate' },
+  { key: 'sourceDisagreement', label: 'Source disagreement' },
+];
+
+const CONFIDENCE_OPTIONS: Array<{
+  key: ReviewConfidence;
+  label: string;
+}> = [
+  { key: 'low', label: 'Low' },
+  { key: 'medium', label: 'Medium' },
+  { key: 'high', label: 'High' },
+];
+
+const ACTION_OPTIONS: Array<{
+  key: ReviewAction;
+  label: string;
+  shortcut: string;
+  tone: string;
+}> = [
+  { key: 'accept', label: 'Accept', shortcut: 'Enter', tone: 'positive' },
+  { key: 'defer', label: 'Defer', shortcut: 'Space', tone: 'muted' },
+  { key: 'reject', label: 'Reject', shortcut: 'Backspace', tone: 'danger' },
+];
+
+function createInitialDraft(edgeId: number | null): StructuredConnectionReviewDraft {
+  return {
+    edgeId,
+    correctness: null,
+    qualities: [],
+    confidence: 'medium',
+    modifiers: { ...DEFAULT_MODIFIERS },
+  };
+}
+
+function clamp(value: number, minimum: number, maximum: number): number {
+  return Math.min(maximum, Math.max(minimum, value));
+}
+
+function compileStructuredReview(draft: StructuredConnectionReviewDraft, action: ReviewAction) {
+  const qualities = [...draft.qualities];
+
+  let correctness = draft.correctness;
+  if (!correctness && action === 'reject') correctness = 'wrong';
+  if (!correctness && action === 'defer') correctness = 'unclear';
+  if (!correctness) return null;
+
+  const normalizedQualities = correctness === 'correct' ? qualities : [];
+  let label: 'engaged' | 'dismissed' = 'dismissed';
+  if (correctness === 'correct' && action !== 'reject') {
+    label = 'engaged';
+  }
+
+  let discoverySignal: string | undefined;
+  if (correctness === 'wrong') {
+    discoverySignal = 'wrong';
+  } else if (action === 'accept' && normalizedQualities.includes('useful')) {
+    discoverySignal = 'solves_problem';
+  } else if (normalizedQualities.includes('surprising')) {
+    discoverySignal = 'surprising';
+  } else if (normalizedQualities.includes('relevant')) {
+    discoverySignal = 'relevant';
+  } else if (normalizedQualities.includes('obvious')) {
+    discoverySignal = 'obvious';
+  }
+
+  const baseStrength = {
+    low: 0.55,
+    medium: 0.75,
+    high: 0.90,
+  }[draft.confidence];
+
+  const modifiers = draft.modifiers;
+  let labelStrength = baseStrength;
+  if (modifiers.weakEvidence) labelStrength -= 0.15;
+  if (modifiers.strongEvidence) labelStrength += 0.10;
+  if (modifiers.sourceDisagreement) labelStrength -= 0.10;
+  if (modifiers.tooVague) labelStrength -= 0.10;
+
+  return {
+    correctness,
+    qualities: normalizedQualities,
+    label,
+    discoverySignal,
+    labelStrength: clamp(labelStrength, 0.05, 1.0),
+  };
+}
+
+function deriveOptimisticScorerMode(
+  previous: FeedbackStats['scorer_mode'] | undefined,
+  total: number,
+): FeedbackStats['scorer_mode'] {
+  if (previous === 'ensemble') return 'ensemble';
+  if (total >= 200) return 'learned';
+  if (total >= 50) return 'blended';
+  return 'fixed';
+}
+
+function getNotebookSubtitle(notebookSlug?: string): string {
+  if (!notebookSlug) {
+    return 'Rate engine-discovered connections with structured feedback';
+  }
+  return `Rate engine-discovered connections inside ${notebookSlug}`;
+}
+
+function buildInformativeBadges(edge: ReviewQueueEdge, notebookSlug?: string) {
+  const badges: Array<{ label: string; tone: 'purple' | 'gold' | 'danger' | 'muted' }> = [];
+
+  if (edge.strategy === 'uncertainty' || edge.strategy === 'committee') {
+    badges.push({ label: 'Most informative to rate', tone: 'gold' });
+  }
+  if (typeof edge.disagreement === 'number' && edge.disagreement >= 0.12) {
+    badges.push({ label: 'High disagreement', tone: 'danger' });
+  }
+  if (
+    (typeof edge.uncertainty === 'number' && edge.uncertainty >= 0.75)
+    || (typeof edge.predicted_prob === 'number' && edge.predicted_prob >= 0.4 && edge.predicted_prob <= 0.6)
+  ) {
+    badges.push({ label: 'Low confidence', tone: 'muted' });
+  }
+  if (notebookSlug) {
+    badges.push({ label: 'Notebook scoped', tone: 'purple' });
+  }
+
+  return badges;
+}
+
+function formatPercent(value?: number): string | null {
+  if (typeof value !== 'number' || Number.isNaN(value)) return null;
+  return `${Math.round(value * 100)}%`;
+}
 
 interface ConnectionWorkshopProps {
   notebookSlug?: string;
@@ -69,67 +227,214 @@ export default function ConnectionWorkshop({ notebookSlug }: ConnectionWorkshopP
     [notebookSlug],
   );
 
-  const [currentIndex, setCurrentIndex] = useState(0);
-  const [sessionStats, setSessionStats] = useState({ ...INITIAL_STATS });
   const [dismissed, setDismissed] = useState<Set<number>>(new Set());
+  const [drafts, setDrafts] = useState<Record<number, StructuredConnectionReviewDraft>>({});
+  const [sessionStats, setSessionStats] = useState({
+    accept: 0,
+    defer: 0,
+    reject: 0,
+  });
+  const [localStats, setLocalStats] = useState<FeedbackStats | null>(null);
 
   const edges = useMemo(
-    () => (data?.results ?? []).filter((e) => !dismissed.has(e.edge_id)),
+    () => (data?.results ?? []).filter((edge) => !dismissed.has(edge.edge_id)),
     [data, dismissed],
   );
-
-  const current = edges[currentIndex] ?? null;
+  const current = edges[0] ?? null;
+  const draft = current
+    ? (drafts[current.edge_id] ?? createInitialDraft(current.edge_id))
+    : createInitialDraft(null);
   const total = edges.length;
+  const reviewedTotal = sessionStats.accept + sessionStats.defer + sessionStats.reject;
+  const effectiveStats = localStats ?? stats ?? data?.feedback_stats ?? null;
 
   const spring = useSpring('natural');
   const snappySpring = useSpring('snappy');
 
-  const judge = useCallback(
-    async (verdict: Verdict) => {
-      if (!current) return;
+  const setCorrectness = useCallback((correctness: ReviewCorrectness) => {
+    if (!current) return;
+    setDrafts((prev) => {
+      const currentDraft = prev[current.edge_id] ?? createInitialDraft(current.edge_id);
+      return {
+        ...prev,
+        [current.edge_id]: {
+          ...currentDraft,
+          correctness,
+          qualities: correctness === 'correct' ? currentDraft.qualities : [],
+        },
+      };
+    });
+  }, [current]);
 
-      setSessionStats((prev) => ({ ...prev, [verdict]: prev[verdict] + 1 }));
+  const toggleQuality = useCallback((quality: ReviewQuality) => {
+    if (!current) return;
+    setDrafts((prev) => {
+      const currentDraft = prev[current.edge_id] ?? createInitialDraft(current.edge_id);
+      const exists = currentDraft.qualities.includes(quality);
+      return {
+        ...prev,
+        [current.edge_id]: {
+          ...currentDraft,
+          correctness: 'correct',
+          qualities: exists
+            ? currentDraft.qualities.filter((item) => item !== quality)
+            : [...currentDraft.qualities, quality],
+        },
+      };
+    });
+  }, [current]);
 
-      if (verdict !== 'skip') {
-        const apiParams = VERDICT_TO_API[verdict];
-        try {
-          await submitConnectionFeedback({
-            from_object: current.from_object,
-            to_object: current.to_object,
-            label: apiParams.label as 'engaged' | 'dismissed',
-            discovery_signal: apiParams.discovery_signal,
-            feature_vector: current.feature_vector,
-            edge: current.edge_id,
-          });
-        } catch {
-          // Optimistic: still advance
-        }
-      }
+  const toggleModifier = useCallback((modifier: keyof ReviewModifiers) => {
+    if (!current) return;
+    setDrafts((prev) => {
+      const currentDraft = prev[current.edge_id] ?? createInitialDraft(current.edge_id);
+      return {
+        ...prev,
+        [current.edge_id]: {
+          ...currentDraft,
+          modifiers: {
+            ...currentDraft.modifiers,
+            [modifier]: !currentDraft.modifiers[modifier],
+          },
+        },
+      };
+    });
+  }, [current]);
 
-      setDismissed((prev) => new Set(prev).add(current.edge_id));
-    },
-    [current],
-  );
+  const setConfidence = useCallback((confidence: ReviewConfidence) => {
+    if (!current) return;
+    setDrafts((prev) => {
+      const currentDraft = prev[current.edge_id] ?? createInitialDraft(current.edge_id);
+      return {
+        ...prev,
+        [current.edge_id]: { ...currentDraft, confidence },
+      };
+    });
+  }, [current]);
 
-  // Keyboard shortcuts
-  useHotkeys('ArrowLeft', () => judge('wrong'), [judge]);
-  useHotkeys('ArrowDown', () => judge('obvious'), [judge]);
-  useHotkeys('Space', (e) => { e.preventDefault(); judge('skip'); }, [judge]);
-  useHotkeys('ArrowRight', () => judge('relevant'), [judge]);
-  useHotkeys('ArrowUp', () => judge('surprising'), [judge]);
-  useHotkeys('shift+ArrowRight', () => judge('solves_problem'), [judge]);
+  const submitReview = useCallback(async (action: ReviewAction) => {
+    if (!current) return;
 
-  const reviewedTotal = Object.values(sessionStats).reduce((a, b) => a + b, 0);
+    const compiled = compileStructuredReview(draft, action);
+    if (!compiled) return;
+
+    const diagnostics = {
+      strategy: current.strategy ?? data?.strategy,
+      predicted_prob: current.predicted_prob,
+      uncertainty: current.uncertainty,
+      disagreement: current.disagreement,
+      mean_prob: current.mean_prob,
+      min_prob: current.min_prob,
+      max_prob: current.max_prob,
+      gbt: current.scorer_diagnostics?.gbt ?? current.predicted_prob ?? null,
+      gnn: current.scorer_diagnostics?.gnn ?? null,
+      rl: current.scorer_diagnostics?.rl ?? null,
+      bp: current.scorer_diagnostics?.bp ?? null,
+      ensemble: current.scorer_diagnostics?.ensemble ?? null,
+      engine: current.engine,
+    };
+
+    try {
+      await submitStructuredConnectionFeedback({
+        edge: current.edge_id,
+        from_object: current.from_object,
+        to_object: current.to_object,
+        feature_vector: current.feature_vector,
+        label: compiled.label,
+        discovery_signal: compiled.discoverySignal,
+        label_strength: compiled.labelStrength,
+        event_type: 'structured_review',
+        event_metadata: {
+          ui_version: 'connection_workshop_v3',
+          correctness: compiled.correctness,
+          qualities: compiled.qualities,
+          confidence: draft.confidence,
+          action,
+          modifiers: draft.modifiers,
+          diagnostics,
+          notebook: notebookSlug ? { slug: notebookSlug } : undefined,
+        },
+      });
+    } catch {
+      // Optimistic dismissal keeps the review loop fast.
+    }
+
+    setSessionStats((prev) => ({
+      ...prev,
+      [action]: prev[action] + 1,
+    }));
+    setDismissed((prev) => new Set(prev).add(current.edge_id));
+    setLocalStats((prev) => {
+      const nextTotal = (prev?.total ?? effectiveStats?.total ?? 0) + 1;
+      return {
+        total: nextTotal,
+        training_ready: nextTotal >= 50,
+        training_tier:
+          nextTotal >= 200 ? 'full' : nextTotal >= 50 ? 'blended' : 'fixed_weights',
+        needed_for_training: Math.max(0, 50 - nextTotal),
+        scorer_mode: deriveOptimisticScorerMode(
+          prev?.scorer_mode ?? effectiveStats?.scorer_mode,
+          nextTotal,
+        ),
+      };
+    });
+  }, [current, data?.strategy, draft, notebookSlug, effectiveStats?.scorer_mode, effectiveStats?.total]);
+
+  useHotkeys('ArrowLeft', (event) => {
+    event.preventDefault();
+    setCorrectness('wrong');
+  }, [setCorrectness]);
+
+  useHotkeys('ArrowDown', (event) => {
+    event.preventDefault();
+    setCorrectness('unclear');
+  }, [setCorrectness]);
+
+  useHotkeys('ArrowRight', (event) => {
+    event.preventDefault();
+    setCorrectness('correct');
+  }, [setCorrectness]);
+
+  useHotkeys('1', (event) => {
+    event.preventDefault();
+    toggleQuality('obvious');
+  }, [toggleQuality]);
+
+  useHotkeys('2', (event) => {
+    event.preventDefault();
+    toggleQuality('relevant');
+  }, [toggleQuality]);
+
+  useHotkeys('3', (event) => {
+    event.preventDefault();
+    toggleQuality('surprising');
+  }, [toggleQuality]);
+
+  useHotkeys('4', (event) => {
+    event.preventDefault();
+    toggleQuality('useful');
+  }, [toggleQuality]);
+
+  useHotkeys('Enter', (event) => {
+    event.preventDefault();
+    submitReview('accept');
+  }, [submitReview]);
+
+  useHotkeys('Space', (event) => {
+    event.preventDefault();
+    submitReview('defer');
+  }, [submitReview]);
+
+  useHotkeys('Backspace', (event) => {
+    event.preventDefault();
+    submitReview('reject');
+  }, [submitReview]);
 
   return (
     <EngineShell
       title="Connection Review"
-      subtitle={
-        notebookSlug
-          ? `Rate engine-discovered connections inside ${notebookSlug}`
-          : 'Rate engine-discovered connections with graduated feedback'
-      }
-      feedbackStats={stats}
+      subtitle={getNotebookSubtitle(notebookSlug)}
+      feedbackStats={effectiveStats}
       onBack={() => navigateToScreen('engine')}
     >
       <style>{`
@@ -146,7 +451,7 @@ export default function ConnectionWorkshop({ notebookSlug }: ConnectionWorkshopP
         .cw-stat {
           display: flex;
           align-items: center;
-          gap: 3px;
+          gap: 4px;
         }
         .cw-stat-dot {
           width: 6px;
@@ -159,19 +464,16 @@ export default function ConnectionWorkshop({ notebookSlug }: ConnectionWorkshopP
           align-items: center;
           gap: 4px;
           margin-bottom: 16px;
+          flex-wrap: wrap;
         }
         .cw-pill {
           width: 8px;
           height: 8px;
           border-radius: 50%;
           background: var(--cp-border, rgba(42,37,32,0.12));
-          transition: background 120ms ease;
         }
         .cw-pill--active {
           background: ${PURPLE};
-        }
-        .cw-pill--done {
-          background: var(--cp-text-faint, #8A8279);
         }
         .cw-counter {
           font-family: var(--cp-font-mono);
@@ -179,19 +481,23 @@ export default function ConnectionWorkshop({ notebookSlug }: ConnectionWorkshopP
           color: var(--cp-text-faint, #8A8279);
           margin-left: 8px;
         }
+        .cw-card {
+          display: flex;
+          flex-direction: column;
+          gap: 12px;
+        }
         .cw-bridge {
-          background: rgba(139,111,160,0.20);
+          background: rgba(139,111,160,0.12);
           border: 1px solid rgba(139,111,160,0.20);
-          border-radius: 8px;
-          padding: 12px 16px;
-          margin-bottom: 12px;
+          border-radius: 10px;
+          padding: 14px 16px;
           display: flex;
           align-items: flex-start;
           gap: 12px;
         }
         .cw-score-circle {
-          width: 36px;
-          height: 36px;
+          width: 40px;
+          height: 40px;
           border-radius: 50%;
           background: ${PURPLE};
           color: #fff;
@@ -207,32 +513,58 @@ export default function ConnectionWorkshop({ notebookSlug }: ConnectionWorkshopP
           flex: 1;
           min-width: 0;
         }
+        .cw-section-label {
+          font-family: var(--cp-font-mono);
+          font-size: 10px;
+          font-weight: 700;
+          letter-spacing: 0.08em;
+          text-transform: uppercase;
+          color: var(--cp-text-faint, #8A8279);
+          margin-bottom: 6px;
+        }
         .cw-bridge-reason {
           font-size: 13px;
           color: var(--cp-text, #2A2520);
-          line-height: 1.4;
-          margin-bottom: 6px;
+          line-height: 1.5;
+          margin: 0;
         }
-        .cw-bridge-meta {
+        .cw-badges {
           display: flex;
-          align-items: center;
-          gap: 8px;
           flex-wrap: wrap;
+          gap: 6px;
+          margin-top: 10px;
         }
         .cw-meta-badge {
+          display: inline-flex;
+          align-items: center;
+          gap: 4px;
           font-family: var(--cp-font-mono);
           font-size: 10px;
-          padding: 2px 8px;
-          border-radius: 4px;
+          padding: 3px 8px;
+          border-radius: 999px;
+          background: rgba(42,37,32,0.06);
+          color: var(--cp-text-muted, #5C554D);
+        }
+        .cw-meta-badge--purple {
           background: rgba(139,111,160,0.18);
           color: ${PURPLE};
-          font-weight: 600;
+        }
+        .cw-meta-badge--gold {
+          background: rgba(196,154,74,0.16);
+          color: #9A7431;
+        }
+        .cw-meta-badge--danger {
+          background: rgba(184,90,45,0.14);
+          color: #B45A2D;
+        }
+        .cw-meta-badge--muted {
+          background: rgba(138,130,121,0.12);
+          color: #6A6259;
         }
         .cw-objects {
           display: grid;
           grid-template-columns: 1fr 1fr;
           gap: 12px;
-          margin-bottom: 12px;
         }
         .cw-object-side {
           min-width: 0;
@@ -246,6 +578,160 @@ export default function ConnectionWorkshop({ notebookSlug }: ConnectionWorkshopP
           text-transform: uppercase;
           color: var(--cp-text-faint, #8A8279);
           margin-bottom: 6px;
+        }
+        .cw-review {
+          border: 1px solid rgba(42,37,32,0.10);
+          border-radius: 10px;
+          background: rgba(255,255,255,0.22);
+          padding: 16px;
+        }
+        .cw-review-grid {
+          display: grid;
+          gap: 14px;
+        }
+        .cw-row {
+          display: flex;
+          flex-direction: column;
+          gap: 8px;
+        }
+        .cw-row-head {
+          display: flex;
+          justify-content: space-between;
+          gap: 12px;
+          align-items: baseline;
+          flex-wrap: wrap;
+        }
+        .cw-row-title {
+          font-size: 13px;
+          font-weight: 600;
+          color: var(--cp-text, #2A2520);
+        }
+        .cw-row-note {
+          font-size: 11px;
+          color: var(--cp-text-faint, #8A8279);
+        }
+        .cw-chip-group {
+          display: flex;
+          flex-wrap: wrap;
+          gap: 8px;
+        }
+        .cw-chip {
+          display: inline-flex;
+          align-items: center;
+          gap: 6px;
+          padding: 8px 12px;
+          border-radius: 9px;
+          border: 1px solid rgba(42,37,32,0.10);
+          background: transparent;
+          color: var(--cp-text, #2A2520);
+          font-family: var(--cp-font-body);
+          font-size: 12px;
+          cursor: pointer;
+          transition: background 140ms ease, border-color 140ms ease, color 140ms ease;
+        }
+        .cw-chip:hover {
+          background: rgba(42,37,32,0.04);
+        }
+        .cw-chip--active {
+          background: rgba(139,111,160,0.10);
+          border-color: rgba(139,111,160,0.28);
+          color: ${PURPLE};
+        }
+        .cw-chip--danger.cw-chip--active {
+          background: rgba(216,138,138,0.12);
+          border-color: rgba(216,138,138,0.32);
+          color: #B96565;
+        }
+        .cw-chip--positive.cw-chip--active {
+          background: rgba(45,95,107,0.12);
+          border-color: rgba(45,95,107,0.30);
+          color: #2D5F6B;
+        }
+        .cw-chip--muted.cw-chip--active {
+          background: rgba(138,130,121,0.10);
+          border-color: rgba(138,130,121,0.24);
+          color: #6A6259;
+        }
+        .cw-shortcut {
+          font-family: var(--cp-font-mono);
+          font-size: 9px;
+          padding: 1px 4px;
+          border-radius: 4px;
+          background: rgba(42,37,32,0.06);
+          color: var(--cp-text-ghost, #AEA89F);
+        }
+        .cw-actions {
+          display: flex;
+          flex-wrap: wrap;
+          gap: 8px;
+          padding-top: 4px;
+        }
+        .cw-action-btn {
+          display: inline-flex;
+          align-items: center;
+          gap: 8px;
+          padding: 10px 14px;
+          border-radius: 9px;
+          border: 1px solid rgba(42,37,32,0.10);
+          background: transparent;
+          font-family: var(--cp-font-body);
+          font-size: 12px;
+          cursor: pointer;
+          transition: background 140ms ease, border-color 140ms ease, color 140ms ease;
+        }
+        .cw-action-btn--positive {
+          color: #2D5F6B;
+        }
+        .cw-action-btn--positive:hover {
+          background: rgba(45,95,107,0.08);
+          border-color: rgba(45,95,107,0.24);
+        }
+        .cw-action-btn--muted {
+          color: #6A6259;
+        }
+        .cw-action-btn--muted:hover {
+          background: rgba(138,130,121,0.08);
+          border-color: rgba(138,130,121,0.22);
+        }
+        .cw-action-btn--danger {
+          color: #B45A2D;
+        }
+        .cw-action-btn--danger:hover {
+          background: rgba(180,90,45,0.08);
+          border-color: rgba(180,90,45,0.22);
+        }
+        .cw-diagnostics {
+          border-top: 1px dashed rgba(42,37,32,0.12);
+          padding-top: 10px;
+        }
+        .cw-diagnostics-summary {
+          cursor: pointer;
+          font-family: var(--cp-font-mono);
+          font-size: 11px;
+          color: var(--cp-text-muted, #5C554D);
+        }
+        .cw-diagnostics-grid {
+          display: grid;
+          grid-template-columns: repeat(2, minmax(0, 1fr));
+          gap: 8px 12px;
+          margin-top: 10px;
+        }
+        .cw-diagnostics-row {
+          display: flex;
+          flex-direction: column;
+          gap: 2px;
+          padding: 8px 10px;
+          border-radius: 8px;
+          background: rgba(42,37,32,0.03);
+        }
+        .cw-diagnostics-label {
+          font-family: var(--cp-font-mono);
+          font-size: 10px;
+          color: var(--cp-text-faint, #8A8279);
+        }
+        .cw-diagnostics-value {
+          font-size: 12px;
+          color: var(--cp-text, #2A2520);
         }
         .cw-error-panel {
           padding: 16px;
@@ -272,55 +758,6 @@ export default function ConnectionWorkshop({ notebookSlug }: ConnectionWorkshopP
           font-size: 10px;
           color: var(--cp-text-faint, #8A8279);
         }
-        .cw-verdicts {
-          display: flex;
-          justify-content: center;
-          gap: 6px;
-          padding: 16px 0 8px;
-          flex-wrap: wrap;
-        }
-        .cw-verdict-btn {
-          display: inline-flex;
-          align-items: center;
-          gap: 4px;
-          padding: 8px 14px;
-          border-radius: 8px;
-          border: 1px solid var(--cp-border, rgba(42,37,32,0.12));
-          background: transparent;
-          cursor: pointer;
-          font-family: var(--cp-font-body);
-          font-size: 12px;
-          font-weight: 500;
-          transition: background 120ms ease, border-color 120ms ease, color 120ms ease;
-        }
-        .cw-verdict-btn--wrong { color: #D88A8A; }
-        .cw-verdict-btn--wrong:hover { background: rgba(216,138,138,0.1); border-color: rgba(216,138,138,0.3); }
-        .cw-verdict-btn--obvious { color: #8A8279; }
-        .cw-verdict-btn--obvious:hover { background: rgba(138,130,121,0.1); border-color: rgba(138,130,121,0.3); }
-        .cw-verdict-btn--skip { color: #AEA89F; }
-        .cw-verdict-btn--skip:hover { background: rgba(42,37,32,0.04); border-color: var(--cp-border); }
-        .cw-verdict-btn--relevant { color: #2D5F6B; }
-        .cw-verdict-btn--relevant:hover { background: rgba(45,95,107,0.1); border-color: rgba(45,95,107,0.3); }
-        .cw-verdict-btn--surprising { color: #C49A4A; }
-        .cw-verdict-btn--surprising:hover { background: rgba(196,154,74,0.1); border-color: rgba(196,154,74,0.3); }
-        .cw-verdict-btn--solves {
-          color: #5A8A5A;
-          box-shadow: 0 0 0 0 rgba(90,138,90,0);
-          transition: background 120ms ease, border-color 120ms ease, color 120ms ease, box-shadow 200ms ease;
-        }
-        .cw-verdict-btn--solves:hover {
-          background: rgba(90,138,90,0.1);
-          border-color: rgba(90,138,90,0.3);
-          box-shadow: 0 0 8px 0 rgba(90,138,90,0.15);
-        }
-        .cw-shortcut {
-          font-family: var(--cp-font-mono);
-          font-size: 9px;
-          padding: 1px 4px;
-          border-radius: 3px;
-          background: rgba(42,37,32,0.06);
-          color: var(--cp-text-ghost, #AEA89F);
-        }
         .cw-empty {
           text-align: center;
           padding: 60px 20px;
@@ -339,12 +776,18 @@ export default function ConnectionWorkshop({ notebookSlug }: ConnectionWorkshopP
           color: var(--cp-text-muted, #5C554D);
           font-size: 13px;
         }
+        @media (max-width: 780px) {
+          .cw-objects {
+            grid-template-columns: 1fr;
+          }
+          .cw-diagnostics-grid {
+            grid-template-columns: 1fr;
+          }
+        }
       `}</style>
 
-      {/* Loading */}
       {loading && <div className="cw-loading">Loading review queue...</div>}
 
-      {/* Error */}
       {error && (
         <div className="cw-empty">
           <div className="cw-empty-title">Failed to load review queue</div>
@@ -365,7 +808,6 @@ export default function ConnectionWorkshop({ notebookSlug }: ConnectionWorkshopP
         </div>
       )}
 
-      {/* Empty */}
       {!loading && !error && total === 0 && (
         <div className="cw-empty">
           <div className="cw-empty-title">All caught up</div>
@@ -391,69 +833,92 @@ export default function ConnectionWorkshop({ notebookSlug }: ConnectionWorkshopP
         </div>
       )}
 
-      {/* Workshop card */}
       {!loading && !error && current && (
         <>
-          {/* Session stats */}
           <div className="cw-session-stats">
-            {VERDICT_CONFIG.map((v) => (
-              sessionStats[v.key] > 0 ? (
-                <span key={v.key} className="cw-stat">
-                  <span className="cw-stat-dot" style={{ background: v.color }} />
-                  {sessionStats[v.key]} {v.label.toLowerCase()}
-                </span>
-              ) : null
-            ))}
+            <span className="cw-stat">
+              <span className="cw-stat-dot" style={{ background: '#2D5F6B' }} />
+              {sessionStats.accept} accepted
+            </span>
+            <span className="cw-stat">
+              <span className="cw-stat-dot" style={{ background: '#8A8279' }} />
+              {sessionStats.defer} deferred
+            </span>
+            <span className="cw-stat">
+              <span className="cw-stat-dot" style={{ background: '#B45A2D' }} />
+              {sessionStats.reject} rejected
+            </span>
             {reviewedTotal === 0 && (
               <span style={{ color: 'var(--cp-text-faint, #8A8279)' }}>No reviews yet</span>
             )}
           </div>
 
-          {/* Nav pills */}
           <div className="cw-nav-pills">
-            {edges.slice(0, Math.min(20, total)).map((edge, i) => (
+            {edges.slice(0, Math.min(20, total)).map((edge, index) => (
               <span
                 key={edge.edge_id}
-                className={`cw-pill${i === 0 ? ' cw-pill--active' : ''}`}
+                className={`cw-pill${index === 0 ? ' cw-pill--active' : ''}`}
               />
             ))}
             {total > 20 && <span className="cw-counter">+{total - 20} more</span>}
             <span className="cw-counter">{total} remaining</span>
           </div>
 
-          {/* AnimatePresence crossfade */}
           <AnimatePresence mode="wait">
             <motion.div
               key={current.edge_id}
+              className="cw-card"
               initial={CROSSFADE.initial}
               animate={CROSSFADE.animate}
               exit={CROSSFADE.exit}
               transition={spring}
             >
-              {/* Bridge strip */}
               <div className="cw-bridge">
                 <div className="cw-score-circle">
                   {Math.round(current.strength * 100)}
                 </div>
                 <div className="cw-bridge-content">
-                  {current.reason && (
-                    <div className="cw-bridge-reason">{current.reason}</div>
-                  )}
-                  <div className="cw-bridge-meta">
+                  <div className="cw-section-label">Claim</div>
+                  <p className="cw-bridge-reason">
+                    {current.reason || `${current.from_title} relates to ${current.to_title}.`}
+                  </p>
+                  <div className="cw-badges">
                     <span className="cw-meta-badge">{current.edge_type}</span>
                     <span className="cw-meta-badge">{current.engine}</span>
+                    <span className="cw-meta-badge">
+                      Strategy {(current.strategy ?? data?.strategy ?? 'diversified').toUpperCase()}
+                    </span>
+                    <span className="cw-meta-badge">
+                      Strength {formatPercent(current.strength) ?? 'Unavailable'}
+                    </span>
+                    {typeof current.uncertainty === 'number' && (
+                      <span className="cw-meta-badge">
+                        Uncertainty {current.uncertainty.toFixed(2)}
+                      </span>
+                    )}
+                    {typeof current.disagreement === 'number' && (
+                      <span className="cw-meta-badge">
+                        Disagreement {current.disagreement.toFixed(2)}
+                      </span>
+                    )}
+                    {buildInformativeBadges(current, notebookSlug).map((badge) => (
+                      <span
+                        key={badge.label}
+                        className={`cw-meta-badge cw-meta-badge--${badge.tone}`}
+                      >
+                        {badge.label}
+                      </span>
+                    ))}
                   </div>
                 </div>
               </div>
 
-              {/* Provenance drawer */}
               <EngineProvenance
                 passes={parsePassesFromEngine(current.engine)}
                 score={current.strength}
                 engine={current.engine}
               />
 
-              {/* Side-by-side objects */}
               <div className="cw-objects">
                 <div className="cw-object-side">
                   <div className="cw-object-label">
@@ -468,33 +933,137 @@ export default function ConnectionWorkshop({ notebookSlug }: ConnectionWorkshopP
                   <ObjectSide edge={current} side="to" onClick={(obj) => openDrawer(obj.slug)} />
                 </div>
               </div>
+
+              <div className="cw-review">
+                <div className="cw-section-label">Human Review</div>
+                <div className="cw-review-grid">
+                  <div className="cw-row">
+                    <div className="cw-row-head">
+                      <div className="cw-row-title">1. Correctness</div>
+                      <div className="cw-row-note">Single select</div>
+                    </div>
+                    <div className="cw-chip-group">
+                      {CORRECTNESS_OPTIONS.map((option) => (
+                        <motion.button
+                          key={option.key}
+                          className={[
+                            'cw-chip',
+                            `cw-chip--${option.tone}`,
+                            draft.correctness === option.key ? 'cw-chip--active' : '',
+                          ].join(' ')}
+                          onClick={() => setCorrectness(option.key)}
+                          whileTap={{ scale: 0.98 }}
+                          transition={snappySpring}
+                        >
+                          {option.label}
+                          <span className="cw-shortcut">{option.shortcut}</span>
+                        </motion.button>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div className="cw-row">
+                    <div className="cw-row-head">
+                      <div className="cw-row-title">2. Quality</div>
+                      <div className="cw-row-note">Multi-select when correct</div>
+                    </div>
+                    <div className="cw-chip-group">
+                      {QUALITY_OPTIONS.map((option) => (
+                        <motion.button
+                          key={option.key}
+                          className={`cw-chip${draft.qualities.includes(option.key) ? ' cw-chip--active' : ''}`}
+                          onClick={() => toggleQuality(option.key)}
+                          whileTap={{ scale: 0.98 }}
+                          transition={snappySpring}
+                        >
+                          {option.label}
+                          <span className="cw-shortcut">{option.shortcut}</span>
+                        </motion.button>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div className="cw-row">
+                    <div className="cw-row-head">
+                      <div className="cw-row-title">3. Evidence Modifiers</div>
+                      <div className="cw-row-note">Optional</div>
+                    </div>
+                    <div className="cw-chip-group">
+                      {MODIFIER_OPTIONS.map((option) => (
+                        <motion.button
+                          key={option.key}
+                          className={`cw-chip${draft.modifiers[option.key] ? ' cw-chip--active' : ''}`}
+                          onClick={() => toggleModifier(option.key)}
+                          whileTap={{ scale: 0.98 }}
+                          transition={snappySpring}
+                        >
+                          {option.label}
+                        </motion.button>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div className="cw-row">
+                    <div className="cw-row-head">
+                      <div className="cw-row-title">4. Reviewer Confidence</div>
+                      <div className="cw-row-note">Three-state</div>
+                    </div>
+                    <div className="cw-chip-group">
+                      {CONFIDENCE_OPTIONS.map((option) => (
+                        <motion.button
+                          key={option.key}
+                          className={`cw-chip${draft.confidence === option.key ? ' cw-chip--active' : ''}`}
+                          onClick={() => setConfidence(option.key)}
+                          whileTap={{ scale: 0.98 }}
+                          transition={snappySpring}
+                        >
+                          {option.label}
+                        </motion.button>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div className="cw-row">
+                    <div className="cw-row-head">
+                      <div className="cw-row-title">5. Action</div>
+                      <div className="cw-row-note">Submit the review</div>
+                    </div>
+                    <div className="cw-actions">
+                      {ACTION_OPTIONS.map((option) => (
+                        <motion.button
+                          key={option.key}
+                          className={`cw-action-btn cw-action-btn--${option.tone}`}
+                          onClick={() => submitReview(option.key)}
+                          whileTap={{ scale: 0.98 }}
+                          transition={snappySpring}
+                        >
+                          {option.label}
+                          <span className="cw-shortcut">{option.shortcut}</span>
+                        </motion.button>
+                      ))}
+                    </div>
+                  </div>
+
+                  <ModelDiagnostics edge={current} />
+                </div>
+              </div>
             </motion.div>
           </AnimatePresence>
-
-          {/* Verdict buttons */}
-          <div className="cw-verdicts">
-            {VERDICT_CONFIG.map((v) => (
-              <motion.button
-                key={v.key}
-                className={`cw-verdict-btn ${v.cssClass}`}
-                onClick={() => judge(v.key)}
-                whileTap={{ scale: 0.97 }}
-                transition={snappySpring}
-              >
-                {v.label}
-                <span className="cw-shortcut">{v.shortcut}</span>
-              </motion.button>
-            ))}
-          </div>
         </>
       )}
     </EngineShell>
   );
 }
 
-/* -- Object side renderer -- */
-
-function ObjectSide({ edge, side, onClick }: { edge: ReviewQueueEdge; side: 'from' | 'to'; onClick?: (obj: RenderableObject) => void }) {
+function ObjectSide({
+  edge,
+  side,
+  onClick,
+}: {
+  edge: ReviewQueueEdge;
+  side: 'from' | 'to';
+  onClick?: (obj: RenderableObject) => void;
+}) {
   const id = side === 'from' ? edge.from_object : edge.to_object;
   const title = side === 'from' ? edge.from_title : edge.to_title;
   const slug = side === 'from' ? edge.from_slug : edge.to_slug;
@@ -510,7 +1079,6 @@ function ObjectSide({ edge, side, onClick }: { edge: ReviewQueueEdge; side: 'fro
     );
   }
 
-  // Extended fields come from Option A backend enhancement (if available)
   const extra = edge as unknown as Record<string, unknown>;
   const obj: RenderableObject = {
     id,
@@ -523,8 +1091,6 @@ function ObjectSide({ edge, side, onClick }: { edge: ReviewQueueEdge; side: 'fro
 
   return <ObjectRenderer object={obj} variant="module" onClick={onClick} />;
 }
-
-/* -- Helpers -- */
 
 function parsePassesFromEngine(engine: string): string[] {
   return engine
