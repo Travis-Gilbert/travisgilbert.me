@@ -372,11 +372,79 @@ export default function ForceGraph3DRenderer({
     if (!graph) return;
 
     try {
+      const scene = graph.scene();
+
+      const planeGeometry = new THREE.PlaneGeometry(200, 200);
+      const planeMaterial = new THREE.MeshBasicMaterial({
+        color: 0x0f1012,
+        transparent: true,
+        opacity: 0.3,
+      });
+      const groundPlane = new THREE.Mesh(planeGeometry, planeMaterial);
+      groundPlane.rotation.x = -Math.PI / 2;
+      groundPlane.position.y = -10;
+      scene.add(groundPlane);
+
+      const particleCount = 200;
+      const positions = new Float32Array(particleCount * 3);
+      for (let i = 0; i < particleCount; i++) {
+        const theta = Math.random() * Math.PI * 2;
+        const phi = Math.acos(2 * Math.random() - 1);
+        const r = Math.random() * 100;
+        positions[i * 3] = r * Math.sin(phi) * Math.cos(theta);
+        positions[i * 3 + 1] = r * Math.sin(phi) * Math.sin(theta);
+        positions[i * 3 + 2] = r * Math.cos(phi);
+      }
+      const particleGeometry = new THREE.BufferGeometry();
+      particleGeometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+      const particleMaterial = new THREE.PointsMaterial({
+        size: 0.08,
+        color: 0x4a8a96,
+        transparent: true,
+        opacity: 0.15,
+      });
+      const particles = new THREE.Points(particleGeometry, particleMaterial);
+      scene.add(particles);
+
+      const ambientLight = new THREE.AmbientLight(0xffffff, 0.4);
+      scene.add(ambientLight);
+
+      const directionalLight = new THREE.DirectionalLight(0xffffff, 0.6);
+      directionalLight.position.set(5, 10, 7);
+      scene.add(directionalLight);
+
+      const tealFill = new THREE.PointLight(0x4a8a96, 0.3);
+      tealFill.position.set(0, 5, 0);
+      scene.add(tealFill);
+
+      return () => {
+        [groundPlane, particles, ambientLight, directionalLight, tealFill].forEach((obj) => {
+          scene.remove(obj);
+        });
+        planeGeometry.dispose();
+        planeMaterial.dispose();
+        particleGeometry.dispose();
+        particleMaterial.dispose();
+        ambientLight.dispose();
+        directionalLight.dispose();
+        tealFill.dispose();
+      };
+    } catch {
+      // graph.scene() unavailable before mount completes
+    }
+  }, []);
+
+  useEffect(() => {
+    const graph = graphRef.current;
+    if (!graph) return;
+
+    try {
+      const zMultiplier = nodes.length < 4 ? 1.5 : 1;
       graph.cameraPosition(
         {
           x: directive.camera.initial_position[0],
           y: directive.camera.initial_position[1],
-          z: directive.camera.initial_position[2],
+          z: directive.camera.initial_position[2] * zMultiplier,
         },
         {
           x: directive.camera.initial_look_at[0],
@@ -388,7 +456,7 @@ export default function ForceGraph3DRenderer({
     } catch (error) {
       onError?.(error instanceof Error ? error : new Error('Failed to position 3D camera'));
     }
-  }, [directive.camera, onError]);
+  }, [directive.camera, nodes.length, onError]);
 
   const handleNodeClick = useCallback((node: GraphNode) => {
     onSelectNode?.(node.id);
@@ -422,7 +490,7 @@ export default function ForceGraph3DRenderer({
         ref={graphRef}
         width={width}
         height={height}
-        backgroundColor="rgba(0,0,0,0)"
+        backgroundColor="#0f1012"
         graphData={graphData}
         warmupTicks={directive.force_config.warmup_ticks}
         cooldownTicks={0}

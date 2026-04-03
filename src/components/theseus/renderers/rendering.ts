@@ -9,7 +9,7 @@ import type {
   SceneDirective,
 } from '@/lib/theseus-viz/SceneDirective';
 
-const TYPE_COLORS: Record<string, string> = {
+export const TYPE_COLORS: Record<string, string> = {
   source: '#2D5F6B',
   concept: '#7B5EA7',
   person: '#C4503C',

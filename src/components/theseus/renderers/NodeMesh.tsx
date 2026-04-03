@@ -6,6 +6,7 @@ import type { RendererNode } from './rendering';
 const LABEL_NAME = '__label';
 const WIRE_NAME = '__wire';
 const MESH_NAME = '__mesh';
+const GLOW_NAME = '__glow';
 
 function buildGeometry(objectType: string): THREE.BufferGeometry {
   switch (objectType) {
@@ -94,14 +95,27 @@ export function createNodeObject(
     emissiveIntensity: node.emissive,
     transparent: true,
     opacity: node.opacity,
-    roughness: 0.55,
-    metalness: 0.08,
+    roughness: 0.7,
+    metalness: 0.15,
   });
 
   const mesh = new THREE.Mesh(geometry, material);
   mesh.name = MESH_NAME;
   mesh.scale.setScalar(node.baseScale);
   group.add(mesh);
+
+  if (node.emissive > 0.3) {
+    const ringGeometry = new THREE.RingGeometry(node.baseScale * 1.1, node.baseScale * 1.6, 32);
+    const ringMaterial = new THREE.MeshBasicMaterial({
+      color: node.color,
+      transparent: true,
+      opacity: 0.12,
+      side: THREE.DoubleSide,
+    });
+    const ring = new THREE.Mesh(ringGeometry, ringMaterial);
+    ring.name = GLOW_NAME;
+    group.add(ring);
+  }
 
   if (node.isHypothesis || node.objectType === 'hunch') {
     group.add(buildHypothesisWireframe(geometry, '#E8E5E0', 1.15));
@@ -154,6 +168,24 @@ export function updateNodeObject(
     material.emissiveIntensity = node.emissive;
     material.opacity = node.opacity;
     material.needsUpdate = true;
+  }
+
+  const existingGlow = group.getObjectByName(GLOW_NAME);
+  const shouldGlow = node.emissive > 0.3;
+  if (shouldGlow && !existingGlow) {
+    const ringGeometry = new THREE.RingGeometry(node.baseScale * 1.1, node.baseScale * 1.6, 32);
+    const ringMaterial = new THREE.MeshBasicMaterial({
+      color: node.color,
+      transparent: true,
+      opacity: 0.12,
+      side: THREE.DoubleSide,
+    });
+    const ring = new THREE.Mesh(ringGeometry, ringMaterial);
+    ring.name = GLOW_NAME;
+    group.add(ring);
+  } else if (!shouldGlow && existingGlow) {
+    group.remove(existingGlow);
+    disposeObject(existingGlow);
   }
 
   const existingLabel = group.getObjectByName(LABEL_NAME);

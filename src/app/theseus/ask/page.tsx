@@ -5,6 +5,7 @@ import { useSearchParams } from 'next/navigation';
 import { askTheseus } from '@/lib/theseus-api';
 import type {
   DataAcquisitionSection,
+  EvidencePathSection,
   HypothesisSection,
   NarrativeSection,
   ObjectsSection,
@@ -17,12 +18,13 @@ import type { DataProcessingStatus } from '@/lib/theseus-data/types';
 import type { ColumnDescriptor, DataShape } from '@/lib/theseus-viz/SceneSpec';
 import type { SceneDirective } from '@/lib/theseus-viz/SceneDirective';
 import { directScene } from '@/lib/theseus-viz/SceneDirector';
-import { buildObjectLookup } from '@/components/theseus/renderers/rendering';
+import { buildObjectLookup, TYPE_COLORS } from '@/components/theseus/renderers/rendering';
 import RenderRouter from '@/components/theseus/renderers/RenderRouter';
+import ThinkingScreen from '@/components/theseus/ThinkingScreen';
 import { getModel } from '@/lib/theseus-storage';
 import { useIsMobile } from '@/hooks/useIsMobile';
 
-type AskState = 'IDLE' | 'THINKING' | 'MODEL' | 'CONSTRUCTING' | 'EXPLORING';
+export type AskState = 'IDLE' | 'THINKING' | 'MODEL' | 'CONSTRUCTING' | 'EXPLORING';
 
 interface ProcessedDataset {
   data: Record<string, unknown>[];
@@ -190,7 +192,26 @@ function getHypotheses(response: TheseusResponse): HypothesisSection[] {
   );
 }
 
-function StatusScreen({
+function getEvidencePath(response: TheseusResponse): EvidencePathSection | null {
+  return response.sections.find(
+    (section): section is EvidencePathSection => section.type === 'evidence_path',
+  ) ?? null;
+}
+
+const RENDERER_LABELS: Record<string, string> = {
+  'force-graph-3d': 'GRAPH',
+  'sigma-2d': 'GRAPH 2D',
+  d3: 'MAP',
+  'vega-lite': 'CHART',
+};
+
+function getConfidenceColor(value: number): string {
+  if (value >= 0.6) return 'var(--vie-teal)';
+  if (value >= 0.3) return 'var(--vie-amber)';
+  return 'var(--vie-terra)';
+}
+
+function StaticScreen({
   title,
   subtitle,
 }: {
@@ -345,6 +366,7 @@ function AskContent() {
   const tensions = response ? getTensions(response) : [];
   const gaps = response ? getGaps(response) : [];
   const hypotheses = response ? getHypotheses(response) : [];
+  const evidencePath = response ? getEvidencePath(response) : null;
 
   const infoPanelStyle = isMobile
     ? {
@@ -363,16 +385,16 @@ function AskContent() {
       };
 
   if (state === 'IDLE' && !error) {
-    return <StatusScreen title="No query provided" subtitle="Go back to the Theseus homepage and ask a question." />;
+    return <StaticScreen title="No query provided" subtitle="Go back to the Theseus homepage and ask a question." />;
   }
 
   if (error) {
-    return <StatusScreen title="Something went wrong" subtitle={error} />;
+    return <StaticScreen title="Something went wrong" subtitle={error} />;
   }
 
   if (savedSceneSpec && savedId) {
     return (
-      <StatusScreen
+      <StaticScreen
         title={savedQuery ?? 'Saved model'}
         subtitle={`Legacy model view: ${savedSceneSpec.nodes.length} nodes · ${Math.round(savedSceneSpec.confidence * 100)}% confidence`}
       />
@@ -380,21 +402,7 @@ function AskContent() {
   }
 
   if (!response || !sceneDirective || state !== 'EXPLORING') {
-    const title = state === 'THINKING'
-      ? 'Thinking...'
-      : state === 'MODEL'
-        ? 'Building model...'
-        : 'Constructing scene...';
-
-      const subtitle = state === 'CONSTRUCTING'
-      ? dataStatus?.phase === 'loading'
-        ? `Loading ${dataStatus.source}...`
-        : dataStatus?.phase === 'processing'
-          ? `Running query ${dataStatus.query_index + 1}/${dataStatus.total}...`
-          : query ?? undefined
-      : query ?? undefined;
-
-    return <StatusScreen title={title} subtitle={subtitle} />;
+    return <ThinkingScreen state={state} query={query} dataStatus={dataStatus} />;
   }
 
   return (
@@ -441,7 +449,7 @@ function AskContent() {
               textTransform: 'uppercase',
             }}
           >
-            {sceneDirective.render_target.primary}
+            {RENDERER_LABELS[sceneDirective.render_target.primary] ?? sceneDirective.render_target.primary}
           </span>
           <span
             style={{
@@ -450,7 +458,17 @@ function AskContent() {
               fontSize: 11,
             }}
           >
-            confidence {Math.round(response.confidence.combined * 100)}%
+            {objectLookup.size} nodes
+          </span>
+          <span style={{ color: 'var(--vie-text-dim)', fontFamily: 'var(--vie-font-mono)', fontSize: 11 }}>·</span>
+          <span
+            style={{
+              color: getConfidenceColor(response.confidence.combined),
+              fontFamily: 'var(--vie-font-mono)',
+              fontSize: 11,
+            }}
+          >
+            {Math.round(response.confidence.combined * 100)}% confidence
           </span>
         </div>
 
@@ -472,7 +490,7 @@ function AskContent() {
           ...infoPanelStyle,
           display: 'flex',
           flexDirection: 'column',
-          gap: 14,
+          gap: 0,
           padding: isMobile ? '16px' : '18px',
           borderRadius: 22,
           background: 'rgba(15,16,18,0.76)',
@@ -482,6 +500,49 @@ function AskContent() {
           zIndex: 10,
         }}
       >
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            gap: 10,
+            marginBottom: 14,
+          }}
+        >
+          <span
+            style={{
+              fontFamily: 'var(--vie-font-body)',
+              fontSize: 13,
+              color: 'var(--vie-text)',
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
+              whiteSpace: 'nowrap',
+              maxWidth: 240,
+            }}
+          >
+            {response.query.length > 40 ? response.query.slice(0, 40) + '...' : response.query}
+          </span>
+          <div
+            style={{
+              width: 60,
+              height: 4,
+              borderRadius: 2,
+              background: 'rgba(255,255,255,0.06)',
+              flexShrink: 0,
+              overflow: 'hidden',
+            }}
+          >
+            <div
+              style={{
+                width: `${Math.round(response.confidence.combined * 100)}%`,
+                height: '100%',
+                background: getConfidenceColor(response.confidence.combined),
+                borderRadius: 2,
+              }}
+            />
+          </div>
+        </div>
+
         {!narrationReady ? (
           <div style={{ display: 'grid', gap: 8 }}>
             <span
@@ -506,6 +567,40 @@ function AskContent() {
             >
               Theseus is finishing the construction sequence before the narration panel opens.
             </p>
+          </div>
+        ) : narratives.length === 0 && tensions.length === 0 && hypotheses.length === 0 ? (
+          <div style={{ display: 'grid', gap: 12 }}>
+            <p
+              style={{
+                margin: 0,
+                fontFamily: 'var(--vie-font-body)',
+                fontSize: 13,
+                color: 'var(--vie-text-dim)',
+              }}
+            >
+              Theseus found limited evidence for this query.
+            </p>
+            {response.follow_ups && response.follow_ups.length > 0 && (
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+                {response.follow_ups.map((followUp, index) => (
+                  <a
+                    key={`followup-${index}`}
+                    href={`/theseus/ask?q=${encodeURIComponent(followUp.query)}`}
+                    style={{
+                      padding: '4px 12px',
+                      borderRadius: 999,
+                      background: 'rgba(255,255,255,0.04)',
+                      color: 'var(--vie-text-muted)',
+                      fontFamily: 'var(--vie-font-body)',
+                      fontSize: 12,
+                      textDecoration: 'none',
+                    }}
+                  >
+                    {followUp.query}
+                  </a>
+                ))}
+              </div>
+            )}
           </div>
         ) : (
           <>
@@ -571,138 +666,256 @@ function AskContent() {
             )}
 
             {narratives.length > 0 && (
-              <section>
-                <span
-                  style={{
-                    color: 'var(--vie-teal-light)',
-                    fontFamily: 'var(--vie-font-mono)',
-                    fontSize: 11,
-                    letterSpacing: '0.08em',
-                    textTransform: 'uppercase',
-                  }}
-                >
-                  narration
-                </span>
-                <div style={{ display: 'grid', gap: 10, marginTop: 8 }}>
-                  {narratives.slice(0, 2).map((narrative, index) => (
-                    <p
-                      key={`narrative-${index}`}
-                      style={{
-                        margin: 0,
-                        color: 'var(--vie-text)',
-                        fontFamily: 'var(--vie-font-body)',
-                        fontSize: 14,
-                        lineHeight: 1.65,
-                      }}
-                    >
-                      {narrative.content}
-                    </p>
-                  ))}
-                </div>
-              </section>
+              <>
+                <div style={{ height: 1, background: 'rgba(255,255,255,0.04)', margin: '14px 0' }} />
+                <section>
+                  <span
+                    style={{
+                      display: 'block',
+                      marginTop: 16,
+                      marginBottom: 8,
+                      color: 'var(--vie-teal-light)',
+                      fontFamily: 'var(--vie-font-mono)',
+                      fontSize: 11,
+                      letterSpacing: '0.08em',
+                      textTransform: 'uppercase',
+                    }}
+                  >
+                    narration
+                  </span>
+                  <div style={{ display: 'grid', gap: 10 }}>
+                    {narratives.slice(0, 2).map((narrative, index) => (
+                      <p
+                        key={`narrative-${index}`}
+                        style={{
+                          margin: 0,
+                          color: 'var(--vie-text)',
+                          fontFamily: 'var(--vie-font-body)',
+                          fontSize: 14,
+                          lineHeight: 1.65,
+                        }}
+                      >
+                        {narrative.content}
+                      </p>
+                    ))}
+                  </div>
+                </section>
+              </>
+            )}
+
+            {evidencePath && evidencePath.nodes.length > 0 && (
+              <>
+                <div style={{ height: 1, background: 'rgba(255,255,255,0.04)', margin: '14px 0' }} />
+                <section>
+                  <span
+                    style={{
+                      display: 'block',
+                      marginTop: 16,
+                      marginBottom: 8,
+                      color: 'var(--vie-teal-light)',
+                      fontFamily: 'var(--vie-font-mono)',
+                      fontSize: 11,
+                      letterSpacing: '0.08em',
+                      textTransform: 'uppercase',
+                    }}
+                  >
+                    evidence path
+                  </span>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 0 }}>
+                    {evidencePath.nodes.map((node, index) => (
+                      <div key={`ep-${node.object_id}`}>
+                        <div
+                          style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: 8,
+                            padding: '6px 0 6px 10px',
+                            borderLeft: `4px solid ${TYPE_COLORS[node.object_type] ?? '#9A958D'}`,
+                          }}
+                        >
+                          <span
+                            style={{
+                              fontFamily: 'var(--vie-font-body)',
+                              fontSize: 13,
+                              color: 'var(--vie-text)',
+                              flex: 1,
+                            }}
+                          >
+                            {node.title}
+                          </span>
+                          <span
+                            style={{
+                              fontFamily: 'var(--vie-font-mono)',
+                              fontSize: 10,
+                              color: 'var(--vie-text-dim)',
+                              textTransform: 'uppercase',
+                              flexShrink: 0,
+                            }}
+                          >
+                            {node.object_type}
+                          </span>
+                        </div>
+                        {index < evidencePath.nodes.length - 1 && (
+                          <div
+                            style={{
+                              width: 1,
+                              height: 8,
+                              background: 'rgba(255,255,255,0.08)',
+                              marginLeft: 12,
+                            }}
+                          />
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </section>
+              </>
             )}
 
             {tensions.length > 0 && (
-              <section>
-                <span
-                  style={{
-                    color: 'var(--vie-terra-light)',
-                    fontFamily: 'var(--vie-font-mono)',
-                    fontSize: 11,
-                    letterSpacing: '0.08em',
-                    textTransform: 'uppercase',
-                  }}
-                >
-                  tensions
-                </span>
-                <div style={{ display: 'grid', gap: 10, marginTop: 8 }}>
-                  {tensions.slice(0, 2).map((tension, index) => (
-                    <div key={`tension-${index}`} style={{ display: 'grid', gap: 4 }}>
-                      <strong
-                        style={{
-                          color: 'var(--vie-text)',
-                          fontFamily: 'var(--vie-font-body)',
-                          fontSize: 14,
-                        }}
-                      >
-                        {tension.domain}
-                      </strong>
-                      <p style={{ margin: 0, color: 'var(--vie-text-muted)', fontSize: 13, lineHeight: 1.5 }}>
-                        {tension.claim_a}
-                      </p>
-                      <p style={{ margin: 0, color: 'var(--vie-text-muted)', fontSize: 13, lineHeight: 1.5 }}>
-                        {tension.claim_b}
-                      </p>
-                    </div>
-                  ))}
-                </div>
-              </section>
+              <>
+                <div style={{ height: 1, background: 'rgba(255,255,255,0.04)', margin: '14px 0' }} />
+                <section>
+                  <span
+                    style={{
+                      display: 'block',
+                      marginTop: 16,
+                      marginBottom: 8,
+                      color: 'var(--vie-terra-light)',
+                      fontFamily: 'var(--vie-font-mono)',
+                      fontSize: 11,
+                      letterSpacing: '0.08em',
+                      textTransform: 'uppercase',
+                    }}
+                  >
+                    tensions
+                  </span>
+                  <div style={{ display: 'grid', gap: 10 }}>
+                    {tensions.slice(0, 2).map((tension, index) => (
+                      <div key={`tension-${index}`} style={{ display: 'grid', gap: 4 }}>
+                        <strong
+                          style={{
+                            color: 'var(--vie-text)',
+                            fontFamily: 'var(--vie-font-body)',
+                            fontSize: 14,
+                          }}
+                        >
+                          {tension.domain}
+                        </strong>
+                        <p style={{ margin: 0, color: 'var(--vie-text-muted)', fontSize: 13, lineHeight: 1.5 }}>
+                          {tension.claim_a}
+                        </p>
+                        <p style={{ margin: 0, color: 'var(--vie-text-muted)', fontSize: 13, lineHeight: 1.5 }}>
+                          {tension.claim_b}
+                        </p>
+                      </div>
+                    ))}
+                  </div>
+                </section>
+              </>
             )}
 
             {hypotheses.length > 0 && (
-              <section>
-                <span
-                  style={{
-                    color: 'var(--vie-amber-light)',
-                    fontFamily: 'var(--vie-font-mono)',
-                    fontSize: 11,
-                    letterSpacing: '0.08em',
-                    textTransform: 'uppercase',
-                  }}
-                >
-                  hypotheses
-                </span>
-                <div style={{ display: 'grid', gap: 10, marginTop: 8 }}>
-                  {hypotheses.slice(0, 2).map((hypothesis, index) => (
-                    <div key={`hypothesis-${index}`} style={{ display: 'grid', gap: 4 }}>
-                      <strong
-                        style={{
-                          color: 'var(--vie-text)',
-                          fontFamily: 'var(--vie-font-body)',
-                          fontSize: 14,
-                        }}
-                      >
-                        {hypothesis.title}
-                      </strong>
-                      <p style={{ margin: 0, color: 'var(--vie-text-muted)', fontSize: 13, lineHeight: 1.5 }}>
-                        {hypothesis.structural_basis || hypothesis.description}
-                      </p>
-                    </div>
-                  ))}
-                </div>
-              </section>
+              <>
+                <div style={{ height: 1, background: 'rgba(255,255,255,0.04)', margin: '14px 0' }} />
+                <section>
+                  <span
+                    style={{
+                      display: 'block',
+                      marginTop: 16,
+                      marginBottom: 8,
+                      color: 'var(--vie-amber-light)',
+                      fontFamily: 'var(--vie-font-mono)',
+                      fontSize: 11,
+                      letterSpacing: '0.08em',
+                      textTransform: 'uppercase',
+                    }}
+                  >
+                    hypotheses
+                  </span>
+                  <div style={{ display: 'grid', gap: 10 }}>
+                    {hypotheses.slice(0, 2).map((hypothesis, index) => (
+                      <div key={`hypothesis-${index}`} style={{ display: 'grid', gap: 4 }}>
+                        <strong
+                          style={{
+                            color: 'var(--vie-text)',
+                            fontFamily: 'var(--vie-font-body)',
+                            fontSize: 14,
+                          }}
+                        >
+                          {hypothesis.title}
+                        </strong>
+                        <p style={{ margin: 0, color: 'var(--vie-text-muted)', fontSize: 13, lineHeight: 1.5 }}>
+                          {hypothesis.structural_basis || hypothesis.description}
+                        </p>
+                      </div>
+                    ))}
+                  </div>
+                </section>
+              </>
             )}
 
             {gaps.length > 0 && (
-              <section>
-                <span
-                  style={{
-                    color: 'var(--vie-text-muted)',
-                    fontFamily: 'var(--vie-font-mono)',
-                    fontSize: 11,
-                    letterSpacing: '0.08em',
-                    textTransform: 'uppercase',
-                  }}
-                >
-                  structural gaps
-                </span>
-                <div style={{ display: 'grid', gap: 8, marginTop: 8 }}>
-                  {gaps.slice(0, 2).map((gap, index) => (
-                    <p
-                      key={`gap-${index}`}
+              <>
+                <div style={{ height: 1, background: 'rgba(255,255,255,0.04)', margin: '14px 0' }} />
+                <section>
+                  <span
+                    style={{
+                      display: 'block',
+                      marginTop: 16,
+                      marginBottom: 8,
+                      color: 'var(--vie-text-muted)',
+                      fontFamily: 'var(--vie-font-mono)',
+                      fontSize: 11,
+                      letterSpacing: '0.08em',
+                      textTransform: 'uppercase',
+                    }}
+                  >
+                    structural gaps
+                  </span>
+                  <div style={{ display: 'grid', gap: 8 }}>
+                    {gaps.slice(0, 2).map((gap, index) => (
+                      <p
+                        key={`gap-${index}`}
+                        style={{
+                          margin: 0,
+                          color: 'var(--vie-text-muted)',
+                          fontFamily: 'var(--vie-font-body)',
+                          fontSize: 13,
+                          lineHeight: 1.55,
+                        }}
+                      >
+                        {gap.message}
+                      </p>
+                    ))}
+                  </div>
+                </section>
+              </>
+            )}
+
+            {response.follow_ups && response.follow_ups.length > 0 && (
+              <>
+                <div style={{ height: 1, background: 'rgba(255,255,255,0.04)', margin: '14px 0' }} />
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 4 }}>
+                  {response.follow_ups.map((followUp, index) => (
+                    <a
+                      key={`followup-${index}`}
+                      href={`/theseus/ask?q=${encodeURIComponent(followUp.query)}`}
                       style={{
-                        margin: 0,
+                        padding: '4px 12px',
+                        borderRadius: 999,
+                        background: 'rgba(255,255,255,0.04)',
                         color: 'var(--vie-text-muted)',
                         fontFamily: 'var(--vie-font-body)',
-                        fontSize: 13,
-                        lineHeight: 1.55,
+                        fontSize: 12,
+                        textDecoration: 'none',
                       }}
                     >
-                      {gap.message}
-                    </p>
+                      {followUp.query}
+                    </a>
                   ))}
                 </div>
-              </section>
+              </>
             )}
           </>
         )}
@@ -714,7 +927,7 @@ function AskContent() {
 export default function TheseusAskPage() {
   return (
     <Suspense
-      fallback={<StatusScreen title="Loading..." subtitle="Preparing Theseus." />}
+      fallback={<StaticScreen title="Loading..." subtitle="Preparing Theseus." />}
     >
       <AskContent />
     </Suspense>
