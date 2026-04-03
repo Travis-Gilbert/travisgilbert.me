@@ -21,8 +21,7 @@ import { directScene } from '@/lib/theseus-viz/SceneDirector';
 import { buildObjectLookup, TYPE_COLORS } from '@/components/theseus/renderers/rendering';
 import RenderRouter from '@/components/theseus/renderers/RenderRouter';
 import ThinkingScreen from '@/components/theseus/ThinkingScreen';
-import GalaxyController from '@/components/theseus/GalaxyController';
-import { useDotGrid } from '@/components/theseus/TheseusShell';
+import { useGalaxy } from '@/components/theseus/TheseusShell';
 import { getModel } from '@/lib/theseus-storage';
 import { useIsMobile } from '@/hooks/useIsMobile';
 
@@ -264,7 +263,7 @@ function AskContent() {
   const query = searchParams.get('q');
   const savedId = searchParams.get('saved');
   const isMobile = useIsMobile();
-  const gridRef = useDotGrid();
+  const { setAskState: pushState, setResponse: pushResponse, setDirective: pushDirective, setDataStatus: pushDataStatus } = useGalaxy();
 
   const [state, setState] = useState<AskState>(query ? 'THINKING' : 'IDLE');
   const [response, setResponse] = useState<TheseusResponse | null>(null);
@@ -280,8 +279,9 @@ function AskContent() {
   const handleDataStatus = useCallback((status: DataProcessingStatus) => {
     if (!cancelledRef.current) {
       setDataStatus(status);
+      pushDataStatus(status);
     }
-  }, []);
+  }, [pushDataStatus]);
 
   useEffect(() => {
     if (!savedId) return;
@@ -291,6 +291,7 @@ function AskContent() {
         setSavedSceneSpec(model.scene_spec);
         setSavedQuery(model.query);
         setState('EXPLORING');
+        pushState('EXPLORING');
       }
     });
   }, [savedId]);
@@ -310,17 +311,21 @@ function AskContent() {
       if (!activeQuery) return;
 
       setState('THINKING');
+      pushState('THINKING');
       const result = await askTheseus(activeQuery);
       if (cancelledRef.current) return;
 
       if (!result.ok) {
         setError(result.message);
         setState('IDLE');
+        pushState('IDLE');
         return;
       }
 
       setState('MODEL');
+      pushState('MODEL');
       setResponse(result);
+      pushResponse(result);
 
       const dataSection = result.sections.find(
         (section): section is DataAcquisitionSection => section.type === 'data_acquisition',
@@ -330,6 +335,7 @@ function AskContent() {
       if (cancelledRef.current) return;
 
       setState('CONSTRUCTING');
+      pushState('CONSTRUCTING');
 
       let processedDataset: ProcessedDataset | null = null;
       if (dataSection) {
@@ -345,11 +351,13 @@ function AskContent() {
       if (cancelledRef.current) return;
 
       setSceneDirective(directive);
+      pushDirective(directive);
 
       const focalNodeId = directive.salience.find((salience) => salience.is_focal)?.node_id;
       const firstObjectId = getObjects(result)[0]?.id ?? null;
       setSelectedNodeId(focalNodeId ?? firstObjectId);
       setState('EXPLORING');
+      pushState('EXPLORING');
     }
 
     run();
@@ -387,40 +395,29 @@ function AskContent() {
         maxHeight: 'calc(100vh - 40px)',
       };
 
-  const galaxy = (
-    <GalaxyController
-      gridRef={gridRef}
-      state={state}
-      response={response}
-      directive={sceneDirective}
-      dataStatus={dataStatus}
-    />
-  );
-
   if (state === 'IDLE' && !error) {
-    return <>{galaxy}<StaticScreen title="No query provided" subtitle="Go back to the Theseus homepage and ask a question." /></>;
+    return <StaticScreen title="No query provided" subtitle="Go back to the Theseus homepage and ask a question." />;
   }
 
   if (error) {
-    return <>{galaxy}<StaticScreen title="Something went wrong" subtitle={error} /></>;
+    return <StaticScreen title="Something went wrong" subtitle={error} />;
   }
 
   if (savedSceneSpec && savedId) {
     return (
-      <>{galaxy}<StaticScreen
+      <StaticScreen
         title={savedQuery ?? 'Saved model'}
         subtitle={`Legacy model view: ${savedSceneSpec.nodes.length} nodes · ${Math.round(savedSceneSpec.confidence * 100)}% confidence`}
-      /></>
+      />
     );
   }
 
   if (!response || !sceneDirective || state !== 'EXPLORING') {
-    return <>{galaxy}<ThinkingScreen state={state} query={query} dataStatus={dataStatus} /></>;
+    return <ThinkingScreen state={state} query={query} dataStatus={dataStatus} />;
   }
 
   return (
     <div style={{ position: 'relative', width: '100%', height: '100%' }}>
-      {galaxy}
       <RenderRouter
         directive={sceneDirective}
         response={response}

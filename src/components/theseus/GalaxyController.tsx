@@ -673,9 +673,9 @@ export default function GalaxyController({
         style={{
           position: 'fixed',
           inset: 0,
-          zIndex: zoom.active ? 2 : (phaseRef.current === 'explore' || phaseRef.current === 'crystallize' ? 1 : 0),
-          pointerEvents: zoom.active || phaseRef.current === 'explore' || phaseRef.current === 'crystallize' ? 'auto' : 'none',
-          cursor: zoom.active ? 'zoom-out' : (phaseRef.current === 'explore' ? 'pointer' : undefined),
+          zIndex: zoom.active ? 2 : (phaseRef.current === 'idle' || phaseRef.current === 'explore' || phaseRef.current === 'crystallize' ? 1 : 0),
+          pointerEvents: zoom.active || phaseRef.current === 'idle' || phaseRef.current === 'explore' || phaseRef.current === 'crystallize' ? 'auto' : 'none',
+          cursor: zoom.active ? 'zoom-out' : (phaseRef.current === 'idle' || phaseRef.current === 'explore' ? 'pointer' : undefined),
         }}
       />
 

@@ -115,14 +115,19 @@ async function apiFetch<TInput extends object, TOutput extends object = TInput>(
   init?: RequestInit,
   normalize?: (data: TInput) => TOutput,
 ): Promise<ApiResult<TOutput>> {
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 30000);
+
   try {
     const res = await fetch(path, {
       ...init,
+      signal: controller.signal,
       headers: {
         'Content-Type': 'application/json',
         ...init?.headers,
       },
     });
+    clearTimeout(timeoutId);
     if (!res.ok) {
       const text = await res.text().catch(() => res.statusText);
       return apiError(res.status, text);
@@ -130,6 +135,10 @@ async function apiFetch<TInput extends object, TOutput extends object = TInput>(
     const data: TInput = await res.json();
     return wrapOk(normalize ? normalize(data) : (data as unknown as TOutput));
   } catch (err) {
+    clearTimeout(timeoutId);
+    if (err instanceof DOMException && err.name === 'AbortError') {
+      return apiError(0, 'Request timed out. The backend may be slow or unreachable.');
+    }
     return apiError(0, err instanceof Error ? err.message : 'Network error');
   }
 }
@@ -626,7 +635,7 @@ export async function askTheseus(
     body: JSON.stringify({
       query,
       mode: options?.mode ?? 'full',
-      include_web: options?.include_web ?? true,
+      include_web: options?.include_web ?? false,
       max_objects: options?.max_objects ?? 12,
       scope: options?.scope ?? (options?.personal_only ? 'personal' : 'all'),
     }),
