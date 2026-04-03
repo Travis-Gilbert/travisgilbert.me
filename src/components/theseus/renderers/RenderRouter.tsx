@@ -7,9 +7,13 @@ import ConstructionAnimator from './ConstructionAnimator';
 import ContextShelf from './ContextShelf';
 import D3Renderer from './D3Renderer';
 import ForceGraph3DRenderer from './ForceGraph3DRenderer';
+import ParticleField from './ParticleField';
 import SigmaRenderer from './SigmaRenderer';
 import VegaRenderer from './VegaRenderer';
 import type { ConstructionPlayback } from './rendering';
+import { graphShape, type ShapeResult } from './shapes';
+
+const PARTICLE_COUNT = 30_000;
 
 interface RenderRouterProps {
   directive: SceneDirective;
@@ -35,6 +39,36 @@ function createEmptyPlayback(totalMs: number): ConstructionPlayback {
     },
     isComplete: false,
   };
+}
+
+function ParticleFieldLayer({
+  directive,
+  response,
+  playback,
+  onSelectNode,
+}: {
+  directive: SceneDirective;
+  response: TheseusResponse;
+  playback: ConstructionPlayback;
+  onSelectNode?: (nodeId: string) => void;
+}) {
+  const shapeResult = useMemo<ShapeResult>(
+    () => graphShape.generate({
+      response,
+      directive,
+      particleCount: PARTICLE_COUNT,
+    }),
+    [response, directive],
+  );
+
+  return (
+    <ParticleField
+      playback={playback}
+      shapeResult={shapeResult}
+      onSelectNode={onSelectNode}
+      particleCount={PARTICLE_COUNT}
+    />
+  );
 }
 
 function RendererLayer({
@@ -63,6 +97,15 @@ function RendererLayer({
 
   const content = (() => {
     switch (target) {
+      case 'particle-field':
+        return (
+          <ParticleFieldLayer
+            directive={directive}
+            response={response}
+            playback={playback}
+            onSelectNode={onSelectNode}
+          />
+        );
       case 'force-graph-3d':
         return (
           <ForceGraph3DRenderer

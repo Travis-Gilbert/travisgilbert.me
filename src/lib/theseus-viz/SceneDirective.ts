@@ -129,8 +129,8 @@ export interface TopologyInterpretation {
 // ---- Render target ----
 
 export interface RenderTargetDirective {
-  primary: 'force-graph-3d' | 'sigma-2d' | 'vega-lite' | 'd3';
-  fallback: 'sigma-2d' | 'force-graph-3d';
+  primary: 'particle-field' | 'force-graph-3d' | 'sigma-2d' | 'vega-lite' | 'd3';
+  fallback: 'force-graph-3d' | 'sigma-2d';
   reason: string;
   data_viz_type?: 'heatmap' | 'bar' | 'line' | 'scatter' | 'geographic'
     | 'surface' | 'sankey' | 'chord' | 'custom' | 'none';

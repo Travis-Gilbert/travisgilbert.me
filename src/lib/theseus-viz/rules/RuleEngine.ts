@@ -110,21 +110,13 @@ function selectRenderTarget(
     };
   }
 
-  // Graph-only: size-based choice
-  if (nodeCount >= 50) {
-    return {
-      primary: 'sigma-2d',
-      fallback: 'force-graph-3d',
-      reason: `large graph (${nodeCount} nodes), using 2D for performance`,
-      data_viz_type: 'none',
-    };
-  }
-
-  // Default: 3D force graph
+  // Graph-only: particle field for all sizes (falls back to force-graph-3d)
   return {
-    primary: 'force-graph-3d',
-    fallback: 'sigma-2d',
-    reason: 'graph-only answer',
+    primary: 'particle-field',
+    fallback: 'force-graph-3d',
+    reason: nodeCount >= 50
+      ? `large graph (${nodeCount} nodes), particle field`
+      : 'graph-only answer, particle field',
     data_viz_type: 'none',
   };
 }
