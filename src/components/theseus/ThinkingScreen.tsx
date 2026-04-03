@@ -39,10 +39,19 @@ function getPipelineStep(state: AskState): number {
 
 function getHeatHeight(state: AskState): string {
   switch (state) {
-    case 'THINKING': return '40%';
-    case 'MODEL':
-    case 'CONSTRUCTING': return '60%';
+    case 'THINKING': return '30%';
+    case 'MODEL': return '50%';
+    case 'CONSTRUCTING': return '70%';
     default: return '0%';
+  }
+}
+
+function getHeatIntensity(state: AskState): number {
+  switch (state) {
+    case 'THINKING': return 0.06;
+    case 'MODEL': return 0.10;
+    case 'CONSTRUCTING': return 0.16;
+    default: return 0;
   }
 }
 
@@ -58,6 +67,7 @@ export default function ThinkingScreen({ state, query, dataStatus }: ThinkingScr
 
   const step = getPipelineStep(state);
   const statusLabel = getStatusLabel(state, dataStatus);
+  const heatIntensity = getHeatIntensity(state);
 
   return (
     <div
@@ -79,8 +89,8 @@ export default function ThinkingScreen({ state, query, dataStatus }: ThinkingScr
           left: 0,
           right: 0,
           height: getHeatHeight(state),
-          background: 'linear-gradient(to top, rgba(196, 80, 60, 0.04), transparent)',
-          transition: 'height 2s ease-in-out',
+          background: `linear-gradient(to top, rgba(196, 80, 60, ${heatIntensity}), rgba(196, 154, 74, ${heatIntensity * 0.4}), transparent)`,
+          transition: 'height 2s ease-in-out, background 1.5s ease',
           pointerEvents: 'none',
         }}
       />

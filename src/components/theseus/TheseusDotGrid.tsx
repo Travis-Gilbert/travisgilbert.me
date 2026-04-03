@@ -1,18 +1,34 @@
 'use client';
 
-import { useCallback, useEffect, useRef } from 'react';
+import { forwardRef, useCallback, useEffect, useImperativeHandle, useRef } from 'react';
 import { usePrefersReducedMotion } from '@/hooks/usePrefersReducedMotion';
 import { mulberry32 } from '@/lib/prng';
 
 const DEFAULT_DOT_COLOR: [number, number, number] = [74, 138, 150];
 
+// Type color tints (RGB) for subtle cluster coloring
+const TYPE_TINTS: Record<string, [number, number, number]> = {
+  source:  [45, 95, 107],   // bluer teal
+  concept: [123, 94, 167],  // purple
+  person:  [196, 80, 60],   // warm
+  hunch:   [196, 154, 74],  // amber
+  note:    [232, 229, 224], // cream
+};
+
+// Object type enum for typed array storage
+const OBJECT_TYPE_MAP: Record<string, number> = {
+  source: 1, concept: 2, person: 3, hunch: 4, note: 5,
+};
+const OBJECT_TYPE_REVERSE = ['none', 'source', 'concept', 'person', 'hunch', 'note'];
+
 // Inverse vignette: center is clean, dots fade in toward edges
+// Soft radial fade: full opacity at edges, gently reduced toward center
 function computeFade(
   gx: Float32Array, gy: Float32Array, fade: Float32Array,
   count: number, w: number, h: number,
 ) {
   const cx = w * 0.5;
-  const cy = h * 0.35;
+  const cy = h * 0.4;
   const maxR = Math.sqrt(cx * cx + cy * cy);
 
   for (let i = 0; i < count; i++) {
@@ -20,8 +36,54 @@ function computeFade(
     const ddy = gy[i] - cy;
     const dist = Math.sqrt(ddx * ddx + ddy * ddy);
     const norm = dist / maxR;
-    fade[i] = Math.pow(Math.max(0, norm - 0.15) / 0.85, 1.8);
+    // Gentle curve: center ~0.3, edges ~1.0
+    fade[i] = 0.3 + 0.7 * Math.pow(norm, 0.6);
   }
+}
+
+export interface GalaxyDotState {
+  /** Cluster ID mapped to this dot index, or null for ambient */
+  clusterId: number | null;
+  /** Dominant object type in the cluster */
+  objectType: string | null;
+  /** Whether this dot is relevant to the current query */
+  isRelevant: boolean;
+  /** Target position for answer construction (canvas coords) */
+  targetX: number | null;
+  targetY: number | null;
+  /** Override opacity (0 to 1), null = use default */
+  opacityOverride: number | null;
+  /** Override RGB color, null = use default teal */
+  colorOverride: [number, number, number] | null;
+}
+
+export interface DotGridHandle {
+  /** Total number of dots in the current grid */
+  getDotCount(): number;
+  /** Get grid position of dot at index */
+  getDotPosition(index: number): { x: number; y: number } | null;
+  /** Set galaxy state for a single dot */
+  setDotGalaxyState(index: number, state: Partial<GalaxyDotState>): void;
+  /** Batch set galaxy state for multiple dots */
+  batchSetGalaxyState(updates: Array<{ index: number; state: Partial<GalaxyDotState> }>): void;
+  /** Set target rest position for a dot (spring physics pulls toward it) */
+  setDotTarget(index: number, tx: number, ty: number): void;
+  /** Reset dot target back to its original grid position */
+  resetDotTarget(index: number): void;
+  /** Reset all dots to grid positions and clear galaxy state */
+  resetAll(): void;
+  /** Enable or disable pointer-events on the canvas */
+  setPointerEvents(enabled: boolean): void;
+  /** Force animation to start (wake from idle) */
+  wakeAnimation(): void;
+  /** Draw edges between dot pairs on the canvas */
+  setEdges(edges: Array<{ fromIndex: number; toIndex: number; progress: number; color: string }>): void;
+  /** Draw labels at positions on the canvas */
+  setLabels(labels: Array<{ x: number; y: number; text: string; alpha: number }>): void;
+  /** Find nearest dot with a cluster mapping to a screen position */
+  findNearestClusterDot(x: number, y: number): { index: number; clusterId: number; x: number; y: number } | null;
+  /** Get canvas dimensions */
+  getSize(): { width: number; height: number };
 }
 
 interface TheseusDotGridProps {
@@ -36,23 +98,25 @@ interface TheseusDotGridProps {
   binaryDensity?: number;
 }
 
-export default function TheseusDotGrid({
+const TheseusDotGrid = forwardRef<DotGridHandle, TheseusDotGridProps>(function TheseusDotGrid({
   dotRadius = 0.85,
   spacing = 20,
   dotColor = DEFAULT_DOT_COLOR,
-  dotOpacity = 0.06,
+  dotOpacity = 0.14,
   stiffness = 0.35,
   damping = 0.48,
   influenceRadius = 100,
   repulsionStrength = 5,
   binaryDensity = 0.20,
-}: TheseusDotGridProps) {
+}, ref) {
   const prefersReducedMotion = usePrefersReducedMotion();
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const animRef = useRef<number>(0);
   const visibleRef = useRef(true);
   const mouseRef = useRef({ x: -9999, y: -9999, active: false });
   const trailRef = useRef<{ x: number; y: number; age: number }[]>([]);
+  const sizeRef = useRef({ w: 0, h: 0 });
+  const startAnimationRef = useRef<(() => void) | null>(null);
 
   const dotsRef = useRef<{
     gx: Float32Array; gy: Float32Array;
@@ -61,7 +125,24 @@ export default function TheseusDotGrid({
     fade: Float32Array;
     kind: Uint8Array;
     count: number;
+    // Galaxy layer: per-dot extended state
+    galaxyClusterId: Int32Array;    // -1 = no cluster
+    galaxyObjectType: Uint8Array;   // 0=none, 1=source, 2=concept, 3=person, 4=hunch, 5=note
+    galaxyRelevant: Uint8Array;     // 0 or 1
+    galaxyOpacity: Float32Array;    // NaN = use default
+    galaxyColorR: Float32Array;     // NaN = use default
+    galaxyColorG: Float32Array;
+    galaxyColorB: Float32Array;
+    // Target positions for answer construction
+    targetGx: Float32Array;         // target grid x (spring pulls toward this)
+    targetGy: Float32Array;         // target grid y
+    hasTarget: Uint8Array;          // 0 = use original gx/gy, 1 = use targetGx/targetGy
   } | null>(null);
+
+  // Overlay drawing state (edges and labels set by controller)
+  const edgesRef = useRef<Array<{ fromIndex: number; toIndex: number; progress: number; color: string }>>([]);
+  const labelsRef = useRef<Array<{ x: number; y: number; text: string; alpha: number }>>([]);
+  const overlayDirtyRef = useRef(false);
 
   const initDots = useCallback((w: number, h: number) => {
     const cols = Math.ceil(w / spacing) + 1;
@@ -92,6 +173,18 @@ export default function TheseusDotGrid({
     const fade = new Float32Array(count);
     computeFade(gx, gy, fade, count, w, h);
 
+    // Galaxy arrays
+    const galaxyClusterId = new Int32Array(count).fill(-1);
+    const galaxyObjectType = new Uint8Array(count);
+    const galaxyRelevant = new Uint8Array(count);
+    const galaxyOpacity = new Float32Array(count).fill(NaN);
+    const galaxyColorR = new Float32Array(count).fill(NaN);
+    const galaxyColorG = new Float32Array(count).fill(NaN);
+    const galaxyColorB = new Float32Array(count).fill(NaN);
+    const targetGx = new Float32Array(count);
+    const targetGy = new Float32Array(count);
+    const hasTarget = new Uint8Array(count);
+
     dotsRef.current = {
       gx, gy,
       ox: new Float32Array(count),
@@ -101,8 +194,135 @@ export default function TheseusDotGrid({
       fade,
       kind,
       count,
+      galaxyClusterId,
+      galaxyObjectType,
+      galaxyRelevant,
+      galaxyOpacity,
+      galaxyColorR,
+      galaxyColorG,
+      galaxyColorB,
+      targetGx,
+      targetGy,
+      hasTarget,
     };
   }, [spacing, binaryDensity]);
+
+  // Shared setter used by both single and batch galaxy state updates
+  function applyGalaxyState(index: number, state: Partial<GalaxyDotState>) {
+    const dots = dotsRef.current;
+    if (!dots || index < 0 || index >= dots.count) return;
+    if (state.clusterId !== undefined) {
+      dots.galaxyClusterId[index] = state.clusterId ?? -1;
+    }
+    if (state.objectType !== undefined) {
+      dots.galaxyObjectType[index] = OBJECT_TYPE_MAP[state.objectType ?? ''] ?? 0;
+    }
+    if (state.isRelevant !== undefined) {
+      dots.galaxyRelevant[index] = state.isRelevant ? 1 : 0;
+    }
+    if (state.opacityOverride !== undefined) {
+      dots.galaxyOpacity[index] = state.opacityOverride ?? NaN;
+    }
+    if (state.colorOverride !== undefined) {
+      if (state.colorOverride) {
+        dots.galaxyColorR[index] = state.colorOverride[0];
+        dots.galaxyColorG[index] = state.colorOverride[1];
+        dots.galaxyColorB[index] = state.colorOverride[2];
+      } else {
+        dots.galaxyColorR[index] = NaN;
+        dots.galaxyColorG[index] = NaN;
+        dots.galaxyColorB[index] = NaN;
+      }
+    }
+  }
+
+  // Imperative handle for GalaxyController
+  useImperativeHandle(ref, () => ({
+    getDotCount() {
+      return dotsRef.current?.count ?? 0;
+    },
+    getDotPosition(index: number) {
+      const dots = dotsRef.current;
+      if (!dots || index < 0 || index >= dots.count) return null;
+      return { x: dots.gx[index] + dots.ox[index], y: dots.gy[index] + dots.oy[index] };
+    },
+    setDotGalaxyState(index: number, state: Partial<GalaxyDotState>) {
+      applyGalaxyState(index, state);
+    },
+    batchSetGalaxyState(updates) {
+      for (const { index, state } of updates) {
+        applyGalaxyState(index, state);
+      }
+    },
+    setDotTarget(index: number, tx: number, ty: number) {
+      const dots = dotsRef.current;
+      if (!dots || index < 0 || index >= dots.count) return;
+      dots.targetGx[index] = tx;
+      dots.targetGy[index] = ty;
+      dots.hasTarget[index] = 1;
+    },
+    resetDotTarget(index: number) {
+      const dots = dotsRef.current;
+      if (!dots || index < 0 || index >= dots.count) return;
+      dots.hasTarget[index] = 0;
+    },
+    resetAll() {
+      const dots = dotsRef.current;
+      if (!dots) return;
+      dots.galaxyClusterId.fill(-1);
+      dots.galaxyObjectType.fill(0);
+      dots.galaxyRelevant.fill(0);
+      dots.galaxyOpacity.fill(NaN);
+      dots.galaxyColorR.fill(NaN);
+      dots.galaxyColorG.fill(NaN);
+      dots.galaxyColorB.fill(NaN);
+      dots.hasTarget.fill(0);
+      edgesRef.current = [];
+      labelsRef.current = [];
+    },
+    setPointerEvents(enabled: boolean) {
+      if (canvasRef.current) {
+        canvasRef.current.style.pointerEvents = enabled ? 'auto' : 'none';
+      }
+    },
+    wakeAnimation() {
+      startAnimationRef.current?.();
+    },
+    setEdges(edges) {
+      edgesRef.current = edges;
+      overlayDirtyRef.current = true;
+    },
+    setLabels(labels) {
+      labelsRef.current = labels;
+      overlayDirtyRef.current = true;
+    },
+    findNearestClusterDot(x: number, y: number) {
+      const dots = dotsRef.current;
+      if (!dots) return null;
+      let bestDist = Infinity;
+      let bestIndex = -1;
+      for (let i = 0; i < dots.count; i++) {
+        if (dots.galaxyClusterId[i] === -1) continue;
+        const dx = (dots.gx[i] + dots.ox[i]) - x;
+        const dy = (dots.gy[i] + dots.oy[i]) - y;
+        const d = dx * dx + dy * dy;
+        if (d < bestDist) {
+          bestDist = d;
+          bestIndex = i;
+        }
+      }
+      if (bestIndex === -1 || bestDist > 2500) return null; // 50px radius
+      return {
+        index: bestIndex,
+        clusterId: dots.galaxyClusterId[bestIndex],
+        x: dots.gx[bestIndex] + dots.ox[bestIndex],
+        y: dots.gy[bestIndex] + dots.oy[bestIndex],
+      };
+    },
+    getSize() {
+      return { width: sizeRef.current.w, height: sizeRef.current.h };
+    },
+  }), []);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -120,6 +340,7 @@ export default function TheseusDotGrid({
       window.matchMedia('(hover: none)').matches;
 
     const binaryFont = '7px "JetBrains Mono", monospace';
+    const labelFont = '11px "JetBrains Mono", monospace';
     const rgb = dotColor;
 
     let resizeRaf = 0;
@@ -128,6 +349,7 @@ export default function TheseusDotGrid({
       const dpr = window.devicePixelRatio || 1;
       w = window.innerWidth;
       h = window.innerHeight;
+      sizeRef.current = { w, h };
       if (w < 1 || h < 1) return;
       canvas!.width = Math.min(w * dpr, 8192);
       canvas!.height = Math.min(h * dpr, 8192);
@@ -145,8 +367,12 @@ export default function TheseusDotGrid({
 
     function drawDot(
       x: number, y: number, alpha: number, dotKind: number,
+      r?: number, g?: number, b?: number,
     ) {
-      ctx!.fillStyle = `rgba(${rgb[0]},${rgb[1]},${rgb[2]},${alpha})`;
+      const cr = r !== undefined && !Number.isNaN(r) ? r : rgb[0];
+      const cg = g !== undefined && !Number.isNaN(g) ? g : rgb[1];
+      const cb = b !== undefined && !Number.isNaN(b) ? b : rgb[2];
+      ctx!.fillStyle = `rgba(${cr},${cg},${cb},${alpha})`;
 
       if (dotKind === 0) {
         ctx!.beginPath();
@@ -167,8 +393,57 @@ export default function TheseusDotGrid({
 
       for (let i = 0; i < dots.count; i++) {
         if (dots.fade[i] < 0.01) continue;
-        const alpha = dotOpacity * dots.fade[i];
-        drawDot(dots.gx[i], dots.gy[i], alpha, dots.kind[i]);
+        const opaOverride = dots.galaxyOpacity[i];
+        const alpha = (Number.isNaN(opaOverride) ? dotOpacity : opaOverride) * dots.fade[i];
+        drawDot(
+          dots.gx[i], dots.gy[i], alpha, dots.kind[i],
+          dots.galaxyColorR[i], dots.galaxyColorG[i], dots.galaxyColorB[i],
+        );
+      }
+    }
+
+    function drawEdgesAndLabels() {
+      const dots = dotsRef.current;
+      if (!dots) return;
+
+      // Draw edges
+      const edges = edgesRef.current;
+      for (const edge of edges) {
+        if (edge.fromIndex < 0 || edge.fromIndex >= dots.count) continue;
+        if (edge.toIndex < 0 || edge.toIndex >= dots.count) continue;
+        const fx = dots.gx[edge.fromIndex] + dots.ox[edge.fromIndex];
+        const fy = dots.gy[edge.fromIndex] + dots.oy[edge.fromIndex];
+        const tx = dots.gx[edge.toIndex] + dots.ox[edge.toIndex];
+        const ty = dots.gy[edge.toIndex] + dots.oy[edge.toIndex];
+        const endX = fx + (tx - fx) * edge.progress;
+        const endY = fy + (ty - fy) * edge.progress;
+
+        ctx!.beginPath();
+        ctx!.moveTo(fx, fy);
+        ctx!.lineTo(endX, endY);
+        ctx!.strokeStyle = edge.color;
+        ctx!.lineWidth = 0.7;
+        ctx!.globalAlpha = 0.30;
+        ctx!.stroke();
+        ctx!.globalAlpha = 1;
+      }
+
+      // Draw labels with dark backing for readability
+      const labels = labelsRef.current;
+      for (const label of labels) {
+        if (label.alpha < 0.01) continue;
+        ctx!.font = labelFont;
+        ctx!.textAlign = 'center';
+        const text = label.text.toUpperCase();
+        const metrics = ctx!.measureText(text);
+        const tx = label.x;
+        const ty = label.y - 12;
+        // Dark backing rectangle
+        ctx!.fillStyle = `rgba(15,16,18,${label.alpha * 0.7})`;
+        ctx!.fillRect(tx - metrics.width / 2 - 4, ty - 8, metrics.width + 8, 14);
+        // Text
+        ctx!.fillStyle = `rgba(232,229,224,${label.alpha})`;
+        ctx!.fillText(text, tx, ty);
       }
     }
 
@@ -203,12 +478,19 @@ export default function TheseusDotGrid({
       for (let i = 0; i < dots.count; i++) {
         if (dots.fade[i] < 0.01) continue;
 
-        const baseX = dots.gx[i];
-        const baseY = dots.gy[i];
+        // If dot has a target, spring toward target instead of grid
+        const baseX = dots.hasTarget[i] ? dots.targetGx[i] : dots.gx[i];
+        const baseY = dots.hasTarget[i] ? dots.targetGy[i] : dots.gy[i];
+
+        // Compute offset relative to current rest position
+        const currentX = dots.gx[i] + dots.ox[i];
+        const currentY = dots.gy[i] + dots.oy[i];
+        const restOffX = currentX - baseX;
+        const restOffY = currentY - baseY;
 
         if (isActive) {
-          const ddx = (baseX + dots.ox[i]) - mx;
-          const ddy = (baseY + dots.oy[i]) - my;
+          const ddx = currentX - mx;
+          const ddy = currentY - my;
           const d2 = ddx * ddx + ddy * ddy;
 
           if (d2 < ir2 && d2 > 0.01) {
@@ -219,19 +501,68 @@ export default function TheseusDotGrid({
           }
         }
 
-        dots.vx[i] += -dots.ox[i] * stiffness;
-        dots.vy[i] += -dots.oy[i] * stiffness;
+        // Spring toward rest position (target or grid)
+        dots.vx[i] += -restOffX * stiffness;
+        dots.vy[i] += -restOffY * stiffness;
         dots.vx[i] *= damping;
         dots.vy[i] *= damping;
         dots.ox[i] += dots.vx[i];
         dots.oy[i] += dots.vy[i];
 
+        // For target dots, also move the grid origin toward target
+        if (dots.hasTarget[i]) {
+          const driftX = (dots.targetGx[i] - dots.gx[i]) * 0.02;
+          const driftY = (dots.targetGy[i] - dots.gy[i]) * 0.02;
+          if (Math.abs(driftX) > 0.01 || Math.abs(driftY) > 0.01) {
+            dots.gx[i] += driftX;
+            dots.gy[i] += driftY;
+            anyDisplaced = true;
+          }
+        }
+
         if (dots.ox[i] * dots.ox[i] + dots.oy[i] * dots.oy[i] > 0.01) {
           anyDisplaced = true;
         }
 
-        const alpha = dotOpacity * dots.fade[i];
-        drawDot(baseX + dots.ox[i], baseY + dots.oy[i], alpha, dots.kind[i]);
+        // Galaxy color: use override, or subtle type tint, or default teal
+        const opaOverride = dots.galaxyOpacity[i];
+        const alpha = (Number.isNaN(opaOverride) ? dotOpacity : opaOverride) * dots.fade[i];
+
+        let dotR = dots.galaxyColorR[i];
+        let dotG = dots.galaxyColorG[i];
+        let dotB = dots.galaxyColorB[i];
+
+        // If no explicit color override, apply subtle type tint for cluster dots
+        if (Number.isNaN(dotR) && dots.galaxyClusterId[i] !== -1 && dots.galaxyObjectType[i] > 0) {
+          const typeName = OBJECT_TYPE_REVERSE[dots.galaxyObjectType[i]];
+          const tint = TYPE_TINTS[typeName];
+          if (tint) {
+            // Blend 20% toward type color for very subtle tinting at idle
+            const blend = dots.galaxyRelevant[i] ? 0.8 : 0.2;
+            dotR = rgb[0] + (tint[0] - rgb[0]) * blend;
+            dotG = rgb[1] + (tint[1] - rgb[1]) * blend;
+            dotB = rgb[2] + (tint[2] - rgb[2]) * blend;
+          } else {
+            dotR = NaN;
+            dotG = NaN;
+            dotB = NaN;
+          }
+        }
+
+        drawDot(
+          dots.gx[i] + dots.ox[i], dots.gy[i] + dots.oy[i],
+          alpha, dots.kind[i],
+          dotR, dotG, dotB,
+        );
+      }
+
+      // Draw edges and labels after dots (only wake loop when data changes)
+      if (edgesRef.current.length > 0 || labelsRef.current.length > 0) {
+        drawEdgesAndLabels();
+        if (overlayDirtyRef.current) {
+          anyDisplaced = true;
+          overlayDirtyRef.current = false;
+        }
       }
 
       if (!anyDisplaced) {
@@ -250,6 +581,8 @@ export default function TheseusDotGrid({
       idleFrames = 0;
       animRef.current = requestAnimationFrame(tick);
     }
+
+    startAnimationRef.current = startAnimation;
 
     function onMouseMove(e: MouseEvent) {
       mouseRef.current.x = e.clientX;
@@ -276,13 +609,13 @@ export default function TheseusDotGrid({
     resize();
 
     if (prefersReducedMotion) {
-      // Static mode: dots render, no rAF, no trail, no spring physics
       window.addEventListener('resize', debouncedResize);
 
       return () => {
         cancelAnimationFrame(resizeRaf);
         observer.disconnect();
         window.removeEventListener('resize', debouncedResize);
+        startAnimationRef.current = null;
       };
     }
 
@@ -301,6 +634,7 @@ export default function TheseusDotGrid({
       }
       window.removeEventListener('resize', debouncedResize);
       document.removeEventListener('mouseleave', onMouseLeave);
+      startAnimationRef.current = null;
     };
   }, [dotRadius, spacing, dotColor, dotOpacity, stiffness, damping, influenceRadius, repulsionStrength, initDots, prefersReducedMotion]);
 
@@ -316,7 +650,10 @@ export default function TheseusDotGrid({
         height: '100%',
         zIndex: 0,
         pointerEvents: 'none',
+        filter: 'blur(0.1px)',
       }}
     />
   );
-}
+});
+
+export default TheseusDotGrid;

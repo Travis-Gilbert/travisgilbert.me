@@ -21,6 +21,8 @@ import { directScene } from '@/lib/theseus-viz/SceneDirector';
 import { buildObjectLookup, TYPE_COLORS } from '@/components/theseus/renderers/rendering';
 import RenderRouter from '@/components/theseus/renderers/RenderRouter';
 import ThinkingScreen from '@/components/theseus/ThinkingScreen';
+import GalaxyController from '@/components/theseus/GalaxyController';
+import { useDotGrid } from '@/components/theseus/TheseusShell';
 import { getModel } from '@/lib/theseus-storage';
 import { useIsMobile } from '@/hooks/useIsMobile';
 
@@ -262,6 +264,7 @@ function AskContent() {
   const query = searchParams.get('q');
   const savedId = searchParams.get('saved');
   const isMobile = useIsMobile();
+  const gridRef = useDotGrid();
 
   const [state, setState] = useState<AskState>(query ? 'THINKING' : 'IDLE');
   const [response, setResponse] = useState<TheseusResponse | null>(null);
@@ -384,29 +387,40 @@ function AskContent() {
         maxHeight: 'calc(100vh - 40px)',
       };
 
+  const galaxy = (
+    <GalaxyController
+      gridRef={gridRef}
+      state={state}
+      response={response}
+      directive={sceneDirective}
+      dataStatus={dataStatus}
+    />
+  );
+
   if (state === 'IDLE' && !error) {
-    return <StaticScreen title="No query provided" subtitle="Go back to the Theseus homepage and ask a question." />;
+    return <>{galaxy}<StaticScreen title="No query provided" subtitle="Go back to the Theseus homepage and ask a question." /></>;
   }
 
   if (error) {
-    return <StaticScreen title="Something went wrong" subtitle={error} />;
+    return <>{galaxy}<StaticScreen title="Something went wrong" subtitle={error} /></>;
   }
 
   if (savedSceneSpec && savedId) {
     return (
-      <StaticScreen
+      <>{galaxy}<StaticScreen
         title={savedQuery ?? 'Saved model'}
         subtitle={`Legacy model view: ${savedSceneSpec.nodes.length} nodes · ${Math.round(savedSceneSpec.confidence * 100)}% confidence`}
-      />
+      /></>
     );
   }
 
   if (!response || !sceneDirective || state !== 'EXPLORING') {
-    return <ThinkingScreen state={state} query={query} dataStatus={dataStatus} />;
+    return <>{galaxy}<ThinkingScreen state={state} query={query} dataStatus={dataStatus} /></>;
   }
 
   return (
     <div style={{ position: 'relative', width: '100%', height: '100%' }}>
+      {galaxy}
       <RenderRouter
         directive={sceneDirective}
         response={response}
@@ -589,11 +603,13 @@ function AskContent() {
                     style={{
                       padding: '4px 12px',
                       borderRadius: 999,
-                      background: 'rgba(255,255,255,0.04)',
+                      background: 'rgba(255,255,255,0.10)',
+                      border: '1px solid rgba(255,255,255,0.06)',
                       color: 'var(--vie-text-muted)',
                       fontFamily: 'var(--vie-font-body)',
                       fontSize: 12,
                       textDecoration: 'none',
+                      transition: 'background 150ms ease, border-color 150ms ease',
                     }}
                   >
                     {followUp.query}
@@ -667,7 +683,7 @@ function AskContent() {
 
             {narratives.length > 0 && (
               <>
-                <div style={{ height: 1, background: 'rgba(255,255,255,0.04)', margin: '14px 0' }} />
+                <div style={{ height: 1, background: 'rgba(255,255,255,0.08)', margin: '14px 0' }} />
                 <section>
                   <span
                     style={{
@@ -705,7 +721,7 @@ function AskContent() {
 
             {evidencePath && evidencePath.nodes.length > 0 && (
               <>
-                <div style={{ height: 1, background: 'rgba(255,255,255,0.04)', margin: '14px 0' }} />
+                <div style={{ height: 1, background: 'rgba(255,255,255,0.08)', margin: '14px 0' }} />
                 <section>
                   <span
                     style={{
@@ -774,7 +790,7 @@ function AskContent() {
 
             {tensions.length > 0 && (
               <>
-                <div style={{ height: 1, background: 'rgba(255,255,255,0.04)', margin: '14px 0' }} />
+                <div style={{ height: 1, background: 'rgba(255,255,255,0.08)', margin: '14px 0' }} />
                 <section>
                   <span
                     style={{
@@ -817,7 +833,7 @@ function AskContent() {
 
             {hypotheses.length > 0 && (
               <>
-                <div style={{ height: 1, background: 'rgba(255,255,255,0.04)', margin: '14px 0' }} />
+                <div style={{ height: 1, background: 'rgba(255,255,255,0.08)', margin: '14px 0' }} />
                 <section>
                   <span
                     style={{
@@ -857,7 +873,7 @@ function AskContent() {
 
             {gaps.length > 0 && (
               <>
-                <div style={{ height: 1, background: 'rgba(255,255,255,0.04)', margin: '14px 0' }} />
+                <div style={{ height: 1, background: 'rgba(255,255,255,0.08)', margin: '14px 0' }} />
                 <section>
                   <span
                     style={{
@@ -895,7 +911,7 @@ function AskContent() {
 
             {response.follow_ups && response.follow_ups.length > 0 && (
               <>
-                <div style={{ height: 1, background: 'rgba(255,255,255,0.04)', margin: '14px 0' }} />
+                <div style={{ height: 1, background: 'rgba(255,255,255,0.08)', margin: '14px 0' }} />
                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 4 }}>
                   {response.follow_ups.map((followUp, index) => (
                     <a

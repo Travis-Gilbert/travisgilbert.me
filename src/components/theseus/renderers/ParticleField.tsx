@@ -12,7 +12,7 @@
  */
 
 import { useEffect, useMemo, useRef } from 'react';
-import { Canvas, useFrame } from '@react-three/fiber';
+import { Canvas, useFrame, useThree } from '@react-three/fiber';
 import { OrbitControls } from '@react-three/drei';
 import * as THREE from 'three';
 import { mulberry32 } from '@/lib/prng';
@@ -109,7 +109,7 @@ function initStaticBuffers(count: number): StaticBuffers {
     size[i] = 0.8 + rng() * 0.7;
 
     // Default alpha
-    defaultAlpha[i] = 0.006 + rng() * 0.018;
+    defaultAlpha[i] = 0.015 + rng() * 0.035;
 
     // Binary character assignment: 20% density (continues same rng sequence)
     if (rng() < 0.20) {
@@ -135,6 +135,7 @@ attribute vec3 aTargetColor;
 attribute float aSize;
 attribute float aAlpha;
 attribute float aCharType;
+attribute vec2 displacement;
 
 varying vec3 vColor;
 varying float vAlpha;
@@ -144,6 +145,10 @@ void main() {
   float p = smoothstep(0.0, 1.0, progress);
 
   vec3 pos = mix(scattered, target, p);
+
+  // Mouse displacement (CPU-computed spring physics)
+  pos.x += displacement.x;
+  pos.y += displacement.y;
 
   // Idle drift (diminishes as progress increases)
   float drift = (1.0 - p) * 0.3;
@@ -161,7 +166,7 @@ void main() {
   );
 
   vColor = mix(aColor, aTargetColor, smoothstep(0.1, 0.8, progress));
-  vAlpha = mix(aAlpha, aAlpha + 0.04, smoothstep(0.0, 0.6, progress));
+  vAlpha = mix(aAlpha, aAlpha + 0.06, smoothstep(0.0, 0.6, progress));
   vCharType = aCharType;
 
   vec4 mvPosition = modelViewMatrix * vec4(pos, 1.0);
@@ -212,21 +217,82 @@ function playbackToProgress(playback: ConstructionPlayback | null): number {
   );
 }
 
+// ── Mouse interaction physics (CPU-side, sparse) ──
+
+const MOUSE_STIFFNESS = 0.35;
+const MOUSE_DAMPING = 0.48;
+const MOUSE_INFLUENCE_RADIUS = 3.0; // world units
+const MOUSE_REPULSION = 0.5;
+
+function updateMousePhysics(
+  positions: Float32Array,
+  displacements: Float32Array,
+  velX: Float32Array,
+  velY: Float32Array,
+  mouseWorld: { x: number; y: number },
+  mouseActive: boolean,
+  count: number,
+): boolean {
+  let anyDisplaced = false;
+  const ir2 = MOUSE_INFLUENCE_RADIUS * MOUSE_INFLUENCE_RADIUS;
+
+  for (let i = 0; i < count; i++) {
+    const px = positions[i * 3] + displacements[i * 2];
+    const py = positions[i * 3 + 1] + displacements[i * 2 + 1];
+
+    if (mouseActive) {
+      const dx = px - mouseWorld.x;
+      const dy = py - mouseWorld.y;
+      const d2 = dx * dx + dy * dy;
+
+      if (d2 < ir2 && d2 > 0.001) {
+        const d = Math.sqrt(d2);
+        const force = (1 - d / MOUSE_INFLUENCE_RADIUS) * MOUSE_REPULSION;
+        velX[i] += (dx / d) * force * 0.1;
+        velY[i] += (dy / d) * force * 0.1;
+      }
+    }
+
+    // Spring back to rest + damping
+    velX[i] += -displacements[i * 2] * MOUSE_STIFFNESS;
+    velY[i] += -displacements[i * 2 + 1] * MOUSE_STIFFNESS;
+    velX[i] *= MOUSE_DAMPING;
+    velY[i] *= MOUSE_DAMPING;
+    displacements[i * 2] += velX[i];
+    displacements[i * 2 + 1] += velY[i];
+
+    if (displacements[i * 2] ** 2 + displacements[i * 2 + 1] ** 2 > 0.0001) {
+      anyDisplaced = true;
+    }
+  }
+
+  return anyDisplaced;
+}
+
 // ── ParticleSystem (lives inside Canvas) ──
 
 interface ParticleSystemProps {
   particleCount: number;
   progress: number;
   shapeResult: ShapeResult | null;
+  mouseRef: React.MutableRefObject<{ x: number; y: number; active: boolean }>;
 }
 
-function ParticleSystem({ particleCount, progress, shapeResult }: ParticleSystemProps) {
+function ParticleSystem({ particleCount, progress, shapeResult, mouseRef }: ParticleSystemProps) {
   const pointsRef = useRef<THREE.Points>(null);
   const materialRef = useRef<THREE.ShaderMaterial>(null);
   const geometryRef = useRef<THREE.BufferGeometry>(null);
 
   const glyphAtlas = useMemo(() => createGlyphAtlas(), []);
   const staticBuffers = useMemo(() => initStaticBuffers(particleCount), [particleCount]);
+
+  // Mouse physics buffers (CPU-side)
+  const mouseBuffers = useMemo(() => ({
+    displacements: new Float32Array(particleCount * 2),
+    velX: new Float32Array(particleCount),
+    velY: new Float32Array(particleCount),
+    idleFrames: 0,
+  }), [particleCount]);
 
   const geometry = useMemo(() => {
     const geo = new THREE.BufferGeometry();
@@ -244,9 +310,10 @@ function ParticleSystem({ particleCount, progress, shapeResult }: ParticleSystem
     geo.setAttribute('aSize', new THREE.BufferAttribute(staticBuffers.size, 1));
     geo.setAttribute('aAlpha', new THREE.BufferAttribute(alphaBuf, 1));
     geo.setAttribute('aCharType', new THREE.BufferAttribute(staticBuffers.charType, 1));
+    geo.setAttribute('displacement', new THREE.BufferAttribute(mouseBuffers.displacements, 2));
 
     return geo;
-  }, [staticBuffers]);
+  }, [staticBuffers, mouseBuffers]);
 
   // Keep ref in sync for imperative buffer updates
   useEffect(() => {
@@ -293,6 +360,37 @@ function ParticleSystem({ particleCount, progress, shapeResult }: ParticleSystem
     if (materialRef.current) {
       materialRef.current.uniforms.time.value += delta;
     }
+
+    // Mouse interaction physics: only run when progress < 0.5 (IDLE/EXPLORING)
+    // or when particles are still displaced and need to spring back
+    const geo = geometryRef.current;
+    if (!geo) return;
+
+    const mouse = mouseRef.current;
+    const shouldRun = mouse.active || mouseBuffers.idleFrames < 60;
+    if (!shouldRun) return;
+
+    const positions = (geo.getAttribute('scattered') as THREE.BufferAttribute).array as Float32Array;
+    const anyDisplaced = updateMousePhysics(
+      positions,
+      mouseBuffers.displacements,
+      mouseBuffers.velX,
+      mouseBuffers.velY,
+      mouse,
+      mouse.active && progress < 0.5,
+      particleCount,
+    );
+
+    if (anyDisplaced) {
+      mouseBuffers.idleFrames = 0;
+    } else {
+      mouseBuffers.idleFrames++;
+    }
+
+    if (anyDisplaced) {
+      const dispAttr = geo.getAttribute('displacement') as THREE.BufferAttribute;
+      dispAttr.needsUpdate = true;
+    }
   });
 
   useEffect(() => {
@@ -315,6 +413,49 @@ function ParticleSystem({ particleCount, progress, shapeResult }: ParticleSystem
       />
     </points>
   );
+}
+
+// ── Mouse world-space tracker (converts screen mouse to 3D plane) ──
+
+function MouseTracker({
+  mouseState,
+}: {
+  mouseState: React.MutableRefObject<{ x: number; y: number; active: boolean }>;
+}) {
+  const { camera, gl } = useThree();
+  const raycaster = useRef(new THREE.Raycaster()).current;
+  const plane = useRef(new THREE.Plane(new THREE.Vector3(0, 0, 1), 0)).current;
+  const mouseNDC = useRef(new THREE.Vector2()).current;
+  const intersection = useRef(new THREE.Vector3()).current;
+
+  useEffect(() => {
+    const canvas = gl.domElement;
+
+    function onMouseMove(event: MouseEvent) {
+      const rect = canvas.getBoundingClientRect();
+      mouseNDC.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
+      mouseNDC.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
+      raycaster.setFromCamera(mouseNDC, camera);
+      if (raycaster.ray.intersectPlane(plane, intersection)) {
+        mouseState.current.x = intersection.x;
+        mouseState.current.y = intersection.y;
+      }
+      mouseState.current.active = true;
+    }
+
+    function onMouseLeave() {
+      mouseState.current.active = false;
+    }
+
+    canvas.addEventListener('mousemove', onMouseMove, { passive: true });
+    canvas.addEventListener('mouseleave', onMouseLeave);
+    return () => {
+      canvas.removeEventListener('mousemove', onMouseMove);
+      canvas.removeEventListener('mouseleave', onMouseLeave);
+    };
+  }, [camera, gl, mouseState]);
+
+  return null;
 }
 
 // ── Region click handler (invisible spheres for raycasting) ──
@@ -372,6 +513,7 @@ export default function ParticleField({
   className,
 }: ParticleFieldProps) {
   const effectiveProgress = playback ? playbackToProgress(playback) : progress;
+  const mouseState = useRef({ x: -9999, y: -9999, active: false });
 
   const cameraPosition = shapeResult?.cameraPosition ?? [0, 8, 14];
 
@@ -390,10 +532,12 @@ export default function ParticleField({
         style={{ width: '100%', height: '100%' }}
       >
         <color attach="background" args={['#0f1012']} />
+        <MouseTracker mouseState={mouseState} />
         <ParticleSystem
           particleCount={particleCount}
           progress={effectiveProgress}
           shapeResult={shapeResult}
+          mouseRef={mouseState}
         />
         {shapeResult && (
           <RegionClickHandler

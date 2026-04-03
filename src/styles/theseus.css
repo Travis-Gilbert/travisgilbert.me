@@ -54,8 +54,14 @@
   width: 0.6em;
   height: 1.15em;
   vertical-align: text-bottom;
-  background: var(--vie-teal-light);
+  background: rgba(210, 220, 222, 0.55);
   animation: vie-block-cursor 1s step-end infinite;
+}
+
+/* Follow-up pill hover */
+.theseus-root a[href*="/theseus/ask"]:hover {
+  background: rgba(255, 255, 255, 0.16) !important;
+  border-color: rgba(255, 255, 255, 0.12) !important;
 }
 
 @keyframes vie-save-pulse {
