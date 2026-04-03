@@ -2,18 +2,44 @@
 
 import { useRouter } from 'next/navigation';
 import { useRef, useState } from 'react';
+import { useGalaxy } from '@/components/theseus/TheseusShell';
 
 export default function TheseusHomepage() {
   const router = useRouter();
   const [query, setQuery] = useState('');
   const [focused, setFocused] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
+  const { gridRef, setAskState } = useGalaxy();
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     const trimmed = query.trim();
     if (!trimmed) return;
-    router.push(`/theseus/ask?q=${encodeURIComponent(trimmed)}`);
+
+    // Signal the galaxy that a query is starting (triggers search pulse)
+    setAskState('THINKING');
+
+    // Brief converge: pull mapped dots toward center before navigating
+    const grid = gridRef.current;
+    if (grid) {
+      const { width, height } = grid.getSize();
+      const cx = width / 2;
+      const cy = height * 0.4;
+      const count = grid.getDotCount();
+      for (let i = 0; i < count; i++) {
+        const pos = grid.getDotPosition(i);
+        if (!pos) continue;
+        const tx = pos.x + (cx - pos.x) * 0.3;
+        const ty = pos.y + (cy - pos.y) * 0.3;
+        grid.setDotTarget(i, tx, ty);
+      }
+      grid.wakeAnimation();
+    }
+
+    // Navigate after a beat so the converge is visible
+    window.setTimeout(() => {
+      router.push(`/theseus/ask?q=${encodeURIComponent(trimmed)}`);
+    }, 250);
   }
 
   return (

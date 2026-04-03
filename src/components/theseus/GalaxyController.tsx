@@ -7,6 +7,7 @@ import type { SceneDirective } from '@/lib/theseus-viz/SceneDirective';
 import type { DataProcessingStatus } from '@/lib/theseus-data/types';
 import { getClusters } from '@/lib/theseus-api';
 import { mulberry32 } from '@/lib/prng';
+import { usePrefersReducedMotion } from '@/hooks/usePrefersReducedMotion';
 import { TYPE_COLORS } from './renderers/rendering';
 import { computeGraphLayout, computeClusterLayout } from './galaxyLayout';
 import GalaxyDrawer from './GalaxyDrawer';
@@ -43,6 +44,7 @@ export default function GalaxyController({
   directive,
   dataStatus,
 }: GalaxyControllerProps) {
+  const prefersReducedMotion = usePrefersReducedMotion();
   const [clusters, setClusters] = useState<ClusterSummary[]>([]);
   const [zoom, setZoom] = useState<{
     active: boolean;
@@ -145,8 +147,31 @@ export default function GalaxyController({
     }
 
     mappingsRef.current = newMappings;
-    grid.wakeAnimation();
-  }, [clusters, gridRef]);
+
+    // Cluster dot fade-in: ramp opacity from ambient to type-tinted over 500ms
+    if (!prefersReducedMotion && newMappings.length > 0) {
+      let fadeStep = 0;
+      const fadeSteps = 10;
+      const fadeInterval = window.setInterval(() => {
+        fadeStep++;
+        const t = fadeStep / fadeSteps;
+        for (const m of newMappings) {
+          grid.setDotGalaxyState(m.dotIndex, { opacityOverride: 0.06 + t * 0.08 });
+        }
+        grid.wakeAnimation();
+        if (fadeStep >= fadeSteps) {
+          clearInterval(fadeInterval);
+          // Clear override so dots return to normal rendering
+          for (const m of newMappings) {
+            grid.setDotGalaxyState(m.dotIndex, { opacityOverride: null });
+          }
+          grid.wakeAnimation();
+        }
+      }, 50);
+    } else {
+      grid.wakeAnimation();
+    }
+  }, [clusters, gridRef, prefersReducedMotion]);
 
   // Answer construction: phased animation driven by AskState
   useEffect(() => {
@@ -186,7 +211,15 @@ export default function GalaxyController({
     if (state === 'THINKING') {
       phaseRef.current = 'searching';
 
-      // Pulse wave: ripple outward from center, cycling through cluster dots
+      if (prefersReducedMotion) {
+        // Static elevated opacity: no wave, just a subtle brightness bump
+        for (const m of mappingsRef.current) {
+          grid.setDotGalaxyState(m.dotIndex, { opacityOverride: 0.12 });
+        }
+        grid.wakeAnimation();
+        return;
+      }
+
       const { width, height } = grid.getSize();
       const cx = width / 2;
       const cy = height * 0.4;
@@ -204,7 +237,6 @@ export default function GalaxyController({
           const maxDist = Math.sqrt(cx * cx + cy * cy);
           const norm = dist / maxDist;
 
-          // Radial wave: a bright ring that expands outward
           const wave = Math.sin((norm * 6) - pulsePhase * 3);
           const pulse = Math.max(0, wave) * 0.18;
           grid.setDotGalaxyState(m.dotIndex, {
@@ -216,7 +248,6 @@ export default function GalaxyController({
         grid.wakeAnimation();
       }, 50);
 
-      // Store interval for cleanup
       pulseIntervalRef.current = pulseInterval;
       return;
     }
@@ -306,21 +337,49 @@ export default function GalaxyController({
     objectDotMapRef.current = objDotMap;
     const relevantDotIndices = new Set(objDotMap.values());
 
-    // === PHASE 2: FILTERING ===
+    // === PHASE 2: FILTERING (500ms opacity ramp) ===
     phaseRef.current = 'filtering';
 
+    // Target opacities for the ramp
+    const filterTargets = new Map<number, { opacity: number; color: [number, number, number] | null }>();
     for (const m of mappingsRef.current) {
       const isRelevant = relevantDotIndices.has(m.dotIndex);
       const typeColor = TYPE_COLORS[m.objectType];
       const rgb = typeColor ? hexToRgb(typeColor) : null;
-
-      grid.setDotGalaxyState(m.dotIndex, {
-        isRelevant,
-        opacityOverride: isRelevant ? 0.25 : 0.005,
-        colorOverride: isRelevant && rgb ? rgb : null,
+      filterTargets.set(m.dotIndex, {
+        opacity: isRelevant ? 0.25 : 0.005,
+        color: isRelevant && rgb ? rgb : null,
       });
+      grid.setDotGalaxyState(m.dotIndex, { isRelevant });
     }
-    grid.wakeAnimation();
+
+    if (prefersReducedMotion) {
+      // Instant cut for reduced motion
+      for (const [dotIndex, target] of filterTargets) {
+        grid.setDotGalaxyState(dotIndex, {
+          opacityOverride: target.opacity,
+          colorOverride: target.color,
+        });
+      }
+      grid.wakeAnimation();
+    } else {
+      // 500ms animated ramp (10 steps at 50ms)
+      let filterStep = 0;
+      const filterSteps = 10;
+      const filterInterval = window.setInterval(() => {
+        filterStep++;
+        const t = filterStep / filterSteps;
+        for (const [dotIndex, target] of filterTargets) {
+          const currentOpa = 0.06 + (target.opacity - 0.06) * t;
+          grid.setDotGalaxyState(dotIndex, {
+            opacityOverride: currentOpa,
+            colorOverride: t > 0.3 ? target.color : null,
+          });
+        }
+        grid.wakeAnimation();
+        if (filterStep >= filterSteps) clearInterval(filterInterval);
+      }, 50);
+    }
 
     // === PHASE 3: CONSTRUCTION (after 1s delay) ===
     phaseTimerRef.current = window.setTimeout(() => {
@@ -329,7 +388,6 @@ export default function GalaxyController({
       const { width, height } = grid.getSize();
       if (width === 0 || height === 0) return;
 
-      // Compute D3 layout for nodes with edges, cluster layout as fallback
       const layout = edges.length > 0
         ? computeGraphLayout(nodes, edges, width, height)
         : computeClusterLayout(nodes, width, height);
@@ -338,71 +396,87 @@ export default function GalaxyController({
       for (const [objectId, dotIndex] of objDotMap) {
         const pos = layout.positions.get(objectId);
         if (pos) {
-          grid.setDotTarget(dotIndex, pos.x, pos.y);
-          grid.setDotGalaxyState(dotIndex, { opacityOverride: 0.35 });
+          if (prefersReducedMotion) {
+            // Instant position (no spring animation)
+            grid.setDotGalaxyState(dotIndex, { opacityOverride: 0.35 });
+          } else {
+            grid.setDotTarget(dotIndex, pos.x, pos.y);
+            grid.setDotGalaxyState(dotIndex, { opacityOverride: 0.35 });
+          }
         }
       }
 
       grid.wakeAnimation();
 
-      // Progressive edge reveal
+      // Progressive edge reveal (faster: 1250ms total, or instant for reduced motion)
       if (layout.edges.length > 0) {
-        let progress = 0;
-        const edgeInterval = window.setInterval(() => {
-          progress += 0.02;
-          if (progress > 1) {
-            clearInterval(edgeInterval);
-            progress = 1;
-          }
-          edgeProgressRef.current = progress;
+        const buildEdgeList = (p: number) => layout.edges
+          .map((e) => {
+            const fromDot = objDotMap.get(e.fromId);
+            const toDot = objDotMap.get(e.toId);
+            if (fromDot === undefined || toDot === undefined) return null;
+            return { fromIndex: fromDot, toIndex: toDot, progress: p, color: `rgba(74,138,150,1)` };
+          })
+          .filter(Boolean) as Array<{ fromIndex: number; toIndex: number; progress: number; color: string }>;
 
-          const canvasEdges = layout.edges
-            .map((e) => {
-              const fromDot = objDotMap.get(e.fromId);
-              const toDot = objDotMap.get(e.toId);
-              if (fromDot === undefined || toDot === undefined) return null;
-              return {
-                fromIndex: fromDot,
-                toIndex: toDot,
-                progress,
-                color: `rgba(74,138,150,1)`,
-              };
-            })
-            .filter(Boolean) as Array<{ fromIndex: number; toIndex: number; progress: number; color: string }>;
-
-          grid.setEdges(canvasEdges);
+        if (prefersReducedMotion) {
+          grid.setEdges(buildEdgeList(1));
           grid.wakeAnimation();
-        }, 50);
+        } else {
+          let progress = 0;
+          const edgeInterval = window.setInterval(() => {
+            progress += 0.04;
+            if (progress > 1) { clearInterval(edgeInterval); progress = 1; }
+            edgeProgressRef.current = progress;
+            grid.setEdges(buildEdgeList(progress));
+            grid.wakeAnimation();
+          }, 50);
 
-        // Clean up on phase change
-        const cleanupTimer = window.setTimeout(() => {
-          clearInterval(edgeInterval);
-        }, 4000);
-
-        // Store for cleanup
-        phaseTimerRef.current = cleanupTimer;
+          const cleanupTimer = window.setTimeout(() => clearInterval(edgeInterval), 2000);
+          phaseTimerRef.current = cleanupTimer;
+        }
       }
 
-      // === PHASE 4: CRYSTALLIZE (after 4s) ===
+      // === PHASE 4: CRYSTALLIZE (after 2s, with 300ms label fade) ===
       window.setTimeout(() => {
         phaseRef.current = 'crystallize';
 
-        // Fade in labels at cluster centers
-        const labels: Array<{ x: number; y: number; text: string; alpha: number }> = [];
+        const labelData: Array<{ x: number; y: number; text: string; objectId: string }> = [];
         for (const [objectId, dotIndex] of objDotMap) {
           const node = nodes.find((n) => n.object_id === objectId);
           if (!node) continue;
           const pos = grid.getDotPosition(dotIndex);
           if (!pos) continue;
-          labels.push({
-            x: pos.x,
-            y: pos.y,
+          labelData.push({
+            x: pos.x, y: pos.y, objectId,
             text: node.title.length > 20 ? node.title.slice(0, 20) + '...' : node.title,
-            alpha: 0.7,
           });
         }
 
-        grid.setLabels(labels);
+        if (prefersReducedMotion) {
+          grid.setLabels(labelData.map((l) => ({ x: l.x, y: l.y, text: l.text, alpha: 0.7 })));
+          for (const dotIndex of relevantDotIndices) {
+            grid.setDotGalaxyState(dotIndex, { opacityOverride: 0.45 });
+          }
+          grid.wakeAnimation();
+        } else {
+          // 300ms label fade-in (6 steps at 50ms)
+          let labelStep = 0;
+          const labelSteps = 6;
+          const labelInterval = window.setInterval(() => {
+            labelStep++;
+            const t = labelStep / labelSteps;
+            grid.setLabels(labelData.map((l) => ({ x: l.x, y: l.y, text: l.text, alpha: 0.7 * t })));
+            grid.wakeAnimation();
+            if (labelStep >= labelSteps) clearInterval(labelInterval);
+          }, 50);
+        }
+
+        for (const dotIndex of relevantDotIndices) {
+          grid.setDotGalaxyState(dotIndex, { opacityOverride: 0.45 });
+        }
+
+        grid.wakeAnimation();
 
         // Brighten relevant dots to full
         for (const dotIndex of relevantDotIndices) {
@@ -411,7 +485,7 @@ export default function GalaxyController({
 
         grid.wakeAnimation();
         labelAlphaRef.current = 1;
-      }, 4000);
+      }, 2000);
     }, 1000);
   }
 
@@ -513,33 +587,30 @@ export default function GalaxyController({
     const dotIndex = objectDotMapRef.current.get(objectId);
     if (dotIndex === undefined) return;
 
-    // Fade the removed dot to near-invisible
+    // Fade the removed dot (skip red flash for reduced motion)
     grid.setDotGalaxyState(dotIndex, {
-      opacityOverride: 0.01,
-      colorOverride: [196, 80, 60], // flash red briefly
+      opacityOverride: prefersReducedMotion ? 0.005 : 0.01,
+      colorOverride: prefersReducedMotion ? null : [196, 80, 60],
     });
 
-    // Scatter connected dots slightly outward
     for (const [otherId, otherIndex] of objectDotMapRef.current) {
       if (otherId === objectId) continue;
       if (result.orphaned_objects.includes(otherId)) {
-        // Orphaned: fade significantly
-        grid.setDotGalaxyState(otherIndex, {
-          opacityOverride: 0.03,
-        });
+        grid.setDotGalaxyState(otherIndex, { opacityOverride: 0.03 });
       }
     }
 
     grid.wakeAnimation();
 
-    // After 1s, fully remove the red flash
-    window.setTimeout(() => {
-      grid.setDotGalaxyState(dotIndex, {
-        opacityOverride: 0.005,
-        colorOverride: null,
-      });
-      grid.wakeAnimation();
-    }, 1000);
+    if (!prefersReducedMotion) {
+      window.setTimeout(() => {
+        grid.setDotGalaxyState(dotIndex, {
+          opacityOverride: 0.005,
+          colorOverride: null,
+        });
+        grid.wakeAnimation();
+      }, 1000);
+    }
   }, [gridRef]);
 
   // Follow-up query transition: detect query change
@@ -613,17 +684,24 @@ export default function GalaxyController({
       }
     }
 
-    // Pulse edge dots rhythmically
+    if (prefersReducedMotion) {
+      // Static brightness boost for reduced motion
+      for (const dotIndex of edgeDotIndices) {
+        grid.setDotGalaxyState(dotIndex, { opacityOverride: 0.10 });
+      }
+      grid.wakeAnimation();
+      return;
+    }
+
     let pulsePhase = 0;
     pulseIntervalRef.current = window.setInterval(() => {
-      pulsePhase += 0.05; // ~2s cycle at 50ms interval
-      const pulseOpacity = 0.08 + Math.sin(pulsePhase) * 0.035; // 0.045 to 0.115
+      pulsePhase += 0.05;
+      const pulseOpacity = 0.08 + Math.sin(pulsePhase) * 0.035;
 
       for (const dotIndex of edgeDotIndices) {
         grid.setDotGalaxyState(dotIndex, { opacityOverride: pulseOpacity });
       }
 
-      // Simulate streaming new dots: pick a random edge dot and briefly brighten it
       if (Math.random() < 0.15) {
         const randomEdge = edgeDotIndices[Math.floor(Math.random() * edgeDotIndices.length)];
         if (randomEdge !== undefined) {
@@ -631,7 +709,6 @@ export default function GalaxyController({
             opacityOverride: 0.3,
             colorOverride: [74, 138, 150],
           });
-          // Flash back after 300ms
           window.setTimeout(() => {
             grid.setDotGalaxyState(randomEdge, {
               opacityOverride: pulseOpacity,
@@ -683,7 +760,7 @@ export default function GalaxyController({
       <style>{`
         .theseus-root > canvas,
         .theseus-root canvas[aria-hidden] {
-          transition: transform 400ms ease-out;
+          transition: transform ${prefersReducedMotion ? '0ms' : '400ms'} ease-out;
           transform-origin: center center;
           transform: ${zoomTransform};
         }
@@ -709,7 +786,7 @@ export default function GalaxyController({
                 transparent 65%
               )`;
             })(),
-            transition: 'background 1.5s ease',
+            transition: prefersReducedMotion ? 'none' : 'background 1.5s ease',
           }}
         />
       )}

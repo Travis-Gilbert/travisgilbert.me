@@ -117,6 +117,7 @@ const TheseusDotGrid = forwardRef<DotGridHandle, TheseusDotGridProps>(function T
   const trailRef = useRef<{ x: number; y: number; age: number }[]>([]);
   const sizeRef = useRef({ w: 0, h: 0 });
   const startAnimationRef = useRef<(() => void) | null>(null);
+  const drawStaticRef = useRef<(() => void) | null>(null);
 
   const dotsRef = useRef<{
     gx: Float32Array; gy: Float32Array;
@@ -286,6 +287,10 @@ const TheseusDotGrid = forwardRef<DotGridHandle, TheseusDotGridProps>(function T
       }
     },
     wakeAnimation() {
+      if (prefersReducedMotion) {
+        drawStaticRef.current?.();
+        return;
+      }
       startAnimationRef.current?.();
     },
     setEdges(edges) {
@@ -583,6 +588,7 @@ const TheseusDotGrid = forwardRef<DotGridHandle, TheseusDotGridProps>(function T
     }
 
     startAnimationRef.current = startAnimation;
+    drawStaticRef.current = drawStatic;
 
     function onMouseMove(e: MouseEvent) {
       mouseRef.current.x = e.clientX;
@@ -650,7 +656,6 @@ const TheseusDotGrid = forwardRef<DotGridHandle, TheseusDotGridProps>(function T
         height: '100%',
         zIndex: 0,
         pointerEvents: 'none',
-        filter: 'blur(0.1px)',
       }}
     />
   );

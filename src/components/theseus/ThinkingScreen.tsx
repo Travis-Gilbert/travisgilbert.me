@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { usePrefersReducedMotion } from '@/hooks/usePrefersReducedMotion';
 import type { DataProcessingStatus } from '@/lib/theseus-data/types';
 import type { AskState } from '@/app/theseus/ask/page';
 
@@ -56,14 +57,16 @@ function getHeatIntensity(state: AskState): number {
 }
 
 export default function ThinkingScreen({ state, query, dataStatus }: ThinkingScreenProps) {
+  const prefersReducedMotion = usePrefersReducedMotion();
   const [frameIndex, setFrameIndex] = useState(0);
 
   useEffect(() => {
+    if (prefersReducedMotion) return;
     const interval = window.setInterval(() => {
       setFrameIndex((previous) => (previous + 1) % BRAILLE_FRAMES.length);
     }, 80);
     return () => window.clearInterval(interval);
-  }, []);
+  }, [prefersReducedMotion]);
 
   const step = getPipelineStep(state);
   const statusLabel = getStatusLabel(state, dataStatus);
@@ -90,7 +93,7 @@ export default function ThinkingScreen({ state, query, dataStatus }: ThinkingScr
           right: 0,
           height: getHeatHeight(state),
           background: `linear-gradient(to top, rgba(196, 80, 60, ${heatIntensity}), rgba(196, 154, 74, ${heatIntensity * 0.4}), transparent)`,
-          transition: 'height 2s ease-in-out, background 1.5s ease',
+          transition: prefersReducedMotion ? 'none' : 'height 2s ease-in-out, background 1.5s ease',
           pointerEvents: 'none',
         }}
       />
@@ -169,7 +172,7 @@ export default function ThinkingScreen({ state, query, dataStatus }: ThinkingScr
                 width: barIndex <= step ? '100%' : '0%',
                 height: '100%',
                 background: 'var(--vie-teal)',
-                transition: 'width 400ms ease-out',
+                transition: prefersReducedMotion ? 'none' : 'width 400ms ease-out',
               }}
             />
           </div>
