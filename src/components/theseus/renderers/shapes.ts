@@ -98,11 +98,14 @@ function runForceSimulation(
     objectIds: [node.id],
   }));
 
-  const simLinks = edges.map((edge) => ({
-    source: edge.source,
-    target: edge.target,
-    strength: edge.strength,
-  }));
+  const nodeIds = new Set(simNodes.map((n) => n.id));
+  const simLinks = edges
+    .filter((edge) => nodeIds.has(edge.source) && nodeIds.has(edge.target))
+    .map((edge) => ({
+      source: edge.source,
+      target: edge.target,
+      strength: edge.strength,
+    }));
 
   const simulation = d3Force3d.forceSimulation(simNodes, 3)
     .force('charge', d3Force3d.forceManyBody().strength(fc.charge_strength))

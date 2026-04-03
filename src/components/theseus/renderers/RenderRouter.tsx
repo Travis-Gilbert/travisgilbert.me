@@ -1,17 +1,20 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import dynamic from 'next/dynamic';
 import type { TheseusResponse } from '@/lib/theseus-types';
 import type { SceneDirective } from '@/lib/theseus-viz/SceneDirective';
 import ConstructionAnimator from './ConstructionAnimator';
-import ContextShelf from './ContextShelf';
 import D3Renderer from './D3Renderer';
-import ForceGraph3DRenderer from './ForceGraph3DRenderer';
-import ParticleField from './ParticleField';
-import SigmaRenderer from './SigmaRenderer';
-import VegaRenderer from './VegaRenderer';
 import type { ConstructionPlayback } from './rendering';
 import { graphShape, type ShapeResult } from './shapes';
+
+// Browser-only renderers: these libraries access `window` at import time
+const ContextShelf = dynamic(() => import('./ContextShelf'), { ssr: false });
+const ForceGraph3DRenderer = dynamic(() => import('./ForceGraph3DRenderer'), { ssr: false });
+const ParticleField = dynamic(() => import('./ParticleField'), { ssr: false });
+const SigmaRenderer = dynamic(() => import('./SigmaRenderer'), { ssr: false });
+const VegaRenderer = dynamic(() => import('./VegaRenderer'), { ssr: false });
 
 const PARTICLE_COUNT = 30_000;
 
