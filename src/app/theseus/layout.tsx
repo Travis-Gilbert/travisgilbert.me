@@ -1,5 +1,5 @@
 import '../../styles/theseus.css';
-import { TealDotGrid } from './TealDotGrid';
+import TheseusDotGrid from '@/components/theseus/TheseusDotGrid';
 
 export const metadata = {
   title: 'Theseus',
@@ -13,7 +13,7 @@ export default function TheseusLayout({
 }) {
   return (
     <div className="theseus-root">
-      <TealDotGrid />
+      <TheseusDotGrid />
       <div style={{ position: 'relative', zIndex: 1, width: '100vw', height: '100vh' }}>
         {children}
       </div>

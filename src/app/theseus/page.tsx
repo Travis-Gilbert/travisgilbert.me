@@ -2,12 +2,11 @@
 
 import { useRouter } from 'next/navigation';
 import { useRef, useState } from 'react';
-import { SuggestionPills } from '@/components/theseus/SuggestionPills';
-import { ProactiveIntel } from '@/components/theseus/ProactiveIntel';
 
 export default function TheseusHomepage() {
   const router = useRouter();
   const [query, setQuery] = useState('');
+  const [focused, setFocused] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
   function handleSubmit(e: React.FormEvent) {
@@ -17,12 +16,6 @@ export default function TheseusHomepage() {
     router.push(`/theseus/ask?q=${encodeURIComponent(trimmed)}`);
   }
 
-  function handlePillSelect(text: string) {
-    setQuery(text);
-    // Submit immediately
-    router.push(`/theseus/ask?q=${encodeURIComponent(text)}`);
-  }
-
   return (
     <div
       style={{
@@ -30,12 +23,10 @@ export default function TheseusHomepage() {
         flexDirection: 'column',
         alignItems: 'center',
         height: '100%',
-        paddingTop: '40vh',
         padding: '0 24px',
         boxSizing: 'border-box',
       }}
     >
-      {/* Push search bar to ~40% from top */}
       <div style={{ height: '40vh', flexShrink: 0 }} />
 
       <form
@@ -44,6 +35,7 @@ export default function TheseusHomepage() {
           width: '100%',
           maxWidth: '400px',
           flexShrink: 0,
+          position: 'relative',
         }}
       >
         <input
@@ -51,33 +43,49 @@ export default function TheseusHomepage() {
           type="text"
           value={query}
           onChange={(e) => setQuery(e.target.value)}
-          placeholder="Ask Theseus anything..."
+          onFocus={() => setFocused(true)}
+          onBlur={() => setFocused(false)}
           autoFocus
+          style={{
+            position: 'absolute',
+            opacity: 0,
+            width: 0,
+            height: 0,
+            overflow: 'hidden',
+          }}
+        />
+        <div
+          onClick={() => inputRef.current?.focus()}
+          role="textbox"
+          tabIndex={-1}
           style={{
             width: '100%',
             height: '44px',
             padding: '0 16px',
             fontSize: '15px',
-            fontFamily: 'var(--vie-font-body)',
-            background: 'rgba(255,255,255,0.04)',
-            border: '1px solid rgba(45,95,107,0.3)',
+            fontFamily: 'var(--vie-font-mono)',
+            background: 'rgba(0,0,0,0.25)',
+            border: '1px solid rgba(255,255,255,0.04)',
             borderRadius: '10px',
+            boxShadow: 'inset 0 1px 3px rgba(0,0,0,0.4), inset 0 0 0 1px rgba(0,0,0,0.15)',
             color: 'var(--vie-text)',
-            outline: 'none',
             boxSizing: 'border-box',
+            letterSpacing: '0.02em',
+            display: 'flex',
+            alignItems: 'center',
+            cursor: 'text',
+            overflow: 'hidden',
+            whiteSpace: 'nowrap',
           }}
-        />
+        >
+          {query.length > 0 ? (
+            <span>{query}</span>
+          ) : (
+            <span style={{ color: 'var(--vie-text-dim)' }}>hello world</span>
+          )}
+          {focused && <span className="theseus-terminal-cursor" />}
+        </div>
       </form>
-
-      {/* 24px gap to suggestion pills */}
-      <div style={{ marginTop: '24px', width: '100%', maxWidth: '400px' }}>
-        <SuggestionPills onSelect={handlePillSelect} />
-      </div>
-
-      {/* 40px gap to proactive intel */}
-      <div style={{ marginTop: '40px' }}>
-        <ProactiveIntel />
-      </div>
     </div>
   );
 }
