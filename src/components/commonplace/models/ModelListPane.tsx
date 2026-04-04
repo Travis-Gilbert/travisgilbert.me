@@ -72,6 +72,7 @@ export default function ModelListPane({
 }: ModelListPaneProps): React.ReactElement {
   const [models, setModels] = useState<EpistemicModelSummary[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [showCreate, setShowCreate] = useState(false);
   const [newTitle, setNewTitle] = useState('');
   const [newType, setNewType] = useState<ModelType>('explanatory');
@@ -79,8 +80,13 @@ export default function ModelListPane({
 
   const loadModels = useCallback(() => {
     setLoading(true);
+    setLoadError(null);
     fetchModels()
       .then(setModels)
+      .catch(() => {
+        setModels([]);
+        setLoadError('Could not load models from Index API.');
+      })
       .finally(() => setLoading(false));
   }, []);
 
@@ -116,6 +122,33 @@ export default function ModelListPane({
         }}
       >
         Loading models...
+      </div>
+    );
+  }
+
+  if (loadError) {
+    return (
+      <div style={{ padding: 20, textAlign: 'center' }}>
+        <div
+          style={{
+            fontFamily: 'var(--cp-font-mono)',
+            fontSize: 11,
+            color: 'var(--cp-text-faint)',
+            letterSpacing: '0.04em',
+            marginBottom: 6,
+          }}
+        >
+          Live model data unavailable.
+        </div>
+        <div
+          style={{
+            fontFamily: 'var(--cp-font-body)',
+            fontSize: 12,
+            color: 'var(--cp-text-faint)',
+          }}
+        >
+          {loadError}
+        </div>
       </div>
     );
   }

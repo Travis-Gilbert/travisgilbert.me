@@ -4,7 +4,7 @@ import type { Narrative } from '@/lib/commonplace-models';
 
 interface NarrativeBrickProps {
   narratives: Narrative[];
-  onOpenObject?: (objectRef: number) => void;
+  onOpenObject?: (objectRef: number, objectSlug?: string) => void;
 }
 
 export default function NarrativeBrick({

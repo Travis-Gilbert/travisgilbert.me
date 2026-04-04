@@ -101,6 +101,27 @@ export type NavigationMode = 'screen' | 'view';
 
 export type ScreenType = 'daily' | 'library' | 'models' | 'notebooks' | 'projects' | 'engine' | 'settings';
 
+export interface NavigationTargetObject {
+  id?: number;
+  slug?: string;
+}
+
+export interface NavigationTargetView {
+  type: ViewType | string;
+  context?: Record<string, unknown>;
+}
+
+export interface NavigationTargetScreen {
+  type: ScreenType | string;
+}
+
+export interface NavigationTarget {
+  kind: 'object' | 'view' | 'screen';
+  object?: NavigationTargetObject;
+  view?: NavigationTargetView;
+  screen?: NavigationTargetScreen;
+}
+
 export interface ViewDefinition {
   type: ViewType;
   label: string;

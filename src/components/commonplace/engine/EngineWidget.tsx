@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import type {
   EngineLogEntry,
@@ -12,6 +12,7 @@ import {
   fetchStressResult,
   fetchCandidates,
 } from '@/lib/commonplace-models';
+import { useDrawer } from '@/lib/providers/drawer-provider';
 import TerminalCanvas from './TerminalCanvas';
 import EngineAskTab from './EngineAskTab';
 import EngineAnalyzeTab from './EngineAnalyzeTab';
@@ -29,6 +30,7 @@ const MIN_EXPANDED_HEIGHT = 200;
 const MAX_EXPANDED_HEIGHT = 650;
 
 export default function EngineWidget({ activeModelId }: EngineWidgetProps) {
+  const { openDrawer } = useDrawer();
   const [expanded, setExpanded] = useState(false);
   const [height, setHeight] = useState(DEFAULT_EXPANDED_HEIGHT);
   const [activeTab, setActiveTab] = useState<WidgetTab>('ask');
@@ -37,31 +39,57 @@ export default function EngineWidget({ activeModelId }: EngineWidgetProps) {
   const [logEntries, setLogEntries] = useState<EngineLogEntry[]>([]);
   const [stressResult, setStressResult] = useState<StressResult | null>(null);
   const [candidates, setCandidates] = useState<EngineCandidate[]>([]);
-  const [thoughtText, setThoughtText] = useState('');
+  const [logError, setLogError] = useState<string | null>(null);
+  const [candidateError, setCandidateError] = useState<string | null>(null);
+  const [thoughtTick, setThoughtTick] = useState(0);
   const [thoughtOpacity, setThoughtOpacity] = useState(1);
 
   const [inputValue, setInputValue] = useState('');
-  const [mounted, setMounted] = useState(false);
   const resizeRef = useRef<{ startY: number; startHeight: number } | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const logEndRef = useRef<HTMLDivElement>(null);
   const askSendRef = useRef<((text: string) => void) | null>(null);
 
-  useEffect(() => {
-    setMounted(true);
-  }, []);
-
   // Load data
   useEffect(() => {
     const modelId = scopeAll ? undefined : activeModelId;
-    fetchEngineLog(modelId).then(setLogEntries);
+    fetchEngineLog(modelId)
+      .then((entries) => {
+        setLogEntries(entries);
+        setLogError(null);
+      })
+      .catch(() => {
+        setLogEntries([]);
+        setLogError('Live engine log unavailable.');
+      });
   }, [scopeAll, activeModelId]);
 
   useEffect(() => {
-    if (activeModelId) {
-      fetchStressResult(activeModelId).then(setStressResult);
-      fetchCandidates(activeModelId).then(setCandidates);
-    }
+    if (!activeModelId) return;
+
+    let isActive = true;
+    fetchStressResult(activeModelId)
+      .then((result) => {
+        if (isActive) setStressResult(result);
+      })
+      .catch(() => {
+        if (isActive) setStressResult(null);
+      });
+    fetchCandidates(activeModelId)
+      .then((items) => {
+        if (!isActive) return;
+        setCandidates(items);
+        setCandidateError(null);
+      })
+      .catch(() => {
+        if (!isActive) return;
+        setCandidates([]);
+        setCandidateError('Live candidate data unavailable.');
+      });
+
+    return () => {
+      isActive = false;
+    };
   }, [activeModelId]);
 
   // Auto-scroll log
@@ -69,28 +97,30 @@ export default function EngineWidget({ activeModelId }: EngineWidgetProps) {
     logEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [logEntries]);
 
+  const thoughtText = useMemo(() => {
+    if (logEntries.length > 0) {
+      const index = thoughtTick % logEntries.length;
+      return humanizeLogEntry(logEntries[index]);
+    }
+    return generateIdleThought({ objects: 52, edges: 847 });
+  }, [logEntries, thoughtTick]);
+
   // Thought text cycling (collapsed bar)
   useEffect(() => {
-    function getThought() {
-      if (logEntries.length > 0) {
-        const idx = Math.floor(Date.now() / 5000) % logEntries.length;
-        return humanizeLogEntry(logEntries[idx]);
-      }
-      return generateIdleThought({ objects: 52, edges: 847 });
-    }
-
-    setThoughtText(getThought());
-
+    let timeout: ReturnType<typeof setTimeout> | null = null;
     const interval = setInterval(() => {
       setThoughtOpacity(0);
-      setTimeout(() => {
-        setThoughtText(getThought());
+      timeout = setTimeout(() => {
+        setThoughtTick((current) => current + 1);
         setThoughtOpacity(1);
       }, 200);
     }, 5000);
 
-    return () => clearInterval(interval);
-  }, [logEntries]);
+    return () => {
+      clearInterval(interval);
+      if (timeout) clearTimeout(timeout);
+    };
+  }, []);
 
   // Focus input on expand
   useEffect(() => {
@@ -150,7 +180,10 @@ export default function EngineWidget({ activeModelId }: EngineWidgetProps) {
     [height],
   );
 
-  const pendingCount = candidates.filter((c) => c.status === 'pending').length;
+  const visibleStressResult = activeModelId ? stressResult : null;
+  const visibleCandidates = activeModelId ? candidates : [];
+  const visibleCandidateError = activeModelId ? candidateError : null;
+  const pendingCount = visibleCandidates.filter((c) => c.status === 'pending').length;
 
   const tabs: { id: WidgetTab; label: string }[] = [
     { id: 'ask', label: 'Ask' },
@@ -500,15 +533,23 @@ export default function EngineWidget({ activeModelId }: EngineWidgetProps) {
                 logEndRef={logEndRef}
                 scopeAll={scopeAll}
                 onToggleScope={() => setScopeAll(!scopeAll)}
+                loadError={logError}
               />
             )}
             {activeTab === 'stress' && (
-              <StressTab result={stressResult} />
+              <StressTab result={visibleStressResult} />
             )}
             {activeTab === 'candidates' && (
               <CandidatesTab
-                candidates={candidates}
+                candidates={visibleCandidates}
                 onUpdate={setCandidates}
+                loadError={visibleCandidateError}
+                onOpenCandidate={(candidate) => {
+                  const slug = candidate.target?.kind === 'object'
+                    ? (candidate.target.object?.slug || (candidate.target.object?.id != null ? String(candidate.target.object.id) : ''))
+                    : (candidate.objectSlug || String(candidate.objectRef || ''));
+                  if (slug) openDrawer(slug);
+                }}
               />
             )}
           </div>
@@ -525,7 +566,7 @@ export default function EngineWidget({ activeModelId }: EngineWidgetProps) {
     </div>
   );
 
-  if (!mounted) return null;
+  if (typeof document === 'undefined') return null;
 
   return createPortal(
     <div className="commonplace-theme">{content}</div>,
@@ -540,11 +581,13 @@ function LogTab({
   logEndRef,
   scopeAll,
   onToggleScope,
+  loadError,
 }: {
   entries: EngineLogEntry[];
   logEndRef: React.RefObject<HTMLDivElement | null>;
   scopeAll: boolean;
   onToggleScope: () => void;
+  loadError?: string | null;
 }) {
   const ENGINE_PASS_COLOR: Record<string, string> = {
     sbert: '#CCAA44',
@@ -577,7 +620,17 @@ function LogTab({
         </button>
       </div>
 
-      {entries.length === 0 ? (
+      {loadError ? (
+        <div
+          style={{
+            color: '#CC6644',
+            fontSize: 11,
+            fontFamily: 'var(--font-code)',
+          }}
+        >
+          {loadError}
+        </div>
+      ) : entries.length === 0 ? (
         <div
           style={{
             color: '#555048',
@@ -744,11 +797,29 @@ function StressTab({ result }: { result: StressResult | null }) {
 function CandidatesTab({
   candidates,
   onUpdate,
+  loadError,
+  onOpenCandidate,
 }: {
   candidates: EngineCandidate[];
   onUpdate: (c: EngineCandidate[]) => void;
+  loadError?: string | null;
+  onOpenCandidate?: (candidate: EngineCandidate) => void;
 }) {
   const pending = candidates.filter((c) => c.status === 'pending');
+
+  if (loadError) {
+    return (
+      <div
+        style={{
+          color: '#CC6644',
+          fontSize: 11,
+          fontFamily: 'var(--font-code)',
+        }}
+      >
+        {loadError}
+      </div>
+    );
+  }
 
   if (pending.length === 0) {
     return (
@@ -776,6 +847,15 @@ function CandidatesTab({
       {pending.map((c) => (
         <div
           key={c.id}
+          role={onOpenCandidate ? 'button' : undefined}
+          tabIndex={onOpenCandidate ? 0 : undefined}
+          onClick={onOpenCandidate ? () => onOpenCandidate(c) : undefined}
+          onKeyDown={onOpenCandidate ? (e) => {
+            if (e.key === 'Enter' || e.key === ' ') {
+              e.preventDefault();
+              onOpenCandidate(c);
+            }
+          } : undefined}
           style={{
             display: 'flex',
             alignItems: 'center',
@@ -785,6 +865,7 @@ function CandidatesTab({
             border: '1px dashed rgba(244,243,240,0.05)',
             fontSize: 11,
             color: '#C0BDB5',
+            cursor: onOpenCandidate ? 'pointer' : 'default',
           }}
         >
           <span
@@ -818,7 +899,10 @@ function CandidatesTab({
             {Math.round(c.confidence * 100)}%
           </span>
           <button
-            onClick={() => handleAction(c.id, 'accepted')}
+            onClick={(e) => {
+              e.stopPropagation();
+              handleAction(c.id, 'accepted');
+            }}
             title="Accept candidate"
             style={{
               background: 'none',
@@ -834,7 +918,10 @@ function CandidatesTab({
             &#x2713;
           </button>
           <button
-            onClick={() => handleAction(c.id, 'rejected')}
+            onClick={(e) => {
+              e.stopPropagation();
+              handleAction(c.id, 'rejected');
+            }}
             title="Reject candidate"
             style={{
               background: 'none',

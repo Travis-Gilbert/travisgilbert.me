@@ -4,7 +4,7 @@ import type { Tension } from '@/lib/commonplace-models';
 
 interface TensionBrickProps {
   tensions: Tension[];
-  onOpenObject?: (objectRef: number) => void;
+  onFocusAssumption?: (assumptionId: number) => void;
 }
 
 const SEVERITY_COLOR: Record<string, string> = {
@@ -23,7 +23,7 @@ function DiamondIcon({ color }: { color: string }): React.JSX.Element {
 
 export default function TensionBrick({
   tensions,
-  onOpenObject,
+  onFocusAssumption,
 }: TensionBrickProps): React.JSX.Element {
   if (tensions.length === 0) {
     return (
@@ -47,23 +47,24 @@ export default function TensionBrick({
         return (
           <div
             key={tension.id}
-            role={onOpenObject ? 'button' : undefined}
-            tabIndex={onOpenObject ? 0 : undefined}
+            role={onFocusAssumption ? 'button' : undefined}
+            tabIndex={onFocusAssumption ? 0 : undefined}
             onClick={() => {
-              if (onOpenObject && tension.linkedAssumptionIds.length > 0) {
-                onOpenObject(tension.linkedAssumptionIds[0]);
+              if (onFocusAssumption && tension.linkedAssumptionIds.length > 0) {
+                onFocusAssumption(tension.linkedAssumptionIds[0]);
               }
             }}
             onKeyDown={(e) => {
-              if (e.key === 'Enter' && onOpenObject && tension.linkedAssumptionIds.length > 0) {
-                onOpenObject(tension.linkedAssumptionIds[0]);
+              if ((e.key === 'Enter' || e.key === ' ') && onFocusAssumption && tension.linkedAssumptionIds.length > 0) {
+                e.preventDefault();
+                onFocusAssumption(tension.linkedAssumptionIds[0]);
               }
             }}
             style={{
               border: '1px solid var(--cp-border-faint, #ECEAE6)',
               borderRadius: 4,
               padding: '4px 6px',
-              cursor: onOpenObject ? 'pointer' : 'default',
+              cursor: onFocusAssumption ? 'pointer' : 'default',
               transition: 'border-color 0.15s ease',
             }}
           >

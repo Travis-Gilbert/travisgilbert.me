@@ -1,9 +1,10 @@
 'use client';
 
-import { useState } from 'react';
+import { useCallback, useState } from 'react';
 import ModelListPane from './ModelListPane';
 import ModelWorkbench from './ModelWorkbench';
 import DotField from '../shared/DotField';
+import { useDrawer } from '@/lib/providers/drawer-provider';
 
 /**
  * ModelView: the top-level component for the 'model-view' ViewType.
@@ -29,9 +30,18 @@ export default function ModelView({
   onOpenObject,
   paneId,
 }: ModelViewProps) {
+  const { openDrawer } = useDrawer();
   const [selectedModelId, setSelectedModelId] = useState<number | undefined>(
     undefined,
   );
+
+  const handleOpenObject = useCallback((objectRef: number, objectSlug?: string) => {
+    if (paneId && onOpenObject) {
+      onOpenObject(paneId, objectRef);
+      return;
+    }
+    openDrawer(objectSlug || String(objectRef));
+  }, [paneId, onOpenObject, openDrawer]);
 
   return (
     <div
@@ -68,9 +78,9 @@ export default function ModelView({
       >
         {selectedModelId ? (
           <ModelWorkbench
+            key={selectedModelId}
             modelId={selectedModelId}
-            onOpenObject={onOpenObject}
-            paneId={paneId}
+            onOpenObject={handleOpenObject}
           />
         ) : (
           <div

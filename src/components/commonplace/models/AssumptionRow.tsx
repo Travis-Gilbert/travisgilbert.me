@@ -9,7 +9,9 @@ interface AssumptionRowProps {
   assumption: Assumption;
   index: number;
   isDragSource?: boolean;
-  onOpenObject?: (objectRef: number) => void;
+  forceExpand?: boolean;
+  highlighted?: boolean;
+  onOpenObject?: (objectRef: number, objectSlug?: string) => void;
   onDragStart?: () => void;
   onDragOver?: (e: React.DragEvent) => void;
   onDragEnd?: () => void;
@@ -37,6 +39,8 @@ export default function AssumptionRow({
   assumption,
   index,
   isDragSource,
+  forceExpand,
+  highlighted,
   onOpenObject,
   onDragStart,
   onDragOver,
@@ -56,9 +60,16 @@ export default function AssumptionRow({
   const supportCount = countByRelation(assumption.evidence, 'supports');
   const contradictCount = countByRelation(assumption.evidence, 'contradicts');
   const candidateCount = countCandidates(assumption.evidence);
+  const isExpanded = Boolean(forceExpand) || expanded;
+
+  const handleToggleExpanded = () => {
+    if (forceExpand) return;
+    setExpanded((current) => !current);
+  };
 
   return (
     <div
+      data-assumption-id={assumption.id}
       draggable
       onDragStart={(e) => {
         e.dataTransfer.setData(
@@ -74,7 +85,9 @@ export default function AssumptionRow({
         position: 'relative',
         paddingLeft: 16,
         opacity: isDragSource ? 0.35 : 1,
-        transition: 'opacity 150ms',
+        transition: 'opacity 150ms, background-color 150ms',
+        backgroundColor: highlighted ? 'rgba(184, 98, 61, 0.08)' : 'transparent',
+        borderRadius: 4,
       }}
     >
       {/* Drag handle (visible on hover via CSS, always functional) */}
@@ -138,11 +151,11 @@ export default function AssumptionRow({
       <div
         role="button"
         tabIndex={0}
-        onClick={() => setExpanded(!expanded)}
+        onClick={handleToggleExpanded}
         onKeyDown={(e) => {
           if (e.key === 'Enter' || e.key === ' ') {
             e.preventDefault();
-            setExpanded(!expanded);
+            handleToggleExpanded();
           }
         }}
         style={{
@@ -187,7 +200,7 @@ export default function AssumptionRow({
           style={{
             fontSize: 10,
             color: 'var(--cp-text-faint, #68666E)',
-            transform: expanded ? 'rotate(0deg)' : 'rotate(-90deg)',
+            transform: isExpanded ? 'rotate(0deg)' : 'rotate(-90deg)',
             transition: 'transform 0.12s ease',
             flexShrink: 0,
             paddingTop: 3,
@@ -269,7 +282,7 @@ export default function AssumptionRow({
       </div>
 
       {/* Expanded content */}
-      {expanded && (
+      {isExpanded && (
         <div style={{ paddingLeft: 6, paddingBottom: 12 }}>
           {/* Supporting evidence */}
           {supporting.length > 0 && (

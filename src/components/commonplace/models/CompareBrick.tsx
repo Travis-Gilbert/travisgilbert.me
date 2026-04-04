@@ -5,7 +5,7 @@ import { AGREEMENT_STYLE } from '@/lib/commonplace-models';
 
 interface CompareBrickProps {
   references: CanonicalReference[];
-  onOpenObject?: (objectRef: number) => void;
+  onOpenObject?: (objectRef: number, objectSlug?: string) => void;
 }
 
 export default function CompareBrick({

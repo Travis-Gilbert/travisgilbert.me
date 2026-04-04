@@ -1,27 +1,124 @@
 'use client';
 
+import { useEffect, useMemo, useState } from 'react';
+import type { ReactNode } from 'react';
 import { useLayout } from '@/lib/providers/layout-provider';
+import { apiFetch } from '@/lib/commonplace-api';
+import { fetchGraphWeather } from '@/lib/ask-theseus';
 
-/**
- * EngineAnalyzeTab: context-aware analysis of the current screen.
- *
- * Three sections:
- *   1. Currently on screen (objects visible, edge count, avg strength)
- *   2. Notable patterns (cluster overlaps, weak signals, tensions)
- *   3. Suggested actions (run engine, estimated connections, reviews)
- */
+interface AnalyzeCardData {
+  title: string;
+  detail: string;
+}
+
+interface ScreenAnalysis {
+  onScreen: AnalyzeCardData[];
+  patterns: AnalyzeCardData[];
+  actions: AnalyzeCardData[];
+}
+
+interface HomeActivityItem {
+  text: string;
+  time: string;
+  type: string;
+}
+
+interface HomeThreadItem {
+  title: string;
+  object_type: string;
+}
+
+interface HomePayload {
+  activity: HomeActivityItem[];
+  threads: HomeThreadItem[];
+  pending_reviews: number;
+}
 
 export default function EngineAnalyzeTab() {
   const { activeScreen } = useLayout();
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [weatherHeadline, setWeatherHeadline] = useState<string>('');
+  const [weatherDetail, setWeatherDetail] = useState<string>('');
+  const [homeData, setHomeData] = useState<HomePayload | null>(null);
+
+  useEffect(() => {
+    let mounted = true;
+
+    Promise.all([
+      fetchGraphWeather(),
+      apiFetch<HomePayload>('/home/'),
+    ])
+      .then(([weather, home]) => {
+        if (!mounted) return;
+        setWeatherHeadline(weather.headline || '');
+        setWeatherDetail(weather.detail || '');
+        setHomeData(home);
+      })
+      .catch(() => {
+        if (!mounted) return;
+        setError('Live analysis is unavailable. Index API could not be reached.');
+        setHomeData(null);
+      })
+      .finally(() => {
+        if (mounted) setLoading(false);
+      });
+
+    return () => {
+      mounted = false;
+    };
+  }, []);
 
   const screenLabel = activeScreen
     ? activeScreen.charAt(0).toUpperCase() + activeScreen.slice(1).replace(/-/g, ' ')
-    : null;
+    : 'Current Workspace';
 
-  // Static analysis data (until live API integration)
-  const sections = activeScreen ? getAnalysisForScreen(activeScreen) : null;
+  const sections = useMemo<ScreenAnalysis | null>(() => {
+    if (!homeData) return null;
 
-  if (!sections) {
+    const onScreen: AnalyzeCardData[] = [
+      {
+        title: weatherHeadline || 'Live graph status',
+        detail: weatherDetail || 'Live graph weather loaded from Index API.',
+      },
+    ];
+
+    const patterns = homeData.activity.slice(0, 2).map((item) => ({
+      title: `${item.type} · ${item.time}`,
+      detail: item.text,
+    }));
+    if (patterns.length === 0) {
+      patterns.push({
+        title: 'No notable patterns yet',
+        detail: 'Capture more objects to surface live pattern analysis.',
+      });
+    }
+
+    const actions: AnalyzeCardData[] = [];
+    if (homeData.pending_reviews > 0) {
+      actions.push({
+        title: 'Review pending candidates',
+        detail: `${homeData.pending_reviews} connection candidates are waiting for feedback.`,
+      });
+    }
+    const firstThread = homeData.threads[0];
+    if (firstThread) {
+      actions.push({
+        title: `Follow active ${firstThread.object_type} thread`,
+        detail: firstThread.title,
+      });
+    }
+    if (actions.length === 0) {
+      actions.push({
+        title: 'No immediate actions',
+        detail: 'Live data is connected, but there are no pending review actions right now.',
+      });
+    }
+
+    return { onScreen, patterns, actions };
+  }, [homeData, weatherHeadline, weatherDetail]);
+
+  if (loading) {
     return (
       <div
         style={{
@@ -32,7 +129,23 @@ export default function EngineAnalyzeTab() {
           lineHeight: 1.65,
         }}
       >
-        Navigate to a view to see analysis. I will examine whatever objects are on screen.
+        Loading live engine analysis...
+      </div>
+    );
+  }
+
+  if (error || !sections) {
+    return (
+      <div
+        style={{
+          fontFamily: 'var(--font-code)',
+          fontSize: 12,
+          color: '#CC6644',
+          padding: '14px 6px',
+          lineHeight: 1.65,
+        }}
+      >
+        {error || 'Live analysis unavailable.'}
       </div>
     );
   }
@@ -49,7 +162,6 @@ export default function EngineAnalyzeTab() {
         lineHeight: 1.6,
       }}
     >
-      {/* Section: Currently on screen */}
       <AnalyzeSection
         label={`Currently on screen: ${screenLabel}`}
         delay={0}
@@ -59,14 +171,12 @@ export default function EngineAnalyzeTab() {
         ))}
       </AnalyzeSection>
 
-      {/* Section: Notable patterns */}
       <AnalyzeSection label="Notable patterns" delay={1}>
         {sections.patterns.map((card, i) => (
           <AnalyzeCard key={i} title={card.title} detail={card.detail} />
         ))}
       </AnalyzeSection>
 
-      {/* Section: Suggested actions */}
       <AnalyzeSection label="Suggested actions" delay={2}>
         {sections.actions.map((card, i) => (
           <AnalyzeCard key={i} title={card.title} detail={card.detail} />
@@ -86,10 +196,6 @@ export default function EngineAnalyzeTab() {
   );
 }
 
-/* ─────────────────────────────────────────────────
-   Sub-components
-   ───────────────────────────────────────────────── */
-
 function AnalyzeSection({
   label,
   delay,
@@ -97,7 +203,7 @@ function AnalyzeSection({
 }: {
   label: string;
   delay: number;
-  children: React.ReactNode;
+  children: ReactNode;
 }) {
   return (
     <div
@@ -169,77 +275,4 @@ function AnalyzeCard({ title, detail }: { title: string; detail: string }) {
       </div>
     </div>
   );
-}
-
-/* ─────────────────────────────────────────────────
-   Static analysis data per screen
-   ───────────────────────────────────────────────── */
-
-interface CardData {
-  title: string;
-  detail: string;
-}
-
-interface ScreenAnalysis {
-  onScreen: CardData[];
-  patterns: CardData[];
-  actions: CardData[];
-}
-
-function getAnalysisForScreen(screen: string): ScreenAnalysis {
-  switch (screen) {
-    case 'daily':
-      return {
-        onScreen: [
-          { title: 'Daily feed active', detail: '12 objects visible. Combined edge count: 47. Average connection strength: 0.64.' },
-        ],
-        patterns: [
-          { title: 'Cluster overlap detected', detail: 'Semiotics and game theory share 2 bridging objects. This is a structural hole worth exploring.' },
-          { title: 'Weak signal', detail: '3 recent captures have no engine-generated connections yet. They may contain unlinked entities.' },
-        ],
-        actions: [
-          { title: 'Run engine on visible objects', detail: 'Estimated 4-6 new connections. 2 captures are unprocessed.' },
-          { title: 'Review pending candidates', detail: '2 candidates awaiting your feedback. Your reviews train the scorer.' },
-        ],
-      };
-    case 'library':
-      return {
-        onScreen: [
-          { title: 'Library view', detail: '52 objects in graph. 847 edges total. 7 unlinked objects.' },
-        ],
-        patterns: [
-          { title: 'Density increasing', detail: 'Edge density grew 12% this week. Most growth in the information theory cluster.' },
-          { title: 'Stale objects', detail: '5 objects have not been touched in 30+ days and have declining connection strength.' },
-        ],
-        actions: [
-          { title: 'Run stress test', detail: 'Last stress test was 3 days ago. Drift may have changed with new captures.' },
-          { title: 'Resurface forgotten objects', detail: '8 objects scored high on surprise value but have low recent activity.' },
-        ],
-      };
-    case 'timeline':
-      return {
-        onScreen: [
-          { title: 'Timeline view', detail: 'Showing 30 days of activity. 23 objects created. 89 connections formed.' },
-        ],
-        patterns: [
-          { title: 'Activity burst', detail: 'You captured 8 objects in the last 48 hours, twice the weekly average.' },
-          { title: 'Temporal clustering', detail: 'Objects created in the same session tend to connect. 3 session clusters visible.' },
-        ],
-        actions: [
-          { title: 'Process new captures', detail: '3 objects from the latest session are unprocessed. Run the engine to find connections.' },
-        ],
-      };
-    default:
-      return {
-        onScreen: [
-          { title: `${screen} view`, detail: 'Analyzing visible content. Objects and connections are being scanned.' },
-        ],
-        patterns: [
-          { title: 'Analysis available', detail: 'Navigate to a specific view for deeper pattern analysis.' },
-        ],
-        actions: [
-          { title: 'Run engine', detail: 'Process visible objects through the connection engine for new discoveries.' },
-        ],
-      };
-  }
 }

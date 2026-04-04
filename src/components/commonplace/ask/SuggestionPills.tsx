@@ -18,7 +18,7 @@ export default function SuggestionPills({ suggestions, onSelect }: SuggestionPil
     <div className={styles.pills}>
       {suggestions.map((s, i) => (
         <motion.button
-          key={s.text}
+          key={`${s.type}:${s.text}:${i}`}
           className={styles.pill}
           onClick={() => onSelect(s.text)}
           initial={reduced ? false : { opacity: 0, y: 6 }}

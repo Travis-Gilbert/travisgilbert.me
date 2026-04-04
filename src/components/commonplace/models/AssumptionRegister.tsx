@@ -21,15 +21,17 @@ import AssumptionRow from './AssumptionRow';
 
 interface AssumptionRegisterProps {
   assumptions: Assumption[];
-  onOpenObject?: (objectRef: number) => void;
+  onOpenObject?: (objectRef: number, objectSlug?: string) => void;
   /** Called with the reordered assumption IDs (top to bottom) */
   onReorder?: (orderedIds: number[]) => void;
+  focusedAssumptionId?: number | null;
 }
 
 export default function AssumptionRegister({
   assumptions,
   onOpenObject,
   onReorder,
+  focusedAssumptionId,
 }: AssumptionRegisterProps) {
   const sorted = [...assumptions].sort(
     (a, b) => a.positionIndex - b.positionIndex,
@@ -186,6 +188,8 @@ export default function AssumptionRegister({
             index={i}
             isDragSource={dragId === assumption.id}
             onOpenObject={onOpenObject}
+            forceExpand={focusedAssumptionId === assumption.id}
+            highlighted={focusedAssumptionId === assumption.id}
             onDragStart={() => handleDragStart(assumption.id)}
             onDragOver={(e) => handleDragOver(e, i)}
             onDragEnd={handleDragEnd}

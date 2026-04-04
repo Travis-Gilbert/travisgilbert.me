@@ -15,6 +15,10 @@
   border-bottom: 1px solid rgba(42, 36, 32, 0.06);
 }
 
+.hero[data-clickable='true'] {
+  cursor: pointer;
+}
+
 .heroLabel {
   font-family: var(--font-metadata, 'Courier Prime', monospace);
   font-size: 10px;
@@ -111,12 +115,16 @@
   padding: 11px 12px;
   margin: 0 -12px 2px;
   border-radius: 6px;
-  cursor: pointer;
+  cursor: default;
   box-shadow: inset 0 0 8px 0 color-mix(in srgb, var(--activity-accent, rgba(42,36,32,0.5)) 12%, transparent);
   transition: background 200ms ease, box-shadow 250ms ease;
 }
 
-.activityItem:hover {
+.activityItem[data-clickable='true'] {
+  cursor: pointer;
+}
+
+.activityItem[data-clickable='true']:hover {
   background: color-mix(in srgb, var(--activity-accent, rgba(42,36,32,0.5)) 4%, transparent);
   box-shadow: inset 0 0 16px 0 color-mix(in srgb, var(--activity-accent, rgba(42,36,32,0.5)) 18%, transparent);
 }
@@ -214,11 +222,15 @@
   background-color: rgba(196, 154, 74, 0.08);
   border-radius: 6px;
   border: 1px solid rgba(196, 154, 74, 0.15);
-  cursor: pointer;
+  cursor: default;
   transition: background 150ms;
 }
 
-.reviewCta:hover {
+.reviewCta[data-clickable='true'] {
+  cursor: pointer;
+}
+
+.reviewCta[data-clickable='true']:hover {
   background-color: rgba(196, 154, 74, 0.12);
 }
 
@@ -243,6 +255,10 @@
 
 .threadCard {
   margin-bottom: 10px;
+}
+
+.threadCard[data-clickable='true'] {
+  cursor: pointer;
 }
 
 /* Research thread */

@@ -1,12 +1,17 @@
 import type { NextConfig } from 'next';
 
 // INDEX_API_PROXY_URL: server-only var for the rewrite destination (not exposed to browser).
-// Falls back to the public env var, then to Railway production.
-const backendUrl =
+// Falls back to local Index API in development, then Railway production.
+const explicitBackendUrl =
   process.env.INDEX_API_PROXY_URL ||
   process.env.NEXT_PUBLIC_INDEX_API_URL ||
-  process.env.NEXT_PUBLIC_RESEARCH_API_URL ||
-  'https://index-api-production-a5f7.up.railway.app';
+  process.env.NEXT_PUBLIC_RESEARCH_API_URL;
+
+const backendUrl =
+  explicitBackendUrl ||
+  (process.env.NODE_ENV === 'development'
+    ? 'http://localhost:8000'
+    : 'https://index-api-production-a5f7.up.railway.app');
 
 const nextConfig: NextConfig = {
   experimental: {

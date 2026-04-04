@@ -1,8 +1,11 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { motion, useReducedMotion } from 'motion/react';
 import { apiFetch } from '@/lib/commonplace-api';
+import type { NavigationTarget, ScreenType, ViewType } from '@/lib/commonplace';
+import { useDrawer } from '@/lib/providers/drawer-provider';
+import { useLayout } from '@/lib/providers/layout-provider';
 import DualBar from '../shared/DualBar';
 import styles from './HomeView.module.css';
 
@@ -15,6 +18,7 @@ interface HeroQuestion {
   evidence: { entities: number; bridges: number; holes: number };
   evidence_score: number;
   tension_score: number;
+  target?: NavigationTarget;
 }
 
 interface ActivityItem {
@@ -24,6 +28,7 @@ interface ActivityItem {
   text: string;
   strength: number | null;
   is_new: boolean;
+  target?: NavigationTarget;
 }
 
 interface ThreadMetadata {
@@ -52,6 +57,7 @@ interface Thread {
   objects: number;
   metadata: ThreadMetadata;
   color?: string;
+  target?: NavigationTarget;
 }
 
 interface HomeData {
@@ -59,6 +65,7 @@ interface HomeData {
   activity: ActivityItem[];
   threads: Thread[];
   pending_reviews: number;
+  pending_reviews_target?: NavigationTarget;
 }
 
 /* ─────────────────────────────────────────────────
@@ -75,6 +82,10 @@ const EMPTY_HOME_DATA: HomeData = {
   activity: [],
   threads: [],
   pending_reviews: 0,
+  pending_reviews_target: {
+    kind: 'view',
+    view: { type: 'connection-review' },
+  },
 };
 
 /* ─────────────────────────────────────────────────
@@ -221,6 +232,8 @@ const SPRING_GENTLE = { stiffness: 200, damping: 20 };
 
 export default function HomeView() {
   const reduced = useReducedMotion();
+  const { openDrawer } = useDrawer();
+  const { launchView, navigateToScreen } = useLayout();
   const [data, setData] = useState<HomeData>(EMPTY_HOME_DATA);
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -251,7 +264,55 @@ export default function HomeView() {
     };
   }, []);
 
-  const { hero_question: hero, activity, threads, pending_reviews } = data;
+  const dispatchTarget = useCallback((target?: NavigationTarget) => {
+    if (!target) return;
+    if (target.kind === 'object') {
+      const slug = target.object?.slug || (target.object?.id != null ? String(target.object.id) : '');
+      if (slug) openDrawer(slug);
+      return;
+    }
+    if (target.kind === 'view' && target.view?.type) {
+      launchView(target.view.type as ViewType, target.view.context);
+      return;
+    }
+    if (target.kind === 'screen' && target.screen?.type) {
+      navigateToScreen(target.screen.type as ScreenType);
+    }
+  }, [openDrawer, launchView, navigateToScreen]);
+
+  const inferThreadTarget = useCallback((thread: Thread): NavigationTarget | undefined => {
+    if (thread.target) return thread.target;
+    if (thread.object_type === 'research') {
+      return { kind: 'screen', screen: { type: 'models' } };
+    }
+    if (thread.object_type === 'concept') {
+      return { kind: 'view', view: { type: 'network' } };
+    }
+    if (thread.object_type === 'task' || thread.object_type === 'event') {
+      return { kind: 'object', object: { id: thread.id } };
+    }
+    return undefined;
+  }, []);
+
+  const inferActivityTarget = useCallback((item: ActivityItem): NavigationTarget | undefined => {
+    if (item.target) return item.target;
+    if (item.type === 'cluster') {
+      return { kind: 'view', view: { type: 'network' } };
+    }
+    if (item.type === 'enrichment' && item.text.startsWith('Updated ')) {
+      return { kind: 'object', object: { id: item.id } };
+    }
+    return undefined;
+  }, []);
+
+  const {
+    hero_question: hero,
+    activity,
+    threads,
+    pending_reviews,
+    pending_reviews_target,
+  } = data;
+  const heroTarget = hero.target ?? { kind: 'screen', screen: { type: 'models' } };
   const heroLabel = isLoading
     ? 'Connecting to Index API'
     : loadError
@@ -266,6 +327,16 @@ export default function HomeView() {
         {/* ── Hero ── */}
         <motion.div
           className={styles.hero}
+          data-clickable={Boolean(heroTarget)}
+          role={heroTarget ? 'button' : undefined}
+          tabIndex={heroTarget ? 0 : undefined}
+          onClick={heroTarget ? () => dispatchTarget(heroTarget) : undefined}
+          onKeyDown={heroTarget ? (e) => {
+            if (e.key === 'Enter' || e.key === ' ') {
+              e.preventDefault();
+              dispatchTarget(heroTarget);
+            }
+          } : undefined}
           initial={reduced ? false : { opacity: 0, y: 14 }}
           animate={{ opacity: 1, y: 0 }}
           transition={reduced ? { duration: 0 } : { type: 'spring', ...SPRING_GENTLE }}
@@ -300,7 +371,7 @@ export default function HomeView() {
             </div>
 
             {activity.length === 0 && (
-              <div className={styles.reviewCta}>
+              <div className={styles.reviewCta} data-clickable={false}>
                 <div className={styles.reviewCtaTitle}>
                   {sectionMessage || 'No engine activity yet'}
                 </div>
@@ -312,10 +383,21 @@ export default function HomeView() {
 
             {activity.map((item, i) => {
               const typeInfo = TYPE_MAP[item.type] || TYPE_MAP.connection;
+              const target = inferActivityTarget(item);
               return (
                 <motion.div
                   key={item.id}
                   className={styles.activityItem}
+                  data-clickable={Boolean(target)}
+                  role={target ? 'button' : undefined}
+                  tabIndex={target ? 0 : undefined}
+                  onClick={target ? () => dispatchTarget(target) : undefined}
+                  onKeyDown={target ? (e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                      e.preventDefault();
+                      dispatchTarget(target);
+                    }
+                  } : undefined}
                   style={{ '--activity-accent': typeInfo.accent } as React.CSSProperties}
                   initial={reduced ? false : { opacity: 0, y: 5 }}
                   animate={{ opacity: 1, y: 0 }}
@@ -350,7 +432,19 @@ export default function HomeView() {
 
             {/* Review CTA */}
             {pending_reviews > 0 && (
-              <div className={styles.reviewCta}>
+              <div
+                className={styles.reviewCta}
+                data-clickable={Boolean(pending_reviews_target)}
+                role={pending_reviews_target ? 'button' : undefined}
+                tabIndex={pending_reviews_target ? 0 : undefined}
+                onClick={pending_reviews_target ? () => dispatchTarget(pending_reviews_target) : undefined}
+                onKeyDown={pending_reviews_target ? (e) => {
+                  if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault();
+                    dispatchTarget(pending_reviews_target);
+                  }
+                } : undefined}
+              >
                 <div className={styles.reviewCtaTitle}>{pending_reviews} connection{pending_reviews !== 1 ? 's' : ''} awaiting review</div>
                 <p className={styles.reviewCtaText}>Your feedback trains the scorer. Each review improves accuracy.</p>
               </div>
@@ -365,7 +459,7 @@ export default function HomeView() {
             </div>
 
             {threads.length === 0 && (
-              <div className={styles.reviewCta}>
+              <div className={styles.reviewCta} data-clickable={false}>
                 <div className={styles.reviewCtaTitle}>
                   {sectionMessage || 'No active threads yet'}
                 </div>
@@ -377,10 +471,21 @@ export default function HomeView() {
 
             {threads.map((thread, i) => {
               const Renderer = THREAD_RENDERERS[thread.object_type] || ResearchThread;
+              const target = inferThreadTarget(thread);
               return (
                 <motion.div
                   key={thread.id}
                   className={styles.threadCard}
+                  data-clickable={Boolean(target)}
+                  role={target ? 'button' : undefined}
+                  tabIndex={target ? 0 : undefined}
+                  onClick={target ? () => dispatchTarget(target) : undefined}
+                  onKeyDown={target ? (e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                      e.preventDefault();
+                      dispatchTarget(target);
+                    }
+                  } : undefined}
                   initial={reduced ? false : { opacity: 0, y: 8 + i * 2 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={reduced ? { duration: 0 } : {

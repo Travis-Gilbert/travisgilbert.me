@@ -35,18 +35,17 @@ import NarrativeBrick from './NarrativeBrick';
 
 interface ModelWorkbenchProps {
   modelId: number;
-  onOpenObject?: (paneId: string, objectRef: number) => void;
-  paneId?: string;
+  onOpenObject?: (objectRef: number, objectSlug?: string) => void;
 }
 
 export default function ModelWorkbench({
   modelId,
   onOpenObject,
-  paneId,
 }: ModelWorkbenchProps): React.ReactElement {
   const [model, setModel] = useState<EpistemicModelDetail | null>(null);
   const [loading, setLoading] = useState(true);
-  const [expandedAssumptions, setExpandedAssumptions] = useState<Set<number>>(new Set());
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [focusedAssumptionId, setFocusedAssumptionId] = useState<number | null>(null);
   const [visibility, setVisibility] = useState<Record<ModuleId, boolean>>({
     tensions: true,
     methods: true,
@@ -56,18 +55,31 @@ export default function ModelWorkbench({
   });
 
   useEffect(() => {
-    setLoading(true);
+    let isActive = true;
     fetchModelDetail(modelId)
       .then((detail) => {
+        if (!isActive) return;
         setModel(detail);
+        setLoadError(null);
         if (detail.assumptions.length > 0) {
           const sorted = [...detail.assumptions].sort(
             (a, b) => a.positionIndex - b.positionIndex,
           );
-          setExpandedAssumptions(new Set([sorted[0].id]));
+          setFocusedAssumptionId(sorted[0].id);
         }
       })
-      .finally(() => setLoading(false));
+      .catch(() => {
+        if (!isActive) return;
+        setModel(null);
+        setLoadError('Could not load this model from Index API.');
+      })
+      .finally(() => {
+        if (isActive) setLoading(false);
+      });
+
+    return () => {
+      isActive = false;
+    };
   }, [modelId]);
 
   const handleToggle = useCallback((id: ModuleId) => {
@@ -79,13 +91,19 @@ export default function ModelWorkbench({
   }, []);
 
   const handleOpenObject = useCallback(
-    (objectRef: number) => {
-      if (paneId && onOpenObject) {
-        onOpenObject(paneId, objectRef);
-      }
+    (objectRef: number, objectSlug?: string) => {
+      onOpenObject?.(objectRef, objectSlug);
     },
-    [paneId, onOpenObject],
+    [onOpenObject],
   );
+
+  const handleFocusAssumption = useCallback((assumptionId: number) => {
+    setFocusedAssumptionId(assumptionId);
+    requestAnimationFrame(() => {
+      const node = document.querySelector<HTMLElement>(`[data-assumption-id="${assumptionId}"]`);
+      if (node) node.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    });
+  }, []);
 
   /**
    * Reorder assumptions: receives the new order of assumption IDs
@@ -112,7 +130,7 @@ export default function ModelWorkbench({
     [],
   );
 
-  if (loading || !model) {
+  if (loading) {
     return (
       <div
         style={{
@@ -132,7 +150,36 @@ export default function ModelWorkbench({
             zIndex: 1,
           }}
         >
-          Loading model...
+          Loading live model data...
+        </div>
+      </div>
+    );
+  }
+
+  if (!model) {
+    return (
+      <div
+        style={{
+          position: 'relative',
+          height: '100%',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+        }}
+      >
+        <DotField seed={`model-${modelId}`} />
+        <div
+          style={{
+            fontFamily: 'var(--cp-font-mono)',
+            fontSize: 11,
+            color: 'var(--cp-text-faint, #68666E)',
+            zIndex: 1,
+            maxWidth: 360,
+            textAlign: 'center',
+            lineHeight: 1.6,
+          }}
+        >
+          {loadError || 'Model data unavailable.'}
         </div>
       </div>
     );
@@ -230,6 +277,7 @@ export default function ModelWorkbench({
               assumptions={model.assumptions}
               onOpenObject={handleOpenObject}
               onReorder={handleReorderAssumptions}
+              focusedAssumptionId={focusedAssumptionId}
             />
 
             {/* Falsify brick */}
@@ -276,7 +324,7 @@ export default function ModelWorkbench({
                   accentColor={MODULE_META.tensions.accentColor}
                   onClose={() => handleCloseModule('tensions')}
                 >
-                  <TensionBrick tensions={model.tensions} onOpenObject={handleOpenObject} />
+                  <TensionBrick tensions={model.tensions} onFocusAssumption={handleFocusAssumption} />
                 </ModuleBrick>
               )}
 
@@ -286,7 +334,7 @@ export default function ModelWorkbench({
                   accentColor={MODULE_META.methods.accentColor}
                   onClose={() => handleCloseModule('methods')}
                 >
-                  <MethodBrick methods={model.methods} onOpenObject={handleOpenObject} />
+                  <MethodBrick methods={model.methods} />
                 </ModuleBrick>
               )}
 

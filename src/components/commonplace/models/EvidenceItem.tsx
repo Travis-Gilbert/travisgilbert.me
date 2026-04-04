@@ -10,7 +10,7 @@ import CandidateActions from '../engine/CandidateActions';
 
 interface EvidenceItemProps {
   evidence: EvidenceLink;
-  onOpenObject?: (objectRef: number) => void;
+  onOpenObject?: (objectRef: number, objectSlug?: string) => void;
   candidateStatus?: 'pending' | 'accepted' | 'rejected';
   onAcceptCandidate?: () => void;
   onRejectCandidate?: () => void;
@@ -334,6 +334,14 @@ export default function EvidenceItem({
   const typeColor = EVIDENCE_TYPE_COLOR[evidence.objectType];
   const isCandidate = evidence.isCandidate;
   const isConcept = evidence.objectType === 'concept';
+  const targetObjectId = evidence.target?.kind === 'object'
+    ? evidence.target.object?.id
+    : undefined;
+  const targetObjectSlug = evidence.target?.kind === 'object'
+    ? evidence.target.object?.slug
+    : undefined;
+  const resolvedObjectId = targetObjectId ?? evidence.objectRef;
+  const resolvedObjectSlug = targetObjectSlug ?? evidence.objectSlug;
 
   function renderByType(): React.ReactNode {
     switch (evidence.objectType) {
@@ -384,11 +392,11 @@ export default function EvidenceItem({
     <div
       role="button"
       tabIndex={0}
-      onClick={() => onOpenObject?.(evidence.objectRef)}
+      onClick={() => onOpenObject?.(resolvedObjectId, resolvedObjectSlug)}
       onKeyDown={(e) => {
         if (e.key === 'Enter' || e.key === ' ') {
           e.preventDefault();
-          onOpenObject?.(evidence.objectRef);
+          onOpenObject?.(resolvedObjectId, resolvedObjectSlug);
         }
       }}
       onMouseEnter={() => setHovered(true)}

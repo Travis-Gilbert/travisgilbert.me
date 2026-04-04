@@ -4,6 +4,8 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import type { EngineLogEntry } from '@/lib/commonplace-models';
 import { EVIDENCE_TYPE_COLOR } from '@/lib/commonplace-models';
 import { humanizeLogEntry } from './humanize';
+import { submitQuestion } from '@/lib/ask-theseus';
+import { useDrawer } from '@/lib/providers/drawer-provider';
 
 /* ─────────────────────────────────────────────────
    Types
@@ -14,6 +16,7 @@ interface ObjectChip {
   title: string;
   type: string;
   color: string;
+  slug?: string;
 }
 
 interface AnalysisStep {
@@ -33,74 +36,6 @@ interface Message {
 }
 
 /* ─────────────────────────────────────────────────
-   Canned response patterns (until LLM integration)
-   ───────────────────────────────────────────────── */
-
-interface CannedResponse {
-  pattern: RegExp;
-  text: string;
-  chips: ObjectChip[];
-  steps: AnalysisStep[];
-}
-
-const CANNED_RESPONSES: CannedResponse[] = [
-  {
-    pattern: /connect|link|relat|bridge/i,
-    text: 'I found several connections worth exploring. The strongest signal comes from shared entity mentions across your recent captures.',
-    chips: [
-      { id: 1, title: 'Structural Hole Detection', type: 'concept', color: EVIDENCE_TYPE_COLOR.concept },
-      { id: 2, title: 'Stigmergy in software systems', type: 'source', color: EVIDENCE_TYPE_COLOR.source },
-    ],
-    steps: [
-      { icon: '⟷', color: '#3A7A88', text: 'SBERT similarity: 3 pairs above 0.7 threshold', strength: 0.72 },
-      { icon: '△', color: '#C49A4A', text: 'NLI detected 1 supporting and 1 contradicting stance', strength: 0.65 },
-    ],
-  },
-  {
-    pattern: /tension|contradict|disagree|conflict/i,
-    text: 'I see active tensions in your graph. Two sources present conflicting claims about this topic.',
-    chips: [
-      { id: 3, title: 'Corridor decline thesis', type: 'note', color: EVIDENCE_TYPE_COLOR.note },
-      { id: 4, title: 'Council member statement', type: 'quote', color: '#A08020' },
-    ],
-    steps: [
-      { icon: '!', color: '#B8623D', text: 'High-severity tension: timeline contradiction on plan origin', strength: 0.91 },
-      { icon: '◆', color: '#7050A0', text: 'KGE link: induced demand concept bridges 4 objects' },
-    ],
-  },
-  {
-    pattern: /cluster|group|communit/i,
-    text: 'Your graph has formed several distinct clusters. The semiotics cluster recently expanded with 4 new objects.',
-    chips: [
-      { id: 5, title: 'Semiotics cluster', type: 'concept', color: EVIDENCE_TYPE_COLOR.concept },
-      { id: 6, title: 'Game theory cluster', type: 'concept', color: EVIDENCE_TYPE_COLOR.concept },
-    ],
-    steps: [
-      { icon: '◉', color: '#3A7A88', text: 'Louvain community detection: 7 clusters identified' },
-      { icon: '⟷', color: '#C49A4A', text: 'Structural hole between semiotics and game theory', strength: 0.34 },
-    ],
-  },
-];
-
-const DEFAULT_RESPONSE: Omit<CannedResponse, 'pattern'> = {
-  text: 'I scanned your graph for relevant connections. Here is what I found based on recent engine activity.',
-  chips: [
-    { id: 7, title: 'Recent captures', type: 'note', color: EVIDENCE_TYPE_COLOR.note },
-  ],
-  steps: [
-    { icon: '◆', color: '#3A7A88', text: 'Processed through 7 analysis passes', strength: 0.8 },
-    { icon: '⟷', color: '#C49A4A', text: 'No strong new connections detected. Try adding more objects.' },
-  ],
-};
-
-function matchResponse(input: string): Omit<CannedResponse, 'pattern'> {
-  for (const r of CANNED_RESPONSES) {
-    if (r.pattern.test(input)) return r;
-  }
-  return DEFAULT_RESPONSE;
-}
-
-/* ─────────────────────────────────────────────────
    Component
    ───────────────────────────────────────────────── */
 
@@ -110,6 +45,7 @@ interface EngineAskTabProps {
 }
 
 export default function EngineAskTab({ logEntries, onSendReady }: EngineAskTabProps) {
+  const { openDrawer } = useDrawer();
   const [messages, setMessages] = useState<Message[]>([]);
   const [showTyping, setShowTyping] = useState(false);
   const [visiblePhases, setVisiblePhases] = useState<Record<string, number>>({});
@@ -141,7 +77,7 @@ export default function EngineAskTab({ logEntries, onSendReady }: EngineAskTabPr
     });
   }, [messages, showTyping, visiblePhases]);
 
-  const sendMessage = useCallback((text: string) => {
+  const sendMessage = useCallback(async (text: string) => {
     const userMsg: Message = {
       id: `user-${Date.now()}`,
       role: 'user',
@@ -151,36 +87,55 @@ export default function EngineAskTab({ logEntries, onSendReady }: EngineAskTabPr
 
     setMessages((prev) => [...prev, userMsg]);
     setShowTyping(true);
-
-    const response = matchResponse(text);
     const engineId = `engine-${Date.now()}`;
 
-    // Phase 1: typing indicator (500ms)
-    setTimeout(() => {
-      setShowTyping(false);
+    try {
+      const retrieval = await submitQuestion(text);
+      const objects = retrieval.retrieval.objects ?? [];
+      const engines = retrieval.retrieval.engines_used ?? [];
+      const chips: ObjectChip[] = objects.slice(0, 6).map((obj) => ({
+        id: obj.id,
+        slug: obj.slug,
+        title: obj.title,
+        type: obj.object_type_slug,
+        color: obj.object_type_color || EVIDENCE_TYPE_COLOR.note,
+      }));
+      const steps: AnalysisStep[] = engines.slice(0, 4).map((engine) => ({
+        icon: '◆',
+        color: '#3A7A88',
+        text: `${engine.toUpperCase()} retrieval pass contributed evidence.`,
+      }));
+
       const engineMsg: Message = {
         id: engineId,
         role: 'engine',
-        text: response.text,
-        chips: response.chips,
-        steps: response.steps,
+        text: objects.length > 0
+          ? `I found ${objects.length} connected object${objects.length === 1 ? '' : 's'} from live Index API retrieval.`
+          : 'No connected objects were returned by live Index API retrieval for this query yet.',
+        chips,
+        steps,
         timestamp: new Date().toISOString(),
       };
       setMessages((prev) => [...prev, engineMsg]);
-
-      // Phase 2: text already visible (0ms after insert)
       setVisiblePhases((prev) => ({ ...prev, [engineId]: 1 }));
-
-      // Phase 3: chips (350ms after text)
       setTimeout(() => {
         setVisiblePhases((prev) => ({ ...prev, [engineId]: 2 }));
-      }, 350);
-
-      // Phase 4: analysis steps (800ms after text, stagger 280ms each)
+      }, 250);
       setTimeout(() => {
         setVisiblePhases((prev) => ({ ...prev, [engineId]: 3 }));
-      }, 800);
-    }, 500);
+      }, 600);
+    } catch {
+      const engineMsg: Message = {
+        id: engineId,
+        role: 'engine',
+        text: 'Live retrieval is unavailable right now. Index API could not be reached.',
+        timestamp: new Date().toISOString(),
+      };
+      setMessages((prev) => [...prev, engineMsg]);
+      setVisiblePhases((prev) => ({ ...prev, [engineId]: 1 }));
+    } finally {
+      setShowTyping(false);
+    }
   }, []);
 
   // Expose sendMessage to parent
@@ -205,6 +160,10 @@ export default function EngineAskTab({ logEntries, onSendReady }: EngineAskTabPr
           key={msg.id}
           message={msg}
           phase={visiblePhases[msg.id] ?? 3}
+          onOpenChip={(chip) => {
+            const slug = chip.slug || String(chip.id);
+            if (slug) openDrawer(slug);
+          }}
         />
       ))}
 
@@ -235,7 +194,15 @@ export default function EngineAskTab({ logEntries, onSendReady }: EngineAskTabPr
    Sub-components
    ───────────────────────────────────────────────── */
 
-function MessageBubble({ message, phase }: { message: Message; phase: number }) {
+function MessageBubble({
+  message,
+  phase,
+  onOpenChip,
+}: {
+  message: Message;
+  phase: number;
+  onOpenChip?: (chip: ObjectChip) => void;
+}) {
   const isUser = message.role === 'user';
   const time = new Date(message.timestamp).toLocaleTimeString('en-US', {
     hour12: false,
@@ -291,8 +258,10 @@ function MessageBubble({ message, phase }: { message: Message; phase: number }) 
             }}
           >
             {message.chips.map((chip) => (
-              <span
+              <button
                 key={chip.id}
+                type="button"
+                onClick={() => onOpenChip?.(chip)}
                 style={{
                   display: 'inline-flex',
                   alignItems: 'center',
@@ -304,7 +273,7 @@ function MessageBubble({ message, phase }: { message: Message; phase: number }) 
                   fontFamily: 'var(--font-code)',
                   fontSize: 10,
                   color: '#C0BDB5',
-                  cursor: 'pointer',
+                  cursor: onOpenChip ? 'pointer' : 'default',
                   transition: 'all 0.15s',
                 }}
               >
@@ -318,7 +287,7 @@ function MessageBubble({ message, phase }: { message: Message; phase: number }) 
                   }}
                 />
                 {chip.title}
-              </span>
+              </button>
             ))}
           </div>
         )}

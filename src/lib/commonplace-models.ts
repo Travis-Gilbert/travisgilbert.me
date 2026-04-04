@@ -108,11 +108,15 @@ export const EVIDENCE_TYPE_COLOR: Record<EvidenceObjectType, string> = {
 export interface EvidenceLink {
   id: number;
   objectRef: number;
+  objectSlug?: string;
   objectTitle: string;
   objectType: EvidenceObjectType;
   relation: EvidenceRelation;
   confidence: number;
   isCandidate?: boolean;
+  sourceObjectId?: number;
+  sourceObjectSlug?: string;
+  target?: NavigationTarget;
   /** The finding or content text (what the evidence says) */
   contentText?: string;
   /** Source domain (e.g. "city.gov", "arxiv.org") */
@@ -263,8 +267,12 @@ export interface StressResult {
 export interface EngineCandidate {
   id: number;
   objectRef: number;
+  objectSlug?: string;
   objectTitle: string;
   objectType: string;
+  sourceObjectId?: number;
+  sourceObjectSlug?: string;
+  target?: NavigationTarget;
   suggestedAssumptionId: number;
   relation: EvidenceRelation;
   confidence: number;
@@ -539,6 +547,11 @@ const DEMO_CANDIDATES: EngineCandidate[] = [
    ───────────────────────────────────────────────── */
 
 import { apiFetch } from '@/lib/commonplace-api';
+import type { NavigationTarget } from '@/lib/commonplace';
+
+const DEMO_MODE =
+  typeof process !== 'undefined'
+    && process.env.NEXT_PUBLIC_COMMONPLACE_DEMO_MODE === '1';
 
 function mapModelSummary(raw: any): EpistemicModelSummary {
   return {
@@ -585,6 +598,27 @@ function deriveDomain(raw: any): string | undefined {
   }
 }
 
+function normalizeNavigationTarget(
+  rawTarget: any,
+  fallback?: { id?: number; slug?: string },
+): NavigationTarget | undefined {
+  if (rawTarget && typeof rawTarget === 'object' && typeof rawTarget.kind === 'string') {
+    return rawTarget as NavigationTarget;
+  }
+
+  if (fallback?.id != null || fallback?.slug) {
+    return {
+      kind: 'object',
+      object: {
+        id: fallback.id,
+        slug: fallback.slug,
+      },
+    };
+  }
+
+  return undefined;
+}
+
 function normalizeAssumptionStatus(raw: any): AssumptionStatus {
   const explicit = raw.status ?? raw.claim_status;
   if (explicit && explicit in ASSUMPTION_STATUS_META) {
@@ -623,14 +657,25 @@ function mapAssumption(raw: any): Assumption {
 }
 
 function mapEvidenceLink(raw: any): EvidenceLink {
+  const sourceObjectId = raw.source_object_id ?? raw.source_object ?? undefined;
+  const sourceObjectSlug = raw.source_object_slug ?? undefined;
+  const objectRef = sourceObjectId ?? raw.object ?? raw.object_ref ?? raw.artifact ?? raw.artifact_id ?? 0;
+
   return {
     id: raw.id,
-    objectRef: raw.object ?? raw.object_ref ?? raw.artifact ?? raw.artifact_id ?? 0,
-    objectTitle: raw.object_title ?? raw.artifact_title ?? raw.title ?? '',
+    objectRef,
+    objectSlug: sourceObjectSlug,
+    objectTitle: raw.source_object_title ?? raw.object_title ?? raw.artifact_title ?? raw.title ?? '',
     objectType: normalizeEvidenceType(raw),
     relation: normalizeEvidenceRelation(raw),
     confidence: raw.confidence ?? 0,
     isCandidate: raw.is_candidate ?? raw.attached_by === 'engine',
+    sourceObjectId,
+    sourceObjectSlug,
+    target: normalizeNavigationTarget(raw.target, {
+      id: sourceObjectId,
+      slug: sourceObjectSlug,
+    }),
     contentText: raw.content_text ?? raw.reason ?? raw.finding ?? undefined,
     domain: deriveDomain(raw),
     date: raw.date ?? undefined,
@@ -742,10 +787,10 @@ export async function fetchModels(): Promise<EpistemicModelSummary[]> {
   try {
     const data = await apiFetch<any>('/models/');
     const results = Array.isArray(data) ? data : data.results ?? [];
-    if (results.length === 0) return DEMO_MODELS;
     return results.map(mapModelSummary);
-  } catch {
-    return DEMO_MODELS;
+  } catch (error) {
+    if (DEMO_MODE) return DEMO_MODELS;
+    throw error;
   }
 }
 
@@ -753,21 +798,28 @@ export async function fetchModelDetail(id: number): Promise<EpistemicModelDetail
   try {
     const data = await apiFetch<any>(`/models/${id}/`);
     return mapModelDetail(data);
-  } catch {
-    // Fallback to demo data
+  } catch (error) {
+    if (!DEMO_MODE) throw error;
     if (id === 1) return DEMO_MODEL_DETAIL;
     if (id === 2) return STIGMERGY_DETAIL;
     if (id === 3) return TIPTAP_DETAIL;
     const summary = DEMO_MODELS.find((m) => m.id === id);
-    if (!summary) throw new Error(`Model ${id} not found`);
-    return { ...summary, question: null, assumptions: [], tensions: [], methods: [], canonicalReferences: [], falsificationCriteria: [], narratives: [] };
+    if (!summary) throw error;
+    return {
+      ...summary,
+      question: null,
+      assumptions: [],
+      tensions: [],
+      methods: [],
+      canonicalReferences: [],
+      falsificationCriteria: [],
+      narratives: [],
+    };
   }
 }
 
 export async function fetchEngineLog(modelId?: number): Promise<EngineLogEntry[]> {
-  if (!modelId) {
-    return DEMO_ENGINE_LOG;
-  }
+  if (!modelId) return [];
 
   try {
     const data = await apiFetch<any>(`/models/${modelId}/engine-log/`);
@@ -779,8 +831,11 @@ export async function fetchEngineLog(modelId?: number): Promise<EngineLogEntry[]
       message: e.message ?? e.summary ?? '',
       modelId: e.model ?? modelId,
     }));
-  } catch {
-    return DEMO_ENGINE_LOG.filter((e) => e.modelId === modelId || !e.modelId);
+  } catch (error) {
+    if (DEMO_MODE) {
+      return DEMO_ENGINE_LOG.filter((e) => e.modelId === modelId || !e.modelId);
+    }
+    throw error;
   }
 }
 
@@ -800,8 +855,9 @@ export async function fetchStressResult(modelId: number): Promise<StressResult> 
         linkedAssumptionId: f.linked_claim ?? f.linked_assumption_id ?? undefined,
       })) : [],
     };
-  } catch {
-    return DEMO_STRESS_RESULT;
+  } catch (error) {
+    if (DEMO_MODE) return DEMO_STRESS_RESULT;
+    throw error;
   }
 }
 
@@ -811,16 +867,24 @@ export async function fetchCandidates(modelId: number): Promise<EngineCandidate[
     const results = Array.isArray(data) ? data : data.results ?? [];
     return results.map((c: any) => ({
       id: c.id,
-      objectRef: c.object ?? 0,
-      objectTitle: c.object_title ?? '',
+      objectRef: c.source_object_id ?? c.object ?? 0,
+      objectSlug: c.source_object_slug ?? undefined,
+      objectTitle: c.source_object_title ?? c.object_title ?? '',
       objectType: c.object_type ?? '',
+      sourceObjectId: c.source_object_id ?? undefined,
+      sourceObjectSlug: c.source_object_slug ?? undefined,
+      target: normalizeNavigationTarget(c.target, {
+        id: c.source_object_id ?? c.object ?? undefined,
+        slug: c.source_object_slug ?? undefined,
+      }),
       suggestedAssumptionId: c.suggested_claim ?? c.suggested_assumption_id ?? 0,
       relation: normalizeEvidenceRelation(c),
       confidence: c.confidence ?? 0,
       status: c.status ?? 'pending',
     }));
-  } catch {
-    return DEMO_CANDIDATES;
+  } catch (error) {
+    if (DEMO_MODE) return DEMO_CANDIDATES;
+    throw error;
   }
 }
 
