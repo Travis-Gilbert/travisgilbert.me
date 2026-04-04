@@ -59,9 +59,7 @@ export default function TheseusShell({ children }: { children: React.ReactNode }
         height: '100vh',
         pointerEvents: 'none',
       }}>
-        <div style={{ pointerEvents: 'auto', width: '100%', height: '100%' }}>
-          {children}
-        </div>
+        {children}
       </div>
     </GalaxyContext.Provider>
   );
