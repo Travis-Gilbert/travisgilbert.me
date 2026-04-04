@@ -154,6 +154,7 @@ function RendererLayer({
 
   return (
     <div
+      className="theseus-interactive"
       style={{
         position: 'absolute',
         inset: 0,
@@ -231,7 +232,7 @@ export default function RenderRouter({
   }, [onCrystallizeComplete]);
 
   return (
-    <div style={{ position: 'absolute', inset: 0, overflow: 'hidden' }}>
+    <div className="theseus-interactive" style={{ position: 'absolute', inset: 0, overflow: 'hidden' }}>
       <ConstructionAnimator
         construction={directive.construction}
         onUpdate={handleAnimationUpdate}
