@@ -3,6 +3,7 @@
 import { forwardRef, useCallback, useEffect, useImperativeHandle, useRef } from 'react';
 import { usePrefersReducedMotion } from '@/hooks/usePrefersReducedMotion';
 import { mulberry32 } from '@/lib/prng';
+import { renderPretextLabels, clearLabelCache } from '@/lib/galaxy/pretextLabels';
 
 const DEFAULT_DOT_COLOR: [number, number, number] = [74, 138, 150];
 
@@ -21,14 +22,13 @@ const OBJECT_TYPE_MAP: Record<string, number> = {
 };
 const OBJECT_TYPE_REVERSE = ['none', 'source', 'concept', 'person', 'hunch', 'note'];
 
-// Inverse vignette: center is clean, dots fade in toward edges
-// Soft radial fade: full opacity at edges, gently reduced toward center
+// Full-screen galaxy: uniform opacity with soft fade at the very edge
 function computeFade(
   gx: Float32Array, gy: Float32Array, fade: Float32Array,
   count: number, w: number, h: number,
 ) {
   const cx = w * 0.5;
-  const cy = h * 0.4;
+  const cy = h * 0.5;
   const maxR = Math.sqrt(cx * cx + cy * cy);
 
   for (let i = 0; i < count; i++) {
@@ -36,8 +36,8 @@ function computeFade(
     const ddy = gy[i] - cy;
     const dist = Math.sqrt(ddx * ddx + ddy * ddy);
     const norm = dist / maxR;
-    // Gentle curve: center ~0.3, edges ~1.0
-    fade[i] = 0.3 + 0.7 * Math.pow(norm, 0.6);
+    // Full opacity everywhere except a gentle fade at the outermost 8%
+    fade[i] = norm > 0.92 ? 1.0 - ((norm - 0.92) / 0.08) * 0.6 : 1.0;
   }
 }
 
@@ -102,7 +102,7 @@ const TheseusDotGrid = forwardRef<DotGridHandle, TheseusDotGridProps>(function T
   dotRadius = 0.85,
   spacing = 20,
   dotColor = DEFAULT_DOT_COLOR,
-  dotOpacity = 0.14,
+  dotOpacity = 0.18,
   stiffness = 0.35,
   damping = 0.48,
   influenceRadius = 100,
@@ -345,12 +345,12 @@ const TheseusDotGrid = forwardRef<DotGridHandle, TheseusDotGridProps>(function T
       window.matchMedia('(hover: none)').matches;
 
     const binaryFont = '7px "JetBrains Mono", monospace';
-    const labelFont = '11px "JetBrains Mono", monospace';
     const rgb = dotColor;
 
     let resizeRaf = 0;
 
     function resize() {
+      clearLabelCache();
       const dpr = window.devicePixelRatio || 1;
       w = window.innerWidth;
       h = window.innerHeight;
@@ -433,23 +433,8 @@ const TheseusDotGrid = forwardRef<DotGridHandle, TheseusDotGridProps>(function T
         ctx!.globalAlpha = 1;
       }
 
-      // Draw labels with dark backing for readability
-      const labels = labelsRef.current;
-      for (const label of labels) {
-        if (label.alpha < 0.01) continue;
-        ctx!.font = labelFont;
-        ctx!.textAlign = 'center';
-        const text = label.text.toUpperCase();
-        const metrics = ctx!.measureText(text);
-        const tx = label.x;
-        const ty = label.y - 12;
-        // Dark backing rectangle
-        ctx!.fillStyle = `rgba(15,16,18,${label.alpha * 0.7})`;
-        ctx!.fillRect(tx - metrics.width / 2 - 4, ty - 8, metrics.width + 8, 14);
-        // Text
-        ctx!.fillStyle = `rgba(232,229,224,${label.alpha})`;
-        ctx!.fillText(text, tx, ty);
-      }
+      // Draw labels using Pretext for proper text measurement and wrapping
+      renderPretextLabels(ctx!, labelsRef.current);
     }
 
     function tick() {

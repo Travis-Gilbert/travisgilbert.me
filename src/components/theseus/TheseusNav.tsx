@@ -1,15 +1,18 @@
 'use client';
 
 import Link from 'next/link';
-import { usePathname, useRouter } from 'next/navigation';
+import { usePathname } from 'next/navigation';
 
-function isAskPath(pathname: string): boolean {
-  return pathname === '/theseus' || pathname.startsWith('/theseus/ask') || pathname.startsWith('/theseus/particle-test');
+function getPageLabel(pathname: string): string | null {
+  if (pathname.startsWith('/theseus/ask')) return 'ask';
+  if (pathname.startsWith('/theseus/library')) return 'library';
+  if (pathname === '/theseus' || pathname === '/theseus/') return null;
+  return null;
 }
 
 export default function TheseusNav() {
   const pathname = usePathname() ?? '';
-  const router = useRouter();
+  const pageLabel = getPageLabel(pathname);
 
   return (
     <nav className="theseus-nav" aria-label="Theseus navigation">
@@ -17,36 +20,24 @@ export default function TheseusNav() {
         <Link className="theseus-nav-brand" href="/theseus">
           Theseus
         </Link>
+        {pageLabel && (
+          <>
+            <span className="theseus-nav-sep">/</span>
+            <span className="theseus-nav-page">{pageLabel}</span>
+          </>
+        )}
       </div>
 
       <div className="theseus-nav-right">
-        <button
-          type="button"
-          className="theseus-nav-btn"
-          onClick={() => router.back()}
-          aria-label="Go back"
-        >
-          Back
-        </button>
-        <button
-          type="button"
-          className="theseus-nav-btn"
-          onClick={() => router.forward()}
-          aria-label="Go forward"
-        >
-          Forward
-        </button>
         <Link
-          className={`theseus-nav-link ${isAskPath(pathname) ? 'is-active' : ''}`}
+          className={`theseus-nav-link ${!pageLabel ? 'is-active' : ''}`}
           href="/theseus"
-          aria-current={isAskPath(pathname) ? 'page' : undefined}
         >
           Ask
         </Link>
         <Link
-          className={`theseus-nav-link ${pathname.startsWith('/theseus/library') ? 'is-active' : ''}`}
+          className={`theseus-nav-link ${pageLabel === 'library' ? 'is-active' : ''}`}
           href="/theseus/library"
-          aria-current={pathname.startsWith('/theseus/library') ? 'page' : undefined}
         >
           Library
         </Link>
