@@ -43,6 +43,23 @@
   overflow: hidden;
 }
 
+/* Galaxy click-through: the shell content wrapper has pointer-events: none
+   so clicks on empty space pass to the GalaxyController underneath.
+   These rules restore pointer-events on interactive page elements. */
+.theseus-root form,
+.theseus-root button,
+.theseus-root a,
+.theseus-root input,
+.theseus-root select,
+.theseus-root textarea,
+.theseus-root aside,
+.theseus-root [role="textbox"],
+.theseus-root [role="button"],
+.theseus-root [data-interactive],
+.theseus-root .theseus-interactive {
+  pointer-events: auto;
+}
+
 /* Ink UI terminal block cursor */
 @keyframes vie-block-cursor {
   0%, 49% { opacity: 1; }
