@@ -922,6 +922,28 @@ function LinksMode({
   const [analyzing, setAnalyzing] = useState(false);
   const saveStateRef = useRef(saveState);
   saveStateRef.current = saveState;
+  const initialAnalysisSlugRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    if (!editor || !contentItem) return;
+    if (initialAnalysisSlugRef.current === contentItem.slug) return;
+    initialAnalysisSlugRef.current = contentItem.slug;
+
+    const text = editor.getText();
+    if (!text || text.length < 20) return;
+
+    setAnalyzing(true);
+    analyzeDraft(text, contentItem.contentType, contentItem.slug)
+      .then((result) => {
+        setAnalysisResult(result);
+      })
+      .catch(() => {
+        /* silently ignore analysis failures */
+      })
+      .finally(() => {
+        setAnalyzing(false);
+      });
+  }, [editor, contentItem]);
 
   useEffect(() => {
     if (saveState !== 'success') return;

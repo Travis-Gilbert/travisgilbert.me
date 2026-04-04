@@ -197,9 +197,20 @@ LOGGING = {
     },
 }
 
-# Research API (source promotion on triage accept)
-RESEARCH_API_URL = os.environ.get("RESEARCH_API_URL", "http://localhost:8001").strip()
-RESEARCH_API_KEY = os.environ.get("RESEARCH_API_KEY", "").strip()
+# Index API / Research API (same service; support both env naming conventions)
+INDEX_API_URL = (
+    os.environ.get("INDEX_API_URL", "").strip()
+    or os.environ.get("RESEARCH_API_URL", "").strip()
+    or "http://localhost:8001"
+)
+INDEX_API_KEY = (
+    os.environ.get("INDEX_API_KEY", "").strip()
+    or os.environ.get("RESEARCH_API_KEY", "").strip()
+)
+
+# Backward-compatible aliases used by existing service modules.
+RESEARCH_API_URL = INDEX_API_URL
+RESEARCH_API_KEY = INDEX_API_KEY
 
 # TickTick sync (optional; tasks still save locally if token is missing)
 TICKTICK_ACCESS_TOKEN = os.environ.get("TICKTICK_ACCESS_TOKEN", "").strip()

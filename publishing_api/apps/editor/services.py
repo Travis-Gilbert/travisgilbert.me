@@ -19,18 +19,24 @@ _TIMEOUT = httpx.Timeout(10.0, connect=5.0)
 
 def _api_config():
     """Return (base_url, api_key) or (None, None) when not configured."""
-    url = getattr(settings, "RESEARCH_API_URL", "")
-    key = getattr(settings, "RESEARCH_API_KEY", "")
-    if not url or not key:
+    url = (
+        getattr(settings, "INDEX_API_URL", "")
+        or getattr(settings, "RESEARCH_API_URL", "")
+    )
+    key = (
+        getattr(settings, "INDEX_API_KEY", "")
+        or getattr(settings, "RESEARCH_API_KEY", "")
+    )
+    if not url:
         return None, None
-    return url.rstrip("/"), key
+    return url.rstrip("/"), (key or None)
 
 
-def _auth_headers(api_key: str) -> dict:
-    return {
-        "Authorization": f"Bearer {api_key}",
-        "Accept": "application/json",
-    }
+def _auth_headers(api_key: str | None) -> dict:
+    headers = {"Accept": "application/json"}
+    if api_key:
+        headers["Authorization"] = f"Bearer {api_key}"
+    return headers
 
 
 def fetch_research_trail(slug: str) -> dict:

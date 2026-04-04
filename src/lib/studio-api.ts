@@ -400,9 +400,25 @@ export async function fetchDashboardStats(): Promise<StudioDashboardStats> {
    Index API (separate service, formerly "Research API")
    ───────────────────────────────────────────────── */
 
-const INDEX_API_BASE =
+const INDEX_API_ORIGIN =
   process.env.NEXT_PUBLIC_INDEX_API_URL
-  ?? 'http://localhost:8001';
+  ?? process.env.NEXT_PUBLIC_RESEARCH_API_URL
+  ?? 'https://index-api-production-a5f7.up.railway.app';
+
+// Browser requests should use relative URLs so Next.js rewrites proxy to Index API.
+// SSR can use a direct absolute URL.
+const INDEX_API_BASE = typeof window !== 'undefined' ? '' : INDEX_API_ORIGIN;
+
+function getIndexApiHeaders(): HeadersInit {
+  const headers: Record<string, string> = { Accept: 'application/json' };
+  const token =
+    process.env.NEXT_PUBLIC_INDEX_API_TOKEN
+    ?? process.env.NEXT_PUBLIC_COMMONPLACE_API_TOKEN;
+  if (token) {
+    headers.Authorization = `Bearer ${token}`;
+  }
+  return headers;
+}
 
 export interface ResearchTrailSource {
   id: number;
@@ -472,6 +488,7 @@ export async function fetchIndexTrail(
 ): Promise<ResearchTrail | null> {
   try {
     const res = await fetch(`${INDEX_API_BASE}/api/v1/trail/${slug}/`, {
+      headers: getIndexApiHeaders(),
       credentials: 'omit',
       cache: 'no-store',
       signal: AbortSignal.timeout(timeoutMs),
