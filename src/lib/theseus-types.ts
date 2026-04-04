@@ -217,4 +217,7 @@ export interface AskOptions {
   scope?: 'personal' | 'corpus' | 'all';
   include_web?: boolean;
   max_objects?: number;
+  signal?: AbortSignal;
+  timeoutMs?: number;
+  retryPolicy?: 'none' | 'transient-once';
 }

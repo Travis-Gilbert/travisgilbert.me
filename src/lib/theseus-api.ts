@@ -12,13 +12,26 @@ import type {
   WhatIfResult,
 } from './theseus-types';
 
-interface ApiError {
+export type ApiErrorReason = 'timeout' | 'network' | 'http' | 'aborted';
+
+export interface ApiError {
   ok: false;
   status: number;
   message: string;
+  reason: ApiErrorReason;
+  transient: boolean;
 }
 
-type ApiResult<T> = (T & { ok: true }) | ApiError;
+export type ApiResult<T> = (T & { ok: true }) | ApiError;
+
+interface RequestControls {
+  signal?: AbortSignal;
+  timeoutMs?: number;
+  retryPolicy?: 'none' | 'transient-once';
+}
+
+const DEFAULT_TIMEOUT_MS = 14_000;
+const RETRY_DELAY_MS = 250;
 
 interface RawAskResponse {
   query: string;
@@ -106,41 +119,86 @@ function wrapOk<T extends object>(data: T): T & { ok: true } {
   return { ...data, ok: true as const };
 }
 
-function apiError(status: number, message: string): ApiError {
-  return { ok: false, status, message };
+function apiError(
+  status: number,
+  message: string,
+  reason: ApiErrorReason,
+  transient: boolean,
+): ApiError {
+  return { ok: false, status, message, reason, transient };
 }
 
 async function apiFetch<TInput extends object, TOutput extends object = TInput>(
   path: string,
   init?: RequestInit,
   normalize?: (data: TInput) => TOutput,
+  controls?: RequestControls,
 ): Promise<ApiResult<TOutput>> {
-  const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), 30000);
+  const timeoutMs = controls?.timeoutMs ?? DEFAULT_TIMEOUT_MS;
+  const retryPolicy = controls?.retryPolicy ?? 'transient-once';
+  const maxAttempts = retryPolicy === 'transient-once' ? 2 : 1;
 
-  try {
-    const res = await fetch(path, {
-      ...init,
-      signal: controller.signal,
-      headers: {
-        'Content-Type': 'application/json',
-        ...init?.headers,
-      },
-    });
-    clearTimeout(timeoutId);
-    if (!res.ok) {
-      const text = await res.text().catch(() => res.statusText);
-      return apiError(res.status, text);
+  let lastError: ApiError | null = null;
+
+  for (let attempt = 0; attempt < maxAttempts; attempt++) {
+    const controller = new AbortController();
+    const externalSignal = controls?.signal;
+    const externalAbort = () => controller.abort();
+    const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+
+    if (externalSignal) {
+      if (externalSignal.aborted) {
+        return apiError(0, 'Request was cancelled.', 'aborted', false);
+      }
+      externalSignal.addEventListener('abort', externalAbort, { once: true });
     }
-    const data: TInput = await res.json();
-    return wrapOk(normalize ? normalize(data) : (data as unknown as TOutput));
-  } catch (err) {
-    clearTimeout(timeoutId);
-    if (err instanceof DOMException && err.name === 'AbortError') {
-      return apiError(0, 'Request timed out. The backend may be slow or unreachable.');
+
+    try {
+      const res = await fetch(path, {
+        ...init,
+        signal: controller.signal,
+        headers: {
+          'Content-Type': 'application/json',
+          ...init?.headers,
+        },
+      });
+
+      if (!res.ok) {
+        const text = await res.text().catch(() => res.statusText);
+        const status = res.status;
+        const transient = status === 408 || status === 429 || status >= 500;
+        lastError = apiError(status, text || res.statusText, 'http', transient);
+      } else {
+        const data: TInput = await res.json();
+        return wrapOk(normalize ? normalize(data) : (data as unknown as TOutput));
+      }
+    } catch (err) {
+      if (controller.signal.aborted) {
+        if (controls?.signal?.aborted) {
+          return apiError(0, 'Request was cancelled.', 'aborted', false);
+        }
+        lastError = apiError(0, 'Request timed out. The backend may be slow or unreachable.', 'timeout', true);
+      } else {
+        lastError = apiError(0, err instanceof Error ? err.message : 'Network error', 'network', true);
+      }
+    } finally {
+      clearTimeout(timeoutId);
+      externalSignal?.removeEventListener('abort', externalAbort);
     }
-    return apiError(0, err instanceof Error ? err.message : 'Network error');
+
+    if (!lastError) {
+      break;
+    }
+
+    const shouldRetry = lastError.transient && attempt < maxAttempts - 1;
+    if (!shouldRetry) {
+      break;
+    }
+
+    await new Promise((resolve) => setTimeout(resolve, RETRY_DELAY_MS));
   }
+
+  return lastError ?? apiError(0, 'Unknown API error', 'network', true);
 }
 
 function normalizeId(value: string | number | null | undefined): string {
@@ -639,7 +697,11 @@ export async function askTheseus(
       max_objects: options?.max_objects ?? 12,
       scope: options?.scope ?? (options?.personal_only ? 'personal' : 'all'),
     }),
-  }, normalizeAskResponse);
+  }, normalizeAskResponse, {
+    signal: options?.signal,
+    timeoutMs: options?.timeoutMs,
+    retryPolicy: options?.retryPolicy,
+  });
 }
 
 export async function getObject(

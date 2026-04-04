@@ -41,6 +41,7 @@
   min-height: 100vh;
   position: relative;
   overflow: hidden;
+  color-scheme: dark;
 }
 
 /* Galaxy click-through: the shell content wrapper has pointer-events: none
@@ -59,6 +60,184 @@
 .theseus-root [data-interactive],
 .theseus-root .theseus-interactive {
   pointer-events: auto;
+}
+
+.theseus-nav {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 48px;
+  z-index: 50;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 calc(16px + env(safe-area-inset-right)) 0 calc(16px + env(safe-area-inset-left));
+  background: rgba(15, 16, 18, 0.6);
+  backdrop-filter: blur(12px);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+  pointer-events: auto;
+}
+
+.theseus-nav-left,
+.theseus-nav-right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.theseus-nav-brand {
+  color: var(--vie-teal-light);
+  font-family: var(--vie-font-mono);
+  font-size: 12px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  text-decoration: none;
+  line-height: 1;
+}
+
+.theseus-nav-link,
+.theseus-nav-btn {
+  border-radius: 999px;
+  border: 1px solid transparent;
+  padding: 4px 10px;
+  color: var(--vie-text-dim);
+  font-family: var(--vie-font-mono);
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  text-decoration: none;
+  line-height: 1;
+  background: transparent;
+  cursor: pointer;
+}
+
+.theseus-nav-link:hover,
+.theseus-nav-btn:hover {
+  color: var(--vie-text);
+  border-color: rgba(255, 255, 255, 0.14);
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.theseus-nav-link.is-active {
+  color: var(--vie-text);
+  border-color: rgba(255, 255, 255, 0.16);
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.theseus-nav-link:focus-visible,
+.theseus-nav-btn:focus-visible,
+.theseus-nav-brand:focus-visible {
+  outline: 2px solid rgba(74, 138, 150, 0.9);
+  outline-offset: 1px;
+}
+
+.theseus-ask-history {
+  position: fixed;
+  z-index: 19;
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  scrollbar-width: thin;
+  pointer-events: auto;
+}
+
+.theseus-ask-history-chip {
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(15, 16, 18, 0.76);
+  color: var(--vie-text-dim);
+  font-family: var(--vie-font-body);
+  font-size: 12px;
+  line-height: 1;
+  padding: 8px 12px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.theseus-ask-history-chip:hover {
+  color: var(--vie-text);
+  border-color: rgba(255, 255, 255, 0.16);
+}
+
+.theseus-ask-history-chip.is-active {
+  color: var(--vie-text);
+  border-color: rgba(74, 138, 150, 0.35);
+  background: rgba(74, 138, 150, 0.12);
+}
+
+.theseus-ask-history-chip.is-error {
+  color: var(--vie-terra-light);
+  border-color: rgba(196, 80, 60, 0.25);
+}
+
+.theseus-ask-history-chip.is-in-progress {
+  color: var(--vie-amber-light);
+}
+
+.theseus-ask-history-chip:focus-visible {
+  outline: 2px solid rgba(74, 138, 150, 0.9);
+  outline-offset: 1px;
+}
+
+.theseus-ask-composer {
+  position: fixed;
+  z-index: 20;
+  pointer-events: auto;
+}
+
+.theseus-ask-composer-form {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 12px;
+  background: rgba(15, 16, 18, 0.76);
+  backdrop-filter: blur(18px);
+  padding: 8px;
+}
+
+.theseus-ask-composer-input {
+  flex: 1;
+  min-width: 0;
+  border: none;
+  outline: none;
+  background: transparent;
+  color: var(--vie-text);
+  font-family: var(--vie-font-body);
+  font-size: 14px;
+  line-height: 1.2;
+  padding: 6px 8px;
+}
+
+.theseus-ask-composer-input::placeholder {
+  color: var(--vie-text-dim);
+}
+
+.theseus-ask-composer-submit {
+  border-radius: 8px;
+  border: 1px solid rgba(74, 138, 150, 0.28);
+  background: rgba(74, 138, 150, 0.12);
+  color: var(--vie-teal-light);
+  font-family: var(--vie-font-mono);
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  line-height: 1;
+  padding: 8px 10px;
+  cursor: pointer;
+}
+
+.theseus-ask-composer-submit:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.theseus-ask-composer-input:focus-visible,
+.theseus-ask-composer-submit:focus-visible {
+  outline: 2px solid rgba(74, 138, 150, 0.9);
+  outline-offset: 1px;
 }
 
 /* Ink UI terminal block cursor */

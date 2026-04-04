@@ -81,7 +81,12 @@ export default function GalaxyController({
   useEffect(() => {
     let cancelled = false;
     getClusters().then((result) => {
-      if (cancelled || !result.ok) return;
+      if (cancelled) return;
+      if (!result.ok) {
+        console.warn('[Galaxy] Cluster fetch failed:', result.status, result.message);
+        return;
+      }
+      console.log('[Galaxy] Loaded', result.clusters.length, 'clusters');
       setClusters(result.clusters);
     });
     return () => { cancelled = true; };

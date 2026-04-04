@@ -66,6 +66,7 @@ function ParticleFieldLayer({
 
   return (
     <ParticleField
+      className="theseus-interactive"
       playback={playback}
       shapeResult={shapeResult}
       onSelectNode={onSelectNode}

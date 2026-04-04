@@ -1,8 +1,10 @@
 'use client';
 
 import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { useSearchParams } from 'next/navigation';
+import Link from 'next/link';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { askTheseus } from '@/lib/theseus-api';
+import type { ApiError } from '@/lib/theseus-api';
 import type {
   DataAcquisitionSection,
   EvidencePathSection,
@@ -32,14 +34,65 @@ interface ProcessedDataset {
   dataShape: DataShape | null;
 }
 
+type QueryHistoryStatus = 'in-progress' | 'success' | 'error';
+
+interface QueryHistoryEntry {
+  query: string;
+  status: QueryHistoryStatus;
+  timestamp: number;
+}
+
+const HISTORY_STORAGE_KEY = 'theseus-query-history-v1';
+const HISTORY_LIMIT = 10;
+const ASK_TIMEOUT_MS = 14_000;
+const DATA_ACQUISITION_TIMEOUT_MS = 12_000;
+
+function withTimeout<T>(promise: Promise<T>, timeoutMs: number, message: string): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    const timeoutId = window.setTimeout(() => reject(new Error(message)), timeoutMs);
+    promise.then(
+      (value) => {
+        window.clearTimeout(timeoutId);
+        resolve(value);
+      },
+      (error) => {
+        window.clearTimeout(timeoutId);
+        reject(error);
+      },
+    );
+  });
+}
+
+function normalizeErrorMessage(error: ApiError): string {
+  if (error.reason === 'timeout') {
+    return 'Request timed out. The backend may be slow or unreachable.';
+  }
+  if (error.reason === 'network') {
+    return 'Network error. Check your connection or backend availability.';
+  }
+  if (error.reason === 'http' && error.status >= 500) {
+    return 'Backend unavailable right now. Try again in a moment.';
+  }
+  return error.message;
+}
+
+function isRawNarration(content: string): boolean {
+  const normalized = content.toLowerCase();
+  return normalized.includes('perspective(s):') || normalized.startsWith('the evidence reveals');
+}
+
 async function processDataAcquisition(
   section: DataAcquisitionSection,
   onStatus: (status: DataProcessingStatus) => void,
+  signal: AbortSignal,
+  timeoutMs: number,
 ): Promise<ProcessedDataset | null> {
   onStatus({ phase: 'initializing' });
 
   const { loadDataSource } = await import('@/lib/theseus-data/DataLoader');
   const { runQuery, toObjectArray } = await import('@/lib/theseus-data/QueryRunner');
+
+  if (signal.aborted) return null;
 
   onStatus({
     phase: 'loading',
@@ -48,10 +101,17 @@ async function processDataAcquisition(
   });
 
   const loadResults = await Promise.all(
-    section.sources.map((source) => loadDataSource(source, (progress) => {
-      onStatus({ phase: 'loading', source: source.table_name, progress });
-    })),
+    section.sources.map((source) => withTimeout(
+      loadDataSource(source, (progress) => {
+        onStatus({ phase: 'loading', source: source.table_name, progress });
+      }),
+      timeoutMs,
+      `Data source load timed out for ${source.table_name}`,
+    )),
   );
+
+  if (signal.aborted) return null;
+
   const loadError = loadResults.find((result): result is Exclude<typeof result, string> => typeof result !== 'string');
   if (loadError) {
     onStatus({ phase: 'error', message: loadError.message, fallback: section.fallback_description });
@@ -59,7 +119,16 @@ async function processDataAcquisition(
   }
 
   onStatus({ phase: 'processing', query_index: 0, total: section.queries.length });
-  const queryResults = await Promise.all(section.queries.map((sql) => runQuery(sql)));
+  const queryResults = await Promise.all(
+    section.queries.map((sql) => withTimeout(
+      runQuery(sql),
+      timeoutMs,
+      'Data query timed out while constructing the scene',
+    )),
+  );
+
+  if (signal.aborted) return null;
+
   const queryError = queryResults.find((result): result is Exclude<typeof result, { columns: string[] }> => 'code' in result);
   if (queryError) {
     onStatus({ phase: 'error', message: queryError.message, fallback: section.fallback_description });
@@ -201,6 +270,7 @@ function getEvidencePath(response: TheseusResponse): EvidencePathSection | null 
 
 const RENDERER_LABELS: Record<string, string> = {
   'force-graph-3d': 'GRAPH',
+  'particle-field': 'GRAPH',
   'sigma-2d': 'GRAPH 2D',
   d3: 'MAP',
   'vega-lite': 'CHART',
@@ -259,6 +329,7 @@ function StaticScreen({
 }
 
 function AskContent() {
+  const router = useRouter();
   const searchParams = useSearchParams();
   const query = searchParams.get('q');
   const savedId = searchParams.get('saved');
@@ -270,18 +341,103 @@ function AskContent() {
   const [sceneDirective, setSceneDirective] = useState<SceneDirective | null>(null);
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
   const [narrationReady, setNarrationReady] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<ApiError | null>(null);
   const [dataStatus, setDataStatus] = useState<DataProcessingStatus | null>(null);
   const [savedSceneSpec, setSavedSceneSpec] = useState<import('@/lib/theseus-viz/SceneSpec').SceneSpec | null>(null);
   const [savedQuery, setSavedQuery] = useState<string | null>(null);
-  const cancelledRef = useRef(false);
+  const [composerQuery, setComposerQuery] = useState(query ?? '');
+  const [queryHistory, setQueryHistory] = useState<QueryHistoryEntry[]>([]);
+  const [retryNonce, setRetryNonce] = useState(0);
 
-  const handleDataStatus = useCallback((status: DataProcessingStatus) => {
-    if (!cancelledRef.current) {
-      setDataStatus(status);
-      pushDataStatus(status);
+  const requestIdRef = useRef(0);
+  const askAbortRef = useRef<AbortController | null>(null);
+
+  const persistHistory = useCallback((nextHistory: QueryHistoryEntry[]) => {
+    const trimmed = nextHistory.slice(0, HISTORY_LIMIT);
+    setQueryHistory(trimmed);
+    if (typeof window !== 'undefined') {
+      window.sessionStorage.setItem(HISTORY_STORAGE_KEY, JSON.stringify(trimmed));
     }
-  }, [pushDataStatus]);
+  }, []);
+
+  const upsertHistory = useCallback((entry: QueryHistoryEntry) => {
+    setQueryHistory((current) => {
+      const next = [
+        entry,
+        ...current.filter((item) => item.query !== entry.query),
+      ].slice(0, HISTORY_LIMIT);
+      if (typeof window !== 'undefined') {
+        window.sessionStorage.setItem(HISTORY_STORAGE_KEY, JSON.stringify(next));
+      }
+      return next;
+    });
+  }, []);
+
+  const markHistoryStatus = useCallback((entryQuery: string, status: QueryHistoryStatus) => {
+    setQueryHistory((current) => {
+      const next = current.map((item) => (
+        item.query === entryQuery
+          ? { ...item, status, timestamp: Date.now() }
+          : item
+      ));
+      if (typeof window !== 'undefined') {
+        window.sessionStorage.setItem(HISTORY_STORAGE_KEY, JSON.stringify(next));
+      }
+      return next;
+    });
+  }, []);
+
+  const navigateToQuery = useCallback((nextQuery: string) => {
+    const trimmed = nextQuery.trim();
+    if (!trimmed) return;
+
+    if (trimmed === query) {
+      setRetryNonce((current) => current + 1);
+      return;
+    }
+
+    router.push(`/theseus/ask?q=${encodeURIComponent(trimmed)}`);
+  }, [query, router]);
+
+  const handleRetry = useCallback(() => {
+    if (!query) return;
+    setRetryNonce((current) => current + 1);
+  }, [query]);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const rawHistory = window.sessionStorage.getItem(HISTORY_STORAGE_KEY);
+    if (!rawHistory) return;
+
+    try {
+      const parsed = JSON.parse(rawHistory) as QueryHistoryEntry[];
+      if (Array.isArray(parsed)) {
+        persistHistory(parsed.filter((item) => typeof item?.query === 'string' && item.query.trim().length > 0));
+      }
+    } catch {
+      window.sessionStorage.removeItem(HISTORY_STORAGE_KEY);
+    }
+  }, [persistHistory]);
+
+  useEffect(() => {
+    if (!query) return;
+    setComposerQuery(query);
+  }, [query]);
+
+  useEffect(() => {
+    if (!query || savedId) return;
+    upsertHistory({ query, status: 'in-progress', timestamp: Date.now() });
+  }, [query, retryNonce, savedId, upsertHistory]);
+
+  useEffect(() => {
+    if (!response?.query) return;
+    markHistoryStatus(response.query, 'success');
+  }, [markHistoryStatus, response?.query]);
+
+  useEffect(() => {
+    if (!error || !query) return;
+    markHistoryStatus(query, 'error');
+  }, [error, markHistoryStatus, query]);
 
   useEffect(() => {
     if (!savedId) return;
@@ -294,29 +450,54 @@ function AskContent() {
         pushState('EXPLORING');
       }
     });
-  }, [savedId]);
+  }, [pushState, savedId]);
 
   useEffect(() => {
-    if (!query || savedId) return;
+    askAbortRef.current?.abort();
+    askAbortRef.current = null;
 
-    cancelledRef.current = false;
+    if (!query || savedId) {
+      return;
+    }
+
+    const requestId = requestIdRef.current + 1;
+    requestIdRef.current = requestId;
+    const controller = new AbortController();
+    askAbortRef.current = controller;
+
     setNarrationReady(false);
     setSceneDirective(null);
     setSelectedNodeId(null);
     setResponse(null);
+    pushResponse(null);
+    pushDirective(null);
+    setDataStatus(null);
+    pushDataStatus(null);
     setError(null);
 
     async function run() {
       const activeQuery = query;
       if (!activeQuery) return;
 
+      const isStale = () => requestId !== requestIdRef.current || controller.signal.aborted;
+      const pushDataStatusIfCurrent = (status: DataProcessingStatus) => {
+        if (isStale()) return;
+        setDataStatus(status);
+        pushDataStatus(status);
+      };
+
       setState('THINKING');
       pushState('THINKING');
-      const result = await askTheseus(activeQuery);
-      if (cancelledRef.current) return;
+      const result = await askTheseus(activeQuery, {
+        signal: controller.signal,
+        timeoutMs: ASK_TIMEOUT_MS,
+        retryPolicy: 'transient-once',
+      });
+      if (isStale()) return;
 
       if (!result.ok) {
-        setError(result.message);
+        setError(result);
+        pushDataStatusIfCurrent({ phase: 'error', message: normalizeErrorMessage(result), fallback: 'Try a shorter query or retry.' });
         setState('IDLE');
         pushState('IDLE');
         return;
@@ -332,15 +513,29 @@ function AskContent() {
       );
 
       await new Promise((resolve) => window.setTimeout(resolve, 500));
-      if (cancelledRef.current) return;
+      if (isStale()) return;
 
       setState('CONSTRUCTING');
       pushState('CONSTRUCTING');
 
       let processedDataset: ProcessedDataset | null = null;
       if (dataSection) {
-        processedDataset = await processDataAcquisition(dataSection, handleDataStatus);
-        if (cancelledRef.current) return;
+        try {
+          processedDataset = await processDataAcquisition(
+            dataSection,
+            pushDataStatusIfCurrent,
+            controller.signal,
+            DATA_ACQUISITION_TIMEOUT_MS,
+          );
+        } catch (processingError) {
+          if (isStale()) return;
+          const message = processingError instanceof Error
+            ? processingError.message
+            : 'Data acquisition failed while constructing the scene';
+          pushDataStatusIfCurrent({ phase: 'error', message, fallback: dataSection.fallback_description });
+          processedDataset = null;
+        }
+        if (isStale()) return;
       }
 
       const directive = await directScene(
@@ -348,7 +543,7 @@ function AskContent() {
         processedDataset?.data,
         processedDataset?.dataShape ?? null,
       );
-      if (cancelledRef.current) return;
+      if (isStale()) return;
 
       setSceneDirective(directive);
       pushDirective(directive);
@@ -358,14 +553,23 @@ function AskContent() {
       setSelectedNodeId(focalNodeId ?? firstObjectId);
       setState('EXPLORING');
       pushState('EXPLORING');
+      pushDataStatusIfCurrent({ phase: 'complete' });
     }
 
-    run();
+    run().catch((runError) => {
+      if (controller.signal.aborted || requestId !== requestIdRef.current) return;
+      const message = runError instanceof Error ? runError.message : 'Unexpected error while constructing response';
+      setError({ ok: false, status: 0, message, reason: 'network', transient: true });
+      setState('IDLE');
+      pushState('IDLE');
+      setDataStatus({ phase: 'error', message, fallback: 'Try a shorter query or retry.' });
+      pushDataStatus({ phase: 'error', message, fallback: 'Try a shorter query or retry.' });
+    });
 
     return () => {
-      cancelledRef.current = true;
+      controller.abort();
     };
-  }, [handleDataStatus, query, savedId]);
+  }, [pushDataStatus, pushDirective, pushResponse, pushState, query, retryNonce, savedId]);
 
   const objectLookup = useMemo(
     () => (response ? buildObjectLookup(response) : new Map<string, TheseusObject>()),
@@ -378,13 +582,44 @@ function AskContent() {
   const gaps = response ? getGaps(response) : [];
   const hypotheses = response ? getHypotheses(response) : [];
   const evidencePath = response ? getEvidencePath(response) : null;
+  const renderedNarratives = narratives.filter((narrative) => !isRawNarration(narrative.content));
+  const showComposer = state === 'EXPLORING' || Boolean(error);
+  const showHistory = showComposer && queryHistory.length > 0;
+
+  const historyPlacement = isMobile
+    ? {
+        left: '50%',
+        transform: 'translateX(-50%)',
+        width: 'min(480px, calc(100vw - 32px))',
+        bottom: 'calc(78px + env(safe-area-inset-bottom))',
+      }
+    : {
+        left: 20,
+        right: 420,
+        bottom: 78,
+      };
+
+  const composerPlacement = isMobile
+    ? {
+        left: '50%',
+        transform: 'translateX(-50%)',
+        width: 'min(480px, calc(100vw - 32px))',
+        bottom: 'calc(20px + env(safe-area-inset-bottom))',
+      }
+    : {
+        left: 20,
+        right: 420,
+        bottom: 20,
+      };
 
   const infoPanelStyle = isMobile
     ? {
         position: 'absolute' as const,
         left: 16,
         right: 16,
-        bottom: 16,
+        bottom: showComposer
+          ? 'calc(126px + env(safe-area-inset-bottom))'
+          : 'calc(16px + env(safe-area-inset-bottom))',
         maxHeight: '46vh',
       }
     : {
@@ -395,12 +630,174 @@ function AskContent() {
         maxHeight: 'calc(100vh - 40px)',
       };
 
+  const renderQueryHistory = () => {
+    if (!showHistory) return null;
+    const activeQuery = response?.query ?? query ?? null;
+
+    return (
+      <div className="theseus-ask-history" style={historyPlacement}>
+        {queryHistory.map((entry) => (
+          <button
+            key={entry.query}
+            type="button"
+            className={`theseus-ask-history-chip ${entry.query === activeQuery ? 'is-active' : ''} ${entry.status === 'error' ? 'is-error' : ''} ${entry.status === 'in-progress' ? 'is-in-progress' : ''}`}
+            onClick={() => navigateToQuery(entry.query)}
+            aria-label={`Load previous query: ${entry.query}`}
+          >
+            {entry.query.length > 48 ? `${entry.query.slice(0, 48)}…` : entry.query}
+          </button>
+        ))}
+      </div>
+    );
+  };
+
+  const renderComposer = () => {
+    if (!showComposer) return null;
+    return (
+      <>
+        <form
+          className="theseus-ask-composer"
+          style={composerPlacement}
+          onSubmit={(event) => {
+            event.preventDefault();
+            navigateToQuery(composerQuery);
+          }}
+        >
+          <div className="theseus-ask-composer-form">
+            <input
+              className="theseus-ask-composer-input"
+              type="text"
+              name="follow_up_query"
+              value={composerQuery}
+              onChange={(event) => setComposerQuery(event.target.value)}
+              placeholder="Ask a follow-up…"
+              autoComplete="off"
+              spellCheck={false}
+              aria-label="Ask a follow-up question"
+            />
+            <button
+              type="submit"
+              className="theseus-ask-composer-submit"
+              disabled={composerQuery.trim().length === 0}
+            >
+              Ask
+            </button>
+          </div>
+        </form>
+        {renderQueryHistory()}
+      </>
+    );
+  };
+
   if (state === 'IDLE' && !error) {
     return <StaticScreen title="No query provided" subtitle="Go back to the Theseus homepage and ask a question." />;
   }
 
   if (error) {
-    return <StaticScreen title="Something went wrong" subtitle={error} />;
+    return (
+      <div style={{ position: 'relative', width: '100%', height: '100%' }}>
+        <div
+          style={{
+            position: 'absolute',
+            inset: 0,
+            display: 'grid',
+            placeItems: 'center',
+            padding: 24,
+            pointerEvents: 'auto',
+          }}
+        >
+          <div
+            style={{
+              width: 'min(560px, 100%)',
+              borderRadius: 18,
+              border: '1px solid rgba(255,255,255,0.08)',
+              background: 'rgba(15,16,18,0.76)',
+              backdropFilter: 'blur(18px)',
+              padding: '20px 22px',
+              display: 'grid',
+              gap: 14,
+            }}
+          >
+            <h1
+              style={{
+                margin: 0,
+                color: 'var(--vie-text)',
+                fontFamily: 'var(--vie-font-title)',
+                fontSize: '1.45rem',
+              }}
+            >
+              Something went wrong
+            </h1>
+            <p
+              style={{
+                margin: 0,
+                color: 'var(--vie-text-muted)',
+                fontFamily: 'var(--vie-font-body)',
+                fontSize: 14,
+                lineHeight: 1.55,
+              }}
+            >
+              {normalizeErrorMessage(error)}
+            </p>
+            <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+              <button
+                type="button"
+                onClick={handleRetry}
+                style={{
+                  borderRadius: 10,
+                  border: '1px solid rgba(74,138,150,0.28)',
+                  background: 'rgba(74,138,150,0.12)',
+                  color: 'var(--vie-teal-light)',
+                  fontFamily: 'var(--vie-font-mono)',
+                  fontSize: 11,
+                  letterSpacing: '0.06em',
+                  textTransform: 'uppercase',
+                  padding: '9px 12px',
+                  cursor: 'pointer',
+                }}
+              >
+                Try again
+              </button>
+              <Link
+                href="/theseus"
+                style={{
+                  borderRadius: 10,
+                  border: '1px solid rgba(255,255,255,0.14)',
+                  background: 'rgba(255,255,255,0.03)',
+                  color: 'var(--vie-text)',
+                  fontFamily: 'var(--vie-font-mono)',
+                  fontSize: 11,
+                  letterSpacing: '0.06em',
+                  textTransform: 'uppercase',
+                  padding: '9px 12px',
+                  textDecoration: 'none',
+                }}
+              >
+                Back to Theseus
+              </Link>
+              <Link
+                href="/theseus/library"
+                style={{
+                  borderRadius: 10,
+                  border: '1px solid rgba(255,255,255,0.14)',
+                  background: 'rgba(255,255,255,0.03)',
+                  color: 'var(--vie-text)',
+                  fontFamily: 'var(--vie-font-mono)',
+                  fontSize: 11,
+                  letterSpacing: '0.06em',
+                  textTransform: 'uppercase',
+                  padding: '9px 12px',
+                  textDecoration: 'none',
+                }}
+              >
+                Open Library
+              </Link>
+            </div>
+          </div>
+        </div>
+        {renderComposer()}
+      </div>
+    );
   }
 
   if (savedSceneSpec && savedId) {
@@ -594,7 +991,7 @@ function AskContent() {
             {response.follow_ups && response.follow_ups.length > 0 && (
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
                 {response.follow_ups.map((followUp, index) => (
-                  <a
+                  <Link
                     key={`followup-${index}`}
                     href={`/theseus/ask?q=${encodeURIComponent(followUp.query)}`}
                     style={{
@@ -610,7 +1007,7 @@ function AskContent() {
                     }}
                   >
                     {followUp.query}
-                  </a>
+                  </Link>
                 ))}
               </div>
             )}
@@ -649,7 +1046,7 @@ function AskContent() {
                       fontSize: 10,
                     }}
                   >
-                    {selectedObject.object_type}
+                    {selectedObject.object_type === 'unknown' ? 'note' : selectedObject.object_type}
                   </span>
                 </div>
                 <h2
@@ -678,7 +1075,7 @@ function AskContent() {
               </section>
             )}
 
-            {narratives.length > 0 && (
+            {(narratives.length > 0 || renderedNarratives.length > 0) && (
               <>
                 <div style={{ height: 1, background: 'rgba(255,255,255,0.08)', margin: '14px 0' }} />
                 <section>
@@ -696,22 +1093,51 @@ function AskContent() {
                   >
                     narration
                   </span>
-                  <div style={{ display: 'grid', gap: 10 }}>
-                    {narratives.slice(0, 2).map((narrative, index) => (
+                  {renderedNarratives.length === 0 ? (
+                    <div style={{ display: 'grid', gap: 6 }}>
                       <p
-                        key={`narrative-${index}`}
                         style={{
                           margin: 0,
-                          color: 'var(--vie-text)',
+                          color: 'var(--vie-text-dim)',
                           fontFamily: 'var(--vie-font-body)',
-                          fontSize: 14,
-                          lineHeight: 1.65,
+                          fontSize: 13,
+                          fontStyle: 'italic',
+                          lineHeight: 1.6,
                         }}
                       >
-                        {narrative.content}
+                        Theseus found {response ? getObjects(response).length : 0} relevant perspectives for this query.
                       </p>
-                    ))}
-                  </div>
+                      <p
+                        style={{
+                          margin: 0,
+                          color: 'var(--vie-text-dim)',
+                          fontFamily: 'var(--vie-font-body)',
+                          fontSize: 13,
+                          fontStyle: 'italic',
+                          lineHeight: 1.6,
+                        }}
+                      >
+                        Detailed narration will improve as the model trains.
+                      </p>
+                    </div>
+                  ) : (
+                    <div style={{ display: 'grid', gap: 10 }}>
+                      {renderedNarratives.slice(0, 2).map((narrative, index) => (
+                        <p
+                          key={`narrative-${index}`}
+                          style={{
+                            margin: 0,
+                            color: 'var(--vie-text)',
+                            fontFamily: 'var(--vie-font-body)',
+                            fontSize: 14,
+                            lineHeight: 1.65,
+                          }}
+                        >
+                          {narrative.content}
+                        </p>
+                      ))}
+                    </div>
+                  )}
                 </section>
               </>
             )}
@@ -765,7 +1191,7 @@ function AskContent() {
                               flexShrink: 0,
                             }}
                           >
-                            {node.object_type}
+                            {node.object_type === 'unknown' ? 'note' : node.object_type}
                           </span>
                         </div>
                         {index < evidencePath.nodes.length - 1 && (
@@ -911,7 +1337,7 @@ function AskContent() {
                 <div style={{ height: 1, background: 'rgba(255,255,255,0.08)', margin: '14px 0' }} />
                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 4 }}>
                   {response.follow_ups.map((followUp, index) => (
-                    <a
+                    <Link
                       key={`followup-${index}`}
                       href={`/theseus/ask?q=${encodeURIComponent(followUp.query)}`}
                       style={{
@@ -925,7 +1351,7 @@ function AskContent() {
                       }}
                     >
                       {followUp.query}
-                    </a>
+                    </Link>
                   ))}
                 </div>
               </>
@@ -933,6 +1359,7 @@ function AskContent() {
           </>
         )}
       </aside>
+      {renderComposer()}
     </div>
   );
 }
@@ -940,7 +1367,7 @@ function AskContent() {
 export default function TheseusAskPage() {
   return (
     <Suspense
-      fallback={<StaticScreen title="Loading..." subtitle="Preparing Theseus." />}
+      fallback={<StaticScreen title="Loading…" subtitle="Preparing Theseus." />}
     >
       <AskContent />
     </Suspense>

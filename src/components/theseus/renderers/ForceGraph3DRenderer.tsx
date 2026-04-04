@@ -485,7 +485,7 @@ export default function ForceGraph3DRenderer({
   }, [directive.camera, onSelectNode]);
 
   return (
-    <div style={{ position: 'absolute', inset: 0 }}>
+    <div className="theseus-interactive" style={{ position: 'absolute', inset: 0 }}>
       <ForceGraph3D<GraphNode, GraphLink>
         ref={graphRef}
         width={width}

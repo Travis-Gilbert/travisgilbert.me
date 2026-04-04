@@ -1,25 +1,27 @@
 'use client';
 
 import { useRouter } from 'next/navigation';
-import { useRef, useState } from 'react';
+import { useState } from 'react';
 import { useGalaxy } from '@/components/theseus/TheseusShell';
+
+const STARTER_QUERIES = [
+  'What connects Shannon to Hamming?',
+  'What unresolved tensions are active?',
+  'What am I missing about GNNs?',
+  'What new clusters formed this week?',
+];
 
 export default function TheseusHomepage() {
   const router = useRouter();
   const [query, setQuery] = useState('');
-  const [focused, setFocused] = useState(false);
-  const inputRef = useRef<HTMLInputElement>(null);
   const { gridRef, setAskState } = useGalaxy();
 
-  function handleSubmit(e: React.FormEvent) {
-    e.preventDefault();
-    const trimmed = query.trim();
+  function submitQuery(nextQuery: string) {
+    const trimmed = nextQuery.trim();
     if (!trimmed) return;
 
-    // Signal the galaxy that a query is starting (triggers search pulse)
     setAskState('THINKING');
 
-    // Brief converge: pull mapped dots toward center before navigating
     const grid = gridRef.current;
     if (grid) {
       const { width, height } = grid.getSize();
@@ -36,10 +38,14 @@ export default function TheseusHomepage() {
       grid.wakeAnimation();
     }
 
-    // Navigate after a beat so the converge is visible
     window.setTimeout(() => {
       router.push(`/theseus/ask?q=${encodeURIComponent(trimmed)}`);
     }, 250);
+  }
+
+  function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    submitQuery(query);
   }
 
   return (
@@ -53,7 +59,38 @@ export default function TheseusHomepage() {
         boxSizing: 'border-box',
       }}
     >
-      <div style={{ height: '40vh', flexShrink: 0 }} />
+      <div style={{ height: '26vh', flexShrink: 0 }} />
+
+      <header
+        style={{
+          textAlign: 'center',
+          marginBottom: 18,
+          pointerEvents: 'auto',
+        }}
+      >
+        <h1
+          style={{
+            fontFamily: 'var(--vie-font-title)',
+            fontSize: 28,
+            fontWeight: 600,
+            color: 'var(--vie-text)',
+            margin: 0,
+            lineHeight: 1.1,
+          }}
+        >
+          Theseus
+        </h1>
+        <p
+          style={{
+            margin: '10px 0 0',
+            fontFamily: 'var(--vie-font-body)',
+            fontSize: 14,
+            color: 'var(--vie-text-dim)',
+          }}
+        >
+          Ask your knowledge a question
+        </p>
+      </header>
 
       <form
         onSubmit={handleSubmit}
@@ -66,61 +103,66 @@ export default function TheseusHomepage() {
         }}
       >
         <input
-          ref={inputRef}
           type="text"
           value={query}
           onChange={(e) => setQuery(e.target.value)}
-          onFocus={() => setFocused(true)}
-          onBlur={() => setFocused(false)}
           autoFocus
           aria-label="Ask Theseus"
+          name="theseus_query"
+          autoComplete="off"
+          spellCheck={false}
+          placeholder="Ask Theseus…"
           style={{
-            position: 'absolute',
-            opacity: 0,
-            width: 0,
-            height: 0,
-            overflow: 'hidden',
-          }}
-        />
-        <div
-          onClick={() => inputRef.current?.focus()}
-          role="textbox"
-          tabIndex={-1}
-          style={{
-            width: '100%',
             height: '44px',
+            width: '100%',
             padding: '0 16px',
             fontSize: '15px',
-            fontFamily: 'var(--vie-font-mono)',
+            fontFamily: 'var(--vie-font-body)',
             background: 'rgba(0,0,0,0.25)',
-            border: focused ? '1px solid rgba(74,138,150,0.3)' : '1px solid rgba(255,255,255,0.04)',
+            border: '1px solid rgba(255,255,255,0.08)',
             borderRadius: '10px',
-            boxShadow: focused
-              ? 'inset 0 1px 3px rgba(0,0,0,0.4), inset 0 0 0 1px rgba(0,0,0,0.15), 0 0 0 1px rgba(74,138,150,0.15)'
-              : 'inset 0 1px 3px rgba(0,0,0,0.4), inset 0 0 0 1px rgba(0,0,0,0.15)',
+            boxShadow: 'inset 0 1px 3px rgba(0,0,0,0.4), inset 0 0 0 1px rgba(0,0,0,0.15)',
             color: 'var(--vie-text)',
             transition: 'border-color 200ms ease, box-shadow 200ms ease',
             boxSizing: 'border-box',
             letterSpacing: '0.02em',
-            display: 'flex',
-            alignItems: 'center',
-            cursor: 'text',
-            overflow: 'hidden',
-            whiteSpace: 'nowrap',
           }}
-        >
-          {query.length > 0 ? (
-            <>
-              <span>{query}</span>
-              {focused && <span className="theseus-terminal-cursor" />}
-            </>
-          ) : focused ? (
-            <span className="theseus-terminal-cursor" />
-          ) : (
-            <span style={{ color: 'var(--vie-text-dim)' }}>hello world</span>
-          )}
-        </div>
+        />
       </form>
+
+      <div
+        style={{
+          display: 'flex',
+          flexWrap: 'wrap',
+          justifyContent: 'center',
+          gap: 8,
+          width: '100%',
+          maxWidth: 680,
+          marginTop: 14,
+          pointerEvents: 'auto',
+        }}
+      >
+        {STARTER_QUERIES.map((starter) => (
+          <button
+            key={starter}
+            type="button"
+            onClick={() => submitQuery(starter)}
+            style={{
+              borderRadius: 999,
+              border: '1px solid rgba(255,255,255,0.08)',
+              background: 'rgba(255,255,255,0.04)',
+              color: 'var(--vie-text-muted)',
+              fontFamily: 'var(--vie-font-body)',
+              fontSize: 12,
+              lineHeight: 1,
+              padding: '8px 12px',
+              cursor: 'pointer',
+            }}
+          >
+            {starter}
+          </button>
+        ))}
+      </div>
     </div>
   );
 }

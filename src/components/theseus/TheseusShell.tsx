@@ -3,6 +3,7 @@
 import { createContext, useContext, useRef, useState } from 'react';
 import TheseusDotGrid from './TheseusDotGrid';
 import GalaxyController from './GalaxyController';
+import TheseusNav from './TheseusNav';
 import type { DotGridHandle } from './TheseusDotGrid';
 import type { TheseusResponse } from '@/lib/theseus-types';
 import type { SceneDirective } from '@/lib/theseus-viz/SceneDirective';
@@ -52,12 +53,15 @@ export default function TheseusShell({ children }: { children: React.ReactNode }
         directive={directive}
         dataStatus={dataStatus}
       />
+      <TheseusNav />
       <div style={{
         position: 'relative',
         zIndex: 1,
         width: '100vw',
         height: '100vh',
         pointerEvents: 'none',
+        paddingTop: 48,
+        boxSizing: 'border-box',
       }}>
         {children}
       </div>

@@ -15,6 +15,7 @@ export const TYPE_COLORS: Record<string, string> = {
   person: '#C4503C',
   hunch: '#C49A4A',
   note: '#E8E5E0',
+  unknown: '#9A958D',
   event: '#4A8A96',
   task: '#D4B06A',
   paper: '#9A8E82',

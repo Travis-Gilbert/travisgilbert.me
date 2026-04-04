@@ -16,13 +16,13 @@ const BRAILLE_FRAMES = ['⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧', 
 function getStatusLabel(state: AskState, dataStatus: DataProcessingStatus | null): string {
   switch (state) {
     case 'THINKING':
-      return 'searching graph';
+      return 'searching graph…';
     case 'MODEL':
-      return 'assembling evidence';
+      return 'assembling evidence…';
     case 'CONSTRUCTING': {
-      if (dataStatus?.phase === 'loading') return `loading ${dataStatus.source ?? 'data'}`;
-      if (dataStatus?.phase === 'processing') return `running query ${dataStatus.query_index + 1}/${dataStatus.total}`;
-      return 'constructing scene';
+      if (dataStatus?.phase === 'loading') return `loading ${dataStatus.source ?? 'data'}…`;
+      if (dataStatus?.phase === 'processing') return `running query ${dataStatus.query_index + 1}/${dataStatus.total}…`;
+      return 'constructing scene…';
     }
     default:
       return '';
@@ -116,6 +116,7 @@ export default function ThinkingScreen({ state, query, dataStatus }: ThinkingScr
 
       {statusLabel && (
         <div
+          aria-live="polite"
           style={{
             display: 'flex',
             alignItems: 'center',
