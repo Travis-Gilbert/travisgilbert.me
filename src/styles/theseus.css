@@ -53,6 +53,7 @@
 .theseus-root select,
 .theseus-root textarea,
 .theseus-root aside,
+.theseus-root canvas,
 .theseus-root [role="textbox"],
 .theseus-root [role="button"],
 .theseus-root [data-interactive],
