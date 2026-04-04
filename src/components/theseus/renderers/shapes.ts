@@ -22,8 +22,13 @@ interface D3Simulation {
   tick: () => void;
 }
 import { mulberry32 } from '@/lib/prng';
-import type { SceneDirective } from '@/lib/theseus-viz/SceneDirective';
-import type { TheseusResponse } from '@/lib/theseus-types';
+import type {
+  SceneDirective,
+  TruthMapAgreementRegion,
+  TruthMapTensionBridge,
+  TruthMapBlindSpotVoid,
+} from '@/lib/theseus-viz/SceneDirective';
+import type { TheseusResponse, MapSection } from '@/lib/theseus-types';
 import { buildRendererGraph, TYPE_COLORS, type RendererNode, type RendererEdge } from './rendering';
 
 // ── Public types ──
@@ -311,6 +316,286 @@ export const graphShape: ShapeGenerator = {
       alpha,
       regions,
       cameraPosition: [camDist * 0.3, camDist * 0.5, camDist],
+      cameraLookAt: [0, 0, 0],
+    };
+  },
+};
+
+// ── Truth Map constants ──
+
+const AGREEMENT_BASE: [number, number, number] = [0.35, 0.47, 0.42]; // teal
+const TENSION_COLOR: [number, number, number] = [0.77, 0.31, 0.24]; // red
+const BLIND_SPOT_DIM: [number, number, number] = [0.18, 0.17, 0.16];
+
+const MAP_BUDGET_AGREEMENT = 0.6;
+const MAP_BUDGET_TENSION = 0.12;
+const MAP_BUDGET_BLIND_SPOT = 0.08;
+
+// ── TruthMapShape ──
+
+interface TruthMapRegionSim {
+  id: string;
+  x: number;
+  y: number;
+  z: number;
+  radius: number;
+  entrenchment: number;
+  label: string;
+  claimCount: number;
+}
+
+function layoutAgreementRegions(
+  agreementRegions: TruthMapAgreementRegion[],
+  tensionBridges: TruthMapTensionBridge[],
+  blindSpotVoids: TruthMapBlindSpotVoid[],
+): TruthMapRegionSim[] {
+  if (agreementRegions.length === 0) return [];
+
+  const simNodes: Array<{
+    id: string;
+    x: number; y: number; z: number;
+    radius: number;
+    entrenchment: number;
+    label: string;
+    claimCount: number;
+  }> = agreementRegions.map((region, i) => {
+    const angle = (i / agreementRegions.length) * Math.PI * 2;
+    const spread = 3 + agreementRegions.length * 0.8;
+    return {
+      id: region.id,
+      x: region.center_hint[0] || Math.cos(angle) * spread,
+      y: region.center_hint[1] || Math.sin(angle) * spread,
+      z: region.center_hint[2] || (Math.random() - 0.5) * 2,
+      radius: Math.max(0.8, region.radius || region.node_ids.length * 0.3),
+      entrenchment: region.entrenchment,
+      label: region.label,
+      claimCount: region.node_ids.length,
+    };
+  });
+
+  // Build links from tension bridges (opposed regions attract slightly
+  // so the bridge is visible between them, not across the whole scene)
+  const simLinks = tensionBridges
+    .filter((b) => simNodes.some((n) => n.id === b.from_region_id) &&
+                   simNodes.some((n) => n.id === b.to_region_id))
+    .map((b) => ({
+      source: b.from_region_id,
+      target: b.to_region_id,
+      strength: 0.15,
+    }));
+
+  const simulation = d3Force3d.forceSimulation(simNodes, 3)
+    .force('charge', d3Force3d.forceManyBody().strength(-80))
+    .force('center', d3Force3d.forceCenter(0, 0, 0).strength(0.05))
+    .force('collide', d3Force3d.forceCollide().radius(
+      (d: unknown) => (d as TruthMapRegionSim).radius * 2.5,
+    ))
+    .force('link', d3Force3d.forceLink(simLinks)
+      .id((d: unknown) => (d as { id: string }).id)
+      .strength((l: unknown) => (l as { strength: number }).strength))
+    .alpha(0.8)
+    .alphaDecay(0.02);
+
+  for (let i = 0; i < 200; i++) simulation.tick();
+
+  return simNodes;
+}
+
+/**
+ * TruthMapShape: generates particle positions for epistemic topology.
+ *
+ * Agreement clusters glow brightly (entrenchment modulates density).
+ * Tension bridges pulse red between opposed clusters.
+ * Blind spot voids are conspicuous absences with dim scattered edges.
+ */
+export const truthMapShape: ShapeGenerator = {
+  generate(context: ShapeContext): ShapeResult {
+    const { response, directive, particleCount } = context;
+    const topology = directive.truth_map_topology;
+
+    const target = new Float32Array(particleCount * 3);
+    const targetColor = new Float32Array(particleCount * 3);
+    const alpha = new Float32Array(particleCount);
+
+    if (!topology || topology.agreement_regions.length === 0) {
+      return {
+        target, targetColor, alpha,
+        regions: [],
+        cameraPosition: [0, 8, 14],
+        cameraLookAt: [0, 0, 0],
+      };
+    }
+
+    const rng = mulberry32(73); // deterministic seed for truth maps
+
+    // Layout agreement regions using force simulation
+    const regionSims = layoutAgreementRegions(
+      topology.agreement_regions,
+      topology.tension_bridges,
+      topology.blind_spot_voids,
+    );
+    const regionById = new Map(regionSims.map((r) => [r.id, r]));
+
+    // Find the truth_map section for claim counts
+    const truthMapSection = response.sections.find(
+      (s): s is MapSection => s.type === 'truth_map',
+    );
+    const totalClaims = truthMapSection
+      ? truthMapSection.agreement_groups.reduce((sum, g) => sum + g.claims.length, 0)
+      : regionSims.reduce((sum, r) => sum + r.claimCount, 0);
+
+    const agreementBudget = Math.floor(particleCount * MAP_BUDGET_AGREEMENT);
+    const tensionBudget = Math.floor(particleCount * MAP_BUDGET_TENSION);
+    const blindSpotBudget = Math.floor(particleCount * MAP_BUDGET_BLIND_SPOT);
+    const ambientBudget = particleCount - agreementBudget - tensionBudget - blindSpotBudget;
+
+    let particleIdx = 0;
+    const regions: ShapeRegion[] = [];
+
+    // 1. Agreement clusters: dense, bright, entrenchment-modulated
+    const totalClaimWeight = regionSims.reduce((sum, r) => sum + r.claimCount, 0) || 1;
+
+    for (const regionSim of regionSims) {
+      if (particleIdx >= particleCount) break;
+      const share = regionSim.claimCount / totalClaimWeight;
+      const count = Math.min(
+        particleCount - particleIdx,
+        Math.max(80, Math.floor(agreementBudget * share)),
+      );
+
+      // Color intensity modulated by entrenchment
+      const e = regionSim.entrenchment;
+      const color: [number, number, number] = [
+        AGREEMENT_BASE[0] + e * 0.15,
+        AGREEMENT_BASE[1] + e * 0.12,
+        AGREEMENT_BASE[2] + e * 0.08,
+      ];
+      const baseAlpha = 0.025 + e * 0.025;
+
+      distributeParticlesAroundNode(
+        rng,
+        regionSim.x, regionSim.y, regionSim.z,
+        count, regionSim.radius, target, targetColor, alpha,
+        color, baseAlpha, particleIdx,
+      );
+
+      regions.push({
+        id: regions.length,
+        label: regionSim.label,
+        center: [regionSim.x, regionSim.y, regionSim.z],
+        radius: regionSim.radius,
+        objectIds: [regionSim.id],
+        color: `rgb(${Math.round(color[0] * 255)},${Math.round(color[1] * 255)},${Math.round(color[2] * 255)})`,
+      });
+
+      particleIdx += count;
+    }
+
+    // 2. Tension bridges: narrow red strands connecting opposed regions
+    const bridgeCount = topology.tension_bridges.length || 1;
+    const bridgeParticlesEach = Math.floor(tensionBudget / bridgeCount);
+
+    for (const bridge of topology.tension_bridges) {
+      const fromRegion = regionById.get(bridge.from_region_id);
+      const toRegion = regionById.get(bridge.to_region_id);
+      if (!fromRegion || !toRegion || particleIdx >= particleCount) continue;
+
+      const count = Math.min(bridgeParticlesEach, particleCount - particleIdx);
+
+      // Severity modulates bridge intensity
+      const severityMultiplier = bridge.severity === 'critical' ? 1.0
+        : bridge.severity === 'high' ? 0.8
+        : bridge.severity === 'medium' ? 0.6
+        : 0.4;
+
+      const bridgeColor: [number, number, number] = [
+        TENSION_COLOR[0] * severityMultiplier,
+        TENSION_COLOR[1] * severityMultiplier * 0.5,
+        TENSION_COLOR[2] * severityMultiplier * 0.3,
+      ];
+
+      distributeParticlesAlongEdge(
+        rng,
+        fromRegion.x, fromRegion.y, fromRegion.z,
+        toRegion.x, toRegion.y, toRegion.z,
+        count, target, targetColor, alpha, bridgeColor, particleIdx,
+      );
+
+      // Override alpha for tension bridges: slightly brighter, will pulse in animation
+      for (let i = particleIdx; i < particleIdx + count; i++) {
+        alpha[i] = 0.02 + rng() * 0.015;
+      }
+
+      particleIdx += count;
+    }
+
+    // 3. Blind spot voids: dim scattered particles at edges of empty zones
+    const voidCount = topology.blind_spot_voids.length || 1;
+    const voidParticlesEach = Math.floor(blindSpotBudget / voidCount);
+
+    for (const bsVoid of topology.blind_spot_voids) {
+      if (particleIdx >= particleCount) break;
+      const count = Math.min(voidParticlesEach, particleCount - particleIdx);
+      const cx = bsVoid.position_hint[0];
+      const cy = bsVoid.position_hint[1];
+      const cz = bsVoid.position_hint[2];
+      const r = bsVoid.radius || 1.5;
+
+      // Only scatter particles at the EDGES of the void (shell, not filled)
+      for (let i = 0; i < count; i++) {
+        const idx = particleIdx + i;
+        const i3 = idx * 3;
+        const theta = rng() * Math.PI * 2;
+        const phi = Math.acos(2 * rng() - 1);
+        // Shell distribution: particles cluster at 80-110% of radius
+        const shellR = r * (0.8 + rng() * 0.3);
+
+        target[i3] = cx + shellR * Math.sin(phi) * Math.cos(theta);
+        target[i3 + 1] = cy + shellR * Math.sin(phi) * Math.sin(theta);
+        target[i3 + 2] = cz + shellR * Math.cos(phi);
+
+        targetColor[i3] = BLIND_SPOT_DIM[0];
+        targetColor[i3 + 1] = BLIND_SPOT_DIM[1];
+        targetColor[i3 + 2] = BLIND_SPOT_DIM[2];
+
+        // Very dim: these are ghost particles suggesting something should be here
+        alpha[idx] = 0.003 + rng() * 0.005;
+      }
+
+      particleIdx += count;
+    }
+
+    // 4. Ambient scatter for the remaining particles
+    for (let i = particleIdx; i < particleCount; i++) {
+      const i3 = i * 3;
+      const theta = rng() * Math.PI * 2;
+      const phi = Math.acos(2 * rng() - 1);
+      const r = 10 + rng() * 8;
+
+      target[i3] = r * Math.sin(phi) * Math.cos(theta);
+      target[i3 + 1] = r * Math.sin(phi) * Math.sin(theta);
+      target[i3 + 2] = r * Math.cos(phi);
+
+      targetColor[i3] = AMBIENT_COLOR[0];
+      targetColor[i3 + 1] = AMBIENT_COLOR[1];
+      targetColor[i3 + 2] = AMBIENT_COLOR[2];
+
+      alpha[i] = 0.003 + rng() * 0.004;
+    }
+
+    // Camera: pull back enough to see the full epistemic landscape
+    const maxDist = regionSims.reduce(
+      (max, r) => Math.max(max, Math.sqrt(r.x * r.x + r.y * r.y + r.z * r.z) + r.radius),
+      0,
+    );
+    const camDist = Math.max(14, maxDist * 2.0) * directive.camera.distance_factor;
+
+    return {
+      target,
+      targetColor,
+      alpha,
+      regions,
+      cameraPosition: [camDist * 0.2, camDist * 0.6, camDist],
       cameraLookAt: [0, 0, 0],
     };
   },

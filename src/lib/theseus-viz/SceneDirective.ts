@@ -11,7 +11,10 @@ export type TopologyShape =
   | 'tree'
   | 'ring'
   | 'hierarchical'
-  | 'mixed';
+  | 'mixed'
+  | 'truth_map_archipelago'
+  | 'truth_map_continental'
+  | 'truth_map_constellation';
 
 // ---- Job 1: Salience ----
 
@@ -57,9 +60,21 @@ export interface ContextShelfDirective {
 
 // ---- Job 4: Construction sequence ----
 
+export type ConstructionPhaseName =
+  | 'focal_nodes_appear'
+  | 'supporting_nodes_appear'
+  | 'edges_draw'
+  | 'clusters_coalesce'
+  | 'data_builds'
+  | 'labels_fade_in'
+  | 'crystallize'
+  | 'agreement_clusters_form'
+  | 'tensions_bridge'
+  | 'blind_spots_reveal'
+  | 'entrenchment_pulse';
+
 export interface ConstructionPhase {
-  name: 'focal_nodes_appear' | 'supporting_nodes_appear' | 'edges_draw'
-      | 'clusters_coalesce' | 'data_builds' | 'labels_fade_in' | 'crystallize';
+  name: ConstructionPhaseName;
   target_ids: string[];
   delay_ms: number;
   duration_ms: number;
@@ -138,6 +153,37 @@ export interface RenderTargetDirective {
   d3_spec?: object;
 }
 
+// ---- Truth Map topology (epistemic overlay) ----
+
+export interface TruthMapAgreementRegion {
+  id: string;
+  node_ids: string[];
+  center_hint: [number, number, number];
+  radius: number;
+  entrenchment: number;
+  label: string;
+}
+
+export interface TruthMapTensionBridge {
+  from_region_id: string;
+  to_region_id: string;
+  tension_pk: number;
+  severity: 'low' | 'medium' | 'high' | 'critical';
+}
+
+export interface TruthMapBlindSpotVoid {
+  id: string;
+  position_hint: [number, number, number];
+  radius: number;
+  description: string;
+}
+
+export interface TruthMapTopologyDirective {
+  agreement_regions: TruthMapAgreementRegion[];
+  tension_bridges: TruthMapTensionBridge[];
+  blind_spot_voids: TruthMapBlindSpotVoid[];
+}
+
 // ---- Top-level SceneDirective ----
 
 export interface SceneDirective {
@@ -151,6 +197,8 @@ export interface SceneDirective {
   render_target: RenderTargetDirective;
   inference_method: 'learned' | 'rule_based';
   inference_time_ms: number;
+  /** Present only for truth map render mode. Describes epistemic topology. */
+  truth_map_topology?: TruthMapTopologyDirective;
 }
 
 // ---- Model weights bundle (v3: ~12,415 params) ----
@@ -247,6 +295,7 @@ export const RENDER_TARGETS = ['force-graph-3d', 'sigma-2d', 'vega-lite', 'd3'] 
 export const TOPOLOGY_SHAPES: TopologyShape[] = [
   'linear_chain', 'star', 'dense_cluster', 'bipartite_tension',
   'multi_cluster', 'tree', 'ring', 'hierarchical', 'mixed',
+  'truth_map_archipelago', 'truth_map_continental', 'truth_map_constellation',
 ];
 export const DATA_VIZ_TYPES = [
   'heatmap', 'bar', 'line', 'scatter', 'geographic',

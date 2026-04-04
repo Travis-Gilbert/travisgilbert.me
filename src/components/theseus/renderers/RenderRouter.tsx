@@ -7,7 +7,7 @@ import type { SceneDirective } from '@/lib/theseus-viz/SceneDirective';
 import ConstructionAnimator from './ConstructionAnimator';
 import D3Renderer from './D3Renderer';
 import type { ConstructionPlayback } from './rendering';
-import { graphShape, type ShapeResult } from './shapes';
+import { graphShape, truthMapShape, type ShapeResult } from './shapes';
 
 // Browser-only renderers: these libraries access `window` at import time
 const ContextShelf = dynamic(() => import('./ContextShelf'), { ssr: false });
@@ -55,13 +55,14 @@ function ParticleFieldLayer({
   playback: ConstructionPlayback;
   onSelectNode?: (nodeId: string) => void;
 }) {
+  const isMapMode = !!directive.truth_map_topology;
   const shapeResult = useMemo<ShapeResult>(
-    () => graphShape.generate({
+    () => (isMapMode ? truthMapShape : graphShape).generate({
       response,
       directive,
       particleCount: PARTICLE_COUNT,
     }),
-    [response, directive],
+    [response, directive, isMapMode],
   );
 
   return (

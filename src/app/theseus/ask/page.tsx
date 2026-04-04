@@ -15,7 +15,9 @@ import type {
   TheseusObject,
   TheseusResponse,
   TensionSection,
+  MapSection,
 } from '@/lib/theseus-types';
+import { saveMap } from '@/lib/ask-theseus';
 import type { DataProcessingStatus } from '@/lib/theseus-data/types';
 import type { ColumnDescriptor, DataShape } from '@/lib/theseus-viz/SceneSpec';
 import type { SceneDirective } from '@/lib/theseus-viz/SceneDirective';
@@ -1357,6 +1359,54 @@ function AskContent() {
               </>
             )}
           </>
+        )}
+
+        {/* Save Map button (visible when response has truth_map section) */}
+        {response.sections.some((s) => s.type === 'truth_map') && sceneDirective && (
+          <button
+            onClick={async () => {
+              const mapSection = response.sections.find(
+                (s): s is MapSection => s.type === 'truth_map',
+              );
+              if (!mapSection) return;
+              try {
+                await saveMap({
+                  title: `Map: ${response.query.slice(0, 60)}`,
+                  origin: 'ask',
+                  query_text: response.query,
+                  epistemic_data: mapSection,
+                  visual_composition: {
+                    scene_directive: sceneDirective,
+                    truth_topology: sceneDirective.truth_map_topology ?? {
+                      agreement_regions: [],
+                      tension_bridges: [],
+                      blind_spot_voids: [],
+                    },
+                    dot_assignments: [],
+                  },
+                });
+                alert('Map saved.');
+              } catch (err) {
+                console.error('Failed to save map:', err);
+              }
+            }}
+            style={{
+              marginTop: 14,
+              padding: '7px 14px',
+              fontSize: 12,
+              fontFamily: 'var(--vie-font-mono)',
+              background: 'rgba(45,95,107,0.2)',
+              border: '1px solid rgba(45,95,107,0.35)',
+              borderRadius: 6,
+              color: 'var(--vie-text)',
+              cursor: 'pointer',
+              textTransform: 'uppercase',
+              letterSpacing: '0.06em',
+              width: '100%',
+            }}
+          >
+            Save Map
+          </button>
         )}
       </aside>
       {renderComposer()}

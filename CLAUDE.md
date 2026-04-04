@@ -35,6 +35,7 @@ Next.js 16 (App Router, Turbopack, React Compiler), React 19, Tailwind CSS v4 (`
 | `src/components/` | React components; `rough/` (hand-drawn visuals), `commonplace/` (split pane UI), `commonplace/objects/` (10 polymorphic renderers) |
 | `src/content/` | Markdown collections: essays, field-notes, shelf, toolkit, projects |
 | `src/lib/` | Utilities: `content.ts` (Zod + remark), `commonplace-*.ts` (API, layout, capture, graph, context), `siteConfig.ts`, `connectionEngine.ts` |
+| `src/lib/theseus-viz/` | Scene intelligence: `SceneDirective.ts` (v3 types), `SceneDirector.ts` (entry), `intelligence/` (7 job modules), `model/` (GNN + heads), `features/` (extractors + graph utils), `rules/` (cold-start fallback), `training/` (feedback + weights) |
 | `src/styles/` | `global.css` (site tokens, surfaces, prose), `commonplace.css` (scoped `--cp-*` tokens) |
 | `src/config/site.json` | Site configuration (tokens, nav, footer, SEO); Django commits updates via GitHub API |
 | `src/app/fonts.ts` | 7 fonts: Vollkorn, Cabin, IBM Plex Sans, Ysabeau, Courier Prime, JetBrains Mono, Amarna (local) |
@@ -132,6 +133,8 @@ Scoped route group `(commonplace)` with own layout.tsx (warm studio theme, not m
 
 **Two API fetch helpers**: `apiFetch()` -> `/api/v1/notebook/...` (objects, edges, nodes), `epistemicFetch()` -> `/api/v1/...` (inquiries, artifacts, provenance). Inquiry endpoints live at `/api/v1/inquiries/`, not notebook-scoped.
 
+**Ask Theseus endpoints** (notebook-scoped): `POST /ask/` (compose engine retrieval with type-specific object payloads), `POST /ask/feedback/` (training signals), `GET /ask/suggestions/` (gap-driven suggestions), `GET /graph-weather/` (overnight activity summary). Frontend types and API functions live in `src/lib/ask-theseus.ts` (when created).
+
 **Evidence rendering is polymorphic**: `EvidenceItem.tsx` dispatches to sub-components per object type (source=gradient bar, hunch=dashed italic, quote=blockquote, concept=pill, note=card). Visual constants (`EVIDENCE_TYPE_COLOR`, `EVIDENCE_RELATION_COLOR`, `AGREEMENT_STYLE`) live in `commonplace-models.ts`.
 
 **Icon system**: CommonPlace uses `iconoir-react` (not Phosphor). Phosphor is used on the main site only.
@@ -143,6 +146,18 @@ All `/api/*` requests are proxied through Next.js to the Index-API Django backen
 `NEXT_PUBLIC_RESEARCH_API_URL` is optional. If unset, the rewrite defaults to `https://index-api-production-a5f7.up.railway.app`. Set it only when pointing at a different backend (e.g., a staging instance). Because the frontend uses relative URLs (`/api/v1/notebook/...`), no env file is needed for `npm run dev` to work with live data.
 
 All three API client files use this pattern: `commonplace.ts`, `networks.ts`, and `research.ts`.
+
+### Theseus Visual Intelligence Engine (theseus-viz)
+
+`src/lib/theseus-viz/` is a pure TypeScript library (no React imports) that sits between Theseus reasoning and the rendering stack. Two generations coexist:
+
+**v2 (SceneSpec):** `SceneSpec.ts` defines the old output contract with computed node positions, used by existing renderers (`src/components/theseus/renderers/`). `VizConstructor.ts` is the old entry point (deprecated, redirects to v3).
+
+**v3 (SceneDirective):** `SceneDirective.ts` defines the new 7-job output contract. `SceneDirector.ts` is the entry point (`directScene()`). The 7 intelligence modules in `intelligence/` each have a rule-based path (cold start) and accept optional learned outputs from the GNN. Force configuration is parameterized (force-graph-3d/sigma-2d compute positions) rather than computing final positions.
+
+Pipeline: `TheseusResponse` -> feature extraction (`features/`) -> GNN encoder + IntelligenceHead OR RuleEngine -> 7 intelligence modules -> `SceneDirective`. TF.js is an enhancement; if unavailable, rule-based path works silently. Model weights (~12,415 params, ~50KB) persist in IndexedDB.
+
+Shared graph traversal utilities (degree maps, adjacency, BFS components) live in `features/graphUtils.ts` to avoid duplication across modules.
 
 ### Canvas Components
 
@@ -175,8 +190,15 @@ Vercel with native Next.js builder. **Important:** Output Directory must be blan
 | Model View v6 redesign | Complete | Polymorphic evidence, two-column workspace, timeline-style assumptions |
 | Nav model migration (Spec A) | Complete | Screen/view navigation replaces tab system |
 | Engine tag system (Spec C) | Complete | StatusBadge, SignalPips, drawer provenance, backend tag_summary |
+| Ask Theseus backend (Spec AT Batch 4) | Complete | 4 endpoints: /ask/, /ask/feedback/, /ask/suggestions/, /graph-weather/; AskQuestion + AskFeedback models |
+| ML Extensions 1-3 | Complete | Active learning queue, contrastive SBERT, Graph Transformer (5af141a) |
+| Level 8: Explanation-Based Learning | Complete | ebl.py, run_ebl command, RQ task, IQ Learning axis integration (f7c2d45) |
+| VIE-3 v3 Scene Intelligence | Complete | 7-job SceneDirective, 12,415-param GNN, rule-based fallback (91fd73f) |
+| Gemma 4B DPO fine-tuning | Complete | 804 examples, 375 DPO pairs, adapter at `s3://models/gemma-4b-gl-fusion-v1/` |
+| Gemma 26B MoE training design | Design complete | `docs/plans/2026-04-04-gemma-26b-training-design.md` |
+| Graph noise cleanup | Complete | `purge_noise_sources` command removed TVTropes/Wikidata |
 
-**Next step:** Verify nav model + engine tags deploy, then optimistic capture sync. Also pending: train KGE embeddings for production (`export_kge_triples` + `train_kge.py`).
+**Next step:** Wire Gemma 4B inference endpoint (Modal or Railway CPU via GGUF) and connect to ask pipeline so the UI returns LM-generated answers. Then begin 26B training data generation (Opus Batch API for preferred, Sonnet Batch API for rejected).
 
 **Remaining backlog:**
 - CommonPlace: verify production deploy with live API
@@ -203,6 +225,15 @@ Vercel with native Next.js builder. **Important:** Output Directory must be blan
 | Deploy sequencing | Push backend (Index-API) before frontend (Website) | Frontend depends on new API fields; optional types prevent breakage but backend should land first |
 | tag_summary badge_confirmed | Uses `_has_reviewed_claim` annotation (claims with reviewed_at set) | Object model has no epistemic_status field; Claim.reviewed_at is the ground truth |
 | API proxy via Next.js rewrites | Rewrite `/api/*` through Next.js to Railway backend | Eliminates CORS, removes env var requirement, works in Claude Code without config |
+| Nightly schedule order | evolve → tensions → reorganize → communities → IQ → web_validation | Each step feeds the next; evolve needs latest scorer, tensions need latest edges, communities need cleaned graph |
+| Modal for engine batch | Always use Modal GPU for >20 objects | Local CPU is ~50s/object; Modal is ~5s/object |
+| Graph Transformer loader | config.architecture field in checkpoint | Same _load_relational_gnn() loads either RelationalGNN or TheseusGraphTransformer based on checkpoint metadata |
+| Active learning strategy | Uncertainty sampling as default, committee as opt-in | Single-model uncertainty is cheaper and sufficient; committee trains N models per request |
+| Gemma 4B deployment target | Railway CPU via GGUF Q4_K_M (~2.5GB) | 3.8B active params; symbolic pipeline does heavy compute, LM just renders synthesis |
+| Gemma 26B training: two-stage | SFT warm-up (external datasets) then DPO (Theseus pairs) | SFT builds reasoning/coding foundation; DPO shapes epistemic behavior |
+| DPO preferred via Opus Batch API | Batch API at 50% off, 1K req/min | Faster and cheaper than MCP-based generation; MCP reserved for quality refinement |
+| Gemma 4 PEFT monkey-patch | Patch Gemma4ClippableLinear to inherit nn.Linear | PEFT doesn't support Gemma 4 natively yet (huggingface/peft#3129) |
+| Explanation frameworks trained into weights | Both: DPO trains natural structure + runtime ExplanationPlan steers | Model naturally good at 4/6 functions; plan provides runtime control |
 
 ## Gotchas
 
@@ -239,6 +270,10 @@ Vercel with native Next.js builder. **Important:** Output Directory must be blan
 - **"Loads but can't save" = CORS**: Server Components fetch server-side (no CORS), Client Components POST from browser (CORS preflight)
 - **APIKeyMiddleware gates ALL `/api/v1/` paths**: New public endpoints must be added to `EXEMPT_PREFIXES`
 - **CPU-only PyTorch on Railway**: `--extra-index-url https://download.pytorch.org/whl/cpu` in requirements.txt
+- **Gemma 4 PEFT OOM**: `prepare_model_for_kbit_training` casts all params to float32, doubling VRAM. Use `model.gradient_checkpointing_enable()` instead
+- **Gemma 4 ClippableLinear**: PEFT doesn't recognize `Gemma4ClippableLinear`. Monkey-patch to inherit from `nn.Linear` before loading (see `modal_app/gemma_finetune.py`)
+- **TRL DPOConfig API drift**: Use only `max_length` (not `max_prompt_length` or `max_target_length`). API changed between TRL versions
+- **Modal S3 endpoint_url**: Empty string `""` breaks boto3. Only pass `endpoint_url` kwarg when the env var is non-empty
 
 ### CommonPlace
 - **Route group scoping**: `(commonplace)` has its own layout.tsx, does NOT render html/body. Do not add DotGrid, TopNav, or Footer here
@@ -263,3 +298,13 @@ Vercel with native Next.js builder. **Important:** Output Directory must be blan
 - **Scraper env vars read at import time**: `FIRECRAWL_API_KEY`, `WHOOGLE_BASE_URL` must be set before server starts
 - **Whoogle on cloud IPs blocked by Google**: Use Firecrawl as production search provider
 - **Railway worker env vars not shared with web**: Each service needs its own `DATABASE_URL`, `REDIS_URL`, `FIRECRAWL_API_KEY`
+
+### Index-API Engine Operations
+- **Always use Modal for batch engine runs (>20 objects)**: Local CPU processes ~50s/object. Modal GPU finishes 500 objects in under an hour vs 14+ hours locally
+- **Never run concurrent `run_connection_engine` processes**: They compete for the same objects, causing duplication not parallelization
+- **Post-engine chain (run in order)**: `backfill_tensions && detect_communities && evolve_edges && iq_report`
+- **IQ dilution after corpus ingestion**: Ingesting corpus objects without engine-processing them drops Discovery (novel_rate denominator grows) and Learning (edge_evolution_rate denominator grows). Always engine objects after ingestion
+- **Nightly schedule (Railway, ENABLE_SELF_ORGANIZE_SCHEDULER=true)**: evolve_edges 2:30 → backfill_tensions 2:45 → reorganize 3:00 → communities 3:30 → IQ 4:00 → web_validation 4:30
+- **Index-API is a separate git repo**: `cd Index-API && git status/commit/push` independently from the Website repo. Do not commit Index-API files from the Website root
+- **`modal_app/` files must NOT import Django**: They run on Modal with a minimal image. Use S3 (Parquet/JSON) as the data boundary between Django and Modal
+- **ML extension module pattern**: Django module in `apps/notebook/` + Modal GPU function in `modal_app/` + management command in `management/commands/`

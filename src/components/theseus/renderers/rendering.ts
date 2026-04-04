@@ -60,10 +60,27 @@ export interface RendererEdge {
 
 export type PhaseName = ConstructionPhase['name'];
 
+/** Core phase names that are always present in playback progress. */
+type CorePhaseName =
+  | 'focal_nodes_appear'
+  | 'supporting_nodes_appear'
+  | 'edges_draw'
+  | 'clusters_coalesce'
+  | 'data_builds'
+  | 'labels_fade_in'
+  | 'crystallize';
+
+/** Truth map phases are present only when rendering a truth map. */
+type TruthMapPhaseName =
+  | 'agreement_clusters_form'
+  | 'tensions_bridge'
+  | 'blind_spots_reveal'
+  | 'entrenchment_pulse';
+
 export interface ConstructionPlayback {
   elapsedMs: number;
   totalMs: number;
-  phaseProgress: Record<PhaseName, number>;
+  phaseProgress: Record<CorePhaseName, number> & Partial<Record<TruthMapPhaseName, number>>;
   isComplete: boolean;
 }
 

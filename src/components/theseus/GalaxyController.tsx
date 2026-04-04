@@ -10,7 +10,9 @@ import { mulberry32 } from '@/lib/prng';
 import { usePrefersReducedMotion } from '@/hooks/usePrefersReducedMotion';
 import { TYPE_COLORS } from './renderers/rendering';
 import { computeGraphLayout, computeClusterLayout } from './galaxyLayout';
-import { generateTargets } from '@/lib/galaxy/TargetGenerator';
+import { generateTargets, generateTruthMapTargets } from '@/lib/galaxy/TargetGenerator';
+import type { MapSection } from '@/lib/theseus-types';
+import type { TruthMapTopologyDirective } from '@/lib/theseus-viz/SceneDirective';
 import GalaxyDrawer from './GalaxyDrawer';
 import type { AskState } from '@/app/theseus/ask/page';
 
@@ -278,7 +280,146 @@ export default function GalaxyController({
     }
   }, [state, response, gridRef]);
 
+  // Track all map construction timers for cleanup
+  const mapTimersRef = useRef<number[]>([]);
+
+  function clearMapTimers() {
+    for (const id of mapTimersRef.current) window.clearTimeout(id);
+    mapTimersRef.current = [];
+  }
+
+  function scheduleMapTimer(fn: () => void, delayMs: number) {
+    const id = window.setTimeout(fn, delayMs);
+    mapTimersRef.current.push(id);
+    return id;
+  }
+
+  function runTruthMapConstruction(
+    grid: DotGridHandle,
+    _mapSection: MapSection,
+    topology: TruthMapTopologyDirective,
+  ) {
+    clearMapTimers();
+    phaseRef.current = 'filtering';
+
+    const dotCount = grid.getDotCount();
+    const { width, height } = grid.getSize();
+    if (width === 0 || height === 0) return;
+
+    // Dim all dots
+    for (let i = 0; i < dotCount; i++) {
+      grid.setDotGalaxyState(i, { opacityOverride: 0.003 });
+    }
+    grid.wakeAnimation();
+
+    // Generate and pre-bucket targets by region type
+    const result = generateTruthMapTargets(topology, width, height, dotCount);
+    const targets = result.targets;
+    const regionTypes = result.regionType ?? [];
+
+    const agreementDots: Array<{ idx: number; t: typeof targets[0] }> = [];
+    const tensionDots: Array<{ idx: number; t: typeof targets[0] }> = [];
+    const blindSpotDots: Array<{ idx: number; t: typeof targets[0] }> = [];
+
+    for (let i = 0; i < targets.length && i < dotCount; i++) {
+      const bucket = { idx: i, t: targets[i] };
+      switch (regionTypes[i]) {
+        case 'agreement': agreementDots.push(bucket); break;
+        case 'tension': tensionDots.push(bucket); break;
+        case 'blind_spot': blindSpotDots.push(bucket); break;
+      }
+    }
+
+    // Pre-compute labels once
+    const labelData: Array<{ x: number; y: number; text: string; alpha: number }> = [];
+    for (const region of topology.agreement_regions) {
+      const regionX = (region.center_hint[0] || 0) * width * 0.3 + width / 2;
+      const regionY = (region.center_hint[1] || 0) * height * 0.3 + height / 2;
+      const label = region.label.length > 25 ? region.label.slice(0, 25) + '\u2026' : region.label;
+      labelData.push({ x: regionX, y: regionY, text: label, alpha: 0.7 });
+    }
+    for (const bsVoid of topology.blind_spot_voids) {
+      const vx = width / 2 + (bsVoid.position_hint[0] || 0) * width * 0.1;
+      const vy = height / 2 + (bsVoid.position_hint[1] || 0) * height * 0.1;
+      const desc = bsVoid.description.length > 20 ? bsVoid.description.slice(0, 20) + '\u2026' : bsVoid.description;
+      labelData.push({ x: vx, y: vy, text: `? ${desc}`, alpha: 0.35 });
+    }
+
+    const rng = mulberry32(55);
+
+    // Phase 1: Agreement clusters (after 800ms)
+    scheduleMapTimer(() => {
+      phaseRef.current = 'construction';
+      for (const { idx, t } of agreementDots) {
+        if (!prefersReducedMotion) {
+          grid.setDotTarget(idx, t.x + (rng() - 0.5) * 3, t.y + (rng() - 0.5) * 3);
+        }
+        grid.setDotGalaxyState(idx, {
+          opacityOverride: 0.15 + t.weight * 0.25,
+          colorOverride: [45, 95, 107],
+        });
+      }
+      grid.wakeAnimation();
+    }, 800);
+
+    // Phase 2: Tension bridges (after 1.6s)
+    scheduleMapTimer(() => {
+      for (const { idx, t } of tensionDots) {
+        if (!prefersReducedMotion) grid.setDotTarget(idx, t.x, t.y);
+        grid.setDotGalaxyState(idx, {
+          opacityOverride: 0.12,
+          colorOverride: [196, 80, 60],
+        });
+      }
+      grid.wakeAnimation();
+    }, 1600);
+
+    // Phase 3: Blind spots (after 2.2s)
+    scheduleMapTimer(() => {
+      for (const { idx, t } of blindSpotDots) {
+        if (!prefersReducedMotion) grid.setDotTarget(idx, t.x, t.y);
+        grid.setDotGalaxyState(idx, {
+          opacityOverride: 0.03,
+          colorOverride: [100, 95, 90],
+        });
+      }
+      grid.wakeAnimation();
+    }, 2200);
+
+    // Phase 4: Crystallize with labels (after 3s)
+    scheduleMapTimer(() => {
+      phaseRef.current = 'crystallize';
+
+      if (prefersReducedMotion) {
+        grid.setLabels(labelData);
+      } else {
+        let step = 0;
+        const steps = 6;
+        const interval = window.setInterval(() => {
+          step++;
+          const t = step / steps;
+          grid.setLabels(labelData.map((l) => ({ ...l, alpha: l.alpha * t })));
+          grid.wakeAnimation();
+          if (step >= steps) clearInterval(interval);
+        }, 50);
+        mapTimersRef.current.push(interval);
+      }
+
+      grid.wakeAnimation();
+      labelAlphaRef.current = 1;
+    }, 3000);
+  }
+
   function runAnswerConstruction(grid: DotGridHandle, resp: TheseusResponse) {
+    // Check for truth map section: if present and directive has topology, use truth map path
+    const mapSection = resp.sections.find(
+      (s): s is MapSection => s.type === 'truth_map',
+    );
+    if (mapSection && directive?.truth_map_topology) {
+      runTruthMapConstruction(grid, mapSection, directive.truth_map_topology);
+      return;
+    }
+
     const evidencePath = resp.sections.find((s) => s.type === 'evidence_path');
     const nodes: EvidenceNode[] = evidencePath && 'nodes' in evidencePath ? evidencePath.nodes : [];
     const edges: EvidenceEdge[] = evidencePath && 'edges' in evidencePath ? evidencePath.edges : [];
@@ -848,7 +989,7 @@ export default function GalaxyController({
             border: '1px solid rgba(255,255,255,0.08)',
             borderLeft: `4px solid ${typeColor}`,
             zIndex: 15,
-            pointerEvents: 'none',
+            pointerEvents: 'auto',
           }}
         >
           <h3
@@ -896,6 +1037,27 @@ export default function GalaxyController({
               ))}
             </ul>
           )}
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              window.location.href = `/theseus/ask?microscope=cluster:${infoCard.cluster.clusterId}`;
+            }}
+            style={{
+              marginTop: 10,
+              padding: '5px 10px',
+              fontSize: 11,
+              fontFamily: 'var(--vie-font-mono)',
+              background: 'rgba(45,95,107,0.25)',
+              border: '1px solid rgba(45,95,107,0.4)',
+              borderRadius: 4,
+              color: 'var(--vie-text)',
+              cursor: 'pointer',
+              textTransform: 'uppercase',
+              letterSpacing: '0.06em',
+            }}
+          >
+            Map
+          </button>
         </div>
       )}
 

@@ -79,21 +79,36 @@
   pointer-events: auto;
 }
 
-.theseus-nav-left,
-.theseus-nav-right {
+.theseus-nav-left {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 1;
+  min-width: 0;
+}
+
+.theseus-nav-center {
   display: flex;
   align-items: center;
   gap: 8px;
 }
 
+.theseus-nav-right {
+  flex: 1;
+  min-width: 0;
+}
+
 .theseus-nav-brand {
-  color: var(--vie-teal-light);
-  font-family: var(--vie-font-mono);
-  font-size: 12px;
-  letter-spacing: 0.1em;
+  color: #4a9aa0;
+  font-family: var(--font-code);
+  font-size: 15px;
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  font-feature-settings: 'liga' 1, 'kern' 1;
   text-transform: uppercase;
   text-decoration: none;
   line-height: 1;
+  text-shadow: 0 0 8px rgba(74, 154, 160, 0.3);
 }
 
 .theseus-nav-sep {
@@ -139,8 +154,81 @@
   background: rgba(255, 255, 255, 0.05);
 }
 
+.theseus-nav-back {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 6px;
+  color: var(--vie-text-dim);
+  text-decoration: none;
+  transition: color 150ms ease, background 150ms ease;
+}
+
+.theseus-nav-back:hover {
+  color: var(--vie-text);
+  background: rgba(255, 255, 255, 0.06);
+}
+
+/* Nav pills: shared base */
+.theseus-nav-pill {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 12px;
+  border-radius: 999px;
+  border: 1px solid transparent;
+  font-family: var(--vie-font-mono);
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  text-decoration: none;
+  line-height: 1;
+  transition: background 150ms ease, border-color 150ms ease, color 150ms ease;
+}
+
+/* Artifacts: terracotta */
+.theseus-nav-pill-artifacts {
+  color: rgba(164, 78, 38, 0.65);
+  border-color: rgba(164, 78, 38, 0.15);
+  background: rgba(164, 78, 38, 0.04);
+}
+
+.theseus-nav-pill-artifacts:hover,
+.theseus-nav-pill-artifacts.is-active {
+  color: #b45a2d;
+  border-color: rgba(164, 78, 38, 0.35);
+  background: rgba(164, 78, 38, 0.1);
+}
+
+/* Models: dusty purple */
+.theseus-nav-pill-models {
+  color: rgba(123, 94, 167, 0.65);
+  border-color: rgba(123, 94, 167, 0.15);
+  background: rgba(123, 94, 167, 0.04);
+}
+
+.theseus-nav-pill-models:hover,
+.theseus-nav-pill-models.is-active {
+  color: #7B5EA7;
+  border-color: rgba(123, 94, 167, 0.35);
+  background: rgba(123, 94, 167, 0.1);
+}
+
+.theseus-nav-page-link {
+  text-decoration: none;
+  transition: color 150ms ease;
+}
+
+.theseus-nav-page-link:hover {
+  color: var(--vie-text);
+}
+
 .theseus-nav-link:focus-visible,
-.theseus-nav-brand:focus-visible {
+.theseus-nav-brand:focus-visible,
+.theseus-nav-back:focus-visible,
+.theseus-nav-pill:focus-visible {
   outline: 2px solid rgba(74, 138, 150, 0.9);
   outline-offset: 1px;
 }

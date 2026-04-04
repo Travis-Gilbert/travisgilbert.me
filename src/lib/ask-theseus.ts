@@ -6,6 +6,14 @@
  */
 
 import { apiFetch } from '@/lib/commonplace-api';
+import type { MapSection } from '@/lib/theseus-types';
+import type {
+  SavedMap,
+  SavedMapListItem,
+  SaveMapInput,
+  MapRerunResult,
+  MicroscopeInput,
+} from '@/lib/map-types';
 
 /* ─────────────────────────────────────────────────
    Types
@@ -177,4 +185,85 @@ export interface DailyBriefingResponse {
 /** Fetch today's proactive briefing. Generates one if none exists. */
 export async function fetchDailyBriefing(): Promise<DailyBriefingResponse> {
   return apiFetch<DailyBriefingResponse>('/briefing/');
+}
+
+/* ─────────────────────────────────────────────────
+   Maps (TMS-powered epistemic topology)
+   ───────────────────────────────────────────────── */
+
+/** Generate a map from a query (no save). */
+export async function generateMap(
+  query: string,
+  notebookSlug?: string,
+): Promise<MapSection> {
+  const body: Record<string, unknown> = { query };
+  if (notebookSlug) body.notebook_slug = notebookSlug;
+  const data = await apiFetch<{ truth_map_data: MapSection }>(
+    '/tms-map/generate/',
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    },
+  );
+  return data.truth_map_data;
+}
+
+/** Generate a map from a graph region (microscope mode). */
+export async function microscopeMap(
+  input: MicroscopeInput,
+): Promise<MapSection> {
+  const data = await apiFetch<{ truth_map_data: MapSection }>(
+    '/tms-map/microscope/',
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(input),
+    },
+  );
+  return data.truth_map_data;
+}
+
+/** Save a map as a persistent artifact. */
+export async function saveMap(
+  input: SaveMapInput,
+): Promise<SavedMap> {
+  return apiFetch<SavedMap>('/tms-maps/', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(input),
+  });
+}
+
+/** List saved maps. */
+export async function listMaps(params?: {
+  page?: number;
+  notebook_slug?: string;
+}): Promise<{ results: SavedMapListItem[]; count: number }> {
+  const searchParams = new URLSearchParams();
+  if (params?.page) searchParams.set('page', String(params.page));
+  if (params?.notebook_slug) searchParams.set('notebook', params.notebook_slug);
+  const qs = searchParams.toString();
+  return apiFetch<{ results: SavedMapListItem[]; count: number }>(
+    `/tms-maps/${qs ? `?${qs}` : ''}`,
+  );
+}
+
+/** Load a single saved map with full epistemic data. */
+export async function loadMap(slug: string): Promise<SavedMap> {
+  return apiFetch<SavedMap>(`/tms-maps/${slug}/`);
+}
+
+/** Re-run a saved map against current graph state. */
+export async function rerunMap(
+  slug: string,
+): Promise<MapRerunResult> {
+  return apiFetch<MapRerunResult>(`/tms-maps/${slug}/rerun/`, {
+    method: 'POST',
+  });
+}
+
+/** Soft-delete a saved map. */
+export async function deleteMap(slug: string): Promise<void> {
+  await apiFetch(`/tms-maps/${slug}/`, { method: 'DELETE' });
 }

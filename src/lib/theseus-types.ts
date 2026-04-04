@@ -53,7 +53,8 @@ export type ResponseSection =
   | VisualizationSection
   | ClusterContextSection
   | HypothesisSection
-  | DataAcquisitionSection;
+  | DataAcquisitionSection
+  | MapSection;
 
 export interface DataAcquisitionSection {
   type: 'data_acquisition';
@@ -222,4 +223,80 @@ export interface AskOptions {
   signal?: AbortSignal;
   timeoutMs?: number;
   retryPolicy?: 'none' | 'transient-once';
+}
+
+/* ─────────────────────────────────────────────────
+   Map: TMS-powered epistemic topology
+   ───────────────────────────────────────────────── */
+
+export interface MapClaim {
+  pk: number;
+  text: string;
+  status: string;
+  entrenchment: number;
+  source_object_ids: number[];
+  justification_group_count: number;
+  is_defeasible: boolean;
+}
+
+export interface AgreementGroup {
+  id: string;
+  label: string;
+  claims: MapClaim[];
+  mean_entrenchment: number;
+  source_object_ids: number[];
+  source_independence: number;
+}
+
+export type TensionSeverity = 'low' | 'medium' | 'high' | 'critical';
+
+export interface TensionZone {
+  id: string;
+  tension_pk: number;
+  title: string;
+  claim_a: { pk: number; text: string; entrenchment: number };
+  claim_b: { pk: number; text: string; entrenchment: number };
+  severity: TensionSeverity;
+  domain: string;
+  bridging_objects: number[];
+}
+
+export type BlindSpotMethod =
+  | 'structural_gap'
+  | 'single_source'
+  | 'low_corroboration'
+  | 'temporal_gap';
+
+export interface BlindSpot {
+  id: string;
+  description: string;
+  detection_method: BlindSpotMethod;
+  related_claim_pks: number[];
+  suggested_query: string;
+}
+
+export interface MapSourceObject {
+  pk: number;
+  title: string;
+  object_type_slug: string;
+  entrenchment: number;
+}
+
+export interface WhatIfSensitivity {
+  object_pk: number;
+  would_retract_count: number;
+  would_weaken_count: number;
+  label: string;
+}
+
+export interface MapSection {
+  type: 'truth_map';
+  agreement_groups: AgreementGroup[];
+  tension_zones: TensionZone[];
+  blind_spots: BlindSpot[];
+  claims_by_status: Record<string, number>;
+  source_objects: MapSourceObject[];
+  what_if_sensitivities: WhatIfSensitivity[];
+  source_independence_score: number;
+  computed_at: string;
 }
