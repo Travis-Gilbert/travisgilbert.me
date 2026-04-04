@@ -8,6 +8,8 @@ export interface TheseusResponse {
   metadata: ResponseMetadata;
   follow_ups?: FollowUp[];
   raw_traversal?: TraversalMetadata;
+  /** Optional reference image URL for visual answer construction (image-traced portraits) */
+  reference_image_url?: string;
 }
 
 export interface ConfidenceScore {

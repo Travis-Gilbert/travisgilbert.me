@@ -10,6 +10,7 @@ import { mulberry32 } from '@/lib/prng';
 import { usePrefersReducedMotion } from '@/hooks/usePrefersReducedMotion';
 import { TYPE_COLORS } from './renderers/rendering';
 import { computeGraphLayout, computeClusterLayout } from './galaxyLayout';
+import { generateTargets } from '@/lib/galaxy/TargetGenerator';
 import GalaxyDrawer from './GalaxyDrawer';
 import type { AskState } from '@/app/theseus/ask/page';
 
@@ -393,105 +394,141 @@ export default function GalaxyController({
       const { width, height } = grid.getSize();
       if (width === 0 || height === 0) return;
 
-      const layout = edges.length > 0
-        ? computeGraphLayout(nodes, edges, width, height)
-        : computeClusterLayout(nodes, width, height);
+      // Try image tracing first, fall back to graph/cluster layout
+      const imageUrl = resp.reference_image_url;
+      const dotCount = grid.getDotCount();
 
-      // Set target positions for each mapped dot
-      for (const [objectId, dotIndex] of objDotMap) {
-        const pos = layout.positions.get(objectId);
-        if (pos) {
-          if (prefersReducedMotion) {
-            // Instant position (no spring animation)
-            grid.setDotGalaxyState(dotIndex, { opacityOverride: 0.35 });
-          } else {
-            grid.setDotTarget(dotIndex, pos.x, pos.y);
-            grid.setDotGalaxyState(dotIndex, { opacityOverride: 0.35 });
+      generateTargets(imageUrl, nodes, edges, width, height, dotCount).then((result) => {
+        if (result.method === 'image-trace') {
+          // Image mode: assign ALL dots to image target positions
+          // This creates the portrait/shape effect where the entire background participates
+          const targets = result.targets;
+
+          for (let i = 0; i < dotCount && i < targets.length; i++) {
+            const target = targets[i];
+            const jitterX = (Math.random() - 0.5) * 4;
+            const jitterY = (Math.random() - 0.5) * 4;
+
+            if (prefersReducedMotion) {
+              grid.setDotGalaxyState(i, { opacityOverride: 0.25 + target.weight * 0.25 });
+            } else {
+              grid.setDotTarget(i, target.x + jitterX, target.y + jitterY);
+              grid.setDotGalaxyState(i, { opacityOverride: 0.25 + target.weight * 0.25 });
+            }
           }
+
+          // Dots beyond target count: fade to nearly invisible
+          for (let i = targets.length; i < dotCount; i++) {
+            grid.setDotGalaxyState(i, { opacityOverride: 0.01 });
+          }
+
+          grid.wakeAnimation();
+
+          // No edges for image mode (the shape IS the answer)
+          // Label placement: use evidence nodes positioned at their cluster dots
+          runCrystallizePhase(grid, objDotMap, nodes, relevantDotIndices);
+
+        } else {
+          // Graph/cluster layout mode: existing behavior
+          // layout is always present for graph-layout and cluster-layout methods
+          const layout = result.layout ?? { positions: new Map(), edges: [] };
+
+          for (const [objectId, dotIndex] of objDotMap) {
+            const pos = layout.positions.get(objectId);
+            if (pos) {
+              if (prefersReducedMotion) {
+                grid.setDotGalaxyState(dotIndex, { opacityOverride: 0.35 });
+              } else {
+                grid.setDotTarget(dotIndex, pos.x, pos.y);
+                grid.setDotGalaxyState(dotIndex, { opacityOverride: 0.35 });
+              }
+            }
+          }
+
+          grid.wakeAnimation();
+
+          // Progressive edge reveal
+          if (layout.edges.length > 0) {
+            const buildEdgeList = (p: number) => layout.edges
+              .map((e) => {
+                const fromDot = objDotMap.get(e.fromId);
+                const toDot = objDotMap.get(e.toId);
+                if (fromDot === undefined || toDot === undefined) return null;
+                return { fromIndex: fromDot, toIndex: toDot, progress: p, color: `rgba(74,138,150,1)` };
+              })
+              .filter(Boolean) as Array<{ fromIndex: number; toIndex: number; progress: number; color: string }>;
+
+            if (prefersReducedMotion) {
+              grid.setEdges(buildEdgeList(1));
+              grid.wakeAnimation();
+            } else {
+              let progress = 0;
+              const edgeInterval = window.setInterval(() => {
+                progress += 0.04;
+                if (progress > 1) { clearInterval(edgeInterval); progress = 1; }
+                edgeProgressRef.current = progress;
+                grid.setEdges(buildEdgeList(progress));
+                grid.wakeAnimation();
+              }, 50);
+
+              const cleanupTimer = window.setTimeout(() => clearInterval(edgeInterval), 2000);
+              phaseTimerRef.current = cleanupTimer;
+            }
+          }
+
+          runCrystallizePhase(grid, objDotMap, nodes, relevantDotIndices);
         }
+      });
+    }, 1000);
+  }
+
+  function runCrystallizePhase(
+    grid: DotGridHandle,
+    objDotMap: Map<string, number>,
+    nodes: EvidenceNode[],
+    relevantDotIndices: Set<number>,
+  ) {
+    // === PHASE 4: CRYSTALLIZE (after 2s, with 300ms label fade) ===
+    window.setTimeout(() => {
+      phaseRef.current = 'crystallize';
+
+      const labelData: Array<{ x: number; y: number; text: string; objectId: string }> = [];
+      for (const [objectId, dotIndex] of objDotMap) {
+        const node = nodes.find((n) => n.object_id === objectId);
+        if (!node) continue;
+        const pos = grid.getDotPosition(dotIndex);
+        if (!pos) continue;
+        labelData.push({
+          x: pos.x, y: pos.y, objectId,
+          text: node.title.length > 20 ? node.title.slice(0, 20) + '...' : node.title,
+        });
+      }
+
+      if (prefersReducedMotion) {
+        grid.setLabels(labelData.map((l) => ({ x: l.x, y: l.y, text: l.text, alpha: 0.7 })));
+        for (const dotIndex of relevantDotIndices) {
+          grid.setDotGalaxyState(dotIndex, { opacityOverride: 0.45 });
+        }
+        grid.wakeAnimation();
+      } else {
+        let labelStep = 0;
+        const labelSteps = 6;
+        const labelInterval = window.setInterval(() => {
+          labelStep++;
+          const t = labelStep / labelSteps;
+          grid.setLabels(labelData.map((l) => ({ x: l.x, y: l.y, text: l.text, alpha: 0.7 * t })));
+          grid.wakeAnimation();
+          if (labelStep >= labelSteps) clearInterval(labelInterval);
+        }, 50);
+      }
+
+      for (const dotIndex of relevantDotIndices) {
+        grid.setDotGalaxyState(dotIndex, { opacityOverride: 0.45 });
       }
 
       grid.wakeAnimation();
-
-      // Progressive edge reveal (faster: 1250ms total, or instant for reduced motion)
-      if (layout.edges.length > 0) {
-        const buildEdgeList = (p: number) => layout.edges
-          .map((e) => {
-            const fromDot = objDotMap.get(e.fromId);
-            const toDot = objDotMap.get(e.toId);
-            if (fromDot === undefined || toDot === undefined) return null;
-            return { fromIndex: fromDot, toIndex: toDot, progress: p, color: `rgba(74,138,150,1)` };
-          })
-          .filter(Boolean) as Array<{ fromIndex: number; toIndex: number; progress: number; color: string }>;
-
-        if (prefersReducedMotion) {
-          grid.setEdges(buildEdgeList(1));
-          grid.wakeAnimation();
-        } else {
-          let progress = 0;
-          const edgeInterval = window.setInterval(() => {
-            progress += 0.04;
-            if (progress > 1) { clearInterval(edgeInterval); progress = 1; }
-            edgeProgressRef.current = progress;
-            grid.setEdges(buildEdgeList(progress));
-            grid.wakeAnimation();
-          }, 50);
-
-          const cleanupTimer = window.setTimeout(() => clearInterval(edgeInterval), 2000);
-          phaseTimerRef.current = cleanupTimer;
-        }
-      }
-
-      // === PHASE 4: CRYSTALLIZE (after 2s, with 300ms label fade) ===
-      window.setTimeout(() => {
-        phaseRef.current = 'crystallize';
-
-        const labelData: Array<{ x: number; y: number; text: string; objectId: string }> = [];
-        for (const [objectId, dotIndex] of objDotMap) {
-          const node = nodes.find((n) => n.object_id === objectId);
-          if (!node) continue;
-          const pos = grid.getDotPosition(dotIndex);
-          if (!pos) continue;
-          labelData.push({
-            x: pos.x, y: pos.y, objectId,
-            text: node.title.length > 20 ? node.title.slice(0, 20) + '...' : node.title,
-          });
-        }
-
-        if (prefersReducedMotion) {
-          grid.setLabels(labelData.map((l) => ({ x: l.x, y: l.y, text: l.text, alpha: 0.7 })));
-          for (const dotIndex of relevantDotIndices) {
-            grid.setDotGalaxyState(dotIndex, { opacityOverride: 0.45 });
-          }
-          grid.wakeAnimation();
-        } else {
-          // 300ms label fade-in (6 steps at 50ms)
-          let labelStep = 0;
-          const labelSteps = 6;
-          const labelInterval = window.setInterval(() => {
-            labelStep++;
-            const t = labelStep / labelSteps;
-            grid.setLabels(labelData.map((l) => ({ x: l.x, y: l.y, text: l.text, alpha: 0.7 * t })));
-            grid.wakeAnimation();
-            if (labelStep >= labelSteps) clearInterval(labelInterval);
-          }, 50);
-        }
-
-        for (const dotIndex of relevantDotIndices) {
-          grid.setDotGalaxyState(dotIndex, { opacityOverride: 0.45 });
-        }
-
-        grid.wakeAnimation();
-
-        // Brighten relevant dots to full
-        for (const dotIndex of relevantDotIndices) {
-          grid.setDotGalaxyState(dotIndex, { opacityOverride: 0.45 });
-        }
-
-        grid.wakeAnimation();
-        labelAlphaRef.current = 1;
-      }, 2000);
-    }, 1000);
+      labelAlphaRef.current = 1;
+    }, 2000);
   }
 
   // Double-click handler for galaxy exploration zoom
