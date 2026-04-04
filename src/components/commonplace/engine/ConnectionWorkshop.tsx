@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { AnimatePresence, motion } from 'motion/react';
 import { useHotkeys } from 'react-hotkeys-hook';
 import {
@@ -21,6 +21,7 @@ import ModelDiagnostics from './ModelDiagnostics';
 import { CROSSFADE, useSpring } from './engine-motion';
 
 const PURPLE = '#8B6FA0';
+const REVIEW_LAST_EDGE_KEY = 'commonplace.connection-review.last-edge-id';
 
 type ReviewCorrectness = 'wrong' | 'unclear' | 'correct';
 type ReviewQuality = 'obvious' | 'relevant' | 'surprising' | 'useful';
@@ -98,10 +99,29 @@ const ACTION_OPTIONS: Array<{
   label: string;
   shortcut: string;
   tone: string;
+  help: string;
 }> = [
-  { key: 'accept', label: 'Accept', shortcut: 'Enter', tone: 'positive' },
-  { key: 'defer', label: 'Defer', shortcut: 'Space', tone: 'muted' },
-  { key: 'reject', label: 'Reject', shortcut: 'Backspace', tone: 'danger' },
+  {
+    key: 'reject',
+    label: 'Reject',
+    shortcut: 'Backspace',
+    tone: 'danger',
+    help: 'Mark incorrect and train negative',
+  },
+  {
+    key: 'defer',
+    label: 'Skip for now',
+    shortcut: 'Space',
+    tone: 'muted',
+    help: 'Not enough context yet (no training update)',
+  },
+  {
+    key: 'accept',
+    label: 'Accept',
+    shortcut: 'Enter',
+    tone: 'positive',
+    help: 'Valid connection and train positive',
+  },
 ];
 
 function createInitialDraft(edgeId: number | null): StructuredConnectionReviewDraft {
@@ -124,6 +144,7 @@ function compileStructuredReview(draft: StructuredConnectionReviewDraft, action:
   let correctness = draft.correctness;
   if (!correctness && action === 'reject') correctness = 'wrong';
   if (!correctness && action === 'defer') correctness = 'unclear';
+  if (!correctness && action === 'accept') correctness = 'correct';
   if (!correctness) return null;
 
   const normalizedQualities = correctness === 'correct' ? qualities : [];
@@ -211,6 +232,54 @@ function formatPercent(value?: number): string | null {
   return `${Math.round(value * 100)}%`;
 }
 
+function isPlaceholderTitle(title: string): boolean {
+  const normalized = title.trim().toLowerCase();
+  if (!normalized) return true;
+  if (/^\d+$/.test(normalized)) return true;
+  if (normalized.startsWith('untitled')) return true;
+  return normalized.length < 3;
+}
+
+function edgeReviewPriority(edge: ReviewQueueEdge): number {
+  const predictiveUncertainty = typeof edge.predicted_prob === 'number'
+    ? 1 - Math.abs(edge.predicted_prob - 0.5) * 2
+    : 0;
+  const disagreement = typeof edge.disagreement === 'number' ? edge.disagreement : 0;
+  const uncertainty = typeof edge.uncertainty === 'number' ? edge.uncertainty : 0;
+  const hasReason = edge.reason && edge.reason.trim().length >= 24 ? 0.35 : 0;
+  const titleQualityBonus = (
+    (isPlaceholderTitle(edge.from_title) ? -1.2 : 0.4)
+    + (isPlaceholderTitle(edge.to_title) ? -1.2 : 0.4)
+  );
+  return (
+    disagreement * 3.0
+    + uncertainty * 2.2
+    + predictiveUncertainty * 1.8
+    + edge.strength * 0.25
+    + hasReason
+    + titleQualityBonus
+  );
+}
+
+function rotateQueueAfterEdge(edges: ReviewQueueEdge[], afterEdgeId: number | null): ReviewQueueEdge[] {
+  if (!afterEdgeId || edges.length < 2) return edges;
+  const pivot = edges.findIndex((edge) => edge.edge_id === afterEdgeId);
+  if (pivot === -1 || pivot === edges.length - 1) return edges;
+  return [...edges.slice(pivot + 1), ...edges.slice(0, pivot + 1)];
+}
+
+function readLastEdgeId(): number | null {
+  if (typeof window === 'undefined') return null;
+  try {
+    const raw = window.localStorage.getItem(REVIEW_LAST_EDGE_KEY);
+    if (!raw) return null;
+    const parsed = Number.parseInt(raw, 10);
+    return Number.isFinite(parsed) ? parsed : null;
+  } catch {
+    return null;
+  }
+}
+
 interface ConnectionWorkshopProps {
   notebookSlug?: string;
 }
@@ -236,10 +305,15 @@ export default function ConnectionWorkshop({ notebookSlug }: ConnectionWorkshopP
   });
   const [localStats, setLocalStats] = useState<FeedbackStats | null>(null);
 
-  const edges = useMemo(
+  const visibleEdges = useMemo(
     () => (data?.results ?? []).filter((edge) => !dismissed.has(edge.edge_id)),
     [data, dismissed],
   );
+  const lastEdgeId = useMemo(() => readLastEdgeId(), []);
+  const edges = useMemo(() => {
+    const ranked = [...visibleEdges].sort((a, b) => edgeReviewPriority(b) - edgeReviewPriority(a));
+    return rotateQueueAfterEdge(ranked, lastEdgeId);
+  }, [visibleEdges, lastEdgeId]);
   const current = edges[0] ?? null;
   const draft = current
     ? (drafts[current.edge_id] ?? createInitialDraft(current.edge_id))
@@ -250,6 +324,15 @@ export default function ConnectionWorkshop({ notebookSlug }: ConnectionWorkshopP
 
   const spring = useSpring('natural');
   const snappySpring = useSpring('snappy');
+
+  useEffect(() => {
+    if (!current || typeof window === 'undefined') return;
+    try {
+      window.localStorage.setItem(REVIEW_LAST_EDGE_KEY, String(current.edge_id));
+    } catch {
+      // Ignore storage quota/privacy errors.
+    }
+  }, [current]);
 
   const setCorrectness = useCallback((correctness: ReviewCorrectness) => {
     if (!current) return;
@@ -314,6 +397,15 @@ export default function ConnectionWorkshop({ notebookSlug }: ConnectionWorkshopP
 
   const submitReview = useCallback(async (action: ReviewAction) => {
     if (!current) return;
+
+    if (action === 'defer') {
+      setSessionStats((prev) => ({
+        ...prev,
+        defer: prev.defer + 1,
+      }));
+      setDismissed((prev) => new Set(prev).add(current.edge_id));
+      return;
+    }
 
     const compiled = compileStructuredReview(draft, action);
     if (!compiled) return;
@@ -666,6 +758,11 @@ export default function ConnectionWorkshop({ notebookSlug }: ConnectionWorkshopP
           gap: 8px;
           padding-top: 4px;
         }
+        .cw-action-help {
+          font-size: 11px;
+          color: var(--cp-text-faint, #8A8279);
+          line-height: 1.5;
+        }
         .cw-action-btn {
           display: inline-flex;
           align-items: center;
@@ -681,6 +778,7 @@ export default function ConnectionWorkshop({ notebookSlug }: ConnectionWorkshopP
         }
         .cw-action-btn--positive {
           color: #2D5F6B;
+          margin-left: auto;
         }
         .cw-action-btn--positive:hover {
           background: rgba(45,95,107,0.08);
@@ -935,7 +1033,6 @@ export default function ConnectionWorkshop({ notebookSlug }: ConnectionWorkshopP
               </div>
 
               <div className="cw-review">
-                <div className="cw-section-label">Human Review</div>
                 <div className="cw-review-grid">
                   <div className="cw-row">
                     <div className="cw-row-head">
@@ -1026,7 +1123,10 @@ export default function ConnectionWorkshop({ notebookSlug }: ConnectionWorkshopP
                   <div className="cw-row">
                     <div className="cw-row-head">
                       <div className="cw-row-title">5. Action</div>
-                      <div className="cw-row-note">Submit the review</div>
+                      <div className="cw-row-note">Reject left, accept right</div>
+                    </div>
+                    <div className="cw-action-help">
+                      Reject marks an incorrect connection and trains negative. Skip for now removes it from this session without changing training data. Accept confirms a valid connection and trains positive.
                     </div>
                     <div className="cw-actions">
                       {ACTION_OPTIONS.map((option) => (
@@ -1036,6 +1136,7 @@ export default function ConnectionWorkshop({ notebookSlug }: ConnectionWorkshopP
                           onClick={() => submitReview(option.key)}
                           whileTap={{ scale: 0.98 }}
                           transition={snappySpring}
+                          title={option.help}
                         >
                           {option.label}
                           <span className="cw-shortcut">{option.shortcut}</span>
