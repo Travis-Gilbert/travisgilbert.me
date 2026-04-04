@@ -62,6 +62,7 @@ export default function TheseusHomepage() {
           maxWidth: '480px',
           flexShrink: 0,
           position: 'relative',
+          pointerEvents: 'auto',
         }}
       >
         <input
