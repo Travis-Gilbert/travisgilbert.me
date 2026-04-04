@@ -14,7 +14,7 @@ import type { PositionedConnection } from './connectionEngine';
 export const essaySchema = z.object({
   title: z.string(),
   date: z.coerce.date(),
-  summary: z.string().max(200),
+  summary: z.string().max(500),
   youtubeId: z.string(),
   thumbnail: z.string().optional(),
   tags: z.array(z.string()).default([]),

@@ -42,7 +42,7 @@ class Essay(TimeStampedModel):
     title = models.CharField(max_length=300)
     slug = models.SlugField(max_length=300, unique=True, blank=True)
     date = models.DateField()
-    summary = models.CharField(max_length=200)
+    summary = models.CharField(max_length=500, blank=True, default="")
     body = models.TextField(blank=True)
     youtube_id = models.CharField(max_length=20, blank=True, default="")
     thumbnail = models.CharField(max_length=500, blank=True, default="")

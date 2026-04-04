@@ -2818,7 +2818,14 @@ def _update_instance_from_payload(instance, config, payload):
 
     excerpt_field = config.get("excerpt_field")
     if "excerpt" in payload and excerpt_field:
-        setattr(instance, excerpt_field, payload.get("excerpt") or "")
+        raw_excerpt = payload.get("excerpt") or ""
+        try:
+            max_len = instance._meta.get_field(excerpt_field).max_length
+        except Exception:
+            max_len = None
+        if max_len and len(raw_excerpt) > max_len:
+            raw_excerpt = raw_excerpt[:max_len]
+        setattr(instance, excerpt_field, raw_excerpt)
 
     tags_field = config.get("tags_field")
     if "tags" in payload and tags_field:
