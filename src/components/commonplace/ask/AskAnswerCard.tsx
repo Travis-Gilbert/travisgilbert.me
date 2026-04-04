@@ -2,9 +2,8 @@
 
 import { useMemo, type ReactNode } from 'react';
 import { motion, AnimatePresence, useReducedMotion } from 'motion/react';
-import type { AskRetrievalResponse, AskSynthesisResponse } from '@/lib/ask-theseus';
+import { AGENT_DISPLAY_NAME, type AskRetrievalResponse } from '@/lib/ask-theseus';
 import ObjectRef from './ObjectRef';
-import AnswerObjectShape from './AnswerObjectShape';
 import AskFeedbackBar from './AskFeedbackBar';
 import styles from './AskAnswerCard.module.css';
 
@@ -13,7 +12,6 @@ const SPRING_GENTLE = { stiffness: 200, damping: 20 };
 interface AskAnswerCardProps {
   question: string;
   retrieval: AskRetrievalResponse;
-  synthesis: AskSynthesisResponse;
   onOpenObject?: (id: number) => void;
   onFeedbackGiven?: () => void;
 }
@@ -66,25 +64,22 @@ function parseAnswer(
 export default function AskAnswerCard({
   question,
   retrieval,
-  synthesis,
   onOpenObject,
   onFeedbackGiven,
 }: AskAnswerCardProps) {
   const reduced = useReducedMotion();
   const objects = retrieval.retrieval.objects;
   const engines = retrieval.retrieval.engines_used;
-
-  const referencedObjects = useMemo(
-    () => objects
-      .filter((o) => synthesis.referenced_object_ids.includes(o.id))
-      .slice(0, 3),
-    [objects, synthesis.referenced_object_ids],
-  );
+  const answerText = retrieval.answer || '';
+  const answerAgent = retrieval.answer_agent || 'none';
 
   const paragraphs = useMemo(() => {
-    const blocks = synthesis.answer.split('\n\n').filter(Boolean);
+    if (!answerText) return [];
+    const blocks = answerText.split('\n\n').filter(Boolean);
     return blocks.map((block) => parseAnswer(block, objects, onOpenObject));
-  }, [synthesis.answer, objects, onOpenObject]);
+  }, [answerText, objects, onOpenObject]);
+
+  if (!answerText) return null;
 
   return (
     <AnimatePresence>
@@ -102,26 +97,15 @@ export default function AskAnswerCard({
           ))}
         </div>
 
-        {referencedObjects.length > 0 && (
-          <div className={styles.objGroup}>
-            {referencedObjects.map((obj, i) => (
-              <AnswerObjectShape
-                key={obj.id}
-                object={obj}
-                index={i}
-                onClick={onOpenObject}
-              />
-            ))}
-          </div>
-        )}
-
         <motion.div
           className={styles.provStrip}
           initial={reduced ? false : { opacity: 0 }}
           animate={{ opacity: 1 }}
           transition={reduced ? { duration: 0 } : { duration: 0.3, delay: 0.2 }}
         >
-          <span className={styles.provLabel}>Engines</span>
+          <span className={styles.provLabel}>
+            {AGENT_DISPLAY_NAME[answerAgent] ?? 'Compose Engine'}
+          </span>
           {engines.map((e) => (
             <span key={e} className={styles.engBadge}>{e}</span>
           ))}

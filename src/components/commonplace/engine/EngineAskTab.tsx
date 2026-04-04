@@ -4,7 +4,7 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import type { EngineLogEntry } from '@/lib/commonplace-models';
 import { EVIDENCE_TYPE_COLOR } from '@/lib/commonplace-models';
 import { humanizeLogEntry } from './humanize';
-import { submitQuestion } from '@/lib/ask-theseus';
+import { submitQuestion, AGENT_DISPLAY_NAME } from '@/lib/ask-theseus';
 import { useDrawer } from '@/lib/providers/drawer-provider';
 
 /* ─────────────────────────────────────────────────
@@ -106,14 +106,21 @@ export default function EngineAskTab({ logEntries, onSendReady }: EngineAskTabPr
         text: `${engine.toUpperCase()} retrieval pass contributed evidence.`,
       }));
 
+      const answer = retrieval.answer || '';
+      const answerAgent = retrieval.answer_agent || 'none';
+
       const engineMsg: Message = {
         id: engineId,
         role: 'engine',
-        text: objects.length > 0
-          ? `I found ${objects.length} connected object${objects.length === 1 ? '' : 's'} from live Index API retrieval.`
-          : 'No connected objects were returned by live Index API retrieval for this query yet.',
+        text: answer
+          ? answer
+          : objects.length > 0
+            ? `I found ${objects.length} connected object${objects.length === 1 ? '' : 's'} from live Index API retrieval.`
+            : 'No connected objects were returned by live Index API retrieval for this query yet.',
         chips,
-        steps,
+        steps: answer && answerAgent !== 'none'
+          ? [{ icon: '\u25C6', color: '#3A7A88', text: `Synthesized by ${AGENT_DISPLAY_NAME[answerAgent] ?? 'Compose Engine'}` }, ...steps]
+          : steps,
         timestamp: new Date().toISOString(),
       };
       setMessages((prev) => [...prev, engineMsg]);

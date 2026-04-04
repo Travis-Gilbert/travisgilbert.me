@@ -4,6 +4,7 @@ import { useCallback, useState, useEffect } from 'react';
 import { toast } from 'sonner';
 import { motion, useReducedMotion } from 'motion/react';
 import AskBar from '../ask/AskBar';
+import AskAnswerCard from '../ask/AskAnswerCard';
 import SuggestionPills from '../ask/SuggestionPills';
 import HomeView from './HomeView';
 import DualBar from '../shared/DualBar';
@@ -67,7 +68,7 @@ export default function DailyPage() {
   /* ── Search mode: 3+ characters triggers reshaping ── */
   const isSearching = askQuestion.length >= 3;
 
-  /* ── Submit a question (retrieval only, no LLM) ── */
+  /* ── Submit a question (retrieval + Gemma 4B synthesis in one call) ── */
   const handleAsk = useCallback(async (question: string) => {
     setAskLoading(true);
     try {
@@ -123,8 +124,17 @@ export default function DailyPage() {
         {/* ── Page reshaping: search results replace default content ── */}
         {isSearching ? (
           <div className={styles.searchResults}>
-            {/* Structured question hero answer card */}
-            {isStructuredQuestion && (
+            {/* LM answer card (Gemma 4B / Qwen / compose_engine) */}
+            {retrievalResult?.answer && (
+              <AskAnswerCard
+                question={askQuestion}
+                retrieval={retrievalResult}
+                onOpenObject={handleOpenObject}
+              />
+            )}
+
+            {/* Fallback: retrieval summary when no LM answer available */}
+            {isStructuredQuestion && !retrievalResult?.answer && (
               <motion.div
                 className={styles.heroAnswer}
                 initial={reduced ? false : { opacity: 0, y: -8 }}

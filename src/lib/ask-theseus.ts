@@ -63,12 +63,19 @@ export interface AskRetrievalResponse {
     claims: AskRetrievalClaim[];
     engines_used: string[];
   };
+  /** LM-generated answer (Gemma 4B, Qwen, or compose_engine fallback). */
+  answer: string;
+  /** Which agent produced the answer: 'gemma4b', 'communicator', 'compose_engine', or 'none'. */
+  answer_agent: string;
 }
 
-export interface AskSynthesisResponse {
-  answer: string;
-  referenced_object_ids: number[];
-}
+/** Map agent identifiers to human-readable display names. */
+export const AGENT_DISPLAY_NAME: Record<string, string> = {
+  gemma4b: 'Gemma 4B',
+  communicator: 'Qwen 7B',
+  compose_engine: 'Compose Engine',
+  none: 'Retrieval Only',
+};
 
 export type AskFeedbackSignal = 'positive' | 'negative' | 'save';
 export type ProblemSolvingSignal = 'not_helpful' | 'somewhat' | 'solved';
@@ -101,22 +108,6 @@ export async function submitQuestion(question: string): Promise<AskRetrievalResp
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ question }),
   });
-}
-
-/** Call the Next.js API route that synthesizes an answer via Anthropic. */
-export async function synthesizeAnswer(
-  question: string,
-  retrieval: AskRetrievalResponse['retrieval'],
-): Promise<AskSynthesisResponse> {
-  const res = await fetch('/api/ai/ask', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ question, retrieval }),
-  });
-  if (!res.ok) {
-    throw new Error(`Synthesis failed: ${res.status}`);
-  }
-  return res.json();
 }
 
 /** Submit feedback on an answer (positive/negative/save). */
