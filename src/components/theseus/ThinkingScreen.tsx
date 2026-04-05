@@ -13,9 +13,11 @@ interface ThinkingScreenProps {
 
 const BRAILLE_FRAMES = ['⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧', '⠇', '⠏'];
 
-function getStatusLabel(state: AskState, dataStatus: DataProcessingStatus | null): string {
+function getStatusLabel(state: AskState, dataStatus: DataProcessingStatus | null, thinkingElapsed: number): string {
   switch (state) {
     case 'THINKING':
+      if (thinkingElapsed > 8) return 'reading web sources…';
+      if (thinkingElapsed > 4) return 'searching the web…';
       return 'searching graph…';
     case 'MODEL':
       return 'assembling evidence…';
@@ -59,6 +61,7 @@ function getHeatIntensity(state: AskState): number {
 export default function ThinkingScreen({ state, query, dataStatus }: ThinkingScreenProps) {
   const prefersReducedMotion = usePrefersReducedMotion();
   const [frameIndex, setFrameIndex] = useState(0);
+  const [thinkingElapsed, setThinkingElapsed] = useState(0);
 
   useEffect(() => {
     if (prefersReducedMotion) return;
@@ -68,8 +71,20 @@ export default function ThinkingScreen({ state, query, dataStatus }: ThinkingScr
     return () => window.clearInterval(interval);
   }, [prefersReducedMotion]);
 
+  // Track how long we've been in THINKING state
+  useEffect(() => {
+    if (state !== 'THINKING') {
+      setThinkingElapsed(0);
+      return;
+    }
+    const interval = window.setInterval(() => {
+      setThinkingElapsed((prev) => prev + 1);
+    }, 1000);
+    return () => window.clearInterval(interval);
+  }, [state]);
+
   const step = getPipelineStep(state);
-  const statusLabel = getStatusLabel(state, dataStatus);
+  const statusLabel = getStatusLabel(state, dataStatus, thinkingElapsed);
   const heatIntensity = getHeatIntensity(state);
 
   return (
