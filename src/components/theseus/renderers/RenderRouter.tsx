@@ -14,6 +14,7 @@ const ContextShelf = dynamic(() => import('./ContextShelf'), { ssr: false });
 const ForceGraph3DRenderer = dynamic(() => import('./ForceGraph3DRenderer'), { ssr: false });
 const ParticleField = dynamic(() => import('./ParticleField'), { ssr: false });
 const SigmaRenderer = dynamic(() => import('./SigmaRenderer'), { ssr: false });
+const PlotRenderer = dynamic(() => import('./PlotRenderer'), { ssr: false });
 const VegaRenderer = dynamic(() => import('./VegaRenderer'), { ssr: false });
 
 const PARTICLE_COUNT = 30_000;
@@ -140,7 +141,7 @@ function RendererLayer({
       case 'vega-lite':
         return (
           <>
-            <VegaRenderer
+            <PlotRenderer
               directive={directive}
               playback={playback}
               onContextSelect={onSelectNode}
