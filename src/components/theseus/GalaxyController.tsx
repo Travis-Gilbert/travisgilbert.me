@@ -74,6 +74,8 @@ export default function GalaxyController({
   const labelAlphaRef = useRef<number>(0);
   // Map from object_id to dot index for answer construction
   const objectDotMapRef = useRef<Map<string, number>>(new Map());
+  // Recruited neighborhood dots (for constellation cleanup)
+  const recruitedDotsRef = useRef<Set<number>>(new Set());
   // Original grid positions for reset
   const originalPositionsRef = useRef<Map<number, { x: number; y: number }>>(new Map());
   // Data acquisition pulsing
@@ -209,6 +211,10 @@ export default function GalaxyController({
       edgeProgressRef.current = 0;
       labelAlphaRef.current = 0;
       objectDotMapRef.current.clear();
+
+      // Reset previously recruited neighborhood dots
+      // (grid.resetAll below handles position and state; clear the tracking ref)
+      recruitedDotsRef.current.clear();
 
       // Reset all dots to grid positions
       grid.resetAll();
@@ -525,7 +531,40 @@ export default function GalaxyController({
     }
 
     objectDotMapRef.current = objDotMap;
-    const relevantDotIndices = new Set(objDotMap.values());
+
+    // Recruit neighborhood dots to form visible constellations per evidence node
+    const NEIGHBORS_PER_NODE = 50;
+    const recruitedDots = new Set<number>();
+    for (const [objectId, dotIndex] of objDotMap) {
+      const neighbors = grid.findNearestDots(dotIndex, NEIGHBORS_PER_NODE);
+      const node = nodes.find((n) => n.object_id === objectId);
+      const objectType = node?.object_type ?? 'note';
+      const typeColor = TYPE_COLORS[objectType];
+      const rgb = typeColor ? hexToRgb(typeColor) : null;
+      const pos = grid.getDotPosition(dotIndex);
+      if (!pos) continue;
+
+      for (const neighborIdx of neighbors) {
+        if (usedDots.has(neighborIdx) || recruitedDots.has(neighborIdx)) continue;
+        recruitedDots.add(neighborIdx);
+
+        // Move neighbor toward the evidence dot with jitter
+        const jitter = 15;
+        const rng = mulberry32(neighborIdx + dotIndex);
+        grid.setDotTarget(neighborIdx,
+          pos.x + (rng() - 0.5) * jitter,
+          pos.y + (rng() - 0.5) * jitter,
+        );
+        grid.setDotGalaxyState(neighborIdx, {
+          opacityOverride: 0.08 + rng() * 0.12,
+          colorOverride: rgb,
+          isRelevant: true,
+        });
+      }
+    }
+    recruitedDotsRef.current = recruitedDots;
+
+    const relevantDotIndices = new Set([...objDotMap.values(), ...recruitedDots]);
 
     // === PHASE 2: FILTERING (500ms opacity ramp) ===
     phaseRef.current = 'filtering';
