@@ -6,6 +6,7 @@
  */
 
 import { traceImageToTargets, type ParticleTarget } from './ImageTracer';
+import { traceVision, type VisionMode } from './VisionTracer';
 import {
   computeGraphLayout,
   computeClusterLayout,
@@ -28,6 +29,10 @@ export interface TargetResult {
   layout?: LayoutResult;
   /** Region metadata for truth map dot assignment */
   regionType?: ('agreement' | 'tension' | 'blind_spot' | 'ambient')[];
+  /** Vision trace mode (person/object) when semantic tracing succeeded */
+  visionMode?: VisionMode;
+  /** COCO-SSD class labels parallel to targets (object mode only) */
+  objectLabels?: string[];
 }
 
 /**
@@ -50,20 +55,44 @@ export async function generateTargets(
 ): Promise<TargetResult> {
   // Try image tracing if URL is available
   if (imageUrl) {
+    const padX = canvasWidth * 0.1;
+    const padY = canvasHeight * 0.1;
+    const usableW = canvasWidth - padX * 2;
+    const usableH = canvasHeight - padY * 2;
+
+    // Try semantic vision tracing first (face mesh, object detection)
+    try {
+      const visionResult = await traceVision(
+        imageUrl,
+        Math.min(totalDotCount, 5000),
+      );
+
+      if (visionResult.targets.length > totalDotCount * 0.05) {
+        const targets = visionResult.targets.map((t) => ({
+          x: padX + t.x * usableW,
+          y: padY + t.y * usableH,
+          weight: t.weight,
+        }));
+
+        return {
+          method: 'image-trace',
+          targets,
+          visionMode: visionResult.mode,
+          objectLabels: visionResult.objectLabels,
+        };
+      }
+    } catch (err) {
+      console.warn('[Galaxy] Vision tracing failed, trying Sobel:', err);
+    }
+
+    // Fall back to Sobel edge detection
     try {
       const particleTargets = await traceImageToTargets(
         imageUrl,
-        Math.min(totalDotCount, 2000), // cap at 2000 targets for performance
+        Math.min(totalDotCount, 2000),
       );
 
-      // Require at least 10% of dot count for a usable image trace
       if (particleTargets.length > totalDotCount * 0.1) {
-        // Scale normalized positions to canvas coordinates with padding
-        const padX = canvasWidth * 0.1;
-        const padY = canvasHeight * 0.1;
-        const usableW = canvasWidth - padX * 2;
-        const usableH = canvasHeight - padY * 2;
-
         const targets = particleTargets.map((t) => ({
           x: padX + t.x * usableW,
           y: padY + t.y * usableH,

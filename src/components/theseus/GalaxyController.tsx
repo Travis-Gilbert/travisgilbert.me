@@ -69,6 +69,7 @@ export default function GalaxyController({
   const prevStateRef = useRef<AskState>('IDLE');
   const phaseRef = useRef<ConstructionPhase>('idle');
   const phaseTimerRef = useRef<number>(0);
+  const visionTimerIdsRef = useRef<number[]>([]);
   const edgeProgressRef = useRef<number>(0);
   const labelAlphaRef = useRef<number>(0);
   // Map from object_id to dot index for answer construction
@@ -203,6 +204,8 @@ export default function GalaxyController({
     if (state === 'IDLE' && prev !== 'IDLE') {
       phaseRef.current = 'idle';
       window.clearTimeout(phaseTimerRef.current);
+      for (const id of visionTimerIdsRef.current) window.clearTimeout(id);
+      visionTimerIdsRef.current = [];
       edgeProgressRef.current = 0;
       labelAlphaRef.current = 0;
       objectDotMapRef.current.clear();
@@ -581,33 +584,91 @@ export default function GalaxyController({
 
       generateTargets(imageUrl, nodes, edges, width, height, dotCount).then((result) => {
         if (result.method === 'image-trace') {
-          // Image mode: assign ALL dots to image target positions
-          // This creates the portrait/shape effect where the entire background participates
           const targets = result.targets;
+          const isVisionPerson = result.visionMode === 'person';
+          const visionTimerIds: number[] = [];
 
-          for (let i = 0; i < dotCount && i < targets.length; i++) {
-            const target = targets[i];
-            const jitterX = (Math.random() - 0.5) * 4;
-            const jitterY = (Math.random() - 0.5) * 4;
+          if (prefersReducedMotion || !isVisionPerson) {
+            // Instant assignment for reduced motion or non-person (object/Sobel) traces
+            const instantRng = mulberry32(targets.length * 6173);
+            for (let i = 0; i < dotCount && i < targets.length; i++) {
+              const target = targets[i];
+              const jitterX = (instantRng() - 0.5) * 4;
+              const jitterY = (instantRng() - 0.5) * 4;
 
-            if (prefersReducedMotion) {
-              grid.setDotGalaxyState(i, { opacityOverride: 0.25 + target.weight * 0.25 });
-            } else {
-              grid.setDotTarget(i, target.x + jitterX, target.y + jitterY);
-              grid.setDotGalaxyState(i, { opacityOverride: 0.25 + target.weight * 0.25 });
+              if (prefersReducedMotion) {
+                grid.setDotGalaxyState(i, { opacityOverride: 0.25 + target.weight * 0.25 });
+              } else {
+                grid.setDotTarget(i, target.x + jitterX, target.y + jitterY);
+                grid.setDotGalaxyState(i, { opacityOverride: 0.25 + target.weight * 0.25 });
+              }
+            }
+
+            for (let i = targets.length; i < dotCount; i++) {
+              grid.setDotGalaxyState(i, { opacityOverride: 0.01 });
+            }
+            grid.wakeAnimation();
+          } else {
+            // Phased construction for person (face mesh) vision targets.
+            // Weight encodes phase: 0-0.25 silhouette, 0.25-0.5 structure,
+            // 0.5-0.75 interior, 0.75-1.0 detail.
+            const phases = [
+              { min: 0.00, max: 0.25, delay: 0,    label: 'silhouette' },
+              { min: 0.25, max: 0.50, delay: 2000, label: 'structure' },
+              { min: 0.50, max: 0.75, delay: 4000, label: 'fill' },
+              { min: 0.75, max: 1.01, delay: 6000, label: 'detail' },
+            ];
+
+            // Fade all dots to near-invisible first
+            for (let i = 0; i < dotCount; i++) {
+              grid.setDotGalaxyState(i, { opacityOverride: 0.01 });
+            }
+            grid.wakeAnimation();
+
+            // Pre-sort targets into phase buckets with their original indices
+            const phaseBuckets = phases.map((phase) => {
+              const bucket: Array<{ target: typeof targets[0]; index: number }> = [];
+              for (let i = 0; i < targets.length; i++) {
+                const w = targets[i].weight;
+                if (w >= phase.min && w < phase.max) {
+                  bucket.push({ target: targets[i], index: i });
+                }
+              }
+              return bucket;
+            });
+
+            const phaseRng = mulberry32(targets.length * 4219);
+
+            for (let p = 0; p < phases.length; p++) {
+              const bucket = phaseBuckets[p];
+              const delay = phases[p].delay;
+
+              const timerId = window.setTimeout(() => {
+                for (const { target, index } of bucket) {
+                  if (index >= dotCount) continue;
+                  const jitterX = (phaseRng() - 0.5) * 3;
+                  const jitterY = (phaseRng() - 0.5) * 3;
+                  grid.setDotTarget(index, target.x + jitterX, target.y + jitterY);
+                  grid.setDotGalaxyState(index, {
+                    opacityOverride: 0.15 + target.weight * 0.35,
+                  });
+                }
+                grid.wakeAnimation();
+              }, delay);
+              visionTimerIds.push(timerId);
             }
           }
 
-          // Dots beyond target count: fade to nearly invisible
-          for (let i = targets.length; i < dotCount; i++) {
-            grid.setDotGalaxyState(i, { opacityOverride: 0.01 });
-          }
-
-          grid.wakeAnimation();
-
-          // No edges for image mode (the shape IS the answer)
           // Label placement: use evidence nodes positioned at their cluster dots
-          runCrystallizePhase(grid, objDotMap, nodes, relevantDotIndices);
+          // Delay to after final phase completes (7s for person, 0 for instant)
+          const crystallizeDelay = isVisionPerson && !prefersReducedMotion ? 7000 : 0;
+          const crystallizeTimerId = window.setTimeout(() => {
+            runCrystallizePhase(grid, objDotMap, nodes, relevantDotIndices);
+          }, crystallizeDelay);
+          visionTimerIds.push(crystallizeTimerId);
+
+          // Store all timer IDs so cleanup can cancel them
+          visionTimerIdsRef.current = visionTimerIds;
 
         } else {
           // Graph/cluster layout mode: existing behavior
@@ -953,6 +1014,7 @@ export default function GalaxyController({
   useEffect(() => {
     return () => {
       window.clearTimeout(phaseTimerRef.current);
+      for (const id of visionTimerIdsRef.current) window.clearTimeout(id);
       window.clearInterval(pulseIntervalRef.current);
     };
   }, []);

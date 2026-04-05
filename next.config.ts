@@ -26,9 +26,9 @@ const nextConfig: NextConfig = {
     resolveAlias: {
       // Stub out @mediapipe packages that @tensorflow-models imports at the
       // ESM module level. We use runtime: 'tfjs' (not 'mediapipe'), so these
-      // are never called. Without the alias the build fails on missing modules.
-      '@mediapipe/selfie_segmentation': { browser: './src/lib/stubs/empty.ts' },
-      '@mediapipe/face_mesh': { browser: './src/lib/stubs/empty.ts' },
+      // are never called. Applies to both browser and SSR bundles.
+      '@mediapipe/selfie_segmentation': './src/lib/stubs/empty.ts',
+      '@mediapipe/face_mesh': './src/lib/stubs/empty.ts',
     },
   },
   async rewrites() {
