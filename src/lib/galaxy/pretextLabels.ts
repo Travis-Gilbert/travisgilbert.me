@@ -92,6 +92,46 @@ export function renderPretextLabels(
 }
 
 /**
+ * Greedy collision avoidance: push overlapping labels downward.
+ * Uses pretext for accurate text measurement.
+ */
+export function resolveCollisions(
+  labels: CanvasLabel[],
+  padding: number = 8,
+): CanvasLabel[] {
+  const placed: Array<{ x: number; y: number; w: number; h: number }> = [];
+
+  return labels.map((label) => {
+    const text = label.text.toUpperCase();
+    const prepared = getPrepared(text);
+    const result = layoutWithLines(prepared, LABEL_MAX_WIDTH, LABEL_LINE_HEIGHT);
+    let maxLineW = 0;
+    for (const line of result.lines) {
+      if (line.width > maxLineW) maxLineW = line.width;
+    }
+    const textWidth = maxLineW + LABEL_PADDING_X * 2;
+    const textHeight = result.height + LABEL_PADDING_Y * 2;
+
+    let finalY = label.y;
+    let attempts = 0;
+
+    while (attempts < 12) {
+      const overlaps = placed.some(
+        (p) =>
+          Math.abs(label.x - p.x) < (textWidth + p.w) / 2 + padding &&
+          Math.abs(finalY - p.y) < (textHeight + p.h) / 2 + 4,
+      );
+      if (!overlaps) break;
+      finalY += textHeight + 4;
+      attempts++;
+    }
+
+    placed.push({ x: label.x, y: finalY, w: textWidth, h: textHeight });
+    return { ...label, y: finalY };
+  });
+}
+
+/**
  * Clear the prepared text cache (call on resize or theme change).
  */
 export function clearLabelCache(): void {

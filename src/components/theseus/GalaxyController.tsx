@@ -12,6 +12,7 @@ import { usePrefersReducedMotion } from '@/hooks/usePrefersReducedMotion';
 import { TYPE_COLORS } from './renderers/rendering';
 import { computeGraphLayout, computeClusterLayout } from './galaxyLayout';
 import { generateTargets, generateTruthMapTargets } from '@/lib/galaxy/TargetGenerator';
+import { resolveCollisions, clearLabelCache } from '@/lib/galaxy/pretextLabels';
 import type { MapSection } from '@/lib/theseus-types';
 import type { TruthMapTopologyDirective } from '@/lib/theseus-viz/SceneDirective';
 import GalaxyDrawer from './GalaxyDrawer';
@@ -83,6 +84,8 @@ export default function GalaxyController({
   const [isAcquiring, setIsAcquiring] = useState(false);
   // Drawer for cluster detail exploration
   const [drawerObjectId, setDrawerObjectId] = useState<string | null>(null);
+  // Track which evidence dot is hovered for visual feedback
+  const hoveredDotRef = useRef<number | null>(null);
   // Track previous query for follow-up transitions
   const prevQueryRef = useRef<string | null>(null);
   // Track predicted viz type without triggering effect re-runs
@@ -230,6 +233,7 @@ export default function GalaxyController({
       }
       grid.setEdges([]);
       grid.setLabels([]);
+      clearLabelCache();
       grid.wakeAnimation();
       return;
     }
@@ -587,7 +591,7 @@ export default function GalaxyController({
       const typeColor = TYPE_COLORS[m.objectType];
       const rgb = typeColor ? hexToRgb(typeColor) : null;
       filterTargets.set(m.dotIndex, {
-        opacity: isRelevant ? 0.25 : 0.005,
+        opacity: isRelevant ? 0.25 : 0.06,
         color: isRelevant && rgb ? rgb : null,
       });
       grid.setDotGalaxyState(m.dotIndex, { isRelevant });
@@ -784,20 +788,23 @@ export default function GalaxyController({
     window.setTimeout(() => {
       phaseRef.current = 'crystallize';
 
-      const labelData: Array<{ x: number; y: number; text: string; objectId: string }> = [];
+      const rawLabels: Array<{ x: number; y: number; text: string; alpha: number }> = [];
       for (const [objectId, dotIndex] of objDotMap) {
         const node = nodes.find((n) => n.object_id === objectId);
         if (!node) continue;
         const pos = grid.getDotPosition(dotIndex);
         if (!pos) continue;
-        labelData.push({
-          x: pos.x, y: pos.y, objectId,
+        rawLabels.push({
+          x: pos.x, y: pos.y, alpha: 0.7,
           text: node.title.length > 20 ? node.title.slice(0, 20) + '...' : node.title,
         });
       }
 
+      // Resolve overlapping labels before rendering
+      const labelData = resolveCollisions(rawLabels);
+
       if (prefersReducedMotion) {
-        grid.setLabels(labelData.map((l) => ({ x: l.x, y: l.y, text: l.text, alpha: 0.7 })));
+        grid.setLabels(labelData);
         for (const dotIndex of relevantDotIndices) {
           grid.setDotGalaxyState(dotIndex, { opacityOverride: 0.45 });
         }
@@ -808,7 +815,7 @@ export default function GalaxyController({
         const labelInterval = window.setInterval(() => {
           labelStep++;
           const t = labelStep / labelSteps;
-          grid.setLabels(labelData.map((l) => ({ x: l.x, y: l.y, text: l.text, alpha: 0.7 * t })));
+          grid.setLabels(labelData.map((l) => ({ ...l, alpha: l.alpha * t })));
           grid.wakeAnimation();
           if (labelStep >= labelSteps) clearInterval(labelInterval);
         }, 50);
@@ -911,6 +918,49 @@ export default function GalaxyController({
     if (mapping && mapping.topObjects.length > 0) {
       setDrawerObjectId(mapping.topObjects[0]);
     }
+  }, [gridRef]);
+
+  // Hover feedback: brighten nearest evidence dot within 30px
+  const handleMouseMove = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
+    if (phaseRef.current !== 'explore' && phaseRef.current !== 'crystallize') return;
+    const grid = gridRef.current;
+    if (!grid) return;
+
+    const rect = (e.currentTarget as HTMLDivElement).getBoundingClientRect();
+    const mx = e.clientX - rect.left;
+    const my = e.clientY - rect.top;
+
+    let bestDist = 900; // 30px squared
+    let bestDotIndex: number | null = null;
+
+    for (const [, dotIndex] of objectDotMapRef.current) {
+      const pos = grid.getDotPosition(dotIndex);
+      if (!pos) continue;
+      const dx = pos.x - mx;
+      const dy = pos.y - my;
+      const d2 = dx * dx + dy * dy;
+      if (d2 < bestDist) {
+        bestDist = d2;
+        bestDotIndex = dotIndex;
+      }
+    }
+
+    const prev = hoveredDotRef.current;
+    if (prev === bestDotIndex) return;
+
+    // Restore previous hovered dot
+    if (prev !== null) {
+      grid.setDotGalaxyState(prev, { opacityOverride: 0.45 });
+    }
+
+    // Brighten new hovered dot
+    if (bestDotIndex !== null) {
+      grid.setDotGalaxyState(bestDotIndex, { opacityOverride: 0.8 });
+    }
+
+    hoveredDotRef.current = bestDotIndex;
+    (e.currentTarget as HTMLDivElement).style.cursor = bestDotIndex !== null ? 'pointer' : 'default';
+    grid.wakeAnimation();
   }, [gridRef]);
 
   // What-if removal: fade and scatter the removed dot
@@ -1082,12 +1132,17 @@ export default function GalaxyController({
       <div
         onClick={handleClick}
         onDoubleClick={handleDoubleClick}
+        onMouseMove={handleMouseMove}
         style={{
           position: 'fixed',
           inset: 0,
           zIndex: zoom.active ? 2 : (phaseRef.current === 'idle' || phaseRef.current === 'explore' || phaseRef.current === 'crystallize' ? 1 : 0),
           pointerEvents: zoom.active || phaseRef.current === 'idle' || phaseRef.current === 'explore' || phaseRef.current === 'crystallize' ? 'auto' : 'none',
-          cursor: zoom.active ? 'zoom-out' : (phaseRef.current === 'idle' || phaseRef.current === 'explore' ? 'pointer' : undefined),
+          cursor: zoom.active
+            ? 'zoom-out'
+            : (phaseRef.current === 'explore' || phaseRef.current === 'crystallize')
+              ? 'default'
+              : phaseRef.current === 'idle' ? 'pointer' : undefined,
         }}
       />
 
