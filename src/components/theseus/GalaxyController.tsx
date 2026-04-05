@@ -469,6 +469,17 @@ export default function GalaxyController({
       return;
     }
 
+    // Clear any previously recruited dots from a prior query (follow-ups skip IDLE)
+    for (const idx of recruitedDotsRef.current) {
+      grid.resetDotTarget(idx);
+      grid.setDotGalaxyState(idx, {
+        opacityOverride: null,
+        colorOverride: null,
+        isRelevant: false,
+      });
+    }
+    recruitedDotsRef.current.clear();
+
     const evidencePath = resp.sections.find((s) => s.type === 'evidence_path');
     const nodes: EvidenceNode[] = evidencePath && 'nodes' in evidencePath ? evidencePath.nodes : [];
     const edges: EvidenceEdge[] = evidencePath && 'edges' in evidencePath ? evidencePath.edges : [];
