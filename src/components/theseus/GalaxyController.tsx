@@ -18,6 +18,7 @@ import type { TruthMapTopologyDirective } from '@/lib/theseus-viz/SceneDirective
 import {
   runStippleConstruction,
   animateStippleConstruction,
+  runArgumentTransition,
   type StippleConstructionResult,
 } from '@/lib/galaxy/stippleConstruction';
 import GalaxyDrawer from './GalaxyDrawer';
@@ -46,6 +47,7 @@ interface GalaxyControllerProps {
   directive: SceneDirective | null;
   dataStatus?: DataProcessingStatus | null;
   vizPrediction?: VizPrediction | null;
+  argumentView?: boolean;
 }
 
 export default function GalaxyController({
@@ -55,6 +57,7 @@ export default function GalaxyController({
   directive,
   dataStatus,
   vizPrediction,
+  argumentView,
 }: GalaxyControllerProps) {
   const prefersReducedMotion = usePrefersReducedMotion();
   const [clusters, setClusters] = useState<ClusterSummary[]>([]);
@@ -103,6 +106,56 @@ export default function GalaxyController({
   useEffect(() => {
     predTypeRef.current = vizPrediction?.type ?? 'graph-native';
   }, [vizPrediction]);
+
+  // "Show me why" toggle: switch between answer view and argument structure
+  const prevArgumentViewRef = useRef(false);
+  useEffect(() => {
+    const grid = gridRef.current;
+    if (!grid || !response || state !== 'EXPLORING') return;
+    if (argumentView === prevArgumentViewRef.current) return;
+    prevArgumentViewRef.current = argumentView ?? false;
+
+    const evidencePath = response.sections.find((s) => s.type === 'evidence_path');
+    const nodes: EvidenceNode[] = evidencePath && 'nodes' in evidencePath ? evidencePath.nodes : [];
+    const edges: EvidenceEdge[] = evidencePath && 'edges' in evidencePath ? evidencePath.edges : [];
+
+    if (nodes.length === 0) return;
+
+    // Clean up previous stipple animation
+    stippleCleanupRef.current?.();
+
+    if (argumentView) {
+      // Transition to argument structure view
+      runArgumentTransition(nodes, edges, directive, grid).then((result) => {
+        if (!result) return;
+        stippleResultRef.current = result;
+        for (const idx of result.recruitedDotIndices) {
+          recruitedDotsRef.current.add(idx);
+        }
+        const cleanup = animateStippleConstruction(
+          grid, result, result.stippleResult.targets, nodes, prefersReducedMotion,
+        );
+        stippleCleanupRef.current = cleanup;
+      });
+    } else {
+      // Return to answer view: re-stipple with the original renderer
+      const vizType = predTypeRef.current;
+      runStippleConstruction(vizType, nodes, edges, directive, grid, {
+        theatricality: 0.1,
+        instant: prefersReducedMotion,
+      }).then((result) => {
+        if (!result) return;
+        stippleResultRef.current = result;
+        for (const idx of result.recruitedDotIndices) {
+          recruitedDotsRef.current.add(idx);
+        }
+        const cleanup = animateStippleConstruction(
+          grid, result, result.stippleResult.targets, nodes, prefersReducedMotion,
+        );
+        stippleCleanupRef.current = cleanup;
+      });
+    }
+  }, [argumentView, response, directive, state, gridRef, prefersReducedMotion]);
 
   // Fetch clusters on mount
   useEffect(() => {

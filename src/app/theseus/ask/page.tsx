@@ -343,7 +343,7 @@ function AskContent() {
   const query = searchParams.get('q');
   const savedId = searchParams.get('saved');
   const isMobile = useIsMobile();
-  const { setAskState: pushState, setResponse: pushResponse, setDirective: pushDirective, setDataStatus: pushDataStatus, setVizPrediction: pushVizPrediction } = useGalaxy();
+  const { setAskState: pushState, setResponse: pushResponse, setDirective: pushDirective, setDataStatus: pushDataStatus, setVizPrediction: pushVizPrediction, argumentView, setArgumentView } = useGalaxy();
 
   const [state, setState] = useState<AskState>(query ? 'THINKING' : 'IDLE');
   const [response, setResponse] = useState<TheseusResponse | null>(null);
@@ -1206,6 +1206,65 @@ function AskContent() {
                     </div>
                   )}
                 </section>
+              </>
+            )}
+
+            {/* Show me why: argument structure toggle */}
+            {evidencePath && evidencePath.nodes.length >= 2 && (
+              <>
+                <div style={{ height: 1, background: 'rgba(255,255,255,0.08)', margin: '14px 0' }} />
+                <button
+                  type="button"
+                  onClick={() => setArgumentView(!argumentView)}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 8,
+                    width: '100%',
+                    padding: '10px 14px',
+                    borderRadius: 10,
+                    background: argumentView
+                      ? 'rgba(74,138,150,0.14)'
+                      : 'rgba(255,255,255,0.03)',
+                    border: argumentView
+                      ? '1px solid rgba(74,138,150,0.3)'
+                      : '1px solid rgba(255,255,255,0.08)',
+                    color: argumentView
+                      ? 'var(--vie-teal-light)'
+                      : 'var(--vie-text-muted)',
+                    fontFamily: 'var(--vie-font-body)',
+                    fontSize: 13,
+                    cursor: 'pointer',
+                    textAlign: 'left',
+                    transition: 'background 200ms ease, border-color 200ms ease, color 200ms ease',
+                  }}
+                >
+                  <span
+                    style={{
+                      fontFamily: 'var(--vie-font-mono)',
+                      fontSize: 10,
+                      letterSpacing: '0.06em',
+                      textTransform: 'uppercase',
+                      opacity: 0.7,
+                    }}
+                  >
+                    {argumentView ? '↩' : '◉'}
+                  </span>
+                  {argumentView ? 'Back to answer' : 'Show me why you think that'}
+                </button>
+                {argumentView && (
+                  <p
+                    style={{
+                      margin: '6px 0 0',
+                      color: 'var(--vie-text-dim)',
+                      fontFamily: 'var(--vie-font-mono)',
+                      fontSize: 11,
+                      letterSpacing: '0.04em',
+                    }}
+                  >
+                    Tracing the reasoning behind this answer.
+                  </p>
+                )}
               </>
             )}
 

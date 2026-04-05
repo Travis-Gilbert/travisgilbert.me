@@ -18,6 +18,9 @@ interface GalaxyContextValue {
   setDirective: (directive: SceneDirective | null) => void;
   setDataStatus: (status: DataProcessingStatus | null) => void;
   setVizPrediction: (prediction: VizPrediction | null) => void;
+  /** Toggle argument structure view ("Show me why") */
+  argumentView: boolean;
+  setArgumentView: (active: boolean) => void;
 }
 
 const GalaxyContext = createContext<GalaxyContextValue | null>(null);
@@ -39,6 +42,7 @@ export default function TheseusShell({ children }: { children: React.ReactNode }
   const [directive, setDirective] = useState<SceneDirective | null>(null);
   const [dataStatus, setDataStatus] = useState<DataProcessingStatus | null>(null);
   const [vizPrediction, setVizPrediction] = useState<VizPrediction | null>(null);
+  const [argumentView, setArgumentView] = useState(false);
 
   useEffect(() => {
     import('@/lib/theseus-viz/vizPlanner').then(({ warmUpModels }) => {
@@ -54,6 +58,8 @@ export default function TheseusShell({ children }: { children: React.ReactNode }
       setDirective,
       setDataStatus,
       setVizPrediction,
+      argumentView,
+      setArgumentView,
     }}>
       <TheseusDotGrid ref={gridRef} />
       <GalaxyController
@@ -63,6 +69,7 @@ export default function TheseusShell({ children }: { children: React.ReactNode }
         directive={directive}
         dataStatus={dataStatus}
         vizPrediction={vizPrediction}
+        argumentView={argumentView}
       />
       <TheseusNav />
       <div style={{
