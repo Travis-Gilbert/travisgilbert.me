@@ -82,6 +82,8 @@ export interface DotGridHandle {
   setLabels(labels: Array<{ x: number; y: number; text: string; alpha: number }>): void;
   /** Find nearest dot with a cluster mapping to a screen position */
   findNearestClusterDot(x: number, y: number): { index: number; clusterId: number; x: number; y: number } | null;
+  /** Find the N nearest dots to a given dot index, sorted by distance */
+  findNearestDots(dotIndex: number, count: number): number[];
   /** Get canvas dimensions */
   getSize(): { width: number; height: number };
 }
@@ -323,6 +325,22 @@ const TheseusDotGrid = forwardRef<DotGridHandle, TheseusDotGridProps>(function T
         x: dots.gx[bestIndex] + dots.ox[bestIndex],
         y: dots.gy[bestIndex] + dots.oy[bestIndex],
       };
+    },
+    findNearestDots(dotIndex: number, count: number): number[] {
+      const pos = this.getDotPosition(dotIndex);
+      if (!pos) return [];
+      const distances: Array<{ index: number; dist: number }> = [];
+      const total = this.getDotCount();
+      for (let i = 0; i < total; i++) {
+        if (i === dotIndex) continue;
+        const other = this.getDotPosition(i);
+        if (!other) continue;
+        const dx = other.x - pos.x;
+        const dy = other.y - pos.y;
+        distances.push({ index: i, dist: dx * dx + dy * dy });
+      }
+      distances.sort((a, b) => a.dist - b.dist);
+      return distances.slice(0, count).map((d) => d.index);
     },
     getSize() {
       return { width: sizeRef.current.w, height: sizeRef.current.h };
