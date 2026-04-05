@@ -5,6 +5,7 @@ import type { DotGridHandle } from './TheseusDotGrid';
 import type { ClusterSummary, EvidenceEdge, EvidenceNode, TheseusResponse, WhatIfResult } from '@/lib/theseus-types';
 import type { SceneDirective } from '@/lib/theseus-viz/SceneDirective';
 import type { DataProcessingStatus } from '@/lib/theseus-data/types';
+import type { VizPrediction, VizType } from '@/lib/theseus-viz/vizPlanner';
 import { getClusters } from '@/lib/theseus-api';
 import { mulberry32 } from '@/lib/prng';
 import { usePrefersReducedMotion } from '@/hooks/usePrefersReducedMotion';
@@ -38,6 +39,7 @@ interface GalaxyControllerProps {
   response: TheseusResponse | null;
   directive: SceneDirective | null;
   dataStatus?: DataProcessingStatus | null;
+  vizPrediction?: VizPrediction | null;
 }
 
 export default function GalaxyController({
@@ -46,6 +48,7 @@ export default function GalaxyController({
   response,
   directive,
   dataStatus,
+  vizPrediction,
 }: GalaxyControllerProps) {
   const prefersReducedMotion = usePrefersReducedMotion();
   const [clusters, setClusters] = useState<ClusterSummary[]>([]);
@@ -79,6 +82,13 @@ export default function GalaxyController({
   const [drawerObjectId, setDrawerObjectId] = useState<string | null>(null);
   // Track previous query for follow-up transitions
   const prevQueryRef = useRef<string | null>(null);
+  // Track predicted viz type without triggering effect re-runs
+  const predTypeRef = useRef<VizType>('graph-native');
+
+  // Keep predTypeRef current without triggering the main animation effect
+  useEffect(() => {
+    predTypeRef.current = vizPrediction?.type ?? 'graph-native';
+  }, [vizPrediction]);
 
   // Fetch clusters on mount
   useEffect(() => {
@@ -229,23 +239,50 @@ export default function GalaxyController({
       }
 
       const { width, height } = grid.getSize();
-      const cx = width / 2;
-      const cy = height * 0.4;
       let pulsePhase = 0;
 
       const pulseInterval = window.setInterval(() => {
         pulsePhase += 0.04;
 
+        // Read predTypeRef each tick so animation updates when prediction arrives
+        const predType = predTypeRef.current;
+
         for (const m of mappingsRef.current) {
           const pos = grid.getDotPosition(m.dotIndex);
           if (!pos) continue;
-          const dx = pos.x - cx;
-          const dy = pos.y - cy;
-          const dist = Math.sqrt(dx * dx + dy * dy);
-          const maxDist = Math.sqrt(cx * cx + cy * cy);
-          const norm = dist / maxDist;
 
-          const wave = Math.sin((norm * 6) - pulsePhase * 3);
+          let wave = 0;
+
+          if (predType === 'timeline') {
+            // Left-to-right flow: wave travels horizontally
+            const normX = pos.x / Math.max(1, width);
+            wave = Math.sin((normX * 8) - pulsePhase * 3);
+          } else if (predType === 'bar-chart' || predType === 'line-chart' || predType === 'comparison') {
+            // Grid-like: horizontal bands
+            const normY = pos.y / Math.max(1, height);
+            wave = Math.sin((normY * 6) - pulsePhase * 2);
+          } else if (predType === 'portrait') {
+            // Concentrate toward center: tighter radial pulse
+            const cx = width / 2;
+            const cy = height / 2;
+            const dx = pos.x - cx;
+            const dy = pos.y - cy;
+            const dist = Math.sqrt(dx * dx + dy * dy);
+            const maxDist = Math.sqrt(cx * cx + cy * cy) * 0.6;
+            const norm = Math.min(dist / maxDist, 1);
+            wave = Math.sin((norm * 8) - pulsePhase * 4) * (1 - norm * 0.5);
+          } else {
+            // Default: radial outward from upper-center (graph-native, truth-map, heatmap, unknown)
+            const cx = width / 2;
+            const cy = height * 0.4;
+            const dx = pos.x - cx;
+            const dy = pos.y - cy;
+            const dist = Math.sqrt(dx * dx + dy * dy);
+            const maxDist = Math.sqrt(cx * cx + cy * cy);
+            const norm = dist / maxDist;
+            wave = Math.sin((norm * 6) - pulsePhase * 3);
+          }
+
           const pulse = Math.max(0, wave) * 0.18;
           grid.setDotGalaxyState(m.dotIndex, {
             opacityOverride: 0.06 + pulse,
@@ -256,8 +293,11 @@ export default function GalaxyController({
         grid.wakeAnimation();
       }, 50);
 
+      window.clearInterval(pulseIntervalRef.current);
       pulseIntervalRef.current = pulseInterval;
-      return;
+      return () => {
+        window.clearInterval(pulseInterval);
+      };
     }
 
     // Phase 2 + 3 + 4: Filtering, Construction, Crystallize

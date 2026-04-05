@@ -1,6 +1,6 @@
 'use client';
 
-import { createContext, useContext, useRef, useState } from 'react';
+import { createContext, useContext, useEffect, useRef, useState } from 'react';
 import TheseusDotGrid from './TheseusDotGrid';
 import GalaxyController from './GalaxyController';
 import TheseusNav from './TheseusNav';
@@ -9,6 +9,7 @@ import type { TheseusResponse } from '@/lib/theseus-types';
 import type { SceneDirective } from '@/lib/theseus-viz/SceneDirective';
 import type { DataProcessingStatus } from '@/lib/theseus-data/types';
 import type { AskState } from '@/app/theseus/ask/page';
+import type { VizPrediction } from '@/lib/theseus-viz/vizPlanner';
 
 interface GalaxyContextValue {
   gridRef: React.RefObject<DotGridHandle | null>;
@@ -16,6 +17,7 @@ interface GalaxyContextValue {
   setResponse: (response: TheseusResponse | null) => void;
   setDirective: (directive: SceneDirective | null) => void;
   setDataStatus: (status: DataProcessingStatus | null) => void;
+  setVizPrediction: (prediction: VizPrediction | null) => void;
 }
 
 const GalaxyContext = createContext<GalaxyContextValue | null>(null);
@@ -36,6 +38,13 @@ export default function TheseusShell({ children }: { children: React.ReactNode }
   const [response, setResponse] = useState<TheseusResponse | null>(null);
   const [directive, setDirective] = useState<SceneDirective | null>(null);
   const [dataStatus, setDataStatus] = useState<DataProcessingStatus | null>(null);
+  const [vizPrediction, setVizPrediction] = useState<VizPrediction | null>(null);
+
+  useEffect(() => {
+    import('@/lib/theseus-viz/vizPlanner').then(({ warmUpModels }) => {
+      warmUpModels().catch(() => {});
+    });
+  }, []);
 
   return (
     <GalaxyContext.Provider value={{
@@ -44,6 +53,7 @@ export default function TheseusShell({ children }: { children: React.ReactNode }
       setResponse,
       setDirective,
       setDataStatus,
+      setVizPrediction,
     }}>
       <TheseusDotGrid ref={gridRef} />
       <GalaxyController
@@ -52,6 +62,7 @@ export default function TheseusShell({ children }: { children: React.ReactNode }
         response={response}
         directive={directive}
         dataStatus={dataStatus}
+        vizPrediction={vizPrediction}
       />
       <TheseusNav />
       <div style={{

@@ -8,6 +8,7 @@ import type { ApiError } from '@/lib/theseus-api';
 import type {
   DataAcquisitionSection,
   EvidencePathSection,
+  FollowUp,
   HypothesisSection,
   NarrativeSection,
   ObjectsSection,
@@ -336,7 +337,7 @@ function AskContent() {
   const query = searchParams.get('q');
   const savedId = searchParams.get('saved');
   const isMobile = useIsMobile();
-  const { setAskState: pushState, setResponse: pushResponse, setDirective: pushDirective, setDataStatus: pushDataStatus } = useGalaxy();
+  const { setAskState: pushState, setResponse: pushResponse, setDirective: pushDirective, setDataStatus: pushDataStatus, setVizPrediction: pushVizPrediction } = useGalaxy();
 
   const [state, setState] = useState<AskState>(query ? 'THINKING' : 'IDLE');
   const [response, setResponse] = useState<TheseusResponse | null>(null);
@@ -350,6 +351,7 @@ function AskContent() {
   const [composerQuery, setComposerQuery] = useState(query ?? '');
   const [queryHistory, setQueryHistory] = useState<QueryHistoryEntry[]>([]);
   const [retryNonce, setRetryNonce] = useState(0);
+  const [rankedFollowUps, setRankedFollowUps] = useState<FollowUp[]>([]);
 
   const requestIdRef = useRef(0);
   const askAbortRef = useRef<AbortController | null>(null);
@@ -442,6 +444,34 @@ function AskContent() {
   }, [error, markHistoryStatus, query]);
 
   useEffect(() => {
+    const followUps = response?.follow_ups;
+    if (!followUps || followUps.length === 0) {
+      setRankedFollowUps([]);
+      return;
+    }
+
+    const narrativeText = response
+      ? getNarratives(response).map((n) => n.content).join(' ')
+      : '';
+
+    if (!narrativeText) {
+      setRankedFollowUps(followUps);
+      return;
+    }
+
+    import('@/lib/theseus-viz/vizPlanner').then(({ rankFollowUps }) => {
+      const queries = followUps.map((f) => f.query);
+      rankFollowUps(narrativeText, queries).then((ranked) => {
+        const queryOrder = new Map(ranked.map((q, i) => [q, i]));
+        const sorted = [...followUps].sort(
+          (a, b) => (queryOrder.get(a.query) ?? 999) - (queryOrder.get(b.query) ?? 999),
+        );
+        setRankedFollowUps(sorted);
+      }).catch(() => setRankedFollowUps(followUps));
+    }).catch(() => setRankedFollowUps(followUps));
+  }, [response]);
+
+  useEffect(() => {
     if (!savedId) return;
 
     getModel(savedId).then((model) => {
@@ -473,6 +503,7 @@ function AskContent() {
     setResponse(null);
     pushResponse(null);
     pushDirective(null);
+    pushVizPrediction(null);
     setDataStatus(null);
     pushDataStatus(null);
     setError(null);
@@ -490,6 +521,15 @@ function AskContent() {
 
       setState('THINKING');
       pushState('THINKING');
+
+      // Fire viz prediction in parallel: does not block the ask call
+      import('@/lib/theseus-viz/vizPlanner').then(({ predictVizType }) => {
+        predictVizType(activeQuery).then((prediction) => {
+          if (isStale()) return;
+          pushVizPrediction(prediction);
+        }).catch(() => {});
+      }).catch(() => {});
+
       const result = await askTheseus(activeQuery, {
         signal: controller.signal,
         timeoutMs: ASK_TIMEOUT_MS,
@@ -549,6 +589,12 @@ function AskContent() {
 
       setSceneDirective(directive);
       pushDirective(directive);
+
+      // Train the classifier with the actual renderer so the KNN improves over time
+      import('@/lib/theseus-viz/vizPlanner').then(({ trainFromFeedback, inferVizTypeFromRenderTarget }) => {
+        const actualType = inferVizTypeFromRenderTarget(directive.render_target);
+        trainFromFeedback(activeQuery, actualType).catch(() => {});
+      }).catch(() => {});
 
       const focalNodeId = directive.salience.find((salience) => salience.is_focal)?.node_id;
       const firstObjectId = getObjects(result)[0]?.id ?? null;
@@ -990,9 +1036,9 @@ function AskContent() {
             >
               Theseus found limited evidence for this query.
             </p>
-            {response.follow_ups && response.follow_ups.length > 0 && (
+            {rankedFollowUps.length > 0 && (
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
-                {response.follow_ups.map((followUp, index) => (
+                {rankedFollowUps.map((followUp, index) => (
                   <Link
                     key={`followup-${index}`}
                     href={`/theseus/ask?q=${encodeURIComponent(followUp.query)}`}
