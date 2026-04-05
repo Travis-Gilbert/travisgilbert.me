@@ -151,11 +151,16 @@ export default function TheseusHomepage() {
           }}
         >
           {query.length > 0 ? (
-            <span>{query}</span>
+            <>
+              <span style={{ whiteSpace: 'pre' }}>{query}</span>
+              {focused && <span className="theseus-terminal-cursor" />}
+            </>
           ) : (
-            <span style={{ color: 'var(--vie-text-dim)' }}>Ask Theseus...</span>
+            <>
+              {focused && <span className="theseus-terminal-cursor" />}
+              <span style={{ color: 'var(--vie-text-dim)' }}>Ask Theseus...</span>
+            </>
           )}
-          {focused && <span className="theseus-terminal-cursor" />}
         </div>
       </form>
 
