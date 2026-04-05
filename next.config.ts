@@ -22,6 +22,15 @@ const nextConfig: NextConfig = {
     unoptimized: true,
   },
   trailingSlash: false,
+  turbopack: {
+    resolveAlias: {
+      // Stub out @mediapipe packages that @tensorflow-models imports at the
+      // ESM module level. We use runtime: 'tfjs' (not 'mediapipe'), so these
+      // are never called. Without the alias the build fails on missing modules.
+      '@mediapipe/selfie_segmentation': { browser: './src/lib/stubs/empty.ts' },
+      '@mediapipe/face_mesh': { browser: './src/lib/stubs/empty.ts' },
+    },
+  },
   async rewrites() {
     return [
       {
