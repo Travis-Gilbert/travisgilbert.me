@@ -279,6 +279,12 @@ const RENDERER_LABELS: Record<string, string> = {
   'vega-lite': 'CHART',
 };
 
+/** Graph-native targets are handled by the 2D GalaxyController, not RenderRouter */
+function isGraphNativeTarget(directive: SceneDirective): boolean {
+  const primary = directive.render_target.primary;
+  return primary === 'particle-field' || primary === 'force-graph-3d';
+}
+
 function getConfidenceColor(value: number): string {
   if (value >= 0.6) return 'var(--vie-teal)';
   if (value >= 0.3) return 'var(--vie-amber)';
@@ -619,6 +625,14 @@ function AskContent() {
     };
   }, [pushDataStatus, pushDirective, pushResponse, pushState, query, retryNonce, savedId]);
 
+  // When the 2D path is active (no RenderRouter), trigger narration after construction settles
+  useEffect(() => {
+    if (state !== 'EXPLORING' || !sceneDirective || !isGraphNativeTarget(sceneDirective)) return;
+    const delay = sceneDirective.construction.total_duration_ms || 3000;
+    const timeoutId = window.setTimeout(() => setNarrationReady(true), delay);
+    return () => window.clearTimeout(timeoutId);
+  }, [state, sceneDirective]);
+
   const objectLookup = useMemo(
     () => (response ? buildObjectLookup(response) : new Map<string, TheseusObject>()),
     [response],
@@ -863,12 +877,14 @@ function AskContent() {
 
   return (
     <div style={{ position: 'relative', width: '100%', height: '100%' }}>
-      <RenderRouter
-        directive={sceneDirective}
-        response={response}
-        onSelectNode={setSelectedNodeId}
-        onCrystallizeComplete={() => setNarrationReady(true)}
-      />
+      {isGraphNativeTarget(sceneDirective) ? null : (
+        <RenderRouter
+          directive={sceneDirective}
+          response={response}
+          onSelectNode={setSelectedNodeId}
+          onCrystallizeComplete={() => setNarrationReady(true)}
+        />
+      )}
 
       <div
         style={{
