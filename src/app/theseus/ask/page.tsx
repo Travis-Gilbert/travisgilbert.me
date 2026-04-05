@@ -899,6 +899,7 @@ function AskContent() {
           border: '1px solid rgba(255,255,255,0.08)',
           backdropFilter: 'blur(18px)',
           zIndex: 10,
+          pointerEvents: 'auto' as const,
         }}
       >
         <div
@@ -971,6 +972,7 @@ function AskContent() {
           backdropFilter: 'blur(18px)',
           overflowY: 'auto' as const,
           zIndex: 10,
+          pointerEvents: 'auto' as const,
         }}
       >
         <div

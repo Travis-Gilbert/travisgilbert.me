@@ -1136,13 +1136,12 @@ export default function GalaxyController({
         style={{
           position: 'fixed',
           inset: 0,
-          zIndex: zoom.active ? 2 : (phaseRef.current === 'idle' || phaseRef.current === 'explore' || phaseRef.current === 'crystallize' ? 1 : 0),
-          pointerEvents: zoom.active || phaseRef.current === 'idle' || phaseRef.current === 'explore' || phaseRef.current === 'crystallize' ? 'auto' : 'none',
+          zIndex: zoom.active ? 2 : (state === 'IDLE' || state === 'EXPLORING') ? 1 : 0,
+          pointerEvents: zoom.active || state === 'IDLE' || state === 'EXPLORING' ? 'auto' : 'none',
           cursor: zoom.active
             ? 'zoom-out'
-            : (phaseRef.current === 'explore' || phaseRef.current === 'crystallize')
-              ? 'default'
-              : phaseRef.current === 'idle' ? 'pointer' : undefined,
+            : state === 'EXPLORING' ? 'default'
+              : state === 'IDLE' ? 'pointer' : undefined,
         }}
       />
 
