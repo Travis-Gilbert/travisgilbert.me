@@ -55,6 +55,8 @@ export interface GalaxyDotState {
   opacityOverride: number | null;
   /** Override RGB color, null = use default teal */
   colorOverride: [number, number, number] | null;
+  /** Override dot radius multiplier (1.0 = normal), null = use default */
+  scaleOverride: number | null;
 }
 
 export interface DotGridHandle {
@@ -136,6 +138,7 @@ const TheseusDotGrid = forwardRef<DotGridHandle, TheseusDotGridProps>(function T
     galaxyColorR: Float32Array;     // NaN = use default
     galaxyColorG: Float32Array;
     galaxyColorB: Float32Array;
+    galaxyScale: Float32Array;      // NaN = use default (1.0)
     // Target positions for answer construction
     targetGx: Float32Array;         // target grid x (spring pulls toward this)
     targetGy: Float32Array;         // target grid y
@@ -184,6 +187,7 @@ const TheseusDotGrid = forwardRef<DotGridHandle, TheseusDotGridProps>(function T
     const galaxyColorR = new Float32Array(count).fill(NaN);
     const galaxyColorG = new Float32Array(count).fill(NaN);
     const galaxyColorB = new Float32Array(count).fill(NaN);
+    const galaxyScale = new Float32Array(count).fill(NaN);
     const targetGx = new Float32Array(count);
     const targetGy = new Float32Array(count);
     const hasTarget = new Uint8Array(count);
@@ -204,6 +208,7 @@ const TheseusDotGrid = forwardRef<DotGridHandle, TheseusDotGridProps>(function T
       galaxyColorR,
       galaxyColorG,
       galaxyColorB,
+      galaxyScale,
       targetGx,
       targetGy,
       hasTarget,
@@ -236,6 +241,9 @@ const TheseusDotGrid = forwardRef<DotGridHandle, TheseusDotGridProps>(function T
         dots.galaxyColorG[index] = NaN;
         dots.galaxyColorB[index] = NaN;
       }
+    }
+    if (state.scaleOverride !== undefined) {
+      dots.galaxyScale[index] = state.scaleOverride ?? NaN;
     }
   }
 
@@ -279,6 +287,7 @@ const TheseusDotGrid = forwardRef<DotGridHandle, TheseusDotGridProps>(function T
       dots.galaxyColorR.fill(NaN);
       dots.galaxyColorG.fill(NaN);
       dots.galaxyColorB.fill(NaN);
+      dots.galaxyScale.fill(NaN);
       dots.hasTarget.fill(0);
       edgesRef.current = [];
       labelsRef.current = [];
@@ -390,16 +399,17 @@ const TheseusDotGrid = forwardRef<DotGridHandle, TheseusDotGridProps>(function T
 
     function drawDot(
       x: number, y: number, alpha: number, dotKind: number,
-      r?: number, g?: number, b?: number,
+      r?: number, g?: number, b?: number, scale?: number,
     ) {
       const cr = r !== undefined && !Number.isNaN(r) ? r : rgb[0];
       const cg = g !== undefined && !Number.isNaN(g) ? g : rgb[1];
       const cb = b !== undefined && !Number.isNaN(b) ? b : rgb[2];
+      const s = scale !== undefined && !Number.isNaN(scale) ? scale : 1;
       ctx!.fillStyle = `rgba(${cr},${cg},${cb},${alpha})`;
 
       if (dotKind === 0) {
         ctx!.beginPath();
-        ctx!.arc(x, y, dotRadius, 0, Math.PI * 2);
+        ctx!.arc(x, y, dotRadius * s, 0, Math.PI * 2);
         ctx!.fill();
       } else {
         ctx!.font = binaryFont;
@@ -421,6 +431,7 @@ const TheseusDotGrid = forwardRef<DotGridHandle, TheseusDotGridProps>(function T
         drawDot(
           dots.gx[i], dots.gy[i], alpha, dots.kind[i],
           dots.galaxyColorR[i], dots.galaxyColorG[i], dots.galaxyColorB[i],
+          dots.galaxyScale[i],
         );
       }
     }
@@ -561,6 +572,7 @@ const TheseusDotGrid = forwardRef<DotGridHandle, TheseusDotGridProps>(function T
           dots.gx[i] + dots.ox[i], dots.gy[i] + dots.oy[i],
           alpha, dots.kind[i],
           dotR, dotG, dotB,
+          dots.galaxyScale[i],
         );
       }
 

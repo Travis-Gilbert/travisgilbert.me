@@ -15,6 +15,11 @@ import { generateTargets, generateTruthMapTargets } from '@/lib/galaxy/TargetGen
 import { resolveCollisions, clearLabelCache } from '@/lib/galaxy/pretextLabels';
 import type { MapSection } from '@/lib/theseus-types';
 import type { TruthMapTopologyDirective } from '@/lib/theseus-viz/SceneDirective';
+import {
+  runStippleConstruction,
+  animateStippleConstruction,
+  type StippleConstructionResult,
+} from '@/lib/galaxy/stippleConstruction';
 import GalaxyDrawer from './GalaxyDrawer';
 import type { AskState } from '@/app/theseus/ask/page';
 
@@ -90,6 +95,9 @@ export default function GalaxyController({
   const prevQueryRef = useRef<string | null>(null);
   // Track predicted viz type without triggering effect re-runs
   const predTypeRef = useRef<VizType>('graph-native');
+  // Stipple construction cleanup and result
+  const stippleCleanupRef = useRef<(() => void) | null>(null);
+  const stippleResultRef = useRef<StippleConstructionResult | null>(null);
 
   // Keep predTypeRef current without triggering the main animation effect
   useEffect(() => {
@@ -214,6 +222,9 @@ export default function GalaxyController({
       edgeProgressRef.current = 0;
       labelAlphaRef.current = 0;
       objectDotMapRef.current.clear();
+      stippleCleanupRef.current?.();
+      stippleCleanupRef.current = null;
+      stippleResultRef.current = null;
 
       // Reset previously recruited neighborhood dots
       // (grid.resetAll below handles position and state; clear the tracking ref)
@@ -632,149 +643,48 @@ export default function GalaxyController({
       const { width, height } = grid.getSize();
       if (width === 0 || height === 0) return;
 
-      // Try image tracing first, fall back to graph/cluster layout
+      // Try stippling pipeline for non-image answers
       const imageUrl = resp.reference_image_url;
       const dotCount = grid.getDotCount();
+      const vizType = predTypeRef.current;
+      const shouldStipple = !imageUrl && vizType !== 'portrait' && vizType !== 'object-scene';
 
-      generateTargets(imageUrl, nodes, edges, width, height, dotCount).then((result) => {
-        if (result.method === 'image-trace') {
-          const targets = result.targets;
-          const isVisionPerson = result.visionMode === 'person';
-          const visionTimerIds: number[] = [];
+      if (shouldStipple) {
+        // Clean up previous stipple if any (follow-up queries)
+        stippleCleanupRef.current?.();
 
-          if (prefersReducedMotion || !isVisionPerson) {
-            // Instant assignment for reduced motion or non-person (object/Sobel) traces
-            const instantRng = mulberry32(targets.length * 6173);
-            for (let i = 0; i < dotCount && i < targets.length; i++) {
-              const target = targets[i];
-              const jitterX = (instantRng() - 0.5) * 4;
-              const jitterY = (instantRng() - 0.5) * 4;
-
-              if (prefersReducedMotion) {
-                grid.setDotGalaxyState(i, { opacityOverride: 0.25 + target.weight * 0.25 });
-              } else {
-                grid.setDotTarget(i, target.x + jitterX, target.y + jitterY);
-                grid.setDotGalaxyState(i, { opacityOverride: 0.25 + target.weight * 0.25 });
-              }
-            }
-
-            for (let i = targets.length; i < dotCount; i++) {
-              grid.setDotGalaxyState(i, { opacityOverride: 0.01 });
-            }
-            grid.wakeAnimation();
-          } else {
-            // Phased construction for person (face mesh) vision targets.
-            // Weight encodes phase: 0-0.25 silhouette, 0.25-0.5 structure,
-            // 0.5-0.75 interior, 0.75-1.0 detail.
-            const phases = [
-              { min: 0.00, max: 0.25, delay: 0,    label: 'silhouette' },
-              { min: 0.25, max: 0.50, delay: 2000, label: 'structure' },
-              { min: 0.50, max: 0.75, delay: 4000, label: 'fill' },
-              { min: 0.75, max: 1.01, delay: 6000, label: 'detail' },
-            ];
-
-            // Fade all dots to near-invisible first
-            for (let i = 0; i < dotCount; i++) {
-              grid.setDotGalaxyState(i, { opacityOverride: 0.01 });
-            }
-            grid.wakeAnimation();
-
-            // Pre-sort targets into phase buckets with their original indices
-            const phaseBuckets = phases.map((phase) => {
-              const bucket: Array<{ target: typeof targets[0]; index: number }> = [];
-              for (let i = 0; i < targets.length; i++) {
-                const w = targets[i].weight;
-                if (w >= phase.min && w < phase.max) {
-                  bucket.push({ target: targets[i], index: i });
-                }
-              }
-              return bucket;
-            });
-
-            const phaseRng = mulberry32(targets.length * 4219);
-
-            for (let p = 0; p < phases.length; p++) {
-              const bucket = phaseBuckets[p];
-              const delay = phases[p].delay;
-
-              const timerId = window.setTimeout(() => {
-                for (const { target, index } of bucket) {
-                  if (index >= dotCount) continue;
-                  const jitterX = (phaseRng() - 0.5) * 3;
-                  const jitterY = (phaseRng() - 0.5) * 3;
-                  grid.setDotTarget(index, target.x + jitterX, target.y + jitterY);
-                  grid.setDotGalaxyState(index, {
-                    opacityOverride: 0.15 + target.weight * 0.35,
-                  });
-                }
-                grid.wakeAnimation();
-              }, delay);
-              visionTimerIds.push(timerId);
-            }
+        runStippleConstruction(vizType, nodes, edges, directive, grid, {
+          instant: prefersReducedMotion,
+        }).then((stippleResult) => {
+          if (!stippleResult) {
+            legacyConstruction(grid, nodes, edges, objDotMap, relevantDotIndices, imageUrl, dotCount);
+            return;
           }
 
-          // Label placement: use evidence nodes positioned at their cluster dots
-          // Delay to after final phase completes (7s for person, 0 for instant)
-          const crystallizeDelay = isVisionPerson && !prefersReducedMotion ? 7000 : 0;
-          const crystallizeTimerId = window.setTimeout(() => {
-            runCrystallizePhase(grid, objDotMap, nodes, relevantDotIndices);
-          }, crystallizeDelay);
-          visionTimerIds.push(crystallizeTimerId);
+          stippleResultRef.current = stippleResult;
 
-          // Store all timer IDs so cleanup can cancel them
-          visionTimerIdsRef.current = visionTimerIds;
-
-        } else {
-          // Graph/cluster layout mode: existing behavior
-          // layout is always present for graph-layout and cluster-layout methods
-          const layout = result.layout ?? { positions: new Map(), edges: [] };
-
-          for (const [objectId, dotIndex] of objDotMap) {
-            const pos = layout.positions.get(objectId);
-            if (pos) {
-              if (prefersReducedMotion) {
-                grid.setDotGalaxyState(dotIndex, { opacityOverride: 0.35 });
-              } else {
-                grid.setDotTarget(dotIndex, pos.x, pos.y);
-                grid.setDotGalaxyState(dotIndex, { opacityOverride: 0.35 });
-              }
-            }
+          // Track recruited dots for cleanup on next query
+          for (const idx of stippleResult.recruitedDotIndices) {
+            recruitedDotsRef.current.add(idx);
           }
 
-          grid.wakeAnimation();
+          // Animate the stippled construction
+          const cleanup = animateStippleConstruction(
+            grid,
+            stippleResult,
+            stippleResult.stippleResult.targets,
+            nodes,
+            prefersReducedMotion,
+          );
+          stippleCleanupRef.current = cleanup;
+        }).catch((err: unknown) => {
+          console.warn('[Galaxy] Stipple construction failed, using legacy path:', err);
+          legacyConstruction(grid, nodes, edges, objDotMap, relevantDotIndices, imageUrl, dotCount);
+        });
+        return;
+      }
 
-          // Progressive edge reveal
-          if (layout.edges.length > 0) {
-            const buildEdgeList = (p: number) => layout.edges
-              .map((e) => {
-                const fromDot = objDotMap.get(e.fromId);
-                const toDot = objDotMap.get(e.toId);
-                if (fromDot === undefined || toDot === undefined) return null;
-                return { fromIndex: fromDot, toIndex: toDot, progress: p, color: `rgba(74,138,150,1)` };
-              })
-              .filter(Boolean) as Array<{ fromIndex: number; toIndex: number; progress: number; color: string }>;
-
-            if (prefersReducedMotion) {
-              grid.setEdges(buildEdgeList(1));
-              grid.wakeAnimation();
-            } else {
-              let progress = 0;
-              const edgeInterval = window.setInterval(() => {
-                progress += 0.04;
-                if (progress > 1) { clearInterval(edgeInterval); progress = 1; }
-                edgeProgressRef.current = progress;
-                grid.setEdges(buildEdgeList(progress));
-                grid.wakeAnimation();
-              }, 50);
-
-              const cleanupTimer = window.setTimeout(() => clearInterval(edgeInterval), 2000);
-              phaseTimerRef.current = cleanupTimer;
-            }
-          }
-
-          runCrystallizePhase(grid, objDotMap, nodes, relevantDotIndices);
-        }
-      });
+      legacyConstruction(grid, nodes, edges, objDotMap, relevantDotIndices, imageUrl, dotCount);
     }, 1000);
   }
 
@@ -828,6 +738,148 @@ export default function GalaxyController({
       grid.wakeAnimation();
       labelAlphaRef.current = 1;
     }, 2000);
+  }
+
+  /**
+   * Legacy construction path: image tracing / graph layout / cluster layout.
+   * Called when stippling is not applicable (portrait queries) or as fallback.
+   */
+  function legacyConstruction(
+    grid: DotGridHandle,
+    nodes: EvidenceNode[],
+    edges: EvidenceEdge[],
+    objDotMap: Map<string, number>,
+    relevantDotIndices: Set<number>,
+    imageUrl: string | null | undefined,
+    dotCount: number,
+  ) {
+    const { width, height } = grid.getSize();
+    generateTargets(imageUrl, nodes, edges, width, height, dotCount).then((result) => {
+      if (result.method === 'image-trace') {
+        const targets = result.targets;
+        const isVisionPerson = result.visionMode === 'person';
+        const visionTimerIds: number[] = [];
+
+        if (prefersReducedMotion || !isVisionPerson) {
+          const instantRng = mulberry32(targets.length * 6173);
+          for (let i = 0; i < dotCount && i < targets.length; i++) {
+            const target = targets[i];
+            const jitterX = (instantRng() - 0.5) * 4;
+            const jitterY = (instantRng() - 0.5) * 4;
+
+            if (prefersReducedMotion) {
+              grid.setDotGalaxyState(i, { opacityOverride: 0.25 + target.weight * 0.25 });
+            } else {
+              grid.setDotTarget(i, target.x + jitterX, target.y + jitterY);
+              grid.setDotGalaxyState(i, { opacityOverride: 0.25 + target.weight * 0.25 });
+            }
+          }
+
+          for (let i = targets.length; i < dotCount; i++) {
+            grid.setDotGalaxyState(i, { opacityOverride: 0.01 });
+          }
+          grid.wakeAnimation();
+        } else {
+          const phases = [
+            { min: 0.00, max: 0.25, delay: 0,    label: 'silhouette' },
+            { min: 0.25, max: 0.50, delay: 2000, label: 'structure' },
+            { min: 0.50, max: 0.75, delay: 4000, label: 'fill' },
+            { min: 0.75, max: 1.01, delay: 6000, label: 'detail' },
+          ];
+
+          for (let i = 0; i < dotCount; i++) {
+            grid.setDotGalaxyState(i, { opacityOverride: 0.01 });
+          }
+          grid.wakeAnimation();
+
+          const phaseBuckets = phases.map((phase) => {
+            const bucket: Array<{ target: typeof targets[0]; index: number }> = [];
+            for (let i = 0; i < targets.length; i++) {
+              const w = targets[i].weight;
+              if (w >= phase.min && w < phase.max) {
+                bucket.push({ target: targets[i], index: i });
+              }
+            }
+            return bucket;
+          });
+
+          const phaseRng = mulberry32(targets.length * 4219);
+
+          for (let p = 0; p < phases.length; p++) {
+            const bucket = phaseBuckets[p];
+            const delay = phases[p].delay;
+
+            const timerId = window.setTimeout(() => {
+              for (const { target, index } of bucket) {
+                if (index >= dotCount) continue;
+                const jitterX = (phaseRng() - 0.5) * 3;
+                const jitterY = (phaseRng() - 0.5) * 3;
+                grid.setDotTarget(index, target.x + jitterX, target.y + jitterY);
+                grid.setDotGalaxyState(index, {
+                  opacityOverride: 0.15 + target.weight * 0.35,
+                });
+              }
+              grid.wakeAnimation();
+            }, delay);
+            visionTimerIds.push(timerId);
+          }
+        }
+
+        const crystallizeDelay = isVisionPerson && !prefersReducedMotion ? 7000 : 0;
+        const crystallizeTimerId = window.setTimeout(() => {
+          runCrystallizePhase(grid, objDotMap, nodes, relevantDotIndices);
+        }, crystallizeDelay);
+        visionTimerIds.push(crystallizeTimerId);
+        visionTimerIdsRef.current = visionTimerIds;
+
+      } else {
+        const layout = result.layout ?? { positions: new Map(), edges: [] };
+
+        for (const [objectId, dotIndex] of objDotMap) {
+          const pos = layout.positions.get(objectId);
+          if (pos) {
+            if (prefersReducedMotion) {
+              grid.setDotGalaxyState(dotIndex, { opacityOverride: 0.35 });
+            } else {
+              grid.setDotTarget(dotIndex, pos.x, pos.y);
+              grid.setDotGalaxyState(dotIndex, { opacityOverride: 0.35 });
+            }
+          }
+        }
+
+        grid.wakeAnimation();
+
+        if (layout.edges.length > 0) {
+          const buildEdgeList = (p: number) => layout.edges
+            .map((e) => {
+              const fromDot = objDotMap.get(e.fromId);
+              const toDot = objDotMap.get(e.toId);
+              if (fromDot === undefined || toDot === undefined) return null;
+              return { fromIndex: fromDot, toIndex: toDot, progress: p, color: `rgba(74,138,150,1)` };
+            })
+            .filter(Boolean) as Array<{ fromIndex: number; toIndex: number; progress: number; color: string }>;
+
+          if (prefersReducedMotion) {
+            grid.setEdges(buildEdgeList(1));
+            grid.wakeAnimation();
+          } else {
+            let progress = 0;
+            const edgeInterval = window.setInterval(() => {
+              progress += 0.04;
+              if (progress > 1) { clearInterval(edgeInterval); progress = 1; }
+              edgeProgressRef.current = progress;
+              grid.setEdges(buildEdgeList(progress));
+              grid.wakeAnimation();
+            }, 50);
+
+            const cleanupTimer = window.setTimeout(() => clearInterval(edgeInterval), 2000);
+            phaseTimerRef.current = cleanupTimer;
+          }
+        }
+
+        runCrystallizePhase(grid, objDotMap, nodes, relevantDotIndices);
+      }
+    });
   }
 
   // Double-click handler for galaxy exploration zoom
