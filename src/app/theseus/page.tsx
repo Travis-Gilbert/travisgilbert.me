@@ -1,7 +1,7 @@
 'use client';
 
 import { useRouter } from 'next/navigation';
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { useGalaxy } from '@/components/theseus/TheseusShell';
 
 const STARTER_QUERIES = [
@@ -14,6 +14,8 @@ const STARTER_QUERIES = [
 export default function TheseusHomepage() {
   const router = useRouter();
   const [query, setQuery] = useState('');
+  const [focused, setFocused] = useState(false);
+  const inputRef = useRef<HTMLInputElement>(null);
   const { gridRef, setAskState } = useGalaxy();
 
   function submitQuery(nextQuery: string) {
@@ -70,15 +72,16 @@ export default function TheseusHomepage() {
       >
         <h1
           style={{
-            fontFamily: 'var(--vie-font-title)',
+            fontFamily: 'var(--font-vollkorn-sc), Georgia, serif',
             fontSize: 28,
             fontWeight: 600,
-            color: 'var(--vie-text)',
+            color: '#3D8A96',
             margin: 0,
             lineHeight: 1.1,
+            letterSpacing: '0.08em',
           }}
         >
-          Theseus
+          THESEUS
         </h1>
         <p
           style={{
@@ -88,7 +91,7 @@ export default function TheseusHomepage() {
             color: 'var(--vie-text-dim)',
           }}
         >
-          Ask your knowledge a question
+          What are you curious about?
         </p>
       </header>
 
@@ -103,18 +106,32 @@ export default function TheseusHomepage() {
         }}
       >
         <input
+          ref={inputRef}
           type="text"
           value={query}
           onChange={(e) => setQuery(e.target.value)}
+          onFocus={() => setFocused(true)}
+          onBlur={() => setFocused(false)}
           autoFocus
           aria-label="Ask Theseus"
           name="theseus_query"
           autoComplete="off"
           spellCheck={false}
-          placeholder="Ask Theseus…"
           style={{
-            height: '44px',
+            position: 'absolute',
+            opacity: 0,
+            width: 0,
+            height: 0,
+            overflow: 'hidden',
+          }}
+        />
+        <div
+          onClick={() => inputRef.current?.focus()}
+          role="textbox"
+          tabIndex={-1}
+          style={{
             width: '100%',
+            height: '44px',
             padding: '0 16px',
             fontSize: '15px',
             fontFamily: 'var(--vie-font-body)',
@@ -125,9 +142,21 @@ export default function TheseusHomepage() {
             color: 'var(--vie-text)',
             transition: 'border-color 200ms ease, box-shadow 200ms ease',
             boxSizing: 'border-box',
-            letterSpacing: '0.02em',
+            letterSpacing: '0.04em',
+            display: 'flex',
+            alignItems: 'center',
+            cursor: 'text',
+            overflow: 'hidden',
+            whiteSpace: 'nowrap',
           }}
-        />
+        >
+          {query.length > 0 ? (
+            <span>{query}</span>
+          ) : (
+            <span style={{ color: 'var(--vie-text-dim)' }}>Ask Theseus...</span>
+          )}
+          {focused && <span className="theseus-terminal-cursor" />}
+        </div>
       </form>
 
       <div
