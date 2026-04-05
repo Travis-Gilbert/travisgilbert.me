@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react';
 import type { SceneDirective } from '@/lib/theseus-viz/SceneDirective';
-import { getDataBuildProgress, type ConstructionPlayback } from './rendering';
+import { getDataBuildProgress, getProgressBucket, type ConstructionPlayback } from './rendering';
 
 const POINTS_PER_SLICE = 500;
 
@@ -23,9 +23,6 @@ function clamp(value: number, min = 0, max = 1): number {
   return Math.max(min, Math.min(max, value));
 }
 
-function getBucket(playback: ConstructionPlayback): number {
-  return Math.floor(getDataBuildProgress(playback) * 20);
-}
 
 export default function D3Renderer({
   directive,
@@ -36,7 +33,7 @@ export default function D3Renderer({
   const containerRef = useRef<HTMLDivElement>(null);
   const [tooltip, setTooltip] = useState<TooltipState | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const progressBucket = getBucket(playback);
+  const progressBucket = getProgressBucket(playback);
   const d3Spec = directive.render_target.d3_spec as Record<string, unknown> | undefined;
 
   const layoutStyle = useMemo(() => ({

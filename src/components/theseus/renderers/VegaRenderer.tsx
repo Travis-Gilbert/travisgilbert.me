@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react';
 import type { SceneDirective } from '@/lib/theseus-viz/SceneDirective';
-import { getDataBuildProgress, type ConstructionPlayback } from './rendering';
+import { getDataBuildProgress, getProgressBucket, type ConstructionPlayback } from './rendering';
 
 const VEGA_THEME_OVERRIDES = {
   background: 'transparent',
@@ -24,10 +24,6 @@ interface VegaRendererProps {
   playback: ConstructionPlayback;
   onContextSelect?: (context: string) => void;
   onError?: (error: Error) => void;
-}
-
-function getBucket(playback: ConstructionPlayback): number {
-  return Math.floor(getDataBuildProgress(playback) * 20);
 }
 
 function cloneWithProgress(spec: Record<string, unknown>, progress: number): Record<string, unknown> {
@@ -52,7 +48,7 @@ export default function VegaRenderer({
 }: VegaRendererProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const [error, setError] = useState<string | null>(null);
-  const progressBucket = getBucket(playback);
+  const progressBucket = getProgressBucket(playback);
   const vegaSpec = directive.render_target.vega_spec as Record<string, unknown> | undefined;
 
   const layoutStyle = useMemo(() => ({

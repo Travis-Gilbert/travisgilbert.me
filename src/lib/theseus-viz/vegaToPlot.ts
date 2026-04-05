@@ -6,7 +6,7 @@
  * (no Observable Plot import) and fully testable in isolation.
  */
 
-// ---- Output types ----
+// Output types
 
 export interface PlotMarkDescriptor {
   markFn: string;
@@ -29,7 +29,7 @@ export interface TranslateUnsupported {
 
 export type TranslateResult = PlotTranslation | TranslateUnsupported;
 
-// ---- Internal helpers ----
+// Internal helpers
 
 /** Type guard: is this a record (plain object)? */
 function isRecord(v: unknown): v is Record<string, unknown> {
@@ -174,7 +174,7 @@ function translateView(
   };
 }
 
-// ---- Unsupported feature detection ----
+// Unsupported feature detection
 
 const UNSUPPORTED_KEYS = [
   'selection',
@@ -213,7 +213,7 @@ function detectUnsupported(spec: Record<string, unknown>): string | null {
   return null;
 }
 
-// ---- Main translator ----
+// Main translator
 
 /**
  * Translate a Vega-Lite spec into an Observable Plot configuration.
@@ -285,7 +285,7 @@ export function vegaLiteToPlot(spec: unknown): TranslateResult {
   return { supported: false, reason: 'Spec has neither mark nor layer' };
 }
 
-// ---- Progressive data slicing ----
+// Progressive data slicing
 
 /**
  * Slice each mark's data array to reveal only the first `progress` fraction.

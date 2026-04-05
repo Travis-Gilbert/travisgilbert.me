@@ -249,6 +249,11 @@ export function getDataBuildProgress(playback: ConstructionPlayback): number {
   return clamp(Math.max(playback.phaseProgress.data_builds, playback.phaseProgress.crystallize));
 }
 
+/** Quantize data build progress into 20 buckets to avoid per-frame re-renders. */
+export function getProgressBucket(playback: ConstructionPlayback): number {
+  return Math.floor(getDataBuildProgress(playback) * 20);
+}
+
 export function hexToRgba(hex: string, alpha: number): string {
   const normalized = hex.replace('#', '');
   const value = normalized.length === 3

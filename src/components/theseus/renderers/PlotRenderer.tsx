@@ -4,7 +4,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import dynamic from 'next/dynamic';
 import type { Markish } from '@observablehq/plot';
 import type { SceneDirective } from '@/lib/theseus-viz/SceneDirective';
-import { getDataBuildProgress, type ConstructionPlayback } from './rendering';
+import { getProgressBucket, type ConstructionPlayback } from './rendering';
 import {
   vegaLiteToPlot,
   sliceTranslationData,
@@ -20,21 +20,14 @@ interface PlotRendererProps {
   onError?: (error: Error) => void;
 }
 
-function getBucket(playback: ConstructionPlayback): number {
-  return Math.floor(getDataBuildProgress(playback) * 20);
-}
-
 /** Post-process the Plot SVG to match dark theme axis colors. */
 function applyAxisColors(svg: SVGElement): void {
-  // x-axis domain and tick lines
   for (const el of svg.querySelectorAll('[aria-label="x-axis"] line, [aria-label="x-axis"] path')) {
     (el as SVGElement).setAttribute('stroke', 'rgba(255,255,255,0.12)');
   }
-  // y-axis grid lines
   for (const el of svg.querySelectorAll('[aria-label="y-axis"] line')) {
     (el as SVGElement).setAttribute('stroke', 'rgba(255,255,255,0.06)');
   }
-  // All non-title text elements: muted fill
   for (const el of svg.querySelectorAll('text')) {
     const parent = el.closest('[aria-label]');
     const label = parent?.getAttribute('aria-label') ?? '';
@@ -51,29 +44,22 @@ export default function PlotRenderer({
 }: PlotRendererProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const [error, setError] = useState<string | null>(null);
-  const [useFallback, setUseFallback] = useState(false);
+  const [renderFailed, setRenderFailed] = useState(false);
 
   const vegaSpec = directive.render_target.vega_spec as Record<string, unknown> | undefined;
-  const progressBucket = getBucket(playback);
+  const progressBucket = getProgressBucket(playback);
 
-  // Attempt translation once per spec change
   const translation = useMemo<PlotTranslation | null>(() => {
     if (!vegaSpec) return null;
     const result = vegaLiteToPlot(vegaSpec);
-    if (!result.supported) {
-      return null;
-    }
+    if (!result.supported) return null;
     return result;
   }, [vegaSpec]);
 
-  // If translation fails, fall back to VegaRenderer (never reset once set)
-  useEffect(() => {
-    if (vegaSpec && !translation) {
-      setUseFallback(true);
-    }
-  }, [vegaSpec, translation]);
+  // Fallback when translation is unsupported OR a runtime render error occurred
+  const translationFailed = !!vegaSpec && translation === null;
+  const useFallback = translationFailed || renderFailed;
 
-  // Render via Observable Plot when translation succeeds
   useEffect(() => {
     if (!containerRef.current || !translation || useFallback) return;
 
@@ -84,7 +70,7 @@ export default function PlotRenderer({
         const Plot = await import('@observablehq/plot');
         if (cancelled || !containerRef.current) return;
 
-        const progress = Math.max(0.05, getDataBuildProgress(playback));
+        const progress = Math.max(0.05, progressBucket / 20);
         const sliced = sliceTranslationData(translation!, progress);
 
         const marks = sliced.marks.map((descriptor) => {
@@ -114,9 +100,11 @@ export default function PlotRenderer({
           return;
         }
 
-        applyAxisColors(svg as unknown as SVGElement);
+        // Only run querySelectorAll theming on final render
+        if (progressBucket >= 20) {
+          applyAxisColors(svg as unknown as SVGElement);
+        }
 
-        // Clear container safely (no innerHTML)
         const el = containerRef.current;
         while (el.firstChild) el.removeChild(el.firstChild);
         el.appendChild(svg as unknown as Node);
@@ -128,7 +116,7 @@ export default function PlotRenderer({
           ? renderError.message
           : 'Failed to render Observable Plot chart';
         setError(message);
-        setUseFallback(true);
+        setRenderFailed(true);
         onError?.(renderError instanceof Error ? renderError : new Error(message));
       }
     }
@@ -138,9 +126,8 @@ export default function PlotRenderer({
     return () => {
       cancelled = true;
     };
-  }, [translation, progressBucket, playback, useFallback, onContextSelect, onError]);
+  }, [translation, progressBucket, useFallback, onError]);
 
-  // Delegated click handler on the container (avoids per-SVG listener leaks)
   const handleContainerClick = useMemo(() => {
     if (!onContextSelect) return undefined;
     return (event: React.MouseEvent) => {
@@ -163,7 +150,6 @@ export default function PlotRenderer({
     pointerEvents: 'auto' as const,
   }), [directive.context_shelf]);
 
-  // Fallback to VegaRenderer when translation is unsupported
   if (useFallback) {
     return (
       <VegaRenderer
