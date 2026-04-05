@@ -89,9 +89,9 @@ function mapMark(markType: string, encoding: Record<string, unknown>): string | 
     case 'text':
       return 'text';
     case 'tick':
-      return 'tickX';
+      return isHorizontalBar(encoding) ? 'tickX' : 'tickY';
     case 'rule':
-      return 'ruleY';
+      return isHorizontalBar(encoding) ? 'ruleY' : 'ruleX';
     default:
       return null;
   }
@@ -157,6 +157,16 @@ function translateView(
   const viewData = view.data ? extractData(view.data) : parentData;
   const channels = mapChannels(encoding);
 
+  // Forward mark-level properties (e.g., color, opacity, strokeWidth)
+  const mark = view.mark;
+  if (isRecord(mark)) {
+    for (const [key, val] of Object.entries(mark)) {
+      if (key !== 'type' && val !== undefined) {
+        channels[key] = val;
+      }
+    }
+  }
+
   return {
     markFn: plotMarkFn,
     data: viewData ?? [],
@@ -168,7 +178,6 @@ function translateView(
 
 const UNSUPPORTED_KEYS = [
   'selection',
-  'params',
   'concat',
   'hconcat',
   'vconcat',
@@ -182,6 +191,13 @@ function detectUnsupported(spec: Record<string, unknown>): string | null {
     if (spec[key] !== undefined) {
       return `Unsupported feature: ${key}`;
     }
+  }
+
+  // Reject params that contain selections (interactive); allow constant params
+  if (Array.isArray(spec.params) && spec.params.some(
+    (p) => isRecord(p) && p.select !== undefined
+  )) {
+    return 'Selection params not supported';
   }
 
   // Check transform count
