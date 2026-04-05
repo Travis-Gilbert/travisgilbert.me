@@ -63,7 +63,7 @@ export default function TheseusShell({ children }: { children: React.ReactNode }
 
   return (
     <GalaxyContext.Provider value={contextValue}>
-      <TheseusDotGrid ref={gridRef} />
+      <TheseusDotGrid ref={gridRef} engineState={askState} />
       <GalaxyController
         gridRef={gridRef}
         state={askState}

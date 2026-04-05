@@ -90,6 +90,8 @@ export interface DotGridHandle {
   getSize(): { width: number; height: number };
 }
 
+export type EngineState = 'IDLE' | 'THINKING' | 'MODEL' | 'CONSTRUCTING' | 'EXPLORING';
+
 interface TheseusDotGridProps {
   dotRadius?: number;
   spacing?: number;
@@ -100,6 +102,7 @@ interface TheseusDotGridProps {
   influenceRadius?: number;
   repulsionStrength?: number;
   binaryDensity?: number;
+  engineState?: EngineState;
 }
 
 const TheseusDotGrid = forwardRef<DotGridHandle, TheseusDotGridProps>(function TheseusDotGrid({
@@ -112,6 +115,7 @@ const TheseusDotGrid = forwardRef<DotGridHandle, TheseusDotGridProps>(function T
   influenceRadius = 100,
   repulsionStrength = 5,
   binaryDensity = 0.20,
+  engineState = 'IDLE',
 }, ref) {
   const prefersReducedMotion = usePrefersReducedMotion();
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -122,6 +126,11 @@ const TheseusDotGrid = forwardRef<DotGridHandle, TheseusDotGridProps>(function T
   const sizeRef = useRef({ w: 0, h: 0 });
   const startAnimationRef = useRef<(() => void) | null>(null);
   const drawStaticRef = useRef<(() => void) | null>(null);
+
+  // Engine state animation: focal points and timing
+  const engineStateRef = useRef<EngineState>('IDLE');
+  const stateStartTimeRef = useRef<number>(0);
+  const focalPointsRef = useRef<Array<{ x: number; y: number; orbitAngle: number }>>([]);
 
   const dotsRef = useRef<{
     gx: Float32Array; gy: Float32Array;
@@ -356,6 +365,70 @@ const TheseusDotGrid = forwardRef<DotGridHandle, TheseusDotGridProps>(function T
     },
   }), []);
 
+  // Recompute focal points and restart animation when engine state changes
+  useEffect(() => {
+    const prevState = engineStateRef.current;
+    engineStateRef.current = engineState;
+
+    if (engineState === prevState) return;
+    stateStartTimeRef.current = Date.now();
+
+    const { w, h } = sizeRef.current;
+    if (w < 1 || h < 1) return;
+
+    if (engineState === 'IDLE' || engineState === 'EXPLORING') {
+      focalPointsRef.current = [];
+      // Clear engine-applied opacity overrides so dots return to default
+      const dots = dotsRef.current;
+      if (dots) {
+        for (let i = 0; i < dots.count; i++) {
+          if (!Number.isNaN(dots.galaxyOpacity[i]) && dots.galaxyClusterId[i] === -1) {
+            dots.galaxyOpacity[i] = NaN;
+          }
+        }
+      }
+    } else {
+      // Deterministic focal points distributed across viewport
+      const count = engineState === 'MODEL' ? 3 : engineState === 'CONSTRUCTING' ? 2 : 4;
+      const seed = Math.floor(stateStartTimeRef.current / 10000); // stable within 10s
+      const rng = mulberry32(seed + 42);
+      const points: Array<{ x: number; y: number; orbitAngle: number }> = [];
+      for (let i = 0; i < count; i++) {
+        points.push({
+          x: w * 0.15 + rng() * w * 0.7,
+          y: h * 0.15 + rng() * h * 0.7,
+          orbitAngle: rng() * Math.PI * 2,
+        });
+      }
+      focalPointsRef.current = points;
+    }
+
+    // For reduced motion: apply teal density instantly without drift
+    if (prefersReducedMotion && engineState !== 'IDLE' && engineState !== 'EXPLORING') {
+      const dots = dotsRef.current;
+      if (dots) {
+        const targetDensity = engineState === 'THINKING' ? 0.25
+          : engineState === 'MODEL' ? 0.35
+            : engineState === 'CONSTRUCTING' ? 0.50 : 0.18;
+        for (let i = 0; i < dots.count; i++) {
+          if (dots.galaxyClusterId[i] === -1 && Number.isNaN(dots.galaxyOpacity[i])) {
+            // Apply density boost to a proportion of dots using deterministic selection
+            const rng = mulberry32(i + 777);
+            if (rng() < targetDensity) {
+              dots.galaxyOpacity[i] = targetDensity;
+            }
+          }
+        }
+        drawStaticRef.current?.();
+      }
+    }
+
+    // Wake animation for the state transition
+    if (engineState !== 'IDLE') {
+      startAnimationRef.current?.();
+    }
+  }, [engineState, prefersReducedMotion]);
+
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
@@ -494,6 +567,32 @@ const TheseusDotGrid = forwardRef<DotGridHandle, TheseusDotGridProps>(function T
       const ir2 = influenceRadius * influenceRadius;
       let anyDisplaced = false;
 
+      // Hoist engine state computations above the per-dot loop
+      const eState = engineStateRef.current;
+      const focalPts = focalPointsRef.current;
+      const driftActive = focalPts.length > 0 && eState !== 'IDLE' && eState !== 'EXPLORING';
+      let driftElapsed = 0;
+      let driftSpeed = 0;
+      let driftRadius2 = 0;
+      let targetDensity = 0;
+      let rampedOpacity = 0;
+      let dimFactor = 1.0;
+      const DRIFT_RADIUS = 200;
+
+      if (driftActive) {
+        driftElapsed = (Date.now() - stateStartTimeRef.current) / 1000;
+        driftSpeed = eState === 'MODEL' ? 0.5
+          : eState === 'CONSTRUCTING' ? 0.2 : 0.3;
+        driftRadius2 = DRIFT_RADIUS * DRIFT_RADIUS;
+        targetDensity = eState === 'THINKING' ? 0.25
+          : eState === 'MODEL' ? 0.35
+            : eState === 'CONSTRUCTING' ? 0.50 : 0.18;
+        const rampProgress = Math.min(driftElapsed / 6, 1);
+        rampedOpacity = dotOpacity + (targetDensity - dotOpacity) * rampProgress;
+        dimFactor = eState === 'CONSTRUCTING' ? 0.3
+          : eState === 'MODEL' ? 0.6 : 1.0;
+      }
+
       for (let i = 0; i < dots.count; i++) {
         if (dots.fade[i] < 0.01) continue;
 
@@ -520,9 +619,53 @@ const TheseusDotGrid = forwardRef<DotGridHandle, TheseusDotGridProps>(function T
           }
         }
 
+        // Engine state orbital drift (non-IDLE states)
+        let springMul = 1.0;
+
+        if (driftActive) {
+          // Find nearest focal point
+          let nearestFocal = focalPts[0];
+          let nearestDist2 = Infinity;
+          for (const fp of focalPts) {
+            const fdx = currentX - fp.x;
+            const fdy = currentY - fp.y;
+            const fd2 = fdx * fdx + fdy * fdy;
+            if (fd2 < nearestDist2) {
+              nearestDist2 = fd2;
+              nearestFocal = fp;
+            }
+          }
+
+          if (nearestDist2 < driftRadius2) {
+            const nearestDist = Math.sqrt(nearestDist2);
+            const proximity = 1 - nearestDist / DRIFT_RADIUS;
+
+            // Tangential velocity (perpendicular to vector from focal point)
+            if (nearestDist > 1) {
+              const nx = (currentX - nearestFocal.x) / nearestDist;
+              const ny = (currentY - nearestFocal.y) / nearestDist;
+              const tx = -ny;
+              const ty = nx;
+              const orbitalSpeed = driftSpeed * proximity * 0.1;
+              dots.vx[i] += tx * orbitalSpeed;
+              dots.vy[i] += ty * orbitalSpeed;
+            }
+
+            springMul = 0.3 + (1 - proximity) * 0.7;
+            anyDisplaced = true;
+          }
+
+          // Teal density ramp for dots not already colored by galaxy state
+          if (Number.isNaN(dots.galaxyOpacity[i]) && nearestDist2 < driftRadius2) {
+            const proximity = 1 - Math.sqrt(nearestDist2) / DRIFT_RADIUS;
+            const finalOpacity = dotOpacity * dimFactor + (rampedOpacity - dotOpacity * dimFactor) * proximity;
+            dots.galaxyOpacity[i] = finalOpacity;
+          }
+        }
+
         // Spring toward rest position (target or grid)
-        dots.vx[i] += -restOffX * stiffness;
-        dots.vy[i] += -restOffY * stiffness;
+        dots.vx[i] += -restOffX * stiffness * springMul;
+        dots.vy[i] += -restOffY * stiffness * springMul;
         dots.vx[i] *= damping;
         dots.vy[i] *= damping;
         dots.ox[i] += dots.vx[i];
@@ -576,6 +719,13 @@ const TheseusDotGrid = forwardRef<DotGridHandle, TheseusDotGridProps>(function T
         );
       }
 
+      // Advance focal point orbit angles once per frame (not per dot)
+      if (driftActive) {
+        for (const fp of focalPts) {
+          fp.orbitAngle += 0.0003;
+        }
+      }
+
       // Draw edges and labels after dots (only wake loop when data changes)
       if (edgesRef.current.length > 0 || labelsRef.current.length > 0) {
         drawEdgesAndLabels();
@@ -585,7 +735,9 @@ const TheseusDotGrid = forwardRef<DotGridHandle, TheseusDotGridProps>(function T
         }
       }
 
-      if (!anyDisplaced) {
+      // Keep animating during non-IDLE engine states
+      const activeEngine = engineStateRef.current !== 'IDLE' && engineStateRef.current !== 'EXPLORING';
+      if (!anyDisplaced && !activeEngine) {
         idleFrames++;
         if (idleFrames > 60) { animating = false; return; }
       } else {

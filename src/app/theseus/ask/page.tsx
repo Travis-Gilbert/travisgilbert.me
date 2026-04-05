@@ -8,22 +8,16 @@ import type { ApiError } from '@/lib/theseus-api';
 import type {
   DataAcquisitionSection,
   EvidencePathSection,
-  FollowUp,
-  HypothesisSection,
   NarrativeSection,
   ObjectsSection,
-  StructuralGapSection,
   TheseusObject,
   TheseusResponse,
-  TensionSection,
-  MapSection,
 } from '@/lib/theseus-types';
-import { saveMap } from '@/lib/ask-theseus';
 import type { DataProcessingStatus } from '@/lib/theseus-data/types';
 import type { ColumnDescriptor, DataShape } from '@/lib/theseus-viz/SceneSpec';
 import type { SceneDirective } from '@/lib/theseus-viz/SceneDirective';
 import { directScene } from '@/lib/theseus-viz/SceneDirector';
-import { buildObjectLookup, TYPE_COLORS } from '@/components/theseus/renderers/rendering';
+import { buildObjectLookup } from '@/components/theseus/renderers/rendering';
 import RenderRouter from '@/components/theseus/renderers/RenderRouter';
 import ThinkingScreen from '@/components/theseus/ThinkingScreen';
 import { useGalaxy } from '@/components/theseus/TheseusShell';
@@ -247,23 +241,6 @@ function getObjects(response: TheseusResponse): TheseusObject[] {
   )?.objects ?? [];
 }
 
-function getTensions(response: TheseusResponse): TensionSection[] {
-  return response.sections.filter(
-    (section): section is TensionSection => section.type === 'tension',
-  );
-}
-
-function getGaps(response: TheseusResponse): StructuralGapSection[] {
-  return response.sections.filter(
-    (section): section is StructuralGapSection => section.type === 'structural_gap',
-  );
-}
-
-function getHypotheses(response: TheseusResponse): HypothesisSection[] {
-  return response.sections.filter(
-    (section): section is HypothesisSection => section.type === 'hypothesis',
-  );
-}
 
 function getEvidencePath(response: TheseusResponse): EvidencePathSection | null {
   return response.sections.find(
@@ -357,7 +334,6 @@ function AskContent() {
   const [composerQuery, setComposerQuery] = useState(query ?? '');
   const [queryHistory, setQueryHistory] = useState<QueryHistoryEntry[]>([]);
   const [retryNonce, setRetryNonce] = useState(0);
-  const [rankedFollowUps, setRankedFollowUps] = useState<FollowUp[]>([]);
 
   const requestIdRef = useRef(0);
   const askAbortRef = useRef<AbortController | null>(null);
@@ -448,34 +424,6 @@ function AskContent() {
     if (!error || !query) return;
     markHistoryStatus(query, 'error');
   }, [error, markHistoryStatus, query]);
-
-  useEffect(() => {
-    const followUps = response?.follow_ups;
-    if (!followUps || followUps.length === 0) {
-      setRankedFollowUps([]);
-      return;
-    }
-
-    const narrativeText = response
-      ? getNarratives(response).map((n) => n.content).join(' ')
-      : '';
-
-    if (!narrativeText) {
-      setRankedFollowUps(followUps);
-      return;
-    }
-
-    import('@/lib/theseus-viz/vizPlanner').then(({ rankFollowUps }) => {
-      const queries = followUps.map((f) => f.query);
-      rankFollowUps(narrativeText, queries).then((ranked) => {
-        const queryOrder = new Map(ranked.map((q, i) => [q, i]));
-        const sorted = [...followUps].sort(
-          (a, b) => (queryOrder.get(a.query) ?? 999) - (queryOrder.get(b.query) ?? 999),
-        );
-        setRankedFollowUps(sorted);
-      }).catch(() => setRankedFollowUps(followUps));
-    }).catch(() => setRankedFollowUps(followUps));
-  }, [response]);
 
   useEffect(() => {
     if (!savedId) return;
@@ -639,116 +587,91 @@ function AskContent() {
     [response],
   );
 
-  const selectedObject = selectedNodeId ? objectLookup.get(selectedNodeId) ?? null : null;
   const narratives = response ? getNarratives(response) : [];
-  const tensions = response ? getTensions(response) : [];
-  const gaps = response ? getGaps(response) : [];
-  const hypotheses = response ? getHypotheses(response) : [];
   const evidencePath = response ? getEvidencePath(response) : null;
   const renderedNarratives = narratives.filter((narrative) => !isRawNarration(narrative.content));
   const showComposer = state === 'EXPLORING' || Boolean(error);
   const showHistory = showComposer && queryHistory.length > 0;
 
-  const historyPlacement = isMobile
-    ? {
-        left: '50%',
-        transform: 'translateX(-50%)',
-        width: 'min(480px, calc(100vw - 32px))',
-        bottom: 'calc(78px + env(safe-area-inset-bottom))',
-      }
-    : {
-        left: 20,
-        right: 420,
-        bottom: 78,
-      };
-
-  const composerPlacement = isMobile
-    ? {
-        left: '50%',
-        transform: 'translateX(-50%)',
-        width: 'min(480px, calc(100vw - 32px))',
-        bottom: 'calc(20px + env(safe-area-inset-bottom))',
-      }
-    : {
-        left: 20,
-        right: 420,
-        bottom: 20,
-      };
-
-  const infoPanelStyle = isMobile
-    ? {
-        position: 'absolute' as const,
-        left: 16,
-        right: 16,
-        bottom: showComposer
-          ? 'calc(126px + env(safe-area-inset-bottom))'
-          : 'calc(16px + env(safe-area-inset-bottom))',
-        maxHeight: '46vh',
-      }
-    : {
-        position: 'absolute' as const,
-        top: 20,
-        right: 20,
-        width: 380,
-        maxHeight: 'calc(100vh - 40px)',
-      };
-
-  const renderQueryHistory = () => {
-    if (!showHistory) return null;
-    const activeQuery = response?.query ?? query ?? null;
-
-    return (
-      <div className="theseus-ask-history" style={historyPlacement}>
-        {queryHistory.map((entry) => (
-          <button
-            key={entry.query}
-            type="button"
-            className={`theseus-ask-history-chip ${entry.query === activeQuery ? 'is-active' : ''} ${entry.status === 'error' ? 'is-error' : ''} ${entry.status === 'in-progress' ? 'is-in-progress' : ''}`}
-            onClick={() => navigateToQuery(entry.query)}
-            aria-label={`Load previous query: ${entry.query}`}
-          >
-            {entry.query.length > 48 ? `${entry.query.slice(0, 48)}…` : entry.query}
-          </button>
-        ))}
-      </div>
-    );
-  };
-
-  const renderComposer = () => {
+  const renderBottomDock = () => {
     if (!showComposer) return null;
+    const activeQuery = response?.query ?? query ?? null;
     return (
-      <>
+      <div
+        className="theseus-bottom-dock"
+        style={{
+          position: 'fixed',
+          left: '50%',
+          transform: 'translateX(-50%)',
+          bottom: isMobile ? 'calc(16px + env(safe-area-inset-bottom))' : 16,
+          width: isMobile ? 'min(480px, calc(100vw - 32px))' : 'min(640px, calc(100vw - 32px))',
+          zIndex: 20,
+          pointerEvents: 'auto',
+          display: 'flex',
+          flexDirection: 'column',
+          gap: 10,
+        }}
+      >
         <form
-          className="theseus-ask-composer"
-          style={composerPlacement}
           onSubmit={(event) => {
             event.preventDefault();
             navigateToQuery(composerQuery);
           }}
+          style={{ display: 'flex', alignItems: 'center', gap: 8, width: '100%' }}
         >
-          <div className="theseus-ask-composer-form">
-            <input
-              className="theseus-ask-composer-input"
-              type="text"
-              name="follow_up_query"
-              value={composerQuery}
-              onChange={(event) => setComposerQuery(event.target.value)}
-              placeholder="Ask a follow-up…"
-              autoComplete="off"
-              spellCheck={false}
-              aria-label="Ask a follow-up question"
-            />
-            <button
-              type="submit"
-              className="theseus-ask-composer-submit"
-              disabled={composerQuery.trim().length === 0}
-            >
-              Ask
-            </button>
-          </div>
+          <input
+            className="theseus-ask-composer-input"
+            type="text"
+            name="follow_up_query"
+            value={composerQuery}
+            onChange={(event) => setComposerQuery(event.target.value)}
+            placeholder="Ask a follow-up…"
+            autoComplete="off"
+            spellCheck={false}
+            aria-label="Ask a follow-up question"
+          />
+          <button
+            type="submit"
+            className="theseus-ask-composer-submit"
+            disabled={composerQuery.trim().length === 0}
+          >
+            Ask
+          </button>
         </form>
-        {renderQueryHistory()}
-      </>
+        {(showHistory || (response?.follow_ups && response.follow_ups.length > 0)) && (
+          <div
+            style={{
+              display: 'flex',
+              flexWrap: 'wrap',
+              gap: 6,
+              maxHeight: 68,
+              overflow: 'hidden',
+            }}
+          >
+            {queryHistory.map((entry) => (
+              <button
+                key={entry.query}
+                type="button"
+                className={`theseus-ask-history-chip ${entry.query === activeQuery ? 'is-active' : ''} ${entry.status === 'error' ? 'is-error' : ''} ${entry.status === 'in-progress' ? 'is-in-progress' : ''}`}
+                onClick={() => navigateToQuery(entry.query)}
+                aria-label={`Load previous query: ${entry.query}`}
+              >
+                {entry.query.length > 48 ? `${entry.query.slice(0, 48)}…` : entry.query}
+              </button>
+            ))}
+            {response?.follow_ups?.map((followUp, index) => (
+              <button
+                key={`fu-${index}`}
+                type="button"
+                className="theseus-ask-history-chip"
+                onClick={() => navigateToQuery(followUp.query)}
+              >
+                {followUp.query.length > 48 ? `${followUp.query.slice(0, 48)}…` : followUp.query}
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
     );
   };
 
@@ -858,7 +781,7 @@ function AskContent() {
             </div>
           </div>
         </div>
-        {renderComposer()}
+        {renderBottomDock()}
       </div>
     );
   }
@@ -959,581 +882,74 @@ function AskContent() {
         </h1>
       </div>
 
-      <aside
-        style={{
-          ...infoPanelStyle,
-          display: 'flex',
-          flexDirection: 'column',
-          gap: 0,
-          padding: isMobile ? '16px' : '18px',
-          borderRadius: 22,
-          background: 'rgba(15,16,18,0.76)',
-          border: '1px solid rgba(255,255,255,0.08)',
-          backdropFilter: 'blur(18px)',
-          overflowY: 'auto' as const,
-          zIndex: 10,
-          pointerEvents: 'auto' as const,
-        }}
-      >
+      {/* InsightPanel: response text with scoped pointer-events */}
+      {narrationReady && renderedNarratives.length > 0 && (
         <div
           style={{
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            gap: 10,
-            marginBottom: 14,
+            position: 'absolute',
+            left: 20,
+            bottom: isMobile ? 'calc(90px + env(safe-area-inset-bottom))' : 140,
+            width: isMobile ? 'calc(100vw - 40px)' : 300,
+            maxHeight: 220,
+            zIndex: 10,
+            pointerEvents: 'none',
           }}
         >
-          <span
-            style={{
-              fontFamily: 'var(--vie-font-body)',
-              fontSize: 13,
-              color: 'var(--vie-text)',
-              overflow: 'hidden',
-              textOverflow: 'ellipsis',
-              whiteSpace: 'nowrap',
-              maxWidth: 240,
-            }}
-          >
-            {response.query.length > 40 ? response.query.slice(0, 40) + '...' : response.query}
-          </span>
           <div
+            className="theseus-insight-panel"
             style={{
-              width: 60,
-              height: 4,
-              borderRadius: 2,
-              background: 'rgba(255,255,255,0.06)',
-              flexShrink: 0,
-              overflow: 'hidden',
+              padding: '14px 16px',
+              borderRadius: 14,
+              background: 'rgba(15,16,18,0.72)',
+              border: '1px solid rgba(255,255,255,0.08)',
+              backdropFilter: 'blur(18px)',
+              pointerEvents: 'auto',
+              overflowY: 'auto',
+              maxHeight: 220,
             }}
           >
-            <div
-              style={{
-                width: `${Math.round(response.confidence.combined * 100)}%`,
-                height: '100%',
-                background: getConfidenceColor(response.confidence.combined),
-                borderRadius: 2,
-              }}
-            />
-          </div>
-        </div>
-
-        {!narrationReady ? (
-          <div style={{ display: 'grid', gap: 8 }}>
-            <span
-              style={{
-                color: 'var(--vie-amber-light)',
-                fontFamily: 'var(--vie-font-mono)',
-                fontSize: 11,
-                letterSpacing: '0.08em',
-                textTransform: 'uppercase',
-              }}
-            >
-              crystallizing
-            </span>
-            <p
-              style={{
-                margin: 0,
-                color: 'var(--vie-text-muted)',
-                fontFamily: 'var(--vie-font-body)',
-                fontSize: 14,
-                lineHeight: 1.6,
-              }}
-            >
-              Theseus is finishing the construction sequence before the narration panel opens.
-            </p>
-          </div>
-        ) : narratives.length === 0 && tensions.length === 0 && hypotheses.length === 0 ? (
-          <div style={{ display: 'grid', gap: 12 }}>
-            <p
-              style={{
-                margin: 0,
-                fontFamily: 'var(--vie-font-body)',
-                fontSize: 13,
-                color: 'var(--vie-text-dim)',
-              }}
-            >
-              Theseus found limited evidence for this query.
-            </p>
-            {rankedFollowUps.length > 0 && (
-              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
-                {rankedFollowUps.map((followUp, index) => (
-                  <Link
-                    key={`followup-${index}`}
-                    href={`/theseus/ask?q=${encodeURIComponent(followUp.query)}`}
-                    style={{
-                      padding: '4px 12px',
-                      borderRadius: 999,
-                      background: 'rgba(255,255,255,0.10)',
-                      border: '1px solid rgba(255,255,255,0.06)',
-                      color: 'var(--vie-text-muted)',
-                      fontFamily: 'var(--vie-font-body)',
-                      fontSize: 12,
-                      textDecoration: 'none',
-                      transition: 'background 150ms ease, border-color 150ms ease',
-                    }}
-                  >
-                    {followUp.query}
-                  </Link>
-                ))}
-              </div>
-            )}
-          </div>
-        ) : (
-          <>
-            {selectedObject && (
-              <section>
-                <div
+            <div style={{ display: 'grid', gap: 10 }}>
+              {renderedNarratives.slice(0, 2).map((narrative, index) => (
+                <p
+                  key={`insight-${index}`}
                   style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: 10,
-                    marginBottom: 8,
-                    flexWrap: 'wrap',
-                  }}
-                >
-                  <span
-                    style={{
-                      color: 'var(--vie-teal-light)',
-                      fontFamily: 'var(--vie-font-mono)',
-                      fontSize: 11,
-                      letterSpacing: '0.08em',
-                      textTransform: 'uppercase',
-                    }}
-                  >
-                    selected object
-                  </span>
-                  <span
-                    style={{
-                      padding: '2px 8px',
-                      borderRadius: 999,
-                      background: 'rgba(255,255,255,0.06)',
-                      color: 'var(--vie-text-muted)',
-                      fontFamily: 'var(--vie-font-mono)',
-                      fontSize: 10,
-                    }}
-                  >
-                    {selectedObject.object_type === 'unknown' ? 'note' : selectedObject.object_type}
-                  </span>
-                </div>
-                <h2
-                  style={{
-                    margin: '0 0 6px',
+                    margin: 0,
                     color: 'var(--vie-text)',
-                    fontFamily: 'var(--vie-font-title)',
-                    fontSize: '1.1rem',
-                  }}
-                >
-                  {selectedObject.title}
-                </h2>
-                {selectedObject.summary && (
-                  <p
-                    style={{
-                      margin: 0,
-                      color: 'var(--vie-text-muted)',
-                      fontFamily: 'var(--vie-font-body)',
-                      fontSize: 14,
-                      lineHeight: 1.6,
-                    }}
-                  >
-                    {selectedObject.summary}
-                  </p>
-                )}
-              </section>
-            )}
-
-            {(narratives.length > 0 || renderedNarratives.length > 0) && (
-              <>
-                <div style={{ height: 1, background: 'rgba(255,255,255,0.08)', margin: '14px 0' }} />
-                <section>
-                  <span
-                    style={{
-                      display: 'block',
-                      marginTop: 16,
-                      marginBottom: 8,
-                      color: 'var(--vie-teal-light)',
-                      fontFamily: 'var(--vie-font-mono)',
-                      fontSize: 11,
-                      letterSpacing: '0.08em',
-                      textTransform: 'uppercase',
-                    }}
-                  >
-                    narration
-                  </span>
-                  {renderedNarratives.length === 0 ? (
-                    <div style={{ display: 'grid', gap: 6 }}>
-                      <p
-                        style={{
-                          margin: 0,
-                          color: 'var(--vie-text-dim)',
-                          fontFamily: 'var(--vie-font-body)',
-                          fontSize: 13,
-                          fontStyle: 'italic',
-                          lineHeight: 1.6,
-                        }}
-                      >
-                        Theseus found {response ? getObjects(response).length : 0} relevant perspectives for this query.
-                      </p>
-                      <p
-                        style={{
-                          margin: 0,
-                          color: 'var(--vie-text-dim)',
-                          fontFamily: 'var(--vie-font-body)',
-                          fontSize: 13,
-                          fontStyle: 'italic',
-                          lineHeight: 1.6,
-                        }}
-                      >
-                        Detailed narration will improve as the model trains.
-                      </p>
-                    </div>
-                  ) : (
-                    <div style={{ display: 'grid', gap: 10 }}>
-                      {renderedNarratives.slice(0, 2).map((narrative, index) => (
-                        <p
-                          key={`narrative-${index}`}
-                          style={{
-                            margin: 0,
-                            color: 'var(--vie-text)',
-                            fontFamily: 'var(--vie-font-body)',
-                            fontSize: 14,
-                            lineHeight: 1.65,
-                          }}
-                        >
-                          {narrative.content}
-                        </p>
-                      ))}
-                    </div>
-                  )}
-                </section>
-              </>
-            )}
-
-            {/* Show me why: argument structure toggle */}
-            {evidencePath && evidencePath.nodes.length >= 2 && (
-              <>
-                <div style={{ height: 1, background: 'rgba(255,255,255,0.08)', margin: '14px 0' }} />
-                <button
-                  type="button"
-                  onClick={() => setArgumentView(!argumentView)}
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: 8,
-                    width: '100%',
-                    padding: '10px 14px',
-                    borderRadius: 10,
-                    background: argumentView
-                      ? 'rgba(74,138,150,0.14)'
-                      : 'rgba(255,255,255,0.03)',
-                    border: argumentView
-                      ? '1px solid rgba(74,138,150,0.3)'
-                      : '1px solid rgba(255,255,255,0.08)',
-                    color: argumentView
-                      ? 'var(--vie-teal-light)'
-                      : 'var(--vie-text-muted)',
                     fontFamily: 'var(--vie-font-body)',
                     fontSize: 13,
-                    cursor: 'pointer',
-                    textAlign: 'left',
-                    transition: 'background 200ms ease, border-color 200ms ease, color 200ms ease',
+                    lineHeight: 1.65,
                   }}
                 >
-                  <span
-                    style={{
-                      fontFamily: 'var(--vie-font-mono)',
-                      fontSize: 10,
-                      letterSpacing: '0.06em',
-                      textTransform: 'uppercase',
-                      opacity: 0.7,
-                    }}
-                  >
-                    {argumentView ? '↩' : '◉'}
-                  </span>
-                  {argumentView ? 'Back to answer' : 'Show me why you think that'}
-                </button>
-                {argumentView && (
-                  <p
-                    style={{
-                      margin: '6px 0 0',
-                      color: 'var(--vie-text-dim)',
-                      fontFamily: 'var(--vie-font-mono)',
-                      fontSize: 11,
-                      letterSpacing: '0.04em',
-                    }}
-                  >
-                    Tracing the reasoning behind this answer.
-                  </p>
-                )}
-              </>
-            )}
+                  {narrative.content}
+                </p>
+              ))}
+            </div>
 
-            {evidencePath && evidencePath.nodes.length > 0 && (
-              <>
-                <div style={{ height: 1, background: 'rgba(255,255,255,0.08)', margin: '14px 0' }} />
-                <section>
-                  <span
-                    style={{
-                      display: 'block',
-                      marginTop: 16,
-                      marginBottom: 8,
-                      color: 'var(--vie-teal-light)',
-                      fontFamily: 'var(--vie-font-mono)',
-                      fontSize: 11,
-                      letterSpacing: '0.08em',
-                      textTransform: 'uppercase',
-                    }}
-                  >
-                    evidence path
-                  </span>
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: 0 }}>
-                    {evidencePath.nodes.map((node, index) => (
-                      <div key={`ep-${node.object_id}`}>
-                        <div
-                          style={{
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: 8,
-                            padding: '6px 0 6px 10px',
-                            borderLeft: `4px solid ${TYPE_COLORS[node.object_type] ?? '#9A958D'}`,
-                          }}
-                        >
-                          <span
-                            style={{
-                              fontFamily: 'var(--vie-font-body)',
-                              fontSize: 13,
-                              color: 'var(--vie-text)',
-                              flex: 1,
-                            }}
-                          >
-                            {node.title}
-                          </span>
-                          <span
-                            style={{
-                              fontFamily: 'var(--vie-font-mono)',
-                              fontSize: 10,
-                              color: 'var(--vie-text-dim)',
-                              textTransform: 'uppercase',
-                              flexShrink: 0,
-                            }}
-                          >
-                            {node.object_type === 'unknown' ? 'note' : node.object_type}
-                          </span>
-                        </div>
-                        {index < evidencePath.nodes.length - 1 && (
-                          <div
-                            style={{
-                              width: 1,
-                              height: 8,
-                              background: 'rgba(255,255,255,0.08)',
-                              marginLeft: 12,
-                            }}
-                          />
-                        )}
-                      </div>
-                    ))}
-                  </div>
-                </section>
-              </>
+            {evidencePath && evidencePath.nodes.length >= 2 && (
+              <button
+                type="button"
+                onClick={() => setArgumentView(!argumentView)}
+                style={{
+                  display: 'block',
+                  marginTop: 10,
+                  padding: 0,
+                  border: 'none',
+                  background: 'none',
+                  color: 'var(--vie-teal-light)',
+                  fontFamily: 'var(--vie-font-mono)',
+                  fontSize: 11,
+                  letterSpacing: '0.04em',
+                  cursor: 'pointer',
+                  textAlign: 'left',
+                }}
+              >
+                {argumentView ? 'Back to answer' : 'Show me why you think that'}
+              </button>
             )}
-
-            {tensions.length > 0 && (
-              <>
-                <div style={{ height: 1, background: 'rgba(255,255,255,0.08)', margin: '14px 0' }} />
-                <section>
-                  <span
-                    style={{
-                      display: 'block',
-                      marginTop: 16,
-                      marginBottom: 8,
-                      color: 'var(--vie-terra-light)',
-                      fontFamily: 'var(--vie-font-mono)',
-                      fontSize: 11,
-                      letterSpacing: '0.08em',
-                      textTransform: 'uppercase',
-                    }}
-                  >
-                    tensions
-                  </span>
-                  <div style={{ display: 'grid', gap: 10 }}>
-                    {tensions.slice(0, 2).map((tension, index) => (
-                      <div key={`tension-${index}`} style={{ display: 'grid', gap: 4 }}>
-                        <strong
-                          style={{
-                            color: 'var(--vie-text)',
-                            fontFamily: 'var(--vie-font-body)',
-                            fontSize: 14,
-                          }}
-                        >
-                          {tension.domain}
-                        </strong>
-                        <p style={{ margin: 0, color: 'var(--vie-text-muted)', fontSize: 13, lineHeight: 1.5 }}>
-                          {tension.claim_a}
-                        </p>
-                        <p style={{ margin: 0, color: 'var(--vie-text-muted)', fontSize: 13, lineHeight: 1.5 }}>
-                          {tension.claim_b}
-                        </p>
-                      </div>
-                    ))}
-                  </div>
-                </section>
-              </>
-            )}
-
-            {hypotheses.length > 0 && (
-              <>
-                <div style={{ height: 1, background: 'rgba(255,255,255,0.08)', margin: '14px 0' }} />
-                <section>
-                  <span
-                    style={{
-                      display: 'block',
-                      marginTop: 16,
-                      marginBottom: 8,
-                      color: 'var(--vie-amber-light)',
-                      fontFamily: 'var(--vie-font-mono)',
-                      fontSize: 11,
-                      letterSpacing: '0.08em',
-                      textTransform: 'uppercase',
-                    }}
-                  >
-                    hypotheses
-                  </span>
-                  <div style={{ display: 'grid', gap: 10 }}>
-                    {hypotheses.slice(0, 2).map((hypothesis, index) => (
-                      <div key={`hypothesis-${index}`} style={{ display: 'grid', gap: 4 }}>
-                        <strong
-                          style={{
-                            color: 'var(--vie-text)',
-                            fontFamily: 'var(--vie-font-body)',
-                            fontSize: 14,
-                          }}
-                        >
-                          {hypothesis.title}
-                        </strong>
-                        <p style={{ margin: 0, color: 'var(--vie-text-muted)', fontSize: 13, lineHeight: 1.5 }}>
-                          {hypothesis.structural_basis || hypothesis.description}
-                        </p>
-                      </div>
-                    ))}
-                  </div>
-                </section>
-              </>
-            )}
-
-            {gaps.length > 0 && (
-              <>
-                <div style={{ height: 1, background: 'rgba(255,255,255,0.08)', margin: '14px 0' }} />
-                <section>
-                  <span
-                    style={{
-                      display: 'block',
-                      marginTop: 16,
-                      marginBottom: 8,
-                      color: 'var(--vie-text-muted)',
-                      fontFamily: 'var(--vie-font-mono)',
-                      fontSize: 11,
-                      letterSpacing: '0.08em',
-                      textTransform: 'uppercase',
-                    }}
-                  >
-                    structural gaps
-                  </span>
-                  <div style={{ display: 'grid', gap: 8 }}>
-                    {gaps.slice(0, 2).map((gap, index) => (
-                      <p
-                        key={`gap-${index}`}
-                        style={{
-                          margin: 0,
-                          color: 'var(--vie-text-muted)',
-                          fontFamily: 'var(--vie-font-body)',
-                          fontSize: 13,
-                          lineHeight: 1.55,
-                        }}
-                      >
-                        {gap.message}
-                      </p>
-                    ))}
-                  </div>
-                </section>
-              </>
-            )}
-
-            {response.follow_ups && response.follow_ups.length > 0 && (
-              <>
-                <div style={{ height: 1, background: 'rgba(255,255,255,0.08)', margin: '14px 0' }} />
-                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 4 }}>
-                  {response.follow_ups.map((followUp, index) => (
-                    <Link
-                      key={`followup-${index}`}
-                      href={`/theseus/ask?q=${encodeURIComponent(followUp.query)}`}
-                      style={{
-                        padding: '4px 12px',
-                        borderRadius: 999,
-                        background: 'rgba(255,255,255,0.04)',
-                        color: 'var(--vie-text-muted)',
-                        fontFamily: 'var(--vie-font-body)',
-                        fontSize: 12,
-                        textDecoration: 'none',
-                      }}
-                    >
-                      {followUp.query}
-                    </Link>
-                  ))}
-                </div>
-              </>
-            )}
-          </>
-        )}
-
-        {/* Save Map button (visible when response has truth_map section) */}
-        {response.sections.some((s) => s.type === 'truth_map') && sceneDirective && (
-          <button
-            onClick={async () => {
-              const mapSection = response.sections.find(
-                (s): s is MapSection => s.type === 'truth_map',
-              );
-              if (!mapSection) return;
-              try {
-                await saveMap({
-                  title: `Map: ${response.query.slice(0, 60)}`,
-                  origin: 'ask',
-                  query_text: response.query,
-                  epistemic_data: mapSection,
-                  visual_composition: {
-                    scene_directive: sceneDirective,
-                    truth_topology: sceneDirective.truth_map_topology ?? {
-                      agreement_regions: [],
-                      tension_bridges: [],
-                      blind_spot_voids: [],
-                    },
-                    dot_assignments: [],
-                  },
-                });
-                alert('Map saved.');
-              } catch (err) {
-                console.error('Failed to save map:', err);
-              }
-            }}
-            style={{
-              marginTop: 14,
-              padding: '7px 14px',
-              fontSize: 12,
-              fontFamily: 'var(--vie-font-mono)',
-              background: 'rgba(45,95,107,0.2)',
-              border: '1px solid rgba(45,95,107,0.35)',
-              borderRadius: 6,
-              color: 'var(--vie-text)',
-              cursor: 'pointer',
-              textTransform: 'uppercase',
-              letterSpacing: '0.06em',
-              width: '100%',
-            }}
-          >
-            Save Map
-          </button>
-        )}
-      </aside>
-      {renderComposer()}
+          </div>
+        </div>
+      )}
+      {renderBottomDock()}
     </div>
   );
 }

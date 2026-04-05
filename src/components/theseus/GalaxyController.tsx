@@ -24,6 +24,8 @@ import {
 import GalaxyDrawer from './GalaxyDrawer';
 import type { AskState } from '@/app/theseus/ask/page';
 
+const DRAG_THRESHOLD_PX = 4;
+
 function hexToRgb(hex: string): [number, number, number] {
   const n = parseInt(hex.replace('#', ''), 16);
   return [(n >> 16) & 255, (n >> 8) & 255, n & 255];
@@ -1007,6 +1009,7 @@ export default function GalaxyController({
 
   // Single click on a dot during explore phase opens the drawer
   const handleClick = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
+    if (isDraggingRef.current) return; // Drag, not click
     if (phaseRef.current !== 'explore' && phaseRef.current !== 'crystallize') return;
     const grid = gridRef.current;
     if (!grid) return;
@@ -1029,8 +1032,92 @@ export default function GalaxyController({
     }
   }, [gridRef]);
 
+  // Interaction layer ref and drag state for cursor management
+  const interactionLayerRef = useRef<HTMLDivElement>(null);
+  const dragStartRef = useRef<{ x: number; y: number } | null>(null);
+  const isDraggingRef = useRef(false);
+
+  const handlePointerDown = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
+    dragStartRef.current = { x: e.clientX, y: e.clientY };
+    isDraggingRef.current = false;
+    if (interactionLayerRef.current) {
+      interactionLayerRef.current.style.cursor = 'grabbing';
+    }
+  }, []);
+
+  const handlePointerUp = useCallback(() => {
+    dragStartRef.current = null;
+    isDraggingRef.current = false;
+    if (interactionLayerRef.current) {
+      interactionLayerRef.current.style.cursor = 'grab';
+    }
+  }, []);
+
+  const handleMouseLeave = useCallback(() => {
+    dragStartRef.current = null;
+    isDraggingRef.current = false;
+  }, []);
+
+  // Touch interaction: distinguish tap from drag with 4px threshold
+  const touchStartRef = useRef<{ x: number; y: number; time: number } | null>(null);
+
+  const handleTouchStart = useCallback((e: React.TouchEvent<HTMLDivElement>) => {
+    if (e.touches.length !== 1) return;
+    const touch = e.touches[0];
+    touchStartRef.current = { x: touch.clientX, y: touch.clientY, time: Date.now() };
+  }, []);
+
+  const handleTouchMove = useCallback((e: React.TouchEvent<HTMLDivElement>) => {
+    if (!touchStartRef.current || e.touches.length !== 1) return;
+    const touch = e.touches[0];
+    const dx = touch.clientX - touchStartRef.current.x;
+    const dy = touch.clientY - touchStartRef.current.y;
+    if (dx * dx + dy * dy > DRAG_THRESHOLD_PX * DRAG_THRESHOLD_PX) {
+      touchStartRef.current = null; // Cancel tap, this is a drag/pan
+    }
+  }, []);
+
+  const handleTouchEnd = useCallback((e: React.TouchEvent<HTMLDivElement>) => {
+    if (!touchStartRef.current) return;
+    const elapsed = Date.now() - touchStartRef.current.time;
+    if (elapsed > 500) { touchStartRef.current = null; return; } // Too slow for tap
+
+    // This was a tap: find nearest cluster dot and open drawer
+    const grid = gridRef.current;
+    if (!grid || (phaseRef.current !== 'explore' && phaseRef.current !== 'crystallize')) {
+      touchStartRef.current = null;
+      return;
+    }
+
+    const { x, y } = touchStartRef.current;
+    touchStartRef.current = null;
+
+    const nearest = grid.findNearestClusterDot(x, y);
+    if (!nearest) return;
+
+    for (const [objectId, dotIndex] of objectDotMapRef.current) {
+      if (dotIndex === nearest.index) {
+        setDrawerObjectId(objectId);
+        return;
+      }
+    }
+
+    const mapping = mappingsRef.current.find((m) => m.clusterId === nearest.clusterId);
+    if (mapping && mapping.topObjects.length > 0) {
+      setDrawerObjectId(mapping.topObjects[0]);
+    }
+  }, [gridRef]);
+
   // Hover feedback: brighten nearest evidence dot within 30px
   const handleMouseMove = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
+    // Check if this is a drag
+    if (dragStartRef.current) {
+      const dx = e.clientX - dragStartRef.current.x;
+      const dy = e.clientY - dragStartRef.current.y;
+      if (dx * dx + dy * dy > DRAG_THRESHOLD_PX * DRAG_THRESHOLD_PX) {
+        isDraggingRef.current = true;
+      }
+    }
     if (phaseRef.current !== 'explore' && phaseRef.current !== 'crystallize') return;
     const grid = gridRef.current;
     if (!grid) return;
@@ -1068,7 +1155,9 @@ export default function GalaxyController({
     }
 
     hoveredDotRef.current = bestDotIndex;
-    (e.currentTarget as HTMLDivElement).style.cursor = bestDotIndex !== null ? 'pointer' : 'default';
+    if (!isDraggingRef.current) {
+      (e.currentTarget as HTMLDivElement).style.cursor = bestDotIndex !== null ? 'pointer' : 'grab';
+    }
     grid.wakeAnimation();
   }, [gridRef]);
 
@@ -1239,18 +1328,23 @@ export default function GalaxyController({
     <>
       {/* Zoom and click interaction layer */}
       <div
+        ref={interactionLayerRef}
         onClick={handleClick}
         onDoubleClick={handleDoubleClick}
         onMouseMove={handleMouseMove}
+        onMouseDown={handlePointerDown}
+        onMouseUp={handlePointerUp}
+        onTouchStart={handleTouchStart}
+        onTouchEnd={handleTouchEnd}
+        onTouchMove={handleTouchMove}
+        onMouseLeave={handleMouseLeave}
         style={{
           position: 'fixed',
           inset: 0,
           zIndex: zoom.active ? 2 : (state === 'IDLE' || state === 'EXPLORING') ? 1 : 0,
           pointerEvents: zoom.active || state === 'IDLE' || state === 'EXPLORING' ? 'auto' : 'none',
-          cursor: zoom.active
-            ? 'zoom-out'
-            : state === 'EXPLORING' ? 'default'
-              : state === 'IDLE' ? 'pointer' : undefined,
+          cursor: 'grab',
+          touchAction: 'none',
         }}
       />
 
@@ -1371,7 +1465,7 @@ export default function GalaxyController({
               letterSpacing: '0.06em',
             }}
           >
-            Map
+            Explore
           </button>
         </div>
       )}

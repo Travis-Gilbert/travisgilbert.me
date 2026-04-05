@@ -53,7 +53,6 @@
 .theseus-root input,
 .theseus-root select,
 .theseus-root textarea,
-.theseus-root aside,
 .theseus-root canvas,
 .theseus-root [role="textbox"],
 .theseus-root [role="button"],
@@ -237,10 +236,17 @@
   position: fixed;
   z-index: 19;
   display: flex;
+  flex-wrap: wrap;
   gap: 8px;
-  overflow-x: auto;
-  scrollbar-width: thin;
   pointer-events: auto;
+}
+
+.theseus-insight-panel {
+  scrollbar-width: none;
+}
+
+.theseus-insight-panel::-webkit-scrollbar {
+  display: none;
 }
 
 .theseus-ask-history-chip {
@@ -281,22 +287,19 @@
   outline-offset: 1px;
 }
 
-.theseus-ask-composer {
-  position: fixed;
-  z-index: 20;
-  pointer-events: auto;
+.theseus-bottom-dock {
+  background: rgba(15, 16, 18, 0.76);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  backdrop-filter: blur(24px);
+  border-radius: 18px;
+  padding: 14px 16px;
 }
 
-.theseus-ask-composer-form {
+.theseus-bottom-dock form {
   display: flex;
   align-items: center;
   gap: 8px;
   width: 100%;
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 12px;
-  background: rgba(15, 16, 18, 0.76);
-  backdrop-filter: blur(18px);
-  padding: 8px;
 }
 
 .theseus-ask-composer-input {
