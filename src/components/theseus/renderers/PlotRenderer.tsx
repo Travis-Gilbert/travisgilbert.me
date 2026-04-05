@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react';
 import dynamic from 'next/dynamic';
+import type { Markish } from '@observablehq/plot';
 import type { SceneDirective } from '@/lib/theseus-viz/SceneDirective';
 import { getDataBuildProgress, type ConstructionPlayback } from './rendering';
 import {
@@ -93,7 +94,7 @@ export default function PlotRenderer({
         }).filter(Boolean);
 
         const svg = Plot.plot({
-          marks,
+          marks: marks as Markish[],
           title: sliced.title,
           width: sliced.width,
           height: sliced.height ?? 360,
@@ -109,7 +110,7 @@ export default function PlotRenderer({
         });
 
         if (cancelled || !containerRef.current) {
-          (svg as Node).remove?.();
+          (svg as unknown as ChildNode).remove?.();
           return;
         }
 
