@@ -65,18 +65,16 @@ export default function PlotRenderer({
     return result;
   }, [vegaSpec]);
 
-  // If translation fails, fall back to VegaRenderer
+  // If translation fails, fall back to VegaRenderer (never reset once set)
   useEffect(() => {
     if (vegaSpec && !translation) {
       setUseFallback(true);
-    } else {
-      setUseFallback(false);
     }
   }, [vegaSpec, translation]);
 
   // Render via Observable Plot when translation succeeds
   useEffect(() => {
-    if (!containerRef.current || !translation) return;
+    if (!containerRef.current || !translation || useFallback) return;
 
     let cancelled = false;
 
@@ -89,7 +87,7 @@ export default function PlotRenderer({
         const sliced = sliceTranslationData(translation!, progress);
 
         const marks = sliced.marks.map((descriptor) => {
-          const markFn = (Plot as unknown as Record<string, Function>)[descriptor.markFn];
+          const markFn = (Plot as unknown as Record<string, (...args: unknown[]) => unknown>)[descriptor.markFn];
           if (typeof markFn !== 'function') return null;
           return markFn(descriptor.data, descriptor.channels);
         }).filter(Boolean);
@@ -98,19 +96,22 @@ export default function PlotRenderer({
           marks,
           title: sliced.title,
           width: sliced.width,
-          height: sliced.height,
+          height: sliced.height ?? 360,
           style: {
             background: 'transparent',
             color: '#e8e5e0',
             fontFamily: 'var(--vie-font-body)',
             fontSize: '12px',
           },
-          x: { labelColor: '#9a958d', grid: false },
-          y: { labelColor: '#9a958d', grid: true },
+          x: { line: true },
+          y: { grid: true },
           color: { legend: true },
         });
 
-        if (cancelled || !containerRef.current) return;
+        if (cancelled || !containerRef.current) {
+          (svg as Node).remove?.();
+          return;
+        }
 
         applyAxisColors(svg as unknown as SVGElement);
 
@@ -119,18 +120,6 @@ export default function PlotRenderer({
         while (el.firstChild) el.removeChild(el.firstChild);
         el.appendChild(svg as unknown as Node);
 
-        // Click handler: look for <title> in the click target
-        if (onContextSelect) {
-          (svg as unknown as SVGElement).addEventListener('click', (event) => {
-            const target = event.target as Element;
-            const titleEl = target.querySelector('title') ?? target.closest('[title]');
-            const content = titleEl?.textContent ?? titleEl?.getAttribute('title');
-            if (content) {
-              onContextSelect(content);
-            }
-          });
-        }
-
         setError(null);
       } catch (renderError) {
         if (cancelled) return;
@@ -138,6 +127,7 @@ export default function PlotRenderer({
           ? renderError.message
           : 'Failed to render Observable Plot chart';
         setError(message);
+        setUseFallback(true);
         onError?.(renderError instanceof Error ? renderError : new Error(message));
       }
     }
@@ -147,7 +137,18 @@ export default function PlotRenderer({
     return () => {
       cancelled = true;
     };
-  }, [translation, progressBucket, playback, onContextSelect, onError]);
+  }, [translation, progressBucket, playback, useFallback, onContextSelect, onError]);
+
+  // Delegated click handler on the container (avoids per-SVG listener leaks)
+  const handleContainerClick = useMemo(() => {
+    if (!onContextSelect) return undefined;
+    return (event: React.MouseEvent) => {
+      const target = event.target as Element;
+      const titleEl = target.querySelector('title') ?? target.closest('[title]');
+      const content = titleEl?.textContent ?? titleEl?.getAttribute('title');
+      if (content) onContextSelect(content);
+    };
+  }, [onContextSelect]);
 
   const layoutStyle = useMemo(() => ({
     position: 'absolute' as const,
@@ -177,6 +178,7 @@ export default function PlotRenderer({
     <div style={layoutStyle}>
       <div
         ref={containerRef}
+        onClick={handleContainerClick}
         style={{
           width: '100%',
           padding: '20px',
