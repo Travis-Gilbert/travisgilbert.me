@@ -1,7 +1,7 @@
 /**
  * Ask Theseus: types and API functions for the Q&A + training loop feature.
  *
- * Django endpoints provide retrieval; Next.js API route handles LLM synthesis.
+ * Django handles retrieval and LM synthesis (Gemma 4B / Qwen / compose_engine).
  * Feedback signals flow back to Django for scorer training data.
  */
 
