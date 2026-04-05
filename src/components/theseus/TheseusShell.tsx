@@ -1,6 +1,6 @@
 'use client';
 
-import { createContext, useContext, useEffect, useRef, useState } from 'react';
+import { createContext, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import TheseusDotGrid from './TheseusDotGrid';
 import GalaxyController from './GalaxyController';
 import TheseusNav from './TheseusNav';
@@ -50,17 +50,19 @@ export default function TheseusShell({ children }: { children: React.ReactNode }
     });
   }, []);
 
+  const contextValue = useMemo(() => ({
+    gridRef,
+    setAskState,
+    setResponse,
+    setDirective,
+    setDataStatus,
+    setVizPrediction,
+    argumentView,
+    setArgumentView,
+  }), [gridRef, argumentView, setAskState, setResponse, setDirective, setDataStatus, setVizPrediction, setArgumentView]);
+
   return (
-    <GalaxyContext.Provider value={{
-      gridRef,
-      setAskState,
-      setResponse,
-      setDirective,
-      setDataStatus,
-      setVizPrediction,
-      argumentView,
-      setArgumentView,
-    }}>
+    <GalaxyContext.Provider value={contextValue}>
       <TheseusDotGrid ref={gridRef} />
       <GalaxyController
         gridRef={gridRef}

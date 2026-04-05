@@ -108,12 +108,16 @@ export default function GalaxyController({
   }, [vizPrediction]);
 
   // "Show me why" toggle: switch between answer view and argument structure
-  const prevArgumentViewRef = useRef(false);
+  const prevArgumentViewRef = useRef<{ view: boolean; responseQuery: string | null }>({ view: false, responseQuery: null });
   useEffect(() => {
     const grid = gridRef.current;
     if (!grid || !response || state !== 'EXPLORING') return;
-    if (argumentView === prevArgumentViewRef.current) return;
-    prevArgumentViewRef.current = argumentView ?? false;
+    const currentView = argumentView ?? false;
+    const currentQuery = response.query ?? null;
+    const prev = prevArgumentViewRef.current;
+    // Skip if nothing changed (both view and response are the same)
+    if (currentView === prev.view && currentQuery === prev.responseQuery) return;
+    prevArgumentViewRef.current = { view: currentView, responseQuery: currentQuery };
 
     const evidencePath = response.sections.find((s) => s.type === 'evidence_path');
     const nodes: EvidenceNode[] = evidencePath && 'nodes' in evidencePath ? evidencePath.nodes : [];

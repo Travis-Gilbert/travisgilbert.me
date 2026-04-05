@@ -33,11 +33,11 @@ export function renderAnswer(
       return renderComparison(nodes, edges);
     case 'timeline':
       return renderTimeline(nodes, edges);
+    case 'truth-map':
+      return renderHierarchy(nodes, edges);
     case 'graph-native':
-      // Graph-native uses explanation (hub-and-spoke) as default topology
       return renderExplanation(nodes, edges);
     default:
-      // Explanation as universal fallback for unclassified types
       return renderExplanation(nodes, edges);
   }
 }

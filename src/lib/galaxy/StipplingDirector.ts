@@ -15,7 +15,6 @@
  */
 
 import type { SceneDirective, NodeSalience } from '@/lib/theseus-viz/SceneDirective';
-import type { VizType } from '@/lib/theseus-viz/vizPlanner';
 import type { StippleTarget } from './StipplingEngine';
 
 // ---------------------------------------------------------------------------
@@ -81,46 +80,6 @@ export function computeRecruitmentCount(
 // Decision 2: Reveal Order (Phase Template Selection)
 // ---------------------------------------------------------------------------
 
-/**
- * Phase template metadata: grid size and number of distinct phases.
- * The actual template arrays are created by the renderers using
- * helper functions from renderers/types.ts.
- */
-export interface PhaseTemplateConfig {
-  gridSize: 8 | 16;
-  phases: number;
-  strategy: 'left-to-right' | 'center-outward' | 'bottom-to-top' | 'uniform' | 'custom';
-}
-
-/**
- * Select phase template configuration based on answer type.
- * The vizPlanner already knows the type; this is a direct lookup.
- * TF.js does NOT analyze the offscreen canvas for this decision.
- */
-export function selectPhaseTemplate(vizType: VizType): PhaseTemplateConfig {
-  switch (vizType) {
-    case 'comparison':
-      return { gridSize: 8, phases: 3, strategy: 'left-to-right' };
-    case 'timeline':
-      return { gridSize: 8, phases: 5, strategy: 'left-to-right' };
-    case 'portrait':
-    case 'object-scene':
-      return { gridSize: 8, phases: 2, strategy: 'center-outward' };
-    case 'graph-native':
-      return { gridSize: 8, phases: 3, strategy: 'center-outward' };
-    case 'truth-map':
-      return { gridSize: 16, phases: 4, strategy: 'custom' };
-    case 'bar-chart':
-      return { gridSize: 8, phases: 4, strategy: 'left-to-right' };
-    case 'line-chart':
-      return { gridSize: 8, phases: 5, strategy: 'left-to-right' };
-    case 'heatmap':
-      return { gridSize: 8, phases: 3, strategy: 'center-outward' };
-    default:
-      return { gridSize: 8, phases: 3, strategy: 'center-outward' };
-  }
-}
-
 // ---------------------------------------------------------------------------
 // Decision 3: Dot Selection
 // ---------------------------------------------------------------------------
@@ -180,7 +139,8 @@ export function assignDotsToTargets(
     let bestScore = -Infinity;
     const searchRadius = theatricality > 0.5 ? 8 : 3;
 
-    for (let ring = 0; ring <= searchRadius && !bestDot; ring++) {
+    for (let ring = 0; ring <= searchRadius; ring++) {
+      if (bestDot && ring > 0) break; // found on a previous ring; don't expand further
       for (let dx = -ring; dx <= ring; dx++) {
         for (let dy = -ring; dy <= ring; dy++) {
           if (Math.abs(dx) !== ring && Math.abs(dy) !== ring) continue; // only ring perimeter
