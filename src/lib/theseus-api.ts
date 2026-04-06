@@ -798,15 +798,11 @@ async function askTheseusStream(
           break;
         }
 
-        if ((eventName === 'fast_answer' || eventName === 'deep_answer') && eventData) {
+        if (eventName === 'answer' && eventData) {
           try {
             const raw: RawAskResponse = JSON.parse(eventData);
             const normalized = normalizeAskResponse(raw);
             lastResponse = normalized;
-
-            if (eventName === 'fast_answer' && options?.onFastAnswer) {
-              options.onFastAnswer(normalized);
-            }
           } catch {
             // Skip malformed SSE data
           }

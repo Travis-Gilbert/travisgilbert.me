@@ -508,20 +508,6 @@ function AskContent() {
         retryPolicy: 'transient-once',
         include_web: true,
         stream: true,
-        onFastAnswer: (fastResponse) => {
-          if (isStale()) return;
-          // Render the fast answer immediately while deep synthesis runs
-          if (fastResponse.answer_type) {
-            import('@/lib/theseus-viz/vizPlanner').then(({ resolveVizTypeFromBackend }) => {
-              if (isStale()) return;
-              pushVizPrediction(resolveVizTypeFromBackend(fastResponse.answer_type!));
-            }).catch(() => {});
-          }
-          setState('MODEL');
-          pushState('MODEL');
-          setResponse(fastResponse);
-          pushResponse(fastResponse);
-        },
       });
       if (isStale()) return;
 
@@ -533,7 +519,6 @@ function AskContent() {
         return;
       }
 
-      // When backend provides answer_type, override the vizPlanner prediction
       if (result.answer_type) {
         const answerType = result.answer_type;
         import('@/lib/theseus-viz/vizPlanner').then(({ resolveVizTypeFromBackend }) => {
@@ -542,7 +527,6 @@ function AskContent() {
         }).catch(() => {});
       }
 
-      // Update response with the final (possibly deep) answer
       setState('MODEL');
       pushState('MODEL');
       setResponse(result);

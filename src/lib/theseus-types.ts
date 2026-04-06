@@ -247,10 +247,8 @@ export interface AskOptions {
   signal?: AbortSignal;
   timeoutMs?: number;
   retryPolicy?: 'none' | 'transient-once';
-  /** Use SSE progressive endpoint (fast answer, then deep answer) */
+  /** Use SSE endpoint for streaming response */
   stream?: boolean;
-  /** Called when the fast answer arrives (before deep answer). Stream mode only. */
-  onFastAnswer?: (response: TheseusResponse) => void;
 }
 
 /* ─────────────────────────────────────────────────
