@@ -58,16 +58,42 @@ export async function traceImageToTargets(
   if (!ctx) throw new Error('Failed to get 2D context from OffscreenCanvas');
   ctx.drawImage(img, 0, 0, w, h);
 
-  // Map contrast boost: threshold streets (dark) vs background (light)
-  // so the Sobel filter gets clean, high-contrast edges from map images
+  // Map contrast boost: adaptive threshold that separates streets from background.
+  // CARTO light tiles have light-gray streets (~190) on white (~245). A fixed
+  // threshold at 128 misses them entirely. Instead, compute the image's luminance
+  // histogram and set the threshold at the 30th percentile so the darkest ~30%
+  // of pixels (streets, boundaries) become very dark and everything else becomes
+  // very light, giving the Sobel filter clean edges.
   if (contrastBoost === 'map') {
     const preData = ctx.getImageData(0, 0, w, h);
     const pixels = preData.data;
+
+    // Build luminance histogram to find adaptive threshold
+    const histogram = new Uint32Array(256);
+    for (let i = 0; i < pixels.length; i += 4) {
+      const lum = Math.round(0.299 * pixels[i] + 0.587 * pixels[i + 1] + 0.114 * pixels[i + 2]);
+      histogram[lum]++;
+    }
+
+    // Find the 30th percentile luminance (streets are the darkest features)
+    const totalPixels = (pixels.length / 4);
+    const targetCount = totalPixels * 0.30;
+    let cumulative = 0;
+    let threshold = 128; // fallback
+    for (let lum = 0; lum < 256; lum++) {
+      cumulative += histogram[lum];
+      if (cumulative >= targetCount) {
+        threshold = lum;
+        break;
+      }
+    }
+
+    // Apply threshold: below = very dark (streets), above = very light (background)
     for (let i = 0; i < pixels.length; i += 4) {
       const lum = 0.299 * pixels[i] + 0.587 * pixels[i + 1] + 0.114 * pixels[i + 2];
-      const adjusted = lum < 128
-        ? Math.max(0, lum * 0.3)            // darken streets
-        : Math.min(255, 180 + lum * 0.3);   // lighten background
+      const adjusted = lum <= threshold
+        ? Math.max(0, (lum / threshold) * 40)    // streets: compress to 0-40
+        : Math.min(255, 200 + ((lum - threshold) / (255 - threshold)) * 55); // background: 200-255
       pixels[i] = adjusted;
       pixels[i + 1] = adjusted;
       pixels[i + 2] = adjusted;
