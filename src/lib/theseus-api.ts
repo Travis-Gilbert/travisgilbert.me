@@ -302,10 +302,12 @@ function normalizeAskResponse(raw: RawAskResponse): TheseusResponse {
   for (const section of raw.sections) {
     switch (section.type) {
       case 'narrative': {
+        const backendTier = section.data.tier;
+        const tier: 1 | 2 = backendTier === 'deep' ? 2 : 1;
         sections.push({
           type: 'narrative',
           content: typeof section.data.text === 'string' ? section.data.text : '',
-          tier: 1,
+          tier,
           attribution:
             typeof section.data.attribution === 'object' && section.data.attribution !== null
               ? (section.data.attribution as Record<string, unknown>)
@@ -689,24 +691,146 @@ function normalizeGraphWeather(raw: RawGraphWeather): GraphWeather {
   };
 }
 
+function buildAskBody(query: string, options?: AskOptions) {
+  return {
+    query,
+    mode: options?.mode ?? 'full',
+    include_web: options?.include_web ?? false,
+    max_objects: options?.max_objects ?? 12,
+    scope: options?.scope ?? (options?.personal_only ? 'personal' : 'all'),
+  };
+}
+
 export async function askTheseus(
   query: string,
   options?: AskOptions,
 ): Promise<ApiResult<TheseusResponse>> {
+  if (options?.stream) {
+    return askTheseusStream(query, options);
+  }
+
   return apiFetch<RawAskResponse, TheseusResponse>('/api/v2/theseus/ask/', {
     method: 'POST',
-    body: JSON.stringify({
-      query,
-      mode: options?.mode ?? 'full',
-      include_web: options?.include_web ?? false,
-      max_objects: options?.max_objects ?? 12,
-      scope: options?.scope ?? (options?.personal_only ? 'personal' : 'all'),
-    }),
+    body: JSON.stringify(buildAskBody(query, options)),
   }, normalizeAskResponse, {
     signal: options?.signal,
     timeoutMs: options?.timeoutMs,
     retryPolicy: options?.retryPolicy,
   });
+}
+
+/**
+ * Progressive answer via SSE: fast answer arrives in 2 to 4s,
+ * deep answer (if warranted) replaces it 15 to 45s later.
+ *
+ * Calls the /ask/stream/ endpoint which emits SSE events:
+ *   fast_answer -> deep_answer (optional) -> done
+ *
+ * The returned promise resolves with the final (best) answer.
+ * Use options.onFastAnswer to render the fast answer immediately.
+ */
+async function askTheseusStream(
+  query: string,
+  options?: AskOptions,
+): Promise<ApiResult<TheseusResponse>> {
+  const controller = new AbortController();
+  const externalSignal = options?.signal;
+
+  if (externalSignal?.aborted) {
+    return apiError(0, 'Request was cancelled.', 'aborted', false);
+  }
+
+  const externalAbort = () => controller.abort();
+  externalSignal?.addEventListener('abort', externalAbort, { once: true });
+
+  const timeoutMs = options?.timeoutMs ?? 120_000;
+  const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+
+  try {
+    const res = await fetch('/api/v2/theseus/ask/stream/', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(buildAskBody(query, options)),
+      signal: controller.signal,
+    });
+
+    if (!res.ok) {
+      const text = await res.text().catch(() => res.statusText);
+      const transient = res.status === 408 || res.status === 429 || res.status >= 500;
+      return apiError(res.status, text || res.statusText, 'http', transient);
+    }
+
+    if (!res.body) {
+      return apiError(0, 'No response body for SSE stream', 'network', true);
+    }
+
+    let lastResponse: TheseusResponse | null = null;
+    const reader = res.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = '';
+
+    for (;;) {
+      const { done, value } = await reader.read();
+      if (done) break;
+
+      buffer += decoder.decode(value, { stream: true });
+
+      // Parse SSE events from buffer
+      const events = buffer.split('\n\n');
+      // Keep the last incomplete chunk in the buffer
+      buffer = events.pop() ?? '';
+
+      for (const eventBlock of events) {
+        if (!eventBlock.trim()) continue;
+
+        let eventName = '';
+        let eventData = '';
+
+        for (const line of eventBlock.split('\n')) {
+          if (line.startsWith('event: ')) {
+            eventName = line.slice(7).trim();
+          } else if (line.startsWith('data: ')) {
+            eventData = line.slice(6);
+          }
+        }
+
+        if (eventName === 'done') {
+          break;
+        }
+
+        if ((eventName === 'fast_answer' || eventName === 'deep_answer') && eventData) {
+          try {
+            const raw: RawAskResponse = JSON.parse(eventData);
+            const normalized = normalizeAskResponse(raw);
+            lastResponse = normalized;
+
+            if (eventName === 'fast_answer' && options?.onFastAnswer) {
+              options.onFastAnswer(normalized);
+            }
+          } catch {
+            // Skip malformed SSE data
+          }
+        }
+      }
+    }
+
+    if (lastResponse) {
+      return wrapOk(lastResponse);
+    }
+    return apiError(0, 'SSE stream ended without any answer', 'network', true);
+
+  } catch (err) {
+    if (controller.signal.aborted) {
+      if (externalSignal?.aborted) {
+        return apiError(0, 'Request was cancelled.', 'aborted', false);
+      }
+      return apiError(0, 'Request timed out.', 'timeout', true);
+    }
+    return apiError(0, err instanceof Error ? err.message : 'Network error', 'network', true);
+  } finally {
+    clearTimeout(timeoutId);
+    externalSignal?.removeEventListener('abort', externalAbort);
+  }
 }
 
 export async function getObject(

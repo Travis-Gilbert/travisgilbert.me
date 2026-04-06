@@ -95,6 +95,7 @@ export interface DataSource {
 export interface NarrativeSection {
   type: 'narrative';
   content: string;
+  /** 1 = fast answer (gemma4b), 2 = deep answer (theseus-26b, replaces tier 1) */
   tier: 1 | 2;
   attribution?: Record<string, unknown> | null;
 }
@@ -246,6 +247,10 @@ export interface AskOptions {
   signal?: AbortSignal;
   timeoutMs?: number;
   retryPolicy?: 'none' | 'transient-once';
+  /** Use SSE progressive endpoint (fast answer, then deep answer) */
+  stream?: boolean;
+  /** Called when the fast answer arrives (before deep answer). Stream mode only. */
+  onFastAnswer?: (response: TheseusResponse) => void;
 }
 
 /* ─────────────────────────────────────────────────
