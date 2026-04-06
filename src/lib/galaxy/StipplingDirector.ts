@@ -21,8 +21,8 @@ import type { StippleTarget } from './StipplingEngine';
 // Decision 1: Recruitment Count
 // ---------------------------------------------------------------------------
 
-const MIN_DOTS = 1500;
-const MAX_DOTS = 5000;
+const MIN_DOTS = 3000;
+const MAX_DOTS = 8000;
 const DESKTOP_REFERENCE_WIDTH = 1280;
 
 export interface RecruitmentParams {

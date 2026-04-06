@@ -3,7 +3,7 @@
 import { forwardRef, useCallback, useEffect, useImperativeHandle, useRef } from 'react';
 import { usePrefersReducedMotion } from '@/hooks/usePrefersReducedMotion';
 import { mulberry32 } from '@/lib/prng';
-import { renderPretextLabels, clearLabelCache } from '@/lib/galaxy/pretextLabels';
+import { renderPretextLabels, renderClickCard, clearLabelCache, type ClickCardData } from '@/lib/galaxy/pretextLabels';
 
 const DEFAULT_DOT_COLOR: [number, number, number] = [74, 138, 150];
 
@@ -59,6 +59,17 @@ export interface GalaxyDotState {
   scaleOverride: number | null;
 }
 
+export interface ClickCardInput {
+  canvasX: number;
+  canvasY: number;
+  title: string;
+  snippet: string;
+  objectType: string;
+  score: number;
+  alpha: number;
+  targetAlpha: number;
+}
+
 export interface DotGridHandle {
   /** Total number of dots in the current grid */
   getDotCount(): number;
@@ -88,6 +99,14 @@ export interface DotGridHandle {
   findNearestDots(dotIndex: number, count: number): number[];
   /** Get canvas dimensions */
   getSize(): { width: number; height: number };
+  /** Set click-card data for canvas rendering (null to dismiss) */
+  setClickCard(card: ClickCardInput | null): void;
+  /** Set zoom/pan transform for canvas-native rendering */
+  setZoomTransform(scale: number, panX: number, panY: number): void;
+  /** Get current zoom transform */
+  getZoomTransform(): { scale: number; panX: number; panY: number };
+  /** Convert screen coordinates to canvas space (accounts for zoom/pan) */
+  screenToCanvas(sx: number, sy: number): { x: number; y: number };
 }
 
 export type EngineState = 'IDLE' | 'THINKING' | 'MODEL' | 'CONSTRUCTING' | 'EXPLORING';
@@ -131,6 +150,11 @@ const TheseusDotGrid = forwardRef<DotGridHandle, TheseusDotGridProps>(function T
   const engineStateRef = useRef<EngineState>('IDLE');
   const stateStartTimeRef = useRef<number>(0);
   const focalPointsRef = useRef<Array<{ x: number; y: number; orbitAngle: number }>>([]);
+
+  // Canvas-native zoom/pan state (set by GalaxyController)
+  const zoomRef = useRef({ scale: 1, panX: 0, panY: 0 });
+  // Click card data for canvas rendering
+  const clickCardRef = useRef<ClickCardInput | null>(null);
 
   const dotsRef = useRef<{
     gx: Float32Array; gy: Float32Array;
@@ -324,19 +348,24 @@ const TheseusDotGrid = forwardRef<DotGridHandle, TheseusDotGridProps>(function T
     findNearestClusterDot(x: number, y: number) {
       const dots = dotsRef.current;
       if (!dots) return null;
+      // Convert screen coords to canvas space for zoom-aware hit testing
+      const { x: cx, y: cy } = this.screenToCanvas(x, y);
+      const { scale } = zoomRef.current;
+      // Adjust hit radius: 50px at scale 1, shrinks at higher zoom
+      const hitRadius2 = (50 / scale) * (50 / scale);
       let bestDist = Infinity;
       let bestIndex = -1;
       for (let i = 0; i < dots.count; i++) {
         if (dots.galaxyClusterId[i] === -1) continue;
-        const dx = (dots.gx[i] + dots.ox[i]) - x;
-        const dy = (dots.gy[i] + dots.oy[i]) - y;
+        const dx = (dots.gx[i] + dots.ox[i]) - cx;
+        const dy = (dots.gy[i] + dots.oy[i]) - cy;
         const d = dx * dx + dy * dy;
         if (d < bestDist) {
           bestDist = d;
           bestIndex = i;
         }
       }
-      if (bestIndex === -1 || bestDist > 2500) return null; // 50px radius
+      if (bestIndex === -1 || bestDist > hitRadius2) return null;
       return {
         index: bestIndex,
         clusterId: dots.galaxyClusterId[bestIndex],
@@ -362,6 +391,28 @@ const TheseusDotGrid = forwardRef<DotGridHandle, TheseusDotGridProps>(function T
     },
     getSize() {
       return { width: sizeRef.current.w, height: sizeRef.current.h };
+    },
+    setClickCard(card: ClickCardInput | null) {
+      clickCardRef.current = card;
+      overlayDirtyRef.current = true;
+      startAnimationRef.current?.();
+    },
+    setZoomTransform(scale: number, panX: number, panY: number) {
+      zoomRef.current = { scale, panX, panY };
+      overlayDirtyRef.current = true;
+      startAnimationRef.current?.();
+    },
+    getZoomTransform() {
+      return { ...zoomRef.current };
+    },
+    screenToCanvas(sx: number, sy: number) {
+      const rect = canvasRef.current?.getBoundingClientRect();
+      if (!rect) return { x: sx, y: sy };
+      const { scale, panX, panY } = zoomRef.current;
+      return {
+        x: (sx - rect.left - panX) / scale,
+        y: (sy - rect.top - panY) / scale,
+      };
     },
   }), []);
 
@@ -497,6 +548,11 @@ const TheseusDotGrid = forwardRef<DotGridHandle, TheseusDotGridProps>(function T
       if (!dots) return;
       ctx!.clearRect(0, 0, w, h);
 
+      const { scale: zs, panX: zpx, panY: zpy } = zoomRef.current;
+      ctx!.save();
+      ctx!.translate(zpx, zpy);
+      ctx!.scale(zs, zs);
+
       for (let i = 0; i < dots.count; i++) {
         if (dots.fade[i] < 0.01) continue;
         const opaOverride = dots.galaxyOpacity[i];
@@ -507,11 +563,15 @@ const TheseusDotGrid = forwardRef<DotGridHandle, TheseusDotGridProps>(function T
           dots.galaxyScale[i],
         );
       }
+
+      ctx!.restore();
     }
 
     function drawEdgesAndLabels() {
       const dots = dotsRef.current;
       if (!dots) return;
+
+      // Note: called within tick()'s save/translate/scale context
 
       // Draw edges
       const edges = edgesRef.current;
@@ -545,6 +605,11 @@ const TheseusDotGrid = forwardRef<DotGridHandle, TheseusDotGridProps>(function T
 
       ctx!.clearRect(0, 0, w, h);
 
+      const { scale: zs, panX: zpx, panY: zpy } = zoomRef.current;
+      ctx!.save();
+      ctx!.translate(zpx, zpy);
+      ctx!.scale(zs, zs);
+
       const trail = trailRef.current;
       for (let t = trail.length - 1; t >= 0; t--) {
         trail[t].age++;
@@ -561,8 +626,9 @@ const TheseusDotGrid = forwardRef<DotGridHandle, TheseusDotGridProps>(function T
       }
       if (trail.length > 0) idleFrames = 0;
 
-      const mx = mouseRef.current.x;
-      const my = mouseRef.current.y;
+      // Transform mouse to canvas space so repulsion works at any zoom
+      const mx = (mouseRef.current.x - zpx) / zs;
+      const my = (mouseRef.current.y - zpy) / zs;
       const isActive = mouseRef.current.active;
       const ir2 = influenceRadius * influenceRadius;
       let anyDisplaced = false;
@@ -734,6 +800,23 @@ const TheseusDotGrid = forwardRef<DotGridHandle, TheseusDotGridProps>(function T
           overlayDirtyRef.current = false;
         }
       }
+
+      // Click card rendering (inside zoom transform so it scales with the scene)
+      const card = clickCardRef.current;
+      if (card) {
+        const alphaSpeed = card.targetAlpha > card.alpha ? 0.12 : 0.08;
+        card.alpha += (card.targetAlpha - card.alpha) * alphaSpeed;
+        if (Math.abs(card.alpha - card.targetAlpha) < 0.01) card.alpha = card.targetAlpha;
+        if (card.alpha > 0.01) {
+          renderClickCard(ctx!, card, w / zs, h / zs);
+        }
+        // Only keep animating while alpha is still transitioning
+        if (Math.abs(card.alpha - card.targetAlpha) > 0.01) {
+          anyDisplaced = true;
+        }
+      }
+
+      ctx!.restore(); // End zoom/pan transform
 
       // Keep animating during non-IDLE engine states
       const activeEngine = engineStateRef.current !== 'IDLE' && engineStateRef.current !== 'EXPLORING';

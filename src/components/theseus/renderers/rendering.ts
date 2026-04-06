@@ -19,6 +19,10 @@ export const TYPE_COLORS: Record<string, string> = {
   event: '#4A8A96',
   task: '#D4B06A',
   paper: '#9A8E82',
+  organization: '#4A8A96',
+  place: '#2D5F6B',
+  question: '#C49A4A',
+  quote: '#9A958D',
 };
 
 const RELATION_COLORS: Record<string, string> = {

@@ -22,9 +22,13 @@ import {
   type StippleConstructionResult,
 } from '@/lib/galaxy/stippleConstruction';
 import GalaxyDrawer from './GalaxyDrawer';
+import type { SourceTrailItem } from './SourceTrail';
 import type { AskState } from '@/app/theseus/ask/page';
 
 const DRAG_THRESHOLD_PX = 4;
+const ZOOM_MIN = 0.5;
+const ZOOM_MAX = 4;
+const ZOOM_STEP = 0.15;
 
 const GEO_SCORE_TIERS = [
   { min: 0.85, rgb: [45, 95, 107] as [number, number, number], hex: '#2d5f6b', label: 'Highly Recommended' },
@@ -80,6 +84,7 @@ interface GalaxyControllerProps {
   dataStatus?: DataProcessingStatus | null;
   vizPrediction?: VizPrediction | null;
   argumentView?: boolean;
+  onSourceExplored?: (item: SourceTrailItem) => void;
 }
 
 export default function GalaxyController({
@@ -90,16 +95,14 @@ export default function GalaxyController({
   dataStatus,
   vizPrediction,
   argumentView,
+  onSourceExplored,
 }: GalaxyControllerProps) {
   const prefersReducedMotion = usePrefersReducedMotion();
   const [clusters, setClusters] = useState<ClusterSummary[]>([]);
-  const [zoom, setZoom] = useState<{
-    active: boolean;
-    scale: number;
-    centerX: number;
-    centerY: number;
-    focusedClusterId: number | null;
-  }>({ active: false, scale: 1, centerX: 0, centerY: 0, focusedClusterId: null });
+  // Canvas-native zoom/pan (driven by wheel, double-click, pinch)
+  const zoomScaleRef = useRef(1);
+  const zoomPanRef = useRef({ x: 0, y: 0 });
+  const zoomAnimRef = useRef<number>(0);
   const [infoCard, setInfoCard] = useState<{
     cluster: ClusterDotMapping;
     screenX: number;
@@ -127,9 +130,15 @@ export default function GalaxyController({
   const [showGeoLegend, setShowGeoLegend] = useState(false);
   // Track which evidence dot is hovered for visual feedback
   const hoveredDotRef = useRef<number | null>(null);
+  // Click-card: tracked via the grid's own clickCardRef
+  const clickCardTimerRef = useRef<number>(0);
   const geoSectionRef = useRef<GeographicRegionsSection | null>(null);
   // Track previous query for follow-up transitions
   const prevQueryRef = useRef<string | null>(null);
+  // Cached response objects for click-card content lookup
+  const responseObjectsRef = useRef<Array<{
+    id: string; title: string; snippet: string; object_type: string; score: number;
+  }>>([]);
   // Track predicted viz type without triggering effect re-runs
   const predTypeRef = useRef<VizType>('graph-native');
   // Stipple construction cleanup and result
@@ -592,6 +601,14 @@ export default function GalaxyController({
 
     const objectSection = resp.sections.find((s) => s.type === 'objects');
     const objects = objectSection && 'objects' in objectSection ? objectSection.objects : [];
+
+    responseObjectsRef.current = objects.map((o) => ({
+      id: o.id,
+      title: o.title,
+      snippet: o.summary ?? '',
+      object_type: o.object_type,
+      score: o.score ?? 0,
+    }));
 
     // Build set of relevant object IDs
     const relevantIds = new Set([
@@ -1061,15 +1078,84 @@ export default function GalaxyController({
     });
   }
 
-  // Double-click handler for galaxy exploration zoom
+  // Canvas-native zoom: push scale+pan to the dot grid
+  const isZoomedRef = useRef(false);
+
+  const applyZoomToGrid = useCallback((scale: number, panX: number, panY: number) => {
+    zoomScaleRef.current = scale;
+    zoomPanRef.current = { x: panX, y: panY };
+    isZoomedRef.current = scale !== 1 || panX !== 0 || panY !== 0;
+    gridRef.current?.setZoomTransform(scale, panX, panY);
+  }, [gridRef]);
+
+  // Animate zoom smoothly toward a target
+  const animateZoom = useCallback((
+    targetScale: number, targetPanX: number, targetPanY: number, durationMs: number,
+  ) => {
+    cancelAnimationFrame(zoomAnimRef.current);
+    const startScale = zoomScaleRef.current;
+    const startPanX = zoomPanRef.current.x;
+    const startPanY = zoomPanRef.current.y;
+    const startTime = performance.now();
+
+    function step(now: number) {
+      const t = Math.min(1, (now - startTime) / durationMs);
+      const ease = 1 - (1 - t) * (1 - t); // ease-out quad
+      const s = startScale + (targetScale - startScale) * ease;
+      const px = startPanX + (targetPanX - startPanX) * ease;
+      const py = startPanY + (targetPanY - startPanY) * ease;
+      applyZoomToGrid(s, px, py);
+      if (t < 1) zoomAnimRef.current = requestAnimationFrame(step);
+    }
+
+    if (prefersReducedMotion || durationMs <= 0) {
+      applyZoomToGrid(targetScale, targetPanX, targetPanY);
+    } else {
+      zoomAnimRef.current = requestAnimationFrame(step);
+    }
+  }, [applyZoomToGrid, prefersReducedMotion]);
+
+  // Scroll wheel zoom: zoom centered on cursor position
+  useEffect(() => {
+    const el = interactionLayerRef.current;
+    if (!el) return;
+
+    function handleWheel(e: WheelEvent) {
+      e.preventDefault();
+      const grid = gridRef.current;
+      if (!grid) return;
+
+      const rect = el!.getBoundingClientRect();
+      const cursorX = e.clientX - rect.left;
+      const cursorY = e.clientY - rect.top;
+
+      const oldScale = zoomScaleRef.current;
+      const delta = e.deltaY > 0 ? -ZOOM_STEP : ZOOM_STEP;
+      const newScale = Math.max(ZOOM_MIN, Math.min(ZOOM_MAX, oldScale + delta));
+
+      // Zoom centered on cursor: adjust pan so cursor position stays fixed
+      const ratio = newScale / oldScale;
+      const newPanX = cursorX - ratio * (cursorX - zoomPanRef.current.x);
+      const newPanY = cursorY - ratio * (cursorY - zoomPanRef.current.y);
+
+      applyZoomToGrid(newScale, newPanX, newPanY);
+    }
+
+    el.addEventListener('wheel', handleWheel, { passive: false });
+    return () => el.removeEventListener('wheel', handleWheel);
+  }, [gridRef, applyZoomToGrid]);
+
+  // Double-click handler: toggle 2x zoom centered on click
   const handleDoubleClick = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
     const grid = gridRef.current;
     if (!grid) return;
 
-    if (zoom.active) {
-      setZoom({ active: false, scale: 1, centerX: 0, centerY: 0, focusedClusterId: null });
+    const currentScale = zoomScaleRef.current;
+
+    if (currentScale >= 2) {
+      // Already zoomed: reset to 1x
+      animateZoom(1, 0, 0, 300);
       setInfoCard(null);
-      grid.setPointerEvents(false);
       grid.setLabels([]);
       for (const m of mappingsRef.current) {
         grid.setDotGalaxyState(m.dotIndex, { opacityOverride: null });
@@ -1078,23 +1164,26 @@ export default function GalaxyController({
       return;
     }
 
+    // Zoom to 2x centered on click position
+    const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+    const cursorX = e.clientX - rect.left;
+    const cursorY = e.clientY - rect.top;
+    const targetScale = 2;
+    const ratio = targetScale / currentScale;
+    const newPanX = cursorX - ratio * (cursorX - zoomPanRef.current.x);
+    const newPanY = cursorY - ratio * (cursorY - zoomPanRef.current.y);
+
+    animateZoom(targetScale, newPanX, newPanY, 300);
+
+    // Show labels on nearby cluster dots
     const nearest = grid.findNearestClusterDot(e.clientX, e.clientY);
     if (!nearest) return;
 
     const mapping = mappingsRef.current.find((m) => m.clusterId === nearest.clusterId);
     if (!mapping) return;
 
-    setZoom({
-      active: true,
-      scale: 3,
-      centerX: nearest.x,
-      centerY: nearest.y,
-      focusedClusterId: nearest.clusterId,
-    });
-
     grid.setDotGalaxyState(nearest.index, { opacityOverride: 0.5 });
 
-    // Show labels on neighboring cluster dots
     const { width, height } = grid.getSize();
     const viewRadius = Math.max(width, height) / 6;
     const neighborLabels: Array<{ x: number; y: number; text: string; alpha: number }> = [];
@@ -1125,21 +1214,62 @@ export default function GalaxyController({
       screenX: Math.min(e.clientX + 20, window.innerWidth - 280),
       screenY: Math.min(e.clientY - 40, window.innerHeight - 200),
     });
-  }, [zoom.active, gridRef]);
+  }, [gridRef, animateZoom]);
 
-  // Single click on a dot during explore phase opens the drawer
+  // Show/dismiss click card helper
+  const showClickCard = useCallback((
+    canvasX: number, canvasY: number, objectId: string,
+  ) => {
+    const obj = responseObjectsRef.current.find((o) => o.id === objectId);
+    if (!obj) return;
+
+    window.clearTimeout(clickCardTimerRef.current);
+    gridRef.current?.setClickCard({
+      canvasX,
+      canvasY,
+      title: obj.title,
+      snippet: obj.snippet,
+      objectType: obj.object_type,
+      score: obj.score,
+      alpha: 0,
+      targetAlpha: 1,
+    });
+    gridRef.current?.wakeAnimation();
+
+    // Add to source trail
+    onSourceExplored?.({
+      objectId,
+      title: obj.title,
+      objectType: obj.object_type,
+      score: obj.score,
+      snippet: obj.snippet,
+    });
+  }, [gridRef, onSourceExplored]);
+
+  const dismissClickCard = useCallback(() => {
+    // Fade out then remove
+    gridRef.current?.setClickCard(null);
+    gridRef.current?.wakeAnimation();
+  }, [gridRef]);
+
+  // Single click on a dot: show click-card (desktop) or open drawer (mobile)
   const handleClick = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
     if (isDraggingRef.current) return; // Drag, not click
-    if (phaseRef.current !== 'explore' && phaseRef.current !== 'crystallize') return;
+    if (phaseRef.current !== 'explore' && phaseRef.current !== 'crystallize') {
+      // Click on empty space dismisses card in any phase
+      dismissClickCard();
+      return;
+    }
     const grid = gridRef.current;
     if (!grid) return;
+
+    // Detect mobile: use drawer for touch devices
+    const isMobile = 'ontouchstart' in window && window.innerWidth < 768;
 
     // Geographic region hit test
     const geoSection = geoSectionRef.current;
     if (geoSection) {
-      const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
-      const clickX = e.clientX - rect.left;
-      const clickY = e.clientY - rect.top;
+      const { x: clickX, y: clickY } = grid.screenToCanvas(e.clientX, e.clientY);
       const { width, height } = grid.getSize();
       const { padX: gPadX, padY: gPadY, usableW: gUsableW, usableH: gUsableH } = geoMapLayout(width, height);
 
@@ -1157,22 +1287,38 @@ export default function GalaxyController({
     }
 
     const nearest = grid.findNearestClusterDot(e.clientX, e.clientY);
-    if (!nearest) return;
+    if (!nearest) {
+      // Clicked empty space: dismiss card
+      dismissClickCard();
+      return;
+    }
 
     // Find the object ID mapped to this dot
+    let foundObjectId: string | null = null;
     for (const [objectId, dotIndex] of objectDotMapRef.current) {
       if (dotIndex === nearest.index) {
-        setDrawerObjectId(objectId);
-        return;
+        foundObjectId = objectId;
+        break;
       }
     }
 
-    // If no object mapped, try the cluster's top objects
-    const mapping = mappingsRef.current.find((m) => m.clusterId === nearest.clusterId);
-    if (mapping && mapping.topObjects.length > 0) {
-      setDrawerObjectId(mapping.topObjects[0]);
+    // Fallback: try the cluster's top objects
+    if (!foundObjectId) {
+      const mapping = mappingsRef.current.find((m) => m.clusterId === nearest.clusterId);
+      if (mapping && mapping.topObjects.length > 0) {
+        foundObjectId = mapping.topObjects[0];
+      }
     }
-  }, [gridRef]);
+
+    if (!foundObjectId) return;
+
+    if (isMobile) {
+      setDrawerObjectId(foundObjectId);
+    } else {
+      // Desktop: show click-card at the dot position (offset right+up by 16px)
+      showClickCard(nearest.x + 16, nearest.y - 16, foundObjectId);
+    }
+  }, [gridRef, showClickCard, dismissClickCard]);
 
   // Interaction layer ref and drag state for cursor management
   const interactionLayerRef = useRef<HTMLDivElement>(null);
@@ -1183,7 +1329,7 @@ export default function GalaxyController({
     dragStartRef.current = { x: e.clientX, y: e.clientY };
     isDraggingRef.current = false;
     if (interactionLayerRef.current) {
-      interactionLayerRef.current.style.cursor = 'grabbing';
+      interactionLayerRef.current.style.cursor = zoomScaleRef.current > 1 ? 'grabbing' : 'default';
     }
   }, []);
 
@@ -1252,12 +1398,20 @@ export default function GalaxyController({
 
   // Hover feedback: brighten nearest evidence dot within 30px
   const handleMouseMove = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
-    // Check if this is a drag
+    // Pan when zoomed in and dragging
     if (dragStartRef.current) {
       const dx = e.clientX - dragStartRef.current.x;
       const dy = e.clientY - dragStartRef.current.y;
       if (dx * dx + dy * dy > DRAG_THRESHOLD_PX * DRAG_THRESHOLD_PX) {
         isDraggingRef.current = true;
+      }
+      if (isDraggingRef.current && zoomScaleRef.current > 1) {
+        applyZoomToGrid(
+          zoomScaleRef.current,
+          zoomPanRef.current.x + e.movementX,
+          zoomPanRef.current.y + e.movementY,
+        );
+        return; // Skip hover logic during pan
       }
     }
     if (phaseRef.current !== 'explore' && phaseRef.current !== 'crystallize') return;
@@ -1301,7 +1455,7 @@ export default function GalaxyController({
       (e.currentTarget as HTMLDivElement).style.cursor = bestDotIndex !== null ? 'pointer' : 'grab';
     }
     grid.wakeAnimation();
-  }, [gridRef]);
+  }, [gridRef, applyZoomToGrid]);
 
   // What-if removal: fade and scatter the removed dot
   const handleWhatIfRemove = useCallback((objectId: string, result: WhatIfResult) => {
@@ -1355,10 +1509,9 @@ export default function GalaxyController({
 
   // Escape key to exit zoom
   useEffect(() => {
-    if (!zoom.active) return;
     function handleKeyDown(e: KeyboardEvent) {
-      if (e.key === 'Escape') {
-        setZoom({ active: false, scale: 1, centerX: 0, centerY: 0, focusedClusterId: null });
+      if (e.key === 'Escape' && isZoomedRef.current) {
+        animateZoom(1, 0, 0, 300);
         setInfoCard(null);
         const grid = gridRef.current;
         if (grid) {
@@ -1373,7 +1526,7 @@ export default function GalaxyController({
     }
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [zoom.active, gridRef]);
+  }, [gridRef, animateZoom]);
 
   // Data acquisition: pulsing edge dots + streaming new dots
   useEffect(() => {
@@ -1454,15 +1607,12 @@ export default function GalaxyController({
   useEffect(() => {
     return () => {
       window.clearTimeout(phaseTimerRef.current);
+      window.clearTimeout(clickCardTimerRef.current);
       for (const id of visionTimerIdsRef.current) window.clearTimeout(id);
       window.clearInterval(pulseIntervalRef.current);
+      cancelAnimationFrame(zoomAnimRef.current);
     };
   }, []);
-
-  const { width: vw, height: vh } = gridRef.current?.getSize() ?? { width: 0, height: 0 };
-  const zoomTransform = zoom.active
-    ? `scale(${zoom.scale}) translate(${(vw / 2 - zoom.centerX) / zoom.scale}px, ${(vh / 2 - zoom.centerY) / zoom.scale}px)`
-    : 'none';
 
   const typeColor = infoCard ? (TYPE_COLORS[infoCard.cluster.objectType] ?? '#9A958D') : '#9A958D';
 
@@ -1483,22 +1633,12 @@ export default function GalaxyController({
         style={{
           position: 'fixed',
           inset: 0,
-          zIndex: zoom.active ? 2 : (state === 'IDLE' || state === 'EXPLORING') ? 1 : 0,
-          pointerEvents: zoom.active || state === 'IDLE' || state === 'EXPLORING' ? 'auto' : 'none',
+          zIndex: isZoomedRef.current ? 2 : (state === 'IDLE' || state === 'EXPLORING') ? 1 : 0,
+          pointerEvents: isZoomedRef.current || state === 'IDLE' || state === 'EXPLORING' ? 'auto' : 'none',
           cursor: 'grab',
           touchAction: 'none',
         }}
       />
-
-      {/* CSS zoom transform for canvas */}
-      <style>{`
-        .theseus-root > canvas,
-        .theseus-root canvas[aria-hidden] {
-          transition: transform ${prefersReducedMotion ? '0ms' : '400ms'} ease-out;
-          transform-origin: center center;
-          transform: ${zoomTransform};
-        }
-      `}</style>
 
       {/* Engine heat gradient (Layer 2, intensifies through phases) */}
       {(phaseRef.current === 'searching' || phaseRef.current === 'filtering' || phaseRef.current === 'construction' || phaseRef.current === 'crystallize' || isAcquiring) && (
@@ -1526,7 +1666,7 @@ export default function GalaxyController({
       )}
 
       {/* Info card for zoomed cluster */}
-      {infoCard && zoom.active && (
+      {infoCard && isZoomedRef.current && (
         <div
           style={{
             position: 'fixed',

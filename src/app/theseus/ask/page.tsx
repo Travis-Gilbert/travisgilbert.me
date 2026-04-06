@@ -21,6 +21,7 @@ import { buildObjectLookup } from '@/components/theseus/renderers/rendering';
 import RenderRouter from '@/components/theseus/renderers/RenderRouter';
 import ThinkingScreen from '@/components/theseus/ThinkingScreen';
 import { useGalaxy } from '@/components/theseus/TheseusShell';
+import SourceTrail from '@/components/theseus/SourceTrail';
 import { getModel } from '@/lib/theseus-storage';
 import { useIsMobile } from '@/hooks/useIsMobile';
 
@@ -320,7 +321,7 @@ function AskContent() {
   const query = searchParams.get('q');
   const savedId = searchParams.get('saved');
   const isMobile = useIsMobile();
-  const { setAskState: pushState, setResponse: pushResponse, setDirective: pushDirective, setDataStatus: pushDataStatus, setVizPrediction: pushVizPrediction, argumentView, setArgumentView } = useGalaxy();
+  const { setAskState: pushState, setResponse: pushResponse, setDirective: pushDirective, setDataStatus: pushDataStatus, setVizPrediction: pushVizPrediction, argumentView, setArgumentView, sourceTrail, clearSourceTrail } = useGalaxy();
 
   const [state, setState] = useState<AskState>(query ? 'THINKING' : 'IDLE');
   const [response, setResponse] = useState<TheseusResponse | null>(null);
@@ -389,6 +390,9 @@ function AskContent() {
     if (!query) return;
     setRetryNonce((current) => current + 1);
   }, [query]);
+
+  // TODO: re-highlight the dot when a trail card is clicked
+  const handleTrailSelect = useCallback((_objectId: string) => {}, []);
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
@@ -475,6 +479,7 @@ function AskContent() {
 
       setState('THINKING');
       pushState('THINKING');
+      clearSourceTrail();
 
       // Fire viz prediction in parallel: does not block the ask call
       import('@/lib/theseus-viz/vizPlanner').then(({ predictVizType }) => {
@@ -572,7 +577,7 @@ function AskContent() {
     return () => {
       controller.abort();
     };
-  }, [pushDataStatus, pushDirective, pushResponse, pushState, query, retryNonce, savedId]);
+  }, [clearSourceTrail, pushDataStatus, pushDirective, pushResponse, pushState, query, retryNonce, savedId]);
 
   // When the 2D path is active (no RenderRouter), trigger narration after construction settles
   useEffect(() => {
@@ -881,6 +886,25 @@ function AskContent() {
           {response.query}
         </h1>
       </div>
+
+      {/* Source trail: accumulated explored sources */}
+      {sourceTrail.length > 0 && (
+        <div
+          style={{
+            position: 'absolute',
+            left: 20,
+            top: 110,
+            maxWidth: isMobile ? 'calc(100vw - 40px)' : 480,
+            zIndex: 10,
+            pointerEvents: 'none',
+          }}
+        >
+          <SourceTrail
+            items={sourceTrail}
+            onSelect={handleTrailSelect}
+          />
+        </div>
+      )}
 
       {/* InsightPanel: response text with scoped pointer-events */}
       {narrationReady && renderedNarratives.length > 0 && (
