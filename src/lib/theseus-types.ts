@@ -12,6 +12,26 @@ export interface TheseusResponse {
   reference_image_url?: string;
   /** Geographic region overlay data for map-based answers */
   geographic_regions?: GeographicRegionsSection;
+  /** Backend-classified answer type for visual construction routing */
+  answer_type?: AnswerType;
+  /** Full classification metadata from the answer router */
+  answer_classification?: AnswerClassification;
+}
+
+export type AnswerType =
+  | 'geographic'
+  | 'portrait'
+  | 'diagram'
+  | 'comparison'
+  | 'timeline'
+  | 'hierarchy'
+  | 'explanation';
+
+export interface AnswerClassification {
+  answer_type: AnswerType;
+  search_query: string | null;
+  confidence: number;
+  reasoning: string;
 }
 
 export interface ConfidenceScore {

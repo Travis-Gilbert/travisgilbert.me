@@ -227,6 +227,37 @@ export function warmUpModels(): Promise<void> {
 }
 
 /**
+ * Canonical mapping from backend AnswerType to frontend VizType.
+ * Shared by vizPlanner and e4bVision; single source of truth.
+ */
+export const ANSWER_TYPE_TO_VIZ: Record<string, VizType> = {
+  geographic: 'geographic',
+  portrait: 'portrait',
+  diagram: 'object-scene',
+  comparison: 'comparison',
+  timeline: 'timeline',
+  hierarchy: 'graph-native',
+  explanation: 'graph-native',
+};
+
+/**
+ * Resolve visualization type from a backend-provided answer_type.
+ * When the backend classifies the query, this override takes precedence
+ * over the client-side KNN prediction.
+ */
+export function resolveVizTypeFromBackend(
+  answerType: string,
+): VizPrediction {
+  const type = ANSWER_TYPE_TO_VIZ[answerType] ?? 'unknown';
+  return {
+    type,
+    confidence: 1.0,
+    shouldWarmVision: VISION_TYPES.has(type) || answerType === 'geographic' || answerType === 'diagram',
+    suggestedRenderer: RENDERER_MAP[type] ?? 'particle-field',
+  };
+}
+
+/**
  * Predict the visualization type for a user query.
  * Fires alongside (not blocking) the ask API call.
  * Returns UNKNOWN_PREDICTION if the model is not ready or classification fails.

@@ -23,6 +23,8 @@ import {
 } from '@/lib/galaxy/stippleConstruction';
 import GalaxyDrawer from './GalaxyDrawer';
 import type { SourceTrailItem } from './SourceTrail';
+import { getColorStrategy } from '@/lib/galaxy/e4bVision';
+import type { AnswerType } from '@/lib/theseus-types';
 import type { AskState } from '@/app/theseus/ask/page';
 
 const DRAG_THRESHOLD_PX = 4;
@@ -756,17 +758,23 @@ export default function GalaxyController({
       const dotCount = grid.getDotCount();
       const vizType = predTypeRef.current;
       const geoSection = resp.geographic_regions;
+      const answerType = resp.answer_type;
       geoSectionRef.current = geoSection ?? null;
       setShowGeoLegend(false);
-      const shouldStipple = !imageUrl && vizType !== 'portrait' && vizType !== 'object-scene';
 
-      // Debug: trace geographic answer flow
-      if (imageUrl || geoSection) {
-        console.log('[Galaxy] Geographic answer detected:', {
+      // Geographic answers with regions: route through stipple + GeographicRenderer
+      const isGeographicStipple = answerType === 'geographic' && geoSection;
+      const shouldStipple = isGeographicStipple || (!imageUrl && vizType !== 'portrait' && vizType !== 'object-scene');
+
+      // Debug: trace answer flow
+      if (imageUrl || geoSection || answerType) {
+        console.log('[Galaxy] Answer construction:', {
           imageUrl,
           hasGeoSection: !!geoSection,
+          answerType,
           vizType,
           shouldStipple,
+          isGeographicStipple,
         });
       }
 
@@ -776,6 +784,9 @@ export default function GalaxyController({
 
         runStippleConstruction(vizType, nodes, edges, directive, grid, {
           instant: prefersReducedMotion,
+          answerType: answerType as AnswerType | undefined,
+          referenceImageUrl: isGeographicStipple ? imageUrl : undefined,
+          geoSection: isGeographicStipple ? geoSection : undefined,
         }).then((stippleResult) => {
           if (!stippleResult) {
             legacyConstruction(grid, nodes, edges, objDotMap, relevantDotIndices, imageUrl, dotCount, geoSection);
@@ -789,13 +800,14 @@ export default function GalaxyController({
             recruitedDotsRef.current.add(idx);
           }
 
-          // Animate the stippled construction
+          // Animate the stippled construction with per-type coloring
           const cleanup = animateStippleConstruction(
             grid,
             stippleResult,
             stippleResult.stippleResult.targets,
             nodes,
             prefersReducedMotion,
+            answerType as AnswerType | undefined,
           );
           stippleCleanupRef.current = cleanup;
         }).catch((err: unknown) => {

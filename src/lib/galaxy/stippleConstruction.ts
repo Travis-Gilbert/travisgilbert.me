@@ -21,14 +21,28 @@ import {
   type DotAssignment,
   type LoadBearingDot,
 } from './StipplingDirector';
-import { renderAnswer, renderArgumentView, renderDataVizAnswer } from './renderers';
+import { renderAnswer, renderArgumentView, renderDataVizAnswer, renderGeographicAnswer } from './renderers';
 import type { OffscreenRenderResult } from './renderers/types';
+import type { AnswerType, GeographicRegionsSection } from '@/lib/theseus-types';
+import { getColorStrategy, type DotColorStrategy } from './e4bVision';
 import { TYPE_COLORS } from '@/components/theseus/renderers/rendering';
 import { resolveCollisions, clearLabelCache } from './pretextLabels';
 
 function hexToRgb(hex: string): [number, number, number] {
   const n = parseInt(hex.replace('#', ''), 16);
   return [(n >> 16) & 255, (n >> 8) & 255, n & 255];
+}
+
+function resolveDotColor(
+  weight: number,
+  nodeId: string | null | undefined,
+  nodeMap: Map<string, EvidenceNode>,
+  colorStrategy: DotColorStrategy | null,
+): [number, number, number] | null {
+  if (colorStrategy) return colorStrategy.colorForWeight(weight);
+  const nodeType = nodeMap.get(nodeId ?? '')?.object_type ?? 'note';
+  const typeColor = TYPE_COLORS[nodeType];
+  return typeColor ? hexToRgb(typeColor) : null;
 }
 
 export interface StippleConstructionResult {
@@ -48,6 +62,12 @@ export interface StippleConstructionOptions {
   vegaSpec?: Record<string, unknown>;
   /** Labels for data-viz semantic regions */
   vegaLabels?: string[];
+  /** Backend answer type for renderer routing */
+  answerType?: AnswerType;
+  /** Reference image URL for image-based answer types */
+  referenceImageUrl?: string | null;
+  /** Geographic regions for map answers */
+  geoSection?: GeographicRegionsSection;
 }
 
 /**
@@ -72,7 +92,13 @@ export async function runStippleConstruction(
   // Step 1: Render offscreen dual canvases
   let renderResult: OffscreenRenderResult | null = null;
 
-  if (options.vegaSpec) {
+  if (options.answerType === 'geographic' && options.geoSection) {
+    // Geographic answer: use GeographicRenderer with optional reference image
+    renderResult = await renderGeographicAnswer(
+      options.referenceImageUrl,
+      options.geoSection,
+    );
+  } else if (options.vegaSpec) {
     renderResult = await renderDataVizAnswer(options.vegaSpec, options.vegaLabels);
   } else {
     renderResult = renderAnswer(vizType, nodes, edges);
@@ -140,6 +166,7 @@ export function animateStippleConstruction(
   stippleTargets: StippleTarget[],
   nodes: EvidenceNode[],
   instant: boolean,
+  answerType?: AnswerType,
 ): () => void {
   const timerIds: number[] = [];
   const { assignments, recruitedDotIndices } = result;
@@ -148,6 +175,10 @@ export function animateStippleConstruction(
 
   // Pre-build node lookup to avoid O(n) scans per assignment
   const nodeMap = new Map(nodes.map((n) => [n.object_id, n]));
+
+  // Per-type coloring: image-based types use weight-mapped colors,
+  // layout types use existing TYPE_COLORS per node object_type
+  const colorStrategy: DotColorStrategy | null = answerType ? getColorStrategy(answerType) : null;
 
   // Phase 0: Dim all non-recruited dots to near-invisible
   // This creates the dark canvas that makes the stippled shape pop
@@ -167,14 +198,13 @@ export function animateStippleConstruction(
       const target = stippleTargets[i];
       grid.setDotTarget(a.galaxyDotIndex, a.targetX, a.targetY);
 
-      const nodeType = nodeMap.get(target?.nodeId ?? '')?.object_type ?? 'note';
-      const typeColor = TYPE_COLORS[nodeType];
-      const rgb = typeColor ? hexToRgb(typeColor) : null;
+      const weight = target?.weight ?? 0.5;
+      const rgb = resolveDotColor(weight, target?.nodeId, nodeMap, colorStrategy);
 
       grid.setDotGalaxyState(a.galaxyDotIndex, {
-        opacityOverride: 0.45 + (target?.weight ?? 0.5) * 0.35,
+        opacityOverride: 0.45 + weight * 0.35,
         colorOverride: rgb,
-        scaleOverride: 1.8 + (target?.weight ?? 0.5) * 0.8,
+        scaleOverride: 1.8 + weight * 0.8,
         isRelevant: true,
       });
     }
@@ -213,9 +243,7 @@ export function animateStippleConstruction(
       for (const { assignment, target, node } of group) {
         grid.setDotTarget(assignment.galaxyDotIndex, assignment.targetX, assignment.targetY);
 
-        const nodeType = node?.object_type ?? 'note';
-        const typeColor = TYPE_COLORS[nodeType];
-        const rgb = typeColor ? hexToRgb(typeColor) : null;
+        const rgb = resolveDotColor(target.weight, target.nodeId, nodeMap, colorStrategy);
 
         // Recruited dots are bright and physically larger than ambient
         grid.setDotGalaxyState(assignment.galaxyDotIndex, {

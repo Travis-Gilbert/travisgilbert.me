@@ -489,6 +489,19 @@ function AskContent() {
         }).catch(() => {});
       }).catch(() => {});
 
+      // Run e4b vision classification in parallel (frontend keyword classifier)
+      // This warms vision models speculatively based on query signals
+      import('@/lib/galaxy/e4bVision').then(({ classify, needsImageSearch }) => {
+        const classification = classify(activeQuery);
+        if (isStale()) return;
+        if (needsImageSearch(classification.answer_type)) {
+          // Pre-warm vision models for image-based answer types
+          import('@/lib/galaxy/modelLoader').then(({ getFaceModel }) => {
+            getFaceModel().catch(() => {});
+          }).catch(() => {});
+        }
+      }).catch(() => {});
+
       const result = await askTheseus(activeQuery, {
         signal: controller.signal,
         timeoutMs: ASK_TIMEOUT_MS,
@@ -503,6 +516,15 @@ function AskContent() {
         setState('IDLE');
         pushState('IDLE');
         return;
+      }
+
+      // When backend provides answer_type, override the vizPlanner prediction
+      if (result.answer_type) {
+        const answerType = result.answer_type;
+        import('@/lib/theseus-viz/vizPlanner').then(({ resolveVizTypeFromBackend }) => {
+          if (isStale()) return;
+          pushVizPrediction(resolveVizTypeFromBackend(answerType));
+        }).catch(() => {});
       }
 
       setState('MODEL');

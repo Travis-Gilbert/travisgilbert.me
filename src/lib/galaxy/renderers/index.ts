@@ -14,6 +14,8 @@ import { renderTimeline } from './TimelineRenderer';
 import { renderHierarchy } from './HierarchyRenderer';
 import { renderExplanation } from './ExplanationRenderer';
 import { renderArgument } from './ArgumentRenderer';
+import { renderGeographic, loadMapImage } from './GeographicRenderer';
+import type { GeographicRegionsSection } from '@/lib/theseus-types';
 
 /**
  * Render the offscreen dual-canvas pair for the given answer type.
@@ -40,6 +42,18 @@ export function renderAnswer(
     default:
       return renderExplanation(nodes, edges);
   }
+}
+
+/**
+ * Render a geographic answer with optional reference image and region overlays.
+ * Async because it may need to load a map image from URL.
+ */
+export async function renderGeographicAnswer(
+  imageUrl: string | null | undefined,
+  geoSection: GeographicRegionsSection,
+): Promise<OffscreenRenderResult> {
+  const img = imageUrl ? await loadMapImage(imageUrl) : null;
+  return renderGeographic(img, geoSection);
 }
 
 /**
