@@ -3,19 +3,23 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Drawer } from 'vaul';
 import { getObject, whatIfRemove } from '@/lib/theseus-api';
-import type { TheseusObject, WhatIfResult } from '@/lib/theseus-types';
+import type { TheseusObject, WhatIfResult, GeographicRegion } from '@/lib/theseus-types';
 import { TYPE_COLORS } from './renderers/rendering';
+import { geoScoreToHex } from './GalaxyController';
 
 interface GalaxyDrawerProps {
   objectId: string | null;
   onClose: () => void;
   onWhatIfRemove?: (objectId: string, result: WhatIfResult) => void;
+  /** Geographic regions for geo: drawer rendering */
+  geoRegions?: GeographicRegion[];
 }
 
 export default function GalaxyDrawer({
   objectId,
   onClose,
   onWhatIfRemove,
+  geoRegions,
 }: GalaxyDrawerProps) {
   const [object, setObject] = useState<TheseusObject | null>(null);
   const [loading, setLoading] = useState(false);
@@ -26,6 +30,13 @@ export default function GalaxyDrawer({
     if (!objectId) {
       setObject(null);
       setWhatIfResult(null);
+      return;
+    }
+
+    // Geographic region drawer: no fetch needed
+    if (objectId.startsWith('geo:')) {
+      setLoading(false);
+      setObject(null);
       return;
     }
 
@@ -54,6 +65,11 @@ export default function GalaxyDrawer({
   }, [objectId, onWhatIfRemove]);
 
   const typeColor = object ? (TYPE_COLORS[object.object_type] ?? '#9A958D') : '#9A958D';
+
+  // Resolve geographic region from geo: prefix
+  const geoRegion = objectId?.startsWith('geo:') && geoRegions
+    ? geoRegions.find((r) => r.id === objectId.slice(4)) ?? null
+    : null;
 
   return (
     <Drawer.Root open={!!objectId} onOpenChange={(open) => { if (!open) onClose(); }}>
@@ -95,7 +111,9 @@ export default function GalaxyDrawer({
             }}
           />
 
-          {loading ? (
+          {geoRegion ? (
+            <GeoRegionContent region={geoRegion} />
+          ) : loading ? (
             <div
               style={{
                 color: 'var(--vie-text-dim)',
@@ -268,5 +286,57 @@ export default function GalaxyDrawer({
         </Drawer.Content>
       </Drawer.Portal>
     </Drawer.Root>
+  );
+}
+
+function GeoRegionContent({ region }: { region: GeographicRegion }) {
+  const scoreColor = geoScoreToHex(region.score);
+  return (
+    <div style={{ display: 'grid', gap: 14 }}>
+      <div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+          <span
+            style={{
+              padding: '3px 10px',
+              borderRadius: 999,
+              background: `${scoreColor}20`,
+              color: scoreColor,
+              fontFamily: 'var(--vie-font-mono)',
+              fontSize: 10,
+              letterSpacing: '0.08em',
+              textTransform: 'uppercase',
+            }}
+          >
+            geographic
+          </span>
+          <span style={{ fontFamily: 'var(--vie-font-mono)', fontSize: 10, color: scoreColor }}>
+            {Math.round(region.score * 100)}%
+          </span>
+        </div>
+        <Drawer.Title
+          style={{
+            margin: 0,
+            color: 'var(--vie-text)',
+            fontFamily: 'var(--vie-font-title)',
+            fontSize: '1.25rem',
+            fontWeight: 600,
+            lineHeight: 1.3,
+          }}
+        >
+          {region.name}
+        </Drawer.Title>
+      </div>
+      <p
+        style={{
+          margin: 0,
+          color: 'var(--vie-text-muted)',
+          fontFamily: 'var(--vie-font-body)',
+          fontSize: 14,
+          lineHeight: 1.65,
+        }}
+      >
+        {region.explanation}
+      </p>
+    </div>
   );
 }

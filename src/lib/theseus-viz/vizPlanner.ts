@@ -19,6 +19,7 @@ export type VizType =
   | 'heatmap'
   | 'timeline'
   | 'comparison'
+  | 'geographic'
   | 'unknown';
 
 export interface VizPrediction {
@@ -45,6 +46,7 @@ const RENDERER_MAP: Record<VizType, VizPrediction['suggestedRenderer']> = {
   heatmap: 'vega-lite',
   timeline: 'd3',
   comparison: 'vega-lite',
+  geographic: 'particle-field',
   unknown: 'particle-field',
 };
 

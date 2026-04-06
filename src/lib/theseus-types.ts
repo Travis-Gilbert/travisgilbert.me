@@ -10,6 +10,8 @@ export interface TheseusResponse {
   raw_traversal?: TraversalMetadata;
   /** Optional reference image URL for visual answer construction (image-traced portraits) */
   reference_image_url?: string;
+  /** Geographic region overlay data for map-based answers */
+  geographic_regions?: GeographicRegionsSection;
 }
 
 export interface ConfidenceScore {
@@ -54,7 +56,8 @@ export type ResponseSection =
   | ClusterContextSection
   | HypothesisSection
   | DataAcquisitionSection
-  | MapSection;
+  | MapSection
+  | GeographicRegionsSection;
 
 export interface DataAcquisitionSection {
   type: 'data_acquisition';
@@ -299,4 +302,24 @@ export interface MapSection {
   what_if_sensitivities: WhatIfSensitivity[];
   source_independence_score: number;
   computed_at: string;
+}
+
+export interface GeographicRegion {
+  id: string;
+  name: string;
+  score: number;
+  center_x: number;
+  center_y: number;
+  radius: number;
+  explanation: string;
+}
+
+export interface GeographicRegionsSection {
+  type: 'geographic_regions';
+  location: string;
+  regions: GeographicRegion[];
+  legend: {
+    metric: string;
+    tiers: Array<{ min: number; label: string; color: string }>;
+  };
 }

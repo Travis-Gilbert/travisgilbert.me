@@ -25,18 +25,25 @@ async function loadTF(): Promise<TFModule> {
   return _tf;
 }
 
+export interface ImageTraceOptions {
+  edgeThreshold?: number;
+  /** Apply map-optimized contrast boost (thresholds streets vs background) */
+  contrastBoost?: 'map' | 'none';
+}
+
 /**
  * Load an image and extract edge positions for particle targeting.
  *
  * @param imageUrl URL of the reference image (must support CORS)
  * @param targetCount Desired number of target positions
- * @param edgeThreshold Minimum edge magnitude to consider (0-1)
+ * @param options Edge threshold and optional contrast preprocessing
  */
 export async function traceImageToTargets(
   imageUrl: string,
   targetCount: number,
-  edgeThreshold = 0.08,
+  options: ImageTraceOptions = {},
 ): Promise<ParticleTarget[]> {
+  const { edgeThreshold = 0.08, contrastBoost = 'none' } = options;
   const tf = await loadTF();
 
   const img = await loadImage(imageUrl);
@@ -50,6 +57,23 @@ export async function traceImageToTargets(
   const ctx = canvas.getContext('2d');
   if (!ctx) throw new Error('Failed to get 2D context from OffscreenCanvas');
   ctx.drawImage(img, 0, 0, w, h);
+
+  // Map contrast boost: threshold streets (dark) vs background (light)
+  // so the Sobel filter gets clean, high-contrast edges from map images
+  if (contrastBoost === 'map') {
+    const preData = ctx.getImageData(0, 0, w, h);
+    const pixels = preData.data;
+    for (let i = 0; i < pixels.length; i += 4) {
+      const lum = 0.299 * pixels[i] + 0.587 * pixels[i + 1] + 0.114 * pixels[i + 2];
+      const adjusted = lum < 128
+        ? Math.max(0, lum * 0.3)            // darken streets
+        : Math.min(255, 180 + lum * 0.3);   // lighten background
+      pixels[i] = adjusted;
+      pixels[i + 1] = adjusted;
+      pixels[i + 2] = adjusted;
+    }
+    ctx.putImageData(preData, 0, 0);
+  }
 
   const imageData = ctx.getImageData(0, 0, w, h);
 

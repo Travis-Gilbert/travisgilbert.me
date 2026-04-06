@@ -13,7 +13,7 @@ import { TYPE_COLORS } from './renderers/rendering';
 import { computeGraphLayout, computeClusterLayout } from './galaxyLayout';
 import { generateTargets, generateTruthMapTargets } from '@/lib/galaxy/TargetGenerator';
 import { resolveCollisions, clearLabelCache } from '@/lib/galaxy/pretextLabels';
-import type { MapSection } from '@/lib/theseus-types';
+import type { MapSection, GeographicRegionsSection } from '@/lib/theseus-types';
 import type { TruthMapTopologyDirective } from '@/lib/theseus-viz/SceneDirective';
 import {
   runStippleConstruction,
@@ -25,6 +25,36 @@ import GalaxyDrawer from './GalaxyDrawer';
 import type { AskState } from '@/app/theseus/ask/page';
 
 const DRAG_THRESHOLD_PX = 4;
+
+const GEO_SCORE_TIERS = [
+  { min: 0.85, rgb: [45, 95, 107] as [number, number, number], hex: '#2d5f6b', label: 'Highly Recommended' },
+  { min: 0.75, rgb: [74, 138, 150] as [number, number, number], hex: '#4a8a96', label: 'Recommended' },
+  { min: 0.65, rgb: [196, 154, 74] as [number, number, number], hex: '#c49a4a', label: 'Worth Considering' },
+] as const;
+
+const GEO_SCORE_DEFAULT_RGB: [number, number, number] = [156, 149, 141];
+
+function geoScoreToRgb(score: number): [number, number, number] {
+  for (const tier of GEO_SCORE_TIERS) {
+    if (score >= tier.min) return [...tier.rgb];
+  }
+  return [...GEO_SCORE_DEFAULT_RGB];
+}
+
+export function geoScoreToHex(score: number): string {
+  for (const tier of GEO_SCORE_TIERS) {
+    if (score >= tier.min) return tier.hex;
+  }
+  return '#9c958d';
+}
+
+const GEO_PAD_RATIO = 0.1;
+
+function geoMapLayout(width: number, height: number) {
+  const padX = width * GEO_PAD_RATIO;
+  const padY = height * GEO_PAD_RATIO;
+  return { padX, padY, usableW: width - padX * 2, usableH: height - padY * 2 };
+}
 
 function hexToRgb(hex: string): [number, number, number] {
   const n = parseInt(hex.replace('#', ''), 16);
@@ -94,8 +124,10 @@ export default function GalaxyController({
   const [isAcquiring, setIsAcquiring] = useState(false);
   // Drawer for cluster detail exploration
   const [drawerObjectId, setDrawerObjectId] = useState<string | null>(null);
+  const [showGeoLegend, setShowGeoLegend] = useState(false);
   // Track which evidence dot is hovered for visual feedback
   const hoveredDotRef = useRef<number | null>(null);
+  const geoSectionRef = useRef<GeographicRegionsSection | null>(null);
   // Track previous query for follow-up transitions
   const prevQueryRef = useRef<string | null>(null);
   // Track predicted viz type without triggering effect re-runs
@@ -706,6 +738,9 @@ export default function GalaxyController({
       const imageUrl = resp.reference_image_url;
       const dotCount = grid.getDotCount();
       const vizType = predTypeRef.current;
+      const geoSection = resp.geographic_regions;
+      geoSectionRef.current = geoSection ?? null;
+      setShowGeoLegend(false);
       const shouldStipple = !imageUrl && vizType !== 'portrait' && vizType !== 'object-scene';
 
       if (shouldStipple) {
@@ -716,7 +751,7 @@ export default function GalaxyController({
           instant: prefersReducedMotion,
         }).then((stippleResult) => {
           if (!stippleResult) {
-            legacyConstruction(grid, nodes, edges, objDotMap, relevantDotIndices, imageUrl, dotCount);
+            legacyConstruction(grid, nodes, edges, objDotMap, relevantDotIndices, imageUrl, dotCount, geoSection);
             return;
           }
 
@@ -738,12 +773,12 @@ export default function GalaxyController({
           stippleCleanupRef.current = cleanup;
         }).catch((err: unknown) => {
           console.warn('[Galaxy] Stipple construction failed, using legacy path:', err);
-          legacyConstruction(grid, nodes, edges, objDotMap, relevantDotIndices, imageUrl, dotCount);
+          legacyConstruction(grid, nodes, edges, objDotMap, relevantDotIndices, imageUrl, dotCount, geoSection);
         });
         return;
       }
 
-      legacyConstruction(grid, nodes, edges, objDotMap, relevantDotIndices, imageUrl, dotCount);
+      legacyConstruction(grid, nodes, edges, objDotMap, relevantDotIndices, imageUrl, dotCount, geoSection);
     }, 1000);
   }
 
@@ -811,9 +846,11 @@ export default function GalaxyController({
     relevantDotIndices: Set<number>,
     imageUrl: string | null | undefined,
     dotCount: number,
+    geoSection?: GeographicRegionsSection,
   ) {
     const { width, height } = grid.getSize();
-    generateTargets(imageUrl, nodes, edges, width, height, dotCount).then((result) => {
+    const imageOptions = geoSection ? { contrastBoost: 'map' as const } : {};
+    generateTargets(imageUrl, nodes, edges, width, height, dotCount, imageOptions).then((result) => {
       if (result.method === 'image-trace') {
         const targets = result.targets;
         const isVisionPerson = result.visionMode === 'person';
@@ -882,6 +919,77 @@ export default function GalaxyController({
             }, delay);
             visionTimerIds.push(timerId);
           }
+        }
+
+        // Geographic region coloring: color dots by nearest region
+        if (geoSection && result.method === 'image-trace') {
+          const { width: cw, height: ch } = grid.getSize();
+          const { padX: gPadX, padY: gPadY, usableW: gUsableW, usableH: gUsableH } = geoMapLayout(cw, ch);
+
+          const regionDelay = isVisionPerson && !prefersReducedMotion ? 7000 : 1000;
+          const regionTimer = window.setTimeout(() => {
+            for (let i = 0; i < targets.length && i < dotCount; i++) {
+              const pos = grid.getDotPosition(i);
+              if (!pos) continue;
+
+              let bestRegion: typeof geoSection.regions[0] | null = null;
+              let bestDist = Infinity;
+
+              for (const region of geoSection.regions) {
+                const rx = gPadX + region.center_x * gUsableW;
+                const ry = gPadY + region.center_y * gUsableH;
+                const regionR = region.radius * gUsableW;
+                const dist = Math.sqrt((pos.x - rx) ** 2 + (pos.y - ry) ** 2);
+
+                if (dist < regionR && dist < bestDist) {
+                  bestDist = dist;
+                  bestRegion = region;
+                }
+              }
+
+              if (bestRegion) {
+                const rgb = geoScoreToRgb(bestRegion.score);
+                grid.setDotGalaxyState(i, {
+                  colorOverride: rgb,
+                  opacityOverride: 0.4 + bestRegion.score * 0.4,
+                  scaleOverride: 1.8 + bestRegion.score * 0.6,
+                });
+              }
+            }
+            grid.wakeAnimation();
+
+            // Region labels with score percentages
+            const regionLabels: Array<{ x: number; y: number; text: string; alpha: number }> = [];
+            for (const region of geoSection.regions) {
+              const rx = gPadX + region.center_x * gUsableW;
+              const ry = gPadY + region.center_y * gUsableH;
+              const scorePct = Math.round(region.score * 100);
+              regionLabels.push({
+                x: rx,
+                y: ry,
+                text: `${region.name}  ${scorePct}%`,
+                alpha: 0.85,
+              });
+            }
+
+            const resolvedLabels = resolveCollisions(regionLabels);
+            let labelStep = 0;
+            const labelSteps = 10;
+            const labelFadeInterval = window.setInterval(() => {
+              labelStep++;
+              const t = labelStep / labelSteps;
+              grid.setLabels(resolvedLabels.map((l) => ({ ...l, alpha: l.alpha * t })));
+              grid.wakeAnimation();
+              if (labelStep >= labelSteps) clearInterval(labelFadeInterval);
+            }, 60);
+            // Push to ref directly so cleanup catches it even if this
+            // callback fires after the outer visionTimerIds assignment
+            visionTimerIdsRef.current.push(labelFadeInterval);
+
+            // Show legend after labels appear
+            setShowGeoLegend(true);
+          }, regionDelay);
+          visionTimerIds.push(regionTimer);
         }
 
         const crystallizeDelay = isVisionPerson && !prefersReducedMotion ? 7000 : 0;
@@ -1013,6 +1121,28 @@ export default function GalaxyController({
     if (phaseRef.current !== 'explore' && phaseRef.current !== 'crystallize') return;
     const grid = gridRef.current;
     if (!grid) return;
+
+    // Geographic region hit test
+    const geoSection = geoSectionRef.current;
+    if (geoSection) {
+      const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+      const clickX = e.clientX - rect.left;
+      const clickY = e.clientY - rect.top;
+      const { width, height } = grid.getSize();
+      const { padX: gPadX, padY: gPadY, usableW: gUsableW, usableH: gUsableH } = geoMapLayout(width, height);
+
+      for (const region of geoSection.regions) {
+        const rx = gPadX + region.center_x * gUsableW;
+        const ry = gPadY + region.center_y * gUsableH;
+        const regionR = region.radius * gUsableW;
+        const dist = Math.sqrt((clickX - rx) ** 2 + (clickY - ry) ** 2);
+
+        if (dist < regionR) {
+          setDrawerObjectId(`geo:${region.id}`);
+          return;
+        }
+      }
+    }
 
     const nearest = grid.findNearestClusterDot(e.clientX, e.clientY);
     if (!nearest) return;
@@ -1471,10 +1601,38 @@ export default function GalaxyController({
       )}
 
       {/* Detail exploration drawer */}
+      {/* Geographic recommendation legend */}
+      {showGeoLegend && (
+        <div
+          style={{
+            position: 'absolute',
+            top: 20,
+            right: 20,
+            padding: '10px 14px',
+            borderRadius: 6,
+            background: 'rgba(15, 16, 18, 0.75)',
+            backdropFilter: 'blur(8px)',
+            pointerEvents: 'none',
+            zIndex: 5,
+          }}
+        >
+          <div style={{ fontFamily: 'var(--vie-font-mono)', fontSize: 10, color: '#9c958d', letterSpacing: '0.08em', marginBottom: 8 }}>
+            RECOMMENDATION
+          </div>
+          {GEO_SCORE_TIERS.map((tier) => (
+            <div key={tier.label} style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
+              <div style={{ width: 8, height: 8, borderRadius: '50%', background: tier.hex, flexShrink: 0 }} />
+              <span style={{ fontFamily: 'var(--vie-font-mono)', fontSize: 9, color: '#e8e5e0cc' }}>{tier.label}</span>
+            </div>
+          ))}
+        </div>
+      )}
+
       <GalaxyDrawer
         objectId={drawerObjectId}
         onClose={() => setDrawerObjectId(null)}
         onWhatIfRemove={handleWhatIfRemove}
+        geoRegions={geoSectionRef.current?.regions}
       />
     </>
   );

@@ -5,7 +5,7 @@
  * falls back to existing graph/cluster layouts from galaxyLayout.ts.
  */
 
-import { traceImageToTargets, type ParticleTarget } from './ImageTracer';
+import { traceImageToTargets, type ParticleTarget, type ImageTraceOptions } from './ImageTracer';
 import { traceVision, type VisionMode } from './VisionTracer';
 import {
   computeGraphLayout,
@@ -44,6 +44,7 @@ export interface TargetResult {
  * @param canvasWidth Canvas width in CSS pixels
  * @param canvasHeight Canvas height in CSS pixels
  * @param totalDotCount Total number of dots in the grid (for image mode)
+ * @param imageOptions Optional image tracing options (contrast boost for maps)
  */
 export async function generateTargets(
   imageUrl: string | null | undefined,
@@ -52,6 +53,7 @@ export async function generateTargets(
   canvasWidth: number,
   canvasHeight: number,
   totalDotCount: number,
+  imageOptions: ImageTraceOptions = {},
 ): Promise<TargetResult> {
   // Try image tracing if URL is available
   if (imageUrl) {
@@ -90,6 +92,7 @@ export async function generateTargets(
       const particleTargets = await traceImageToTargets(
         imageUrl,
         Math.min(totalDotCount, 2000),
+        imageOptions,
       );
 
       if (particleTargets.length > totalDotCount * 0.1) {
