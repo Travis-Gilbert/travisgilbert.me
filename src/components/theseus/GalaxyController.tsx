@@ -743,6 +743,16 @@ export default function GalaxyController({
       setShowGeoLegend(false);
       const shouldStipple = !imageUrl && vizType !== 'portrait' && vizType !== 'object-scene';
 
+      // Debug: trace geographic answer flow
+      if (imageUrl || geoSection) {
+        console.log('[Galaxy] Geographic answer detected:', {
+          imageUrl,
+          hasGeoSection: !!geoSection,
+          vizType,
+          shouldStipple,
+        });
+      }
+
       if (shouldStipple) {
         // Clean up previous stipple if any (follow-up queries)
         stippleCleanupRef.current?.();
@@ -850,7 +860,9 @@ export default function GalaxyController({
   ) {
     const { width, height } = grid.getSize();
     const imageOptions = geoSection ? { contrastBoost: 'map' as const } : {};
+    console.log('[Galaxy] legacyConstruction called:', { imageUrl, hasGeoSection: !!geoSection, contrastBoost: imageOptions.contrastBoost });
     generateTargets(imageUrl, nodes, edges, width, height, dotCount, imageOptions).then((result) => {
+      console.log('[Galaxy] generateTargets result:', { method: result.method, targetCount: result.targets.length, visionMode: result.visionMode });
       if (result.method === 'image-trace') {
         const targets = result.targets;
         const isVisionPerson = result.visionMode === 'person';
