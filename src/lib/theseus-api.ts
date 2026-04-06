@@ -4,6 +4,7 @@ import type {
   EvidenceEdge,
   EvidenceNode,
   FollowUp,
+  GeographicRegionsSection,
   GraphWeather,
   Hypothesis,
   ResponseSection,
@@ -53,6 +54,8 @@ interface RawAskResponse {
     data: Record<string, unknown>;
   }>;
   follow_ups: FollowUp[];
+  reference_image_url?: string;
+  geographic_regions?: GeographicRegionsSection;
 }
 
 interface RawGraphWeather {
@@ -590,6 +593,8 @@ function normalizeAskResponse(raw: RawAskResponse): TheseusResponse {
       duration_ms: raw.traversal.time_ms,
       web_augmented: raw.traversal.web_augmented,
     },
+    reference_image_url: raw.reference_image_url,
+    geographic_regions: raw.geographic_regions,
   };
 }
 
