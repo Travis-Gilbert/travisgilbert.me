@@ -720,14 +720,9 @@ export async function askTheseus(
 }
 
 /**
- * Progressive answer via SSE: fast answer arrives in 2 to 4s,
- * deep answer (if warranted) replaces it 15 to 45s later.
- *
- * Calls the /ask/stream/ endpoint which emits SSE events:
- *   fast_answer -> deep_answer (optional) -> done
- *
- * The returned promise resolves with the final (best) answer.
- * Use options.onFastAnswer to render the fast answer immediately.
+ * SSE wrapper for the ask endpoint. Currently emits a single 'answer'
+ * event after the full pipeline completes. Reserved for future
+ * incremental streaming when the backend supports it.
  */
 async function askTheseusStream(
   query: string,
