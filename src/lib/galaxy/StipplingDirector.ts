@@ -16,6 +16,9 @@
 
 import type { SceneDirective, NodeSalience } from '@/lib/theseus-viz/SceneDirective';
 import type { StippleTarget } from './StipplingEngine';
+import { stipple, type StippleResult } from './StipplingEngine';
+import { renderFace } from './TheseusAvatar';
+import type { FaceExpression } from './TheseusAvatar';
 
 // ---------------------------------------------------------------------------
 // Decision 1: Recruitment Count
@@ -222,5 +225,52 @@ export function identifyLoadBearingDots(
     });
   }
 
+  return result;
+}
+
+// ---------------------------------------------------------------------------
+// Face Idle Mode
+// ---------------------------------------------------------------------------
+
+const FACE_DOT_COUNT = 4000;
+
+export interface FaceStippleOptions {
+  viewportWidth: number;
+  viewportHeight: number;
+  mouthOpen?: number;
+  blinkAmount?: number;
+  expression?: FaceExpression;
+}
+
+// Cache the stipple result keyed by viewport dimensions and expression.
+// The face geometry is deterministic (same seed), so re-running Lloyd's
+// relaxation on repeated IDLE entries is wasted work if the viewport
+// hasn't changed.
+let faceCache: { w: number; h: number; expr: string; result: StippleResult } | null = null;
+
+/**
+ * Stipple the Theseus face for idle mode display.
+ *
+ * Returns a cached result if viewport dimensions and expression match,
+ * avoiding the 50+ ms cost of 12 Delaunay/Voronoi iterations.
+ */
+export function stippleFace(options: FaceStippleOptions): StippleResult {
+  const { viewportWidth, viewportHeight, mouthOpen, blinkAmount, expression = 'awake' } = options;
+
+  if (faceCache && faceCache.w === viewportWidth && faceCache.h === viewportHeight && faceCache.expr === expression) {
+    return faceCache.result;
+  }
+
+  const render = renderFace({ mouthOpen, blinkAmount, expression });
+
+  const result = stipple(render, FACE_DOT_COUNT, {
+    iterations: 12,
+    snapshotInterval: 1,
+    seed: 7,
+    outputWidth: viewportWidth,
+    outputHeight: viewportHeight,
+  });
+
+  faceCache = { w: viewportWidth, h: viewportHeight, expr: expression, result };
   return result;
 }

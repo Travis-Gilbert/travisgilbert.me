@@ -287,6 +287,104 @@ export function renderClickCard(
   ctx.restore();
 }
 
+// ---------------------------------------------------------------------------
+// Inline Response: streaming text overlay on the galaxy canvas
+// ---------------------------------------------------------------------------
+
+const RESPONSE_FONT = '400 14px "IBM Plex Sans", sans-serif';
+const RESPONSE_LINE_HEIGHT = 22;
+const RESPONSE_MAX_WIDTH = 360;
+const RESPONSE_PADDING_X = 14;
+const RESPONSE_PADDING_Y = 10;
+const RESPONSE_BORDER_RADIUS = 12;
+
+export interface InlineResponseData {
+  canvasX: number;
+  canvasY: number;
+  text: string;
+  alpha: number;
+  visibleChars?: number;
+}
+
+/**
+ * Render a streaming text response on the canvas at the given coordinates.
+ * When `visibleChars` is set, only that many characters are shown (for
+ * typewriter style streaming animation). The response bubble clamps to
+ * stay within the viewport with a 16px margin.
+ *
+ * Returns the rendered dimensions so callers can reserve space or
+ * coordinate layout with other canvas elements.
+ */
+export function renderInlineResponse(
+  ctx: CanvasRenderingContext2D,
+  response: InlineResponseData,
+  viewportWidth: number,
+  viewportHeight: number,
+): { width: number; height: number } {
+  if (response.alpha < 0.01 || !response.text) {
+    return { width: 0, height: 0 };
+  }
+
+  const a = response.alpha;
+  const displayText =
+    response.visibleChars != null
+      ? response.text.slice(0, response.visibleChars)
+      : response.text;
+
+  if (!displayText) return { width: 0, height: 0 };
+
+  // Measure and wrap text using pretext
+  const contentMaxW = RESPONSE_MAX_WIDTH - RESPONSE_PADDING_X * 2;
+  const prepared = getPrepared(displayText, RESPONSE_FONT);
+  const result = layoutWithLines(prepared, contentMaxW, RESPONSE_LINE_HEIGHT);
+  const lines = result.lines;
+
+  // Determine widest line
+  let maxLineWidth = 0;
+  ctx.font = RESPONSE_FONT;
+  for (const line of lines) {
+    const w = ctx.measureText(line.text).width;
+    if (w > maxLineWidth) maxLineWidth = w;
+  }
+
+  const bubbleWidth = Math.min(
+    RESPONSE_MAX_WIDTH,
+    maxLineWidth + RESPONSE_PADDING_X * 2,
+  );
+  const bubbleHeight = result.height + RESPONSE_PADDING_Y * 2;
+
+  // Position with viewport clamping (16px margin on all sides)
+  const margin = 16;
+  let cx = Math.max(margin, Math.min(response.canvasX, viewportWidth - bubbleWidth - margin));
+  let cy = Math.max(margin, Math.min(response.canvasY, viewportHeight - bubbleHeight - margin));
+
+  // Background
+  ctx.beginPath();
+  ctx.roundRect(cx, cy, bubbleWidth, bubbleHeight, RESPONSE_BORDER_RADIUS);
+  ctx.fillStyle = `rgba(15, 16, 18, ${0.72 * a})`;
+  ctx.fill();
+
+  // Border
+  ctx.strokeStyle = `rgba(255, 255, 255, ${0.06 * a})`;
+  ctx.lineWidth = 1;
+  ctx.stroke();
+
+  // Render text lines
+  ctx.font = RESPONSE_FONT;
+  ctx.fillStyle = `rgba(232, 229, 224, ${a})`;
+  ctx.textAlign = 'left';
+  ctx.textBaseline = 'top';
+  for (let i = 0; i < lines.length; i++) {
+    ctx.fillText(
+      lines[i].text,
+      cx + RESPONSE_PADDING_X,
+      cy + RESPONSE_PADDING_Y + i * RESPONSE_LINE_HEIGHT,
+    );
+  }
+
+  return { width: bubbleWidth, height: bubbleHeight };
+}
+
 /**
  * Clear the prepared text cache (call on resize or theme change).
  */

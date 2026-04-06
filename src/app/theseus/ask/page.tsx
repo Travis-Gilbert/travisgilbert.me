@@ -24,6 +24,9 @@ import { useGalaxy } from '@/components/theseus/TheseusShell';
 import SourceTrail from '@/components/theseus/SourceTrail';
 import { getModel } from '@/lib/theseus-storage';
 import { useIsMobile } from '@/hooks/useIsMobile';
+import { VoiceControls } from '@/components/ask/VoiceControls';
+import SpatialPanel from '@/components/ask/SpatialPanel';
+import { shouldBePanel, computeAnchor } from '@/lib/galaxy/SpatialConversation';
 
 export type AskState = 'IDLE' | 'THINKING' | 'MODEL' | 'CONSTRUCTING' | 'EXPLORING';
 
@@ -321,7 +324,7 @@ function AskContent() {
   const query = searchParams.get('q');
   const savedId = searchParams.get('saved');
   const isMobile = useIsMobile();
-  const { setAskState: pushState, setResponse: pushResponse, setDirective: pushDirective, setDataStatus: pushDataStatus, setVizPrediction: pushVizPrediction, argumentView, setArgumentView, sourceTrail, clearSourceTrail } = useGalaxy();
+  const { setAskState: pushState, setResponse: pushResponse, setDirective: pushDirective, setDataStatus: pushDataStatus, setVizPrediction: pushVizPrediction, argumentView, setArgumentView, sourceTrail, clearSourceTrail, mouthOpenRef } = useGalaxy();
 
   const [state, setState] = useState<AskState>(query ? 'THINKING' : 'IDLE');
   const [response, setResponse] = useState<TheseusResponse | null>(null);
@@ -645,6 +648,13 @@ function AskContent() {
           }}
           style={{ display: 'flex', alignItems: 'center', gap: 8, width: '100%' }}
         >
+          <VoiceControls
+            onInterimTranscript={(text) => setComposerQuery(text)}
+            onFinalTranscript={(text) => {
+              setComposerQuery(text);
+              if (text.trim().length > 0) navigateToQuery(text);
+            }}
+          />
           <input
             className="theseus-ask-composer-input"
             type="text"
@@ -702,7 +712,60 @@ function AskContent() {
   };
 
   if (state === 'IDLE' && !error) {
-    return <StaticScreen title="No query provided" subtitle="Go back to the Theseus homepage and ask a question." />;
+    // Face renders on the galaxy canvas via GalaxyController.
+    // Show only the composer input bar so the user can ask a question.
+    return (
+      <div style={{ position: 'relative', width: '100%', height: '100%' }}>
+        <div
+          className="theseus-bottom-dock"
+          style={{
+            position: 'fixed',
+            left: '50%',
+            transform: 'translateX(-50%)',
+            bottom: isMobile ? 'calc(16px + env(safe-area-inset-bottom))' : 16,
+            width: isMobile ? 'min(480px, calc(100vw - 32px))' : 'min(640px, calc(100vw - 32px))',
+            zIndex: 20,
+            pointerEvents: 'auto',
+          }}
+        >
+          <form
+            onSubmit={(event) => {
+              event.preventDefault();
+              navigateToQuery(composerQuery);
+            }}
+            style={{ display: 'flex', alignItems: 'center', gap: 8, width: '100%' }}
+          >
+            <VoiceControls
+              onInterimTranscript={(text: string) => setComposerQuery(text)}
+              onFinalTranscript={(text: string) => {
+                setComposerQuery(text);
+                if (text.trim().length > 0) navigateToQuery(text);
+              }}
+              onAmplitude={(amp: number) => { mouthOpenRef.current = amp; }}
+            />
+            <input
+              className="theseus-ask-composer-input"
+              type="text"
+              name="query"
+              value={composerQuery}
+              onChange={(event) => setComposerQuery(event.target.value)}
+              placeholder="Ask Theseus anything..."
+              autoComplete="off"
+              spellCheck={false}
+              aria-label="Ask Theseus a question"
+              autoFocus
+            />
+            <button
+              type="submit"
+              className="theseus-ask-composer-submit"
+              disabled={composerQuery.trim().length === 0}
+            >
+              Ask
+            </button>
+          </form>
+        </div>
+      </div>
+    );
   }
 
   if (error) {
@@ -722,8 +785,8 @@ function AskContent() {
             style={{
               width: 'min(560px, 100%)',
               borderRadius: 18,
-              border: '1px solid rgba(255,255,255,0.08)',
-              background: 'rgba(15,16,18,0.76)',
+              border: '1px solid var(--vie-surface-panel-border)',
+              background: 'var(--vie-surface-panel)',
               backdropFilter: 'blur(18px)',
               padding: '20px 22px',
               display: 'grid',
@@ -844,8 +907,8 @@ function AskContent() {
           maxWidth: isMobile ? 'calc(100vw - 40px)' : 520,
           padding: '16px 18px',
           borderRadius: 18,
-          background: 'rgba(15,16,18,0.66)',
-          border: '1px solid rgba(255,255,255,0.08)',
+          background: 'var(--vie-surface-panel)',
+          border: '1px solid var(--vie-surface-panel-border)',
           backdropFilter: 'blur(18px)',
           zIndex: 10,
           pointerEvents: 'auto' as const,
@@ -927,88 +990,63 @@ function AskContent() {
         </div>
       )}
 
-      {/* InsightPanel: response text with scoped pointer-events */}
-      {narrationReady && renderedNarratives.length > 0 && (
-        <div
-          style={{
-            position: 'absolute',
-            left: 20,
-            bottom: isMobile ? 'calc(90px + env(safe-area-inset-bottom))' : 140,
-            width: isMobile ? 'calc(100vw - 40px)' : 300,
-            maxHeight: 220,
-            zIndex: 10,
-            pointerEvents: 'none',
-          }}
-        >
-          <div
-            className="theseus-insight-panel"
-            style={{
-              padding: '14px 16px',
-              borderRadius: 14,
-              background: 'rgba(15,16,18,0.72)',
-              border: '1px solid rgba(255,255,255,0.08)',
-              backdropFilter: 'blur(18px)',
-              pointerEvents: 'auto',
-              overflowY: 'auto',
-              maxHeight: 220,
-            }}
-          >
-            <div style={{ display: 'grid', gap: 10 }}>
-              {renderedNarratives.slice(0, 2).map((narrative, index) => (
-                <p
-                  key={`insight-${index}`}
-                  style={{
-                    margin: 0,
-                    color: 'var(--vie-text)',
-                    fontFamily: 'var(--vie-font-body)',
-                    fontSize: 13,
-                    lineHeight: 1.65,
-                  }}
-                >
-                  {narrative.content}
+      {/* Spatial response panel: anchored near the focal node cluster */}
+      {narrationReady && renderedNarratives.length > 0 && (() => {
+        const narrativeText = renderedNarratives.slice(0, 2).map((n) => n.content).join('\n\n');
+        const usePanel = shouldBePanel(narrativeText) || !isMobile;
+        // Compute anchor from focal node salience or fallback to bottom left
+        const anchor = isMobile
+          ? { x: 20, y: window.innerHeight - 260 }
+          : computeAnchor([], window.innerWidth, window.innerHeight);
+
+        if (!usePanel) {
+          // Short response on mobile: fixed position, inline style
+          return (
+            <div
+              style={{
+                position: 'absolute',
+                left: 20,
+                bottom: 'calc(90px + env(safe-area-inset-bottom))',
+                width: 'calc(100vw - 40px)',
+                maxHeight: 220,
+                zIndex: 10,
+                pointerEvents: 'none',
+              }}
+            >
+              <div
+                className="theseus-insight-panel"
+                style={{
+                  padding: '14px 16px',
+                  borderRadius: 14,
+                  background: 'var(--vie-surface-panel)',
+                  border: '1px solid var(--vie-surface-panel-border)',
+                  backdropFilter: 'blur(18px)',
+                  pointerEvents: 'auto',
+                  overflowY: 'auto',
+                  maxHeight: 220,
+                }}
+              >
+                <p style={{ margin: 0, color: 'var(--vie-text)', fontFamily: 'var(--vie-font-body)', fontSize: 13, lineHeight: 1.65 }}>
+                  {narrativeText}
                 </p>
-              ))}
+              </div>
             </div>
+          );
+        }
 
-            {evidencePath && evidencePath.nodes.length >= 2 && (
-              <button
-                type="button"
-                onClick={() => setArgumentView(!argumentView)}
-                style={{
-                  display: 'block',
-                  marginTop: 10,
-                  padding: 0,
-                  border: 'none',
-                  background: 'none',
-                  color: 'var(--vie-teal-light)',
-                  fontFamily: 'var(--vie-font-mono)',
-                  fontSize: 11,
-                  letterSpacing: '0.04em',
-                  cursor: 'pointer',
-                  textAlign: 'left',
-                }}
-              >
-                {argumentView ? 'Back to answer' : 'Show me why you think that'}
-              </button>
+        return (
+          <SpatialPanel
+            anchorX={anchor.x}
+            anchorY={anchor.y}
+            text={narrativeText + (
+              evidencePath && evidencePath.nodes.length >= 2
+                ? '\n\n' + (argumentView ? '[Back to answer]' : '[Show me why you think that]')
+                : ''
             )}
-
-            {response?.geographic_regions && (
-              <p
-                style={{
-                  margin: '10px 0 0',
-                  color: 'var(--vie-teal-light)',
-                  fontFamily: 'var(--vie-font-mono)',
-                  fontSize: 11,
-                  letterSpacing: '0.06em',
-                  textTransform: 'uppercase',
-                }}
-              >
-                Click a neighborhood to explore
-              </p>
-            )}
-          </div>
-        </div>
-      )}
+            complete={true}
+          />
+        );
+      })()}
       {renderBottomDock()}
     </div>
   );

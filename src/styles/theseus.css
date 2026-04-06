@@ -35,6 +35,11 @@
   --vie-font-body: 'IBM Plex Sans', -apple-system, sans-serif;
   --vie-font-mono: 'Courier Prime', 'Courier New', monospace;
 
+  /* Panel surfaces (improved contrast against --vie-bg) */
+  --vie-surface-panel: rgba(28, 30, 36, 0.88);
+  --vie-surface-panel-border: rgba(74, 138, 150, 0.12);
+  --vie-surface-panel-glow: 0 4px 24px rgba(0, 0, 0, 0.3), 0 0 1px rgba(74, 138, 150, 0.08);
+
   /* Base surface */
   background: var(--vie-bg);
   color: var(--vie-text);
@@ -380,6 +385,22 @@
     opacity: 1;
     transform: translateY(0);
   }
+}
+
+@keyframes vie-cursor-blink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0; }
+}
+
+@keyframes voice-pulse {
+  0% { transform: scale(1); opacity: 0.7; }
+  50% { transform: scale(1.15); opacity: 0.3; }
+  100% { transform: scale(1); opacity: 0.7; }
+}
+
+.voice-controls-btn:focus-visible {
+  outline: 2px solid var(--vie-teal-light, #4A8A96);
+  outline-offset: 2px;
 }
 
 @media (prefers-reduced-motion: reduce) {

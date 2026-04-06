@@ -83,6 +83,8 @@ export interface DotGridHandle {
   setDotTarget(index: number, tx: number, ty: number): void;
   /** Reset dot target back to its original grid position */
   resetDotTarget(index: number): void;
+  /** Get the original grid rest position for a dot (before any target drift) */
+  getOriginalGridPosition(index: number): { x: number; y: number } | null;
   /** Reset all dots to grid positions and clear galaxy state */
   resetAll(): void;
   /** Enable or disable pointer-events on the canvas */
@@ -309,6 +311,15 @@ const TheseusDotGrid = forwardRef<DotGridHandle, TheseusDotGridProps>(function T
       const dots = dotsRef.current;
       if (!dots || index < 0 || index >= dots.count) return;
       dots.hasTarget[index] = 0;
+    },
+    getOriginalGridPosition(index: number) {
+      const dots = dotsRef.current;
+      if (!dots || index < 0 || index >= dots.count) return null;
+      const { w } = sizeRef.current;
+      const cols = Math.ceil(w / spacing) + 1;
+      const col = index % cols;
+      const row = Math.floor(index / cols);
+      return { x: col * spacing, y: row * spacing };
     },
     resetAll() {
       const dots = dotsRef.current;

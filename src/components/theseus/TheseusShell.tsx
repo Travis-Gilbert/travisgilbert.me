@@ -26,6 +26,8 @@ interface GalaxyContextValue {
   sourceTrail: SourceTrailItem[];
   addToSourceTrail: (item: SourceTrailItem) => void;
   clearSourceTrail: () => void;
+  /** Mouth openness ref for voice animation (written by VoiceControls, read by GalaxyController) */
+  mouthOpenRef: React.MutableRefObject<number>;
 }
 
 const GalaxyContext = createContext<GalaxyContextValue | null>(null);
@@ -49,6 +51,7 @@ export default function TheseusShell({ children }: { children: React.ReactNode }
   const [vizPrediction, setVizPrediction] = useState<VizPrediction | null>(null);
   const [argumentView, setArgumentView] = useState(false);
   const [sourceTrail, setSourceTrail] = useState<SourceTrailItem[]>([]);
+  const mouthOpenRef = useRef(0);
 
   const addToSourceTrail = useCallback((item: SourceTrailItem) => {
     setSourceTrail((prev) => {
@@ -78,7 +81,8 @@ export default function TheseusShell({ children }: { children: React.ReactNode }
     sourceTrail,
     addToSourceTrail,
     clearSourceTrail,
-  }), [gridRef, argumentView, sourceTrail, setAskState, setResponse, setDirective, setDataStatus, setVizPrediction, setArgumentView, addToSourceTrail, clearSourceTrail]);
+    mouthOpenRef,
+  }), [gridRef, argumentView, sourceTrail, setAskState, setResponse, setDirective, setDataStatus, setVizPrediction, setArgumentView, addToSourceTrail, clearSourceTrail, mouthOpenRef]);
 
   return (
     <GalaxyContext.Provider value={contextValue}>
@@ -92,6 +96,7 @@ export default function TheseusShell({ children }: { children: React.ReactNode }
         vizPrediction={vizPrediction}
         argumentView={argumentView}
         onSourceExplored={addToSourceTrail}
+        mouthOpenRef={mouthOpenRef}
       />
       <TheseusNav />
       <div style={{

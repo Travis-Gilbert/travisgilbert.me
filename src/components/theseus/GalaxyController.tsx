@@ -26,6 +26,15 @@ import type { SourceTrailItem } from './SourceTrail';
 import { getColorStrategy } from '@/lib/galaxy/e4bVision';
 import type { AnswerType } from '@/lib/theseus-types';
 import type { AskState } from '@/app/theseus/ask/page';
+import { stippleFace } from '@/lib/galaxy/StipplingDirector';
+import {
+  tagFaceDots,
+  animateFaceDots,
+  tickIdleAnimation,
+  type TaggedDot,
+  type FaceAnimationState,
+  type BlinkTimer,
+} from '@/lib/galaxy/FaceAnimator';
 
 const DRAG_THRESHOLD_PX = 4;
 const ZOOM_MIN = 0.5;
@@ -87,6 +96,7 @@ interface GalaxyControllerProps {
   vizPrediction?: VizPrediction | null;
   argumentView?: boolean;
   onSourceExplored?: (item: SourceTrailItem) => void;
+  mouthOpenRef?: React.RefObject<number>;
 }
 
 export default function GalaxyController({
@@ -98,6 +108,7 @@ export default function GalaxyController({
   vizPrediction,
   argumentView,
   onSourceExplored,
+  mouthOpenRef,
 }: GalaxyControllerProps) {
   const prefersReducedMotion = usePrefersReducedMotion();
   const [clusters, setClusters] = useState<ClusterSummary[]>([]);
@@ -146,6 +157,15 @@ export default function GalaxyController({
   // Stipple construction cleanup and result
   const stippleCleanupRef = useRef<(() => void) | null>(null);
   const stippleResultRef = useRef<StippleConstructionResult | null>(null);
+  // Face idle state
+  const faceTaggedRef = useRef<TaggedDot[]>([]);
+  const faceAnimStateRef = useRef<FaceAnimationState>({ mouthOpen: 0, blinkAmount: 0, breathPhase: 0 });
+  const faceBlinkTimerRef = useRef<BlinkTimer>({ nextBlink: performance.now() + 5000, blinking: false, blinkStart: 0 });
+  const faceAnimFrameRef = useRef<number>(0);
+  const faceActiveRef = useRef(false);
+  const faceWasActiveRef = useRef(false);
+  const faceDotCountRef = useRef(0);
+  const faceLastTickRef = useRef(0);
 
   // Keep predTypeRef current without triggering the main animation effect
   useEffect(() => {
@@ -355,6 +375,69 @@ export default function GalaxyController({
     if (state === 'THINKING') {
       phaseRef.current = 'searching';
 
+      // Smooth face dissolve: if the face was showing, gradually release
+      // face dots back to their grid positions over 800ms instead of snapping.
+      const hadFace = faceWasActiveRef.current;
+      const faceDots = faceDotCountRef.current;
+      let dissolveFrameId = 0;
+
+      if (hadFace && faceDots > 0 && !prefersReducedMotion) {
+        const DISSOLVE_MS = 800;
+        const dissolveStart = performance.now();
+        const dotCount = grid.getDotCount();
+        const count = Math.min(faceDots, dotCount);
+
+        // Capture current face positions before releasing targets
+        const startX = new Float32Array(count);
+        const startY = new Float32Array(count);
+        for (let i = 0; i < count; i++) {
+          const p = grid.getDotPosition(i);
+          if (p) { startX[i] = p.x; startY[i] = p.y; }
+        }
+
+        // Get the original grid rest positions (before any target drift)
+        const gridX = new Float32Array(count);
+        const gridY = new Float32Array(count);
+        for (let i = 0; i < count; i++) {
+          const p = grid.getOriginalGridPosition(i);
+          if (p) { gridX[i] = p.x; gridY[i] = p.y; }
+        }
+
+        const dissolveTick = () => {
+          const elapsed = performance.now() - dissolveStart;
+          const rawT = Math.min(elapsed / DISSOLVE_MS, 1);
+          // Ease out quadratic for a gentle deceleration
+          const t = 1 - (1 - rawT) * (1 - rawT);
+
+          for (let i = 0; i < count; i++) {
+            const x = startX[i] + (gridX[i] - startX[i]) * t;
+            const y = startY[i] + (gridY[i] - startY[i]) * t;
+            grid.setDotTarget(i, x, y);
+          }
+          grid.wakeAnimation();
+
+          if (rawT < 1) {
+            dissolveFrameId = requestAnimationFrame(dissolveTick);
+          } else {
+            // Fully dissolved: release targets so dots rest at grid positions
+            for (let i = 0; i < count; i++) {
+              grid.resetDotTarget(i);
+            }
+            grid.wakeAnimation();
+          }
+        };
+
+        dissolveFrameId = requestAnimationFrame(dissolveTick);
+      } else if (hadFace && faceDots > 0) {
+        // Reduced motion: reset face dots immediately
+        const dotCount = grid.getDotCount();
+        for (let i = 0; i < Math.min(faceDots, dotCount); i++) {
+          grid.resetDotTarget(i);
+        }
+        grid.wakeAnimation();
+      }
+      faceWasActiveRef.current = false;
+
       if (prefersReducedMotion) {
         // Static elevated opacity: no wave, just a subtle brightness bump
         for (const m of mappingsRef.current) {
@@ -423,6 +506,7 @@ export default function GalaxyController({
       pulseIntervalRef.current = pulseInterval;
       return () => {
         window.clearInterval(pulseInterval);
+        cancelAnimationFrame(dissolveFrameId);
       };
     }
 
@@ -445,6 +529,178 @@ export default function GalaxyController({
       grid.wakeAnimation();
     }
   }, [state, response, gridRef]);
+
+  // Face idle state: stipple the face and run breathing/blink animation loop
+  useEffect(() => {
+    const grid = gridRef.current;
+    if (!grid || state !== 'IDLE') {
+      // Clean up face animation when leaving idle
+      if (faceActiveRef.current) {
+        cancelAnimationFrame(faceAnimFrameRef.current);
+        faceActiveRef.current = false;
+        faceTaggedRef.current = [];
+      }
+      return;
+    }
+
+    const { width, height } = grid.getSize();
+    if (width < 1 || height < 1) return;
+
+    // Run the stipple engine to get face dot positions
+    const result = stippleFace({ viewportWidth: width, viewportHeight: height });
+    const targets = result.targets;
+    const snapshots = result.snapshots;
+    const dotCount = grid.getDotCount();
+
+    // Set opacity and color for all face dots upfront
+    for (let i = 0; i < targets.length && i < dotCount; i++) {
+      // weight is 0 in dark regions (face features), 1 in bright regions (background)
+      // Invert: dark regions (eyes, mouth) get high opacity, light regions get low
+      const featureOpacity = targets[i].weight < 0.5
+        ? 0.35 + (1 - targets[i].weight) * 0.45  // face features: 0.35 to 0.80
+        : 0.04 + targets[i].weight * 0.04;         // filler dots: very dim
+      grid.setDotGalaxyState(i, {
+        opacityOverride: featureOpacity,
+        colorOverride: targets[i].weight < 0.5 ? [74, 138, 150] : null,
+      });
+    }
+
+    // Dim non-face dots
+    for (let i = targets.length; i < dotCount; i++) {
+      grid.setDotGalaxyState(i, { opacityOverride: 0.015 });
+    }
+
+    // Construction animation: interpolate through stipple snapshots over 2000ms
+    // If snapshots exist and motion is not reduced, run the construction phase
+    // before handing off to the breathing/blink loop.
+    const CONSTRUCTION_DURATION = 2000;
+    const hasConstruction = snapshots.length >= 2 && !prefersReducedMotion;
+    let constructionFrameId = 0;
+
+    if (hasConstruction) {
+      // Dots start at snapshot[0] (early scattered positions)
+      const first = snapshots[0];
+      const limit = Math.min(targets.length, dotCount, first.length / 2);
+      for (let i = 0; i < limit; i++) {
+        grid.setDotTarget(i, first[i * 2], first[i * 2 + 1]);
+      }
+      grid.wakeAnimation();
+
+      const constructionStart = performance.now();
+      const totalSnapshots = snapshots.length;
+
+      const constructionTick = () => {
+        const elapsed = performance.now() - constructionStart;
+        const rawT = Math.min(elapsed / CONSTRUCTION_DURATION, 1);
+        // Ease out cubic: 1 - (1 - t)^3
+        const t = 1 - Math.pow(1 - rawT, 3);
+
+        // Map t to a position in the snapshot array
+        const snapshotPos = t * (totalSnapshots - 1);
+        const snapA = Math.floor(snapshotPos);
+        const snapB = Math.min(snapA + 1, totalSnapshots - 1);
+        const frac = snapshotPos - snapA;
+
+        const arrA = snapshots[snapA];
+        const arrB = snapshots[snapB];
+        const count = Math.min(targets.length, dotCount, arrA.length / 2, arrB.length / 2);
+
+        for (let i = 0; i < count; i++) {
+          const ix = i * 2;
+          const iy = ix + 1;
+          const x = arrA[ix] + (arrB[ix] - arrA[ix]) * frac;
+          const y = arrA[iy] + (arrB[iy] - arrA[iy]) * frac;
+          grid.setDotTarget(i, x, y);
+        }
+        grid.wakeAnimation();
+
+        if (rawT < 1) {
+          constructionFrameId = requestAnimationFrame(constructionTick);
+        } else {
+          // Construction complete: set final target positions from result
+          for (let i = 0; i < targets.length && i < dotCount; i++) {
+            grid.setDotTarget(i, targets[i].x, targets[i].y);
+          }
+          grid.wakeAnimation();
+          // Hand off to the breathing/blink loop
+          startBreathingLoop();
+        }
+      };
+
+      constructionFrameId = requestAnimationFrame(constructionTick);
+    } else {
+      // No construction phase: jump directly to final positions
+      for (let i = 0; i < targets.length && i < dotCount; i++) {
+        grid.setDotTarget(i, targets[i].x, targets[i].y);
+      }
+      grid.wakeAnimation();
+    }
+
+    // Tag face dots for animation (needs canvas-space targets)
+    // Build a StippleTarget-like array from the stipple result for tagging
+    faceTaggedRef.current = tagFaceDots(targets, width, height);
+    faceAnimStateRef.current = { mouthOpen: 0, blinkAmount: 0, breathPhase: 0 };
+    faceBlinkTimerRef.current = { nextBlink: performance.now() + 3000 + Math.random() * 2000, blinking: false, blinkStart: 0 };
+    faceLastTickRef.current = performance.now();
+    faceActiveRef.current = true;
+    faceWasActiveRef.current = true;
+    faceDotCountRef.current = targets.length;
+
+    // Animation loop for breathing and blinking
+    const tick = () => {
+      if (!faceActiveRef.current) return;
+
+      const now = performance.now();
+      const delta = Math.min(now - faceLastTickRef.current, 100); // cap to avoid jumps
+      faceLastTickRef.current = now;
+
+      // Advance idle animation state, incorporating voice amplitude for mouth
+      if (mouthOpenRef) faceAnimStateRef.current.mouthOpen = mouthOpenRef.current;
+      faceAnimStateRef.current = tickIdleAnimation(
+        faceAnimStateRef.current,
+        delta,
+        faceBlinkTimerRef.current,
+      );
+
+      // Apply displacement to stipple targets (mutates targets in place)
+      animateFaceDots(targets, faceTaggedRef.current, faceAnimStateRef.current);
+
+      // Only push positions for dots that were actually displaced (tagged face dots)
+      for (const dot of faceTaggedRef.current) {
+        const t = targets[dot.index];
+        if (t && dot.index < dotCount) {
+          grid.setDotTarget(dot.index, t.x, t.y);
+        }
+      }
+      grid.wakeAnimation();
+
+      faceAnimFrameRef.current = requestAnimationFrame(tick);
+    };
+
+    // Start the breathing/blink loop (called after construction finishes, or immediately)
+    let breathDelayId = 0;
+    function startBreathingLoop() {
+      faceLastTickRef.current = performance.now();
+      breathDelayId = window.setTimeout(() => {
+        faceAnimFrameRef.current = requestAnimationFrame(tick);
+      }, prefersReducedMotion ? 0 : 200);
+    }
+
+    if (!hasConstruction) {
+      // No construction phase: start breathing after a short settle delay
+      breathDelayId = window.setTimeout(() => {
+        faceAnimFrameRef.current = requestAnimationFrame(tick);
+      }, prefersReducedMotion ? 0 : 800);
+    }
+
+    return () => {
+      cancelAnimationFrame(constructionFrameId);
+      window.clearTimeout(breathDelayId);
+      cancelAnimationFrame(faceAnimFrameRef.current);
+      faceActiveRef.current = false;
+      faceTaggedRef.current = [];
+    };
+  }, [state, gridRef, prefersReducedMotion]);
 
   // Track all map construction timers for cleanup
   const mapTimersRef = useRef<number[]>([]);
