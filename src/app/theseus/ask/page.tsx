@@ -45,7 +45,7 @@ interface QueryHistoryEntry {
 
 const HISTORY_STORAGE_KEY = 'theseus-query-history-v1';
 const HISTORY_LIMIT = 10;
-const ASK_TIMEOUT_MS = 120_000;
+const ASK_TIMEOUT_MS = 60_000;
 const DATA_ACQUISITION_TIMEOUT_MS = 12_000;
 
 function withTimeout<T>(promise: Promise<T>, timeoutMs: number, message: string): Promise<T> {

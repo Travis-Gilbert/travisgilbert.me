@@ -71,7 +71,7 @@ export default async function RootLayout({
   ].join('');
 
   return (
-    <html lang="en" className={fontVariableClasses} suppressHydrationWarning>
+    <html lang="en" className={fontVariableClasses} data-scroll-behavior="smooth" suppressHydrationWarning>
       {/* Built with curiosity and too much coffee. */}
       <body
         className="min-h-screen flex flex-col overflow-x-clip"

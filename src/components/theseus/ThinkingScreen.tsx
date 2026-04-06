@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { usePrefersReducedMotion } from '@/hooks/usePrefersReducedMotion';
 import type { DataProcessingStatus } from '@/lib/theseus-data/types';
 import type { AskState } from '@/app/theseus/ask/page';
@@ -12,6 +12,12 @@ interface ThinkingScreenProps {
 }
 
 const BRAILLE_FRAMES = ['⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧', '⠇', '⠏'];
+
+function getSlowWarning(totalElapsed: number): string | null {
+  if (totalElapsed >= 30) return 'Still working. Complex queries can take a moment.';
+  if (totalElapsed >= 15) return 'This is taking longer than usual…';
+  return null;
+}
 
 function getStatusLabel(state: AskState, dataStatus: DataProcessingStatus | null, thinkingElapsed: number): string {
   switch (state) {
@@ -62,6 +68,9 @@ export default function ThinkingScreen({ state, query, dataStatus }: ThinkingScr
   const prefersReducedMotion = usePrefersReducedMotion();
   const [frameIndex, setFrameIndex] = useState(0);
   const [thinkingElapsed, setThinkingElapsed] = useState(0);
+  const [totalElapsed, setTotalElapsed] = useState(0);
+  const queryStartRef = useRef(0);
+  const thinkingStartRef = useRef(0);
 
   useEffect(() => {
     if (prefersReducedMotion) return;
@@ -71,14 +80,29 @@ export default function ThinkingScreen({ state, query, dataStatus }: ThinkingScr
     return () => window.clearInterval(interval);
   }, [prefersReducedMotion]);
 
-  // Track how long we've been in THINKING state
+  // Reset wall-clock origin when query changes
   useEffect(() => {
-    if (state !== 'THINKING') {
-      setThinkingElapsed(0);
-      return;
+    queryStartRef.current = Date.now();
+    thinkingStartRef.current = Date.now();
+  }, [query]);
+
+  // Reset thinking origin when entering THINKING state
+  useEffect(() => {
+    if (state === 'THINKING') {
+      thinkingStartRef.current = Date.now();
     }
+  }, [state]);
+
+  // Single 1s interval derives both counters from wall-clock refs
+  useEffect(() => {
     const interval = window.setInterval(() => {
-      setThinkingElapsed((prev) => prev + 1);
+      const now = Date.now();
+      setTotalElapsed(Math.floor((now - queryStartRef.current) / 1000));
+      if (state === 'THINKING') {
+        setThinkingElapsed(Math.floor((now - thinkingStartRef.current) / 1000));
+      } else {
+        setThinkingElapsed(0);
+      }
     }, 1000);
     return () => window.clearInterval(interval);
   }, [state]);
@@ -86,6 +110,7 @@ export default function ThinkingScreen({ state, query, dataStatus }: ThinkingScr
   const step = getPipelineStep(state);
   const statusLabel = getStatusLabel(state, dataStatus, thinkingElapsed);
   const heatIntensity = getHeatIntensity(state);
+  const slowWarning = getSlowWarning(totalElapsed);
 
   return (
     <div
@@ -194,6 +219,24 @@ export default function ThinkingScreen({ state, query, dataStatus }: ThinkingScr
           </div>
         ))}
       </div>
+
+      {slowWarning && (
+        <p
+          aria-live="polite"
+          style={{
+            marginTop: 18,
+            fontFamily: 'var(--vie-font-body)',
+            fontSize: 12,
+            color: totalElapsed >= 30 ? 'var(--vie-terra)' : 'var(--vie-text-dim)',
+            textAlign: 'center',
+            maxWidth: 320,
+            lineHeight: 1.5,
+            transition: prefersReducedMotion ? 'none' : 'color 300ms ease',
+          }}
+        >
+          {slowWarning}
+        </p>
+      )}
     </div>
   );
 }
