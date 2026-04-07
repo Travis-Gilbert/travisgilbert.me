@@ -3,7 +3,13 @@
 import { forwardRef, useCallback, useEffect, useImperativeHandle, useRef } from 'react';
 import { usePrefersReducedMotion } from '@/hooks/usePrefersReducedMotion';
 import { mulberry32 } from '@/lib/prng';
-import { renderPretextLabels, renderClickCard, clearLabelCache, type ClickCardData } from '@/lib/galaxy/pretextLabels';
+import {
+  renderPretextLabels,
+  renderClickCard,
+  renderInlineResponse,
+  clearLabelCache,
+  type ClickCardData,
+} from '@/lib/galaxy/pretextLabels';
 
 const DEFAULT_DOT_COLOR: [number, number, number] = [74, 138, 150];
 
@@ -70,6 +76,15 @@ export interface ClickCardInput {
   targetAlpha: number;
 }
 
+export interface InlineResponseInput {
+  canvasX: number;
+  canvasY: number;
+  text: string;
+  alpha: number;
+  targetAlpha: number;
+  visibleChars?: number;
+}
+
 export interface DotGridHandle {
   /** Total number of dots in the current grid */
   getDotCount(): number;
@@ -103,6 +118,8 @@ export interface DotGridHandle {
   getSize(): { width: number; height: number };
   /** Set click-card data for canvas rendering (null to dismiss) */
   setClickCard(card: ClickCardInput | null): void;
+  /** Set inline response bubble data for canvas rendering (null to dismiss) */
+  setInlineResponse(response: InlineResponseInput | null): void;
   /** Set zoom/pan transform for canvas-native rendering */
   setZoomTransform(scale: number, panX: number, panY: number): void;
   /** Get current zoom transform */
@@ -157,6 +174,8 @@ const TheseusDotGrid = forwardRef<DotGridHandle, TheseusDotGridProps>(function T
   const zoomRef = useRef({ scale: 1, panX: 0, panY: 0 });
   // Click card data for canvas rendering
   const clickCardRef = useRef<ClickCardInput | null>(null);
+  // Inline response bubble data for canvas rendering
+  const inlineResponseRef = useRef<InlineResponseInput | null>(null);
 
   const dotsRef = useRef<{
     gx: Float32Array; gy: Float32Array;
@@ -335,6 +354,7 @@ const TheseusDotGrid = forwardRef<DotGridHandle, TheseusDotGridProps>(function T
       dots.hasTarget.fill(0);
       edgesRef.current = [];
       labelsRef.current = [];
+      inlineResponseRef.current = null;
     },
     setPointerEvents(enabled: boolean) {
       if (canvasRef.current) {
@@ -405,6 +425,11 @@ const TheseusDotGrid = forwardRef<DotGridHandle, TheseusDotGridProps>(function T
     },
     setClickCard(card: ClickCardInput | null) {
       clickCardRef.current = card;
+      overlayDirtyRef.current = true;
+      startAnimationRef.current?.();
+    },
+    setInlineResponse(response: InlineResponseInput | null) {
+      inlineResponseRef.current = response;
       overlayDirtyRef.current = true;
       startAnimationRef.current?.();
     },
@@ -828,6 +853,24 @@ const TheseusDotGrid = forwardRef<DotGridHandle, TheseusDotGridProps>(function T
       }
 
       ctx!.restore(); // End zoom/pan transform
+
+      // Inline response rendering (outside zoom transform; fixed to viewport)
+      const inlineResponse = inlineResponseRef.current;
+      if (inlineResponse) {
+        const alphaSpeed = inlineResponse.targetAlpha > inlineResponse.alpha ? 0.12 : 0.08;
+        inlineResponse.alpha += (inlineResponse.targetAlpha - inlineResponse.alpha) * alphaSpeed;
+        if (Math.abs(inlineResponse.alpha - inlineResponse.targetAlpha) < 0.01) {
+          inlineResponse.alpha = inlineResponse.targetAlpha;
+        }
+
+        if (inlineResponse.alpha > 0.01 && inlineResponse.text.trim().length > 0) {
+          renderInlineResponse(ctx!, inlineResponse, w, h);
+        }
+
+        if (Math.abs(inlineResponse.alpha - inlineResponse.targetAlpha) > 0.01) {
+          anyDisplaced = true;
+        }
+      }
 
       // Keep animating during non-IDLE engine states
       const activeEngine = engineStateRef.current !== 'IDLE' && engineStateRef.current !== 'EXPLORING';

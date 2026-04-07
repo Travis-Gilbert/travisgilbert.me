@@ -76,6 +76,31 @@ function hexToRgb(hex: string): [number, number, number] {
   return [(n >> 16) & 255, (n >> 8) & 255, n & 255];
 }
 
+function isRawNarrativeText(text: string): boolean {
+  const normalized = text.toLowerCase();
+  return normalized.includes('perspective(s):') || normalized.startsWith('the evidence reveals');
+}
+
+function getRawNarrativeText(response: TheseusResponse | null): string {
+  if (!response) return '';
+
+  const narrativeSection = response.sections.find((section) => section.type === 'narrative');
+  const textFromSection =
+    narrativeSection && 'content' in narrativeSection && typeof narrativeSection.content === 'string'
+      ? narrativeSection.content.trim()
+      : '';
+  if (textFromSection && isRawNarrativeText(textFromSection)) {
+    return textFromSection;
+  }
+
+  const textFromAnswer = (response as TheseusResponse & { answer?: string }).answer?.trim() ?? '';
+  if (textFromAnswer && isRawNarrativeText(textFromAnswer)) {
+    return textFromAnswer;
+  }
+
+  return '';
+}
+
 interface ClusterDotMapping {
   clusterId: number;
   dotIndex: number;
@@ -1076,6 +1101,35 @@ export default function GalaxyController({
       legacyConstruction(grid, nodes, edges, objDotMap, relevantDotIndices, imageUrl, dotCount, geoSection);
     }, 1000);
   }
+
+  // Raw narrative fallback: draw inline bubble when only structural narration exists.
+  useEffect(() => {
+    const grid = gridRef.current;
+    if (!grid) return;
+
+    if (state !== 'EXPLORING') {
+      grid.setInlineResponse(null);
+      return;
+    }
+
+    const rawNarrative = getRawNarrativeText(response);
+    if (!rawNarrative) {
+      grid.setInlineResponse(null);
+      return;
+    }
+
+    const { height } = grid.getSize();
+    const isMobile = typeof window !== 'undefined' && window.innerWidth < 768;
+    grid.setInlineResponse({
+      canvasX: 20,
+      canvasY: isMobile ? height - 260 : height - 200,
+      text: rawNarrative,
+      alpha: 0,
+      targetAlpha: 1,
+      visibleChars: rawNarrative.length,
+    });
+    grid.wakeAnimation();
+  }, [gridRef, response, state]);
 
   function runCrystallizePhase(
     grid: DotGridHandle,

@@ -2,6 +2,10 @@
 
 export interface TheseusResponse {
   query: string;
+  /** Optional top-level answer for backward compatibility with v1 shape */
+  answer?: string;
+  /** Backend expression agent identifier, when available */
+  answer_agent?: string;
   mode: 'full' | 'brief' | 'objects_only';
   confidence: ConfidenceScore;
   sections: ResponseSection[];

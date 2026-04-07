@@ -36,6 +36,8 @@ const RETRY_DELAY_MS = 250;
 
 interface RawAskResponse {
   query: string;
+  answer?: string;
+  answer_agent?: string;
   traversal: {
     objects_searched: number;
     clusters_touched: number;
@@ -563,6 +565,28 @@ function normalizeAskResponse(raw: RawAskResponse): TheseusResponse {
     }
   }
 
+  // Backward-compatible narrative fallback:
+  // if backend supplied top-level answer but no narrative section,
+  // synthesize one so UI rendering remains stable across API versions/modes.
+  const hasNarrative = sections.some((section) => section.type === 'narrative');
+  if (!hasNarrative && typeof raw.answer === 'string' && raw.answer.trim().length > 0) {
+    const model =
+      raw.answer_agent === 'speaking_26b'
+        ? 'theseus-26b'
+        : raw.answer_agent === 'speaking_26b_analyst'
+          ? 'theseus-26b-analyst'
+          : raw.answer_agent === 'gemma4b'
+            ? 'gemma4b'
+            : null;
+
+    sections.unshift({
+      type: 'narrative',
+      content: raw.answer,
+      tier: model && model.startsWith('theseus-26b') ? 2 : 1,
+      attribution: model ? { model } : null,
+    });
+  }
+
   const evidence = toUnitInterval(raw.confidence.evidence);
   const tension = toUnitInterval(raw.confidence.tension);
   const coverage = toUnitInterval(raw.confidence.coverage);
@@ -570,6 +594,8 @@ function normalizeAskResponse(raw: RawAskResponse): TheseusResponse {
 
   return {
     query: raw.query,
+    answer: raw.answer,
+    answer_agent: raw.answer_agent,
     mode: 'full',
     confidence: {
       evidence,
