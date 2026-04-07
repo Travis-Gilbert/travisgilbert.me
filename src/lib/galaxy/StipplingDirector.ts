@@ -242,11 +242,17 @@ export interface FaceStippleOptions {
   expression?: FaceExpression;
 }
 
-// Cache the stipple result keyed by viewport dimensions and expression.
+// Cache stipple results keyed by viewport dimensions + expression.
 // The face geometry is deterministic (same seed), so re-running Lloyd's
-// relaxation on repeated IDLE entries is wasted work if the viewport
-// hasn't changed.
-let faceCache: { w: number; h: number; expr: string; result: StippleResult } | null = null;
+// relaxation on repeated IDLE entries or expression switches is wasted
+// work. The cache is a Map (not a single slot) because the pondering
+// morph needs BOTH 'awake' and 'pondering' results in the same frame,
+// and the IDLE face pre-warms several expressions for fast switches.
+const faceCache = new Map<string, { w: number; h: number; result: StippleResult }>();
+
+function faceCacheKey(w: number, h: number, expression: string): string {
+  return `${w}x${h}:${expression}`;
+}
 
 /**
  * Stipple the Theseus face for idle mode display.
@@ -257,9 +263,23 @@ let faceCache: { w: number; h: number; expr: string; result: StippleResult } | n
 export function stippleFace(options: FaceStippleOptions): StippleResult {
   const { viewportWidth, viewportHeight, mouthOpen, blinkAmount, expression = 'awake' } = options;
 
-  if (faceCache && faceCache.w === viewportWidth && faceCache.h === viewportHeight && faceCache.expr === expression) {
-    return faceCache.result;
+  const key = faceCacheKey(viewportWidth, viewportHeight, expression);
+  const cached = faceCache.get(key);
+  if (cached && cached.w === viewportWidth && cached.h === viewportHeight) {
+    return cached.result;
   }
+
+  // Invalidate any entries whose viewport no longer matches the
+  // current viewport so the cache doesn't grow unbounded across
+  // window resizes. Drop them in a separate pass so we don't mutate
+  // the Map while iterating.
+  const stale: string[] = [];
+  for (const [k, entry] of faceCache) {
+    if (entry.w !== viewportWidth || entry.h !== viewportHeight) {
+      stale.push(k);
+    }
+  }
+  for (const k of stale) faceCache.delete(k);
 
   const render = renderFace({ mouthOpen, blinkAmount, expression });
 
@@ -271,6 +291,6 @@ export function stippleFace(options: FaceStippleOptions): StippleResult {
     outputHeight: viewportHeight,
   });
 
-  faceCache = { w: viewportWidth, h: viewportHeight, expr: expression, result };
+  faceCache.set(key, { w: viewportWidth, h: viewportHeight, result });
   return result;
 }

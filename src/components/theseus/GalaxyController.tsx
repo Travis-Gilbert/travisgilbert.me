@@ -496,43 +496,86 @@ export default function GalaxyController({
       let dissolveFrameId = 0;
 
       if (hadFace && faceDots > 0 && !prefersReducedMotion) {
+        // Pass 1c (updated): smooth 3-second pondering morph.
+        //
+        // Previously this was a ~250ms retarget via spring physics
+        // followed by a short hold. User feedback said the expression
+        // was on screen for less than a second and felt rushed. Now
+        // the morph is an explicit per-frame lerp of face dot targets
+        // from the awake-face positions to the pondering-face
+        // positions (one-eyebrow cock) over 3 seconds with an
+        // ease-out cubic curve. The springs chase the moving target,
+        // so the dots visibly trace a smooth arc across the whole
+        // duration instead of snapping and holding.
+        //
+        // Sequence:
+        //   t=0      awake face visible
+        //   t=3000   pondering face (cocked brow) fully formed
+        //   t=3000+  dissolve starts, 800ms back to grid
+        //
+        // Total perceived time: ~3.8 seconds of face content before
+        // the thinking pulse is visible. Backend request runs in
+        // parallel, so this adds latency to fast queries but feels
+        // deliberate for the typical 15-30s reasoning window.
+        const PONDER_MORPH_MS = 3000;
         const DISSOLVE_MS = 800;
-        // Pass 1c: pondering beat. Before dissolving the face into
-        // the dot grid, re-stipple it with the 'pondering' expression
-        // and re-target the face dots to those new positions. The
-        // spring physics smoothly morphs the awake face into the
-        // pondering face (raised brows, eyes glanced up, neutral
-        // mouth) over ~250ms. We hold for 400ms total so the user
-        // sees Theseus consider the question before the dissolve.
-        const PONDER_HOLD_MS = 400;
         const dotCount = grid.getDotCount();
         const count = Math.min(faceDots, dotCount);
         const { width: viewW, height: viewH } = grid.getSize();
 
-        // Re-stipple with pondering expression. This is cached after
-        // the first call so subsequent transitions are instant.
+        // Stipple results for BOTH endpoints of the morph. Both
+        // stippleFace calls hit the StipplingDirector cache so this
+        // is cheap on any transition after the first.
+        const awakeResult = stippleFace({
+          viewportWidth: viewW,
+          viewportHeight: viewH,
+          expression: 'awake',
+        });
         const ponderResult = stippleFace({
           viewportWidth: viewW,
           viewportHeight: viewH,
           expression: 'pondering',
         });
+        const awakeTargets = awakeResult.targets;
         const ponderTargets = ponderResult.targets;
 
-        // Re-target the existing face dots to the pondering positions.
-        // The dot grid's spring physics handles the morph automatically.
-        for (let i = 0; i < count && i < ponderTargets.length; i++) {
-          grid.setDotTarget(i, ponderTargets[i].x, ponderTargets[i].y);
+        // Snapshot the awake target positions into typed arrays so
+        // the per-frame lerp loop can read them without allocating.
+        const awakeX = new Float32Array(count);
+        const awakeY = new Float32Array(count);
+        const ponderX = new Float32Array(count);
+        const ponderY = new Float32Array(count);
+        for (let i = 0; i < count; i++) {
+          const a = awakeTargets[i];
+          const p = ponderTargets[i];
+          if (a) { awakeX[i] = a.x; awakeY[i] = a.y; }
+          if (p) { ponderX[i] = p.x; ponderY[i] = p.y; }
         }
-        grid.wakeAnimation();
 
-        let dissolveTimerId = 0;
+        const ponderStart = performance.now();
 
-        // Schedule the dissolve to begin AFTER the pondering hold so
-        // the dots have time to settle into the new face shape.
-        dissolveTimerId = window.setTimeout(() => {
+        const ponderTick = () => {
+          const elapsed = performance.now() - ponderStart;
+          const rawT = Math.min(elapsed / PONDER_MORPH_MS, 1);
+          // Ease out cubic for a smooth, natural-feeling settle
+          const t = 1 - Math.pow(1 - rawT, 3);
+
+          for (let i = 0; i < count; i++) {
+            const x = awakeX[i] + (ponderX[i] - awakeX[i]) * t;
+            const y = awakeY[i] + (ponderY[i] - awakeY[i]) * t;
+            grid.setDotTarget(i, x, y);
+          }
+          grid.wakeAnimation();
+
+          if (rawT < 1) {
+            dissolveFrameId = requestAnimationFrame(ponderTick);
+            return;
+          }
+
+          // Morph complete — transition directly into the dissolve.
+          // Capture the pondering positions as the dissolve start
+          // state so it flows without a jump.
           const dissolveStart = performance.now();
-
-          // Capture pondering-face positions as the dissolve start
           const startX = new Float32Array(count);
           const startY = new Float32Array(count);
           for (let i = 0; i < count; i++) {
@@ -540,7 +583,6 @@ export default function GalaxyController({
             if (p) { startX[i] = p.x; startY[i] = p.y; }
           }
 
-          // Original grid rest positions (the dissolve target)
           const gridX = new Float32Array(count);
           const gridY = new Float32Array(count);
           for (let i = 0; i < count; i++) {
@@ -549,22 +591,20 @@ export default function GalaxyController({
           }
 
           const dissolveTick = () => {
-            const elapsed = performance.now() - dissolveStart;
-            const rawT = Math.min(elapsed / DISSOLVE_MS, 1);
-            // Ease out quadratic for a gentle deceleration
-            const t = 1 - (1 - rawT) * (1 - rawT);
+            const dissolveElapsed = performance.now() - dissolveStart;
+            const dRawT = Math.min(dissolveElapsed / DISSOLVE_MS, 1);
+            const dT = 1 - (1 - dRawT) * (1 - dRawT); // ease-out quad
 
             for (let i = 0; i < count; i++) {
-              const x = startX[i] + (gridX[i] - startX[i]) * t;
-              const y = startY[i] + (gridY[i] - startY[i]) * t;
+              const x = startX[i] + (gridX[i] - startX[i]) * dT;
+              const y = startY[i] + (gridY[i] - startY[i]) * dT;
               grid.setDotTarget(i, x, y);
             }
             grid.wakeAnimation();
 
-            if (rawT < 1) {
+            if (dRawT < 1) {
               dissolveFrameId = requestAnimationFrame(dissolveTick);
             } else {
-              // Fully dissolved: release targets so dots rest at grid positions
               for (let i = 0; i < count; i++) {
                 grid.resetDotTarget(i);
               }
@@ -573,13 +613,9 @@ export default function GalaxyController({
           };
 
           dissolveFrameId = requestAnimationFrame(dissolveTick);
-        }, PONDER_HOLD_MS);
+        };
 
-        // Make sure the timeout is cleared if THINKING is interrupted
-        // (e.g., user navigates away). Push it onto the dissolve frame
-        // so the cleanup at the bottom of this branch sees it.
-        const originalDissolveFrameId = dissolveFrameId;
-        dissolveFrameId = originalDissolveFrameId || dissolveTimerId;
+        dissolveFrameId = requestAnimationFrame(ponderTick);
       } else if (hadFace && faceDots > 0) {
         // Reduced motion: reset face dots immediately, no pondering beat
         const dotCount = grid.getDotCount();
@@ -745,12 +781,20 @@ export default function GalaxyController({
     const snapshots = result.snapshots;
     const dotCount = grid.getDotCount();
 
-    // Pass 1c: pre-warm the pondering face stipple cache so the
-    // IDLE-to-THINKING transition can re-target dots instantly
-    // instead of paying the ~50ms Lloyd's-relaxation cost on submit.
-    // Result is discarded; the cache inside StipplingDirector keeps it.
+    // Pass 1c: pre-warm all non-default face expression stipple caches
+    // so state transitions can re-target dots instantly instead of
+    // paying the ~50ms Lloyd's-relaxation cost on submit. Results are
+    // discarded; the cache inside StipplingDirector keeps them.
+    //
+    // 'pondering' is the current IDLE-to-THINKING transition target
+    // (3-second one-eyebrow-cock morph).
+    // 'curious' and 'contemplative' are reserved for future state
+    // variations (e.g. slow-wait contemplation, novel-entity curiosity)
+    // but pre-warm here so they're ready when Phase B wires them up.
     setTimeout(() => {
       stippleFace({ viewportWidth: width, viewportHeight: height, expression: 'pondering' });
+      stippleFace({ viewportWidth: width, viewportHeight: height, expression: 'curious' });
+      stippleFace({ viewportWidth: width, viewportHeight: height, expression: 'contemplative' });
     }, 200);
 
     // Set opacity and color for all face dots upfront

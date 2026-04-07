@@ -58,7 +58,12 @@ export const EYE_REGIONS = {
 // Render options
 // ---------------------------------------------------------------------------
 
-export type FaceExpression = 'sleep' | 'awake' | 'pondering';
+export type FaceExpression =
+  | 'sleep'
+  | 'awake'
+  | 'pondering'
+  | 'curious'
+  | 'contemplative';
 
 export interface FaceRenderOptions {
   /** Mouth openness from 0 (closed) to 1 (fully open). Default 0. */
@@ -67,14 +72,26 @@ export interface FaceRenderOptions {
   blinkAmount?: number;
   /**
    * Expression:
-   *   'sleep'     — chevron eyes, resting (used during deep idle / standby)
-   *   'awake'     — open bracket eyes with centered pupils, neutral smile (default)
-   *   'pondering' — raised eyebrows above the brackets, pupils glanced up,
-   *                 thin straight mouth. Used as a brief beat between IDLE
-   *                 and THINKING so the user sees Theseus *consider* the
-   *                 question before the dots dissolve into the thinking
-   *                 animation. Inspired by the wide-eyed-curious "huh,
-   *                 let me think about that" expression.
+   *   'sleep'         — chevron eyes, resting (deep idle / standby)
+   *   'awake'         — open bracket eyes with centered pupils, neutral
+   *                     smile. Default idle state.
+   *   'pondering'     — SINGLE raised eyebrow over the left eye only,
+   *                     otherwise neutral bracket eyes with centered
+   *                     pupils and a thin straight mouth. Reads as the
+   *                     classic "hmm, interesting — go on" one-eyebrow
+   *                     cock. Used as the 3-second morph beat between
+   *                     IDLE and THINKING so the user sees Theseus
+   *                     register the question before the dissolve.
+   *   'curious'       — BOTH eyebrows raised symmetrically, pupils
+   *                     glanced slightly up, neutral mouth. Reads as
+   *                     "huh, let me think about that." Wider-eyed
+   *                     variant of pondering, reserved for future use
+   *                     (e.g., when the query contains novel entities
+   *                     Theseus hasn't seen before).
+   *   'contemplative' — slightly narrowed eyes, centered small pupils,
+   *                     no eyebrows, flat relaxed mouth. Reads as
+   *                     "calm, working it through" — deep, quiet
+   *                     thought. Reserved for long-wait states.
    */
   expression?: FaceExpression;
 }
@@ -135,10 +152,10 @@ export function renderFace(options: FaceRenderOptions = {}): OffscreenRenderResu
       block(ax, ay + sq - 1, 0, -1);
       block(ax, ay + sq - 1, 5, -1);
     } else if (expression === 'pondering') {
-      // Pondering: bracket eyes with raised eyebrows above and the
-      // pupils glanced up (1 row higher than awake). Mouth handled
-      // separately below this loop. Reads as the wide-eyed
-      // "huh, let me think about that" expression from the reference.
+      // Pondering: ONE eyebrow cocked on the LEFT eye only. Right eye
+      // is neutral. Pupils stay centered (no upward glance). Mouth
+      // is a thin straight line (handled below). Reads as the
+      // classic "hmm, interesting" one-eyebrow cock.
 
       const squeeze = Math.round(blinkAmount * 2);
 
@@ -156,8 +173,48 @@ export function renderFace(options: FaceRenderOptions = {}): OffscreenRenderResu
       block(ax, ay, 2, 4 - squeeze);
       block(ax, ay, 3, 4 - squeeze);
 
-      // Pupil: 2x2 block, raised by 1 row relative to awake (rows 1-2
-      // instead of 2-3) so the eye reads as glancing slightly up.
+      // Pupil: 2x2 block, centered (rows 2-3, same as awake)
+      if (blinkAmount < 0.7) {
+        const pCol = isLeft ? 3 : 1;
+        block(ax, ay, pCol, 2);
+        block(ax, ay, pCol + 1, 2);
+        block(ax, ay, pCol, 3);
+        block(ax, ay, pCol + 1, 3);
+      }
+
+      // ONLY the left eye gets an eyebrow, raised and tilted outward.
+      // The asymmetry is what makes this read as a cocked brow rather
+      // than "both brows up" (which is the 'curious' expression).
+      if (isLeft) {
+        // Four-block-wide brow at row -2. Outer end slightly higher
+        // for a rakish cocked-brow tilt.
+        //     ##
+        //  ## ## ##
+        block(ax, ay, 0, -2);
+        block(ax, ay, 1, -2);
+        block(ax, ay, 2, -2);
+        block(ax, ay, 3, -2);
+        // Outer lift on the far end
+        block(ax, ay, 0, -3);
+      }
+    } else if (expression === 'curious') {
+      // Curious: BOTH eyebrows raised, pupils glanced up by 1 row,
+      // neutral mouth (handled below). Wider-eyed variant of
+      // pondering. Reserved for future use.
+
+      const squeeze = Math.round(blinkAmount * 2);
+
+      const vCol1 = isLeft ? 0 : 4;
+      const vCol2 = isLeft ? 1 : 5;
+      for (let r = squeeze; r < 5 - squeeze; r++) block(ax, ay, vCol1, r);
+      for (let r = squeeze; r < 5 - squeeze; r++) block(ax, ay, vCol2, r);
+
+      block(ax, ay, 2, squeeze);
+      block(ax, ay, 3, squeeze);
+      block(ax, ay, 2, 4 - squeeze);
+      block(ax, ay, 3, 4 - squeeze);
+
+      // Pupils raised one row
       if (blinkAmount < 0.7) {
         const pCol = isLeft ? 3 : 1;
         block(ax, ay, pCol, 1);
@@ -166,21 +223,37 @@ export function renderFace(options: FaceRenderOptions = {}): OffscreenRenderResu
         block(ax, ay, pCol + 1, 2);
       }
 
-      // Eyebrow: 4-block-wide bar at row -3 (above the bracket).
-      // The inner side of the brow is 1 block higher than the outer,
-      // tilting it like a raised "interested" brow. Inner end is the
-      // side closer to the centerline of the face.
-      //
-      // Left eye brow:        Right eye brow:
-      //          ##              ##
-      //   ## ## ##              ## ## ##
-      //
+      // Both eyebrows: tilted inward-higher (inner end of the brow
+      // 1 block higher than outer).
       const browInnerCol = isLeft ? 4 : 1;
       const browOuterStart = isLeft ? 0 : 2;
-      // Outer three blocks at row -2 (just above the bracket top)
       for (let c = 0; c < 3; c++) block(ax, ay, browOuterStart + c, -2);
-      // Inner block raised one extra row (-3) for the lift
       block(ax, ay, browInnerCol, -3);
+    } else if (expression === 'contemplative') {
+      // Contemplative: narrowed eyes (+1 squeeze), no eyebrows,
+      // smaller 1x1 pupils, flat relaxed mouth (handled below).
+      // Reads as "calm, working it through." Deep quiet thought.
+
+      // Force an extra squeeze on top of any blink to narrow the eyes.
+      const squeeze = Math.round(blinkAmount * 2) + 1;
+
+      // Shortened vertical bars (narrow eye)
+      const vCol1 = isLeft ? 0 : 4;
+      const vCol2 = isLeft ? 1 : 5;
+      for (let r = squeeze; r < 5 - squeeze; r++) block(ax, ay, vCol1, r);
+      for (let r = squeeze; r < 5 - squeeze; r++) block(ax, ay, vCol2, r);
+
+      block(ax, ay, 2, squeeze);
+      block(ax, ay, 3, squeeze);
+      block(ax, ay, 2, 4 - squeeze);
+      block(ax, ay, 3, 4 - squeeze);
+
+      // Small centered pupil: single 1x1 block instead of 2x2.
+      if (blinkAmount < 0.7) {
+        const pCol = isLeft ? 3 : 1;
+        block(ax, ay, pCol, 2);
+      }
+      // No eyebrows.
     } else {
       // Awake: mirrored bracket eyes
       //
@@ -227,10 +300,12 @@ export function renderFace(options: FaceRenderOptions = {}): OffscreenRenderResu
   const mAy = my - b * 2; // anchor: vertically centered
   const openRows = Math.round(mouthOpen * 3);
 
-  if (expression === 'pondering') {
-    // Pondering: thin straight horizontal line. No smile pillars,
-    // no curve. Reads as neutral / contemplative. The mouth sits at
-    // the same vertical position as the awake smile's bottom bar.
+  if (expression === 'pondering' || expression === 'curious' || expression === 'contemplative') {
+    // Thin straight horizontal line for all three thinking expressions.
+    // No smile pillars, no curve. Reads as neutral / contemplative.
+    // Sits at the same vertical position as the awake smile's bottom
+    // bar so the transition between expressions doesn't shift the
+    // mouth up or down.
     for (let c = 2; c < 10; c++) block(mAx, mAy, c, 3);
   } else {
     // Awake (and sleep) default: happy pixel smile, steep U shape.
