@@ -1027,7 +1027,8 @@ export default function GalaxyController({
       }, 50);
     }
 
-    // === PHASE 3: CONSTRUCTION (after 1s delay) ===
+    // === PHASE 3: CONSTRUCTION (begins immediately after the filter
+    // ramp completes; the ramp above runs 10 steps × 50ms = 500ms) ===
     phaseTimerRef.current = window.setTimeout(() => {
       phaseRef.current = 'construction';
 
@@ -1099,7 +1100,7 @@ export default function GalaxyController({
       }
 
       legacyConstruction(grid, nodes, edges, objDotMap, relevantDotIndices, imageUrl, dotCount, geoSection);
-    }, 1000);
+    }, 500);
   }
 
   // Raw narrative fallback: draw inline bubble when only structural narration exists.
@@ -1137,7 +1138,9 @@ export default function GalaxyController({
     nodes: EvidenceNode[],
     relevantDotIndices: Set<number>,
   ) {
-    // === PHASE 4: CRYSTALLIZE (after 2s, with 300ms label fade) ===
+    // === PHASE 4: CRYSTALLIZE (600ms after construction begins; the
+    // recruited dots reach their targets on the canvas's own animation
+    // loop well within this window) ===
     window.setTimeout(() => {
       phaseRef.current = 'crystallize';
 
@@ -1180,7 +1183,7 @@ export default function GalaxyController({
 
       grid.wakeAnimation();
       labelAlphaRef.current = 1;
-    }, 2000);
+    }, 600);
   }
 
   /**

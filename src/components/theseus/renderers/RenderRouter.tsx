@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import dynamic from 'next/dynamic';
 import type { TheseusResponse } from '@/lib/theseus-types';
 import type { SceneDirective } from '@/lib/theseus-viz/SceneDirective';
+import { usePrefersReducedMotion } from '@/hooks/usePrefersReducedMotion';
 import ConstructionAnimator from './ConstructionAnimator';
 import D3Renderer from './D3Renderer';
 import type { ConstructionPlayback } from './rendering';
@@ -94,6 +95,7 @@ function RendererLayer({
   onSelectNode?: (nodeId: string) => void;
   onError: (target: RenderTarget, error: Error) => void;
 }) {
+  const prefersReducedMotion = usePrefersReducedMotion();
   const common = {
     directive,
     response,
@@ -162,7 +164,7 @@ function RendererLayer({
         position: 'absolute',
         inset: 0,
         opacity: active ? 1 : 0,
-        transition: 'opacity 600ms ease',
+        transition: prefersReducedMotion ? 'none' : 'opacity 600ms ease',
       }}
     >
       {content}

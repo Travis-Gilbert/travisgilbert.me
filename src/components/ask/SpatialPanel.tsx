@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
+import { usePrefersReducedMotion } from '@/hooks/usePrefersReducedMotion';
 
 interface SpatialPanelProps {
   anchorX: number;
@@ -22,6 +23,7 @@ export default function SpatialPanel({
   complete,
   onDismiss,
 }: SpatialPanelProps) {
+  const prefersReducedMotion = usePrefersReducedMotion();
   const [bloomed, setBloomed] = useState(false);
   const panelRef = useRef<HTMLDivElement>(null);
 
@@ -62,10 +64,11 @@ export default function SpatialPanel({
         boxShadow: 'var(--vie-surface-panel-glow)',
         borderRadius: 16,
         padding: '20px 24px',
-        transform: bloomed ? 'scale(1)' : 'scale(0.92)',
-        opacity: bloomed ? 1 : 0,
-        transition:
-          'transform 300ms cubic-bezier(0.34, 1.56, 0.64, 1), opacity 300ms ease',
+        transform: prefersReducedMotion ? 'scale(1)' : (bloomed ? 'scale(1)' : 'scale(0.92)'),
+        opacity: prefersReducedMotion ? 1 : (bloomed ? 1 : 0),
+        transition: prefersReducedMotion
+          ? 'none'
+          : 'transform 300ms cubic-bezier(0.34, 1.56, 0.64, 1), opacity 300ms ease',
         transformOrigin: 'top left',
       }}
     >

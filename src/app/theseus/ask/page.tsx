@@ -24,9 +24,266 @@ import { useGalaxy } from '@/components/theseus/TheseusShell';
 import SourceTrail from '@/components/theseus/SourceTrail';
 import { getModel } from '@/lib/theseus-storage';
 import { useIsMobile } from '@/hooks/useIsMobile';
+import { usePrefersReducedMotion } from '@/hooks/usePrefersReducedMotion';
 import { VoiceControls } from '@/components/ask/VoiceControls';
 import SpatialPanel from '@/components/ask/SpatialPanel';
 import { shouldBePanel, computeAnchor } from '@/lib/galaxy/SpatialConversation';
+
+const BRAILLE_FRAMES = ['⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧', '⠇', '⠏'];
+
+/**
+ * Single DOM node that holds the user's query string from the moment
+ * they submit until the answer settles. Travels between three positions
+ * (hidden / centered above the dock / top-left header) via transform
+ * and font-size transitions, never unmounting. This is the perceptual
+ * spine of the thinking-to-answer transition.
+ */
+function TravelingQuery({
+  text,
+  stage,
+  isMobile,
+  prefersReducedMotion,
+}: {
+  text: string;
+  stage: 'hidden' | 'centered' | 'header';
+  isMobile: boolean;
+  prefersReducedMotion: boolean;
+}) {
+  const isHeader = stage === 'header';
+  const isVisible = stage !== 'hidden';
+  const transition = prefersReducedMotion
+    ? 'none'
+    : [
+      'top 700ms cubic-bezier(0.32, 0.72, 0.24, 1.04)',
+      'left 700ms cubic-bezier(0.32, 0.72, 0.24, 1.04)',
+      'right 700ms cubic-bezier(0.32, 0.72, 0.24, 1.04)',
+      'bottom 700ms cubic-bezier(0.32, 0.72, 0.24, 1.04)',
+      'transform 700ms cubic-bezier(0.32, 0.72, 0.24, 1.04)',
+      'font-size 700ms cubic-bezier(0.32, 0.72, 0.24, 1.04)',
+      'max-width 700ms ease',
+      'opacity 300ms ease',
+    ].join(', ');
+
+  return (
+    <div
+      style={{
+        position: 'fixed',
+        top: isHeader ? (isMobile ? 60 : 72) : 'auto',
+        left: isHeader ? (isMobile ? 20 : 38) : '50%',
+        bottom: isHeader ? 'auto' : (isMobile ? 150 : 158),
+        transform: isHeader ? 'none' : 'translateX(-50%)',
+        maxWidth: isHeader ? (isMobile ? 'calc(100vw - 40px)' : 540) : 'min(560px, calc(100vw - 48px))',
+        fontSize: isHeader ? (isMobile ? '1.25rem' : '1.55rem') : '15px',
+        color: 'var(--vie-text)',
+        fontFamily: isHeader ? 'var(--vie-font-title)' : 'var(--vie-font-body)',
+        lineHeight: isHeader ? 1.2 : 1.5,
+        textAlign: isHeader ? 'left' : 'center',
+        margin: 0,
+        pointerEvents: 'none',
+        zIndex: 12,
+        opacity: isVisible ? 1 : 0,
+        transition,
+      }}
+    >
+      {text}
+    </div>
+  );
+}
+
+/**
+ * Persistent search-and-history dock at the bottom of the viewport.
+ * Renders for every state (IDLE / THINKING / MODEL / CONSTRUCTING /
+ * EXPLORING / error) instead of being mounted and unmounted. When a
+ * query is in flight (submitting=true), the input compresses inward
+ * and a larger spinner morphs in over its center. The user's submitted
+ * query string is owned by TravelingQuery and lives outside this dock.
+ */
+function AskDock({
+  composerQuery,
+  setComposerQuery,
+  navigateToQuery,
+  submitting,
+  isIdle,
+  isMobile,
+  prefersReducedMotion,
+  mouthOpenRef,
+  queryHistory,
+  followUps,
+  activeQuery,
+  onLoadHistory,
+  spinnerFrame,
+}: {
+  composerQuery: string;
+  setComposerQuery: (value: string) => void;
+  navigateToQuery: (value: string) => void;
+  submitting: boolean;
+  isIdle: boolean;
+  isMobile: boolean;
+  prefersReducedMotion: boolean;
+  mouthOpenRef: React.MutableRefObject<number>;
+  queryHistory: QueryHistoryEntry[];
+  followUps?: TheseusResponse['follow_ups'];
+  activeQuery: string | null;
+  onLoadHistory: (query: string) => void;
+  spinnerFrame: number;
+}) {
+  const showHistory = !submitting && queryHistory.length > 0;
+  const inputTransition = prefersReducedMotion
+    ? 'none'
+    : 'transform 400ms cubic-bezier(0.32, 0.72, 0.24, 1.04), opacity 400ms ease';
+  const buttonTransition = prefersReducedMotion ? 'none' : 'opacity 300ms ease';
+  const spinnerTransition = prefersReducedMotion
+    ? 'none'
+    : 'opacity 400ms ease 150ms, transform 400ms cubic-bezier(0.32, 0.72, 0.24, 1.04) 150ms';
+
+  return (
+    <div
+      className="theseus-bottom-dock"
+      style={{
+        position: 'fixed',
+        left: '50%',
+        transform: 'translateX(-50%)',
+        bottom: isMobile ? 'calc(16px + env(safe-area-inset-bottom))' : 16,
+        width: isMobile ? 'min(440px, calc(100vw - 32px))' : 'min(480px, calc(100vw - 32px))',
+        zIndex: 20,
+        pointerEvents: 'auto',
+        display: 'flex',
+        flexDirection: 'column',
+        gap: 10,
+      }}
+    >
+      <form
+        onSubmit={(event) => {
+          event.preventDefault();
+          navigateToQuery(composerQuery);
+        }}
+        style={{ position: 'relative', display: 'flex', alignItems: 'center', gap: 8, width: '100%' }}
+      >
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: 8,
+            width: '100%',
+            transform: submitting ? 'scale(0.88)' : 'scale(1)',
+            opacity: submitting ? 0.4 : 1,
+            transformOrigin: 'center center',
+            transition: inputTransition,
+            pointerEvents: submitting ? 'none' : 'auto',
+          }}
+        >
+          <VoiceControls
+            onInterimTranscript={(text: string) => setComposerQuery(text)}
+            onFinalTranscript={(text: string) => {
+              setComposerQuery(text);
+              if (text.trim().length > 0) navigateToQuery(text);
+            }}
+            onAmplitude={isIdle ? (amp: number) => { mouthOpenRef.current = amp; } : undefined}
+          />
+          <input
+            className="theseus-ask-composer-input"
+            type="text"
+            name={isIdle ? 'query' : 'follow_up_query'}
+            value={composerQuery}
+            onChange={(event) => setComposerQuery(event.target.value)}
+            placeholder={isIdle ? 'Ask Theseus anything...' : 'Ask a follow-up…'}
+            autoComplete="off"
+            spellCheck={false}
+            aria-label={isIdle ? 'Ask Theseus a question' : 'Ask a follow-up question'}
+            autoFocus={isIdle}
+            style={{
+              transition: buttonTransition,
+            }}
+          />
+          <button
+            type="submit"
+            className="theseus-ask-composer-submit"
+            disabled={composerQuery.trim().length === 0 || submitting}
+            style={{
+              transition: buttonTransition,
+            }}
+          >
+            Ask
+          </button>
+        </div>
+
+        {/* Spinner overlay: blooms at the input's geometric center
+            while a query is in flight. Larger than the old inline
+            braille glyph (40px font, ~88px halo) so the morph reads
+            as a focal point instead of an implosion. */}
+        <div
+          aria-hidden={!submitting}
+          style={{
+            position: 'absolute',
+            top: '50%',
+            left: '50%',
+            transform: submitting
+              ? 'translate(-50%, -50%) scale(1)'
+              : 'translate(-50%, -50%) scale(0.55)',
+            opacity: submitting ? 1 : 0,
+            transition: spinnerTransition,
+            pointerEvents: 'none',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            width: 88,
+            height: 88,
+            borderRadius: '50%',
+            background: 'radial-gradient(circle, rgba(74,138,150,0.18) 0%, rgba(74,138,150,0.05) 60%, transparent 80%)',
+          }}
+        >
+          <span
+            style={{
+              fontFamily: 'var(--vie-font-mono)',
+              fontSize: 40,
+              lineHeight: 1,
+              color: 'var(--vie-teal-light)',
+            }}
+          >
+            {BRAILLE_FRAMES[spinnerFrame]}
+          </span>
+        </div>
+      </form>
+
+      {(showHistory || (followUps && followUps.length > 0)) && (
+        <div
+          style={{
+            display: 'flex',
+            flexWrap: 'wrap',
+            gap: 6,
+            maxHeight: 68,
+            overflow: 'hidden',
+            opacity: submitting ? 0 : 1,
+            transition: prefersReducedMotion ? 'none' : 'opacity 300ms ease',
+            pointerEvents: submitting ? 'none' : 'auto',
+          }}
+        >
+          {queryHistory.map((entry) => (
+            <button
+              key={entry.query}
+              type="button"
+              className={`theseus-ask-history-chip ${entry.query === activeQuery ? 'is-active' : ''} ${entry.status === 'error' ? 'is-error' : ''} ${entry.status === 'in-progress' ? 'is-in-progress' : ''}`}
+              onClick={() => onLoadHistory(entry.query)}
+              aria-label={`Load previous query: ${entry.query}`}
+            >
+              {entry.query.length > 48 ? `${entry.query.slice(0, 48)}…` : entry.query}
+            </button>
+          ))}
+          {followUps?.map((followUp, index) => (
+            <button
+              key={`fu-${index}`}
+              type="button"
+              className="theseus-ask-history-chip"
+              onClick={() => onLoadHistory(followUp.query)}
+            >
+              {followUp.query.length > 48 ? `${followUp.query.slice(0, 48)}…` : followUp.query}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
 
 export type AskState = 'IDLE' | 'THINKING' | 'MODEL' | 'CONSTRUCTING' | 'EXPLORING';
 
@@ -324,6 +581,7 @@ function AskContent() {
   const query = searchParams.get('q');
   const savedId = searchParams.get('saved');
   const isMobile = useIsMobile();
+  const prefersReducedMotion = usePrefersReducedMotion();
   const { setAskState: pushState, setResponse: pushResponse, setDirective: pushDirective, setDataStatus: pushDataStatus, setVizPrediction: pushVizPrediction, argumentView, setArgumentView, sourceTrail, clearSourceTrail, mouthOpenRef } = useGalaxy();
 
   const [state, setState] = useState<AskState>(query ? 'THINKING' : 'IDLE');
@@ -338,6 +596,18 @@ function AskContent() {
   const [composerQuery, setComposerQuery] = useState(query ?? '');
   const [queryHistory, setQueryHistory] = useState<QueryHistoryEntry[]>([]);
   const [retryNonce, setRetryNonce] = useState(0);
+  const [spinnerFrame, setSpinnerFrame] = useState(0);
+
+  // Drive the spinner glyph at 12.5fps while the dock is in submitting
+  // mode. Single shared interval so multiple spinners stay in sync.
+  const submitting = state !== 'IDLE' && state !== 'EXPLORING' && !error;
+  useEffect(() => {
+    if (!submitting || prefersReducedMotion) return;
+    const id = window.setInterval(() => {
+      setSpinnerFrame((prev) => (prev + 1) % BRAILLE_FRAMES.length);
+    }, 80);
+    return () => window.clearInterval(id);
+  }, [submitting, prefersReducedMotion]);
 
   const requestIdRef = useRef(0);
   const askAbortRef = useRef<AbortController | null>(null);
@@ -538,7 +808,10 @@ function AskContent() {
         (section): section is DataAcquisitionSection => section.type === 'data_acquisition',
       );
 
-      await new Promise((resolve) => window.setTimeout(resolve, 500));
+      // Yield one frame so React commits the MODEL render before we
+      // flip to CONSTRUCTING. The previous 500ms hard wait was dead air;
+      // a single rAF is enough to let the state machine breathe.
+      await new Promise<void>((resolve) => window.requestAnimationFrame(() => resolve()));
       if (isStale()) return;
 
       setState('CONSTRUCTING');
@@ -603,12 +876,14 @@ function AskContent() {
     };
   }, [clearSourceTrail, pushDataStatus, pushDirective, pushResponse, pushState, query, retryNonce, savedId]);
 
-  // When the 2D path is active (no RenderRouter), trigger narration after construction settles
+  // When the 2D path is active (no RenderRouter), the dot field's
+  // construction is already running by the time we reach EXPLORING.
+  // Mark narration ready immediately so the SpatialPanel can bloom in
+  // alongside the answer card. The previous 3000ms hard delay made the
+  // text appear long after the visual answer had settled.
   useEffect(() => {
     if (state !== 'EXPLORING' || !sceneDirective || !isGraphNativeTarget(sceneDirective)) return;
-    const delay = sceneDirective.construction.total_duration_ms || 3000;
-    const timeoutId = window.setTimeout(() => setNarrationReady(true), delay);
-    return () => window.clearTimeout(timeoutId);
+    setNarrationReady(true);
   }, [state, sceneDirective]);
 
   const objectLookup = useMemo(
@@ -619,158 +894,179 @@ function AskContent() {
   const narratives = response ? getNarratives(response) : [];
   const evidencePath = response ? getEvidencePath(response) : null;
   const renderedNarratives = narratives.filter((narrative) => !isRawNarration(narrative.content));
-  const showComposer = state === 'EXPLORING' || Boolean(error);
-  const showHistory = showComposer && queryHistory.length > 0;
 
-  const renderBottomDock = () => {
-    if (!showComposer) return null;
-    const activeQuery = response?.query ?? query ?? null;
-    return (
-      <div
-        className="theseus-bottom-dock"
-        style={{
-          position: 'fixed',
-          left: '50%',
-          transform: 'translateX(-50%)',
-          bottom: isMobile ? 'calc(16px + env(safe-area-inset-bottom))' : 16,
-          width: isMobile ? 'min(480px, calc(100vw - 32px))' : 'min(640px, calc(100vw - 32px))',
-          zIndex: 20,
-          pointerEvents: 'auto',
-          display: 'flex',
-          flexDirection: 'column',
-          gap: 10,
-        }}
-      >
-        <form
-          onSubmit={(event) => {
-            event.preventDefault();
-            navigateToQuery(composerQuery);
-          }}
-          style={{ display: 'flex', alignItems: 'center', gap: 8, width: '100%' }}
-        >
-          <VoiceControls
-            onInterimTranscript={(text) => setComposerQuery(text)}
-            onFinalTranscript={(text) => {
-              setComposerQuery(text);
-              if (text.trim().length > 0) navigateToQuery(text);
-            }}
-          />
-          <input
-            className="theseus-ask-composer-input"
-            type="text"
-            name="follow_up_query"
-            value={composerQuery}
-            onChange={(event) => setComposerQuery(event.target.value)}
-            placeholder="Ask a follow-up…"
-            autoComplete="off"
-            spellCheck={false}
-            aria-label="Ask a follow-up question"
-          />
-          <button
-            type="submit"
-            className="theseus-ask-composer-submit"
-            disabled={composerQuery.trim().length === 0}
-          >
-            Ask
-          </button>
-        </form>
-        {(showHistory || (response?.follow_ups && response.follow_ups.length > 0)) && (
-          <div
-            style={{
-              display: 'flex',
-              flexWrap: 'wrap',
-              gap: 6,
-              maxHeight: 68,
-              overflow: 'hidden',
-            }}
-          >
-            {queryHistory.map((entry) => (
-              <button
-                key={entry.query}
-                type="button"
-                className={`theseus-ask-history-chip ${entry.query === activeQuery ? 'is-active' : ''} ${entry.status === 'error' ? 'is-error' : ''} ${entry.status === 'in-progress' ? 'is-in-progress' : ''}`}
-                onClick={() => navigateToQuery(entry.query)}
-                aria-label={`Load previous query: ${entry.query}`}
-              >
-                {entry.query.length > 48 ? `${entry.query.slice(0, 48)}…` : entry.query}
-              </button>
-            ))}
-            {response?.follow_ups?.map((followUp, index) => (
-              <button
-                key={`fu-${index}`}
-                type="button"
-                className="theseus-ask-history-chip"
-                onClick={() => navigateToQuery(followUp.query)}
-              >
-                {followUp.query.length > 48 ? `${followUp.query.slice(0, 48)}…` : followUp.query}
-              </button>
-            ))}
-          </div>
-        )}
-      </div>
-    );
-  };
+  const activeQuery = response?.query ?? query ?? null;
+  const renderBottomDock = () => (
+    <AskDock
+      composerQuery={composerQuery}
+      setComposerQuery={setComposerQuery}
+      navigateToQuery={navigateToQuery}
+      submitting={submitting}
+      isIdle={state === 'IDLE' && !error}
+      isMobile={isMobile}
+      prefersReducedMotion={prefersReducedMotion}
+      mouthOpenRef={mouthOpenRef}
+      queryHistory={queryHistory}
+      followUps={response?.follow_ups}
+      activeQuery={activeQuery}
+      onLoadHistory={navigateToQuery}
+      spinnerFrame={spinnerFrame}
+    />
+  );
 
-  if (state === 'IDLE' && !error) {
-    // Face renders on the galaxy canvas via GalaxyController.
-    // Show only the composer input bar so the user can ask a question.
+  // The saved-model legacy view is rare and stands alone with no
+  // transition affordances; keep it as an early return.
+  if (savedSceneSpec && savedId) {
     return (
-      <div style={{ position: 'relative', width: '100%', height: '100%' }}>
-        <div
-          className="theseus-bottom-dock"
-          style={{
-            position: 'fixed',
-            left: '50%',
-            transform: 'translateX(-50%)',
-            bottom: isMobile ? 'calc(16px + env(safe-area-inset-bottom))' : 16,
-            width: isMobile ? 'min(480px, calc(100vw - 32px))' : 'min(640px, calc(100vw - 32px))',
-            zIndex: 20,
-            pointerEvents: 'auto',
-          }}
-        >
-          <form
-            onSubmit={(event) => {
-              event.preventDefault();
-              navigateToQuery(composerQuery);
-            }}
-            style={{ display: 'flex', alignItems: 'center', gap: 8, width: '100%' }}
-          >
-            <VoiceControls
-              onInterimTranscript={(text: string) => setComposerQuery(text)}
-              onFinalTranscript={(text: string) => {
-                setComposerQuery(text);
-                if (text.trim().length > 0) navigateToQuery(text);
-              }}
-              onAmplitude={(amp: number) => { mouthOpenRef.current = amp; }}
-            />
-            <input
-              className="theseus-ask-composer-input"
-              type="text"
-              name="query"
-              value={composerQuery}
-              onChange={(event) => setComposerQuery(event.target.value)}
-              placeholder="Ask Theseus anything..."
-              autoComplete="off"
-              spellCheck={false}
-              aria-label="Ask Theseus a question"
-              autoFocus
-            />
-            <button
-              type="submit"
-              className="theseus-ask-composer-submit"
-              disabled={composerQuery.trim().length === 0}
-            >
-              Ask
-            </button>
-          </form>
-        </div>
-      </div>
+      <StaticScreen
+        title={savedQuery ?? 'Saved model'}
+        subtitle={`Legacy model view: ${savedSceneSpec.nodes.length} nodes · ${Math.round(savedSceneSpec.confidence * 100)}% confidence`}
+      />
     );
   }
 
-  if (error) {
-    return (
-      <div style={{ position: 'relative', width: '100%', height: '100%' }}>
+  // Compute the traveling-query stage from the engine state. The query
+  // text lives in a single DOM node that morphs between three positions
+  // so the user's eye never loses it during the thinking-to-answer
+  // transition.
+  const isExploring = state === 'EXPLORING' && Boolean(response) && Boolean(sceneDirective);
+  const queryStage: 'hidden' | 'centered' | 'header' = error
+    ? 'hidden'
+    : state === 'IDLE'
+      ? 'hidden'
+      : isExploring
+        ? 'header'
+        : 'centered';
+  const travelingQueryText = isExploring && response ? response.query : (query ?? '');
+
+  // The non-graph-native renderer (D3, Vega, Sigma) only mounts once we
+  // have a directive. The graph-native path is drawn directly on the
+  // galaxy canvas by GalaxyController and needs no React mount here.
+  const showRenderRouter = isExploring && sceneDirective && !isGraphNativeTarget(sceneDirective);
+
+  return (
+    <div style={{ position: 'relative', width: '100%', height: '100%' }}>
+      {showRenderRouter && sceneDirective && response && (
+        <RenderRouter
+          directive={sceneDirective}
+          response={response}
+          onSelectNode={setSelectedNodeId}
+          onCrystallizeComplete={() => setNarrationReady(true)}
+        />
+      )}
+
+      {/* Answer meta card: blooms in from the spinner location when we
+          enter EXPLORING. The query string itself is owned by
+          TravelingQuery and lands just below this card. */}
+      {isExploring && response && sceneDirective && (
+        <AnswerMetaCard
+          rendererLabel={RENDERER_LABELS[sceneDirective.render_target.primary] ?? sceneDirective.render_target.primary}
+          nodeCount={objectLookup.size}
+          confidenceColor={getConfidenceColor(response.confidence.combined)}
+          confidencePercent={Math.round(response.confidence.combined * 100)}
+          isMobile={isMobile}
+          prefersReducedMotion={prefersReducedMotion}
+        />
+      )}
+
+      {/* Persistent traveling query string. One DOM node, three
+          positions, no unmount. */}
+      <TravelingQuery
+        text={travelingQueryText}
+        stage={queryStage}
+        isMobile={isMobile}
+        prefersReducedMotion={prefersReducedMotion}
+      />
+
+      {/* Status overlay: simple "thinking…" line below the centered
+          query while a request is in flight. ThinkingScreen no longer
+          owns the query text or the spinner; it is just a small
+          status row. */}
+      {submitting && (
+        <ThinkingScreen state={state} query={null} dataStatus={dataStatus} />
+      )}
+
+      {/* Source trail: accumulated explored sources, visible only when
+          exploring and the user has clicked into sources. */}
+      {isExploring && sourceTrail.length > 0 && (
+        <div
+          style={{
+            position: 'absolute',
+            left: 20,
+            top: 130,
+            maxWidth: isMobile ? 'calc(100vw - 40px)' : 480,
+            zIndex: 10,
+            pointerEvents: 'none',
+          }}
+        >
+          <SourceTrail
+            items={sourceTrail}
+            onSelect={handleTrailSelect}
+          />
+        </div>
+      )}
+
+      {/* Spatial response panel: anchored near the focal node cluster.
+          narrationReady is now set the instant we transition to
+          EXPLORING (the old 3000ms hard delay was removed). */}
+      {isExploring && response && narrationReady && renderedNarratives.length > 0 && (() => {
+        const narrativeText = renderedNarratives.slice(0, 2).map((n) => n.content).join('\n\n');
+        const usePanel = shouldBePanel(narrativeText) || !isMobile;
+        const anchor = isMobile
+          ? { x: 20, y: window.innerHeight - 260 }
+          : computeAnchor([], window.innerWidth, window.innerHeight);
+
+        if (!usePanel) {
+          return (
+            <div
+              style={{
+                position: 'absolute',
+                left: 20,
+                bottom: 'calc(90px + env(safe-area-inset-bottom))',
+                width: 'calc(100vw - 40px)',
+                maxHeight: 220,
+                zIndex: 10,
+                pointerEvents: 'none',
+              }}
+            >
+              <div
+                className="theseus-insight-panel"
+                style={{
+                  padding: '14px 16px',
+                  borderRadius: 14,
+                  background: 'var(--vie-surface-panel)',
+                  border: '1px solid var(--vie-surface-panel-border)',
+                  backdropFilter: 'blur(18px)',
+                  pointerEvents: 'auto',
+                  overflowY: 'auto',
+                  maxHeight: 220,
+                }}
+              >
+                <p style={{ margin: 0, color: 'var(--vie-text)', fontFamily: 'var(--vie-font-body)', fontSize: 13, lineHeight: 1.65 }}>
+                  {narrativeText}
+                </p>
+              </div>
+            </div>
+          );
+        }
+
+        return (
+          <SpatialPanel
+            anchorX={anchor.x}
+            anchorY={anchor.y}
+            text={narrativeText + (
+              evidencePath && evidencePath.nodes.length >= 2
+                ? '\n\n' + (argumentView ? '[Back to answer]' : '[Show me why you think that]')
+                : ''
+            )}
+            complete={true}
+          />
+        );
+      })()}
+
+      {/* Error overlay: rendered as a centered modal with the dock
+          still visible underneath, instead of replacing the whole UI. */}
+      {error && (
         <div
           style={{
             position: 'absolute',
@@ -779,6 +1075,7 @@ function AskContent() {
             placeItems: 'center',
             padding: 24,
             pointerEvents: 'auto',
+            zIndex: 15,
           }}
         >
           <div
@@ -793,25 +1090,10 @@ function AskContent() {
               gap: 14,
             }}
           >
-            <h1
-              style={{
-                margin: 0,
-                color: 'var(--vie-text)',
-                fontFamily: 'var(--vie-font-title)',
-                fontSize: '1.45rem',
-              }}
-            >
+            <h1 style={{ margin: 0, color: 'var(--vie-text)', fontFamily: 'var(--vie-font-title)', fontSize: '1.45rem' }}>
               Something went wrong
             </h1>
-            <p
-              style={{
-                margin: 0,
-                color: 'var(--vie-text-muted)',
-                fontFamily: 'var(--vie-font-body)',
-                fontSize: 14,
-                lineHeight: 1.55,
-              }}
-            >
+            <p style={{ margin: 0, color: 'var(--vie-text-muted)', fontFamily: 'var(--vie-font-body)', fontSize: 14, lineHeight: 1.55 }}>
               {normalizeErrorMessage(error)}
             </p>
             <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
@@ -870,184 +1152,120 @@ function AskContent() {
             </div>
           </div>
         </div>
-        {renderBottomDock()}
-      </div>
-    );
-  }
+      )}
 
-  if (savedSceneSpec && savedId) {
-    return (
-      <StaticScreen
-        title={savedQuery ?? 'Saved model'}
-        subtitle={`Legacy model view: ${savedSceneSpec.nodes.length} nodes · ${Math.round(savedSceneSpec.confidence * 100)}% confidence`}
-      />
-    );
-  }
+      {renderBottomDock()}
+    </div>
+  );
+}
 
-  if (!response || !sceneDirective || state !== 'EXPLORING') {
-    return <ThinkingScreen state={state} query={query} dataStatus={dataStatus} />;
-  }
+/**
+ * Top-left meta card that holds the renderer label, node count, and
+ * confidence. Blooms from a point near the bottom-center spinner
+ * location when EXPLORING is first reached so the answer feels like
+ * it's emerging from the spinner rather than popping into existence.
+ */
+function AnswerMetaCard({
+  rendererLabel,
+  nodeCount,
+  confidenceColor,
+  confidencePercent,
+  isMobile,
+  prefersReducedMotion,
+}: {
+  rendererLabel: string;
+  nodeCount: number;
+  confidenceColor: string;
+  confidencePercent: number;
+  isMobile: boolean;
+  prefersReducedMotion: boolean;
+}) {
+  const [bloomed, setBloomed] = useState(false);
+
+  // Always go through requestAnimationFrame so the initial paint shows
+  // the start state and the next frame triggers the transition.
+  // Reduced-motion is handled by gating the transition itself below
+  // (transition: none), not by skipping rAF — that would call setState
+  // synchronously inside an effect, which is now a lint error.
+  useEffect(() => {
+    const id = window.requestAnimationFrame(() => setBloomed(true));
+    return () => window.cancelAnimationFrame(id);
+  }, []);
+
+  // Approximate the spinner location relative to the card's resting
+  // position (top: 20, left: 20). The spinner sits at the dock's
+  // horizontal center and ~38px from the bottom of the viewport.
+  // These translate values pull the card visually back to the spinner
+  // before the bloom animates it home.
+  const restingTransform = 'translate(0px, 0px) scale(1)';
+  const startTransform = isMobile
+    ? 'translate(0vw, calc(60vh)) scale(0.55)'
+    : 'translate(calc(50vw - 270px), calc(60vh)) scale(0.55)';
 
   return (
-    <div style={{ position: 'relative', width: '100%', height: '100%' }}>
-      {isGraphNativeTarget(sceneDirective) ? null : (
-        <RenderRouter
-          directive={sceneDirective}
-          response={response}
-          onSelectNode={setSelectedNodeId}
-          onCrystallizeComplete={() => setNarrationReady(true)}
-        />
-      )}
-
+    <div
+      style={{
+        position: 'absolute',
+        left: 20,
+        top: 20,
+        maxWidth: isMobile ? 'calc(100vw - 40px)' : 540,
+        padding: '14px 18px',
+        borderRadius: 18,
+        background: 'var(--vie-surface-panel)',
+        border: '1px solid var(--vie-surface-panel-border)',
+        backdropFilter: 'blur(18px)',
+        zIndex: 10,
+        pointerEvents: 'auto' as const,
+        transformOrigin: 'top left',
+        transform: bloomed ? restingTransform : startTransform,
+        opacity: bloomed ? 1 : 0,
+        transition: prefersReducedMotion
+          ? 'none'
+          : 'transform 700ms cubic-bezier(0.32, 0.72, 0.24, 1.04), opacity 500ms ease',
+      }}
+    >
       <div
         style={{
-          position: 'absolute',
-          left: 20,
-          top: 20,
-          maxWidth: isMobile ? 'calc(100vw - 40px)' : 520,
-          padding: '16px 18px',
-          borderRadius: 18,
-          background: 'var(--vie-surface-panel)',
-          border: '1px solid var(--vie-surface-panel-border)',
-          backdropFilter: 'blur(18px)',
-          zIndex: 10,
-          pointerEvents: 'auto' as const,
+          display: 'flex',
+          alignItems: 'center',
+          gap: 10,
+          flexWrap: 'wrap',
         }}
       >
-        <div
+        <span
           style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: 10,
-            marginBottom: 8,
-            flexWrap: 'wrap',
+            padding: '3px 10px',
+            borderRadius: 999,
+            background: 'rgba(74,138,150,0.12)',
+            color: 'var(--vie-teal-light)',
+            fontFamily: 'var(--vie-font-mono)',
+            fontSize: 11,
+            letterSpacing: '0.08em',
+            textTransform: 'uppercase',
           }}
         >
-          <span
-            style={{
-              padding: '3px 10px',
-              borderRadius: 999,
-              background: 'rgba(74,138,150,0.12)',
-              color: 'var(--vie-teal-light)',
-              fontFamily: 'var(--vie-font-mono)',
-              fontSize: 11,
-              letterSpacing: '0.08em',
-              textTransform: 'uppercase',
-            }}
-          >
-            {RENDERER_LABELS[sceneDirective.render_target.primary] ?? sceneDirective.render_target.primary}
-          </span>
-          <span
-            style={{
-              color: 'var(--vie-text-dim)',
-              fontFamily: 'var(--vie-font-mono)',
-              fontSize: 11,
-            }}
-          >
-            {objectLookup.size} nodes
-          </span>
-          <span style={{ color: 'var(--vie-text-dim)', fontFamily: 'var(--vie-font-mono)', fontSize: 11 }}>·</span>
-          <span
-            style={{
-              color: getConfidenceColor(response.confidence.combined),
-              fontFamily: 'var(--vie-font-mono)',
-              fontSize: 11,
-            }}
-          >
-            {Math.round(response.confidence.combined * 100)}% confidence
-          </span>
-        </div>
-
-        <h1
+          {rendererLabel}
+        </span>
+        <span
           style={{
-            margin: 0,
-            color: 'var(--vie-text)',
-            fontFamily: 'var(--vie-font-title)',
-            fontSize: isMobile ? '1.25rem' : '1.55rem',
-            lineHeight: 1.2,
+            color: 'var(--vie-text-dim)',
+            fontFamily: 'var(--vie-font-mono)',
+            fontSize: 11,
           }}
         >
-          {response.query}
-        </h1>
+          {nodeCount} nodes
+        </span>
+        <span style={{ color: 'var(--vie-text-dim)', fontFamily: 'var(--vie-font-mono)', fontSize: 11 }}>·</span>
+        <span
+          style={{
+            color: confidenceColor,
+            fontFamily: 'var(--vie-font-mono)',
+            fontSize: 11,
+          }}
+        >
+          {confidencePercent}% confidence
+        </span>
       </div>
-
-      {/* Source trail: accumulated explored sources */}
-      {sourceTrail.length > 0 && (
-        <div
-          style={{
-            position: 'absolute',
-            left: 20,
-            top: 110,
-            maxWidth: isMobile ? 'calc(100vw - 40px)' : 480,
-            zIndex: 10,
-            pointerEvents: 'none',
-          }}
-        >
-          <SourceTrail
-            items={sourceTrail}
-            onSelect={handleTrailSelect}
-          />
-        </div>
-      )}
-
-      {/* Spatial response panel: anchored near the focal node cluster */}
-      {narrationReady && renderedNarratives.length > 0 && (() => {
-        const narrativeText = renderedNarratives.slice(0, 2).map((n) => n.content).join('\n\n');
-        const usePanel = shouldBePanel(narrativeText) || !isMobile;
-        // Compute anchor from focal node salience or fallback to bottom left
-        const anchor = isMobile
-          ? { x: 20, y: window.innerHeight - 260 }
-          : computeAnchor([], window.innerWidth, window.innerHeight);
-
-        if (!usePanel) {
-          // Short response on mobile: fixed position, inline style
-          return (
-            <div
-              style={{
-                position: 'absolute',
-                left: 20,
-                bottom: 'calc(90px + env(safe-area-inset-bottom))',
-                width: 'calc(100vw - 40px)',
-                maxHeight: 220,
-                zIndex: 10,
-                pointerEvents: 'none',
-              }}
-            >
-              <div
-                className="theseus-insight-panel"
-                style={{
-                  padding: '14px 16px',
-                  borderRadius: 14,
-                  background: 'var(--vie-surface-panel)',
-                  border: '1px solid var(--vie-surface-panel-border)',
-                  backdropFilter: 'blur(18px)',
-                  pointerEvents: 'auto',
-                  overflowY: 'auto',
-                  maxHeight: 220,
-                }}
-              >
-                <p style={{ margin: 0, color: 'var(--vie-text)', fontFamily: 'var(--vie-font-body)', fontSize: 13, lineHeight: 1.65 }}>
-                  {narrativeText}
-                </p>
-              </div>
-            </div>
-          );
-        }
-
-        return (
-          <SpatialPanel
-            anchorX={anchor.x}
-            anchorY={anchor.y}
-            text={narrativeText + (
-              evidencePath && evidencePath.nodes.length >= 2
-                ? '\n\n' + (argumentView ? '[Back to answer]' : '[Show me why you think that]')
-                : ''
-            )}
-            complete={true}
-          />
-        );
-      })()}
-      {renderBottomDock()}
     </div>
   );
 }
