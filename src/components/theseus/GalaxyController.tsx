@@ -473,54 +473,83 @@ export default function GalaxyController({
       }
 
       const { width, height } = grid.getSize();
+      const dotCount = grid.getDotCount();
       let pulsePhase = 0;
 
+      // Pre-snapshot every other dot's grid position so the pulse loop
+      // can iterate over a flat sample without re-querying positions
+      // each tick. Stride of 2 gives roughly 3000 active pulse dots on
+      // a desktop viewport — visible across the whole field without
+      // saturating the per-tick state-update budget.
+      const PULSE_STRIDE = 2;
+      const sampleCount = Math.ceil(dotCount / PULSE_STRIDE);
+      const sampleIndices = new Int32Array(sampleCount);
+      const sampleX = new Float32Array(sampleCount);
+      const sampleY = new Float32Array(sampleCount);
+      let writeIdx = 0;
+      for (let i = 0; i < dotCount; i += PULSE_STRIDE) {
+        const pos = grid.getDotPosition(i);
+        if (!pos) continue;
+        sampleIndices[writeIdx] = i;
+        sampleX[writeIdx] = pos.x;
+        sampleY[writeIdx] = pos.y;
+        writeIdx++;
+      }
+      const activeSamples = writeIdx;
+
       const pulseInterval = window.setInterval(() => {
-        pulsePhase += 0.04;
+        pulsePhase += 0.06;
 
         // Read predTypeRef each tick so animation updates when prediction arrives
         const predType = predTypeRef.current;
 
-        for (const m of mappingsRef.current) {
-          const pos = grid.getDotPosition(m.dotIndex);
-          if (!pos) continue;
+        // Pre-compute shape parameters once per tick instead of per dot.
+        const cx = width / 2;
+        const cyDefault = height * 0.4;
+        const cyCenter = height / 2;
+        const maxDistDefault = Math.sqrt(cx * cx + cyDefault * cyDefault);
+        const maxDistCenter = Math.sqrt(cx * cx + cyCenter * cyCenter) * 0.6;
+
+        for (let s = 0; s < activeSamples; s++) {
+          const x = sampleX[s];
+          const y = sampleY[s];
 
           let wave = 0;
 
           if (predType === 'timeline') {
             // Left-to-right flow: wave travels horizontally
-            const normX = pos.x / Math.max(1, width);
+            const normX = x / Math.max(1, width);
             wave = Math.sin((normX * 8) - pulsePhase * 3);
           } else if (predType === 'bar-chart' || predType === 'line-chart' || predType === 'comparison') {
             // Grid-like: horizontal bands
-            const normY = pos.y / Math.max(1, height);
+            const normY = y / Math.max(1, height);
             wave = Math.sin((normY * 6) - pulsePhase * 2);
           } else if (predType === 'portrait') {
             // Concentrate toward center: tighter radial pulse
-            const cx = width / 2;
-            const cy = height / 2;
-            const dx = pos.x - cx;
-            const dy = pos.y - cy;
+            const dx = x - cx;
+            const dy = y - cyCenter;
             const dist = Math.sqrt(dx * dx + dy * dy);
-            const maxDist = Math.sqrt(cx * cx + cy * cy) * 0.6;
-            const norm = Math.min(dist / maxDist, 1);
+            const norm = Math.min(dist / maxDistCenter, 1);
             wave = Math.sin((norm * 8) - pulsePhase * 4) * (1 - norm * 0.5);
           } else {
-            // Default: radial outward from upper-center (graph-native, truth-map, heatmap, unknown)
-            const cx = width / 2;
-            const cy = height * 0.4;
-            const dx = pos.x - cx;
-            const dy = pos.y - cy;
+            // Default: radial outward from upper-center
+            const dx = x - cx;
+            const dy = y - cyDefault;
             const dist = Math.sqrt(dx * dx + dy * dy);
-            const maxDist = Math.sqrt(cx * cx + cy * cy);
-            const norm = dist / maxDist;
+            const norm = dist / maxDistDefault;
             wave = Math.sin((norm * 6) - pulsePhase * 3);
           }
 
-          const pulse = Math.max(0, wave) * 0.18;
-          grid.setDotGalaxyState(m.dotIndex, {
-            opacityOverride: 0.06 + pulse,
-            colorOverride: pulse > 0.05 ? [74, 138, 150] : null,
+          // Amplitude tuned high enough to be unmistakable on dim
+          // background dots: rest 0.04, peak 0.55 (~14x brightness
+          // jump per dot in the wave crest). The wave color shifts
+          // to teal aggressively (any positive wave value) so the
+          // moving band is clearly readable.
+          const pulse = Math.max(0, wave);
+          const opacity = 0.04 + pulse * 0.55;
+          grid.setDotGalaxyState(sampleIndices[s], {
+            opacityOverride: opacity,
+            colorOverride: pulse > 0.02 ? [74, 138, 150] : null,
           });
         }
 
@@ -532,6 +561,18 @@ export default function GalaxyController({
       return () => {
         window.clearInterval(pulseInterval);
         cancelAnimationFrame(dissolveFrameId);
+        // Reset every dot we touched during the pulse so it doesn't
+        // hold a stale opacity/color into the next phase. The
+        // construction phase only resets dots it actively recruits,
+        // so without this loop ~3000 dots would stay tinted teal at
+        // random opacities after THINKING ends.
+        for (let s = 0; s < activeSamples; s++) {
+          grid.setDotGalaxyState(sampleIndices[s], {
+            opacityOverride: null,
+            colorOverride: null,
+          });
+        }
+        grid.wakeAnimation();
       };
     }
 

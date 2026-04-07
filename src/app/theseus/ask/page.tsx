@@ -90,13 +90,32 @@ function TravelingQuery({
   );
 }
 
+// Visual constants for the search-box-to-spinner morph. These are
+// referenced by both AskDock (the morphing element itself) and
+// AnswerMetaCard (which blooms from the morph's screen position when
+// the answer arrives).
+const DOCK_INPUT_WIDTH_DESKTOP = 480;
+const DOCK_INPUT_WIDTH_MOBILE = 440;
+const DOCK_INPUT_HEIGHT = 56;
+const DOCK_INPUT_RADIUS = 18;
+const DOCK_SPINNER_SIZE = 88;
+const DOCK_BOTTOM_OFFSET = 16;
+const MORPH_DURATION_MS = 600;
+const MORPH_EASING = 'cubic-bezier(0.32, 0.72, 0.24, 1.04)';
+
 /**
  * Persistent search-and-history dock at the bottom of the viewport.
  * Renders for every state (IDLE / THINKING / MODEL / CONSTRUCTING /
- * EXPLORING / error) instead of being mounted and unmounted. When a
- * query is in flight (submitting=true), the input compresses inward
- * and a larger spinner morphs in over its center. The user's submitted
- * query string is owned by TravelingQuery and lives outside this dock.
+ * EXPLORING / error) instead of being mounted and unmounted.
+ *
+ * The morph: when a query is in flight (submitting=true), the inner
+ * `.theseus-ask-morph` element physically reshapes from a 480x56 pill
+ * into an 88x88 circle by animating width, height, and border-radius
+ * on a single element. Two children stack inside it via CSS Grid:
+ * the input form contents (fade out fast) and the braille spinner
+ * (fade in slightly later). The dock wrapper itself is now pure
+ * positioning with no chrome — all visual chrome lives on the
+ * morph element so the chrome is what reshapes.
  */
 function AskDock({
   composerQuery,
@@ -128,28 +147,53 @@ function AskDock({
   spinnerFrame: number;
 }) {
   const showHistory = !submitting && queryHistory.length > 0;
-  const inputTransition = prefersReducedMotion
+  const inputWidth = isMobile ? DOCK_INPUT_WIDTH_MOBILE : DOCK_INPUT_WIDTH_DESKTOP;
+
+  const morphTransition = prefersReducedMotion
     ? 'none'
-    : 'transform 400ms cubic-bezier(0.32, 0.72, 0.24, 1.04), opacity 400ms ease';
-  const buttonTransition = prefersReducedMotion ? 'none' : 'opacity 300ms ease';
-  const spinnerTransition = prefersReducedMotion
+    : [
+      `width ${MORPH_DURATION_MS}ms ${MORPH_EASING}`,
+      `height ${MORPH_DURATION_MS}ms ${MORPH_EASING}`,
+      `border-radius ${MORPH_DURATION_MS}ms ${MORPH_EASING}`,
+      'background 400ms ease',
+      'border-color 400ms ease',
+      'box-shadow 400ms ease',
+    ].join(', ');
+  const inputLayerTransition = prefersReducedMotion
     ? 'none'
-    : 'opacity 400ms ease 150ms, transform 400ms cubic-bezier(0.32, 0.72, 0.24, 1.04) 150ms';
+    : 'opacity 220ms ease';
+  // Spinner fades in after the input contents have started fading out
+  // and the container has begun its shape change. The 280ms delay is
+  // tuned so the spinner appears at roughly 50% of the morph travel,
+  // which is when the container is small enough that the spinner
+  // glyph fits comfortably inside it.
+  const spinnerLayerTransition = prefersReducedMotion
+    ? 'none'
+    : 'opacity 320ms ease 280ms';
 
   return (
     <div
-      className="theseus-bottom-dock"
+      className="theseus-bottom-dock-wrapper"
       style={{
         position: 'fixed',
         left: '50%',
         transform: 'translateX(-50%)',
-        bottom: isMobile ? 'calc(16px + env(safe-area-inset-bottom))' : 16,
-        width: isMobile ? 'min(440px, calc(100vw - 32px))' : 'min(480px, calc(100vw - 32px))',
+        bottom: isMobile ? `calc(${DOCK_BOTTOM_OFFSET}px + env(safe-area-inset-bottom))` : DOCK_BOTTOM_OFFSET,
         zIndex: 20,
         pointerEvents: 'auto',
         display: 'flex',
         flexDirection: 'column',
+        alignItems: 'center',
         gap: 10,
+        // Wrapper has no visual chrome — the morph element below carries
+        // the background, border, and blur that used to be on
+        // .theseus-bottom-dock. Override the legacy CSS class chrome
+        // explicitly so we don't double up.
+        background: 'transparent',
+        border: 'none',
+        backdropFilter: 'none',
+        borderRadius: 0,
+        padding: 0,
       }}
     >
       <form
@@ -157,91 +201,114 @@ function AskDock({
           event.preventDefault();
           navigateToQuery(composerQuery);
         }}
-        style={{ position: 'relative', display: 'flex', alignItems: 'center', gap: 8, width: '100%' }}
+        style={{
+          // Override the .theseus-bottom-dock form CSS so the form
+          // hugs the morph element instead of stretching to 100% width.
+          display: 'block',
+          width: 'auto',
+          padding: 0,
+        }}
       >
         <div
+          className="theseus-ask-morph"
           style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: 8,
-            width: '100%',
-            transform: submitting ? 'scale(0.88)' : 'scale(1)',
-            opacity: submitting ? 0.4 : 1,
-            transformOrigin: 'center center',
-            transition: inputTransition,
-            pointerEvents: submitting ? 'none' : 'auto',
+            position: 'relative',
+            display: 'grid',
+            gridTemplateAreas: '"stack"',
+            placeItems: 'center',
+            // The morph: pill (input) ↔ circle (spinner). One element,
+            // one transition, three properties moving in sync.
+            width: submitting ? DOCK_SPINNER_SIZE : inputWidth,
+            height: submitting ? DOCK_SPINNER_SIZE : DOCK_INPUT_HEIGHT,
+            borderRadius: submitting ? '50%' : DOCK_INPUT_RADIUS,
+            background: submitting
+              ? 'radial-gradient(circle, rgba(74,138,150,0.22) 0%, rgba(15,16,18,0.65) 65%, rgba(15,16,18,0.4) 100%)'
+              : 'rgba(15, 16, 18, 0.76)',
+            border: submitting
+              ? '1px solid rgba(74,138,150,0.35)'
+              : '1px solid rgba(255, 255, 255, 0.08)',
+            boxShadow: submitting
+              ? '0 0 24px rgba(74,138,150,0.18), 0 0 0 1px rgba(74,138,150,0.10)'
+              : '0 4px 24px rgba(0,0,0,0.25)',
+            backdropFilter: 'blur(24px)',
+            WebkitBackdropFilter: 'blur(24px)',
+            overflow: 'hidden',
+            transition: morphTransition,
           }}
         >
-          <VoiceControls
-            onInterimTranscript={(text: string) => setComposerQuery(text)}
-            onFinalTranscript={(text: string) => {
-              setComposerQuery(text);
-              if (text.trim().length > 0) navigateToQuery(text);
-            }}
-            onAmplitude={isIdle ? (amp: number) => { mouthOpenRef.current = amp; } : undefined}
-          />
-          <input
-            className="theseus-ask-composer-input"
-            type="text"
-            name={isIdle ? 'query' : 'follow_up_query'}
-            value={composerQuery}
-            onChange={(event) => setComposerQuery(event.target.value)}
-            placeholder={isIdle ? 'Ask Theseus anything...' : 'Ask a follow-up…'}
-            autoComplete="off"
-            spellCheck={false}
-            aria-label={isIdle ? 'Ask Theseus a question' : 'Ask a follow-up question'}
-            autoFocus={isIdle}
+          {/* Layer 1: input contents. Stays in the layout the entire
+              time so the form keeps a focusable input — only opacity
+              and pointer-events change. The fixed inner width keeps
+              the children from compressing as the container shrinks;
+              the container's overflow:hidden clips them. */}
+          <div
             style={{
-              transition: buttonTransition,
-            }}
-          />
-          <button
-            type="submit"
-            className="theseus-ask-composer-submit"
-            disabled={composerQuery.trim().length === 0 || submitting}
-            style={{
-              transition: buttonTransition,
+              gridArea: 'stack',
+              display: 'flex',
+              alignItems: 'center',
+              gap: 8,
+              width: inputWidth,
+              padding: '0 16px',
+              opacity: submitting ? 0 : 1,
+              pointerEvents: submitting ? 'none' : 'auto',
+              transition: inputLayerTransition,
             }}
           >
-            Ask
-          </button>
-        </div>
+            <VoiceControls
+              onInterimTranscript={(text: string) => setComposerQuery(text)}
+              onFinalTranscript={(text: string) => {
+                setComposerQuery(text);
+                if (text.trim().length > 0) navigateToQuery(text);
+              }}
+              onAmplitude={isIdle ? (amp: number) => { mouthOpenRef.current = amp; } : undefined}
+            />
+            <input
+              className="theseus-ask-composer-input"
+              type="text"
+              name={isIdle ? 'query' : 'follow_up_query'}
+              value={composerQuery}
+              onChange={(event) => setComposerQuery(event.target.value)}
+              placeholder={isIdle ? 'Ask Theseus anything...' : 'Ask a follow-up…'}
+              autoComplete="off"
+              spellCheck={false}
+              aria-label={isIdle ? 'Ask Theseus a question' : 'Ask a follow-up question'}
+              autoFocus={isIdle}
+            />
+            <button
+              type="submit"
+              className="theseus-ask-composer-submit"
+              disabled={composerQuery.trim().length === 0 || submitting}
+            >
+              Ask
+            </button>
+          </div>
 
-        {/* Spinner overlay: blooms at the input's geometric center
-            while a query is in flight. Larger than the old inline
-            braille glyph (40px font, ~88px halo) so the morph reads
-            as a focal point instead of an implosion. */}
-        <div
-          aria-hidden={!submitting}
-          style={{
-            position: 'absolute',
-            top: '50%',
-            left: '50%',
-            transform: submitting
-              ? 'translate(-50%, -50%) scale(1)'
-              : 'translate(-50%, -50%) scale(0.55)',
-            opacity: submitting ? 1 : 0,
-            transition: spinnerTransition,
-            pointerEvents: 'none',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            width: 88,
-            height: 88,
-            borderRadius: '50%',
-            background: 'radial-gradient(circle, rgba(74,138,150,0.18) 0%, rgba(74,138,150,0.05) 60%, transparent 80%)',
-          }}
-        >
-          <span
+          {/* Layer 2: spinner contents. Fades in once the morph has
+              progressed enough that the container is small enough to
+              read as a focal disc. */}
+          <div
+            aria-hidden={!submitting}
             style={{
-              fontFamily: 'var(--vie-font-mono)',
-              fontSize: 40,
-              lineHeight: 1,
-              color: 'var(--vie-teal-light)',
+              gridArea: 'stack',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              opacity: submitting ? 1 : 0,
+              pointerEvents: 'none',
+              transition: spinnerLayerTransition,
             }}
           >
-            {BRAILLE_FRAMES[spinnerFrame]}
-          </span>
+            <span
+              style={{
+                fontFamily: 'var(--vie-font-mono)',
+                fontSize: 38,
+                lineHeight: 1,
+                color: 'var(--vie-teal-light)',
+              }}
+            >
+              {BRAILLE_FRAMES[spinnerFrame]}
+            </span>
+          </div>
         </div>
       </form>
 
@@ -250,7 +317,9 @@ function AskDock({
           style={{
             display: 'flex',
             flexWrap: 'wrap',
+            justifyContent: 'center',
             gap: 6,
+            maxWidth: inputWidth,
             maxHeight: 68,
             overflow: 'hidden',
             opacity: submitting ? 0 : 1,
@@ -1192,15 +1261,22 @@ function AnswerMetaCard({
     return () => window.cancelAnimationFrame(id);
   }, []);
 
-  // Approximate the spinner location relative to the card's resting
-  // position (top: 20, left: 20). The spinner sits at the dock's
-  // horizontal center and ~38px from the bottom of the viewport.
-  // These translate values pull the card visually back to the spinner
-  // before the bloom animates it home.
+  // Bloom from the morph circle at the bottom of the dock. The circle
+  // is DOCK_SPINNER_SIZE wide (88px), centered horizontally at 50vw,
+  // with its bottom edge at DOCK_BOTTOM_OFFSET above the viewport
+  // bottom. The card resting position is top:20 / left:20 with
+  // transformOrigin: center center, so the start transform is the
+  // delta needed to put the card's center at the morph circle's
+  // center, scaled down to roughly the morph circle's size.
   const restingTransform = 'translate(0px, 0px) scale(1)';
+  // Card width at rest: ~540 desktop, ~calc(100vw - 40px) mobile.
+  // Card height at rest: ~50px after padding.
+  // Card center at rest: (20 + cardWidth/2, 20 + 25)
+  // Morph circle center: (50vw, 100vh - DOCK_BOTTOM_OFFSET - 44 - 1)
+  // Translation reads in screen coordinates (translate before scale).
   const startTransform = isMobile
-    ? 'translate(0vw, calc(60vh)) scale(0.55)'
-    : 'translate(calc(50vw - 270px), calc(60vh)) scale(0.55)';
+    ? `translate(calc(50vw - 50vw), calc(100vh - 95px)) scale(0.18)`
+    : `translate(calc(50vw - 290px), calc(100vh - 105px)) scale(0.16)`;
 
   return (
     <div
@@ -1216,7 +1292,7 @@ function AnswerMetaCard({
         backdropFilter: 'blur(18px)',
         zIndex: 10,
         pointerEvents: 'auto' as const,
-        transformOrigin: 'top left',
+        transformOrigin: 'center center',
         transform: bloomed ? restingTransform : startTransform,
         opacity: bloomed ? 1 : 0,
         transition: prefersReducedMotion
