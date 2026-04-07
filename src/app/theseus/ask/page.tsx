@@ -29,7 +29,11 @@ import { VoiceControls } from '@/components/ask/VoiceControls';
 import SpatialPanel from '@/components/ask/SpatialPanel';
 import { shouldBePanel, computeAnchor } from '@/lib/galaxy/SpatialConversation';
 
-const BRAILLE_FRAMES = ['⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧', '⠇', '⠏'];
+// 8-dot circular braille frames. These have full octant dot density
+// and read as a rotating filled disc — visually unmistakable as a
+// spinner, unlike the sparse 6-dot braille characters which look like
+// thin vertical lines and disappear at small sizes.
+const BRAILLE_FRAMES = ['⣾', '⣽', '⣻', '⢿', '⡿', '⣟', '⣯', '⣷'];
 
 /**
  * Single DOM node that holds the user's query string from the moment
@@ -50,6 +54,7 @@ function TravelingQuery({
   prefersReducedMotion: boolean;
 }) {
   const isHeader = stage === 'header';
+  const isCentered = stage === 'centered';
   const isVisible = stage !== 'hidden';
   const transition = prefersReducedMotion
     ? 'none'
@@ -61,6 +66,9 @@ function TravelingQuery({
       'transform 700ms cubic-bezier(0.32, 0.72, 0.24, 1.04)',
       'font-size 700ms cubic-bezier(0.32, 0.72, 0.24, 1.04)',
       'max-width 700ms ease',
+      'padding 500ms ease',
+      'background-color 500ms ease',
+      'border-color 500ms ease',
       'opacity 300ms ease',
     ].join(', ');
 
@@ -79,6 +87,17 @@ function TravelingQuery({
         lineHeight: isHeader ? 1.2 : 1.5,
         textAlign: isHeader ? 'left' : 'center',
         margin: 0,
+        // Subtle backdrop card while the query is in its centered
+        // (THINKING) stage so the text isn't bare floating against
+        // the canvas. In header position the AnswerMetaCard provides
+        // the visual anchor, so this element stays transparent.
+        padding: isCentered ? '12px 22px' : 0,
+        background: isCentered ? 'rgba(15, 16, 18, 0.62)' : 'transparent',
+        border: isCentered ? '1px solid rgba(255, 255, 255, 0.06)' : '1px solid transparent',
+        borderRadius: 14,
+        backdropFilter: isCentered ? 'blur(18px)' : 'none',
+        WebkitBackdropFilter: isCentered ? 'blur(18px)' : 'none',
+        boxShadow: isCentered ? '0 4px 24px rgba(0, 0, 0, 0.28)' : 'none',
         pointerEvents: 'none',
         zIndex: 12,
         opacity: isVisible ? 1 : 0,
@@ -221,14 +240,21 @@ function AskDock({
             width: submitting ? DOCK_SPINNER_SIZE : inputWidth,
             height: submitting ? DOCK_SPINNER_SIZE : DOCK_INPUT_HEIGHT,
             borderRadius: submitting ? '50%' : DOCK_INPUT_RADIUS,
+            // Submitting background: dark center with a teal-tinted
+            // outer ring. The dark center provides contrast for the
+            // bright spinner glyph that sits in the middle of the
+            // grid stack; the teal ring picks up the morph's border
+            // colour for a soft halo.
             background: submitting
-              ? 'radial-gradient(circle, rgba(74,138,150,0.22) 0%, rgba(15,16,18,0.65) 65%, rgba(15,16,18,0.4) 100%)'
+              ? 'radial-gradient(circle, rgba(15,16,18,0.92) 0%, rgba(15,16,18,0.78) 55%, rgba(74,138,150,0.18) 100%)'
               : 'rgba(15, 16, 18, 0.76)',
             border: submitting
-              ? '1px solid rgba(74,138,150,0.35)'
+              ? '1px solid rgba(74,138,150,0.30)'
               : '1px solid rgba(255, 255, 255, 0.08)',
+            // Glow on the submitting state intentionally subtle: a
+            // single soft outer shadow without a second outline ring.
             boxShadow: submitting
-              ? '0 0 24px rgba(74,138,150,0.18), 0 0 0 1px rgba(74,138,150,0.10)'
+              ? '0 0 14px rgba(74,138,150,0.10)'
               : '0 4px 24px rgba(0,0,0,0.25)',
             backdropFilter: 'blur(24px)',
             WebkitBackdropFilter: 'blur(24px)',
@@ -236,19 +262,27 @@ function AskDock({
             transition: morphTransition,
           }}
         >
-          {/* Layer 1: input contents. Stays in the layout the entire
-              time so the form keeps a focusable input — only opacity
-              and pointer-events change. The fixed inner width keeps
-              the children from compressing as the container shrinks;
-              the container's overflow:hidden clips them. */}
+          {/* Layer 1: input contents. Positioned absolutely so its
+              fixed inputWidth (440-480px) does NOT enforce a column
+              width on the parent grid. Without this, the grid auto-
+              sizes to 440px and the spinner layer ends up centered in
+              the wrong place when the morph collapses to 88px. With
+              absolute positioning, the input keeps its full width
+              but is removed from the morph's grid track sizing. */}
           <div
             style={{
               gridArea: 'stack',
+              position: 'absolute',
+              top: '50%',
+              left: '50%',
+              transform: 'translate(-50%, -50%)',
               display: 'flex',
               alignItems: 'center',
               gap: 8,
               width: inputWidth,
+              height: DOCK_INPUT_HEIGHT,
               padding: '0 16px',
+              boxSizing: 'border-box',
               opacity: submitting ? 0 : 1,
               pointerEvents: submitting ? 'none' : 'auto',
               transition: inputLayerTransition,
@@ -301,9 +335,14 @@ function AskDock({
             <span
               style={{
                 fontFamily: 'var(--vie-font-mono)',
-                fontSize: 38,
+                fontSize: 52,
                 lineHeight: 1,
-                color: 'var(--vie-teal-light)',
+                // Brighter than var(--vie-teal-light) #4A8A96 so the
+                // glyph reads against the dark center of the morph
+                // gradient. The text-shadow gives it the slight glow
+                // that used to live on the morph's box-shadow.
+                color: '#9FD4DC',
+                textShadow: '0 0 12px rgba(74,138,150,0.55), 0 0 4px rgba(159,212,220,0.35)',
               }}
             >
               {BRAILLE_FRAMES[spinnerFrame]}
