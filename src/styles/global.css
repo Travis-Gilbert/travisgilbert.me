@@ -1,4 +1,12 @@
-@import "tailwindcss";
+/* Disable Tailwind v4's automatic project-root content scan and
+   explicitly scope it to src/ only. Without source(none), the Oxide
+   scanner walks the entire project root, including the nested
+   Index-API/ (5.4GB Python venv) and research_api/ directories. That
+   walk can take long enough to deadlock Turbopack's PostCSS subprocess
+   IPC, causing "evaluate_webpack_loader failed" panics on every cold
+   compile of global.css. Scoping to src/ keeps the scan under a second. */
+@import "tailwindcss" source(none);
+@source "../**/*.{ts,tsx,js,jsx,md,mdx}";
 
 /* ─────────────────────────────────────────────────
    Design Tokens:Patent Parchment Palette
