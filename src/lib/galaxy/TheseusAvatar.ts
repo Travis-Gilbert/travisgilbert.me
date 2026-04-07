@@ -58,14 +58,24 @@ export const EYE_REGIONS = {
 // Render options
 // ---------------------------------------------------------------------------
 
-export type FaceExpression = 'sleep' | 'awake';
+export type FaceExpression = 'sleep' | 'awake' | 'pondering';
 
 export interface FaceRenderOptions {
   /** Mouth openness from 0 (closed) to 1 (fully open). Default 0. */
   mouthOpen?: number;
   /** Blink amount from 0 (eyes open) to 1 (eyes shut). Default 0. */
   blinkAmount?: number;
-  /** Expression: 'sleep' (chevron eyes, resting), 'awake' (open eyes, alert). Default 'awake'. */
+  /**
+   * Expression:
+   *   'sleep'     — chevron eyes, resting (used during deep idle / standby)
+   *   'awake'     — open bracket eyes with centered pupils, neutral smile (default)
+   *   'pondering' — raised eyebrows above the brackets, pupils glanced up,
+   *                 thin straight mouth. Used as a brief beat between IDLE
+   *                 and THINKING so the user sees Theseus *consider* the
+   *                 question before the dots dissolve into the thinking
+   *                 animation. Inspired by the wide-eyed-curious "huh,
+   *                 let me think about that" expression.
+   */
   expression?: FaceExpression;
 }
 
@@ -124,6 +134,53 @@ export function renderFace(options: FaceRenderOptions = {}): OffscreenRenderResu
       for (let c = 0; c < 6; c++) block(ax, ay + sq, c, 0);
       block(ax, ay + sq - 1, 0, -1);
       block(ax, ay + sq - 1, 5, -1);
+    } else if (expression === 'pondering') {
+      // Pondering: bracket eyes with raised eyebrows above and the
+      // pupils glanced up (1 row higher than awake). Mouth handled
+      // separately below this loop. Reads as the wide-eyed
+      // "huh, let me think about that" expression from the reference.
+
+      const squeeze = Math.round(blinkAmount * 2);
+
+      // Vertical bar (same spine as awake)
+      const vCol1 = isLeft ? 0 : 4;
+      const vCol2 = isLeft ? 1 : 5;
+      for (let r = squeeze; r < 5 - squeeze; r++) block(ax, ay, vCol1, r);
+      for (let r = squeeze; r < 5 - squeeze; r++) block(ax, ay, vCol2, r);
+
+      // Top horizontal bar
+      block(ax, ay, 2, squeeze);
+      block(ax, ay, 3, squeeze);
+
+      // Bottom horizontal bar
+      block(ax, ay, 2, 4 - squeeze);
+      block(ax, ay, 3, 4 - squeeze);
+
+      // Pupil: 2x2 block, raised by 1 row relative to awake (rows 1-2
+      // instead of 2-3) so the eye reads as glancing slightly up.
+      if (blinkAmount < 0.7) {
+        const pCol = isLeft ? 3 : 1;
+        block(ax, ay, pCol, 1);
+        block(ax, ay, pCol + 1, 1);
+        block(ax, ay, pCol, 2);
+        block(ax, ay, pCol + 1, 2);
+      }
+
+      // Eyebrow: 4-block-wide bar at row -3 (above the bracket).
+      // The inner side of the brow is 1 block higher than the outer,
+      // tilting it like a raised "interested" brow. Inner end is the
+      // side closer to the centerline of the face.
+      //
+      // Left eye brow:        Right eye brow:
+      //          ##              ##
+      //   ## ## ##              ## ## ##
+      //
+      const browInnerCol = isLeft ? 4 : 1;
+      const browOuterStart = isLeft ? 0 : 2;
+      // Outer three blocks at row -2 (just above the bracket top)
+      for (let c = 0; c < 3; c++) block(ax, ay, browOuterStart + c, -2);
+      // Inner block raised one extra row (-3) for the lift
+      block(ax, ay, browInnerCol, -3);
     } else {
       // Awake: mirrored bracket eyes
       //
@@ -164,41 +221,49 @@ export function renderFace(options: FaceRenderOptions = {}): OffscreenRenderResu
   }
 
   // --- MOUTH ---
-  // Happy pixel smile: steep U shape built from blocks
-  //
-  //  #              #
-  //  #              #
-  //   #            #
-  //    ############
-  //
   const mx = Math.round(S * MOUTH_REGION.cx);
   const my = Math.round(S * MOUTH_REGION.cy);
   const mAx = mx - b * 6; // anchor: 12 blocks wide
   const mAy = my - b * 2; // anchor: vertically centered
   const openRows = Math.round(mouthOpen * 3);
 
-  // Left vertical pillar (2 blocks tall)
-  block(mAx, mAy, 0, 0);
-  block(mAx, mAy, 0, 1);
+  if (expression === 'pondering') {
+    // Pondering: thin straight horizontal line. No smile pillars,
+    // no curve. Reads as neutral / contemplative. The mouth sits at
+    // the same vertical position as the awake smile's bottom bar.
+    for (let c = 2; c < 10; c++) block(mAx, mAy, c, 3);
+  } else {
+    // Awake (and sleep) default: happy pixel smile, steep U shape.
+    //
+    //  #              #
+    //  #              #
+    //   #            #
+    //    ############
+    //
 
-  // Left step down
-  block(mAx, mAy, 1, 2);
+    // Left vertical pillar (2 blocks tall)
+    block(mAx, mAy, 0, 0);
+    block(mAx, mAy, 0, 1);
 
-  // Bottom horizontal bar (8 blocks wide)
-  for (let c = 2; c < 10; c++) block(mAx, mAy, c, 3 + openRows);
+    // Left step down
+    block(mAx, mAy, 1, 2);
 
-  // Right step down
-  block(mAx, mAy, 10, 2);
+    // Bottom horizontal bar (8 blocks wide)
+    for (let c = 2; c < 10; c++) block(mAx, mAy, c, 3 + openRows);
 
-  // Right vertical pillar
-  block(mAx, mAy, 11, 0);
-  block(mAx, mAy, 11, 1);
+    // Right step down
+    block(mAx, mAy, 10, 2);
 
-  // When mouth is open, add vertical bars connecting pillars to bottom
-  if (openRows > 0) {
-    for (let r = 3; r < 3 + openRows; r++) {
-      block(mAx, mAy, 1, r);
-      block(mAx, mAy, 10, r);
+    // Right vertical pillar
+    block(mAx, mAy, 11, 0);
+    block(mAx, mAy, 11, 1);
+
+    // When mouth is open, add vertical bars connecting pillars to bottom
+    if (openRows > 0) {
+      for (let r = 3; r < 3 + openRows; r++) {
+        block(mAx, mAy, 1, r);
+        block(mAx, mAy, 10, r);
+      }
     }
   }
 

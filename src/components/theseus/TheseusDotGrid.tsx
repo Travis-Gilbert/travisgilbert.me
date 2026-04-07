@@ -94,6 +94,24 @@ export interface DotGridHandle {
   setDotGalaxyState(index: number, state: Partial<GalaxyDotState>): void;
   /** Batch set galaxy state for multiple dots */
   batchSetGalaxyState(updates: Array<{ index: number; state: Partial<GalaxyDotState> }>): void;
+  /**
+   * Override the rendered shape of a single dot. shapeId 0 = use the
+   * existing kind logic (circle or binary glyph). shapeId 1 = render as
+   * a square regardless of kind. Used by Pass 1a to mark web-source
+   * dots so they read as a different category from the circular field.
+   */
+  setDotShape(index: number, shapeId: number): void;
+  /** Reset all shape overrides back to 0 (use kind). */
+  clearDotShapes(): void;
+  /**
+   * Toggle whether dots with kind=1 (the '0' glyph) and kind=2 (the
+   * '1' glyph) actually render their glyph. When set to false, all
+   * dots draw as plain circles regardless of kind. Used by Pass 1b
+   * to clear binary glyphs during the THINKING state because they
+   * read as the universal AI cliche and obscure the algorithmic
+   * visualizations Phase B will add.
+   */
+  setBinaryGlyphsEnabled(enabled: boolean): void;
   /** Set target rest position for a dot (spring physics pulls toward it) */
   setDotTarget(index: number, tx: number, ty: number): void;
   /** Reset dot target back to its original grid position */
@@ -183,6 +201,12 @@ const TheseusDotGrid = forwardRef<DotGridHandle, TheseusDotGridProps>(function T
     vx: Float32Array; vy: Float32Array;
     fade: Float32Array;
     kind: Uint8Array;
+    /**
+     * Per-dot shape override. 0 = use the kind field (circle or binary
+     * glyph). 1 = render as a square regardless of kind. Future shape
+     * primitives (triangle, star, polygon) get higher numeric IDs.
+     */
+    shape: Uint8Array;
     count: number;
     // Galaxy layer: per-dot extended state
     galaxyClusterId: Int32Array;    // -1 = no cluster
@@ -198,6 +222,16 @@ const TheseusDotGrid = forwardRef<DotGridHandle, TheseusDotGridProps>(function T
     targetGy: Float32Array;         // target grid y
     hasTarget: Uint8Array;          // 0 = use original gx/gy, 1 = use targetGx/targetGy
   } | null>(null);
+
+  /**
+   * Renderer-wide flag for whether dots with kind=1 or kind=2 should
+   * actually render their binary glyph. Default true. Set to false via
+   * setBinaryGlyphsEnabled() during the THINKING state so the dot
+   * field reads as a pure dot grid instead of the binary-1s-and-0s
+   * "AI thinking" cliche. Held in a ref so the renderer's hot loop
+   * doesn't pay a React re-render cost when toggled.
+   */
+  const binaryGlyphsEnabledRef = useRef(true);
 
   // Overlay drawing state (edges and labels set by controller)
   const edgesRef = useRef<Array<{ fromIndex: number; toIndex: number; progress: number; color: string }>>([]);
@@ -245,6 +279,8 @@ const TheseusDotGrid = forwardRef<DotGridHandle, TheseusDotGridProps>(function T
     const targetGx = new Float32Array(count);
     const targetGy = new Float32Array(count);
     const hasTarget = new Uint8Array(count);
+    // Pass 1a: per-dot shape override. Defaults to 0 (use kind).
+    const shape = new Uint8Array(count);
 
     dotsRef.current = {
       gx, gy,
@@ -254,6 +290,7 @@ const TheseusDotGrid = forwardRef<DotGridHandle, TheseusDotGridProps>(function T
       vy: new Float32Array(count),
       fade,
       kind,
+      shape,
       count,
       galaxyClusterId,
       galaxyObjectType,
@@ -318,6 +355,19 @@ const TheseusDotGrid = forwardRef<DotGridHandle, TheseusDotGridProps>(function T
       for (const { index, state } of updates) {
         applyGalaxyState(index, state);
       }
+    },
+    setDotShape(index: number, shapeId: number) {
+      const dots = dotsRef.current;
+      if (!dots || index < 0 || index >= dots.count) return;
+      dots.shape[index] = shapeId;
+    },
+    clearDotShapes() {
+      const dots = dotsRef.current;
+      if (!dots) return;
+      dots.shape.fill(0);
+    },
+    setBinaryGlyphsEnabled(enabled: boolean) {
+      binaryGlyphsEnabledRef.current = enabled;
     },
     setDotTarget(index: number, tx: number, ty: number) {
       const dots = dotsRef.current;
@@ -560,6 +610,7 @@ const TheseusDotGrid = forwardRef<DotGridHandle, TheseusDotGridProps>(function T
     function drawDot(
       x: number, y: number, alpha: number, dotKind: number,
       r?: number, g?: number, b?: number, scale?: number,
+      shapeId: number = 0,
     ) {
       const cr = r !== undefined && !Number.isNaN(r) ? r : rgb[0];
       const cg = g !== undefined && !Number.isNaN(g) ? g : rgb[1];
@@ -567,7 +618,19 @@ const TheseusDotGrid = forwardRef<DotGridHandle, TheseusDotGridProps>(function T
       const s = scale !== undefined && !Number.isNaN(scale) ? scale : 1;
       ctx!.fillStyle = `rgba(${cr},${cg},${cb},${alpha})`;
 
-      if (dotKind === 0) {
+      // Pass 1a: shape override wins over kind. shapeId 1 = square,
+      // matching the visual area of the default circle (side ≈ 2r).
+      if (shapeId === 1) {
+        const half = dotRadius * s;
+        ctx!.fillRect(x - half, y - half, half * 2, half * 2);
+        return;
+      }
+
+      // Pass 1b: when binary glyphs are gated off (THINKING state),
+      // dots with kind=1 or kind=2 fall back to the circle render.
+      const renderAsGlyph = (dotKind === 1 || dotKind === 2) && binaryGlyphsEnabledRef.current;
+
+      if (!renderAsGlyph) {
         ctx!.beginPath();
         ctx!.arc(x, y, dotRadius * s, 0, Math.PI * 2);
         ctx!.fill();
@@ -597,6 +660,7 @@ const TheseusDotGrid = forwardRef<DotGridHandle, TheseusDotGridProps>(function T
           dots.gx[i], dots.gy[i], alpha, dots.kind[i],
           dots.galaxyColorR[i], dots.galaxyColorG[i], dots.galaxyColorB[i],
           dots.galaxyScale[i],
+          dots.shape[i],
         );
       }
 
@@ -818,6 +882,7 @@ const TheseusDotGrid = forwardRef<DotGridHandle, TheseusDotGridProps>(function T
           alpha, dots.kind[i],
           dotR, dotG, dotB,
           dots.galaxyScale[i],
+          dots.shape[i],
         );
       }
 

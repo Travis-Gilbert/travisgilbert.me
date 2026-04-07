@@ -76,6 +76,64 @@ function hexToRgb(hex: string): [number, number, number] {
   return [(n >> 16) & 255, (n >> 8) & 255, n & 255];
 }
 
+// =====================================================================
+// Pass 1a: Source-type semantic colors and shapes for cluster dots
+// =====================================================================
+//
+// Each cluster dot is tagged as one of three knowledge sources, then
+// colored and shaped accordingly so the dot field has permanent
+// semantic legibility at IDLE:
+//
+//   personal — terracotta circle. Objects the user captured themselves.
+//   corpus   — teal circle. Objects Theseus ingested into its graph.
+//   web      — parchment SQUARE. Objects pulled in from web sources.
+//
+// PLACEHOLDER ASSIGNMENT: the cluster API does not currently expose a
+// source-type breakdown per cluster, so we deterministically partition
+// clusters into three buckets via a hash of their cluster ID, weighted
+// to a realistic ratio (75% corpus / 20% personal / 5% web). The
+// visual language ships now; the data accuracy lands in Phase B when
+// the SSE stage events extend the cluster payload with real source
+// counts (see docs/plans/2026-04-07-phase-b-algorithmic-thinking.md).
+//
+// Until Phase B, the colors are honest in aggregate ("Theseus mostly
+// knows things from its corpus, with a meaningful slice of my personal
+// captures and a few web sources") but not 1:1 accurate per cluster.
+
+type ClusterSource = 'personal' | 'corpus' | 'web';
+
+const CLUSTER_SOURCE_COLORS: Record<ClusterSource, [number, number, number]> = {
+  // Terracotta from the main site palette (#B45A2D). Personal user
+  // captures get the warmest hue so they read as "yours."
+  personal: [180, 90, 45],
+  // Teal from the existing --vie-type-source token (#2D5F6B). The
+  // ingested corpus is the cool baseline color of the field.
+  corpus: [45, 95, 107],
+  // Parchment (#D4C4A8). Echoes the main site's warm-paper palette
+  // so web sources feel "filed in from elsewhere" without competing
+  // with terracotta or teal.
+  web: [212, 196, 168],
+};
+
+const CLUSTER_SOURCE_SHAPES: Record<ClusterSource, number> = {
+  personal: 0,  // 0 = use kind (circle)
+  corpus: 0,
+  web: 1,       // 1 = square
+};
+
+/**
+ * Deterministic placeholder partition. Same cluster ID always gets the
+ * same source bucket so colors are stable across reloads. Replace this
+ * with real backend stats when Phase B lands.
+ */
+function placeholderClusterSource(clusterId: number): ClusterSource {
+  // mulberry32 returns a uniform [0, 1) given any 32-bit seed
+  const r = mulberry32(clusterId * 31 + 17)();
+  if (r < 0.20) return 'personal';
+  if (r < 0.95) return 'corpus';
+  return 'web';
+}
+
 function isRawNarrativeText(text: string): boolean {
   const normalized = text.toLowerCase();
   return normalized.includes('perspective(s):') || normalized.startsWith('the evidence reveals');
@@ -316,13 +374,27 @@ export default function GalaxyController({
         originalPositionsRef.current.set(dotIndex, { x: pos.x, y: pos.y });
       }
 
+      // Pass 1a: tag the cluster dot with its source-type color and
+      // shape. The colorOverride here is the resting color; the
+      // recruitment + filter passes during a query will override it
+      // again with type-specific tints, then the construction phase
+      // resets it on completion. Web-source clusters also get
+      // shapeId = 1 (square) so they read as a different category
+      // even when they happen to share a cluster centroid color.
+      const source: ClusterSource = placeholderClusterSource(cluster.id);
+      const sourceColor = CLUSTER_SOURCE_COLORS[source];
+      const sourceShape = CLUSTER_SOURCE_SHAPES[source];
+
       grid.setDotGalaxyState(dotIndex, {
         clusterId: cluster.id,
         objectType,
         isRelevant: false,
         opacityOverride: null,
-        colorOverride: null,
+        colorOverride: sourceColor,
       });
+      if (sourceShape !== 0) {
+        grid.setDotShape(dotIndex, sourceShape);
+      }
     }
 
     mappingsRef.current = newMappings;
@@ -379,14 +451,24 @@ export default function GalaxyController({
 
       // Reset all dots to grid positions
       grid.resetAll();
+      // Pass 1b: re-enable binary glyphs at IDLE so the dot field
+      // gets its substrate personality back. They get gated off again
+      // when the user submits a new query (see THINKING handler).
+      grid.setBinaryGlyphsEnabled(true);
       for (const m of mappingsRef.current) {
         grid.resetDotTarget(m.dotIndex);
+        // Pass 1a: restore the source-type color that was applied
+        // during the cluster mapping effect. Without this, IDLE
+        // resets every cluster dot to neutral and the semantic
+        // colors only show on the first page load.
+        const source: ClusterSource = placeholderClusterSource(m.clusterId);
+        const sourceColor = CLUSTER_SOURCE_COLORS[source];
         grid.setDotGalaxyState(m.dotIndex, {
           clusterId: m.clusterId,
           objectType: m.objectType,
           isRelevant: false,
           opacityOverride: null,
-          colorOverride: null,
+          colorOverride: sourceColor,
         });
       }
       grid.setEdges([]);
@@ -400,6 +482,13 @@ export default function GalaxyController({
     if (state === 'THINKING') {
       phaseRef.current = 'searching';
 
+      // Pass 1b: gate the binary glyphs off the moment we leave IDLE.
+      // The substrate becomes a pure dot grid for the duration of the
+      // thinking phase so the algorithmic visualizations Phase B will
+      // add have a clean stage. Glyphs come back on transition to
+      // IDLE (see resetAll branch above).
+      grid.setBinaryGlyphsEnabled(false);
+
       // Smooth face dissolve: if the face was showing, gradually release
       // face dots back to their grid positions over 800ms instead of snapping.
       const hadFace = faceWasActiveRef.current;
@@ -408,53 +497,91 @@ export default function GalaxyController({
 
       if (hadFace && faceDots > 0 && !prefersReducedMotion) {
         const DISSOLVE_MS = 800;
-        const dissolveStart = performance.now();
+        // Pass 1c: pondering beat. Before dissolving the face into
+        // the dot grid, re-stipple it with the 'pondering' expression
+        // and re-target the face dots to those new positions. The
+        // spring physics smoothly morphs the awake face into the
+        // pondering face (raised brows, eyes glanced up, neutral
+        // mouth) over ~250ms. We hold for 400ms total so the user
+        // sees Theseus consider the question before the dissolve.
+        const PONDER_HOLD_MS = 400;
         const dotCount = grid.getDotCount();
         const count = Math.min(faceDots, dotCount);
+        const { width: viewW, height: viewH } = grid.getSize();
 
-        // Capture current face positions before releasing targets
-        const startX = new Float32Array(count);
-        const startY = new Float32Array(count);
-        for (let i = 0; i < count; i++) {
-          const p = grid.getDotPosition(i);
-          if (p) { startX[i] = p.x; startY[i] = p.y; }
+        // Re-stipple with pondering expression. This is cached after
+        // the first call so subsequent transitions are instant.
+        const ponderResult = stippleFace({
+          viewportWidth: viewW,
+          viewportHeight: viewH,
+          expression: 'pondering',
+        });
+        const ponderTargets = ponderResult.targets;
+
+        // Re-target the existing face dots to the pondering positions.
+        // The dot grid's spring physics handles the morph automatically.
+        for (let i = 0; i < count && i < ponderTargets.length; i++) {
+          grid.setDotTarget(i, ponderTargets[i].x, ponderTargets[i].y);
         }
+        grid.wakeAnimation();
 
-        // Get the original grid rest positions (before any target drift)
-        const gridX = new Float32Array(count);
-        const gridY = new Float32Array(count);
-        for (let i = 0; i < count; i++) {
-          const p = grid.getOriginalGridPosition(i);
-          if (p) { gridX[i] = p.x; gridY[i] = p.y; }
-        }
+        let dissolveTimerId = 0;
 
-        const dissolveTick = () => {
-          const elapsed = performance.now() - dissolveStart;
-          const rawT = Math.min(elapsed / DISSOLVE_MS, 1);
-          // Ease out quadratic for a gentle deceleration
-          const t = 1 - (1 - rawT) * (1 - rawT);
+        // Schedule the dissolve to begin AFTER the pondering hold so
+        // the dots have time to settle into the new face shape.
+        dissolveTimerId = window.setTimeout(() => {
+          const dissolveStart = performance.now();
 
+          // Capture pondering-face positions as the dissolve start
+          const startX = new Float32Array(count);
+          const startY = new Float32Array(count);
           for (let i = 0; i < count; i++) {
-            const x = startX[i] + (gridX[i] - startX[i]) * t;
-            const y = startY[i] + (gridY[i] - startY[i]) * t;
-            grid.setDotTarget(i, x, y);
+            const p = grid.getDotPosition(i);
+            if (p) { startX[i] = p.x; startY[i] = p.y; }
           }
-          grid.wakeAnimation();
 
-          if (rawT < 1) {
-            dissolveFrameId = requestAnimationFrame(dissolveTick);
-          } else {
-            // Fully dissolved: release targets so dots rest at grid positions
+          // Original grid rest positions (the dissolve target)
+          const gridX = new Float32Array(count);
+          const gridY = new Float32Array(count);
+          for (let i = 0; i < count; i++) {
+            const p = grid.getOriginalGridPosition(i);
+            if (p) { gridX[i] = p.x; gridY[i] = p.y; }
+          }
+
+          const dissolveTick = () => {
+            const elapsed = performance.now() - dissolveStart;
+            const rawT = Math.min(elapsed / DISSOLVE_MS, 1);
+            // Ease out quadratic for a gentle deceleration
+            const t = 1 - (1 - rawT) * (1 - rawT);
+
             for (let i = 0; i < count; i++) {
-              grid.resetDotTarget(i);
+              const x = startX[i] + (gridX[i] - startX[i]) * t;
+              const y = startY[i] + (gridY[i] - startY[i]) * t;
+              grid.setDotTarget(i, x, y);
             }
             grid.wakeAnimation();
-          }
-        };
 
-        dissolveFrameId = requestAnimationFrame(dissolveTick);
+            if (rawT < 1) {
+              dissolveFrameId = requestAnimationFrame(dissolveTick);
+            } else {
+              // Fully dissolved: release targets so dots rest at grid positions
+              for (let i = 0; i < count; i++) {
+                grid.resetDotTarget(i);
+              }
+              grid.wakeAnimation();
+            }
+          };
+
+          dissolveFrameId = requestAnimationFrame(dissolveTick);
+        }, PONDER_HOLD_MS);
+
+        // Make sure the timeout is cleared if THINKING is interrupted
+        // (e.g., user navigates away). Push it onto the dissolve frame
+        // so the cleanup at the bottom of this branch sees it.
+        const originalDissolveFrameId = dissolveFrameId;
+        dissolveFrameId = originalDissolveFrameId || dissolveTimerId;
       } else if (hadFace && faceDots > 0) {
-        // Reduced motion: reset face dots immediately
+        // Reduced motion: reset face dots immediately, no pondering beat
         const dotCount = grid.getDotCount();
         for (let i = 0; i < Math.min(faceDots, dotCount); i++) {
           grid.resetDotTarget(i);
@@ -617,6 +744,14 @@ export default function GalaxyController({
     const targets = result.targets;
     const snapshots = result.snapshots;
     const dotCount = grid.getDotCount();
+
+    // Pass 1c: pre-warm the pondering face stipple cache so the
+    // IDLE-to-THINKING transition can re-target dots instantly
+    // instead of paying the ~50ms Lloyd's-relaxation cost on submit.
+    // Result is discarded; the cache inside StipplingDirector keeps it.
+    setTimeout(() => {
+      stippleFace({ viewportWidth: width, viewportHeight: height, expression: 'pondering' });
+    }, 200);
 
     // Set opacity and color for all face dots upfront
     for (let i = 0; i < targets.length && i < dotCount; i++) {
