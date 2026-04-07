@@ -8,12 +8,15 @@ import type { DotGridHandle } from './TheseusDotGrid';
 import type { TheseusResponse } from '@/lib/theseus-types';
 import type { SceneDirective } from '@/lib/theseus-viz/SceneDirective';
 import type { DataProcessingStatus } from '@/lib/theseus-data/types';
-import type { AskState } from '@/app/theseus/ask/page';
+import type { AskState } from '@/components/theseus/AskExperience';
 import type { VizPrediction } from '@/lib/theseus-viz/vizPlanner';
 import type { SourceTrailItem } from './SourceTrail';
 
 interface GalaxyContextValue {
   gridRef: React.RefObject<DotGridHandle | null>;
+  /** Current engine state. Read by HomepageChrome to fade out when
+   *  the user submits a query and back in when state returns to IDLE. */
+  askState: AskState;
   setAskState: (state: AskState) => void;
   setResponse: (response: TheseusResponse | null) => void;
   setDirective: (directive: SceneDirective | null) => void;
@@ -71,6 +74,7 @@ export default function TheseusShell({ children }: { children: React.ReactNode }
 
   const contextValue = useMemo(() => ({
     gridRef,
+    askState,
     setAskState,
     setResponse,
     setDirective,
@@ -82,7 +86,7 @@ export default function TheseusShell({ children }: { children: React.ReactNode }
     addToSourceTrail,
     clearSourceTrail,
     mouthOpenRef,
-  }), [gridRef, argumentView, sourceTrail, setAskState, setResponse, setDirective, setDataStatus, setVizPrediction, setArgumentView, addToSourceTrail, clearSourceTrail, mouthOpenRef]);
+  }), [gridRef, askState, argumentView, sourceTrail, setAskState, setResponse, setDirective, setDataStatus, setVizPrediction, setArgumentView, addToSourceTrail, clearSourceTrail, mouthOpenRef]);
 
   return (
     <GalaxyContext.Provider value={contextValue}>

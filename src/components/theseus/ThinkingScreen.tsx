@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { usePrefersReducedMotion } from '@/hooks/usePrefersReducedMotion';
 import type { DataProcessingStatus } from '@/lib/theseus-data/types';
-import type { AskState } from '@/app/theseus/ask/page';
+import type { AskState } from '@/components/theseus/AskExperience';
 
 interface ThinkingScreenProps {
   state: AskState;

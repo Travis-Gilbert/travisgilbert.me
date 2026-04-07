@@ -25,7 +25,7 @@ import GalaxyDrawer from './GalaxyDrawer';
 import type { SourceTrailItem } from './SourceTrail';
 import { getColorStrategy } from '@/lib/galaxy/e4bVision';
 import type { AnswerType } from '@/lib/theseus-types';
-import type { AskState } from '@/app/theseus/ask/page';
+import type { AskState } from '@/components/theseus/AskExperience';
 import { stippleFace } from '@/lib/galaxy/StipplingDirector';
 import {
   tagFaceDots,
