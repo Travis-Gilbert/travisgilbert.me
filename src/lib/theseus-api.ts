@@ -13,6 +13,43 @@ import type {
   WhatIfResult,
 } from './theseus-types';
 
+// Phase B: typed stage events for the async SSE pipeline.
+// See Index-API commit 968a226 for the backend contract.
+export type StageEvent =
+  | { name: 'pipeline_start'; query?: string }
+  | { name: 'e4b_classify_start' }
+  | {
+      name: 'e4b_classify_complete';
+      answer_type?: string;
+      search_query?: string;
+      extracted_entity?: string;
+      needs_image?: boolean;
+      entity_object_ids: number[];
+    }
+  | { name: 'retrieval_start' }
+  | {
+      name: 'retrieval_complete';
+      evidence_count: number;
+      confidence: number;
+      has_tensions: boolean;
+      has_gaps: boolean;
+      bm25_hits: Array<{ object_id: number; score: number }>;
+      sbert_scores: Array<{ object_id: number; similarity: number }>;
+      pagerank_scores: Record<string, number>;
+      community_assignments: Record<string, number>;
+      tensions: Array<{ object_a: number; object_b: number; nli_score: number }>;
+    }
+  | { name: 'objects_loaded'; object_count: number; focal_object_ids: number[] }
+  | { name: 'expression_start' }
+  | { name: 'expression_complete' };
+
+export interface AsyncStreamHandlers {
+  onStage: (event: StageEvent) => void;
+  onToken: (token: string) => void;
+  onComplete: (result: TheseusResponse) => void;
+  onError: (error: { message: string; transient: boolean }) => void;
+}
+
 export type ApiErrorReason = 'timeout' | 'network' | 'http' | 'aborted';
 
 export interface ApiError {
@@ -848,6 +885,118 @@ async function askTheseusStream(
     clearTimeout(timeoutId);
     externalSignal?.removeEventListener('abort', externalAbort);
   }
+}
+
+/**
+ * Async SSE consumer for the RQ-backed ask pipeline (Index-API 968a226).
+ *
+ * Two-step flow:
+ *   1. POST /api/v2/theseus/ask/async/  -> { job_id, stream_url }
+ *   2. EventSource stream_url           -> stage / token / complete / error events
+ *
+ * Distinct from askTheseusStream (legacy sync POST-SSE endpoint).
+ * Phase B uses this to drive the ThinkingChoreographer visualizations.
+ *
+ * Returns a cleanup function that closes the EventSource. Handlers are
+ * called in the following order per query:
+ *   onStage (multiple times) -> onToken (multiple times) -> onComplete (once)
+ * Or onError at any point if something fails.
+ */
+export async function askTheseusAsyncStream(
+  query: string,
+  options: { include_web?: boolean; signal?: AbortSignal },
+  handlers: AsyncStreamHandlers,
+): Promise<() => void> {
+  let response: Response;
+  try {
+    response = await fetch('/api/v2/theseus/ask/async/', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        query,
+        include_web: options.include_web ?? true,
+      }),
+      signal: options.signal,
+    });
+  } catch (err) {
+    handlers.onError({
+      message: err instanceof Error ? err.message : 'Network error enqueuing ask',
+      transient: true,
+    });
+    return () => {};
+  }
+
+  if (!response.ok) {
+    handlers.onError({
+      message: `Failed to enqueue ask (${response.status})`,
+      transient: response.status >= 500 || response.status === 408 || response.status === 429,
+    });
+    return () => {};
+  }
+
+  let payload: { job_id?: string; stream_url?: string };
+  try {
+    payload = await response.json();
+  } catch {
+    handlers.onError({ message: 'Malformed enqueue response', transient: false });
+    return () => {};
+  }
+
+  const jobId = payload.job_id;
+  const streamUrl = payload.stream_url ?? (jobId ? `/api/v2/theseus/ask/stream/${jobId}/` : null);
+  if (!streamUrl) {
+    handlers.onError({ message: 'Missing job_id in enqueue response', transient: false });
+    return () => {};
+  }
+
+  const es = new EventSource(streamUrl);
+
+  const safeParse = <T,>(raw: string, label: string): T | null => {
+    try {
+      return JSON.parse(raw) as T;
+    } catch (err) {
+      console.warn(`[theseus-sse] failed to parse ${label}`, err);
+      return null;
+    }
+  };
+
+  es.addEventListener('stage', (e) => {
+    const data = safeParse<StageEvent>((e as MessageEvent).data, 'stage');
+    if (data) handlers.onStage(data);
+  });
+
+  es.addEventListener('token', (e) => {
+    const data = safeParse<{ text: string }>((e as MessageEvent).data, 'token');
+    if (data?.text) handlers.onToken(data.text);
+  });
+
+  es.addEventListener('complete', (e) => {
+    const data = safeParse<RawAskResponse>((e as MessageEvent).data, 'complete');
+    if (data) {
+      try {
+        const normalized = normalizeAskResponse(data);
+        handlers.onComplete(normalized);
+      } catch (err) {
+        handlers.onError({
+          message: err instanceof Error ? err.message : 'Failed to normalize response',
+          transient: false,
+        });
+      }
+    }
+    es.close();
+  });
+
+  es.addEventListener('error', () => {
+    handlers.onError({ message: 'Stream error', transient: true });
+    es.close();
+  });
+
+  // Honor external abort signal
+  if (options.signal) {
+    options.signal.addEventListener('abort', () => es.close(), { once: true });
+  }
+
+  return () => es.close();
 }
 
 export async function getObject(
