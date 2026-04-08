@@ -9,6 +9,10 @@
 import type { DotGridHandle } from '@/components/theseus/TheseusDotGrid';
 import type { StageEvent } from '@/lib/theseus-api';
 import { animatePageRankFlood } from './algorithms/pagerank-flood';
+import { animateSBERTHeatmap } from './algorithms/sbert-heatmap';
+import { animateBM25Strobe } from './algorithms/bm25-strobe';
+import { animateCommunityPulse } from './algorithms/community-pulse';
+import { animateTensionFlares } from './algorithms/tension-flares';
 
 export interface ChoreographerOptions {
   prefersReducedMotion: boolean;
@@ -61,6 +65,45 @@ export class ThinkingChoreographer {
             this.options.prefersReducedMotion,
           ),
         );
+
+        this.registerCleanup(
+          animateSBERTHeatmap(
+            this.grid,
+            event.sbert_scores,
+            this.options.objectIdToDotIndex,
+            this.options.prefersReducedMotion,
+          ),
+        );
+
+        this.registerCleanup(
+          animateBM25Strobe(
+            this.grid,
+            event.bm25_hits,
+            this.options.objectIdToDotIndex,
+            this.options.prefersReducedMotion,
+          ),
+        );
+
+        this.registerCleanup(
+          animateCommunityPulse(
+            this.grid,
+            event.community_assignments,
+            event.pagerank_scores,
+            this.options.objectIdToDotIndex,
+            this.options.prefersReducedMotion,
+          ),
+        );
+
+        if (event.tensions.length > 0) {
+          this.registerCleanup(
+            animateTensionFlares(
+              this.grid,
+              event.tensions,
+              this.options.objectIdToDotIndex,
+              this.options.prefersReducedMotion,
+            ),
+          );
+        }
         break;
       }
 
