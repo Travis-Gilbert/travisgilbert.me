@@ -401,6 +401,54 @@ export function clearLabelCache(): void {
 
 const NAV_BUTTON_FONT = '500 11px "JetBrains Mono", monospace';
 
+// Iconoir 24x24 viewBox stroke paths. stroke='currentColor', fill='none',
+// strokeWidth=1.5, round caps and joins.
+const ICONOIR_PATHS: Record<string, string[]> = {
+  search: [
+    'M15.5 15.5L19 19',
+    'M5 11a6 6 0 1012 0 6 6 0 00-12 0z',
+  ],
+  stack: [
+    'M6.5 12.5L12 15l5.5-2.5',
+    'M6.5 15.5L12 18l5.5-2.5',
+    'M12 6L2.5 9 12 12 21.5 9 12 6z',
+  ],
+  grid: [
+    'M4.5 4.5h6v6h-6zM13.5 4.5h6v6h-6zM4.5 13.5h6v6h-6zM13.5 13.5h6v6h-6z',
+  ],
+  bolt: [
+    'M13 3L4 14h7l-1 7 9-11h-7l1-7z',
+  ],
+  link: [
+    'M14 11.9975C14 9.79131 12.21 8.00244 10 8.00244H6C3.79 8.00244 2 9.79131 2 11.9975C2 14.2036 3.79 15.9925 6 15.9925H7',
+    'M10 11.9975C10 14.2036 11.79 15.9925 14 15.9925H18C20.21 15.9925 22 14.2036 22 11.9975C22 9.79131 20.21 8.00244 18 8.00244H17',
+  ],
+  reply: [
+    'M9 14L4 9l5-5',
+    'M4 9h10a6 6 0 016 6v0a6 6 0 01-6 6h-3',
+  ],
+  magnify: [
+    'M15.5 15.5L19 19',
+    'M5 11a6 6 0 1012 0 6 6 0 00-12 0z',
+    'M8 11h6M11 8v6',
+  ],
+};
+
+const NAV_ICON_SIZE = 16;
+const NAV_ICON_GAP = 6;
+
+// Cache Path2D objects per icon id so we don't reparse SVG paths every frame.
+const iconPathCache: Map<string, Path2D[]> = new Map();
+function getIconPaths(id: string): Path2D[] | null {
+  const cached = iconPathCache.get(id);
+  if (cached) return cached;
+  const raw = ICONOIR_PATHS[id];
+  if (!raw) return null;
+  const built = raw.map((d) => new Path2D(d));
+  iconPathCache.set(id, built);
+  return built;
+}
+
 export interface NavButtonRenderData {
   /** Canvas x of the button center. */
   cx: number;
@@ -409,6 +457,8 @@ export interface NavButtonRenderData {
   width: number;
   height: number;
   label: string;
+  /** Optional icon id (matches keys in ICONOIR_PATHS). */
+  iconId?: string;
   /** 0..1 formation alpha (already eased by tickAttractorPhysics). */
   alpha: number;
   isHovered: boolean;
@@ -447,17 +497,49 @@ export function renderNavButtons(
     ctx.stroke();
   }
 
-  // Pass 2: labels.
+  // Pass 2: icons + labels.
   ctx.font = NAV_BUTTON_FONT;
-  ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
   for (const b of buttons) {
     if (b.alpha < 0.1) continue;
 
     const text = b.label.toUpperCase();
-    ctx.fillStyle = b.isHovered
+    const fillColor = b.isHovered
       ? `rgba(245, 243, 240, ${b.alpha})`
       : `rgba(232, 229, 224, ${b.alpha})`;
-    ctx.fillText(text, b.cx, b.cy);
+
+    const iconPaths = b.iconId ? getIconPaths(b.iconId) : null;
+
+    if (iconPaths) {
+      // Measure label so we can center the icon+label group together.
+      ctx.textAlign = 'left';
+      const labelWidth = ctx.measureText(text).width;
+      const totalInnerWidth = NAV_ICON_SIZE + NAV_ICON_GAP + labelWidth;
+      const groupLeftX = b.cx - totalInnerWidth / 2;
+      const iconX = groupLeftX;
+      const labelX = groupLeftX + NAV_ICON_SIZE + NAV_ICON_GAP;
+
+      // Draw icon (24x24 viewBox scaled to NAV_ICON_SIZE).
+      ctx.save();
+      ctx.translate(iconX, b.cy - NAV_ICON_SIZE / 2);
+      ctx.scale(NAV_ICON_SIZE / 24, NAV_ICON_SIZE / 24);
+      ctx.strokeStyle = fillColor;
+      // Compensate for the scale so the visual stroke stays at 1.5px.
+      ctx.lineWidth = 1.5 * (24 / NAV_ICON_SIZE);
+      ctx.lineCap = 'round';
+      ctx.lineJoin = 'round';
+      for (const path of iconPaths) {
+        ctx.stroke(path);
+      }
+      ctx.restore();
+
+      // Draw label.
+      ctx.fillStyle = fillColor;
+      ctx.fillText(text, labelX, b.cy);
+    } else {
+      ctx.textAlign = 'center';
+      ctx.fillStyle = fillColor;
+      ctx.fillText(text, b.cx, b.cy);
+    }
   }
 }

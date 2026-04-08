@@ -1937,7 +1937,8 @@ function GalaxyController({
     dragStartRef.current = null;
     isDraggingRef.current = false;
     if (interactionLayerRef.current) {
-      interactionLayerRef.current.style.cursor = 'grab';
+      // Only show grab when there's actually something to pan (zoomed in).
+      interactionLayerRef.current.style.cursor = isZoomedRef.current ? 'grab' : 'default';
     }
   }, []);
 
@@ -2052,7 +2053,8 @@ function GalaxyController({
 
     hoveredDotRef.current = bestDotIndex;
     if (!isDraggingRef.current) {
-      (e.currentTarget as HTMLDivElement).style.cursor = bestDotIndex !== null ? 'pointer' : 'grab';
+      const fallback = isZoomedRef.current ? 'grab' : 'default';
+      (e.currentTarget as HTMLDivElement).style.cursor = bestDotIndex !== null ? 'pointer' : fallback;
     }
     grid.wakeAnimation();
   }, [gridRef, applyZoomToGrid]);
@@ -2235,7 +2237,7 @@ function GalaxyController({
           inset: 0,
           zIndex: isZoomedRef.current ? 2 : (state === 'IDLE' || state === 'EXPLORING') ? 1 : 0,
           pointerEvents: isZoomedRef.current || state === 'IDLE' || state === 'EXPLORING' ? 'auto' : 'none',
-          cursor: 'grab',
+          cursor: 'default',
           touchAction: 'none',
         }}
       />

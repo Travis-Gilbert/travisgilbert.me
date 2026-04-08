@@ -100,7 +100,7 @@ export default function TheseusShell({ children }: { children: React.ReactNode }
   const signalCountRef = useRef(0);
   const ignoreTimersRef = useRef<Map<string, number>>(new Map());
   const lastShownButtonsRef = useRef<Set<string>>(new Set());
-  const lastPredictionTimeRef = useRef(0);
+  const predictTimerRef = useRef<number | null>(null);
 
   // Initialize the model once on mount.
   useEffect(() => {
@@ -119,43 +119,62 @@ export default function TheseusShell({ children }: { children: React.ReactNode }
   }, []);
 
   // Debounced prediction loop: re-predict whenever screen state changes,
-  // but no more often than once per 500ms.
+  // but only after the screen state has been stable for 500ms. This avoids
+  // racing route-change cascades that would otherwise wipe the nav between
+  // a click and the next prediction landing.
   useEffect(() => {
-    const now = Date.now();
-    if (now - lastPredictionTimeRef.current < 500) return;
-    lastPredictionTimeRef.current = now;
+    if (predictTimerRef.current !== null) {
+      window.clearTimeout(predictTimerRef.current);
+    }
 
     let cancelled = false;
-    predictNav(navScreenState).then((prediction) => {
-      if (cancelled) return;
-      const buttons = prediction.actions.map((a) => ({ id: a.id, label: a.label }));
-      gridRef.current?.setNavButtons(buttons);
+    predictTimerRef.current = window.setTimeout(() => {
+      predictNav(navScreenState).then((prediction) => {
+        if (cancelled) return;
+        const buttons = prediction.actions.map((a) => {
+          const action = NAV_ACTIONS.find((x) => x.id === a.id);
+          return {
+            id: a.id,
+            label: a.label,
+            icon: action?.icon,
+          };
+        });
+        // Defensive: never clear the existing nav with an empty list. If the
+        // predictor has nothing to say (transient model state, etc.), keep
+        // whatever buttons are already on screen.
+        if (buttons.length === 0) return;
+        gridRef.current?.setNavButtons(buttons);
 
-      const newIds = new Set<string>(buttons.map((b) => b.id));
-      // Clear ignore timers for buttons that disappeared.
-      for (const [id, timerId] of ignoreTimersRef.current) {
-        if (!newIds.has(id)) {
-          window.clearTimeout(timerId);
-          ignoreTimersRef.current.delete(id);
+        const newIds = new Set<string>(buttons.map((b) => b.id));
+        // Clear ignore timers for buttons that disappeared.
+        for (const [id, timerId] of ignoreTimersRef.current) {
+          if (!newIds.has(id)) {
+            window.clearTimeout(timerId);
+            ignoreTimersRef.current.delete(id);
+          }
         }
-      }
-      // Start ignore timers for newly shown buttons.
-      for (const id of newIds) {
-        if (lastShownButtonsRef.current.has(id)) continue;
-        const timerId = window.setTimeout(() => {
-          recordNavSignal(id as NavActionId, 'ignore');
-          signalCountRef.current += 1;
-          void maybeTrainAndSave();
-        }, 30_000);
-        ignoreTimersRef.current.set(id, timerId);
-      }
-      lastShownButtonsRef.current = newIds;
-    }).catch((err) => {
-      console.warn('[nav] prediction failed:', err);
-    });
+        // Start ignore timers for newly shown buttons.
+        for (const id of newIds) {
+          if (lastShownButtonsRef.current.has(id)) continue;
+          const timerId = window.setTimeout(() => {
+            recordNavSignal(id as NavActionId, 'ignore');
+            signalCountRef.current += 1;
+            void maybeTrainAndSave();
+          }, 30_000);
+          ignoreTimersRef.current.set(id, timerId);
+        }
+        lastShownButtonsRef.current = newIds;
+      }).catch((err) => {
+        console.warn('[nav] prediction failed:', err);
+      });
+    }, 500);
 
     return () => {
       cancelled = true;
+      if (predictTimerRef.current !== null) {
+        window.clearTimeout(predictTimerRef.current);
+        predictTimerRef.current = null;
+      }
     };
   }, [navScreenState, maybeTrainAndSave]);
 

@@ -38,6 +38,8 @@ export interface NavAttractor {
   targetPositions: Map<number, [number, number]>;
   /** Display label (rendered by Batch 3). */
   label: string;
+  /** Optional icon id (matches keys in pretextLabels ICONOIR_PATHS). */
+  icon?: string;
   /** Derived from formation via easeOutCubic. */
   alpha: number;
 }
@@ -52,6 +54,7 @@ const MOBILE_HEIGHT = 44;
 const MIN_BUTTON_WIDTH = 80;
 const LABEL_CHAR_PX = 8;
 const LABEL_PADDING_PX = 32;
+const ICON_EXTRA_PX = 22; // 16px icon + 6px gap
 const RECRUIT_SPACING_FACTOR = 0.6;
 
 function easeOutCubic(t: number): number {
@@ -59,10 +62,18 @@ function easeOutCubic(t: number): number {
   return 1 - x * x * x;
 }
 
-function computeButtonDimensions(label: string, viewportWidth: number): { width: number; height: number } {
+function computeButtonDimensions(
+  label: string,
+  viewportWidth: number,
+  hasIcon: boolean,
+): { width: number; height: number } {
   const isMobile = viewportWidth < 768;
   const height = isMobile ? MOBILE_HEIGHT : DESKTOP_HEIGHT;
-  const width = Math.max(MIN_BUTTON_WIDTH, label.length * LABEL_CHAR_PX + LABEL_PADDING_PX);
+  const iconExtra = hasIcon ? ICON_EXTRA_PX : 0;
+  const width = Math.max(
+    MIN_BUTTON_WIDTH,
+    label.length * LABEL_CHAR_PX + LABEL_PADDING_PX + iconExtra,
+  );
   return { width, height };
 }
 
@@ -76,7 +87,7 @@ function computeButtonDimensions(label: string, viewportWidth: number): { width:
  * out gracefully; the caller prunes them once fully dissolved.
  */
 export function layoutAttractors(
-  buttons: Array<{ id: string; label: string }>,
+  buttons: Array<{ id: string; label: string; icon?: string }>,
   viewportWidth: number,
   viewportHeight: number,
   existingAttractors: NavAttractor[],
@@ -87,7 +98,7 @@ export function layoutAttractors(
   // Compute total row width to find the starting x for centered layout.
   const sized = buttons.map((b) => ({
     button: b,
-    dims: computeButtonDimensions(b.label, viewportWidth),
+    dims: computeButtonDimensions(b.label, viewportWidth, !!b.icon),
   }));
 
   const totalWidth = sized.reduce((sum, s, i) => sum + s.dims.width + (i > 0 ? HORIZONTAL_GAP : 0), 0);
@@ -110,6 +121,7 @@ export function layoutAttractors(
       existing.width = dims.width;
       existing.height = dims.height;
       existing.label = button.label;
+      existing.icon = button.icon;
       existing.targetFormation = 1;
       result.push(existing);
     } else {
@@ -126,6 +138,7 @@ export function layoutAttractors(
         recruitedDots: new Set<number>(),
         targetPositions: new Map<number, [number, number]>(),
         label: button.label,
+        icon: button.icon,
         alpha: 0,
       });
     }

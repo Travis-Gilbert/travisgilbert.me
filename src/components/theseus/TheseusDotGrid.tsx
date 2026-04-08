@@ -162,7 +162,7 @@ export interface DotGridHandle {
    * background dots into button shapes at the bottom of the viewport using
    * navAttractors. Pass an empty array to dissolve all buttons.
    */
-  setNavButtons(buttons: Array<{ id: string; label: string }>): void;
+  setNavButtons(buttons: Array<{ id: string; label: string; icon?: string }>): void;
 }
 
 export type EngineState = 'IDLE' | 'THINKING' | 'MODEL' | 'CONSTRUCTING' | 'EXPLORING';
@@ -542,7 +542,7 @@ const TheseusDotGrid = forwardRef<DotGridHandle, TheseusDotGridProps>(function T
         y: (sy - rect.top - panY) / scale,
       };
     },
-    setNavButtons(buttons: Array<{ id: string; label: string }>) {
+    setNavButtons(buttons: Array<{ id: string; label: string; icon?: string }>) {
       const { w, h } = sizeRef.current;
       if (w < 1 || h < 1) return;
       attractorsRef.current = layoutAttractors(buttons, w, h, attractorsRef.current);
@@ -957,6 +957,15 @@ const TheseusDotGrid = forwardRef<DotGridHandle, TheseusDotGridProps>(function T
       }
 
       // ----- Adaptive nav: attractor physics + render -----
+      // When the user has zoomed/panned the scene, dissolve the nav so it
+      // doesn't visually drift with the transform. The next setNavButtons
+      // call (after zoom returns to identity) will re-recruit.
+      const navZoomed = zs !== 1 || zpx !== 0 || zpy !== 0;
+      if (navZoomed) {
+        for (const a of navAttractors) {
+          a.targetFormation = 0;
+        }
+      }
       if (navAttractors.length > 0) {
         // Lazy-allocate scratch buffers sized to the current dot count.
         let scratch = attractorScratchRef.current;
@@ -1038,24 +1047,7 @@ const TheseusDotGrid = forwardRef<DotGridHandle, TheseusDotGridProps>(function T
         }
       }
 
-      // Adaptive nav: render labels (and high-formation pill borders) on top
-      // of the recruited dot clusters every frame, since alpha/formation
-      // animate continuously.
-      if (attractorsRef.current.length > 0) {
-        const hoveredId = hoveredAttractorIdRef.current;
-        const navButtonData: NavButtonRenderData[] = attractorsRef.current.map((attractor) => ({
-          cx: attractor.cx,
-          cy: attractor.cy,
-          width: attractor.width,
-          height: attractor.height,
-          label: attractor.label,
-          alpha: attractor.alpha,
-          isHovered: hoveredId === attractor.id,
-          prominence: 1.0, // Batch 4 will plumb prediction probability through
-        }));
-        renderNavButtons(ctx!, navButtonData);
-      }
-      // ----- /Adaptive nav -----
+      // ----- /Adaptive nav (label rendering happens outside zoom transform) -----
 
       // Draw edges and labels after dots (only wake loop when data changes)
       if (edgesRef.current.length > 0 || labelsRef.current.length > 0) {
@@ -1082,6 +1074,25 @@ const TheseusDotGrid = forwardRef<DotGridHandle, TheseusDotGridProps>(function T
       }
 
       ctx!.restore(); // End zoom/pan transform
+
+      // Adaptive nav: render labels (and high-formation pill borders) on top
+      // of the recruited dot clusters in raw canvas coordinates so they stay
+      // pinned to the viewport regardless of zoom/pan transform.
+      if (attractorsRef.current.length > 0 && !navZoomed) {
+        const hoveredId = hoveredAttractorIdRef.current;
+        const navButtonData: NavButtonRenderData[] = attractorsRef.current.map((attractor) => ({
+          cx: attractor.cx,
+          cy: attractor.cy,
+          width: attractor.width,
+          height: attractor.height,
+          label: attractor.label,
+          iconId: attractor.icon,
+          alpha: attractor.alpha,
+          isHovered: hoveredId === attractor.id,
+          prominence: 1.0, // Batch 4 will plumb prediction probability through
+        }));
+        renderNavButtons(ctx!, navButtonData);
+      }
 
       // Inline response rendering (outside zoom transform; fixed to viewport)
       const inlineResponse = inlineResponseRef.current;
