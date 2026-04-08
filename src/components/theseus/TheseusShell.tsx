@@ -76,6 +76,20 @@ export default function TheseusShell({ children }: { children: React.ReactNode }
     });
   }, []);
 
+  // TODO: BATCH 4 - replace with predictor wiring (navPredictor.predictNav
+  // -> setNavButtons). For Batch 2 verification only: hardcode three nav
+  // buttons one second after mount so we can see attractor formation.
+  useEffect(() => {
+    const t = setTimeout(() => {
+      gridRef.current?.setNavButtons([
+        { id: 'ask', label: 'Ask' },
+        { id: 'library', label: 'Library' },
+        { id: 'artifacts', label: 'Artifacts' },
+      ]);
+    }, 1000);
+    return () => clearTimeout(t);
+  }, []);
+
   const contextValue = useMemo(() => ({
     gridRef,
     galaxyControllerRef,

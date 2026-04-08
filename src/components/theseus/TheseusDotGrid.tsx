@@ -10,8 +10,19 @@ import {
   clearLabelCache,
   type ClickCardData,
 } from '@/lib/galaxy/pretextLabels';
+import {
+  layoutAttractors,
+  recruitDotsForAttractor,
+  tickAttractorPhysics,
+  hitTestAttractor,
+  type NavAttractor,
+} from '@/lib/galaxy/navAttractors';
 
 const DEFAULT_DOT_COLOR: [number, number, number] = [74, 138, 150];
+
+// Shared empty set for the adaptive-nav recruited-dot lookup so the hot
+// path doesn't allocate when no buttons are forming.
+const EMPTY_RECRUITED: ReadonlySet<number> = new Set<number>();
 
 // Type color tints (RGB) for subtle cluster coloring
 const TYPE_TINTS: Record<string, [number, number, number]> = {
@@ -144,6 +155,12 @@ export interface DotGridHandle {
   getZoomTransform(): { scale: number; panX: number; panY: number };
   /** Convert screen coordinates to canvas space (accounts for zoom/pan) */
   screenToCanvas(sx: number, sy: number): { x: number; y: number };
+  /**
+   * Adaptive nav: set the active list of nav buttons. The grid recruits
+   * background dots into button shapes at the bottom of the viewport using
+   * navAttractors. Pass an empty array to dissolve all buttons.
+   */
+  setNavButtons(buttons: Array<{ id: string; label: string }>): void;
 }
 
 export type EngineState = 'IDLE' | 'THINKING' | 'MODEL' | 'CONSTRUCTING' | 'EXPLORING';
@@ -232,6 +249,18 @@ const TheseusDotGrid = forwardRef<DotGridHandle, TheseusDotGridProps>(function T
    * doesn't pay a React re-render cost when toggled.
    */
   const binaryGlyphsEnabledRef = useRef(true);
+
+  // Adaptive nav: attractor state and scratch buffers shared with the
+  // navAttractors physics module. Scratch buffers hold the displayed
+  // position (gx + ox) for recruited dots so navAttractors can read/write
+  // a single coordinate, then we project the result back into ox.
+  const attractorsRef = useRef<NavAttractor[]>([]);
+  const attractorScratchRef = useRef<{
+    posX: Float32Array;
+    posY: Float32Array;
+    homeX: Float32Array;
+    homeY: Float32Array;
+  } | null>(null);
 
   // Overlay drawing state (edges and labels set by controller)
   const edgesRef = useRef<Array<{ fromIndex: number; toIndex: number; progress: number; color: string }>>([]);
@@ -500,6 +529,12 @@ const TheseusDotGrid = forwardRef<DotGridHandle, TheseusDotGridProps>(function T
         y: (sy - rect.top - panY) / scale,
       };
     },
+    setNavButtons(buttons: Array<{ id: string; label: string }>) {
+      const { w, h } = sizeRef.current;
+      if (w < 1 || h < 1) return;
+      attractorsRef.current = layoutAttractors(buttons, w, h, attractorsRef.current);
+      startAnimationRef.current?.();
+    },
   }), []);
 
   // Recompute focal points and restart animation when engine state changes
@@ -759,8 +794,23 @@ const TheseusDotGrid = forwardRef<DotGridHandle, TheseusDotGridProps>(function T
           : eState === 'MODEL' ? 0.6 : 1.0;
       }
 
+      // Adaptive nav: build a fast lookup of currently-recruited dots so
+      // they bypass home-spring and mouse-repulsion (their motion is owned
+      // by tickAttractorPhysics below). Phase B color/opacity overrides
+      // still apply to these dots when we draw them.
+      const navAttractors = attractorsRef.current;
+      let recruitedSet: ReadonlySet<number> = EMPTY_RECRUITED;
+      if (navAttractors.length > 0) {
+        const built = new Set<number>();
+        for (const a of navAttractors) {
+          for (const di of a.recruitedDots) built.add(di);
+        }
+        recruitedSet = built;
+      }
+
       for (let i = 0; i < dots.count; i++) {
         if (dots.fade[i] < 0.01) continue;
+        if (recruitedSet.has(i)) continue;
 
         // If dot has a target, spring toward target instead of grid
         const baseX = dots.hasTarget[i] ? dots.targetGx[i] : dots.gx[i];
@@ -893,6 +943,89 @@ const TheseusDotGrid = forwardRef<DotGridHandle, TheseusDotGridProps>(function T
         }
       }
 
+      // ----- Adaptive nav: attractor physics + render -----
+      if (navAttractors.length > 0) {
+        // Lazy-allocate scratch buffers sized to the current dot count.
+        let scratch = attractorScratchRef.current;
+        if (!scratch || scratch.posX.length !== dots.count) {
+          scratch = {
+            posX: new Float32Array(dots.count),
+            posY: new Float32Array(dots.count),
+            homeX: new Float32Array(dots.count),
+            homeY: new Float32Array(dots.count),
+          };
+          attractorScratchRef.current = scratch;
+        }
+
+        // Snapshot current displayed positions and home positions for all
+        // dots that are (or are about to be) recruited. We only need the
+        // entries we will touch, but reading the full array is cheap.
+        for (let i = 0; i < dots.count; i++) {
+          scratch.posX[i] = dots.gx[i] + dots.ox[i];
+          scratch.posY[i] = dots.gy[i] + dots.oy[i];
+          scratch.homeX[i] = dots.gx[i];
+          scratch.homeY[i] = dots.gy[i];
+        }
+
+        // Recruit dots for any attractor that is forming but has not
+        // claimed dots yet. Tracks the union so dots are never assigned
+        // to two attractors.
+        const claimed = new Set<number>();
+        for (const a of navAttractors) {
+          for (const di of a.recruitedDots) claimed.add(di);
+        }
+        for (const a of navAttractors) {
+          if (a.targetFormation === 1 && a.recruitedDots.size === 0) {
+            recruitDotsForAttractor(a, scratch.posX, scratch.posY, claimed);
+          }
+        }
+
+        tickAttractorPhysics(
+          navAttractors,
+          scratch.posX,
+          scratch.posY,
+          scratch.homeX,
+          scratch.homeY,
+          dots.vx,
+          dots.vy,
+        );
+
+        // Project new positions back into the host's gx/ox split and draw
+        // the recruited dots (they were skipped by the main loop above).
+        for (const a of navAttractors) {
+          for (const di of a.recruitedDots) {
+            if (di < 0 || di >= dots.count) continue;
+            dots.ox[di] = scratch.posX[di] - dots.gx[di];
+            dots.oy[di] = scratch.posY[di] - dots.gy[di];
+
+            const opaOverride = dots.galaxyOpacity[di];
+            const baseAlpha = (Number.isNaN(opaOverride) ? dotOpacity : opaOverride) * dots.fade[di];
+            drawDot(
+              scratch.posX[di], scratch.posY[di],
+              baseAlpha, dots.kind[di],
+              dots.galaxyColorR[di], dots.galaxyColorG[di], dots.galaxyColorB[di],
+              dots.galaxyScale[di],
+              dots.shape[di],
+            );
+          }
+          // Keep animating while any attractor is in flight.
+          if (Math.abs(a.formation - a.targetFormation) > 0.001) {
+            anyDisplaced = true;
+          }
+        }
+
+        // Prune fully-dissolved attractors.
+        const keep: NavAttractor[] = [];
+        for (const a of navAttractors) {
+          if (a.formation < 0.005 && a.targetFormation === 0) continue;
+          keep.push(a);
+        }
+        if (keep.length !== navAttractors.length) {
+          attractorsRef.current = keep;
+        }
+      }
+      // ----- /Adaptive nav -----
+
       // Draw edges and labels after dots (only wake loop when data changes)
       if (edgesRef.current.length > 0 || labelsRef.current.length > 0) {
         drawEdgesAndLabels();
@@ -968,11 +1101,34 @@ const TheseusDotGrid = forwardRef<DotGridHandle, TheseusDotGridProps>(function T
       trail.push({ x: e.clientX, y: e.clientY, age: 0 });
       if (trail.length > 40) trail.shift();
 
+      // Adaptive nav: pointer cursor when over a fully-formed button.
+      // Apply directly to body since the canvas uses pointer-events: none.
+      const navAttractors = attractorsRef.current;
+      if (navAttractors.length > 0) {
+        const hit = hitTestAttractor(navAttractors, e.clientX, e.clientY);
+        const wantsPointer = hit !== null && hit.formation > 0.8;
+        if (wantsPointer && document.body.style.cursor !== 'pointer') {
+          document.body.style.cursor = 'pointer';
+        } else if (!wantsPointer && document.body.style.cursor === 'pointer') {
+          document.body.style.cursor = '';
+        }
+      }
+
       startAnimation();
     }
 
     function onMouseLeave() {
       mouseRef.current.active = false;
+    }
+
+    function onWindowClick(e: MouseEvent) {
+      const navAttractors = attractorsRef.current;
+      if (navAttractors.length === 0) return;
+      const hit = hitTestAttractor(navAttractors, e.clientX, e.clientY);
+      if (!hit) return;
+      // TODO: BATCH 4 - dispatch real action / route navigation here.
+      console.log('nav button clicked:', hit.id);
+      e.stopPropagation();
     }
 
     const observer = new IntersectionObserver(
@@ -999,6 +1155,9 @@ const TheseusDotGrid = forwardRef<DotGridHandle, TheseusDotGridProps>(function T
     }
     window.addEventListener('resize', debouncedResize);
     document.addEventListener('mouseleave', onMouseLeave);
+    // Adaptive nav: capture-phase so the hit-test fires before downstream
+    // page handlers.
+    window.addEventListener('click', onWindowClick, true);
 
     return () => {
       cancelAnimationFrame(animRef.current);
@@ -1009,6 +1168,10 @@ const TheseusDotGrid = forwardRef<DotGridHandle, TheseusDotGridProps>(function T
       }
       window.removeEventListener('resize', debouncedResize);
       document.removeEventListener('mouseleave', onMouseLeave);
+      window.removeEventListener('click', onWindowClick, true);
+      if (document.body.style.cursor === 'pointer') {
+        document.body.style.cursor = '';
+      }
       startAnimationRef.current = null;
     };
   }, [dotRadius, spacing, dotColor, dotOpacity, stiffness, damping, influenceRadius, repulsionStrength, initDots, prefersReducedMotion]);
