@@ -1,7 +1,7 @@
 'use client';
 
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import TheseusDotGrid from './TheseusDotGrid';
 import GalaxyController from './GalaxyController';
 import type { GalaxyControllerHandle } from './GalaxyController';
@@ -90,6 +90,7 @@ export default function TheseusShell({ children }: { children: React.ReactNode }
      Adaptive nav: TF.js predictor → attractor buttons
      ───────────────────────────────────────────────── */
   const router = useRouter();
+  const pathname = usePathname();
   const navScreenState = useNavScreenState({
     engineState:
       askState === 'CONSTRUCTING' ? 'constructing'
@@ -185,6 +186,34 @@ export default function TheseusShell({ children }: { children: React.ReactNode }
     }
     ignoreTimersRef.current.clear();
   }, []);
+
+  // Shell-level listener for the contextual nav action that needs to
+  // work from any Theseus subpage (not just /theseus where
+  // AskExperience is mounted). focusInput must navigate to /theseus
+  // first if the user is currently on /theseus/library, /theseus/
+  // artifacts, etc. Once there, AskExperience reads ?focus=1 from
+  // the URL and focuses its input on mount.
+  //
+  // The other contextual actions (openTensions, openSources,
+  // triggerInvestigation) are handled inside AskExperience because
+  // they need access to the most recent ask response. They are
+  // intentionally no-ops on subpages.
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const handler = (event: Event) => {
+      const detail = (event as CustomEvent<{ action?: string }>).detail ?? {};
+      if (detail.action !== 'focusInput') return;
+      if (pathname === '/theseus') {
+        // Already on the page that owns AskExperience: forward to
+        // its dedicated focus event so it can synchronously focus.
+        window.dispatchEvent(new CustomEvent('theseus:focus-ask-input'));
+      } else {
+        router.push('/theseus?focus=1');
+      }
+    };
+    window.addEventListener('theseus:nav-action', handler);
+    return () => window.removeEventListener('theseus:nav-action', handler);
+  }, [pathname, router]);
 
   const handleNavButtonClick = useCallback((buttonId: string) => {
     // Cancel the ignore timer for this button: the user engaged with it.

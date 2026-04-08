@@ -151,6 +151,7 @@ function AskDock({
   activeQuery,
   onLoadHistory,
   spinnerFrame,
+  inputRef,
 }: {
   composerQuery: string;
   setComposerQuery: (value: string) => void;
@@ -165,6 +166,7 @@ function AskDock({
   activeQuery: string | null;
   onLoadHistory: (query: string) => void;
   spinnerFrame: number;
+  inputRef: React.RefObject<HTMLInputElement | null>;
 }) {
   const showHistory = !submitting && queryHistory.length > 0;
   const inputWidth = isMobile ? DOCK_INPUT_WIDTH_MOBILE : DOCK_INPUT_WIDTH_DESKTOP;
@@ -298,6 +300,7 @@ function AskDock({
               onAmplitude={isIdle ? (amp: number) => { mouthOpenRef.current = amp; } : undefined}
             />
             <input
+              ref={inputRef}
               className="theseus-ask-composer-input"
               type="text"
               name={isIdle ? 'query' : 'follow_up_query'}
@@ -737,6 +740,7 @@ export function AskExperience() {
 
   const requestIdRef = useRef(0);
   const askAbortRef = useRef<AbortController | null>(null);
+  const askInputRef = useRef<HTMLInputElement | null>(null);
 
   // Final safety net: tear down stream + choreographer on unmount.
   // The per-query effect below also cleans up on re-run, but this
@@ -749,6 +753,7 @@ export function AskExperience() {
       choreographerRef.current = null;
     };
   }, []);
+
 
   const persistHistory = useCallback((nextHistory: QueryHistoryEntry[]) => {
     const trimmed = nextHistory.slice(0, HISTORY_LIMIT);
@@ -796,6 +801,91 @@ export function AskExperience() {
 
     router.push(`/theseus?q=${encodeURIComponent(trimmed)}`);
   }, [query, router]);
+
+  // Contextual nav action listener. Wires the page-level actions
+  // dispatched by TheseusShell.handleNavButtonClick (commit 37c9c01).
+  // Route-level actions (Ask/Library/Artifacts) are handled there;
+  // here we handle actions that need access to the AskExperience
+  // state (input ref, response, current query).
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+
+    const handleNavAction = (event: Event) => {
+      const detail = (event as CustomEvent<{ action?: string }>).detail ?? {};
+      switch (detail.action) {
+        case 'focusInput':
+          askInputRef.current?.focus();
+          break;
+        case 'openTensions': {
+          // TODO: wire to a real Tensions drawer once one exists.
+          // For now log the count of tension sections on the most
+          // recent response so the action is observably wired.
+          const tensionSections = response?.sections?.filter(
+            (s) => s.type === 'tension',
+          ).length ?? 0;
+          console.warn(
+            '[nav-action] tensions drawer not implemented yet',
+            { tensionSections },
+          );
+          break;
+        }
+        case 'openSources': {
+          // TODO: wire to a real Sources drawer once one exists.
+          // For now log the count of objects sections on the most
+          // recent response.
+          const objectsSections = response?.sections?.filter(
+            (s) => s.type === 'objects',
+          ).length ?? 0;
+          console.warn(
+            '[nav-action] sources drawer not implemented yet',
+            { objectsSections },
+          );
+          break;
+        }
+        case 'triggerInvestigation': {
+          // Re-run the active query. There is no first-class
+          // "investigate" path yet, so a re-run is the closest
+          // available behavior. No-op if there is no query.
+          const target = response?.query ?? query ?? composerQuery.trim();
+          if (target) {
+            navigateToQuery(target);
+          } else {
+            console.info('[nav-action] triggerInvestigation: no target query');
+          }
+          break;
+        }
+        default:
+          // Unknown actions are silently ignored: TheseusShell may
+          // dispatch additional actions in the future and this
+          // listener should not warn for them.
+          break;
+      }
+    };
+
+    // Sentinel from TheseusShell when focusInput is dispatched while
+    // the user was on a different Theseus subpage. The shell pushes
+    // /theseus?focus=1 and the searchParam-driven effect below picks
+    // it up on mount.
+    const handleFocusSentinel = () => {
+      askInputRef.current?.focus();
+    };
+
+    window.addEventListener('theseus:nav-action', handleNavAction);
+    window.addEventListener('theseus:focus-ask-input', handleFocusSentinel);
+    return () => {
+      window.removeEventListener('theseus:nav-action', handleNavAction);
+      window.removeEventListener('theseus:focus-ask-input', handleFocusSentinel);
+    };
+  }, [response, query, composerQuery, navigateToQuery]);
+
+  // Auto-focus the ask input when the URL carries the focus sentinel.
+  // TheseusShell sets ?focus=1 when handling focusInput from a non-/theseus
+  // subpage; once AskExperience mounts here, it picks up the param.
+  const focusParam = searchParams.get('focus');
+  useEffect(() => {
+    if (!focusParam) return;
+    askInputRef.current?.focus();
+  }, [focusParam]);
 
   const handleRetry = useCallback(() => {
     if (!query) return;
@@ -1108,6 +1198,7 @@ export function AskExperience() {
       activeQuery={activeQuery}
       onLoadHistory={navigateToQuery}
       spinnerFrame={spinnerFrame}
+      inputRef={askInputRef}
     />
   );
 
