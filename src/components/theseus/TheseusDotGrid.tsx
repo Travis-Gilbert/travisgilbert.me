@@ -7,8 +7,10 @@ import {
   renderPretextLabels,
   renderClickCard,
   renderInlineResponse,
+  renderNavButtons,
   clearLabelCache,
   type ClickCardData,
+  type NavButtonRenderData,
 } from '@/lib/galaxy/pretextLabels';
 import {
   layoutAttractors,
@@ -255,6 +257,10 @@ const TheseusDotGrid = forwardRef<DotGridHandle, TheseusDotGridProps>(function T
   // position (gx + ox) for recruited dots so navAttractors can read/write
   // a single coordinate, then we project the result back into ox.
   const attractorsRef = useRef<NavAttractor[]>([]);
+  // Adaptive nav: id of the attractor currently under the cursor (or null).
+  // Written by the mousemove handler in sync with the body cursor change;
+  // read each frame by the render loop to drive label/border hover styling.
+  const hoveredAttractorIdRef = useRef<string | null>(null);
   const attractorScratchRef = useRef<{
     posX: Float32Array;
     posY: Float32Array;
@@ -1024,6 +1030,24 @@ const TheseusDotGrid = forwardRef<DotGridHandle, TheseusDotGridProps>(function T
           attractorsRef.current = keep;
         }
       }
+
+      // Adaptive nav: render labels (and high-formation pill borders) on top
+      // of the recruited dot clusters every frame, since alpha/formation
+      // animate continuously.
+      if (attractorsRef.current.length > 0) {
+        const hoveredId = hoveredAttractorIdRef.current;
+        const navButtonData: NavButtonRenderData[] = attractorsRef.current.map((attractor) => ({
+          cx: attractor.cx,
+          cy: attractor.cy,
+          width: attractor.width,
+          height: attractor.height,
+          label: attractor.label,
+          alpha: attractor.alpha,
+          isHovered: hoveredId === attractor.id,
+          prominence: 1.0, // Batch 4 will plumb prediction probability through
+        }));
+        renderNavButtons(ctx!, navButtonData);
+      }
       // ----- /Adaptive nav -----
 
       // Draw edges and labels after dots (only wake loop when data changes)
@@ -1112,6 +1136,9 @@ const TheseusDotGrid = forwardRef<DotGridHandle, TheseusDotGridProps>(function T
         } else if (!wantsPointer && document.body.style.cursor === 'pointer') {
           document.body.style.cursor = '';
         }
+        hoveredAttractorIdRef.current = wantsPointer && hit ? hit.id : null;
+      } else {
+        hoveredAttractorIdRef.current = null;
       }
 
       startAnimation();

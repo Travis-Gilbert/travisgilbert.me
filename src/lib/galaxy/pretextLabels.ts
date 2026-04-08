@@ -391,3 +391,73 @@ export function renderInlineResponse(
 export function clearLabelCache(): void {
   preparedCache.clear();
 }
+
+// ---------------------------------------------------------------------------
+// Adaptive Nav Buttons (Batch 3): pretext-style label rendering on top of
+// the dot-density buttons formed by navAttractors. The button "background"
+// is the recruited dot cluster itself; this renderer only draws the floating
+// label (and a subtle pill outline once formation is essentially complete).
+// ---------------------------------------------------------------------------
+
+const NAV_BUTTON_FONT = '500 11px "JetBrains Mono", monospace';
+
+export interface NavButtonRenderData {
+  /** Canvas x of the button center. */
+  cx: number;
+  /** Canvas y of the button center. */
+  cy: number;
+  width: number;
+  height: number;
+  label: string;
+  /** 0..1 formation alpha (already eased by tickAttractorPhysics). */
+  alpha: number;
+  isHovered: boolean;
+  /** 0..1 prediction probability. Batch 4 will populate; pass 1.0 for now. */
+  prominence: number;
+}
+
+/**
+ * Render nav button labels (and high-formation pill borders) on top of the
+ * recruited dot clusters. Two passes: borders first, then labels, so the
+ * border-vs-label z-order stays consistent across all buttons.
+ *
+ * Note on letter spacing: the spec calls for 0.08em tracking, which native
+ * canvas does not support without manual per-glyph layout. We accept native
+ * spacing here as the cost/benefit favors simplicity over a marginal visual
+ * improvement.
+ */
+export function renderNavButtons(
+  ctx: CanvasRenderingContext2D,
+  buttons: NavButtonRenderData[],
+): void {
+  // Pass 1: pill borders (only when formation is effectively complete).
+  for (const b of buttons) {
+    if (b.alpha < 0.1) continue;
+    if (b.alpha <= 0.9) continue;
+
+    const radius = b.height / 2;
+    const x = b.cx - b.width / 2;
+    const y = b.cy - b.height / 2;
+    const strokeAlpha = (b.isHovered ? 0.15 : 0.08) * b.alpha;
+
+    ctx.beginPath();
+    ctx.roundRect(x, y, b.width, b.height, radius);
+    ctx.strokeStyle = `rgba(255, 255, 255, ${strokeAlpha})`;
+    ctx.lineWidth = 1;
+    ctx.stroke();
+  }
+
+  // Pass 2: labels.
+  ctx.font = NAV_BUTTON_FONT;
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  for (const b of buttons) {
+    if (b.alpha < 0.1) continue;
+
+    const text = b.label.toUpperCase();
+    ctx.fillStyle = b.isHovered
+      ? `rgba(245, 243, 240, ${b.alpha})`
+      : `rgba(232, 229, 224, ${b.alpha})`;
+    ctx.fillText(text, b.cx, b.cy);
+  }
+}
