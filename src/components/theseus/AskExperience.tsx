@@ -3,8 +3,9 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { askTheseus } from '@/lib/theseus-api';
-import type { ApiError } from '@/lib/theseus-api';
+import { askTheseusAsyncStream } from '@/lib/theseus-api';
+import type { ApiError, StageEvent } from '@/lib/theseus-api';
+import { ThinkingChoreographer } from '@/lib/galaxy/ThinkingChoreographer';
 import type {
   DataAcquisitionSection,
   EvidencePathSection,
@@ -704,7 +705,10 @@ export function AskExperience() {
   const savedId = searchParams.get('saved');
   const isMobile = useIsMobile();
   const prefersReducedMotion = usePrefersReducedMotion();
-  const { setAskState: pushState, setResponse: pushResponse, setDirective: pushDirective, setDataStatus: pushDataStatus, setVizPrediction: pushVizPrediction, argumentView, setArgumentView, sourceTrail, clearSourceTrail, mouthOpenRef } = useGalaxy();
+  const { setAskState: pushState, setResponse: pushResponse, setDirective: pushDirective, setDataStatus: pushDataStatus, setVizPrediction: pushVizPrediction, argumentView, setArgumentView, sourceTrail, clearSourceTrail, mouthOpenRef, galaxyControllerRef } = useGalaxy();
+
+  const choreographerRef = useRef<ThinkingChoreographer | null>(null);
+  const streamCleanupRef = useRef<(() => void) | null>(null);
 
   const [state, setState] = useState<AskState>(query ? 'THINKING' : 'IDLE');
   const [response, setResponse] = useState<TheseusResponse | null>(null);
@@ -733,6 +737,18 @@ export function AskExperience() {
 
   const requestIdRef = useRef(0);
   const askAbortRef = useRef<AbortController | null>(null);
+
+  // Final safety net: tear down stream + choreographer on unmount.
+  // The per-query effect below also cleans up on re-run, but this
+  // guards against the component being unmounted mid-stream.
+  useEffect(() => {
+    return () => {
+      streamCleanupRef.current?.();
+      streamCleanupRef.current = null;
+      choreographerRef.current?.cleanup();
+      choreographerRef.current = null;
+    };
+  }, []);
 
   const persistHistory = useCallback((nextHistory: QueryHistoryEntry[]) => {
     const trimmed = nextHistory.slice(0, HISTORY_LIMIT);
@@ -862,8 +878,9 @@ export function AskExperience() {
     setError(null);
 
     async function run() {
-      const activeQuery = query;
+      const activeQuery: string | null = query;
       if (!activeQuery) return;
+      const queryText: string = activeQuery;
 
       const isStale = () => requestId !== requestIdRef.current || controller.signal.aborted;
       const pushDataStatusIfCurrent = (status: DataProcessingStatus) => {
@@ -897,90 +914,144 @@ export function AskExperience() {
         }
       }).catch(() => {});
 
-      const result = await askTheseus(activeQuery, {
-        signal: controller.signal,
-        timeoutMs: ASK_TIMEOUT_MS,
-        retryPolicy: 'transient-once',
-        include_web: true,
-      });
-      if (isStale()) return;
-
-      if (!result.ok) {
-        setError(result);
-        pushDataStatusIfCurrent({ phase: 'error', message: normalizeErrorMessage(result), fallback: 'Try a shorter query or retry.' });
-        setState('IDLE');
-        pushState('IDLE');
-        return;
+      // Construct the choreographer BEFORE starting the stream so the
+      // first stage event has somewhere to land. Requires the galaxy
+      // controller and grid to be mounted; if they aren't yet, we skip
+      // visualization silently and fall through to the non-visual path.
+      const galaxyController = galaxyControllerRef?.current;
+      const grid = galaxyController?.getGrid();
+      if (galaxyController && grid) {
+        choreographerRef.current = new ThinkingChoreographer(grid, {
+          prefersReducedMotion,
+          objectIdToDotIndex: galaxyController.getObjectIdToDotIndex(),
+          personalDotIndices: galaxyController.getPersonalDotIndices(),
+          corpusDotIndices: galaxyController.getCorpusDotIndices(),
+        });
       }
 
-      if (result.answer_type) {
-        const answerType = result.answer_type;
-        import('@/lib/theseus-viz/vizPlanner').then(({ resolveVizTypeFromBackend }) => {
-          if (isStale()) return;
-          pushVizPrediction(resolveVizTypeFromBackend(answerType));
-        }).catch(() => {});
-      }
-
-      setState('MODEL');
-      pushState('MODEL');
-      setResponse(result);
-      pushResponse(result);
-
-      const dataSection = result.sections.find(
-        (section): section is DataAcquisitionSection => section.type === 'data_acquisition',
-      );
-
-      // Yield one frame so React commits the MODEL render before we
-      // flip to CONSTRUCTING. The previous 500ms hard wait was dead air;
-      // a single rAF is enough to let the state machine breathe.
-      await new Promise<void>((resolve) => window.requestAnimationFrame(() => resolve()));
-      if (isStale()) return;
-
-      setState('CONSTRUCTING');
-      pushState('CONSTRUCTING');
-
-      let processedDataset: ProcessedDataset | null = null;
-      if (dataSection) {
-        try {
-          processedDataset = await processDataAcquisition(
-            dataSection,
-            pushDataStatusIfCurrent,
-            controller.signal,
-            DATA_ACQUISITION_TIMEOUT_MS,
-          );
-        } catch (processingError) {
-          if (isStale()) return;
-          const message = processingError instanceof Error
-            ? processingError.message
-            : 'Data acquisition failed while constructing the scene';
-          pushDataStatusIfCurrent({ phase: 'error', message, fallback: dataSection.fallback_description });
-          processedDataset = null;
-        }
+      // Runs the post-ask state machine. Extracted so the streaming
+      // onComplete handler can invoke it without duplicating the logic.
+      async function runAnswerConstruction(result: TheseusResponse) {
         if (isStale()) return;
+
+        if (result.answer_type) {
+          const answerType = result.answer_type;
+          import('@/lib/theseus-viz/vizPlanner').then(({ resolveVizTypeFromBackend }) => {
+            if (isStale()) return;
+            pushVizPrediction(resolveVizTypeFromBackend(answerType));
+          }).catch(() => {});
+        }
+
+        setState('MODEL');
+        pushState('MODEL');
+        setResponse(result);
+        pushResponse(result);
+
+        const dataSection = result.sections.find(
+          (section): section is DataAcquisitionSection => section.type === 'data_acquisition',
+        );
+
+        // Yield one frame so React commits the MODEL render before we
+        // flip to CONSTRUCTING. The previous 500ms hard wait was dead air;
+        // a single rAF is enough to let the state machine breathe.
+        await new Promise<void>((resolve) => window.requestAnimationFrame(() => resolve()));
+        if (isStale()) return;
+
+        setState('CONSTRUCTING');
+        pushState('CONSTRUCTING');
+
+        let processedDataset: ProcessedDataset | null = null;
+        if (dataSection) {
+          try {
+            processedDataset = await processDataAcquisition(
+              dataSection,
+              pushDataStatusIfCurrent,
+              controller.signal,
+              DATA_ACQUISITION_TIMEOUT_MS,
+            );
+          } catch (processingError) {
+            if (isStale()) return;
+            const message = processingError instanceof Error
+              ? processingError.message
+              : 'Data acquisition failed while constructing the scene';
+            pushDataStatusIfCurrent({ phase: 'error', message, fallback: dataSection.fallback_description });
+            processedDataset = null;
+          }
+          if (isStale()) return;
+        }
+
+        const directive = await directScene(
+          result,
+          processedDataset?.data,
+          processedDataset?.dataShape ?? null,
+        );
+        if (isStale()) return;
+
+        setSceneDirective(directive);
+        pushDirective(directive);
+
+        // Train the classifier with the actual renderer so the KNN improves over time
+        import('@/lib/theseus-viz/vizPlanner').then(({ trainFromFeedback, inferVizTypeFromRenderTarget }) => {
+          const actualType = inferVizTypeFromRenderTarget(directive.render_target);
+          trainFromFeedback(queryText, actualType).catch(() => {});
+        }).catch(() => {});
+
+        const focalNodeId = directive.salience.find((salience) => salience.is_focal)?.node_id;
+        const firstObjectId = getObjects(result)[0]?.id ?? null;
+        setSelectedNodeId(focalNodeId ?? firstObjectId);
+        setState('EXPLORING');
+        pushState('EXPLORING');
+        pushDataStatusIfCurrent({ phase: 'complete' });
       }
 
-      const directive = await directScene(
-        result,
-        processedDataset?.data,
-        processedDataset?.dataShape ?? null,
+      // Tear down any previous stream before starting a new one so
+      // back-to-back queries do not leak EventSource connections.
+      streamCleanupRef.current?.();
+      streamCleanupRef.current = null;
+
+      streamCleanupRef.current = await askTheseusAsyncStream(
+        queryText,
+        { include_web: true, signal: controller.signal },
+        {
+          onStage: (event: StageEvent) => {
+            if (isStale()) return;
+            choreographerRef.current?.handleStage(event);
+          },
+          onToken: (_text: string) => {
+            // Tokens are aggregated by the backend into the final response.
+            // No per-token UI yet; onComplete delivers the normalized result.
+          },
+          onComplete: (result) => {
+            if (isStale()) return;
+            runAnswerConstruction(result).catch((runError) => {
+              if (isStale()) return;
+              const message = runError instanceof Error
+                ? runError.message
+                : 'Unexpected error while constructing response';
+              setError({ ok: false, status: 0, message, reason: 'network', transient: true });
+              setState('IDLE');
+              pushState('IDLE');
+              pushDataStatusIfCurrent({ phase: 'error', message, fallback: 'Try a shorter query or retry.' });
+              choreographerRef.current?.cleanup();
+            });
+          },
+          onError: (err) => {
+            if (isStale()) return;
+            const apiError: ApiError = {
+              ok: false,
+              status: 0,
+              message: err.message,
+              reason: 'network',
+              transient: err.transient,
+            };
+            setError(apiError);
+            pushDataStatusIfCurrent({ phase: 'error', message: normalizeErrorMessage(apiError), fallback: 'Try a shorter query or retry.' });
+            setState('IDLE');
+            pushState('IDLE');
+            choreographerRef.current?.cleanup();
+          },
+        },
       );
-      if (isStale()) return;
-
-      setSceneDirective(directive);
-      pushDirective(directive);
-
-      // Train the classifier with the actual renderer so the KNN improves over time
-      import('@/lib/theseus-viz/vizPlanner').then(({ trainFromFeedback, inferVizTypeFromRenderTarget }) => {
-        const actualType = inferVizTypeFromRenderTarget(directive.render_target);
-        trainFromFeedback(activeQuery, actualType).catch(() => {});
-      }).catch(() => {});
-
-      const focalNodeId = directive.salience.find((salience) => salience.is_focal)?.node_id;
-      const firstObjectId = getObjects(result)[0]?.id ?? null;
-      setSelectedNodeId(focalNodeId ?? firstObjectId);
-      setState('EXPLORING');
-      pushState('EXPLORING');
-      pushDataStatusIfCurrent({ phase: 'complete' });
     }
 
     run().catch((runError) => {
@@ -995,8 +1066,12 @@ export function AskExperience() {
 
     return () => {
       controller.abort();
+      streamCleanupRef.current?.();
+      streamCleanupRef.current = null;
+      choreographerRef.current?.cleanup();
+      choreographerRef.current = null;
     };
-  }, [clearSourceTrail, pushDataStatus, pushDirective, pushResponse, pushState, query, retryNonce, savedId]);
+  }, [clearSourceTrail, galaxyControllerRef, prefersReducedMotion, pushDataStatus, pushDirective, pushResponse, pushState, pushVizPrediction, query, retryNonce, savedId]);
 
   // When the 2D path is active (no RenderRouter), the dot field's
   // construction is already running by the time we reach EXPLORING.
