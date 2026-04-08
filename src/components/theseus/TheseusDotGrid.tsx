@@ -178,6 +178,8 @@ interface TheseusDotGridProps {
   repulsionStrength?: number;
   binaryDensity?: number;
   engineState?: EngineState;
+  /** Adaptive nav: fired when a fully-formed nav attractor is clicked. */
+  onNavButtonClick?: (id: string) => void;
 }
 
 const TheseusDotGrid = forwardRef<DotGridHandle, TheseusDotGridProps>(function TheseusDotGrid({
@@ -191,8 +193,13 @@ const TheseusDotGrid = forwardRef<DotGridHandle, TheseusDotGridProps>(function T
   repulsionStrength = 5,
   binaryDensity = 0.20,
   engineState = 'IDLE',
+  onNavButtonClick,
 }, ref) {
   const prefersReducedMotion = usePrefersReducedMotion();
+  const onNavButtonClickRef = useRef(onNavButtonClick);
+  useEffect(() => {
+    onNavButtonClickRef.current = onNavButtonClick;
+  }, [onNavButtonClick]);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const animRef = useRef<number>(0);
   const visibleRef = useRef(true);
@@ -1153,8 +1160,7 @@ const TheseusDotGrid = forwardRef<DotGridHandle, TheseusDotGridProps>(function T
       if (navAttractors.length === 0) return;
       const hit = hitTestAttractor(navAttractors, e.clientX, e.clientY);
       if (!hit) return;
-      // TODO: BATCH 4 - dispatch real action / route navigation here.
-      console.log('nav button clicked:', hit.id);
+      onNavButtonClickRef.current?.(hit.id);
       e.stopPropagation();
     }
 

@@ -2,6 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
+import { usePrefersReducedMotion } from '@/hooks/usePrefersReducedMotion';
 
 function ThreePointsCircleIcon() {
   return (
@@ -43,6 +44,7 @@ function isMapDetail(pathname: string): boolean {
 
 export default function TheseusNav() {
   const pathname = usePathname() ?? '';
+  const prefersReducedMotion = usePrefersReducedMotion();
   const inArtifacts = isArtifacts(pathname);
   const inModels = isModels(pathname);
   const inMapDetail = isMapDetail(pathname);
@@ -90,25 +92,29 @@ export default function TheseusNav() {
         )}
       </div>
 
-      {/* Center: nav pills */}
-      <div className="theseus-nav-center">
-        <Link
-          className={`theseus-nav-pill theseus-nav-pill-artifacts${inArtifacts ? ' is-active' : ''}`}
-          href="/theseus/artifacts"
-          aria-label="Artifacts"
-        >
-          <ThreePointsCircleIcon />
-          <span>Artifacts</span>
-        </Link>
-        <Link
-          className={`theseus-nav-pill theseus-nav-pill-models${inModels ? ' is-active' : ''}`}
-          href="/theseus/models"
-          aria-label="Models"
-        >
-          <ExtrudeIcon />
-          <span>Models</span>
-        </Link>
-      </div>
+      {/* Center: nav pills are rendered only under prefers-reduced-motion,
+          as a static fallback for users who won't see the dot-substrate
+          attractor buttons. Default path hides them entirely. */}
+      {prefersReducedMotion && (
+        <div className="theseus-nav-center">
+          <Link
+            className={`theseus-nav-pill theseus-nav-pill-artifacts${inArtifacts ? ' is-active' : ''}`}
+            href="/theseus/artifacts"
+            aria-label="Artifacts"
+          >
+            <ThreePointsCircleIcon />
+            <span>Artifacts</span>
+          </Link>
+          <Link
+            className={`theseus-nav-pill theseus-nav-pill-models${inModels ? ' is-active' : ''}`}
+            href="/theseus/models"
+            aria-label="Models"
+          >
+            <ExtrudeIcon />
+            <span>Models</span>
+          </Link>
+        </div>
+      )}
 
       {/* Right: empty for balance */}
       <div className="theseus-nav-right" />

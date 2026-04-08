@@ -1,6 +1,7 @@
 'use client';
 
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import TheseusDotGrid from './TheseusDotGrid';
 import GalaxyController from './GalaxyController';
 import type { GalaxyControllerHandle } from './GalaxyController';
@@ -12,6 +13,15 @@ import type { DataProcessingStatus } from '@/lib/theseus-data/types';
 import type { AskState } from '@/components/theseus/AskExperience';
 import type { VizPrediction } from '@/lib/theseus-viz/vizPlanner';
 import type { SourceTrailItem } from './SourceTrail';
+import { useNavScreenState } from './useNavScreenState';
+import {
+  NAV_ACTIONS,
+  initNavModel,
+  predictNav,
+  recordNavSignal,
+  trainNavModel,
+  type NavActionId,
+} from '@/lib/galaxy/navPredictor';
 
 interface GalaxyContextValue {
   gridRef: React.RefObject<DotGridHandle | null>;
@@ -76,19 +86,111 @@ export default function TheseusShell({ children }: { children: React.ReactNode }
     });
   }, []);
 
-  // TODO: BATCH 4 - replace with predictor wiring (navPredictor.predictNav
-  // -> setNavButtons). For Batch 2 verification only: hardcode three nav
-  // buttons one second after mount so we can see attractor formation.
+  /* ─────────────────────────────────────────────────
+     Adaptive nav: TF.js predictor → attractor buttons
+     ───────────────────────────────────────────────── */
+  const router = useRouter();
+  const navScreenState = useNavScreenState({
+    engineState:
+      askState === 'CONSTRUCTING' ? 'constructing'
+      : askState === 'THINKING' || askState === 'EXPLORING' ? 'reasoning'
+      : 'idle',
+    hasActiveQuery: askState !== 'IDLE',
+  });
+  const signalCountRef = useRef(0);
+  const ignoreTimersRef = useRef<Map<string, number>>(new Map());
+  const lastShownButtonsRef = useRef<Set<string>>(new Set());
+  const lastPredictionTimeRef = useRef(0);
+
+  // Initialize the model once on mount.
   useEffect(() => {
-    const t = setTimeout(() => {
-      gridRef.current?.setNavButtons([
-        { id: 'ask', label: 'Ask' },
-        { id: 'library', label: 'Library' },
-        { id: 'artifacts', label: 'Artifacts' },
-      ]);
-    }, 1000);
-    return () => clearTimeout(t);
+    initNavModel().catch((err) => {
+      console.warn('[nav] init failed:', err);
+    });
   }, []);
+
+  const maybeTrainAndSave = useCallback(async () => {
+    if (signalCountRef.current % 10 !== 0) return;
+    try {
+      await trainNavModel();
+    } catch (err) {
+      console.warn('[nav] training failed:', err);
+    }
+  }, []);
+
+  // Debounced prediction loop: re-predict whenever screen state changes,
+  // but no more often than once per 500ms.
+  useEffect(() => {
+    const now = Date.now();
+    if (now - lastPredictionTimeRef.current < 500) return;
+    lastPredictionTimeRef.current = now;
+
+    let cancelled = false;
+    predictNav(navScreenState).then((prediction) => {
+      if (cancelled) return;
+      const buttons = prediction.actions.map((a) => ({ id: a.id, label: a.label }));
+      gridRef.current?.setNavButtons(buttons);
+
+      const newIds = new Set<string>(buttons.map((b) => b.id));
+      // Clear ignore timers for buttons that disappeared.
+      for (const [id, timerId] of ignoreTimersRef.current) {
+        if (!newIds.has(id)) {
+          window.clearTimeout(timerId);
+          ignoreTimersRef.current.delete(id);
+        }
+      }
+      // Start ignore timers for newly shown buttons.
+      for (const id of newIds) {
+        if (lastShownButtonsRef.current.has(id)) continue;
+        const timerId = window.setTimeout(() => {
+          recordNavSignal(id as NavActionId, 'ignore');
+          signalCountRef.current += 1;
+          void maybeTrainAndSave();
+        }, 30_000);
+        ignoreTimersRef.current.set(id, timerId);
+      }
+      lastShownButtonsRef.current = newIds;
+    }).catch((err) => {
+      console.warn('[nav] prediction failed:', err);
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [navScreenState, maybeTrainAndSave]);
+
+  // Cleanup all pending ignore timers on unmount.
+  useEffect(() => () => {
+    for (const timerId of ignoreTimersRef.current.values()) {
+      window.clearTimeout(timerId);
+    }
+    ignoreTimersRef.current.clear();
+  }, []);
+
+  const handleNavButtonClick = useCallback((buttonId: string) => {
+    // Cancel the ignore timer for this button: the user engaged with it.
+    const timer = ignoreTimersRef.current.get(buttonId);
+    if (timer !== undefined) {
+      window.clearTimeout(timer);
+      ignoreTimersRef.current.delete(buttonId);
+    }
+
+    recordNavSignal(buttonId as NavActionId, 'click');
+    signalCountRef.current += 1;
+    void maybeTrainAndSave();
+
+    const action = NAV_ACTIONS.find((a) => a.id === buttonId);
+    if (!action) return;
+    if ('route' in action && action.route) {
+      router.push(action.route);
+    } else if ('action' in action && action.action) {
+      // Contextual actions fire a DOM event for now. Future batches can wire
+      // these to concrete handlers (openTensions, focusInput, etc.).
+      window.dispatchEvent(
+        new CustomEvent('theseus:nav-action', { detail: { action: action.action } }),
+      );
+    }
+  }, [router, maybeTrainAndSave]);
 
   const contextValue = useMemo(() => ({
     gridRef,
@@ -109,7 +211,7 @@ export default function TheseusShell({ children }: { children: React.ReactNode }
 
   return (
     <GalaxyContext.Provider value={contextValue}>
-      <TheseusDotGrid ref={gridRef} engineState={askState} spacing={14} />
+      <TheseusDotGrid ref={gridRef} engineState={askState} spacing={14} onNavButtonClick={handleNavButtonClick} />
       <GalaxyController
         ref={galaxyControllerRef}
         gridRef={gridRef}
