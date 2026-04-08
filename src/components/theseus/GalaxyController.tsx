@@ -1,7 +1,30 @@
 'use client';
 
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { forwardRef, useCallback, useEffect, useImperativeHandle, useRef, useState } from 'react';
 import type { DotGridHandle } from './TheseusDotGrid';
+
+/**
+ * Imperative handle exposed by GalaxyController for Phase B choreography.
+ *
+ * Phase B's ThinkingChoreographer (F3) consumes stage events from the SSE
+ * stream and needs to drive the dot grid directly while also looking up
+ * which dot corresponds to a given object PK. The grid ref and the int-keyed
+ * object-id map both live inside this component, so we expose them through
+ * forwardRef + useImperativeHandle.
+ *
+ * F9 will use this handle from AskExperience (via GalaxyContext) to
+ * construct the choreographer.
+ */
+export interface GalaxyControllerHandle {
+  /** Access the underlying dot grid for direct state writes. */
+  getGrid: () => DotGridHandle | null;
+  /** Map from object PK (int) to dot index. Populated by cluster assignment. */
+  getObjectIdToDotIndex: () => Map<number, number>;
+  /** Set of dot indices marked personal (terracotta). May be empty. */
+  getPersonalDotIndices: () => Set<number>;
+  /** Set of dot indices marked corpus (teal). May be empty. */
+  getCorpusDotIndices: () => Set<number>;
+}
 import type { ClusterSummary, EvidenceEdge, EvidenceNode, TheseusResponse, WhatIfResult } from '@/lib/theseus-types';
 import type { SceneDirective } from '@/lib/theseus-viz/SceneDirective';
 import type { DataProcessingStatus } from '@/lib/theseus-data/types';
@@ -182,7 +205,8 @@ interface GalaxyControllerProps {
   mouthOpenRef?: React.RefObject<number>;
 }
 
-export default function GalaxyController({
+const GalaxyController = forwardRef<GalaxyControllerHandle, GalaxyControllerProps>(
+function GalaxyController({
   gridRef,
   state,
   response,
@@ -192,7 +216,7 @@ export default function GalaxyController({
   argumentView,
   onSourceExplored,
   mouthOpenRef,
-}: GalaxyControllerProps) {
+}: GalaxyControllerProps, ref) {
   const prefersReducedMotion = usePrefersReducedMotion();
   const [clusters, setClusters] = useState<ClusterSummary[]>([]);
   // Canvas-native zoom/pan (driven by wheel, double-click, pinch)
@@ -214,6 +238,26 @@ export default function GalaxyController({
   const labelAlphaRef = useRef<number>(0);
   // Map from object_id to dot index for answer construction
   const objectDotMapRef = useRef<Map<string, number>>(new Map());
+  // Phase B: int-keyed sibling of objectDotMapRef for stage event consumers
+  // (ThinkingChoreographer). Object PKs are ints in the SSE payloads but
+  // serialize to strings in our existing cluster-assignment code, so we
+  // populate both maps at the same assignment sites.
+  const objectIdIntToDotMapRef = useRef<Map<number, number>>(new Map());
+  // Phase B: semantic sets for terracotta/teal visual categorization.
+  // These may be populated elsewhere when Pass 1 semantic colors land;
+  // for now, start empty and let the choreographer handle the empty case.
+  const personalDotIndicesRef = useRef<Set<number>>(new Set());
+  const corpusDotIndicesRef = useRef<Set<number>>(new Set());
+
+  // Phase B: expose the imperative handle consumed by ThinkingChoreographer.
+  // Each accessor returns the live ref contents, not a snapshot, so the
+  // choreographer always sees the latest cluster-assignment state.
+  useImperativeHandle(ref, () => ({
+    getGrid: () => gridRef.current,
+    getObjectIdToDotIndex: () => objectIdIntToDotMapRef.current,
+    getPersonalDotIndices: () => personalDotIndicesRef.current,
+    getCorpusDotIndices: () => corpusDotIndicesRef.current,
+  }), [gridRef]);
   // Recruited neighborhood dots (for constellation cleanup)
   const recruitedDotsRef = useRef<Set<number>>(new Set());
   // Original grid positions for reset
@@ -441,6 +485,7 @@ export default function GalaxyController({
       edgeProgressRef.current = 0;
       labelAlphaRef.current = 0;
       objectDotMapRef.current.clear();
+      objectIdIntToDotMapRef.current.clear();
       stippleCleanupRef.current?.();
       stippleCleanupRef.current = null;
       stippleResultRef.current = null;
@@ -1168,6 +1213,16 @@ export default function GalaxyController({
     }
 
     objectDotMapRef.current = objDotMap;
+
+    // Phase B: populate the int-keyed sibling map for stage event consumers.
+    const intMap = new Map<number, number>();
+    for (const [objectId, dotIndex] of objDotMap) {
+      const intId = typeof objectId === 'string' ? parseInt(objectId, 10) : objectId;
+      if (Number.isFinite(intId)) {
+        intMap.set(intId, dotIndex);
+      }
+    }
+    objectIdIntToDotMapRef.current = intMap;
 
     // Recruit neighborhood dots to form visible constellations per evidence node
     const NEIGHBORS_PER_NODE = 50;
@@ -2333,4 +2388,6 @@ export default function GalaxyController({
       />
     </>
   );
-}
+});
+
+export default GalaxyController;

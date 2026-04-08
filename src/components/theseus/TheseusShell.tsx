@@ -3,6 +3,7 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import TheseusDotGrid from './TheseusDotGrid';
 import GalaxyController from './GalaxyController';
+import type { GalaxyControllerHandle } from './GalaxyController';
 import TheseusNav from './TheseusNav';
 import type { DotGridHandle } from './TheseusDotGrid';
 import type { TheseusResponse } from '@/lib/theseus-types';
@@ -14,6 +15,8 @@ import type { SourceTrailItem } from './SourceTrail';
 
 interface GalaxyContextValue {
   gridRef: React.RefObject<DotGridHandle | null>;
+  /** Phase B: imperative handle for ThinkingChoreographer (F9 consumer). */
+  galaxyControllerRef: React.RefObject<GalaxyControllerHandle | null>;
   /** Current engine state. Read by HomepageChrome to fade out when
    *  the user submits a query and back in when state returns to IDLE. */
   askState: AskState;
@@ -47,6 +50,7 @@ export function useDotGrid(): React.RefObject<DotGridHandle | null> {
 
 export default function TheseusShell({ children }: { children: React.ReactNode }) {
   const gridRef = useRef<DotGridHandle>(null);
+  const galaxyControllerRef = useRef<GalaxyControllerHandle>(null);
   const [askState, setAskState] = useState<AskState>('IDLE');
   const [response, setResponse] = useState<TheseusResponse | null>(null);
   const [directive, setDirective] = useState<SceneDirective | null>(null);
@@ -74,6 +78,7 @@ export default function TheseusShell({ children }: { children: React.ReactNode }
 
   const contextValue = useMemo(() => ({
     gridRef,
+    galaxyControllerRef,
     askState,
     setAskState,
     setResponse,
@@ -92,6 +97,7 @@ export default function TheseusShell({ children }: { children: React.ReactNode }
     <GalaxyContext.Provider value={contextValue}>
       <TheseusDotGrid ref={gridRef} engineState={askState} spacing={14} />
       <GalaxyController
+        ref={galaxyControllerRef}
         gridRef={gridRef}
         state={askState}
         response={response}
