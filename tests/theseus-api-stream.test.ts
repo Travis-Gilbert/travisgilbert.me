@@ -75,6 +75,7 @@ function makeAskPayload(overrides: Partial<Record<string, unknown>> = {}) {
 test('askTheseusAsyncStream forwards progressive events before complete', async (t) => {
   const originalFetch = globalThis.fetch;
   const originalEventSource = globalThis.EventSource;
+  const requestedUrls: string[] = [];
 
   t.after(() => {
     globalThis.fetch = originalFetch;
@@ -82,16 +83,19 @@ test('askTheseusAsyncStream forwards progressive events before complete', async 
     MockEventSource.latest = null;
   });
 
-  globalThis.fetch = async () => new Response(
-    JSON.stringify({
-      job_id: 'job-1',
-      stream_url: '/api/v2/theseus/ask/stream/job-1/',
-    }),
-    {
-      status: 200,
-      headers: { 'Content-Type': 'application/json' },
-    },
-  );
+  globalThis.fetch = async (input) => {
+    requestedUrls.push(String(input));
+    return new Response(
+      JSON.stringify({
+        job_id: 'job-1',
+        stream_url: '/api/v2/theseus/ask/stream/job-1/',
+      }),
+      {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      },
+    );
+  };
   globalThis.EventSource = MockEventSource as unknown as typeof EventSource;
 
   const seen: string[] = [];
@@ -142,7 +146,8 @@ test('askTheseusAsyncStream forwards progressive events before complete', async 
 
   const eventSource = MockEventSource.latest;
   assert.ok(eventSource);
-  assert.equal(eventSource.url, '/api/v2/theseus/ask/stream/job-1/');
+  assert.deepEqual(requestedUrls, ['/api/v2/theseus/ask/async']);
+  assert.equal(eventSource.url, '/api/v2/theseus/ask/stream/job-1');
 
   eventSource.emit('stage', { name: 'pipeline_start', query: 'Show me Ada Lovelace' });
   eventSource.emit('token', { text: 'Ada' });

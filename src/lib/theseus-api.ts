@@ -209,6 +209,28 @@ function apiError(
   return { ok: false, status, message, reason, transient };
 }
 
+function canonicalizeTheseusUrl(pathOrUrl: string): string {
+  if (!pathOrUrl) return pathOrUrl;
+
+  if (pathOrUrl.startsWith('http://') || pathOrUrl.startsWith('https://')) {
+    try {
+      const url = new URL(pathOrUrl);
+      if (url.pathname.length > 1) {
+        url.pathname = url.pathname.replace(/\/+$/, '');
+      }
+      return url.toString();
+    } catch {
+      return pathOrUrl;
+    }
+  }
+
+  if (pathOrUrl.length > 1) {
+    return pathOrUrl.replace(/\/+$/, '');
+  }
+
+  return pathOrUrl;
+}
+
 async function apiFetch<TInput extends object, TOutput extends object = TInput>(
   path: string,
   init?: RequestInit,
@@ -218,6 +240,7 @@ async function apiFetch<TInput extends object, TOutput extends object = TInput>(
   const timeoutMs = controls?.timeoutMs ?? DEFAULT_TIMEOUT_MS;
   const retryPolicy = controls?.retryPolicy ?? 'transient-once';
   const maxAttempts = retryPolicy === 'transient-once' ? 2 : 1;
+  const requestPath = canonicalizeTheseusUrl(path);
 
   let lastError: ApiError | null = null;
 
@@ -235,7 +258,7 @@ async function apiFetch<TInput extends object, TOutput extends object = TInput>(
     }
 
     try {
-      const res = await fetch(path, {
+      const res = await fetch(requestPath, {
         ...init,
         signal: controller.signal,
         headers: {
@@ -894,7 +917,7 @@ export async function askTheseus(
     return askTheseusStream(query, options);
   }
 
-  return apiFetch<RawAskResponse, TheseusResponse>('/api/v2/theseus/ask/', {
+  return apiFetch<RawAskResponse, TheseusResponse>('/api/v2/theseus/ask', {
     method: 'POST',
     body: JSON.stringify(buildAskBody(query, options)),
   }, normalizeAskResponse, {
@@ -927,7 +950,7 @@ async function askTheseusStream(
   const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
 
   try {
-    const res = await fetch('/api/v2/theseus/ask/stream/', {
+    const res = await fetch('/api/v2/theseus/ask/stream', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(buildAskBody(query, options)),
@@ -1032,7 +1055,7 @@ export async function askTheseusAsyncStream(
 ): Promise<() => void> {
   let response: Response;
   try {
-    response = await fetch('/api/v2/theseus/ask/async/', {
+    response = await fetch('/api/v2/theseus/ask/async', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -1066,7 +1089,9 @@ export async function askTheseusAsyncStream(
   }
 
   const jobId = payload.job_id;
-  const streamUrl = payload.stream_url ?? (jobId ? `/api/v2/theseus/ask/stream/${jobId}/` : null);
+  const streamUrl = canonicalizeTheseusUrl(
+    payload.stream_url ?? (jobId ? `/api/v2/theseus/ask/stream/${jobId}` : ''),
+  );
   if (!streamUrl) {
     handlers.onError({ message: 'Missing job_id in enqueue response', transient: false });
     return () => {};
@@ -1153,23 +1178,23 @@ export async function askTheseusAsyncStream(
 export async function getObject(
   id: string,
 ): Promise<ApiResult<TheseusObject>> {
-  return apiFetch<RawObjectResponse, TheseusObject>(`/api/v2/theseus/objects/${id}/`, undefined, normalizeObject);
+  return apiFetch<RawObjectResponse, TheseusObject>(`/api/v2/theseus/objects/${id}`, undefined, normalizeObject);
 }
 
 export async function getClusters(): Promise<ApiResult<{ clusters: ClusterSummary[] }>> {
-  return apiFetch<RawClusterResponse, { clusters: ClusterSummary[] }>('/api/v2/theseus/clusters/', undefined, normalizeClusters);
+  return apiFetch<RawClusterResponse, { clusters: ClusterSummary[] }>('/api/v2/theseus/clusters', undefined, normalizeClusters);
 }
 
 export async function whatIfRemove(
   objectId: string,
 ): Promise<ApiResult<WhatIfResult>> {
-  return apiFetch<RawWhatIfRemoveResponse, WhatIfResult>(`/api/v2/theseus/what-if-remove/${objectId}/`, undefined, normalizeWhatIfRemove);
+  return apiFetch<RawWhatIfRemoveResponse, WhatIfResult>(`/api/v2/theseus/what-if-remove/${objectId}`, undefined, normalizeWhatIfRemove);
 }
 
 export async function getHypotheses(): Promise<ApiResult<{ hypotheses: Hypothesis[] }>> {
-  return apiFetch<RawHypothesisResponse, { hypotheses: Hypothesis[] }>('/api/v2/theseus/hypotheses/', undefined, normalizeHypotheses);
+  return apiFetch<RawHypothesisResponse, { hypotheses: Hypothesis[] }>('/api/v2/theseus/hypotheses', undefined, normalizeHypotheses);
 }
 
 export async function getGraphWeather(): Promise<ApiResult<GraphWeather>> {
-  return apiFetch<RawGraphWeather, GraphWeather>('/api/v2/theseus/graph-weather/', undefined, normalizeGraphWeather);
+  return apiFetch<RawGraphWeather, GraphWeather>('/api/v2/theseus/graph-weather', undefined, normalizeGraphWeather);
 }
