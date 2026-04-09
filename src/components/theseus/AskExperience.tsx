@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { askTheseusAsyncStream } from '@/lib/theseus-api';
-import type { ApiError, StageEvent } from '@/lib/theseus-api';
+import type { ApiError, ProgressiveVisualPayload, StageEvent } from '@/lib/theseus-api';
 import { ThinkingChoreographer } from '@/lib/galaxy/ThinkingChoreographer';
 import type {
   DataAcquisitionSection,
@@ -21,6 +21,11 @@ import { directScene } from '@/lib/theseus-viz/SceneDirector';
 import { buildObjectLookup } from '@/components/theseus/renderers/rendering';
 import RenderRouter from '@/components/theseus/renderers/RenderRouter';
 import ThinkingScreen from '@/components/theseus/ThinkingScreen';
+import {
+  getAskPresentationState,
+  mergeProgressiveVisualPayload,
+} from '@/components/theseus/askExperienceState';
+import type { AskState } from '@/components/theseus/askExperienceState';
 import { useGalaxy } from '@/components/theseus/TheseusShell';
 import SourceTrail from '@/components/theseus/SourceTrail';
 import { getModel } from '@/lib/theseus-storage';
@@ -397,8 +402,6 @@ function AskDock({
   );
 }
 
-export type AskState = 'IDLE' | 'THINKING' | 'MODEL' | 'CONSTRUCTING' | 'EXPLORING';
-
 interface ProcessedDataset {
   data: Record<string, unknown>[];
   dataShape: DataShape | null;
@@ -726,6 +729,25 @@ export function AskExperience() {
   const [queryHistory, setQueryHistory] = useState<QueryHistoryEntry[]>([]);
   const [retryNonce, setRetryNonce] = useState(0);
   const [spinnerFrame, setSpinnerFrame] = useState(0);
+  const stateRef = useRef<AskState>(query ? 'THINKING' : 'IDLE');
+  const responseRef = useRef<TheseusResponse | null>(null);
+
+  const applyState = useCallback((nextState: AskState) => {
+    stateRef.current = nextState;
+    setState(nextState);
+    pushState(nextState);
+  }, [pushState]);
+
+  const applyResponse = useCallback((nextResponse: TheseusResponse | null) => {
+    responseRef.current = nextResponse;
+    setResponse(nextResponse);
+    pushResponse(nextResponse);
+  }, [pushResponse]);
+
+  const applySceneDirective = useCallback((nextDirective: SceneDirective | null) => {
+    setSceneDirective(nextDirective);
+    pushDirective(nextDirective);
+  }, [pushDirective]);
 
   // Drive the spinner glyph at 12.5fps while the dock is in submitting
   // mode. Single shared interval so multiple spinners stay in sync.
@@ -937,11 +959,10 @@ export function AskExperience() {
       if (model) {
         setSavedSceneSpec(model.scene_spec);
         setSavedQuery(model.query);
-        setState('EXPLORING');
-        pushState('EXPLORING');
+        applyState('EXPLORING');
       }
     });
-  }, [pushState, savedId]);
+  }, [applyState, savedId]);
 
   useEffect(() => {
     askAbortRef.current?.abort();
@@ -957,11 +978,9 @@ export function AskExperience() {
     askAbortRef.current = controller;
 
     setNarrationReady(false);
-    setSceneDirective(null);
+    applySceneDirective(null);
     setSelectedNodeId(null);
-    setResponse(null);
-    pushResponse(null);
-    pushDirective(null);
+    applyResponse(null);
     pushVizPrediction(null);
     setDataStatus(null);
     pushDataStatus(null);
@@ -979,8 +998,29 @@ export function AskExperience() {
         pushDataStatus(status);
       };
 
-      setState('THINKING');
-      pushState('THINKING');
+      const mergeVisualPayloadIfCurrent = (payload: ProgressiveVisualPayload) => {
+        if (isStale()) return;
+        const merged = mergeProgressiveVisualPayload(responseRef.current, payload);
+        if (merged) {
+          applyResponse(merged);
+        }
+      };
+
+      const revealAnswerWithoutScene = (fallbackResponse?: TheseusResponse | null): boolean => {
+        if (isStale()) return false;
+        const nextResponse = fallbackResponse ?? responseRef.current;
+        if (!nextResponse) return false;
+
+        applyResponse(nextResponse);
+        applySceneDirective(null);
+        setSelectedNodeId(null);
+        setNarrationReady(true);
+        applyState('EXPLORING');
+        pushDataStatusIfCurrent({ phase: 'complete' });
+        return true;
+      };
+
+      applyState('THINKING');
       clearSourceTrail();
 
       // Fire viz prediction in parallel: does not block the ask call
@@ -1023,6 +1063,7 @@ export function AskExperience() {
       // onComplete handler can invoke it without duplicating the logic.
       async function runAnswerConstruction(result: TheseusResponse) {
         if (isStale()) return;
+        const shouldRevealAnswer = responseRef.current === null;
 
         if (result.answer_type) {
           const answerType = result.answer_type;
@@ -1032,23 +1073,22 @@ export function AskExperience() {
           }).catch(() => {});
         }
 
-        setState('MODEL');
-        pushState('MODEL');
-        setResponse(result);
-        pushResponse(result);
+        setNarrationReady(false);
+        applyResponse(result);
 
         const dataSection = result.sections.find(
           (section): section is DataAcquisitionSection => section.type === 'data_acquisition',
         );
 
-        // Yield one frame so React commits the MODEL render before we
-        // flip to CONSTRUCTING. The previous 500ms hard wait was dead air;
-        // a single rAF is enough to let the state machine breathe.
-        await new Promise<void>((resolve) => window.requestAnimationFrame(() => resolve()));
-        if (isStale()) return;
-
-        setState('CONSTRUCTING');
-        pushState('CONSTRUCTING');
+        if (shouldRevealAnswer) {
+          // Yield one frame so React commits the MODEL render before we
+          // flip to CONSTRUCTING. The previous 500ms hard wait was dead air;
+          // a single rAF is enough to let the state machine breathe.
+          applyState('MODEL');
+          await new Promise<void>((resolve) => window.requestAnimationFrame(() => resolve()));
+          if (isStale()) return;
+          applyState('CONSTRUCTING');
+        }
 
         let processedDataset: ProcessedDataset | null = null;
         if (dataSection) {
@@ -1077,8 +1117,7 @@ export function AskExperience() {
         );
         if (isStale()) return;
 
-        setSceneDirective(directive);
-        pushDirective(directive);
+        applySceneDirective(directive);
 
         // Train the classifier with the actual renderer so the KNN improves over time
         import('@/lib/theseus-viz/vizPlanner').then(({ trainFromFeedback, inferVizTypeFromRenderTarget }) => {
@@ -1089,8 +1128,7 @@ export function AskExperience() {
         const focalNodeId = directive.salience.find((salience) => salience.is_focal)?.node_id;
         const firstObjectId = getObjects(result)[0]?.id ?? null;
         setSelectedNodeId(focalNodeId ?? firstObjectId);
-        setState('EXPLORING');
-        pushState('EXPLORING');
+        applyState('EXPLORING');
         pushDataStatusIfCurrent({ phase: 'complete' });
       }
 
@@ -1111,6 +1149,46 @@ export function AskExperience() {
             // Tokens are aggregated by the backend into the final response.
             // No per-token UI yet; onComplete delivers the normalized result.
           },
+          onVisualDelta: (payload) => {
+            if (isStale()) return;
+            mergeVisualPayloadIfCurrent(payload);
+            if (responseRef.current && stateRef.current === 'MODEL') {
+              applyState('CONSTRUCTING');
+            }
+          },
+          onAnswerReady: (earlyResult) => {
+            if (isStale()) return;
+
+            if (earlyResult.answer_type) {
+              const answerType = earlyResult.answer_type;
+              import('@/lib/theseus-viz/vizPlanner').then(({ resolveVizTypeFromBackend }) => {
+                if (isStale()) return;
+                pushVizPrediction(resolveVizTypeFromBackend(answerType));
+              }).catch(() => {});
+            }
+
+            setError(null);
+            setNarrationReady(false);
+            applyResponse(earlyResult);
+            applyState('MODEL');
+            window.requestAnimationFrame(() => {
+              if (isStale()) return;
+              if (stateRef.current !== 'MODEL' || !responseRef.current) return;
+              applyState('CONSTRUCTING');
+            });
+          },
+          onVisualComplete: (payload) => {
+            if (isStale()) return;
+            mergeVisualPayloadIfCurrent(payload);
+
+            if (payload.available === false && revealAnswerWithoutScene()) {
+              return;
+            }
+
+            if (responseRef.current && stateRef.current === 'MODEL') {
+              applyState('CONSTRUCTING');
+            }
+          },
           onComplete: (result) => {
             if (isStale()) return;
             runAnswerConstruction(result).catch((runError) => {
@@ -1118,9 +1196,17 @@ export function AskExperience() {
               const message = runError instanceof Error
                 ? runError.message
                 : 'Unexpected error while constructing response';
+              if (revealAnswerWithoutScene(result)) {
+                pushDataStatusIfCurrent({
+                  phase: 'error',
+                  message,
+                  fallback: 'Showing the answer without a scene.',
+                });
+                choreographerRef.current?.cleanup();
+                return;
+              }
               setError({ ok: false, status: 0, message, reason: 'network', transient: true });
-              setState('IDLE');
-              pushState('IDLE');
+              applyState('IDLE');
               pushDataStatusIfCurrent({ phase: 'error', message, fallback: 'Try a shorter query or retry.' });
               choreographerRef.current?.cleanup();
             });
@@ -1134,10 +1220,18 @@ export function AskExperience() {
               reason: 'network',
               transient: err.transient,
             };
+            if (revealAnswerWithoutScene()) {
+              pushDataStatusIfCurrent({
+                phase: 'error',
+                message: normalizeErrorMessage(apiError),
+                fallback: 'Showing the answer without a scene.',
+              });
+              choreographerRef.current?.cleanup();
+              return;
+            }
             setError(apiError);
             pushDataStatusIfCurrent({ phase: 'error', message: normalizeErrorMessage(apiError), fallback: 'Try a shorter query or retry.' });
-            setState('IDLE');
-            pushState('IDLE');
+            applyState('IDLE');
             choreographerRef.current?.cleanup();
           },
         },
@@ -1148,8 +1242,7 @@ export function AskExperience() {
       if (controller.signal.aborted || requestId !== requestIdRef.current) return;
       const message = runError instanceof Error ? runError.message : 'Unexpected error while constructing response';
       setError({ ok: false, status: 0, message, reason: 'network', transient: true });
-      setState('IDLE');
-      pushState('IDLE');
+      applyState('IDLE');
       setDataStatus({ phase: 'error', message, fallback: 'Try a shorter query or retry.' });
       pushDataStatus({ phase: 'error', message, fallback: 'Try a shorter query or retry.' });
     });
@@ -1161,7 +1254,19 @@ export function AskExperience() {
       choreographerRef.current?.cleanup();
       choreographerRef.current = null;
     };
-  }, [clearSourceTrail, galaxyControllerRef, prefersReducedMotion, pushDataStatus, pushDirective, pushResponse, pushState, pushVizPrediction, query, retryNonce, savedId]);
+  }, [
+    applyResponse,
+    applySceneDirective,
+    applyState,
+    clearSourceTrail,
+    galaxyControllerRef,
+    prefersReducedMotion,
+    pushDataStatus,
+    pushVizPrediction,
+    query,
+    retryNonce,
+    savedId,
+  ]);
 
   // When the 2D path is active (no RenderRouter), the dot field's
   // construction is already running by the time we reach EXPLORING.
@@ -1217,20 +1322,29 @@ export function AskExperience() {
   // text lives in a single DOM node that morphs between three positions
   // so the user's eye never loses it during the thinking-to-answer
   // transition.
-  const isExploring = state === 'EXPLORING' && Boolean(response) && Boolean(sceneDirective);
-  const queryStage: 'hidden' | 'centered' | 'header' = error
-    ? 'hidden'
-    : state === 'IDLE'
-      ? 'hidden'
-      : isExploring
-        ? 'header'
-        : 'centered';
-  const travelingQueryText = isExploring && response ? response.query : (query ?? '');
+  const { isExploring, hasScene, queryStage } = getAskPresentationState({
+    hasError: Boolean(error),
+    state,
+    response,
+    sceneDirective,
+  });
+  const travelingQueryText = response?.query ?? query ?? '';
+  const previewAnswerText = renderedNarratives[0]?.content ?? response?.answer ?? '';
+  const showProgressiveAnswerCard = Boolean(response) && previewAnswerText.trim().length > 0 && (
+    state === 'MODEL'
+    || state === 'CONSTRUCTING'
+    || (isExploring && !narrationReady)
+  );
+  const answerMetaLabel = sceneDirective
+    ? (RENDERER_LABELS[sceneDirective.render_target.primary] ?? sceneDirective.render_target.primary)
+    : response?.answer_type
+      ? response.answer_type.replace(/_/g, ' ').toUpperCase()
+      : 'ANSWER';
 
   // The non-graph-native renderer (D3, Vega, Sigma) only mounts once we
   // have a directive. The graph-native path is drawn directly on the
   // galaxy canvas by GalaxyController and needs no React mount here.
-  const showRenderRouter = isExploring && sceneDirective && !isGraphNativeTarget(sceneDirective);
+  const showRenderRouter = hasScene && sceneDirective && !isGraphNativeTarget(sceneDirective);
 
   return (
     <div style={{ position: 'relative', width: '100%', height: '100%' }}>
@@ -1246,9 +1360,9 @@ export function AskExperience() {
       {/* Answer meta card: blooms in from the spinner location when we
           enter EXPLORING. The query string itself is owned by
           TravelingQuery and lands just below this card. */}
-      {isExploring && response && sceneDirective && (
+      {isExploring && response && (
         <AnswerMetaCard
-          rendererLabel={RENDERER_LABELS[sceneDirective.render_target.primary] ?? sceneDirective.render_target.primary}
+          rendererLabel={answerMetaLabel}
           nodeCount={objectLookup.size}
           confidenceColor={getConfidenceColor(response.confidence.combined)}
           confidencePercent={Math.round(response.confidence.combined * 100)}
@@ -1274,9 +1388,17 @@ export function AskExperience() {
         <ThinkingScreen state={state} query={null} dataStatus={dataStatus} />
       )}
 
+      {showProgressiveAnswerCard && (
+        <ProgressiveAnswerCard
+          text={previewAnswerText}
+          isMobile={isMobile}
+          prefersReducedMotion={prefersReducedMotion}
+        />
+      )}
+
       {/* Source trail: accumulated explored sources, visible only when
           exploring and the user has clicked into sources. */}
-      {isExploring && sourceTrail.length > 0 && (
+      {hasScene && sourceTrail.length > 0 && (
         <div
           style={{
             position: 'absolute',
@@ -1453,6 +1575,75 @@ export function AskExperience() {
  * location when EXPLORING is first reached so the answer feels like
  * it's emerging from the spinner rather than popping into existence.
  */
+function ProgressiveAnswerCard({
+  text,
+  isMobile,
+  prefersReducedMotion,
+}: {
+  text: string;
+  isMobile: boolean;
+  prefersReducedMotion: boolean;
+}) {
+  const [visible, setVisible] = useState(false);
+
+  useEffect(() => {
+    const id = window.requestAnimationFrame(() => setVisible(true));
+    return () => window.cancelAnimationFrame(id);
+  }, []);
+
+  return (
+    <div
+      style={{
+        position: 'fixed',
+        left: '50%',
+        bottom: isMobile ? 212 : 188,
+        width: 'min(720px, calc(100vw - 40px))',
+        transform: visible
+          ? 'translateX(-50%) translateY(0)'
+          : 'translateX(-50%) translateY(10px)',
+        opacity: visible ? 1 : 0,
+        transition: prefersReducedMotion
+          ? 'none'
+          : 'transform 280ms ease, opacity 220ms ease',
+        zIndex: 10,
+        pointerEvents: 'none',
+      }}
+    >
+      <div
+        className="theseus-insight-panel"
+        style={{
+          padding: isMobile ? '14px 16px' : '16px 18px',
+          borderRadius: 18,
+          background: 'var(--vie-surface-panel)',
+          border: '1px solid var(--vie-surface-panel-border)',
+          backdropFilter: 'blur(18px)',
+          WebkitBackdropFilter: 'blur(18px)',
+          boxShadow: '0 18px 42px rgba(0, 0, 0, 0.22)',
+          pointerEvents: 'auto',
+        }}
+      >
+        <p
+          style={{
+            margin: 0,
+            color: 'var(--vie-text)',
+            fontFamily: 'var(--vie-font-body)',
+            fontSize: isMobile ? 13 : 14,
+            lineHeight: 1.7,
+          }}
+        >
+          {text}
+        </p>
+      </div>
+    </div>
+  );
+}
+
+/**
+ * Top-left meta card that holds the renderer label, node count, and
+ * confidence. Blooms from a point near the bottom-center spinner
+ * location when EXPLORING is first reached so the answer feels like
+ * it's emerging from the spinner rather than popping into existence.
+ */
 function AnswerMetaCard({
   rendererLabel,
   nodeCount,
@@ -1564,4 +1755,3 @@ function AnswerMetaCard({
     </div>
   );
 }
-

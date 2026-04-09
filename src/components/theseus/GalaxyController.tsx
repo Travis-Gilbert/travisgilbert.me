@@ -46,9 +46,9 @@ import {
 } from '@/lib/galaxy/stippleConstruction';
 import GalaxyDrawer from './GalaxyDrawer';
 import type { SourceTrailItem } from './SourceTrail';
+import type { AskState } from './askExperienceState';
 import { getColorStrategy } from '@/lib/galaxy/e4bVision';
 import type { AnswerType } from '@/lib/theseus-types';
-import type { AskState } from '@/components/theseus/AskExperience';
 import { stippleFace } from '@/lib/galaxy/StipplingDirector';
 import {
   tagFaceDots,

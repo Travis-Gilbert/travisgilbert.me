@@ -34,8 +34,9 @@ export type AnswerType =
 export interface AnswerClassification {
   answer_type: AnswerType;
   search_query: string | null;
-  confidence: number;
-  reasoning: string;
+  confidence?: number;
+  reasoning?: string;
+  extracted_entity?: string | null;
 }
 
 export interface ConfidenceScore {

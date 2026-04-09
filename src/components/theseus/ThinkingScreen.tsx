@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { usePrefersReducedMotion } from '@/hooks/usePrefersReducedMotion';
 import type { DataProcessingStatus } from '@/lib/theseus-data/types';
-import type { AskState } from '@/components/theseus/AskExperience';
+import type { AskState } from '@/components/theseus/askExperienceState';
 
 interface ThinkingScreenProps {
   state: AskState;
@@ -32,7 +32,7 @@ function getHonestStatus(state: AskState, dataStatus: DataProcessingStatus | nul
     if (dataStatus?.phase === 'processing') return `running query ${dataStatus.query_index + 1}/${dataStatus.total}…`;
     return 'constructing scene…';
   }
-  if (state === 'MODEL') return 'assembling evidence…';
+  if (state === 'MODEL') return 'answer ready…';
   return 'thinking…';
 }
 

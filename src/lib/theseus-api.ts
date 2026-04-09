@@ -1,4 +1,6 @@
 import type {
+  AnswerClassification,
+  AnswerType,
   AskOptions,
   ClusterSummary,
   EvidenceEdge,
@@ -10,6 +12,7 @@ import type {
   ResponseSection,
   TheseusObject,
   TheseusResponse,
+  VisualizationSection,
   WhatIfResult,
 } from './theseus-types';
 
@@ -46,6 +49,9 @@ export type StageEvent =
 export interface AsyncStreamHandlers {
   onStage: (event: StageEvent) => void;
   onToken: (token: string) => void;
+  onVisualDelta?: (payload: ProgressiveVisualPayload) => void;
+  onAnswerReady?: (result: TheseusResponse) => void;
+  onVisualComplete?: (payload: ProgressiveVisualPayload) => void;
   onComplete: (result: TheseusResponse) => void;
   onError: (error: { message: string; transient: boolean }) => void;
 }
@@ -71,10 +77,20 @@ interface RequestControls {
 const DEFAULT_TIMEOUT_MS = 14_000;
 const RETRY_DELAY_MS = 250;
 
+interface RawAnswerClassification {
+  answer_type?: string;
+  search_query?: string | null;
+  confidence?: number | null;
+  reasoning?: string | null;
+  extracted_entity?: string | null;
+}
+
 interface RawAskResponse {
   query: string;
   answer?: string;
   answer_agent?: string;
+  answer_type?: string;
+  answer_classification?: RawAnswerClassification;
   traversal: {
     objects_searched: number;
     clusters_touched: number;
@@ -95,6 +111,29 @@ interface RawAskResponse {
   follow_ups: FollowUp[];
   reference_image_url?: string;
   geographic_regions?: GeographicRegionsSection;
+}
+
+interface RawVisualizationSection {
+  type?: string;
+  data?: Record<string, unknown>;
+}
+
+interface RawProgressiveVisualPayload {
+  sequence?: number;
+  answer_type?: string;
+  available?: boolean;
+  reference_image_url?: string;
+  geographic_regions?: GeographicRegionsSection;
+  visualization?: RawVisualizationSection | Record<string, unknown>;
+}
+
+export interface ProgressiveVisualPayload {
+  sequence: number;
+  answer_type?: AnswerType;
+  available?: boolean;
+  reference_image_url?: string;
+  geographic_regions?: GeographicRegionsSection;
+  visualization?: VisualizationSection;
 }
 
 interface RawGraphWeather {
@@ -259,6 +298,80 @@ function average(values: number[]): number {
   return values.reduce((sum, value) => sum + value, 0) / values.length;
 }
 
+const KNOWN_ANSWER_TYPES = new Set<AnswerType>([
+  'geographic',
+  'portrait',
+  'diagram',
+  'comparison',
+  'timeline',
+  'hierarchy',
+  'explanation',
+]);
+
+function normalizeAnswerType(value: unknown): AnswerType | undefined {
+  if (typeof value !== 'string') return undefined;
+  return KNOWN_ANSWER_TYPES.has(value as AnswerType) ? (value as AnswerType) : undefined;
+}
+
+function normalizeAnswerClassification(
+  raw: RawAnswerClassification | undefined,
+  fallbackAnswerType?: AnswerType,
+): AnswerClassification | undefined {
+  const answerType = normalizeAnswerType(raw?.answer_type) ?? fallbackAnswerType;
+  if (!answerType) return undefined;
+
+  return {
+    answer_type: answerType,
+    search_query:
+      typeof raw?.search_query === 'string'
+        ? raw.search_query
+        : raw?.search_query === null
+          ? null
+          : null,
+    confidence: typeof raw?.confidence === 'number' ? toUnitInterval(raw.confidence) : undefined,
+    reasoning: typeof raw?.reasoning === 'string' ? raw.reasoning : undefined,
+    extracted_entity:
+      typeof raw?.extracted_entity === 'string'
+        ? raw.extracted_entity
+        : raw?.extracted_entity === null
+          ? null
+          : undefined,
+  };
+}
+
+function normalizeVisualizationSection(raw: unknown): VisualizationSection | undefined {
+  if (!raw || typeof raw !== 'object') return undefined;
+
+  const rawSection = raw as RawVisualizationSection;
+  const sceneData =
+    rawSection.data && typeof rawSection.data === 'object'
+      ? rawSection.data
+      : (raw as Record<string, unknown>);
+
+  return {
+    type: 'visualization',
+    scene_id: 'progressive-visualization',
+    scene_data: sceneData,
+  };
+}
+
+export function normalizeProgressiveVisualPayload(
+  raw: RawProgressiveVisualPayload,
+): ProgressiveVisualPayload {
+  return {
+    sequence: typeof raw.sequence === 'number' ? raw.sequence : 0,
+    answer_type: normalizeAnswerType(raw.answer_type),
+    available: typeof raw.available === 'boolean' ? raw.available : undefined,
+    reference_image_url:
+      typeof raw.reference_image_url === 'string' ? raw.reference_image_url : undefined,
+    geographic_regions:
+      typeof raw.geographic_regions === 'object' && raw.geographic_regions !== null
+        ? raw.geographic_regions
+        : undefined,
+    visualization: normalizeVisualizationSection(raw.visualization),
+  };
+}
+
 function withFallback<T>(value: T | null | undefined, fallback: T): T {
   return value ?? fallback;
 }
@@ -330,6 +443,13 @@ function normalizeTheseusObject(raw: Record<string, unknown>): TheseusObject {
 
 function normalizeAskResponse(raw: RawAskResponse): TheseusResponse {
   const sections: ResponseSection[] = [];
+  const answerType = normalizeAnswerType(
+    raw.answer_type ?? raw.answer_classification?.answer_type,
+  );
+  const answerClassification = normalizeAnswerClassification(
+    raw.answer_classification,
+    answerType,
+  );
 
   const rawObjectsSection = raw.sections.find((section) => section.type === 'objects')?.data;
   const rawObjectItems = Array.isArray(rawObjectsSection?.items)
@@ -660,6 +780,8 @@ function normalizeAskResponse(raw: RawAskResponse): TheseusResponse {
     },
     reference_image_url: raw.reference_image_url,
     geographic_regions: raw.geographic_regions,
+    answer_type: answerType,
+    answer_classification: answerClassification,
   };
 }
 
@@ -892,15 +1014,16 @@ async function askTheseusStream(
  *
  * Two-step flow:
  *   1. POST /api/v2/theseus/ask/async/  -> { job_id, stream_url }
- *   2. EventSource stream_url           -> stage / token / complete / error events
+ *   2. EventSource stream_url           -> stage / token / answer_ready /
+ *                                          visual_delta / visual_complete /
+ *                                          complete / error events
  *
  * Distinct from askTheseusStream (legacy sync POST-SSE endpoint).
  * Phase B uses this to drive the ThinkingChoreographer visualizations.
  *
  * Returns a cleanup function that closes the EventSource. Handlers are
- * called in the following order per query:
- *   onStage (multiple times) -> onToken (multiple times) -> onComplete (once)
- * Or onError at any point if something fails.
+ * called progressively as the backend emits them. `complete` remains
+ * the source of truth; earlier events are partial render hints.
  */
 export async function askTheseusAsyncStream(
   query: string,
@@ -968,6 +1091,34 @@ export async function askTheseusAsyncStream(
   es.addEventListener('token', (e) => {
     const data = safeParse<{ text: string }>((e as MessageEvent).data, 'token');
     if (data?.text) handlers.onToken(data.text);
+  });
+
+  es.addEventListener('visual_delta', (e) => {
+    const data = safeParse<RawProgressiveVisualPayload>((e as MessageEvent).data, 'visual_delta');
+    if (data) {
+      handlers.onVisualDelta?.(normalizeProgressiveVisualPayload(data));
+    }
+  });
+
+  es.addEventListener('answer_ready', (e) => {
+    const data = safeParse<RawAskResponse>((e as MessageEvent).data, 'answer_ready');
+    if (!data) return;
+
+    try {
+      handlers.onAnswerReady?.(normalizeAskResponse(data));
+    } catch (err) {
+      handlers.onError({
+        message: err instanceof Error ? err.message : 'Failed to normalize answer_ready payload',
+        transient: false,
+      });
+    }
+  });
+
+  es.addEventListener('visual_complete', (e) => {
+    const data = safeParse<RawProgressiveVisualPayload>((e as MessageEvent).data, 'visual_complete');
+    if (data) {
+      handlers.onVisualComplete?.(normalizeProgressiveVisualPayload(data));
+    }
   });
 
   es.addEventListener('complete', (e) => {

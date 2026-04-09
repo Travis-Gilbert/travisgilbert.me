@@ -10,9 +10,9 @@ import type { DotGridHandle } from './TheseusDotGrid';
 import type { TheseusResponse } from '@/lib/theseus-types';
 import type { SceneDirective } from '@/lib/theseus-viz/SceneDirective';
 import type { DataProcessingStatus } from '@/lib/theseus-data/types';
-import type { AskState } from '@/components/theseus/AskExperience';
 import type { VizPrediction } from '@/lib/theseus-viz/vizPlanner';
 import type { SourceTrailItem } from './SourceTrail';
+import type { AskState } from './askExperienceState';
 import { useNavScreenState } from './useNavScreenState';
 import {
   NAV_ACTIONS,
