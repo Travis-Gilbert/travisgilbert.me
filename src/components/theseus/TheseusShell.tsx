@@ -134,6 +134,14 @@ export default function TheseusShell({ children }: { children: React.ReactNode }
     predictTimerRef.current = window.setTimeout(() => {
       predictNav(navScreenState).then((prediction) => {
         if (cancelled) return;
+
+        // Explorer page has its own ControlDock with nav links;
+        // suppress the canvas-drawn attractor buttons there.
+        if (pathname === '/theseus/explorer') {
+          gridRef.current?.setNavButtons([]);
+          return;
+        }
+
         const buttons = prediction.actions.map((a) => {
           const action = NAV_ACTIONS.find((x) => x.id === a.id);
           return {
@@ -215,6 +223,25 @@ export default function TheseusShell({ children }: { children: React.ReactNode }
     };
     window.addEventListener('theseus:nav-action', handler);
     return () => window.removeEventListener('theseus:nav-action', handler);
+  }, [pathname, router]);
+
+  // Listen for "Ask about this" bridge from ContextPanel
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const handler = (event: Event) => {
+      const detail = (event as CustomEvent<{ query?: string }>).detail;
+      if (!detail?.query) return;
+      const encoded = encodeURIComponent(detail.query);
+      router.push(`/theseus/explorer?q=${encoded}`);
+      // If already on the explorer page, fire a focus event to populate the input
+      if (pathname === '/theseus/explorer') {
+        window.dispatchEvent(
+          new CustomEvent('theseus:prefill-ask', { detail: { query: detail.query } }),
+        );
+      }
+    };
+    window.addEventListener('theseus:navigate-ask', handler);
+    return () => window.removeEventListener('theseus:navigate-ask', handler);
   }, [pathname, router]);
 
   const handleNavButtonClick = useCallback((buttonId: string) => {

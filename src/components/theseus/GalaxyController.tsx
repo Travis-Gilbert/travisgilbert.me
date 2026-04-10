@@ -1865,8 +1865,8 @@ function GalaxyController({
   // Single click on a dot: show click-card (desktop) or open drawer (mobile)
   const handleClick = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
     if (isDraggingRef.current) return; // Drag, not click
-    if (phaseRef.current !== 'explore' && phaseRef.current !== 'crystallize') {
-      // Click on empty space dismisses card in any phase
+    if (phaseRef.current !== 'idle' && phaseRef.current !== 'explore' && phaseRef.current !== 'crystallize') {
+      // Click during active construction phases dismisses card
       dismissClickCard();
       return;
     }
@@ -1922,13 +1922,14 @@ function GalaxyController({
 
     if (!foundObjectId) return;
 
-    if (isMobile) {
-      setDrawerObjectId(foundObjectId);
-    } else {
-      // Desktop: show click-card at the dot position (offset right+up by 16px)
+    // Always open the ContextPanel via explorer:select-node
+    setDrawerObjectId(foundObjectId);
+
+    if (!isMobile) {
+      // Desktop: also show click-card at the dot position
       showClickCard(nearest.x + 16, nearest.y - 16, foundObjectId);
     }
-  }, [gridRef, showClickCard, dismissClickCard]);
+  }, [gridRef, showClickCard, dismissClickCard, setDrawerObjectId]);
 
   // Interaction layer ref and drag state for cursor management
   const interactionLayerRef = useRef<HTMLDivElement>(null);
@@ -2233,6 +2234,7 @@ function GalaxyController({
       {/* Zoom and click interaction layer */}
       <div
         ref={interactionLayerRef}
+        data-testid="galaxy-interaction"
         onClick={handleClick}
         onDoubleClick={handleDoubleClick}
         onMouseMove={handleMouseMove}

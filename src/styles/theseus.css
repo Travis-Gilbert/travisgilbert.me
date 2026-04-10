@@ -456,7 +456,8 @@
   width: 28px;
   height: 28px;
   border-radius: 6px;
-  transition: background 150ms ease;
+  color: #4a9aa0;
+  transition: background 150ms ease, color 150ms ease;
 }
 
 .theseus-sidebar-brand-link:hover {
@@ -1255,6 +1256,307 @@
   border-radius: 3px;
   background: rgba(255, 255, 255, 0.04);
   color: var(--vie-text-dim);
+}
+
+.explorer-context-role {
+  font-family: var(--vie-font-mono);
+  font-size: 10px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--vie-text-dim);
+  padding: 1px 5px;
+  border-radius: 3px;
+  background: rgba(255, 255, 255, 0.04);
+}
+
+/* ─── Neighborhood summary (360-degree counts) ─── */
+
+.explorer-neighborhood {
+  display: flex;
+  gap: 8px;
+  margin: 12px 0;
+}
+
+.explorer-neighborhood-loading {
+  font-family: var(--vie-font-mono);
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--vie-text-dim);
+}
+
+.explorer-neighborhood-stat {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  padding: 8px 4px;
+  border-radius: 6px;
+  border: 1px solid rgba(255, 255, 255, 0.04);
+  background: rgba(255, 255, 255, 0.02);
+  color: var(--vie-text-muted);
+  cursor: pointer;
+  transition: background 150ms ease, border-color 150ms ease;
+}
+
+.explorer-neighborhood-stat:hover {
+  background: rgba(255, 255, 255, 0.05);
+  border-color: rgba(255, 255, 255, 0.08);
+}
+
+.explorer-neighborhood-count {
+  font-family: var(--vie-font-mono);
+  font-size: 16px;
+  font-weight: 400;
+  color: var(--vie-text);
+}
+
+.explorer-neighborhood-label {
+  font-family: var(--vie-font-mono);
+  font-size: 9px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--vie-text-dim);
+  text-align: center;
+}
+
+.explorer-neighborhood-active {
+  color: var(--vie-type-person);
+}
+
+/* ─── Ask about this bridge button ─── */
+
+.explorer-ask-button {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 10px 12px;
+  margin-top: 8px;
+  border-radius: 8px;
+  border: 1px solid rgba(45, 95, 107, 0.3);
+  background: rgba(45, 95, 107, 0.08);
+  font-family: var(--vie-font-mono);
+  font-size: 11px;
+  letter-spacing: 0.04em;
+  color: var(--vie-teal-light);
+  cursor: pointer;
+  transition: background 150ms ease, border-color 150ms ease;
+}
+
+.explorer-ask-button:hover {
+  background: rgba(45, 95, 107, 0.15);
+  border-color: rgba(45, 95, 107, 0.5);
+}
+
+/* ─── Connection list (evidence tab) ─── */
+
+.explorer-connection-list {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.explorer-connection-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 8px 10px;
+  border-radius: 6px;
+  border: none;
+  background: transparent;
+  color: var(--vie-text-muted);
+  cursor: pointer;
+  text-align: left;
+  transition: color 150ms ease, background 150ms ease;
+}
+
+.explorer-connection-row:hover {
+  color: var(--vie-text);
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.explorer-connection-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.explorer-connection-title {
+  flex: 1;
+  font-family: var(--vie-font-body);
+  font-size: 13px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;
+}
+
+.explorer-connection-meta {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.explorer-connection-signal {
+  font-family: var(--vie-font-mono);
+  font-size: 9px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--vie-text-dim);
+}
+
+.explorer-connection-bar {
+  width: 36px;
+  height: 3px;
+  border-radius: 1.5px;
+  background: rgba(255, 255, 255, 0.06);
+  overflow: hidden;
+}
+
+.explorer-connection-bar-fill {
+  display: block;
+  height: 100%;
+  border-radius: 1.5px;
+  background: var(--vie-teal);
+  transition: width 200ms ease;
+}
+
+/* ─── Tension cards (tensions tab) ─── */
+
+.explorer-tension-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.explorer-tension-card {
+  padding: 10px 12px;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.04);
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.explorer-tension-claim {
+  font-family: var(--vie-font-body);
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--vie-text-muted);
+  margin: 0;
+}
+
+.explorer-tension-divider {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 6px 0;
+}
+
+.explorer-tension-divider::before,
+.explorer-tension-divider::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.explorer-tension-vs {
+  font-family: var(--vie-font-mono);
+  font-size: 9px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--vie-text-dim);
+}
+
+.explorer-tension-footer {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.explorer-tension-severity {
+  font-family: var(--vie-font-mono);
+  font-size: 10px;
+  font-weight: 500;
+}
+
+.explorer-tension-status {
+  font-family: var(--vie-font-mono);
+  font-size: 9px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--vie-text-dim);
+  padding: 1px 5px;
+  border-radius: 3px;
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.explorer-tension-domain {
+  font-family: var(--vie-font-mono);
+  font-size: 9px;
+  color: var(--vie-text-dim);
+  margin-left: auto;
+}
+
+/* ─── Claim rows (claims tab) ─── */
+
+.explorer-claim-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.explorer-claim-row {
+  padding: 8px 10px;
+  border-radius: 6px;
+  border: none;
+  background: transparent;
+}
+
+.explorer-claim-row:hover {
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.explorer-claim-text {
+  font-family: var(--vie-font-body);
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--vie-text-muted);
+  margin: 0 0 6px;
+}
+
+.explorer-claim-meta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.explorer-claim-bar {
+  width: 48px;
+  height: 3px;
+  border-radius: 1.5px;
+  background: rgba(255, 255, 255, 0.06);
+  overflow: hidden;
+}
+
+.explorer-claim-bar-fill {
+  display: block;
+  height: 100%;
+  border-radius: 1.5px;
+  background: var(--vie-teal);
+  transition: width 200ms ease;
+}
+
+.explorer-claim-status {
+  font-family: var(--vie-font-mono);
+  font-size: 9px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
 }
 
 /* ─── Control dock (floating, bottom-right) ─── */

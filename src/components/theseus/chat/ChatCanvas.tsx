@@ -23,15 +23,18 @@ export default function ChatCanvas() {
     const canvas = canvasRef.current;
     if (!canvas) return;
 
-    const w = Math.min(window.innerWidth, 8192);
-    const h = Math.min(window.innerHeight, 8192);
+    // Use the parent container's dimensions (not window) so the
+    // texture fills correctly when offset by the sidebar.
+    const parent = canvas.parentElement;
+    const w = Math.min(parent?.clientWidth ?? window.innerWidth, 8192);
+    const h = Math.min(parent?.clientHeight ?? window.innerHeight, 8192);
     if (w < 1 || h < 1) return;
 
     // Render at 1x (not DPR) so noise stays fine, not blocky on retina
     canvas.width = w;
     canvas.height = h;
-    canvas.style.width = `${w}px`;
-    canvas.style.height = `${h}px`;
+    canvas.style.width = '100%';
+    canvas.style.height = '100%';
 
     const ctx = canvas.getContext('2d');
     if (!ctx) return;

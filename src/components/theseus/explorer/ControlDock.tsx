@@ -1,5 +1,6 @@
 'use client';
 
+import Link from 'next/link';
 import type { HighlightMode } from './useExplorerSelection';
 
 interface ControlDockProps {
@@ -114,6 +115,14 @@ export default function ControlDock({
             {opt.label}
           </button>
         ))}
+      </div>
+
+      {/* Row 4: Navigation shortcuts */}
+      <div className="explorer-dock-row explorer-dock-pills">
+        <Link href="/theseus" className="explorer-dock-pill">Ask</Link>
+        <Link href="/theseus/library" className="explorer-dock-pill">Library</Link>
+        <Link href="/theseus/artifacts" className="explorer-dock-pill">Artifacts</Link>
+        <Link href="/theseus/truth-maps" className="explorer-dock-pill">Maps</Link>
       </div>
     </div>
   );

@@ -73,7 +73,7 @@ interface NavItem {
 }
 
 const NAV_ITEMS: NavItem[] = [
-  { id: 'home', label: 'Home', href: '/theseus', icon: ChatIcon, matchPrefix: '/theseus' },
+  { id: 'home', label: 'Chat', href: '/theseus', icon: ChatIcon, matchPrefix: '/theseus' },
   { id: 'explorer', label: 'Explorer', href: '/theseus/explorer', icon: GraphIcon, matchPrefix: '/theseus/explorer' },
   { id: 'artifacts', label: 'Artifacts', href: '/theseus/artifacts', icon: ArtifactsIcon, matchPrefix: '/theseus/artifacts' },
   { id: 'models', label: 'Models', href: '/theseus/models', icon: ModelsIcon, matchPrefix: '/theseus/models' },
@@ -104,7 +104,22 @@ export default function TheseusSidebar() {
       {/* Brand */}
       <div className="theseus-sidebar-brand">
         <Link href="/theseus" className="theseus-sidebar-brand-link" aria-label="Theseus home">
-          <span className="theseus-sidebar-brand-letter">T</span>
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" strokeWidth="1.5" aria-hidden="true">
+            <g clipPath="url(#brand-clip)">
+              <path d="M12 10C12.8284 10 13.5 9.32843 13.5 8.5C13.5 7.67157 12.8284 7 12 7C11.1716 7 10.5 7.67157 10.5 8.5C10.5 9.32843 11.1716 10 12 10Z" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+              <path d="M12 18C12.8284 18 13.5 17.3284 13.5 16.5C13.5 15.6716 12.8284 15 12 15C11.1716 15 10.5 15.6716 10.5 16.5C10.5 17.3284 11.1716 18 12 18Z" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+              <path d="M16.25 14.25C17.0784 14.25 17.75 13.5784 17.75 12.75C17.75 11.9216 17.0784 11.25 16.25 11.25C15.4216 11.25 14.75 11.9216 14.75 12.75C14.75 13.5784 15.4216 14.25 16.25 14.25Z" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+              <path d="M12 10V15" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+              <path d="M8.25 4.75L10.5 7" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+              <path d="M13.25 9.75L14.75 11.25" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+              <path d="M11.5757 1.42426C11.81 1.18995 12.1899 1.18995 12.4243 1.42426L22.5757 11.5757C22.81 11.81 22.8101 12.1899 22.5757 12.4243L12.4243 22.5757C12.19 22.81 11.8101 22.8101 11.5757 22.5757L1.42426 12.4243C1.18995 12.19 1.18995 11.8101 1.42426 11.5757L11.5757 1.42426Z" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+            </g>
+            <defs>
+              <clipPath id="brand-clip">
+                <rect width="24" height="24" fill="white" />
+              </clipPath>
+            </defs>
+          </svg>
         </Link>
       </div>
 

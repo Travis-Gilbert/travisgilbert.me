@@ -351,3 +351,44 @@ export interface GeographicRegionsSection {
     tiers: Array<{ min: number; label: string; color: string }>;
   };
 }
+
+/* ─────────────────────────────────────────────────
+   Explorer: object neighborhood data
+   ───────────────────────────────────────────────── */
+
+export interface ConnectionResult {
+  edge_id: string;
+  connected_object: {
+    id: string;
+    title: string;
+    object_type: string;
+  };
+  signal_type: string;      // bm25, sbert, entity, nli, kge, gnn
+  strength: number;          // 0-1
+  direction: 'outgoing' | 'incoming';
+  acceptance_status?: string;
+}
+
+export interface ClaimResult {
+  id: string;
+  text: string;
+  confidence: number;
+  epistemic_status: string;  // accepted, contested, pending
+  source_object_id: string;
+}
+
+export interface TensionResult {
+  id: string;
+  claim_a_text: string;
+  claim_b_text: string;
+  severity: number;          // 0-1
+  status: string;            // active, resolved, dismissed
+  domain: string;
+}
+
+export interface LineageResult {
+  source_url?: string;
+  ingested_at?: string;
+  parent_objects: string[];
+  ingestion_method: string;  // quick_capture, corpus_crawl, openalex, etc.
+}

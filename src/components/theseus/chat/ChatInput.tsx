@@ -37,6 +37,19 @@ export default function ChatInput({ onSubmit, isDisabled }: ChatInputProps) {
     return () => window.removeEventListener('theseus:chat-followup', handleFollowUp);
   }, [onSubmit]);
 
+  // Listen for "Ask about this" pre-fill from ContextPanel (does NOT auto-submit)
+  useEffect(() => {
+    function handlePrefill(event: Event) {
+      const detail = (event as CustomEvent<{ query?: string }>).detail;
+      if (detail?.query) {
+        setValue(detail.query);
+        inputRef.current?.focus();
+      }
+    }
+    window.addEventListener('theseus:prefill-ask', handlePrefill);
+    return () => window.removeEventListener('theseus:prefill-ask', handlePrefill);
+  }, []);
+
   // Focus input on mount
   useEffect(() => {
     inputRef.current?.focus();

@@ -2,7 +2,6 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { getClusters, getObject } from '@/lib/theseus-api';
-import type { ClusterSummary, TheseusObject } from '@/lib/theseus-types';
 
 interface GraphNode {
   id: string;
@@ -90,8 +89,14 @@ function tickForce(nodes: GraphNode[], edges: GraphEdge[], width: number, height
   }
 }
 
+/** Ease-out cubic */
+function easeOutCubic(t: number): number {
+  return 1 - Math.pow(1 - t, 3);
+}
+
 interface IdleGraphProps {
   onSelectNode: (nodeId: string) => void;
+  selectedNodeId?: string | null;
 }
 
 /**
@@ -101,9 +106,12 @@ interface IdleGraphProps {
  * from cluster hubs and their top objects, renders as an interactive
  * SVG. Clicking a node opens the context panel.
  *
- * Hides itself when askState leaves IDLE (AskExperience takes over).
+ * Selection features:
+ *   - selectedNodeId prop highlights the selected node + neighbors
+ *   - Camera pans smoothly (400ms ease-out) to center the selected node
+ *   - Previously selected nodes retain a faint teal ring (visit trail)
  */
-export default function IdleGraph({ onSelectNode }: IdleGraphProps) {
+export default function IdleGraph({ onSelectNode, selectedNodeId }: IdleGraphProps) {
   const svgRef = useRef<SVGSVGElement>(null);
   const nodesRef = useRef<GraphNode[]>([]);
   const edgesRef = useRef<GraphEdge[]>([]);
@@ -111,6 +119,13 @@ export default function IdleGraph({ onSelectNode }: IdleGraphProps) {
   const [ready, setReady] = useState(false);
   const [hoveredId, setHoveredId] = useState<string | null>(null);
   const [, forceRender] = useState(0);
+
+  // Camera viewBox offset for panning
+  const viewBoxRef = useRef({ x: 0, y: 0 });
+  const panAnimRef = useRef<number>(0);
+
+  // Track visited nodes for trail rendering
+  const [visitedIds, setVisitedIds] = useState<Set<string>>(new Set());
 
   // Build graph from cluster data
   useEffect(() => {
@@ -120,7 +135,7 @@ export default function IdleGraph({ onSelectNode }: IdleGraphProps) {
       const result = await getClusters();
       if (cancelled || !result.ok) return;
 
-      const clusters = result.clusters.slice(0, 12); // Limit for performance
+      const clusters = result.clusters.slice(0, 12);
       const nodes: GraphNode[] = [];
       const edges: GraphEdge[] = [];
       const objectIds = new Set<string>();
@@ -129,7 +144,6 @@ export default function IdleGraph({ onSelectNode }: IdleGraphProps) {
       const width = svg?.clientWidth ?? 800;
       const height = svg?.clientHeight ?? 600;
 
-      // Create cluster hub nodes
       for (const cluster of clusters) {
         nodes.push({
           id: `cluster-${cluster.id}`,
@@ -142,7 +156,6 @@ export default function IdleGraph({ onSelectNode }: IdleGraphProps) {
           radius: Math.min(8 + Math.sqrt(cluster.member_count) * 0.8, 20),
         });
 
-        // Add top objects as connected nodes (max 3 per cluster)
         for (const objId of cluster.top_objects.slice(0, 3)) {
           if (!objectIds.has(objId)) {
             objectIds.add(objId);
@@ -161,7 +174,6 @@ export default function IdleGraph({ onSelectNode }: IdleGraphProps) {
         }
       }
 
-      // Fetch object details for labels and types (batch, fire-and-forget for speed)
       const objNodes = nodes.filter((n) => n.type === 'object');
       const fetches = objNodes.slice(0, 30).map(async (node) => {
         const obj = await getObject(node.id);
@@ -195,7 +207,6 @@ export default function IdleGraph({ onSelectNode }: IdleGraphProps) {
       tickForce(nodesRef.current, edgesRef.current, svg.clientWidth, svg.clientHeight);
       ticks++;
 
-      // Render every 2 ticks for performance, stop settling after 200
       if (ticks % 2 === 0) forceRender((n) => n + 1);
       if (ticks < 200) {
         animRef.current = requestAnimationFrame(animate);
@@ -206,10 +217,57 @@ export default function IdleGraph({ onSelectNode }: IdleGraphProps) {
     return () => cancelAnimationFrame(animRef.current);
   }, [ready]);
 
+  // Camera pan animation when selectedNodeId changes
+  useEffect(() => {
+    if (!selectedNodeId || !ready) return;
+
+    // Add to visited trail
+    setVisitedIds((prev) => new Set([...prev, selectedNodeId]));
+
+    const node = nodesRef.current.find((n) => n.id === selectedNodeId);
+    if (!node) return;
+
+    const svg = svgRef.current;
+    if (!svg) return;
+
+    const width = svg.clientWidth;
+    const height = svg.clientHeight;
+
+    // Target: center the node in the viewport
+    const targetX = node.x - width / 2;
+    const targetY = node.y - height / 2;
+    const startX = viewBoxRef.current.x;
+    const startY = viewBoxRef.current.y;
+    const dx = targetX - startX;
+    const dy = targetY - startY;
+
+    if (Math.abs(dx) < 5 && Math.abs(dy) < 5) return; // already centered
+
+    const duration = 400;
+    const startTime = performance.now();
+
+    cancelAnimationFrame(panAnimRef.current);
+
+    function panStep(now: number) {
+      const elapsed = now - startTime;
+      const t = Math.min(1, elapsed / duration);
+      const eased = easeOutCubic(t);
+
+      viewBoxRef.current.x = startX + dx * eased;
+      viewBoxRef.current.y = startY + dy * eased;
+      forceRender((n) => n + 1);
+
+      if (t < 1) {
+        panAnimRef.current = requestAnimationFrame(panStep);
+      }
+    }
+
+    panAnimRef.current = requestAnimationFrame(panStep);
+    return () => cancelAnimationFrame(panAnimRef.current);
+  }, [selectedNodeId, ready]);
+
   const handleClick = useCallback((nodeId: string) => {
-    // For cluster nodes, use the first top object
     if (nodeId.startsWith('cluster-')) {
-      const clusterId = parseInt(nodeId.replace('cluster-', ''), 10);
       const edges = edgesRef.current.filter((e) => e.source === nodeId);
       if (edges.length > 0) {
         onSelectNode(edges[0].target);
@@ -223,11 +281,28 @@ export default function IdleGraph({ onSelectNode }: IdleGraphProps) {
   const edges = edgesRef.current;
   const nodeMap = new Map(nodes.map((n) => [n.id, n]));
 
+  // Build neighbor set for selection dimming
+  const selectedNeighborIds = new Set<string>();
+  if (selectedNodeId) {
+    selectedNeighborIds.add(selectedNodeId);
+    for (const edge of edges) {
+      if (edge.source === selectedNodeId) selectedNeighborIds.add(edge.target);
+      if (edge.target === selectedNodeId) selectedNeighborIds.add(edge.source);
+    }
+  }
+
+  const svg = svgRef.current;
+  const vw = svg?.clientWidth ?? 800;
+  const vh = svg?.clientHeight ?? 600;
+  const vx = viewBoxRef.current.x;
+  const vy = viewBoxRef.current.y;
+
   return (
     <svg
       ref={svgRef}
       className="explorer-idle-graph"
       data-interactive
+      viewBox={`${vx} ${vy} ${vw} ${vh}`}
       style={{
         position: 'absolute',
         inset: 0,
@@ -245,6 +320,10 @@ export default function IdleGraph({ onSelectNode }: IdleGraphProps) {
         const target = nodeMap.get(edge.target);
         if (!source || !target) return null;
         const isHovered = hoveredId === edge.source || hoveredId === edge.target;
+        const isSelected = selectedNodeId !== null
+          && (edge.source === selectedNodeId || edge.target === selectedNodeId);
+        const dimmedBySelection = selectedNodeId !== null && !isSelected;
+
         return (
           <line
             key={i}
@@ -252,9 +331,16 @@ export default function IdleGraph({ onSelectNode }: IdleGraphProps) {
             y1={source.y}
             x2={target.x}
             y2={target.y}
-            stroke={isHovered ? 'rgba(74, 138, 150, 0.3)' : 'rgba(255, 255, 255, 0.06)'}
-            strokeWidth={isHovered ? 1.5 : 0.5}
-            style={{ transition: 'stroke 200ms ease, stroke-width 200ms ease' }}
+            stroke={
+              isSelected
+                ? 'rgba(74, 138, 150, 0.4)'
+                : isHovered
+                  ? 'rgba(74, 138, 150, 0.3)'
+                  : 'rgba(255, 255, 255, 0.06)'
+            }
+            strokeWidth={isSelected ? 1.5 : isHovered ? 1.5 : 0.5}
+            opacity={dimmedBySelection ? 0.15 : 1}
+            style={{ transition: 'stroke 200ms ease, stroke-width 200ms ease, opacity 200ms ease' }}
           />
         );
       })}
@@ -263,39 +349,86 @@ export default function IdleGraph({ onSelectNode }: IdleGraphProps) {
       {nodes.map((node) => {
         const isHovered = hoveredId === node.id;
         const isCluster = node.type === 'cluster';
+        const isSelected = selectedNodeId === node.id;
+        const isNeighbor = selectedNodeId !== null && selectedNeighborIds.has(node.id);
+        const isVisited = visitedIds.has(node.id) && !isSelected;
         const color = isCluster ? '#4A8A96' : typeColor(node.objectType ?? 'note');
-        const dimmed = hoveredId !== null && !isHovered
-          && !edges.some((e) =>
-            (e.source === hoveredId && e.target === node.id)
-            || (e.target === hoveredId && e.source === node.id)
-            || e.source === node.id && hoveredId === e.target
-            || e.target === node.id && hoveredId === e.source,
+
+        // Selection dimming logic
+        let nodeOpacity = 1;
+        if (selectedNodeId !== null) {
+          if (isSelected) {
+            nodeOpacity = 1;
+          } else if (isNeighbor) {
+            nodeOpacity = 0.8;
+          } else {
+            nodeOpacity = 0.15;
+          }
+        } else if (hoveredId !== null) {
+          const connectedToHover = edges.some(
+            (e) =>
+              (e.source === hoveredId && e.target === node.id)
+              || (e.target === hoveredId && e.source === node.id)
+              || e.source === node.id && hoveredId === e.target
+              || e.target === node.id && hoveredId === e.source,
           );
+          if (!isHovered && !connectedToHover) {
+            nodeOpacity = 0.2;
+          }
+        }
 
         return (
           <g
             key={node.id}
-            style={{ cursor: 'pointer', opacity: dimmed ? 0.2 : 1, transition: 'opacity 200ms ease' }}
+            style={{
+              cursor: 'pointer',
+              opacity: nodeOpacity,
+              transition: 'opacity 200ms ease',
+            }}
             onClick={() => handleClick(node.id)}
             onMouseEnter={() => setHoveredId(node.id)}
             onMouseLeave={() => setHoveredId(null)}
           >
+            {/* Visited trail ring */}
+            {isVisited && (
+              <circle
+                cx={node.x}
+                cy={node.y}
+                r={node.radius + 4}
+                fill="none"
+                stroke="rgba(74, 138, 150, 0.2)"
+                strokeWidth={1}
+              />
+            )}
+
+            {/* Selection glow */}
+            {isSelected && (
+              <circle
+                cx={node.x}
+                cy={node.y}
+                r={node.radius + 6}
+                fill="none"
+                stroke="rgba(74, 138, 150, 0.3)"
+                strokeWidth={2}
+              />
+            )}
+
             <circle
               cx={node.x}
               cy={node.y}
-              r={isHovered ? node.radius + 2 : node.radius}
+              r={isHovered || isSelected ? node.radius + 2 : node.radius}
               fill={isCluster ? 'rgba(74, 138, 150, 0.15)' : `${color}22`}
-              stroke={color}
-              strokeWidth={isHovered ? 1.5 : 0.8}
+              stroke={isSelected ? '#4A8A96' : color}
+              strokeWidth={isSelected ? 2 : isHovered ? 1.5 : 0.8}
               style={{ transition: 'r 150ms ease, stroke-width 150ms ease' }}
             />
-            {/* Label (show on clusters always, objects on hover) */}
-            {(isCluster || isHovered) && node.label && (
+            {/* Label */}
+            {(isCluster || isHovered || isSelected) && node.label && (
               <text
                 x={node.x}
                 y={node.y + node.radius + 12}
                 textAnchor="middle"
-                fill={isHovered ? '#e8e5e0' : '#9a958d'}
+                fill={isSelected ? '#e8e5e0' : isHovered ? '#e8e5e0' : '#9a958d'}
                 fontSize={isCluster ? 10 : 9}
                 fontFamily="'Courier Prime', monospace"
                 style={{ pointerEvents: 'none', userSelect: 'none' }}

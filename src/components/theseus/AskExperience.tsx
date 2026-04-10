@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { askTheseusAsyncStream } from '@/lib/theseus-api';
 import type { ApiError, ProgressiveVisualPayload, StageEvent } from '@/lib/theseus-api';
 import { ThinkingChoreographer } from '@/lib/galaxy/ThinkingChoreographer';
@@ -128,6 +128,13 @@ const DOCK_BOTTOM_OFFSET = 16;
 const MORPH_DURATION_MS = 600;
 const MORPH_EASING = 'cubic-bezier(0.32, 0.72, 0.24, 1.04)';
 
+const STARTER_QUERIES = [
+  'What connects Shannon to Hamming?',
+  'What unresolved tensions are active?',
+  'What am I missing about GNNs?',
+  'What new clusters formed this week?',
+];
+
 /**
  * Persistent search-and-history dock at the bottom of the viewport.
  * Renders for every state (IDLE / THINKING / MODEL / CONSTRUCTING /
@@ -157,6 +164,7 @@ function AskDock({
   onLoadHistory,
   spinnerFrame,
   inputRef,
+  isExplorer,
 }: {
   composerQuery: string;
   setComposerQuery: (value: string) => void;
@@ -172,6 +180,7 @@ function AskDock({
   onLoadHistory: (query: string) => void;
   spinnerFrame: number;
   inputRef: React.RefObject<HTMLInputElement | null>;
+  isExplorer?: boolean;
 }) {
   const showHistory = !submitting && queryHistory.length > 0;
   const inputWidth = isMobile ? DOCK_INPUT_WIDTH_MOBILE : DOCK_INPUT_WIDTH_DESKTOP;
@@ -205,7 +214,9 @@ function AskDock({
         position: 'fixed',
         left: '50%',
         transform: 'translateX(-50%)',
-        bottom: isMobile ? `calc(${DOCK_BOTTOM_OFFSET}px + env(safe-area-inset-bottom))` : DOCK_BOTTOM_OFFSET,
+        bottom: isMobile
+          ? `calc(${DOCK_BOTTOM_OFFSET}px + env(safe-area-inset-bottom))`
+          : isExplorer ? DOCK_BOTTOM_OFFSET + 40 : DOCK_BOTTOM_OFFSET,
         zIndex: 20,
         pointerEvents: 'auto',
         display: 'flex',
@@ -223,6 +234,31 @@ function AskDock({
         padding: 0,
       }}
     >
+      {/* Starter suggestion pills: 2x2 grid above the input, visible only in idle */}
+      {isIdle && !submitting && !composerQuery && (
+        <div
+          style={{
+            display: 'grid',
+            gridTemplateColumns: 'auto auto',
+            justifyContent: 'center',
+            gap: 8,
+            marginBottom: 10,
+          }}
+        >
+          {STARTER_QUERIES.map((starter) => (
+            <button
+              key={starter}
+              type="button"
+              onClick={() => navigateToQuery(starter)}
+              className="theseus-followup-pill"
+              style={{ whiteSpace: 'nowrap' }}
+            >
+              {starter}
+            </button>
+          ))}
+        </div>
+      )}
+
       <form
         onSubmit={(event) => {
           event.preventDefault();
@@ -706,6 +742,7 @@ function StaticScreen({
  */
 export function AskExperience() {
   const router = useRouter();
+  const pathname = usePathname();
   const searchParams = useSearchParams();
   const query = searchParams.get('q');
   const savedId = searchParams.get('saved');
@@ -830,8 +867,12 @@ export function AskExperience() {
       return;
     }
 
-    router.push(`/theseus?q=${encodeURIComponent(trimmed)}`);
-  }, [query, router]);
+    // Preserve the current route (explorer or home) instead of always
+    // navigating to /theseus. The ?q= param drives AskExperience on
+    // whichever page hosts it.
+    const basePath = pathname || '/theseus';
+    router.push(`${basePath}?q=${encodeURIComponent(trimmed)}`);
+  }, [query, router, pathname]);
 
   // Contextual nav action listener. Wires the page-level actions
   // dispatched by TheseusShell.handleNavButtonClick (commit 37c9c01).
@@ -1297,6 +1338,8 @@ export function AskExperience() {
   const renderedNarratives = narratives.filter((narrative) => !isRawNarration(narrative.content));
 
   const activeQuery = response?.query ?? query ?? null;
+  const isExplorerPage = pathname === '/theseus/explorer';
+
   const renderBottomDock = () => (
     <AskDock
       composerQuery={composerQuery}
@@ -1313,6 +1356,7 @@ export function AskExperience() {
       onLoadHistory={navigateToQuery}
       spinnerFrame={spinnerFrame}
       inputRef={askInputRef}
+      isExplorer={isExplorerPage}
     />
   );
 

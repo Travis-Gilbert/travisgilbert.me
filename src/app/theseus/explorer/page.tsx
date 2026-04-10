@@ -1,6 +1,6 @@
 'use client';
 
-import { Suspense } from 'react';
+import { Suspense, useEffect } from 'react';
 import { AskExperience } from '@/components/theseus/AskExperience';
 import TheseusDotGrid from '@/components/theseus/TheseusDotGrid';
 import GalaxyController from '@/components/theseus/GalaxyController';
@@ -8,16 +8,9 @@ import { useGalaxy } from '@/components/theseus/TheseusShell';
 import { usePrefersReducedMotion } from '@/hooks/usePrefersReducedMotion';
 import ExplorerLayout from '@/components/theseus/explorer/ExplorerLayout';
 
-const STARTER_QUERIES = [
-  'What connects Shannon to Hamming?',
-  'What unresolved tensions are active?',
-  'What am I missing about GNNs?',
-  'What new clusters formed this week?',
-];
-
 /**
  * Chrome overlay rendered while the engine is IDLE. Title sits above
- * the Theseus face, starter pills sit below the face area, so neither
+ * the Theseus face; starter pills now live in AskDock so neither
  * overlaps the interactive dot field.
  */
 function ExplorerChrome() {
@@ -37,7 +30,7 @@ function ExplorerChrome() {
         justifyContent: 'space-between',
         padding: '6vh 24px 0',
         opacity: isIdle ? 1 : 0,
-        pointerEvents: isIdle ? 'auto' : 'none',
+        pointerEvents: 'none',
         transition: prefersReducedMotion ? 'none' : 'opacity 500ms ease',
         zIndex: 11,
       }}
@@ -69,46 +62,6 @@ function ExplorerChrome() {
         </p>
       </div>
 
-      {/* Middle: empty space for the face (no elements here) */}
-      <div style={{ flex: 1 }} />
-
-      {/* Bottom: starter pills (below the face, above the input dock) */}
-      <div
-        style={{
-          display: 'flex',
-          flexWrap: 'wrap',
-          justifyContent: 'center',
-          gap: 8,
-          maxWidth: 640,
-          marginBottom: 80,
-        }}
-      >
-        {STARTER_QUERIES.map((starter) => (
-          <button
-            key={starter}
-            type="button"
-            onClick={() => {
-              const url = new URL(window.location.href);
-              url.searchParams.set('q', starter);
-              window.history.replaceState({}, '', url.toString());
-              window.dispatchEvent(new PopStateEvent('popstate'));
-            }}
-            style={{
-              borderRadius: 999,
-              border: '1px solid rgba(255,255,255,0.08)',
-              background: 'rgba(255,255,255,0.04)',
-              color: 'var(--vie-text-muted)',
-              fontFamily: 'var(--vie-font-body)',
-              fontSize: 12,
-              lineHeight: 1,
-              padding: '8px 12px',
-              cursor: 'pointer',
-            }}
-          >
-            {starter}
-          </button>
-        ))}
-      </div>
     </div>
   );
 }
@@ -122,6 +75,17 @@ function ExplorerChrome() {
  */
 export default function ExplorerPage() {
   const galaxy = useGalaxy();
+
+  // Explorer has its own ControlDock with nav links; suppress the
+  // canvas-drawn attractor buttons that TheseusShell sets globally.
+  useEffect(() => {
+    // Small delay so the initial setNavButtons call from TheseusShell
+    // finishes before we clear, preventing a flash.
+    const timer = setTimeout(() => {
+      galaxy.gridRef.current?.setNavButtons([]);
+    }, 100);
+    return () => clearTimeout(timer);
+  }, [galaxy.gridRef]);
 
   return (
     <ExplorerLayout>

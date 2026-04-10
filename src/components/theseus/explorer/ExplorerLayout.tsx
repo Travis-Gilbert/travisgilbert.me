@@ -47,9 +47,7 @@ export default function ExplorerLayout({ children, onNodeSelect }: ExplorerLayou
     if (focusParam) {
       const ids = focusParam.split(',').filter(Boolean);
       if (ids.length > 0) {
-        // Select the first focused node to open the context panel
         explorer.selectNode(ids[0]);
-        // Broadcast all focused IDs so renderers can highlight them
         window.dispatchEvent(
           new CustomEvent('explorer:focus-nodes', { detail: { nodeIds: ids } }),
         );
@@ -133,10 +131,11 @@ export default function ExplorerLayout({ children, onNodeSelect }: ExplorerLayou
         />
       </div>
 
-      {/* Context panel (right) */}
+      {/* Context panel (right) with navigation chain support */}
       <ContextPanel
         nodeId={explorer.selectedNodeId}
         onClose={() => handleNodeSelect(null)}
+        onSelectNode={handleNodeSelect}
       />
     </div>
   );

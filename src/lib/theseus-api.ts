@@ -2,14 +2,18 @@ import type {
   AnswerClassification,
   AnswerType,
   AskOptions,
+  ClaimResult,
   ClusterSummary,
+  ConnectionResult,
   EvidenceEdge,
   EvidenceNode,
   FollowUp,
   GeographicRegionsSection,
   GraphWeather,
   Hypothesis,
+  LineageResult,
   ResponseSection,
+  TensionResult,
   TheseusObject,
   TheseusResponse,
   VisualizationSection,
@@ -1197,4 +1201,200 @@ export async function getHypotheses(): Promise<ApiResult<{ hypotheses: Hypothesi
 
 export async function getGraphWeather(): Promise<ApiResult<GraphWeather>> {
   return apiFetch<RawGraphWeather, GraphWeather>('/api/v2/theseus/graph-weather', undefined, normalizeGraphWeather);
+}
+
+/* ─────────────────────────────────────────────────
+   Explorer: object neighborhood fetchers
+   ───────────────────────────────────────────────── */
+
+interface RawEdge {
+  id?: number | string;
+  pk?: number | string;
+  source_object?: Record<string, unknown>;
+  target_object?: Record<string, unknown>;
+  source_object_id?: number | string;
+  target_object_id?: number | string;
+  signal_type?: string;
+  combined_score?: number;
+  strength?: number;
+  acceptance_status?: string;
+}
+
+function normalizeConnections(
+  raw: { results?: RawEdge[] } | RawEdge[],
+  objectId: string,
+): { connections: ConnectionResult[] } {
+  const edges = Array.isArray(raw) ? raw : Array.isArray(raw.results) ? raw.results : [];
+  return {
+    connections: edges.map((edge) => {
+      const edgeId = normalizeId(edge.id ?? edge.pk);
+      const sourceRec = edge.source_object as Record<string, unknown> | undefined;
+      const targetRec = edge.target_object as Record<string, unknown> | undefined;
+      const sourceId = normalizeId(
+        (edge.source_object_id ?? sourceRec?.id) as string | number | undefined,
+      );
+      const targetId = normalizeId(
+        (edge.target_object_id ?? targetRec?.id) as string | number | undefined,
+      );
+      const isOutgoing = sourceId === objectId;
+      const connectedRaw = isOutgoing ? edge.target_object : edge.source_object;
+      const connectedId = isOutgoing ? targetId : sourceId;
+
+      return {
+        edge_id: edgeId,
+        connected_object: {
+          id: connectedId,
+          title:
+            typeof connectedRaw === 'object' && connectedRaw !== null && typeof (connectedRaw as Record<string, unknown>).title === 'string'
+              ? (connectedRaw as Record<string, unknown>).title as string
+              : 'Untitled',
+          object_type:
+            typeof connectedRaw === 'object' && connectedRaw !== null
+              ? (((connectedRaw as Record<string, unknown>).object_type_slug ?? (connectedRaw as Record<string, unknown>).object_type) as string) ?? 'note'
+              : 'note',
+        },
+        signal_type: typeof edge.signal_type === 'string' ? edge.signal_type : 'entity',
+        strength: toUnitInterval(edge.combined_score ?? edge.strength),
+        direction: isOutgoing ? 'outgoing' as const : 'incoming' as const,
+        acceptance_status: typeof edge.acceptance_status === 'string' ? edge.acceptance_status : undefined,
+      };
+    }),
+  };
+}
+
+export async function getObjectConnections(
+  objectId: string,
+  limit = 20,
+): Promise<ApiResult<{ connections: ConnectionResult[] }>> {
+  type RawResponse = { results?: RawEdge[] } | RawEdge[];
+  return apiFetch<RawResponse, { connections: ConnectionResult[] }>(
+    `/api/v1/edges/?object_id=${objectId}&limit=${limit}`,
+    undefined,
+    (raw) => normalizeConnections(raw, objectId),
+  );
+}
+
+interface RawClaim {
+  id?: number | string;
+  pk?: number | string;
+  text?: string;
+  claim_text?: string;
+  confidence?: number;
+  entrenchment?: number;
+  epistemic_status?: string;
+  status?: string;
+  source_object_id?: number | string;
+  source_object?: number | string;
+}
+
+function normalizeClaims(
+  raw: { results?: RawClaim[] } | RawClaim[],
+): { claims: ClaimResult[] } {
+  const items = Array.isArray(raw) ? raw : Array.isArray(raw.results) ? raw.results : [];
+  return {
+    claims: items.map((claim) => ({
+      id: normalizeId(claim.id ?? claim.pk),
+      text: typeof claim.text === 'string' ? claim.text : typeof claim.claim_text === 'string' ? claim.claim_text : '',
+      confidence: toUnitInterval(claim.confidence ?? claim.entrenchment),
+      epistemic_status:
+        typeof claim.epistemic_status === 'string'
+          ? claim.epistemic_status
+          : typeof claim.status === 'string'
+            ? claim.status
+            : 'pending',
+      source_object_id: normalizeId(claim.source_object_id ?? claim.source_object),
+    })),
+  };
+}
+
+export async function getObjectClaims(
+  objectId: string,
+): Promise<ApiResult<{ claims: ClaimResult[] }>> {
+  type RawResponse = { results?: RawClaim[] } | RawClaim[];
+  return apiFetch<RawResponse, { claims: ClaimResult[] }>(
+    `/api/v1/claims/?object_id=${objectId}`,
+    undefined,
+    normalizeClaims,
+  );
+}
+
+interface RawTension {
+  id?: number | string;
+  pk?: number | string;
+  claim_a?: { text?: string; claim_text?: string };
+  claim_b?: { text?: string; claim_text?: string };
+  claim_a_text?: string;
+  claim_b_text?: string;
+  nli_confidence?: number;
+  severity?: number;
+  status?: string;
+  domain?: string;
+}
+
+function normalizeTensions(
+  raw: { results?: RawTension[] } | RawTension[],
+): { tensions: TensionResult[] } {
+  const items = Array.isArray(raw) ? raw : Array.isArray(raw.results) ? raw.results : [];
+  return {
+    tensions: items.map((tension) => ({
+      id: normalizeId(tension.id ?? tension.pk),
+      claim_a_text:
+        typeof tension.claim_a_text === 'string'
+          ? tension.claim_a_text
+          : tension.claim_a?.text ?? tension.claim_a?.claim_text ?? '',
+      claim_b_text:
+        typeof tension.claim_b_text === 'string'
+          ? tension.claim_b_text
+          : tension.claim_b?.text ?? tension.claim_b?.claim_text ?? '',
+      severity: toUnitInterval(tension.nli_confidence ?? tension.severity),
+      status: typeof tension.status === 'string' ? tension.status : 'active',
+      domain: typeof tension.domain === 'string' ? tension.domain : 'knowledge graph',
+    })),
+  };
+}
+
+export async function getObjectTensions(
+  objectId: string,
+): Promise<ApiResult<{ tensions: TensionResult[] }>> {
+  type RawResponse = { results?: RawTension[] } | RawTension[];
+  return apiFetch<RawResponse, { tensions: TensionResult[] }>(
+    `/api/v1/tensions/?object_id=${objectId}`,
+    undefined,
+    normalizeTensions,
+  );
+}
+
+interface RawLineage {
+  source_url?: string;
+  ingested_at?: string;
+  created_at?: string;
+  parent_objects?: Array<string | number>;
+  parent_object_ids?: Array<string | number>;
+  ingestion_method?: string;
+  source_type?: string;
+}
+
+function normalizeLineage(raw: RawLineage): { lineage: LineageResult } {
+  return {
+    lineage: {
+      source_url: typeof raw.source_url === 'string' ? raw.source_url : undefined,
+      ingested_at: raw.ingested_at ?? raw.created_at,
+      parent_objects: Array.isArray(raw.parent_objects)
+        ? raw.parent_objects.map((v) => normalizeId(v))
+        : Array.isArray(raw.parent_object_ids)
+          ? raw.parent_object_ids.map((v) => normalizeId(v))
+          : [],
+      ingestion_method: raw.ingestion_method ?? raw.source_type ?? 'unknown',
+    },
+  };
+}
+
+export async function getObjectLineage(
+  objectId: string,
+): Promise<ApiResult<{ lineage: LineageResult }>> {
+  return apiFetch<RawLineage, { lineage: LineageResult }>(
+    `/api/v1/objects/${objectId}/lineage`,
+    undefined,
+    normalizeLineage,
+  );
 }
