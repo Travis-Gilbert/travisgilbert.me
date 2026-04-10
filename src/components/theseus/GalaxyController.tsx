@@ -266,7 +266,17 @@ function GalaxyController({
   const pulseIntervalRef = useRef<number>(0);
   const [isAcquiring, setIsAcquiring] = useState(false);
   // Drawer for cluster detail exploration
-  const [drawerObjectId, setDrawerObjectId] = useState<string | null>(null);
+  const [drawerObjectId, setDrawerObjectIdLocal] = useState<string | null>(null);
+
+  // Bridge dot clicks to both the legacy GalaxyDrawer and the new Explorer ContextPanel
+  const setDrawerObjectId = useCallback((id: string | null) => {
+    setDrawerObjectIdLocal(id);
+    if (id && !id.startsWith('geo:')) {
+      window.dispatchEvent(
+        new CustomEvent('explorer:select-node', { detail: { nodeId: id } }),
+      );
+    }
+  }, []);
   const [showGeoLegend, setShowGeoLegend] = useState(false);
   // Track which evidence dot is hovered for visual feedback
   const hoveredDotRef = useRef<number | null>(null);

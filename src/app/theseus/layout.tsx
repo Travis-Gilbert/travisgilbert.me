@@ -1,5 +1,7 @@
 import '../../styles/theseus.css';
 import TheseusShell from '@/components/theseus/TheseusShell';
+import TheseusSidebar from '@/components/theseus/TheseusSidebar';
+import TheseusMobileNav from '@/components/theseus/TheseusMobileNav';
 
 export const metadata = {
   title: 'Theseus',
@@ -13,7 +15,9 @@ export default function TheseusLayout({
 }) {
   return (
     <div className="theseus-root">
+      <TheseusSidebar />
       <TheseusShell>{children}</TheseusShell>
+      <TheseusMobileNav />
     </div>
   );
 }

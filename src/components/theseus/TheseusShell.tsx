@@ -2,10 +2,7 @@
 
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
-import TheseusDotGrid from './TheseusDotGrid';
-import GalaxyController from './GalaxyController';
 import type { GalaxyControllerHandle } from './GalaxyController';
-import TheseusNav from './TheseusNav';
 import type { DotGridHandle } from './TheseusDotGrid';
 import type { TheseusResponse } from '@/lib/theseus-types';
 import type { SceneDirective } from '@/lib/theseus-viz/SceneDirective';
@@ -31,9 +28,14 @@ interface GalaxyContextValue {
    *  the user submits a query and back in when state returns to IDLE. */
   askState: AskState;
   setAskState: (state: AskState) => void;
+  /** Current response/directive state (readable by Explorer page). */
+  response: TheseusResponse | null;
   setResponse: (response: TheseusResponse | null) => void;
+  directive: SceneDirective | null;
   setDirective: (directive: SceneDirective | null) => void;
+  dataStatus: DataProcessingStatus | null;
   setDataStatus: (status: DataProcessingStatus | null) => void;
+  vizPrediction: VizPrediction | null;
   setVizPrediction: (prediction: VizPrediction | null) => void;
   /** Toggle argument structure view ("Show me why") */
   argumentView: boolean;
@@ -203,12 +205,12 @@ export default function TheseusShell({ children }: { children: React.ReactNode }
     const handler = (event: Event) => {
       const detail = (event as CustomEvent<{ action?: string }>).detail ?? {};
       if (detail.action !== 'focusInput') return;
-      if (pathname === '/theseus') {
+      if (pathname === '/theseus/explorer') {
         // Already on the page that owns AskExperience: forward to
         // its dedicated focus event so it can synchronously focus.
         window.dispatchEvent(new CustomEvent('theseus:focus-ask-input'));
       } else {
-        router.push('/theseus?focus=1');
+        router.push('/theseus/explorer?focus=1');
       }
     };
     window.addEventListener('theseus:nav-action', handler);
@@ -245,9 +247,13 @@ export default function TheseusShell({ children }: { children: React.ReactNode }
     galaxyControllerRef,
     askState,
     setAskState,
+    response,
     setResponse,
+    directive,
     setDirective,
+    dataStatus,
     setDataStatus,
+    vizPrediction,
     setVizPrediction,
     argumentView,
     setArgumentView,
@@ -255,33 +261,15 @@ export default function TheseusShell({ children }: { children: React.ReactNode }
     addToSourceTrail,
     clearSourceTrail,
     mouthOpenRef,
-  }), [gridRef, askState, argumentView, sourceTrail, setAskState, setResponse, setDirective, setDataStatus, setVizPrediction, setArgumentView, addToSourceTrail, clearSourceTrail, mouthOpenRef]);
+  }), [gridRef, askState, response, directive, dataStatus, vizPrediction, argumentView, sourceTrail, setAskState, setResponse, setDirective, setDataStatus, setVizPrediction, setArgumentView, addToSourceTrail, clearSourceTrail, mouthOpenRef]);
 
   return (
     <GalaxyContext.Provider value={contextValue}>
-      <TheseusDotGrid ref={gridRef} engineState={askState} spacing={14} onNavButtonClick={handleNavButtonClick} />
-      <GalaxyController
-        ref={galaxyControllerRef}
-        gridRef={gridRef}
-        state={askState}
-        response={response}
-        directive={directive}
-        dataStatus={dataStatus}
-        vizPrediction={vizPrediction}
-        argumentView={argumentView}
-        onSourceExplored={addToSourceTrail}
-        mouthOpenRef={mouthOpenRef}
-      />
-      <TheseusNav />
-      <div style={{
-        position: 'relative',
-        zIndex: 1,
-        width: '100vw',
-        height: '100vh',
-        pointerEvents: 'none',
-        paddingTop: 48,
-        boxSizing: 'border-box',
-      }}>
+      {/* Sidebar + mobile nav are rendered by layout.tsx.
+          Galaxy (TheseusDotGrid + GalaxyController) is rendered by
+          the Explorer page, not the shell. The shell is now a pure
+          context provider + adaptive-nav predictor. */}
+      <div className="theseus-content">
         {children}
       </div>
     </GalaxyContext.Provider>

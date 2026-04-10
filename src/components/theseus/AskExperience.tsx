@@ -719,7 +719,16 @@ export function AskExperience() {
   const [state, setState] = useState<AskState>(query ? 'THINKING' : 'IDLE');
   const [response, setResponse] = useState<TheseusResponse | null>(null);
   const [sceneDirective, setSceneDirective] = useState<SceneDirective | null>(null);
-  const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
+  const [selectedNodeId, setSelectedNodeIdLocal] = useState<string | null>(null);
+
+  // Bridge node selection to Explorer's ContextPanel via DOM event
+  const setSelectedNodeId = useCallback((nodeId: string | null) => {
+    setSelectedNodeIdLocal(nodeId);
+    window.dispatchEvent(
+      new CustomEvent('explorer:select-node', { detail: { nodeId } }),
+    );
+  }, []);
+
   const [narrationReady, setNarrationReady] = useState(false);
   const [error, setError] = useState<ApiError | null>(null);
   const [dataStatus, setDataStatus] = useState<DataProcessingStatus | null>(null);
