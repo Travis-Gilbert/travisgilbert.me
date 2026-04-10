@@ -1,13 +1,12 @@
 'use client';
 
-import { Suspense, useCallback } from 'react';
+import { Suspense } from 'react';
 import { AskExperience } from '@/components/theseus/AskExperience';
 import TheseusDotGrid from '@/components/theseus/TheseusDotGrid';
 import GalaxyController from '@/components/theseus/GalaxyController';
 import { useGalaxy } from '@/components/theseus/TheseusShell';
 import { usePrefersReducedMotion } from '@/hooks/usePrefersReducedMotion';
 import ExplorerLayout from '@/components/theseus/explorer/ExplorerLayout';
-import IdleGraph from '@/components/theseus/explorer/IdleGraph';
 
 const STARTER_QUERIES = [
   'What connects Shannon to Hamming?',
@@ -17,8 +16,9 @@ const STARTER_QUERIES = [
 ];
 
 /**
- * Chrome overlay rendered while the engine is IDLE. Shows the THESEUS
- * title and starter query pills. Fades out when a query starts.
+ * Chrome overlay rendered while the engine is IDLE. Title sits above
+ * the Theseus face, starter pills sit below the face area, so neither
+ * overlaps the interactive dot field.
  */
 function ExplorerChrome() {
   const { askState } = useGalaxy();
@@ -30,53 +30,57 @@ function ExplorerChrome() {
       aria-hidden={!isIdle}
       style={{
         position: 'fixed',
-        top: '22vh',
-        left: '50%',
-        transform: 'translateX(-50%)',
-        width: 'min(720px, calc(100vw - 32px))',
+        inset: 0,
         display: 'flex',
         flexDirection: 'column',
         alignItems: 'center',
+        justifyContent: 'space-between',
+        padding: '6vh 24px 0',
         opacity: isIdle ? 1 : 0,
         pointerEvents: isIdle ? 'auto' : 'none',
         transition: prefersReducedMotion ? 'none' : 'opacity 500ms ease',
         zIndex: 11,
       }}
     >
-      <h1
-        style={{
-          fontFamily: 'var(--font-vollkorn-sc), Georgia, serif',
-          fontSize: 28,
-          fontWeight: 600,
-          color: '#3D8A96',
-          margin: 0,
-          lineHeight: 1.1,
-          letterSpacing: '0.08em',
-          textAlign: 'center',
-        }}
-      >
-        THESEUS
-      </h1>
-      <p
-        style={{
-          margin: '10px 0 0',
-          fontFamily: 'var(--vie-font-body)',
-          fontSize: 14,
-          color: 'var(--vie-text-dim)',
-          textAlign: 'center',
-        }}
-      >
-        What are you curious about?
-      </p>
+      {/* Top: title + subtitle (above the face) */}
+      <div style={{ textAlign: 'center', pointerEvents: 'none' }}>
+        <h1
+          style={{
+            fontFamily: 'var(--font-vollkorn-sc), Georgia, serif',
+            fontSize: 28,
+            fontWeight: 600,
+            color: '#3D8A96',
+            margin: 0,
+            lineHeight: 1.1,
+            letterSpacing: '0.08em',
+          }}
+        >
+          THESEUS
+        </h1>
+        <p
+          style={{
+            margin: '8px 0 0',
+            fontFamily: 'var(--vie-font-body)',
+            fontSize: 14,
+            color: 'var(--vie-text-dim)',
+          }}
+        >
+          Click a dot to explore. Ask a question to visualize.
+        </p>
+      </div>
 
+      {/* Middle: empty space for the face (no elements here) */}
+      <div style={{ flex: 1 }} />
+
+      {/* Bottom: starter pills (below the face, above the input dock) */}
       <div
         style={{
           display: 'flex',
           flexWrap: 'wrap',
           justifyContent: 'center',
           gap: 8,
-          width: '100%',
-          marginTop: 22,
+          maxWidth: 640,
+          marginBottom: 80,
         }}
       >
         {STARTER_QUERIES.map((starter) => (
@@ -110,28 +114,21 @@ function ExplorerChrome() {
 }
 
 /**
- * Explorer page: three-panel progressive reveal layout wrapping
- * the galaxy dot field and AskExperience.
+ * Explorer page: the galaxy dot field IS the interactive graph.
  *
- * Graph canvas fills the center. Structure panel slides in from
- * left. Context panel slides in from right on node selection.
+ * Cluster-tagged dots are clickable in idle state (GalaxyController
+ * handles click-to-object mapping). No separate graph overlay needed.
+ * ExplorerChrome positions title above and pills below the face area.
  */
 export default function ExplorerPage() {
   const galaxy = useGalaxy();
-  const isIdle = galaxy.askState === 'IDLE';
-
-  const handleIdleNodeSelect = useCallback((nodeId: string) => {
-    window.dispatchEvent(
-      new CustomEvent('explorer:select-node', { detail: { nodeId } }),
-    );
-  }, []);
 
   return (
     <ExplorerLayout>
-      {/* Idle graph: interactive cluster visualization before any query */}
-      {isIdle && <IdleGraph onSelectNode={handleIdleNodeSelect} />}
-
-      {/* Galaxy background: dot grid + controller */}
+      {/* Galaxy background: dot grid + controller.
+          The dots themselves are the interactive graph. Cluster dots
+          are tagged on mount and clickable via GalaxyController's
+          findNearestClusterDot + topObjects fallback. */}
       <TheseusDotGrid
         ref={galaxy.gridRef}
         engineState={galaxy.askState}
