@@ -12,6 +12,8 @@ import { useTheseusAssistantRuntime } from '@/lib/theseus-assistant-runtime';
 import { useSwitchPanel } from '../PanelManager';
 import type { ChatMessage as ChatMessageType } from './useChatHistory';
 import VisualPreviewCard from './VisualPreviewCard';
+import AskIdleHero from './AskIdleHero';
+import GraphActivity from './GraphActivity';
 
 interface TheseusThreadProps {
   messages: ChatMessageType[];
@@ -19,12 +21,6 @@ interface TheseusThreadProps {
   onSubmit: (query: string) => void;
 }
 
-const STARTER_QUERIES = [
-  'What connects Shannon to Hamming?',
-  'What unresolved tensions are active?',
-  'What am I missing about GNNs?',
-  'What new clusters formed this week?',
-];
 
 /**
  * Context to expose raw ChatMessage data to assistant-ui rendered components.
@@ -56,7 +52,6 @@ const RawMessagesContext = createContext<{
  */
 export default function TheseusThread({ messages, isAsking, onSubmit }: TheseusThreadProps) {
   const runtime = useTheseusAssistantRuntime({ messages, isAsking, onSubmit });
-  const switchPanel = useSwitchPanel();
 
   // Track assistant message render index. Reset each render cycle.
   const indexRef = useRef(0);
@@ -73,7 +68,10 @@ export default function TheseusThread({ messages, isAsking, onSubmit }: TheseusT
         <div className="theseus-thread">
           <ThreadPrimitive.Root>
             <ThreadPrimitive.Empty>
-              <WelcomeScreen onSubmit={onSubmit} onSwitchToExplorer={() => switchPanel('explorer')} />
+              <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', overflow: 'auto' }}>
+                <AskIdleHero onSubmit={onSubmit} />
+                <GraphActivity />
+              </div>
             </ThreadPrimitive.Empty>
 
             <ThreadPrimitive.Viewport className="theseus-thread-viewport">
@@ -87,11 +85,12 @@ export default function TheseusThread({ messages, isAsking, onSubmit }: TheseusT
               </div>
             </ThreadPrimitive.Viewport>
 
-            <TheseusComposerArea
-              isDisabled={isAsking}
-              showSuggestions={messages.length === 0}
-              onSubmit={onSubmit}
-            />
+            {messages.length > 0 && (
+              <TheseusComposerArea
+                isDisabled={isAsking}
+                onSubmit={onSubmit}
+              />
+            )}
           </ThreadPrimitive.Root>
         </div>
       </RawMessagesContext.Provider>
@@ -99,23 +98,6 @@ export default function TheseusThread({ messages, isAsking, onSubmit }: TheseusT
   );
 }
 
-function WelcomeScreen({
-  onSubmit,
-  onSwitchToExplorer,
-}: {
-  onSubmit: (q: string) => void;
-  onSwitchToExplorer: () => void;
-}) {
-  return (
-    <div className="theseus-welcome">
-      <h1 className="theseus-welcome-title">THESEUS</h1>
-      <p className="theseus-welcome-subtitle">What are you thinking about?</p>
-      <button type="button" className="theseus-welcome-link" onClick={onSwitchToExplorer}>
-        OPEN EXPLORER
-      </button>
-    </div>
-  );
-}
 
 /**
  * User message rendered via assistant-ui's MessagePrimitive.
@@ -328,11 +310,9 @@ function TheseusMarkdownText() {
  */
 function TheseusComposerArea({
   isDisabled,
-  showSuggestions,
   onSubmit,
 }: {
   isDisabled: boolean;
-  showSuggestions: boolean;
   onSubmit: (q: string) => void;
 }) {
   // Listen for follow-up suggestions
@@ -410,21 +390,6 @@ function TheseusComposerArea({
         )}
       </ComposerPrimitive.Root>
 
-      {/* Suggestion pills (custom, not assistant-ui) */}
-      {showSuggestions && !isDisabled && (
-        <div className="theseus-composer-suggestions">
-          {STARTER_QUERIES.map((query) => (
-            <button
-              key={query}
-              type="button"
-              className="theseus-followup-pill"
-              onClick={() => onSubmit(query)}
-            >
-              {query}
-            </button>
-          ))}
-        </div>
-      )}
     </div>
   );
 }

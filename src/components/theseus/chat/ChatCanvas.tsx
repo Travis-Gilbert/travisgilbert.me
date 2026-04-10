@@ -41,8 +41,8 @@ export default function ChatCanvas() {
 
     const rng = mulberry32(0x4a8a96);
 
-    // Layer 1: base fill
-    ctx.fillStyle = '#15161a';
+    // Layer 1: base fill (warm near-black)
+    ctx.fillStyle = '#131210';
     ctx.fillRect(0, 0, w, h);
 
     // Layer 2: large soft patches (very gentle warm/cool tonal drift)
@@ -54,15 +54,15 @@ export default function ChatCanvas() {
       const radius = 300 + rng() * 600;
 
       const isWarm = rng() > 0.5;
-      const r = isWarm ? 26 : 19;
-      const g = isWarm ? 23 : 21;
-      const b = isWarm ? 23 : 26;
+      const r = isWarm ? 28 : 20;
+      const g = isWarm ? 24 : 22;
+      const b = isWarm ? 20 : 24;
       const alpha = 0.008 + rng() * 0.012; // much subtler: 0.8-2% opacity
 
       const gradient = ctx.createRadialGradient(x, y, 0, x, y, radius);
       gradient.addColorStop(0, `rgba(${r}, ${g}, ${b}, ${alpha})`);
       gradient.addColorStop(0.6, `rgba(${r}, ${g}, ${b}, ${alpha * 0.3})`);
-      gradient.addColorStop(1, 'rgba(21, 22, 26, 0)');
+      gradient.addColorStop(1, 'rgba(19, 18, 16, 0)');
       ctx.fillStyle = gradient;
       ctx.fillRect(0, 0, w, h);
     }
@@ -74,8 +74,8 @@ export default function ChatCanvas() {
     const pixels = imageData.data;
 
     for (let i = 0; i < pixels.length; i += 4) {
-      // +/- 2 value units of luminance noise (barely perceptible)
-      const noise = (rng() - 0.5) * 4;
+      // +/- 1 value unit of luminance noise (very subtle, felt not seen)
+      const noise = (rng() - 0.5) * 1.5;
       pixels[i] = Math.max(0, Math.min(255, pixels[i] + noise));       // R
       pixels[i + 1] = Math.max(0, Math.min(255, pixels[i + 1] + noise)); // G
       pixels[i + 2] = Math.max(0, Math.min(255, pixels[i + 2] + noise)); // B
@@ -89,7 +89,7 @@ export default function ChatCanvas() {
     const vignette = ctx.createLinearGradient(0, h, 0, h - vignetteH);
     vignette.addColorStop(0, 'rgba(196, 80, 60, 0.025)');
     vignette.addColorStop(0.5, 'rgba(196, 154, 74, 0.012)');
-    vignette.addColorStop(1, 'rgba(21, 22, 26, 0)');
+    vignette.addColorStop(1, 'rgba(19, 18, 16, 0)');
     ctx.fillStyle = vignette;
     ctx.fillRect(0, 0, w, h);
   }, []);
