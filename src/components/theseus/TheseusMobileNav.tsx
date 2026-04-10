@@ -1,7 +1,7 @@
 'use client';
 
-import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+import { useCallback, useEffect, useState } from 'react';
+import type { PanelId } from './PanelManager';
 
 function ChatIcon() {
   return (
@@ -30,7 +30,7 @@ function GraphIcon() {
   );
 }
 
-function ArtifactsIcon() {
+function LibraryIcon() {
   return (
     <svg width="20" height="20" viewBox="0 0 24 24" strokeWidth="1.5" fill="none" aria-hidden="true">
       <path d="M12 22C17.5228 22 22 17.5228 22 12C22 6.47715 17.5228 2 12 2C6.47715 2 2 6.47715 2 12C2 17.5228 6.47715 22 12 22Z" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" />
@@ -41,61 +41,66 @@ function ArtifactsIcon() {
   );
 }
 
-function ModelsIcon() {
-  return (
-    <svg width="20" height="20" viewBox="0 0 24 24" strokeWidth="1.5" fill="none" aria-hidden="true">
-      <path d="M21 12.353L21 16.647C21 16.8649 20.8819 17.0656 20.6914 17.1715L12.2914 21.8381C12.1102 21.9388 11.8898 21.9388 11.7086 21.8381L3.30861 17.1715C3.11814 17.0656 3 16.8649 3 16.647L2.99998 12.353C2.99998 12.1351 3.11812 11.9344 3.3086 11.8285L11.7086 7.16188C11.8898 7.06121 12.1102 7.06121 12.2914 7.16188L20.6914 11.8285C20.8818 11.9344 21 12.1351 21 12.353Z" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" />
-      <path d="M3.52844 12.2936L11.7086 16.8382C11.8898 16.9388 12.1102 16.9388 12.2914 16.8382L20.5 12.2778" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" />
-      <path d="M12 21.5V17" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" />
-    </svg>
-  );
-}
-
 interface MobileNavItem {
   id: string;
   label: string;
-  href: string;
+  panelId: PanelId;
   icon: React.ComponentType;
 }
 
 const MOBILE_NAV_ITEMS: MobileNavItem[] = [
-  { id: 'home', label: 'Home', href: '/theseus', icon: ChatIcon },
-  { id: 'explorer', label: 'Explorer', href: '/theseus/explorer', icon: GraphIcon },
-  { id: 'artifacts', label: 'Artifacts', href: '/theseus/artifacts', icon: ArtifactsIcon },
-  { id: 'models', label: 'Models', href: '/theseus/models', icon: ModelsIcon },
+  { id: 'ask',      label: 'Ask',      panelId: 'ask',      icon: ChatIcon },
+  { id: 'explorer', label: 'Explorer', panelId: 'explorer', icon: GraphIcon },
+  { id: 'library',  label: 'Library',  panelId: 'library',  icon: LibraryIcon },
 ];
-
-function isActive(pathname: string, id: string): boolean {
-  if (id === 'home') return pathname === '/theseus';
-  if (id === 'artifacts') {
-    return pathname.startsWith('/theseus/artifacts') || pathname.startsWith('/theseus/truth-maps');
-  }
-  return pathname.startsWith(`/theseus/${id}`);
-}
 
 /**
  * TheseusMobileNav: fixed bottom tab bar for small viewports.
  * Hidden on desktop (CSS media query); visible below 768px.
+ *
+ * W0: Switched from <Link> navigation to panel switching via
+ * custom events. Active state reads from data-theseus-panel.
  */
 export default function TheseusMobileNav() {
-  const pathname = usePathname() ?? '';
+  const [activePanel, setActivePanel] = useState<PanelId>('ask');
+
+  useEffect(() => {
+    function update() {
+      const panel = document.documentElement.getAttribute('data-theseus-panel');
+      if (panel) setActivePanel(panel as PanelId);
+    }
+    update();
+    const observer = new MutationObserver(update);
+    observer.observe(document.documentElement, {
+      attributes: true,
+      attributeFilter: ['data-theseus-panel'],
+    });
+    return () => observer.disconnect();
+  }, []);
+
+  const handleSwitch = useCallback((panelId: PanelId) => {
+    window.dispatchEvent(
+      new CustomEvent('theseus:switch-panel', { detail: { panel: panelId } }),
+    );
+  }, []);
 
   return (
     <nav className="theseus-mobile-nav" aria-label="Theseus navigation">
       {MOBILE_NAV_ITEMS.map((item) => {
-        const active = isActive(pathname, item.id);
+        const active = activePanel === item.panelId;
         const Icon = item.icon;
         return (
-          <Link
+          <button
             key={item.id}
-            href={item.href}
+            type="button"
             className={`theseus-mobile-nav-item${active ? ' is-active' : ''}`}
             aria-label={item.label}
             aria-current={active ? 'page' : undefined}
+            onClick={() => handleSwitch(item.panelId)}
           >
             <Icon />
             <span className="theseus-mobile-nav-label">{item.label}</span>
-          </Link>
+          </button>
         );
       })}
     </nav>

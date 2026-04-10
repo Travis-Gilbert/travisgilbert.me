@@ -388,12 +388,50 @@
   text-transform: uppercase;
   color: var(--vie-teal-light, #4A8A96);
   text-decoration: none;
+  background: transparent;
+  border: none;
   border-bottom: 1px solid rgba(74, 138, 150, 0.3);
+  cursor: pointer;
+  padding: 0;
   transition: border-color 150ms ease;
 }
 
 .theseus-welcome-link:hover {
   border-color: var(--vie-teal-light, #4A8A96);
+}
+
+/* ─── Chat export button ─── */
+
+.theseus-chat-export {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 6px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(15, 16, 18, 0.8);
+  color: var(--vie-text-dim, rgba(154, 149, 141, 0.6));
+  cursor: pointer;
+  transition: color 150ms ease, background 150ms ease;
+}
+
+.theseus-chat-export:hover {
+  color: var(--vie-text, #e8e5e0);
+  background: rgba(255, 255, 255, 0.06);
+}
+
+/* ─── MarkdownTextPrimitive (assistant-ui) ─── */
+
+.theseus-markdown {
+  font-family: var(--vie-font-body, 'IBM Plex Sans', sans-serif);
+  font-size: 15px;
+  line-height: 1.6;
+  color: var(--aui-assistant-foreground);
 }
 
 .theseus-welcome-suggestions {

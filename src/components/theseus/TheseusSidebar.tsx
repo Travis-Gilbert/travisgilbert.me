@@ -1,12 +1,9 @@
 'use client';
 
+import { useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+import type { PanelId } from './PanelManager';
 
-/**
- * Icon: chat bubble (Home / Ask).
- * Matches the Claude.ai conversational style.
- */
 function ChatIcon() {
   return (
     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" strokeWidth="1.5" aria-hidden="true">
@@ -20,9 +17,6 @@ function ChatIcon() {
   );
 }
 
-/**
- * Icon: graph / network (Explorer).
- */
 function GraphIcon() {
   return (
     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" strokeWidth="1.5" aria-hidden="true">
@@ -37,10 +31,19 @@ function GraphIcon() {
   );
 }
 
-/**
- * Icon: artifacts (three-point circle). Reused from original TheseusNav.
- */
-function ArtifactsIcon() {
+function NotebookIcon() {
+  return (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" strokeWidth="1.5" aria-hidden="true">
+      <path d="M6 2H18C18.5523 2 19 2.44772 19 3V21C19 21.5523 18.5523 22 18 22H6C5.44772 22 5 21.5523 5 21V3C5 2.44772 5.44772 2 6 2Z" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" />
+      <path d="M9 2V22" stroke="currentColor" strokeLinecap="round" />
+      <path d="M12 7H16" stroke="currentColor" strokeLinecap="round" />
+      <path d="M12 11H16" stroke="currentColor" strokeLinecap="round" />
+      <path d="M12 15H14" stroke="currentColor" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+function LibraryIcon() {
   return (
     <svg width="20" height="20" viewBox="0 0 24 24" strokeWidth="1.5" fill="none" aria-hidden="true">
       <path d="M12 22C17.5228 22 22 17.5228 22 12C22 6.47715 17.5228 2 12 2C6.47715 2 2 6.47715 2 12C2 17.5228 6.47715 22 12 22Z" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" />
@@ -51,15 +54,11 @@ function ArtifactsIcon() {
   );
 }
 
-/**
- * Icon: models (extrude/3D). Reused from original TheseusNav.
- */
-function ModelsIcon() {
+function SettingsIcon() {
   return (
-    <svg width="20" height="20" viewBox="0 0 24 24" strokeWidth="1.5" fill="none" aria-hidden="true">
-      <path d="M21 12.353L21 16.647C21 16.8649 20.8819 17.0656 20.6914 17.1715L12.2914 21.8381C12.1102 21.9388 11.8898 21.9388 11.7086 21.8381L3.30861 17.1715C3.11814 17.0656 3 16.8649 3 16.647L2.99998 12.353C2.99998 12.1351 3.11812 11.9344 3.3086 11.8285L11.7086 7.16188C11.8898 7.06121 12.1102 7.06121 12.2914 7.16188L20.6914 11.8285C20.8818 11.9344 21 12.1351 21 12.353Z" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" />
-      <path d="M3.52844 12.2936L11.7086 16.8382C11.8898 16.9388 12.1102 16.9388 12.2914 16.8382L20.5 12.2778" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" />
-      <path d="M12 21.5V17" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" />
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" strokeWidth="1.5" aria-hidden="true">
+      <path d="M12 15C13.6569 15 15 13.6569 15 12C15 10.3431 13.6569 9 12 9C10.3431 9 9 10.3431 9 12C9 13.6569 10.3431 15 12 15Z" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" />
+      <path d="M19.622 10.395L20.748 10.885C21.096 11.041 21.314 11.392 21.295 11.773L21.196 13.761C21.181 14.072 21.003 14.35 20.727 14.494L19.554 15.107C19.389 15.641 19.167 16.154 18.892 16.637L19.26 17.815C19.362 18.141 19.265 18.498 19.012 18.731L17.548 20.091C17.304 20.317 16.945 20.371 16.647 20.229L15.481 19.673C14.979 19.916 14.449 20.103 13.9 20.228L13.488 21.422C13.37 21.754 13.053 21.98 12.698 21.994L10.726 22.068C10.415 22.08 10.124 21.918 9.968 21.649L9.292 20.48C8.746 20.392 8.214 20.244 7.703 20.04L6.569 20.587C6.259 20.737 5.89 20.694 5.624 20.475L4.118 19.236C3.87 19.032 3.771 18.697 3.867 18.389L4.268 17.131C3.97 16.62 3.733 16.077 3.563 15.511L2.366 15.127C2.038 15.023 1.806 14.727 1.782 14.384L1.633 12.333C1.613 12.062 1.736 11.8 1.955 11.641L3.068 10.838C3.131 10.269 3.254 9.712 3.435 9.175L2.815 8.049C2.651 7.749 2.678 7.381 2.884 7.108L4.191 5.371C4.387 5.11 4.717 4.994 5.031 5.072L6.335 5.398C6.82 5.076 7.34 4.808 7.886 4.599L8.206 3.32C8.289 2.989 8.565 2.74 8.904 2.693L10.946 2.408C11.254 2.365 11.559 2.49 11.738 2.732L12.531 3.805C13.078 3.84 13.618 3.932 14.142 4.078L15.183 3.277C15.453 3.07 15.822 3.046 16.119 3.213L17.974 4.252C18.237 4.4 18.384 4.69 18.351 4.993L18.19 6.472C18.572 6.87 18.909 7.308 19.195 7.778L20.443 7.93C20.771 7.971 21.04 8.197 21.136 8.511L21.697 10.357" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" />
     </svg>
   );
 }
@@ -67,27 +66,17 @@ function ModelsIcon() {
 interface NavItem {
   id: string;
   label: string;
-  href: string;
+  panelId: PanelId;
   icon: React.ComponentType;
-  matchPrefix: string;
 }
 
 const NAV_ITEMS: NavItem[] = [
-  { id: 'home', label: 'Chat', href: '/theseus', icon: ChatIcon, matchPrefix: '/theseus' },
-  { id: 'explorer', label: 'Explorer', href: '/theseus/explorer', icon: GraphIcon, matchPrefix: '/theseus/explorer' },
-  { id: 'artifacts', label: 'Artifacts', href: '/theseus/artifacts', icon: ArtifactsIcon, matchPrefix: '/theseus/artifacts' },
-  { id: 'models', label: 'Models', href: '/theseus/models', icon: ModelsIcon, matchPrefix: '/theseus/models' },
+  { id: 'ask',      label: 'Ask',      panelId: 'ask',      icon: ChatIcon },
+  { id: 'explorer', label: 'Explorer', panelId: 'explorer', icon: GraphIcon },
+  { id: 'notebook', label: 'Notebook', panelId: 'notebook', icon: NotebookIcon },
+  { id: 'library',  label: 'Library',  panelId: 'library',  icon: LibraryIcon },
+  { id: 'settings', label: 'Settings', panelId: 'settings', icon: SettingsIcon },
 ];
-
-function isActive(pathname: string, item: NavItem): boolean {
-  // Home matches exactly /theseus (not subpages)
-  if (item.id === 'home') return pathname === '/theseus';
-  // Truth-maps are nested under artifacts conceptually
-  if (item.id === 'artifacts') {
-    return pathname.startsWith('/theseus/artifacts') || pathname.startsWith('/theseus/truth-maps');
-  }
-  return pathname.startsWith(item.matchPrefix);
-}
 
 /**
  * TheseusSidebar: collapsible left rail with icon navigation.
@@ -95,15 +84,45 @@ function isActive(pathname: string, item: NavItem): boolean {
  * Always visible on desktop as a 48px icon rail. Expands to ~200px
  * on hover/focus to show labels. Hidden on mobile (TheseusMobileNav
  * renders the bottom bar instead).
+ *
+ * W0: Switched from <Link> navigation to panel switching via
+ * custom events. Active state reads from data-theseus-panel
+ * on <html> (set by PanelManager).
  */
 export default function TheseusSidebar() {
-  const pathname = usePathname() ?? '';
+  const [activePanel, setActivePanel] = useState<PanelId>('ask');
+
+  // Read active panel from DOM attribute (set by PanelManager)
+  useEffect(() => {
+    function update() {
+      const panel = document.documentElement.getAttribute('data-theseus-panel');
+      if (panel) setActivePanel(panel as PanelId);
+    }
+    update();
+    const observer = new MutationObserver(update);
+    observer.observe(document.documentElement, {
+      attributes: true,
+      attributeFilter: ['data-theseus-panel'],
+    });
+    return () => observer.disconnect();
+  }, []);
+
+  const handleSwitch = useCallback((panelId: PanelId) => {
+    window.dispatchEvent(
+      new CustomEvent('theseus:switch-panel', { detail: { panel: panelId } }),
+    );
+  }, []);
 
   return (
     <nav className="theseus-sidebar" aria-label="Theseus navigation">
       {/* Brand */}
       <div className="theseus-sidebar-brand">
-        <Link href="/theseus" className="theseus-sidebar-brand-link" aria-label="Theseus home">
+        <button
+          type="button"
+          className="theseus-sidebar-brand-link"
+          aria-label="Theseus home"
+          onClick={() => handleSwitch('ask')}
+        >
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" strokeWidth="1.5" aria-hidden="true">
             <g clipPath="url(#brand-clip)">
               <path d="M12 10C12.8284 10 13.5 9.32843 13.5 8.5C13.5 7.67157 12.8284 7 12 7C11.1716 7 10.5 7.67157 10.5 8.5C10.5 9.32843 11.1716 10 12 10Z" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
@@ -120,27 +139,28 @@ export default function TheseusSidebar() {
               </clipPath>
             </defs>
           </svg>
-        </Link>
+        </button>
       </div>
 
       {/* Navigation items */}
       <div className="theseus-sidebar-items">
         {NAV_ITEMS.map((item) => {
-          const active = isActive(pathname, item);
+          const active = activePanel === item.panelId;
           const Icon = item.icon;
           return (
-            <Link
+            <button
               key={item.id}
-              href={item.href}
+              type="button"
               className={`theseus-sidebar-item${active ? ' is-active' : ''}`}
               aria-label={item.label}
               aria-current={active ? 'page' : undefined}
+              onClick={() => handleSwitch(item.panelId)}
             >
               <span className="theseus-sidebar-icon">
                 <Icon />
               </span>
               <span className="theseus-sidebar-label">{item.label}</span>
-            </Link>
+            </button>
           );
         })}
       </div>

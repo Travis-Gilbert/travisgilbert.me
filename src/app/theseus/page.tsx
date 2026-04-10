@@ -1,33 +1,20 @@
 'use client';
 
-import ChatCanvas from '@/components/theseus/chat/ChatCanvas';
-import TheseusThread from '@/components/theseus/chat/TheseusThread';
-import { useChatHistory } from '@/components/theseus/chat/useChatHistory';
+import { Suspense } from 'react';
+import PanelManager from '@/components/theseus/PanelManager';
 
 /**
- * Theseus Chat Home: assistant-ui themed conversational interface.
+ * Theseus workspace: single page with panel-based navigation.
  *
- * When there are no messages, shows a welcome state with the
- * Theseus title, starter queries, and an Explorer link. Once
- * the user asks a question, the threaded conversation fills the space.
- *
- * Uses TheseusThread (which integrates TheseusComposer and TheseusMessage)
- * for markdown rendering, message actions, and follow-up pills.
+ * All panels (Ask, Explorer, Notebook, Library, Settings) are
+ * managed by PanelManager. The sidebar switches which panel is
+ * visible. Panels mount lazily and persist after first access.
+ * URL updates via searchParams for deep linking (?view=explorer).
  */
-export default function TheseusHomepage() {
-  const { messages, isAsking, ask } = useChatHistory();
-
+export default function TheseusPage() {
   return (
-    <div className="theseus-chat-home">
-      {/* Canvas texture: subtle shade variations for material feel */}
-      <ChatCanvas />
-
-      {/* Unified thread with welcome screen, messages, and composer */}
-      <TheseusThread
-        messages={messages}
-        isAsking={isAsking}
-        onSubmit={ask}
-      />
-    </div>
+    <Suspense>
+      <PanelManager />
+    </Suspense>
   );
 }

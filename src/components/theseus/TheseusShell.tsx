@@ -197,52 +197,46 @@ export default function TheseusShell({ children }: { children: React.ReactNode }
     ignoreTimersRef.current.clear();
   }, []);
 
-  // Shell-level listener for the contextual nav action that needs to
-  // work from any Theseus subpage (not just /theseus where
-  // AskExperience is mounted). focusInput must navigate to /theseus
-  // first if the user is currently on /theseus/library, /theseus/
-  // artifacts, etc. Once there, AskExperience reads ?focus=1 from
-  // the URL and focuses its input on mount.
-  //
-  // The other contextual actions (openTensions, openSources,
-  // triggerInvestigation) are handled inside AskExperience because
-  // they need access to the most recent ask response. They are
-  // intentionally no-ops on subpages.
+  // Shell-level listener for the contextual nav action (focusInput).
+  // In panel mode, switch to the ask panel and fire focus event.
   useEffect(() => {
     if (typeof window === 'undefined') return;
     const handler = (event: Event) => {
       const detail = (event as CustomEvent<{ action?: string }>).detail ?? {};
       if (detail.action !== 'focusInput') return;
-      if (pathname === '/theseus/explorer') {
-        // Already on the page that owns AskExperience: forward to
-        // its dedicated focus event so it can synchronously focus.
+      // Switch to ask panel and focus the input
+      window.dispatchEvent(
+        new CustomEvent('theseus:switch-panel', { detail: { panel: 'ask' } }),
+      );
+      requestAnimationFrame(() => {
         window.dispatchEvent(new CustomEvent('theseus:focus-ask-input'));
-      } else {
-        router.push('/theseus/explorer?focus=1');
-      }
+      });
     };
     window.addEventListener('theseus:nav-action', handler);
     return () => window.removeEventListener('theseus:nav-action', handler);
-  }, [pathname, router]);
+  }, []);
 
-  // Listen for "Ask about this" bridge from ContextPanel
+  // Listen for "Ask about this" bridge from ContextPanel.
+  // In panel mode, switch to ask panel and prefill the query.
   useEffect(() => {
     if (typeof window === 'undefined') return;
     const handler = (event: Event) => {
       const detail = (event as CustomEvent<{ query?: string }>).detail;
       if (!detail?.query) return;
-      const encoded = encodeURIComponent(detail.query);
-      router.push(`/theseus/explorer?q=${encoded}`);
-      // If already on the explorer page, fire a focus event to populate the input
-      if (pathname === '/theseus/explorer') {
+      // Switch to ask panel
+      window.dispatchEvent(
+        new CustomEvent('theseus:switch-panel', { detail: { panel: 'ask' } }),
+      );
+      // Prefill the query after panel is visible
+      requestAnimationFrame(() => {
         window.dispatchEvent(
           new CustomEvent('theseus:prefill-ask', { detail: { query: detail.query } }),
         );
-      }
+      });
     };
     window.addEventListener('theseus:navigate-ask', handler);
     return () => window.removeEventListener('theseus:navigate-ask', handler);
-  }, [pathname, router]);
+  }, []);
 
   const handleNavButtonClick = useCallback((buttonId: string) => {
     // Cancel the ignore timer for this button: the user engaged with it.
