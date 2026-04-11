@@ -180,6 +180,10 @@ interface TheseusDotGridProps {
   engineState?: EngineState;
   /** Adaptive nav: fired when a fully-formed nav attractor is clicked. */
   onNavButtonClick?: (id: string) => void;
+  /** Hunting mode: when true, all dots stream toward huntOrigin. */
+  huntMode?: boolean;
+  /** Target position for hunting (client coords). */
+  huntOrigin?: { x: number; y: number } | null;
 }
 
 const TheseusDotGrid = forwardRef<DotGridHandle, TheseusDotGridProps>(function TheseusDotGrid({
@@ -194,6 +198,8 @@ const TheseusDotGrid = forwardRef<DotGridHandle, TheseusDotGridProps>(function T
   binaryDensity = 0.20,
   engineState = 'IDLE',
   onNavButtonClick,
+  huntMode = false,
+  huntOrigin = null,
 }, ref) {
   const prefersReducedMotion = usePrefersReducedMotion();
   const onNavButtonClickRef = useRef(onNavButtonClick);
@@ -274,6 +280,26 @@ const TheseusDotGrid = forwardRef<DotGridHandle, TheseusDotGridProps>(function T
     homeX: Float32Array;
     homeY: Float32Array;
   } | null>(null);
+
+  // Hunting mode: refs so the physics loop reads current values without closure staling
+  const huntModeRef = useRef(false);
+  const huntOriginRef = useRef<{ x: number; y: number } | null>(null);
+  const huntDurationRef = useRef(0);
+  // 'off' = normal, 'hunting' = streaming toward cursor, 'returning' = drifting home
+  const huntPhaseRef = useRef<'off' | 'hunting' | 'returning'>('off');
+
+  useEffect(() => {
+    const wasHunting = huntModeRef.current;
+    huntModeRef.current = huntMode;
+    huntOriginRef.current = huntOrigin ?? null;
+    if (huntMode && !wasHunting) {
+      huntPhaseRef.current = 'hunting';
+      huntDurationRef.current = 0;
+      startAnimationRef.current?.();
+    } else if (!huntMode && wasHunting) {
+      huntPhaseRef.current = 'returning';
+    }
+  }, [huntMode, huntOrigin]);
 
   // Overlay drawing state (edges and labels set by controller)
   const edgesRef = useRef<Array<{ fromIndex: number; toIndex: number; progress: number; color: string }>>([]);
@@ -781,6 +807,19 @@ const TheseusDotGrid = forwardRef<DotGridHandle, TheseusDotGridProps>(function T
       const ir2 = influenceRadius * influenceRadius;
       let anyDisplaced = false;
 
+      // Hunting mode: hoist refs for the per-dot loop
+      const isHunting = huntPhaseRef.current === 'hunting';
+      const isReturning = huntPhaseRef.current === 'returning';
+      const huntOrig = huntOriginRef.current;
+      if (isHunting) {
+        huntDurationRef.current++;
+      }
+      const huntRamp = isHunting ? Math.min(huntDurationRef.current / 60, 1.0) : 0;
+      // Transform hunt origin from client coords to canvas space
+      const huntX = huntOrig ? (huntOrig.x - zpx) / zs : 0;
+      const huntY = huntOrig ? (huntOrig.y - zpy) / zs : 0;
+      let maxReturnDisp2 = 0; // track max displacement during return phase
+
       // Hoist engine state computations above the per-dot loop
       const eState = engineStateRef.current;
       const focalPts = focalPointsRef.current;
@@ -835,16 +874,72 @@ const TheseusDotGrid = forwardRef<DotGridHandle, TheseusDotGridProps>(function T
         const restOffX = currentX - baseX;
         const restOffY = currentY - baseY;
 
-        if (isActive) {
-          const ddx = currentX - mx;
-          const ddy = currentY - my;
-          const d2 = ddx * ddx + ddy * ddy;
+        // Hunting mode: skip normal mouse repulsion, apply gravity
+        if (isHunting && huntOrig) {
+          // Gravity toward cursor
+          const toX = huntX - currentX;
+          const toY = huntY - currentY;
+          const dist = Math.sqrt(toX * toX + toY * toY);
 
-          if (d2 < ir2 && d2 > 0.01) {
-            const d = Math.sqrt(d2);
-            const force = (1 - d / influenceRadius) * repulsionStrength;
-            dots.vx[i] += (ddx / d) * force * 0.1;
-            dots.vy[i] += (ddy / d) * force * 0.1;
+          if (dist > 3) {
+            const G = 0.4 + huntRamp * 1.2;
+            const accel = G / Math.sqrt(dist);
+            dots.vx[i] += (toX / dist) * accel;
+            dots.vy[i] += (toY / dist) * accel;
+          }
+
+          // Three-zone friction
+          const distToOrigin = Math.sqrt(
+            (currentX - huntX) * (currentX - huntX) +
+            (currentY - huntY) * (currentY - huntY),
+          );
+          const huntDamp = distToOrigin < 60 ? 0.85
+            : distToOrigin < 200 ? 0.92
+              : 0.96;
+          dots.vx[i] *= huntDamp;
+          dots.vy[i] *= huntDamp;
+
+          // Negligible home spring (drift prevention)
+          dots.vx[i] += (baseX - currentX) * 0.001;
+          dots.vy[i] += (baseY - currentY) * 0.001;
+
+          anyDisplaced = true;
+        } else if (isReturning) {
+          // Return-home spring (softer for ~1s return)
+          dots.vx[i] += (baseX - currentX) * 0.08;
+          dots.vy[i] += (baseY - currentY) * 0.08;
+          dots.vx[i] *= 0.75;
+          dots.vy[i] *= 0.75;
+
+          // Normal mouse repulsion re-enabled during return
+          if (isActive) {
+            const ddx = currentX - mx;
+            const ddy = currentY - my;
+            const d2 = ddx * ddx + ddy * ddy;
+            if (d2 < ir2 && d2 > 0.01) {
+              const d = Math.sqrt(d2);
+              const force = (1 - d / influenceRadius) * repulsionStrength;
+              dots.vx[i] += (ddx / d) * force * 0.1;
+              dots.vy[i] += (ddy / d) * force * 0.1;
+            }
+          }
+
+          const disp2 = restOffX * restOffX + restOffY * restOffY;
+          if (disp2 > maxReturnDisp2) maxReturnDisp2 = disp2;
+          if (disp2 > 0.5) anyDisplaced = true;
+        } else {
+          // Normal mouse repulsion
+          if (isActive) {
+            const ddx = currentX - mx;
+            const ddy = currentY - my;
+            const d2 = ddx * ddx + ddy * ddy;
+
+            if (d2 < ir2 && d2 > 0.01) {
+              const d = Math.sqrt(d2);
+              const force = (1 - d / influenceRadius) * repulsionStrength;
+              dots.vx[i] += (ddx / d) * force * 0.1;
+              dots.vy[i] += (ddy / d) * force * 0.1;
+            }
           }
         }
 
@@ -893,10 +988,13 @@ const TheseusDotGrid = forwardRef<DotGridHandle, TheseusDotGridProps>(function T
         }
 
         // Spring toward rest position (target or grid)
-        dots.vx[i] += -restOffX * stiffness * springMul;
-        dots.vy[i] += -restOffY * stiffness * springMul;
-        dots.vx[i] *= damping;
-        dots.vy[i] *= damping;
+        // Skip normal spring during hunting/returning (they have their own physics above)
+        if (!isHunting && !isReturning) {
+          dots.vx[i] += -restOffX * stiffness * springMul;
+          dots.vy[i] += -restOffY * stiffness * springMul;
+          dots.vx[i] *= damping;
+          dots.vy[i] *= damping;
+        }
         dots.ox[i] += dots.vx[i];
         dots.oy[i] += dots.vy[i];
 
@@ -917,7 +1015,7 @@ const TheseusDotGrid = forwardRef<DotGridHandle, TheseusDotGridProps>(function T
 
         // Galaxy color: use override, or subtle type tint, or default teal
         const opaOverride = dots.galaxyOpacity[i];
-        const alpha = (Number.isNaN(opaOverride) ? dotOpacity : opaOverride) * dots.fade[i];
+        let alpha = (Number.isNaN(opaOverride) ? dotOpacity : opaOverride) * dots.fade[i];
 
         let dotR = dots.galaxyColorR[i];
         let dotG = dots.galaxyColorG[i];
@@ -940,6 +1038,29 @@ const TheseusDotGrid = forwardRef<DotGridHandle, TheseusDotGridProps>(function T
           }
         }
 
+        // Hunting color: teal tint + alpha boost proportional to displacement
+        if (isHunting || isReturning) {
+          const dispX = currentX - baseX;
+          const dispY = currentY - baseY;
+          const displacement = Math.sqrt(dispX * dispX + dispY * dispY);
+          if (displacement > 2) {
+            const t = Math.min(displacement / 150, 1.0);
+            const intensity = isHunting ? t : t * 0.5; // half intensity during return
+            // Shift toward brighter teal (110, 180, 195)
+            const baseR = Number.isNaN(dotR) ? rgb[0] : dotR;
+            const baseG = Number.isNaN(dotG) ? rgb[1] : dotG;
+            const baseB = Number.isNaN(dotB) ? rgb[2] : dotB;
+            dotR = baseR + (110 - baseR) * intensity;
+            dotG = baseG + (180 - baseG) * intensity;
+            dotB = baseB + (195 - baseB) * intensity;
+            alpha += intensity * 0.22;
+            // Binary characters get extra alpha
+            if (dots.kind[i] === 1 || dots.kind[i] === 2) {
+              alpha += intensity * 0.06;
+            }
+          }
+        }
+
         drawDot(
           dots.gx[i] + dots.ox[i], dots.gy[i] + dots.oy[i],
           alpha, dots.kind[i],
@@ -947,6 +1068,12 @@ const TheseusDotGrid = forwardRef<DotGridHandle, TheseusDotGridProps>(function T
           dots.galaxyScale[i],
           dots.shape[i],
         );
+      }
+
+      // End return phase when all dots have settled
+      if (isReturning && maxReturnDisp2 < 1.0) {
+        huntPhaseRef.current = 'off';
+        huntDurationRef.current = 0;
       }
 
       // Advance focal point orbit angles once per frame (not per dot)
@@ -1112,9 +1239,10 @@ const TheseusDotGrid = forwardRef<DotGridHandle, TheseusDotGridProps>(function T
         }
       }
 
-      // Keep animating during non-IDLE engine states
+      // Keep animating during non-IDLE engine states or hunting
       const activeEngine = engineStateRef.current !== 'IDLE' && engineStateRef.current !== 'EXPLORING';
-      if (!anyDisplaced && !activeEngine) {
+      const activeHunt = huntPhaseRef.current !== 'off';
+      if (!anyDisplaced && !activeEngine && !activeHunt) {
         idleFrames++;
         if (idleFrames > 60) { animating = false; return; }
       } else {

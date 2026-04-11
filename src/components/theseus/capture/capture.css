@@ -1,0 +1,56 @@
+/* Capture component animations */
+
+@keyframes capture-shimmer {
+  0% { transform: translateX(-100%); }
+  100% { transform: translateX(350%); }
+}
+
+@keyframes capture-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.3; }
+}
+
+.capture-shimmer-bar {
+  height: 100%;
+  width: 40%;
+  background: #4A8A96;
+  border-radius: 2px;
+  animation: capture-shimmer 1.5s ease-in-out infinite;
+}
+
+.capture-pulse-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--vie-teal-light, #4A8A96);
+  animation: capture-pulse 1.2s ease-in-out infinite;
+}
+
+/* Global drop overlay */
+.capture-drop-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  background: rgba(45,95,107,0.08);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+}
+
+.capture-drop-overlay-inner {
+  position: absolute;
+  inset: 16px;
+  border: 2px dashed rgba(74,138,150,0.5);
+  border-radius: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.capture-drop-overlay-text {
+  font-family: var(--vie-font-body, 'IBM Plex Sans', sans-serif);
+  font-size: 18px;
+  color: var(--vie-teal-light, #4A8A96);
+  font-weight: 400;
+}

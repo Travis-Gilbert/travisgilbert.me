@@ -1,6 +1,7 @@
 'use client';
 
-import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type DragEvent } from 'react';
+import '@/components/theseus/capture/capture.css';
 import { usePathname, useRouter } from 'next/navigation';
 import type { GalaxyControllerHandle } from './GalaxyController';
 import type { DotGridHandle } from './TheseusDotGrid';
@@ -46,6 +47,10 @@ interface GalaxyContextValue {
   clearSourceTrail: () => void;
   /** Mouth openness ref for voice animation (written by VoiceControls, read by GalaxyController) */
   mouthOpenRef: React.MutableRefObject<number>;
+  /** Hunting mode: true when dragging files over the workspace */
+  isHunting: boolean;
+  /** Cursor position during hunt (client coords) */
+  huntOrigin: { x: number; y: number } | null;
 }
 
 const GalaxyContext = createContext<GalaxyContextValue | null>(null);
@@ -263,6 +268,67 @@ export default function TheseusShell({ children }: { children: React.ReactNode }
     }
   }, [router, maybeTrainAndSave]);
 
+  /* ─────────────────────────────────────────────────
+     Global file drop overlay: show hint when dragging
+     files over any part of Theseus, open capture modal on drop.
+     ───────────────────────────────────────────────── */
+  const [globalDragOver, setGlobalDragOver] = useState(false);
+  const [isHunting, setIsHunting] = useState(false);
+  const [huntOrigin, setHuntOrigin] = useState<{ x: number; y: number } | null>(null);
+  const dragCounterRef = useRef(0);
+
+  const handleGlobalDragEnter = useCallback((e: DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    dragCounterRef.current += 1;
+    // Only respond to drags containing files
+    if (e.dataTransfer.types.includes('Files')) {
+      setGlobalDragOver(true);
+      setIsHunting(true);
+      setHuntOrigin({ x: e.clientX, y: e.clientY });
+    }
+  }, []);
+
+  const handleGlobalDragOver = useCallback((e: DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    // Update cursor position for hunting animation
+    if (e.dataTransfer.types.includes('Files')) {
+      setHuntOrigin({ x: e.clientX, y: e.clientY });
+    }
+  }, []);
+
+  const handleGlobalDragLeave = useCallback((e: DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    dragCounterRef.current -= 1;
+    if (dragCounterRef.current <= 0) {
+      dragCounterRef.current = 0;
+      setGlobalDragOver(false);
+      setIsHunting(false);
+      setHuntOrigin(null);
+    }
+  }, []);
+
+  const handleGlobalDrop = useCallback((e: DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    dragCounterRef.current = 0;
+    setGlobalDragOver(false);
+    setIsHunting(false);
+    setHuntOrigin(null);
+
+    const files = Array.from(e.dataTransfer.files);
+    if (files.length > 0) {
+      // Switch to library panel so CaptureModal can render
+      window.dispatchEvent(
+        new CustomEvent('theseus:switch-panel', { detail: { panel: 'library' } }),
+      );
+      // Dispatch capture event with pre-loaded files (LibraryPanel listens)
+      requestAnimationFrame(() => {
+        window.dispatchEvent(
+          new CustomEvent('theseus:capture-open', { detail: { files } }),
+        );
+      });
+    }
+  }, []);
+
   const contextValue = useMemo(() => ({
     gridRef,
     galaxyControllerRef,
@@ -282,7 +348,9 @@ export default function TheseusShell({ children }: { children: React.ReactNode }
     addToSourceTrail,
     clearSourceTrail,
     mouthOpenRef,
-  }), [gridRef, askState, response, directive, dataStatus, vizPrediction, argumentView, sourceTrail, setAskState, setResponse, setDirective, setDataStatus, setVizPrediction, setArgumentView, addToSourceTrail, clearSourceTrail, mouthOpenRef]);
+    isHunting,
+    huntOrigin,
+  }), [gridRef, askState, response, directive, dataStatus, vizPrediction, argumentView, sourceTrail, setAskState, setResponse, setDirective, setDataStatus, setVizPrediction, setArgumentView, addToSourceTrail, clearSourceTrail, mouthOpenRef, isHunting, huntOrigin]);
 
   return (
     <GalaxyContext.Provider value={contextValue}>
@@ -290,8 +358,23 @@ export default function TheseusShell({ children }: { children: React.ReactNode }
           Galaxy (TheseusDotGrid + GalaxyController) is rendered by
           the Explorer page, not the shell. The shell is now a pure
           context provider + adaptive-nav predictor. */}
-      <div className="theseus-content">
+      <div
+        className="theseus-content"
+        onDragEnter={handleGlobalDragEnter}
+        onDragOver={handleGlobalDragOver}
+        onDragLeave={handleGlobalDragLeave}
+        onDrop={handleGlobalDrop}
+      >
         {children}
+
+        {/* Global drop overlay hint */}
+        {globalDragOver && (
+          <div className="capture-drop-overlay">
+            <div className="capture-drop-overlay-inner">
+              <span className="capture-drop-overlay-text">Drop to add to your graph</span>
+            </div>
+          </div>
+        )}
       </div>
     </GalaxyContext.Provider>
   );

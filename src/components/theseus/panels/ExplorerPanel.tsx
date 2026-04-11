@@ -105,6 +105,8 @@ export default function ExplorerPanel() {
         engineState={galaxy.askState}
         spacing={14}
         onNavButtonClick={() => {}}
+        huntMode={galaxy.isHunting}
+        huntOrigin={galaxy.huntOrigin}
       />
       <GalaxyController
         ref={galaxy.galaxyControllerRef}

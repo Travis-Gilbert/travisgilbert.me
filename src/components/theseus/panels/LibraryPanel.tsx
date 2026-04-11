@@ -5,6 +5,10 @@ import Link from 'next/link';
 import { ModelGrid } from '@/components/theseus/library/ModelGrid';
 import { listMaps } from '@/lib/ask-theseus';
 import type { SavedMapListItem } from '@/lib/map-types';
+import CaptureModal from '@/components/theseus/capture/CaptureModal';
+
+// Module-level ref for files from global drop (avoids stale closure in event handler)
+let globalDropFilesRef: File[] | undefined;
 
 function originLabel(origin: string): string {
   switch (origin) {
@@ -105,27 +109,81 @@ function SectionHeader({ title }: { title: string }) {
  * Combines the previous Artifacts and Models pages into one panel.
  */
 export default function LibraryPanel() {
+  const [captureOpen, setCaptureOpen] = useState(false);
+
+  // Listen for global drop events dispatched by TheseusShell
+  useEffect(() => {
+    function handler(e: Event) {
+      const detail = (e as CustomEvent<{ files?: File[] }>).detail;
+      if (detail?.files) {
+        // Global drop with pre-loaded files: store them and open modal
+        globalDropFilesRef = detail.files;
+        setCaptureOpen(true);
+      }
+    }
+    window.addEventListener('theseus:capture-open', handler);
+    return () => window.removeEventListener('theseus:capture-open', handler);
+  }, []);
+
   return (
     <div style={{ height: '100%', overflowY: 'auto' }}>
-      <div style={{ padding: '40px 40px 24px' }}>
-        <h1 style={{
-          fontFamily: 'var(--vie-font-title)',
-          fontSize: 24,
-          fontWeight: 400,
-          color: 'var(--vie-text)',
-          margin: 0,
-        }}>
-          Library
-        </h1>
-        <p style={{
-          fontFamily: 'var(--vie-font-body)',
-          fontSize: 13,
-          color: 'var(--vie-text-dim)',
-          margin: '8px 0 0',
-        }}>
-          Saved maps, models, and system artifacts.
-        </p>
+      <div style={{ padding: '40px 40px 24px', display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between' }}>
+        <div>
+          <h1 style={{
+            fontFamily: 'var(--vie-font-title)',
+            fontSize: 24,
+            fontWeight: 400,
+            color: 'var(--vie-text)',
+            margin: 0,
+          }}>
+            Library
+          </h1>
+          <p style={{
+            fontFamily: 'var(--vie-font-body)',
+            fontSize: 13,
+            color: 'var(--vie-text-dim)',
+            margin: '8px 0 0',
+          }}>
+            Saved maps, models, and system artifacts.
+          </p>
+        </div>
+        <button
+          type="button"
+          onClick={() => setCaptureOpen(true)}
+          style={{
+            padding: '6px 14px',
+            borderRadius: 8,
+            background: 'transparent',
+            border: '1px solid rgba(74,138,150,0.4)',
+            color: 'var(--vie-teal-light)',
+            fontFamily: 'var(--vie-font-mono)',
+            fontSize: 12,
+            cursor: 'pointer',
+            transition: 'all 0.15s ease',
+            flexShrink: 0,
+            marginTop: 4,
+          }}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.background = 'var(--vie-teal)';
+            e.currentTarget.style.color = 'var(--vie-text)';
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.background = 'transparent';
+            e.currentTarget.style.color = 'var(--vie-teal-light)';
+          }}
+        >
+          + Add to graph
+        </button>
       </div>
+
+      <CaptureModal
+        open={captureOpen}
+        onOpenChange={(open) => {
+          setCaptureOpen(open);
+          if (!open) globalDropFilesRef = undefined;
+        }}
+        initialFiles={globalDropFilesRef}
+      />
 
       <section style={{ marginBottom: 40 }}>
         <SectionHeader title="Maps" />
