@@ -197,10 +197,16 @@ Vercel with native Next.js builder. **Important:** Output Directory must be blan
 | Gemma 4B DPO fine-tuning | Complete | 804 examples, 375 DPO pairs, adapter at `s3://models/gemma-4b-gl-fusion-v1/` |
 | Gemma 26B MoE training design | Design complete | `docs/plans/2026-04-04-gemma-26b-training-design.md` |
 | Graph noise cleanup | Complete | `purge_noise_sources` command removed TVTropes/Wikidata |
+| Ask pipeline GPU inference | Complete | 26B on Modal A100 via llama-cpp-python CUDA, parallel retrieval, generalized visual pipeline (2e21991) |
+| Ask frontend visual pipeline | In progress | Backend returns structured_visual for 7 types; frontend types need wiring |
 
-**Next step:** Wire Gemma 4B inference endpoint (Modal or Railway CPU via GGUF) and connect to ask pipeline so the UI returns LM-generated answers. Then begin 26B training data generation (Opus Batch API for preferred, Sonnet Batch API for rejected).
+**Next step:** Wire frontend visual pipeline: add `structured_visual`, `reference_image_url`, `geographic_regions` to `RawAskResponse`/`TheseusResponse` in `theseus-api.ts`/`theseus-types.ts`, then build renderers for the 7 answer types. Fix duplicate response bug in `AskExperience` SSE reconnection. Tune 26B stop tokens to eliminate repetition artifacts.
 
 **Remaining backlog:**
+- Ask frontend: wire `structured_visual` + visual renderers for all 7 answer types (comparison_table, timeline_strip, hierarchy_tree, concept_map, process_flow, tfjs_stipple)
+- Ask frontend: fix duplicate response rendering (SSE reconnect or state management issue in AskExperience)
+- Ask frontend: v2 sync path DEFAULT_TIMEOUT_MS (14s) too short for 26B expression, increase to 60s
+- 26B model quality: repetition artifacts at start of synthesis, needs stop token tuning or prompt adjustment
 - CommonPlace: verify production deploy with live API
 - CommonPlace: optimistic capture sync (CaptureButton local-first; POST wired but no optimistic UI update yet)
 - Notebook Sessions 4+: daily log views, publisher, Next.js data publishing
@@ -208,6 +214,7 @@ Vercel with native Next.js builder. **Important:** Output Directory must be blan
 - Dark mode (deferred; tokens ready in `global.css`)
 - Hero artifact photography (composed still-life images for `public/hero/`)
 - Component integration: TopNav, layout.tsx, CollageHero, DotGrid could consume siteConfig
+- Begin 26B training data generation (Opus Batch API for preferred, Sonnet Batch API for rejected)
 
 ## Recent Decisions
 
@@ -234,6 +241,11 @@ Vercel with native Next.js builder. **Important:** Output Directory must be blan
 | DPO preferred via Opus Batch API | Batch API at 50% off, 1K req/min | Faster and cheaper than MCP-based generation; MCP reserved for quality refinement |
 | Gemma 4 PEFT monkey-patch | Patch Gemma4ClippableLinear to inherit nn.Linear | PEFT doesn't support Gemma 4 natively yet (huggingface/peft#3129) |
 | Explanation frameworks trained into weights | Both: DPO trains natural structure + runtime ExplanationPlan steers | Model naturally good at 4/6 functions; plan provides runtime control |
+| 26B inference: llama-cpp-python on Modal | Pre-built CUDA wheel + nvidia pip packages + ldconfig, not vLLM | vLLM has unsupported Gemma 4 MoE gaps (rope_parameters + layer_scalar); llama.cpp handles GGUF natively |
+| 26B Modal app name | `theseus-gemma-26b-v2` (Starlette ASGI) | Original `theseus-gemma-26b` had stale FastAPI containers; v2 uses plain Starlette to avoid parameter introspection bugs |
+| L1 retrieval parallelization | ThreadPoolExecutor Phase 1 (4 signals) + Phase 2 (2 signals) | Cuts retrieval from ~500ms to ~200ms; async version existed but was never called |
+| Visual renderer per answer type | 7 renderers: tfjs_stipple, comparison_table, timeline_strip, hierarchy_tree, concept_map, process_flow | Generalized from geography-only; each builds structured data from evidence objects |
+| Railway worker env vars | Must mirror web service for SPEAKING_26B_URL, DISABLE_* flags | Worker runs async ask pipeline via RQ; env vars are NOT shared between Railway services |
 
 ## Gotchas
 
@@ -308,3 +320,7 @@ Vercel with native Next.js builder. **Important:** Output Directory must be blan
 - **Index-API is a separate git repo**: `cd Index-API && git status/commit/push` independently from the Website repo. Do not commit Index-API files from the Website root
 - **`modal_app/` files must NOT import Django**: They run on Modal with a minimal image. Use S3 (Parquet/JSON) as the data boundary between Django and Modal
 - **ML extension module pattern**: Django module in `apps/notebook/` + Modal GPU function in `modal_app/` + management command in `management/commands/`
+- **vLLM cannot load Gemma 4 26B MoE**: No released vLLM version (0.11.0 through 0.19.0) fully supports Gemma 4 A4B (rope_parameters stripping + missing layer_scalar). Use llama-cpp-python with GGUF instead
+- **CUDA pip packages need ldconfig**: `nvidia-cuda-runtime-cu12` installs `.so` files in site-packages, not system paths. Must run `find + ldconfig` in the image build to register them
+- **Modal NegativeHealthCache is per-process**: When a speaking service is temporarily down, each gunicorn worker caches the failure independently. Restart the deployment to clear all workers
+- **speaking_dispatch auth is URL-based**: `_auth_headers()` sends Bearer token only for non-Railway URLs (checks for `.railway.internal:8080` suffix)
