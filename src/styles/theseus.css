@@ -37,6 +37,24 @@
   --vie-font-body: 'IBM Plex Sans', -apple-system, sans-serif;
   --vie-font-mono: 'Courier Prime', 'Courier New', monospace;
 
+  /* Reading panel: warm cream surface */
+  --vie-panel-bg: hsl(40, 20%, 94%);
+  --vie-panel-card: hsl(38, 16%, 90%);
+  --vie-panel-hover: hsl(36, 14%, 87%);
+  --vie-panel-border: hsl(35, 12%, 84%);
+  --vie-panel-shadow: hsl(35, 10%, 78%);
+
+  /* Dark ink text for reading on cream */
+  --vie-ink-1: hsl(25, 14%, 15%);
+  --vie-ink-2: hsl(25, 10%, 30%);
+  --vie-ink-3: hsl(25, 7%, 50%);
+  --vie-ink-4: hsl(25, 5%, 66%);
+
+  /* Accent colors on light backgrounds */
+  --vie-teal-ink: #1E4A54;
+  --vie-amber-ink: #8A6B2E;
+  --vie-terra-ink: #A3402F;
+
   /* Panel surfaces (improved contrast against --vie-bg) */
   --vie-surface-panel: rgba(28, 30, 36, 0.88);
   --vie-surface-panel-border: rgba(74, 138, 150, 0.12);
@@ -1570,19 +1588,27 @@
   z-index: 20;
   display: flex;
   flex-direction: column;
-  gap: 6px;
-  padding: 8px;
-  border-radius: 12px;
-  background: rgba(15, 16, 18, 0.8);
-  border: 1px solid rgba(255, 255, 255, 0.06);
-  backdrop-filter: blur(16px);
+  gap: 0;
+  padding: 5px 7px;
+  border-radius: 8px;
+  background: hsla(30, 6%, 7%, 0.85);
+  border: 1px solid var(--vie-border);
+  backdrop-filter: blur(10px);
   pointer-events: auto;
+}
+
+/* Reposition to top-left when answer split pane is active */
+.explorer-control-dock[data-answer-active] {
+  bottom: auto;
+  right: auto;
+  top: 12px;
+  left: 12px;
 }
 
 .explorer-dock-row {
   display: flex;
   align-items: center;
-  gap: 4px;
+  gap: 2px;
 }
 
 .explorer-dock-btn {
@@ -1610,32 +1636,18 @@
   background: rgba(74, 138, 150, 0.1);
 }
 
-.explorer-dock-pills {
-  flex-wrap: wrap;
-}
-
-.explorer-dock-label {
-  font-family: var(--vie-font-mono);
-  font-size: 9px;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  color: var(--vie-text-dim);
-  margin-right: 4px;
-  white-space: nowrap;
-}
-
 .explorer-dock-pill {
-  padding: 3px 7px;
-  border-radius: 4px;
+  padding: 4px 9px;
+  border-radius: 5px;
   border: 1px solid transparent;
   background: transparent;
   font-family: var(--vie-font-mono);
-  font-size: 9px;
+  font-size: 10.5px;
   letter-spacing: 0.04em;
   text-transform: uppercase;
   color: var(--vie-text-dim);
   cursor: pointer;
-  transition: color 150ms ease, background 150ms ease, border-color 150ms ease;
+  transition: all 0.15s;
   white-space: nowrap;
 }
 
@@ -1645,9 +1657,9 @@
 }
 
 .explorer-dock-pill.is-active {
-  color: var(--vie-teal-light);
-  border-color: rgba(74, 138, 150, 0.25);
-  background: rgba(74, 138, 150, 0.08);
+  background: hsla(30, 6%, 22%, 0.65);
+  border: 1px solid var(--vie-border);
+  color: var(--vie-text);
 }
 
 .explorer-dock-btn:focus-visible,

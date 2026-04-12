@@ -20,6 +20,25 @@ export interface TheseusResponse {
   answer_type?: AnswerType;
   /** Full classification metadata from the answer router */
   answer_classification?: AnswerClassification;
+  /** Structured visual directive from the visual pipeline */
+  structured_visual?: StructuredVisual;
+}
+
+export interface StructuredVisualRegion {
+  id: string;
+  label: string;
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  linked_evidence?: string[];
+}
+
+export interface StructuredVisual {
+  visual_type: AnswerType;
+  layout?: Record<string, unknown>;
+  regions?: StructuredVisualRegion[];
+  reference_image_url?: string;
 }
 
 export type AnswerType =

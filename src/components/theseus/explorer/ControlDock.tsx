@@ -1,6 +1,5 @@
 'use client';
 
-import Link from 'next/link';
 import type { HighlightMode } from './useExplorerSelection';
 
 interface ControlDockProps {
@@ -11,6 +10,10 @@ interface ControlDockProps {
   vizMode: 'force' | 'face' | 'cluster';
   onSetVizMode: (mode: 'force' | 'face' | 'cluster') => void;
   onResetView: () => void;
+  /** When true, dock repositions to top-left (split pane active). */
+  answerActive?: boolean;
+  /** When true on mobile, dock is hidden (reading panel overlay visible). */
+  hidden?: boolean;
 }
 
 function StructureIcon() {
@@ -35,24 +38,28 @@ const HIGHLIGHT_OPTIONS: { mode: HighlightMode; label: string }[] = [
   { mode: 'reasoning', label: 'Reasoning' },
   { mode: 'contradictions', label: 'Tensions' },
   { mode: 'provenance', label: 'Sources' },
-  { mode: 'recent', label: 'Recent' },
 ];
 
 const VIZ_OPTIONS: { mode: 'force' | 'face' | 'cluster'; label: string }[] = [
-  { mode: 'face', label: 'Face' },
+  { mode: 'face', label: 'Graph' },
   { mode: 'force', label: 'Force' },
   { mode: 'cluster', label: 'Clusters' },
 ];
 
-/**
- * ControlDock: compact floating controls on the graph canvas.
- *
- * Positioned bottom-right of the graph area. Contains:
- * - Structure panel toggle
- * - Reset view button
- * - Highlight mode selector
- * - Visualization mode selector
- */
+function DockDivider() {
+  return (
+    <div
+      style={{
+        width: 1,
+        height: 16,
+        background: 'var(--vie-border)',
+        margin: '0 4px',
+        flexShrink: 0,
+      }}
+    />
+  );
+}
+
 export default function ControlDock({
   structurePanelOpen,
   onToggleStructure,
@@ -61,11 +68,19 @@ export default function ControlDock({
   vizMode,
   onSetVizMode,
   onResetView,
+  answerActive = false,
+  hidden = false,
 }: ControlDockProps) {
+  if (hidden) return null;
+
   return (
-    <div className="explorer-control-dock" data-interactive>
-      {/* Row 1: Structure toggle + Reset */}
+    <div
+      className="explorer-control-dock"
+      data-interactive
+      data-answer-active={answerActive || undefined}
+    >
       <div className="explorer-dock-row">
+        {/* Structure toggle */}
         <button
           type="button"
           className={`explorer-dock-btn${structurePanelOpen ? ' is-active' : ''}`}
@@ -76,6 +91,8 @@ export default function ControlDock({
         >
           <StructureIcon />
         </button>
+
+        {/* Reset view */}
         <button
           type="button"
           className="explorer-dock-btn"
@@ -85,26 +102,10 @@ export default function ControlDock({
         >
           <ZoomResetIcon />
         </button>
-      </div>
 
-      {/* Row 2: Highlight mode */}
-      <div className="explorer-dock-row explorer-dock-pills">
-        <span className="explorer-dock-label">Highlight</span>
-        {HIGHLIGHT_OPTIONS.map((opt) => (
-          <button
-            key={opt.mode}
-            type="button"
-            className={`explorer-dock-pill${highlightMode === opt.mode ? ' is-active' : ''}`}
-            onClick={() => onSetHighlightMode(opt.mode)}
-          >
-            {opt.label}
-          </button>
-        ))}
-      </div>
+        <DockDivider />
 
-      {/* Row 3: Viz mode */}
-      <div className="explorer-dock-row explorer-dock-pills">
-        <span className="explorer-dock-label">View</span>
+        {/* View mode pills */}
         {VIZ_OPTIONS.map((opt) => (
           <button
             key={opt.mode}
@@ -115,14 +116,20 @@ export default function ControlDock({
             {opt.label}
           </button>
         ))}
-      </div>
 
-      {/* Row 4: Navigation shortcuts */}
-      <div className="explorer-dock-row explorer-dock-pills">
-        <Link href="/theseus" className="explorer-dock-pill">Ask</Link>
-        <Link href="/theseus/library" className="explorer-dock-pill">Library</Link>
-        <Link href="/theseus/artifacts" className="explorer-dock-pill">Artifacts</Link>
-        <Link href="/theseus/truth-maps" className="explorer-dock-pill">Maps</Link>
+        <DockDivider />
+
+        {/* Highlight mode pills */}
+        {HIGHLIGHT_OPTIONS.map((opt) => (
+          <button
+            key={opt.mode}
+            type="button"
+            className={`explorer-dock-pill${highlightMode === opt.mode ? ' is-active' : ''}`}
+            onClick={() => onSetHighlightMode(opt.mode)}
+          >
+            {opt.label}
+          </button>
+        ))}
       </div>
     </div>
   );

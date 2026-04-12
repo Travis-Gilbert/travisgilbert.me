@@ -13,6 +13,8 @@ import type {
   Hypothesis,
   LineageResult,
   ResponseSection,
+  StructuredVisual,
+  StructuredVisualRegion,
   TensionResult,
   TheseusObject,
   TheseusResponse,
@@ -115,6 +117,7 @@ interface RawAskResponse {
   follow_ups: FollowUp[];
   reference_image_url?: string;
   geographic_regions?: GeographicRegionsSection;
+  structured_visual?: Record<string, unknown>;
 }
 
 interface RawVisualizationSection {
@@ -468,6 +471,45 @@ function normalizeTheseusObject(raw: Record<string, unknown>): TheseusObject {
   };
 }
 
+function normalizeStructuredVisual(
+  raw: Record<string, unknown> | undefined,
+): StructuredVisual | undefined {
+  if (!raw || typeof raw !== 'object') return undefined;
+
+  const visualType = normalizeAnswerType(raw.visual_type as string | undefined);
+  if (!visualType) return undefined;
+
+  const regions: StructuredVisualRegion[] = [];
+  if (Array.isArray(raw.regions)) {
+    for (const r of raw.regions as Record<string, unknown>[]) {
+      if (typeof r.id === 'string' && typeof r.label === 'string') {
+        regions.push({
+          id: r.id,
+          label: r.label,
+          x: typeof r.x === 'number' ? r.x : 0,
+          y: typeof r.y === 'number' ? r.y : 0,
+          width: typeof r.width === 'number' ? r.width : 0,
+          height: typeof r.height === 'number' ? r.height : 0,
+          linked_evidence: Array.isArray(r.linked_evidence)
+            ? (r.linked_evidence as (string | number)[]).map((v) => String(v))
+            : undefined,
+        });
+      }
+    }
+  }
+
+  return {
+    visual_type: visualType,
+    layout: typeof raw.layout === 'object' && raw.layout !== null
+      ? raw.layout as Record<string, unknown>
+      : undefined,
+    regions: regions.length > 0 ? regions : undefined,
+    reference_image_url: typeof raw.reference_image_url === 'string'
+      ? raw.reference_image_url
+      : undefined,
+  };
+}
+
 function normalizeAskResponse(raw: RawAskResponse): TheseusResponse {
   const sections: ResponseSection[] = [];
   const answerType = normalizeAnswerType(
@@ -809,6 +851,7 @@ function normalizeAskResponse(raw: RawAskResponse): TheseusResponse {
     geographic_regions: raw.geographic_regions,
     answer_type: answerType,
     answer_classification: answerClassification,
+    structured_visual: normalizeStructuredVisual(raw.structured_visual),
   };
 }
 
