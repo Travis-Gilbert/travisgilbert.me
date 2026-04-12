@@ -11,6 +11,7 @@ interface StructurePanelProps {
   onClose: () => void;
   onFocusCluster?: (clusterId: number) => void;
   onFocusType?: (objectType: string) => void;
+  onFocusTension?: (objectIds: string[]) => void;
 }
 
 const OBJECT_TYPES = [
@@ -32,6 +33,7 @@ export default function StructurePanel({
   onClose,
   onFocusCluster,
   onFocusType,
+  onFocusTension,
 }: StructurePanelProps) {
   const [tab, setTab] = useState<StructureTab>('clusters');
   const [clusters, setClusters] = useState<ClusterSummary[]>([]);
@@ -127,7 +129,7 @@ export default function StructurePanel({
         {tab === 'tensions' && (
           <div className="explorer-panel-list">
             <p className="explorer-panel-empty">
-              Tension list coming in Phase 3b
+              Select a node to see its tensions in the context panel.
             </p>
           </div>
         )}

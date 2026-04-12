@@ -1,47 +1,82 @@
 'use client';
 
 import type { HighlightMode } from './useExplorerSelection';
+import type { InvestigationView } from '@/lib/theseus-types';
 
 interface StatusStripProps {
   highlightMode: HighlightMode;
   selectedNodeId: string | null;
   vizMode: string;
+  activeView?: InvestigationView;
+  nodeCount?: number;
+  edgeCount?: number;
+  pipelineStatus?: string;
+  loading?: boolean;
+  hasAnswer?: boolean;
 }
 
-function highlightLabel(mode: HighlightMode): string {
-  switch (mode) {
-    case 'reasoning': return 'Reasoning paths';
-    case 'contradictions': return 'Contradictions';
-    case 'provenance': return 'Source provenance';
-    case 'recent': return 'Recently added';
-    default: return '';
-  }
-}
+const VIEW_LABELS: Record<InvestigationView, string> = {
+  all: 'All',
+  evidence: 'Evidence',
+  claim_tension: 'Tensions',
+  entity_network: 'Entities',
+  reasoning_trace: 'Reasoning',
+  provenance: 'Sources',
+};
 
 /**
  * StatusStrip: thin bar at the bottom of the graph canvas.
  *
- * Shows current filter description, active highlight mode,
- * and visualization mode. Keeps the user oriented.
+ * Shows current view, active filter, node/edge counts,
+ * pipeline stage, and selected node.
  */
 export default function StatusStrip({
   highlightMode,
   selectedNodeId,
-  vizMode,
+  activeView = 'all',
+  nodeCount = 0,
+  edgeCount = 0,
+  pipelineStatus,
+  loading,
+  hasAnswer = false,
 }: StatusStripProps) {
-  const highlight = highlightLabel(highlightMode);
+  const viewLabel = VIEW_LABELS[activeView];
+
+  // Empty state for evidence/reasoning views without active answer
+  const needsAnswerMessage =
+    !hasAnswer && (activeView === 'evidence' || activeView === 'reasoning_trace')
+      ? 'Ask a question to see evidence / reasoning trace'
+      : null;
 
   return (
     <div className="explorer-status-strip" data-interactive>
       <span className="explorer-status-item">
-        {vizMode}
+        {viewLabel}
       </span>
 
-      {highlight && (
+      {needsAnswerMessage && (
+        <>
+          <span className="explorer-status-sep" aria-hidden="true">/</span>
+          <span className="explorer-status-item explorer-status-pipeline">
+            {needsAnswerMessage}
+          </span>
+        </>
+      )}
+
+      {nodeCount > 0 && (
+        <>
+          <span className="explorer-status-sep" aria-hidden="true">/</span>
+          <span className="explorer-status-item">
+            {nodeCount} nodes, {edgeCount} edges
+          </span>
+        </>
+      )}
+
+      {highlightMode !== 'none' && (
         <>
           <span className="explorer-status-sep" aria-hidden="true">/</span>
           <span className="explorer-status-item explorer-status-highlight">
-            {highlight}
+            {highlightMode}
           </span>
         </>
       )}
@@ -52,6 +87,25 @@ export default function StatusStrip({
           <span className="explorer-status-item">
             node {selectedNodeId}
           </span>
+        </>
+      )}
+
+      {pipelineStatus && (
+        <>
+          <span className="explorer-status-sep" aria-hidden="true">/</span>
+          <span
+            className="explorer-status-item explorer-status-pipeline"
+            style={{ transition: 'opacity 200ms ease' }}
+          >
+            {pipelineStatus}
+          </span>
+        </>
+      )}
+
+      {loading && (
+        <>
+          <span className="explorer-status-sep" aria-hidden="true">/</span>
+          <span className="explorer-status-item">loading</span>
         </>
       )}
     </div>

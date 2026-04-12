@@ -1657,9 +1657,16 @@
 }
 
 .explorer-dock-pill.is-active {
-  background: hsla(30, 6%, 22%, 0.65);
-  border: 1px solid var(--vie-border);
-  color: var(--vie-text);
+  background: rgba(45, 95, 107, 0.15);
+  color: #4A8A96;
+}
+
+.explorer-dock-divider {
+  width: 1px;
+  height: 16px;
+  background: var(--vie-border);
+  margin: 0 4px;
+  flex-shrink: 0;
 }
 
 .explorer-dock-btn:focus-visible,
@@ -1704,6 +1711,131 @@
   color: var(--vie-text-dim);
   opacity: 0.3;
   font-size: 10px;
+}
+
+.explorer-status-pipeline {
+  color: var(--vie-teal-ink, #4A8A96);
+}
+
+/* ─── Waiting pill pulse (evidence/reasoning view with no answer) ─── */
+
+.explorer-dock-pill.is-waiting {
+  animation: explorer-waiting-pulse 2s ease-in-out infinite;
+}
+
+@keyframes explorer-waiting-pulse {
+  0%, 100% { opacity: 0.4; }
+  50% { opacity: 0.7; }
+}
+
+/* ─── Explorer search overlay ─── */
+
+.explorer-search-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 30;
+  background: rgba(28, 26, 23, 0.85);
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding-top: 80px;
+}
+
+.explorer-search-container {
+  width: 100%;
+  max-width: 520px;
+  background: #242220;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.explorer-search-container input {
+  background: transparent;
+  border: none;
+  outline: none;
+  color: #F4F3F0;
+  font-family: var(--vie-font-mono, monospace);
+  font-size: 14px;
+}
+
+.explorer-search-results {
+  max-height: 320px;
+  overflow-y: auto;
+}
+
+.explorer-search-result {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 10px 16px;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  text-align: left;
+}
+
+.explorer-search-result:hover,
+.explorer-search-result.is-selected {
+  background: rgba(74, 138, 150, 0.12);
+}
+
+.explorer-search-result-title {
+  color: #F4F3F0;
+  font-size: 13px;
+  font-family: var(--vie-font-sans, sans-serif);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.explorer-search-result-snippet {
+  color: #7a7670;
+  font-size: 11px;
+  font-family: var(--vie-font-mono, monospace);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  margin-top: 2px;
+}
+
+.explorer-search-empty {
+  padding: 16px;
+  color: #7a7670;
+  font-size: 12px;
+  font-family: var(--vie-font-mono, monospace);
+  text-align: center;
+}
+
+/* ─── Graph renderer container ─── */
+
+.explorer-graph-renderer {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+}
+
+.explorer-graph-sigma {
+  width: 100%;
+  height: 100%;
+  background: transparent !important;
+}
+
+.explorer-graph-sigma .sigma-container {
+  background: transparent !important;
+}
+
+/* Override @react-sigma/core's white default on .react-sigma */
+.explorer-graph-renderer .react-sigma {
+  background: transparent !important;
+}
+
+/* ─── Tension edge marching ants ─── */
+
+@keyframes explorer-marching-ants {
+  from { stroke-dashoffset: 0; }
+  to { stroke-dashoffset: -16; }
 }
 
 /* ─── Panel responsive: collapse on small screens ─── */

@@ -8,12 +8,15 @@ import TensionCard from './TensionCard';
 import ClaimRow from './ClaimRow';
 import NeighborhoodSummary from './NeighborhoodSummary';
 
-type ContextTab = 'overview' | 'evidence' | 'tensions' | 'claims';
+import type { StageEvent } from '@/lib/theseus-api';
+
+type ContextTab = 'overview' | 'evidence' | 'tensions' | 'claims' | 'why';
 
 interface ContextPanelProps {
   nodeId: string | null;
   onClose: () => void;
   onSelectNode?: (nodeId: string) => void;
+  retrievalData?: StageEvent | null;
 }
 
 function typeColor(objectType: string): string {
@@ -26,6 +29,64 @@ function typeColor(objectType: string): string {
   }
 }
 
+function WhyThisNodeContent({ nodeId, retrievalData }: { nodeId: string; retrievalData?: StageEvent | null }) {
+  if (!retrievalData || retrievalData.name !== 'retrieval_complete') {
+    return (
+      <p className="explorer-panel-empty">
+        This node was not retrieved for the current query. It appears in the graph via neighborhood expansion or manual search.
+      </p>
+    );
+  }
+
+  const rd = retrievalData as Extract<StageEvent, { name: 'retrieval_complete' }>;
+  const bm25Hit = rd.bm25_hits?.find((h) => String(h.object_id) === nodeId);
+  const sbertHit = rd.sbert_scores?.find((h) => String(h.object_id) === nodeId);
+  const pprScore = rd.pagerank_scores?.[nodeId];
+  const community = rd.community_assignments?.[nodeId];
+
+  const inRetrievalSet = !!(bm25Hit || sbertHit || pprScore !== undefined);
+
+  if (!inRetrievalSet) {
+    return (
+      <p className="explorer-panel-empty">
+        This node was not retrieved for the current query. It appears in the graph via neighborhood expansion or manual search.
+      </p>
+    );
+  }
+
+  return (
+    <div className="explorer-context-overview" style={{ gap: 12, display: 'flex', flexDirection: 'column' }}>
+      <div style={{ fontFamily: 'var(--vie-font-mono)', fontSize: 10.5, color: 'var(--vie-ink-3)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+        Retrieval signals
+      </div>
+      {bm25Hit && (
+        <div className="explorer-panel-item" style={{ cursor: 'default' }}>
+          <span className="explorer-panel-item-label">BM25</span>
+          <span className="explorer-panel-item-count">{bm25Hit.score.toFixed(3)}</span>
+        </div>
+      )}
+      {sbertHit && (
+        <div className="explorer-panel-item" style={{ cursor: 'default' }}>
+          <span className="explorer-panel-item-label">SBERT</span>
+          <span className="explorer-panel-item-count">{sbertHit.similarity.toFixed(3)}</span>
+        </div>
+      )}
+      {pprScore !== undefined && (
+        <div className="explorer-panel-item" style={{ cursor: 'default' }}>
+          <span className="explorer-panel-item-label">PageRank</span>
+          <span className="explorer-panel-item-count">{pprScore.toFixed(4)}</span>
+        </div>
+      )}
+      {community !== undefined && (
+        <div className="explorer-panel-item" style={{ cursor: 'default' }}>
+          <span className="explorer-panel-item-label">Community</span>
+          <span className="explorer-panel-item-count">{community}</span>
+        </div>
+      )}
+    </div>
+  );
+}
+
 /**
  * ContextPanel: right slide-in panel showing explanation for a selected node.
  *
@@ -33,7 +94,7 @@ function typeColor(objectType: string): string {
  * Opens automatically when a node is selected, closes on deselect.
  * Wired to real backend data for all tabs.
  */
-export default function ContextPanel({ nodeId, onClose, onSelectNode }: ContextPanelProps) {
+export default function ContextPanel({ nodeId, onClose, onSelectNode, retrievalData }: ContextPanelProps) {
   const [tab, setTab] = useState<ContextTab>('overview');
   const [object, setObject] = useState<TheseusObject | null>(null);
   const [loading, setLoading] = useState(false);
@@ -142,7 +203,7 @@ export default function ContextPanel({ nodeId, onClose, onSelectNode }: ContextP
 
       {/* Tabs */}
       <div className="explorer-panel-tabs">
-        {(['overview', 'evidence', 'tensions', 'claims'] as const).map((t) => (
+        {(['overview', 'evidence', 'tensions', 'claims', 'why'] as const).map((t) => (
           <button
             key={t}
             type="button"
@@ -251,6 +312,10 @@ export default function ContextPanel({ nodeId, onClose, onSelectNode }: ContextP
           ) : (
             <p className="explorer-panel-loading">LOADING CLAIMS</p>
           )
+        )}
+
+        {tab === 'why' && nodeId && (
+          <WhyThisNodeContent nodeId={nodeId} retrievalData={retrievalData} />
         )}
       </div>
     </div>

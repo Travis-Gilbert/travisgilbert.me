@@ -372,6 +372,84 @@ export interface GeographicRegionsSection {
 }
 
 /* ─────────────────────────────────────────────────
+   Explorer: graph data + investigation views
+   ───────────────────────────────────────────────── */
+
+export interface GraphData {
+  nodes: GraphNode[];
+  edges: GraphEdge[];
+  meta: {
+    node_count: number;
+    edge_count: number;
+    type_distribution: Record<string, number>;
+    truncated: boolean;
+  };
+}
+
+export interface GraphNode {
+  id: string;
+  title: string;
+  slug: string;
+  body_preview: string;
+  object_type: string;
+  object_type_color: string;
+  object_type_icon: string;
+  edge_count: number;
+  size: number;
+  status: string;
+}
+
+export interface GraphEdge {
+  id: string;
+  source: string;
+  target: string;
+  edge_type: string;
+  strength: number;
+  reason: string;
+  engine: string;
+}
+
+export interface PathResult {
+  nodes: string[];
+  edges: Array<{
+    from: string;
+    to: string;
+    edge_type: string;
+    strength: number;
+  }>;
+  length: number;
+}
+
+export interface GraphDiff {
+  added_objects: TheseusObject[];
+  removed_objects: TheseusObject[];
+  new_edges: GraphEdge[];
+  retracted_claims: ClaimResult[];
+  resolved_tensions: TensionResult[];
+  new_tensions: TensionResult[];
+  summary: string;
+}
+
+export type InvestigationView =
+  | 'all'
+  | 'evidence'
+  | 'claim_tension'
+  | 'entity_network'
+  | 'reasoning_trace'
+  | 'provenance';
+
+export interface ArtifactMeta {
+  id: string;
+  artifact_type: 'evidence_map' | 'tension_report' | 'hypothesis_doc' | 'knowledge_diff';
+  title: string;
+  query: string;
+  created_at: string;
+  object_id: string;
+  share_url: string;
+  embed_html: string;
+}
+
+/* ─────────────────────────────────────────────────
    Explorer: object neighborhood data
    ───────────────────────────────────────────────── */
 

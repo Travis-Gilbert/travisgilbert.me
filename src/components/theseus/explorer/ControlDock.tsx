@@ -1,6 +1,9 @@
 'use client';
 
 import type { HighlightMode } from './useExplorerSelection';
+import type { InvestigationView, TheseusResponse } from '@/lib/theseus-types';
+import type Graph from 'graphology';
+import ArtifactExporter from './ArtifactExporter';
 
 interface ControlDockProps {
   structurePanelOpen: boolean;
@@ -10,10 +13,16 @@ interface ControlDockProps {
   vizMode: 'force' | 'face' | 'cluster';
   onSetVizMode: (mode: 'force' | 'face' | 'cluster') => void;
   onResetView: () => void;
-  /** When true, dock repositions to top-left (split pane active). */
   answerActive?: boolean;
-  /** When true on mobile, dock is hidden (reading panel overlay visible). */
   hidden?: boolean;
+  activeView?: InvestigationView;
+  onSetActiveView?: (view: InvestigationView) => void;
+  onOpenSearch?: () => void;
+  secondarySelectedId?: string | null;
+  onShowPath?: () => void;
+  hasAnswer?: boolean;
+  response?: TheseusResponse | null;
+  graph?: Graph;
 }
 
 function StructureIcon() {
@@ -33,29 +42,28 @@ function ZoomResetIcon() {
   );
 }
 
-const HIGHLIGHT_OPTIONS: { mode: HighlightMode; label: string }[] = [
-  { mode: 'none', label: 'Off' },
-  { mode: 'reasoning', label: 'Reasoning' },
-  { mode: 'contradictions', label: 'Tensions' },
-  { mode: 'provenance', label: 'Sources' },
-];
+function SearchIcon() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" strokeWidth="1.5" aria-hidden="true">
+      <circle cx="11" cy="11" r="7" stroke="currentColor" />
+      <path d="M16 16L20 20" stroke="currentColor" strokeLinecap="round" />
+    </svg>
+  );
+}
 
-const VIZ_OPTIONS: { mode: 'force' | 'face' | 'cluster'; label: string }[] = [
-  { mode: 'face', label: 'Graph' },
-  { mode: 'force', label: 'Force' },
-  { mode: 'cluster', label: 'Clusters' },
+const VIEW_OPTIONS: { view: InvestigationView; label: string }[] = [
+  { view: 'all', label: 'All' },
+  { view: 'evidence', label: 'Evidence' },
+  { view: 'claim_tension', label: 'Tensions' },
+  { view: 'entity_network', label: 'Entities' },
+  { view: 'reasoning_trace', label: 'Reasoning' },
+  { view: 'provenance', label: 'Sources' },
 ];
 
 function DockDivider() {
   return (
     <div
-      style={{
-        width: 1,
-        height: 16,
-        background: 'var(--vie-border)',
-        margin: '0 4px',
-        flexShrink: 0,
-      }}
+      className="explorer-dock-divider"
     />
   );
 }
@@ -63,15 +71,22 @@ function DockDivider() {
 export default function ControlDock({
   structurePanelOpen,
   onToggleStructure,
-  highlightMode,
-  onSetHighlightMode,
-  vizMode,
-  onSetVizMode,
   onResetView,
   answerActive = false,
   hidden = false,
+  activeView = 'all',
+  onSetActiveView,
+  onOpenSearch,
+  secondarySelectedId,
+  onShowPath,
+  hasAnswer = false,
+  response,
+  graph,
 }: ControlDockProps) {
   if (hidden) return null;
+
+  const needsAnswer = (view: InvestigationView) =>
+    view === 'evidence' || view === 'reasoning_trace';
 
   return (
     <div
@@ -92,6 +107,17 @@ export default function ControlDock({
           <StructureIcon />
         </button>
 
+        {/* Search */}
+        <button
+          type="button"
+          className="explorer-dock-btn"
+          onClick={onOpenSearch}
+          aria-label="Search objects"
+          title="Search (press /)"
+        >
+          <SearchIcon />
+        </button>
+
         {/* Reset view */}
         <button
           type="button"
@@ -105,31 +131,48 @@ export default function ControlDock({
 
         <DockDivider />
 
-        {/* View mode pills */}
-        {VIZ_OPTIONS.map((opt) => (
-          <button
-            key={opt.mode}
-            type="button"
-            className={`explorer-dock-pill${vizMode === opt.mode ? ' is-active' : ''}`}
-            onClick={() => onSetVizMode(opt.mode)}
-          >
-            {opt.label}
-          </button>
-        ))}
+        {/* View lens pills */}
+        {VIEW_OPTIONS.map((opt) => {
+          const isActive = activeView === opt.view;
+          const waitingForData = needsAnswer(opt.view) && !hasAnswer;
 
-        <DockDivider />
+          return (
+            <button
+              key={opt.view}
+              type="button"
+              className={`explorer-dock-pill${isActive ? ' is-active' : ''}${waitingForData && isActive ? ' is-waiting' : ''}`}
+              onClick={() => onSetActiveView?.(opt.view)}
+            >
+              {opt.label}
+            </button>
+          );
+        })}
 
-        {/* Highlight mode pills */}
-        {HIGHLIGHT_OPTIONS.map((opt) => (
-          <button
-            key={opt.mode}
-            type="button"
-            className={`explorer-dock-pill${highlightMode === opt.mode ? ' is-active' : ''}`}
-            onClick={() => onSetHighlightMode(opt.mode)}
-          >
-            {opt.label}
-          </button>
-        ))}
+        {/* Show Path button (appears when two nodes are selected) */}
+        {secondarySelectedId && (
+          <>
+            <DockDivider />
+            <button
+              type="button"
+              className="explorer-dock-pill is-active"
+              onClick={onShowPath}
+            >
+              Show Path
+            </button>
+          </>
+        )}
+
+        {/* Artifact exporter (appears when answer is active) */}
+        {hasAnswer && response && graph && (
+          <>
+            <DockDivider />
+            <ArtifactExporter
+              response={response}
+              graph={graph}
+              activeView={activeView}
+            />
+          </>
+        )}
       </div>
     </div>
   );

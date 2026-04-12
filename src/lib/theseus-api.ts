@@ -1,6 +1,7 @@
 import type {
   AnswerClassification,
   AnswerType,
+  ArtifactMeta,
   AskOptions,
   ClaimResult,
   ClusterSummary,
@@ -9,9 +10,12 @@ import type {
   EvidenceNode,
   FollowUp,
   GeographicRegionsSection,
+  GraphData,
+  GraphDiff,
   GraphWeather,
   Hypothesis,
   LineageResult,
+  PathResult,
   ResponseSection,
   StructuredVisual,
   StructuredVisualRegion,
@@ -80,7 +84,7 @@ interface RequestControls {
   retryPolicy?: 'none' | 'transient-once';
 }
 
-const DEFAULT_TIMEOUT_MS = 14_000;
+const DEFAULT_TIMEOUT_MS = 60_000;
 const RETRY_DELAY_MS = 250;
 
 interface RawAnswerClassification {
@@ -1439,5 +1443,210 @@ export async function getObjectLineage(
     `/api/v1/objects/${objectId}/lineage`,
     undefined,
     normalizeLineage,
+  );
+}
+
+/* ─────────────────────────────────────────────────
+   Graph Explorer: graph data, path, artifacts, diff
+   ───────────────────────────────────────────────── */
+
+export async function getGraphData(
+  params?: { center?: string; hops?: number; limit?: number },
+): Promise<ApiResult<GraphData>> {
+  const searchParams = new URLSearchParams();
+  if (params?.center) searchParams.set('center', params.center);
+  if (params?.hops) searchParams.set('hops', String(params.hops));
+  if (params?.limit) searchParams.set('limit', String(params.limit));
+  const qs = searchParams.toString();
+  const path = `/api/v1/notebook/graph/${qs ? `?${qs}` : ''}`;
+
+  return apiFetch<Record<string, unknown>, GraphData>(path, undefined, (raw) => {
+    const nodes = Array.isArray(raw.nodes) ? (raw.nodes as Record<string, unknown>[]).map((n) => ({
+      id: normalizeId(n.id as string | number),
+      title: typeof n.title === 'string' ? n.title : 'Untitled',
+      slug: typeof n.slug === 'string' ? n.slug : '',
+      body_preview: typeof n.body_preview === 'string' ? n.body_preview : '',
+      object_type: typeof n.object_type === 'string' ? n.object_type : 'note',
+      object_type_color: typeof n.object_type_color === 'string' ? n.object_type_color : '#9a958d',
+      object_type_icon: typeof n.object_type_icon === 'string' ? n.object_type_icon : '',
+      edge_count: typeof n.edge_count === 'number' ? n.edge_count : 0,
+      size: typeof n.size === 'number' ? n.size : 1,
+      status: typeof n.status === 'string' ? n.status : '',
+    })) : [];
+
+    const edges = Array.isArray(raw.edges) ? (raw.edges as Record<string, unknown>[]).map((e) => ({
+      id: typeof e.id === 'string' ? e.id : `${e.source}-${e.target}`,
+      source: normalizeId(e.source as string | number ?? e.from_object as string | number),
+      target: normalizeId(e.target as string | number ?? e.to_object as string | number),
+      edge_type: typeof e.edge_type === 'string' ? e.edge_type : 'connection',
+      strength: typeof e.strength === 'number' ? e.strength : 0.5,
+      reason: typeof e.reason === 'string' ? e.reason : '',
+      engine: typeof e.engine === 'string' ? e.engine : '',
+    })) : [];
+
+    const meta = typeof raw.meta === 'object' && raw.meta !== null ? raw.meta as Record<string, unknown> : {};
+    return {
+      nodes,
+      edges,
+      meta: {
+        node_count: typeof meta.node_count === 'number' ? meta.node_count : nodes.length,
+        edge_count: typeof meta.edge_count === 'number' ? meta.edge_count : edges.length,
+        type_distribution: typeof meta.type_distribution === 'object' && meta.type_distribution !== null
+          ? meta.type_distribution as Record<string, number>
+          : {},
+        truncated: typeof meta.truncated === 'boolean' ? meta.truncated : false,
+      },
+    };
+  });
+}
+
+export async function searchObjects(
+  query: string,
+  limit = 10,
+): Promise<ApiResult<{ objects: TheseusObject[] }>> {
+  return apiFetch<Record<string, unknown>, { objects: TheseusObject[] }>(
+    `/api/v2/theseus/objects/?q=${encodeURIComponent(query)}&limit=${limit}`,
+    undefined,
+    (raw) => {
+      // Backend returns `items` (v2 endpoint shape)
+      const items = Array.isArray(raw.items) ? raw.items
+        : Array.isArray(raw.results) ? raw.results
+        : [];
+      return {
+        objects: (items as Record<string, unknown>[]).map(normalizeTheseusObject),
+      };
+    },
+  );
+}
+
+export async function pathBetween(
+  pkA: string,
+  pkB: string,
+): Promise<ApiResult<PathResult>> {
+  return apiFetch<Record<string, unknown>, PathResult>(
+    `/api/v1/notebook/objects/${pkA}/path-to/${pkB}/`,
+    undefined,
+    (raw) => ({
+      nodes: Array.isArray(raw.nodes) ? (raw.nodes as (string | number)[]).map(String) : [],
+      edges: Array.isArray(raw.edges) ? (raw.edges as Record<string, unknown>[]).map((e) => ({
+        from: String(e.from ?? e.source ?? ''),
+        to: String(e.to ?? e.target ?? ''),
+        edge_type: typeof e.edge_type === 'string' ? e.edge_type : 'connection',
+        strength: typeof e.strength === 'number' ? e.strength : 0.5,
+      })) : [],
+      length: typeof raw.length === 'number' ? raw.length : -1,
+    }),
+  );
+}
+
+export async function createArtifact(
+  data: {
+    artifact_type: string;
+    title: string;
+    query: string;
+    response_snapshot: Record<string, unknown>;
+    graph_snapshot: Record<string, unknown>;
+  },
+): Promise<ApiResult<ArtifactMeta>> {
+  return apiFetch<Record<string, unknown>, ArtifactMeta>(
+    '/api/v1/notebook/artifacts/',
+    {
+      method: 'POST',
+      body: JSON.stringify(data),
+    },
+    (raw) => ({
+      id: String(raw.id ?? ''),
+      artifact_type: (raw.artifact_type as ArtifactMeta['artifact_type']) ?? 'evidence_map',
+      title: typeof raw.title === 'string' ? raw.title : '',
+      query: typeof raw.query === 'string' ? raw.query : '',
+      created_at: typeof raw.created_at === 'string' ? raw.created_at : new Date().toISOString(),
+      object_id: String(raw.object_id ?? ''),
+      share_url: typeof raw.share_url === 'string' ? raw.share_url : '',
+      embed_html: typeof raw.embed_html === 'string' ? raw.embed_html : '',
+    }),
+  );
+}
+
+export async function getArtifact(
+  artifactId: string,
+): Promise<ApiResult<ArtifactMeta & { response_snapshot: Record<string, unknown>; graph_snapshot: Record<string, unknown> }>> {
+  return apiFetch<Record<string, unknown>, ArtifactMeta & { response_snapshot: Record<string, unknown>; graph_snapshot: Record<string, unknown> }>(
+    `/api/v1/notebook/artifacts/${artifactId}/`,
+    undefined,
+    (raw) => ({
+      id: String(raw.id ?? ''),
+      artifact_type: (raw.artifact_type as ArtifactMeta['artifact_type']) ?? 'evidence_map',
+      title: typeof raw.title === 'string' ? raw.title : '',
+      query: typeof raw.query === 'string' ? raw.query : '',
+      created_at: typeof raw.created_at === 'string' ? raw.created_at : '',
+      object_id: String(raw.object_id ?? ''),
+      share_url: typeof raw.share_url === 'string' ? raw.share_url : '',
+      embed_html: typeof raw.embed_html === 'string' ? raw.embed_html : '',
+      response_snapshot: typeof raw.response_snapshot === 'object' && raw.response_snapshot !== null
+        ? raw.response_snapshot as Record<string, unknown>
+        : {},
+      graph_snapshot: typeof raw.graph_snapshot === 'object' && raw.graph_snapshot !== null
+        ? raw.graph_snapshot as Record<string, unknown>
+        : {},
+    }),
+  );
+}
+
+export async function getGraphDiff(
+  fromDate: string,
+  toDate: string,
+): Promise<ApiResult<GraphDiff>> {
+  return apiFetch<Record<string, unknown>, GraphDiff>(
+    `/api/v1/notebook/graph/diff/?from=${encodeURIComponent(fromDate)}&to=${encodeURIComponent(toDate)}`,
+    undefined,
+    (raw) => ({
+      added_objects: Array.isArray(raw.added_objects)
+        ? (raw.added_objects as Record<string, unknown>[]).map(normalizeTheseusObject)
+        : [],
+      removed_objects: Array.isArray(raw.removed_objects)
+        ? (raw.removed_objects as Record<string, unknown>[]).map(normalizeTheseusObject)
+        : [],
+      new_edges: Array.isArray(raw.new_edges)
+        ? (raw.new_edges as Record<string, unknown>[]).map((e) => ({
+            id: typeof e.id === 'string' ? e.id : `${e.source}-${e.target}`,
+            source: String(e.source ?? e.from_object ?? ''),
+            target: String(e.target ?? e.to_object ?? ''),
+            edge_type: typeof e.edge_type === 'string' ? e.edge_type : 'connection',
+            strength: typeof e.strength === 'number' ? e.strength : 0.5,
+            reason: typeof e.reason === 'string' ? e.reason : '',
+            engine: typeof e.engine === 'string' ? e.engine : '',
+          }))
+        : [],
+      retracted_claims: Array.isArray(raw.retracted_claims)
+        ? (raw.retracted_claims as Record<string, unknown>[]).map((c) => ({
+            id: String(c.id ?? ''),
+            text: typeof c.text === 'string' ? c.text : '',
+            confidence: typeof c.confidence === 'number' ? c.confidence : 0,
+            epistemic_status: typeof c.epistemic_status === 'string' ? c.epistemic_status : 'pending',
+            source_object_id: String(c.source_object_id ?? ''),
+          }))
+        : [],
+      resolved_tensions: Array.isArray(raw.resolved_tensions)
+        ? (raw.resolved_tensions as Record<string, unknown>[]).map((t) => ({
+            id: String(t.id ?? ''),
+            claim_a_text: typeof t.claim_a_text === 'string' ? t.claim_a_text : '',
+            claim_b_text: typeof t.claim_b_text === 'string' ? t.claim_b_text : '',
+            severity: typeof t.severity === 'number' ? t.severity : 0,
+            status: typeof t.status === 'string' ? t.status : 'resolved',
+            domain: typeof t.domain === 'string' ? t.domain : '',
+          }))
+        : [],
+      new_tensions: Array.isArray(raw.new_tensions)
+        ? (raw.new_tensions as Record<string, unknown>[]).map((t) => ({
+            id: String(t.id ?? ''),
+            claim_a_text: typeof t.claim_a_text === 'string' ? t.claim_a_text : '',
+            claim_b_text: typeof t.claim_b_text === 'string' ? t.claim_b_text : '',
+            severity: typeof t.severity === 'number' ? t.severity : 0,
+            status: typeof t.status === 'string' ? t.status : 'active',
+            domain: typeof t.domain === 'string' ? t.domain : '',
+          }))
+        : [],
+      summary: typeof raw.summary === 'string' ? raw.summary : '',
+    }),
   );
 }

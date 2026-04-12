@@ -6,11 +6,20 @@ import { useExplorerSelection } from './useExplorerSelection';
 import type { HighlightMode } from './useExplorerSelection';
 import { useGalaxy } from '@/components/theseus/TheseusShell';
 import { useIsMobile } from '@/hooks/useIsMobile';
+import { useGraphData } from './useGraphData';
+import { useInvestigationView } from './useInvestigationView';
+import type { InvestigationView } from '@/lib/theseus-types';
+import type { StageEvent } from '@/lib/theseus-api';
+import type { NodeStyle, EdgeStyle } from '@/lib/graph-projections';
 import StructurePanel from './StructurePanel';
 import ContextPanel from './ContextPanel';
 import ControlDock from './ControlDock';
 import StatusStrip from './StatusStrip';
 import AnswerReadingPanel from './AnswerReadingPanel';
+import GraphRenderer from './GraphRenderer';
+import ExplorerSearch from './ExplorerSearch';
+import EvidenceSubgraph from './EvidenceSubgraph';
+import PathOverlay from './PathOverlay';
 
 const DEFAULT_PANEL_WIDTH = 460;
 const MIN_PANEL_WIDTH = 340;
@@ -34,6 +43,46 @@ export default function ExplorerLayout({ children, onNodeSelect }: ExplorerLayou
   const searchParams = useSearchParams();
   const { response, askState } = useGalaxy();
   const isMobile = useIsMobile();
+  const graphDataHook = useGraphData();
+
+  // Active exploration state (triggers crossfade from IdleGraph to GraphRenderer)
+  const [activeExploration, setActiveExploration] = useState(false);
+  // Search overlay
+  const [searchOpen, setSearchOpen] = useState(false);
+  // Secondary node selection for path tracing
+  const [secondarySelectedId, setSecondarySelectedId] = useState<string | null>(null);
+  // Highlighted node IDs (from evidence paths, focus events, etc.)
+  const [highlightedNodeIds, setHighlightedNodeIds] = useState<Set<string>>(new Set());
+  // Retrieval object IDs for reasoning trace view
+  const [retrievalObjectIds, setRetrievalObjectIds] = useState<Set<string>>(new Set());
+  // Type filter from StructurePanel
+  const [typeFilter, setTypeFilter] = useState<string | null>(null);
+
+  // Investigation view lens (Phase 2)
+  const investigationView = useInvestigationView(
+    graphDataHook.graph,
+    response,
+    retrievalObjectIds,
+  );
+
+  // Compute visible nodes: combine view lens + type filter
+  const effectiveVisibleNodes = (() => {
+    const viewNodes = investigationView.projection.visibleNodes;
+    if (!typeFilter) return viewNodes;
+    // Intersect with type filter
+    const filtered = new Set<string>();
+    graphDataHook.graph.forEachNode((node, attrs) => {
+      if (attrs.object_type === typeFilter && viewNodes.has(node)) {
+        filtered.add(node);
+      }
+    });
+    return filtered;
+  })();
+  // SSE stage event capture for "Why" tab and pipeline viz
+  const [lastStageEvent, setLastStageEvent] = useState<StageEvent | null>(null);
+  const [retrievalData, setRetrievalData] = useState<StageEvent | null>(null);
+  // Pipeline status text
+  const [pipelineStatus, setPipelineStatus] = useState<string>('');
 
   // Drilldown state
   const [drilldownId, setDrilldownId] = useState<string | null>(null);
@@ -51,6 +100,9 @@ export default function ExplorerLayout({ children, onNodeSelect }: ExplorerLayou
   const answerActive =
     response !== null &&
     (askState === 'CONSTRUCTING' || askState === 'EXPLORING');
+
+  // Determine if graph renderer should show (active exploration, search done, or answer active)
+  const showGraphRenderer = activeExploration || answerActive;
 
   // Open mobile overlay when answer becomes active on mobile
   useEffect(() => {
@@ -91,13 +143,35 @@ export default function ExplorerLayout({ children, onNodeSelect }: ExplorerLayou
   const handleNodeSelect = useCallback((nodeId: string | null) => {
     explorer.selectNode(nodeId);
     onNodeSelect?.(nodeId);
+    // Clear secondary selection when primary changes
+    if (!nodeId) {
+      setSecondarySelectedId(null);
+    }
   }, [explorer, onNodeSelect]);
 
-  // Escape key: close drilldown, then clear selection, then close structure
+  // Search overlay: select result loads neighborhood
+  const handleSearchSelect = useCallback(async (objectId: string) => {
+    setActiveExploration(true);
+    await graphDataHook.loadNeighborhood(objectId, 2);
+    handleNodeSelect(objectId);
+  }, [graphDataHook, handleNodeSelect]);
+
+  // Keyboard: "/" opens search, Escape cascades
   useEffect(() => {
     function handleKeyDown(e: KeyboardEvent) {
+      // "/" opens search (unless already typing in an input)
+      if (e.key === '/' && !searchOpen && !(e.target instanceof HTMLInputElement) && !(e.target instanceof HTMLTextAreaElement)) {
+        e.preventDefault();
+        setSearchOpen(true);
+        return;
+      }
+
       if (e.key === 'Escape') {
-        if (drilldownId) {
+        if (searchOpen) {
+          setSearchOpen(false);
+        } else if (secondarySelectedId) {
+          setSecondarySelectedId(null);
+        } else if (drilldownId) {
           setDrilldownId(null);
         } else if (mobileOverlayOpen) {
           setMobileOverlayOpen(false);
@@ -107,10 +181,12 @@ export default function ExplorerLayout({ children, onNodeSelect }: ExplorerLayou
           explorer.toggleStructurePanel();
         }
       }
+
+      // Shift-click support handled in GraphRenderer events
     }
     document.addEventListener('keydown', handleKeyDown);
     return () => document.removeEventListener('keydown', handleKeyDown);
-  }, [explorer, handleNodeSelect, drilldownId, mobileOverlayOpen]);
+  }, [explorer, handleNodeSelect, drilldownId, mobileOverlayOpen, searchOpen, secondarySelectedId]);
 
   // Global node select event from graph renderers
   useEffect(() => {
@@ -121,6 +197,20 @@ export default function ExplorerLayout({ children, onNodeSelect }: ExplorerLayou
     window.addEventListener('explorer:select-node', handler);
     return () => window.removeEventListener('explorer:select-node', handler);
   }, [handleNodeSelect]);
+
+  // Focus nodes event (from StructurePanel, AnswerReadingPanel, etc.)
+  useEffect(() => {
+    function handler(event: Event) {
+      const detail = (event as CustomEvent<{ nodeIds: string[] }>).detail;
+      if (detail?.nodeIds?.length) {
+        setHighlightedNodeIds(new Set(detail.nodeIds));
+        setActiveExploration(true);
+        graphDataHook.loadSubgraph(detail.nodeIds);
+      }
+    }
+    window.addEventListener('explorer:focus-nodes', handler);
+    return () => window.removeEventListener('explorer:focus-nodes', handler);
+  }, [graphDataHook]);
 
   // Drilldown event from graph/stipple canvas
   useEffect(() => {
@@ -141,6 +231,53 @@ export default function ExplorerLayout({ children, onNodeSelect }: ExplorerLayou
       }),
     );
   }, [response?.structured_visual?.regions]);
+
+  // Capture SSE stage events for pipeline visualization and "Why" tab
+  useEffect(() => {
+    function handler(event: Event) {
+      const detail = (event as CustomEvent<{ stage: StageEvent }>).detail;
+      if (!detail?.stage) return;
+      const stage = detail.stage;
+      setLastStageEvent(stage);
+
+      // Pipeline status text
+      switch (stage.name) {
+        case 'pipeline_start':
+          setPipelineStatus('Analyzing query...');
+          break;
+        case 'e4b_classify_start':
+          setPipelineStatus('Classifying intent...');
+          break;
+        case 'e4b_classify_complete':
+          setPipelineStatus(`Intent: ${stage.answer_type ?? 'analyzing'}`);
+          break;
+        case 'retrieval_start':
+          setPipelineStatus('Searching...');
+          break;
+        case 'retrieval_complete': {
+          setPipelineStatus(`Found ${stage.evidence_count} evidence nodes`);
+          setRetrievalData(stage);
+          // Collect retrieval object IDs for reasoning_trace view
+          const ids = new Set<string>();
+          for (const h of stage.bm25_hits ?? []) ids.add(String(h.object_id));
+          for (const h of stage.sbert_scores ?? []) ids.add(String(h.object_id));
+          setRetrievalObjectIds(ids);
+          break;
+        }
+        case 'objects_loaded':
+          setPipelineStatus(`Loading ${stage.object_count} objects`);
+          break;
+        case 'expression_start':
+          setPipelineStatus('Composing answer...');
+          break;
+        case 'expression_complete':
+          setPipelineStatus('Answer ready');
+          break;
+      }
+    }
+    window.addEventListener('theseus:stage-event', handler);
+    return () => window.removeEventListener('theseus:stage-event', handler);
+  }, []);
 
   // Resize drag handlers (desktop)
   const handleResizeDown = useCallback((e: React.MouseEvent) => {
@@ -172,6 +309,10 @@ export default function ExplorerLayout({ children, onNodeSelect }: ExplorerLayou
 
   const contextPanelOpen = explorer.selectedNodeId !== null;
 
+  // Node/edge count for StatusStrip
+  const nodeCount = graphDataHook.graph.order;
+  const edgeCount = graphDataHook.graph.size;
+
   return (
     <div
       className={[
@@ -187,11 +328,78 @@ export default function ExplorerLayout({ children, onNodeSelect }: ExplorerLayou
       <StructurePanel
         isOpen={explorer.structurePanelOpen}
         onClose={explorer.toggleStructurePanel}
+        onFocusCluster={(clusterId) => {
+          setActiveExploration(true);
+          graphDataHook.loadNeighborhood(String(clusterId), 1);
+        }}
+        onFocusType={(objectType) => {
+          setTypeFilter(objectType);
+        }}
       />
 
       {/* Graph canvas area */}
       <div className="explorer-graph-area">
-        {children}
+        {/* IdleGraph (children) with crossfade */}
+        <div
+          style={{
+            position: 'absolute',
+            inset: 0,
+            opacity: showGraphRenderer ? 0 : 1,
+            transition: 'opacity 400ms ease',
+            pointerEvents: showGraphRenderer ? 'none' : 'auto',
+          }}
+        >
+          {children}
+        </div>
+
+        {/* Active GraphRenderer with crossfade */}
+        {showGraphRenderer && (
+          <div
+            style={{
+              position: 'absolute',
+              inset: 0,
+              opacity: showGraphRenderer ? 1 : 0,
+              transition: 'opacity 400ms ease',
+            }}
+          >
+            <GraphRenderer
+              graphData={graphDataHook.graphData}
+              graph={graphDataHook.graph}
+              activeView={investigationView.activeView}
+              selectedNodeId={explorer.selectedNodeId}
+              highlightedNodeIds={highlightedNodeIds}
+              onSelectNode={handleNodeSelect}
+              onShiftSelectNode={(id) => setSecondarySelectedId(id)}
+              visibleNodes={effectiveVisibleNodes.size > 0 ? effectiveVisibleNodes : undefined}
+              nodeStyles={investigationView.projection.nodeStyles}
+              edgeStyles={investigationView.projection.edgeStyles}
+              secondarySelectedId={secondarySelectedId}
+            />
+          </div>
+        )}
+
+        {/* Evidence subgraph auto-extraction (headless) */}
+        <EvidenceSubgraph
+          askState={askState}
+          response={response}
+          graphData={graphDataHook}
+        />
+
+        {/* Path overlay (when two nodes are selected) */}
+        {secondarySelectedId && explorer.selectedNodeId && (
+          <PathOverlay
+            nodeA={explorer.selectedNodeId}
+            nodeB={secondarySelectedId}
+            onClear={() => setSecondarySelectedId(null)}
+          />
+        )}
+
+        {/* Search overlay */}
+        <ExplorerSearch
+          isOpen={searchOpen}
+          onClose={() => setSearchOpen(false)}
+          onSelect={handleSearchSelect}
+        />
 
         {/* Control dock */}
         <ControlDock
@@ -204,9 +412,20 @@ export default function ExplorerLayout({ children, onNodeSelect }: ExplorerLayou
           onResetView={() => {
             handleNodeSelect(null);
             explorer.setHighlightMode('none');
+            investigationView.setActiveView('all');
+            setTypeFilter(null);
+            setHighlightedNodeIds(new Set());
           }}
           answerActive={answerActive && !isMobile}
           hidden={isMobile && mobileOverlayOpen}
+          activeView={investigationView.activeView}
+          onSetActiveView={investigationView.setActiveView}
+          onOpenSearch={() => setSearchOpen(true)}
+          secondarySelectedId={secondarySelectedId}
+          onShowPath={() => {/* Path is auto-loaded by PathOverlay when both nodes selected */}}
+          hasAnswer={answerActive}
+          response={response}
+          graph={graphDataHook.graph}
         />
 
         {/* Status strip */}
@@ -214,6 +433,12 @@ export default function ExplorerLayout({ children, onNodeSelect }: ExplorerLayou
           highlightMode={explorer.highlightMode}
           selectedNodeId={explorer.selectedNodeId}
           vizMode={explorer.vizMode}
+          activeView={investigationView.activeView}
+          nodeCount={nodeCount}
+          edgeCount={edgeCount}
+          pipelineStatus={pipelineStatus}
+          loading={graphDataHook.loading}
+          hasAnswer={answerActive}
         />
       </div>
 
@@ -257,7 +482,7 @@ export default function ExplorerLayout({ children, onNodeSelect }: ExplorerLayou
             />
           </div>
 
-          {/* Reading panel */}
+          {/* Reading panel: z-index ensures it sits above the dot grid canvas */}
           <div
             style={{
               width: panelWidth,
@@ -265,6 +490,9 @@ export default function ExplorerLayout({ children, onNodeSelect }: ExplorerLayou
               display: 'flex',
               flexDirection: 'column',
               overflow: 'hidden',
+              position: 'relative',
+              zIndex: 15,
+              background: 'var(--vie-panel-bg)',
             }}
           >
             <AnswerReadingPanel
@@ -344,6 +572,7 @@ export default function ExplorerLayout({ children, onNodeSelect }: ExplorerLayou
         nodeId={explorer.selectedNodeId}
         onClose={() => handleNodeSelect(null)}
         onSelectNode={handleNodeSelect}
+        retrievalData={retrievalData}
       />
     </div>
   );
