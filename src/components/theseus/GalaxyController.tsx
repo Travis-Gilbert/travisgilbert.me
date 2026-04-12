@@ -428,17 +428,18 @@ function GalaxyController({
         originalPositionsRef.current.set(dotIndex, { x: pos.x, y: pos.y });
       }
 
-      // Pass 1a: tag the cluster dot with its source-type color and
-      // shape. The colorOverride here is the resting color; the
-      // recruitment + filter passes during a query will override it
-      // again with type-specific tints, then the construction phase
-      // resets it on completion. Web-source clusters also get
-      // shapeId = 1 (square) so they read as a different category
-      // even when they happen to share a cluster centroid color.
+      // Pass 1a: tag the cluster dot AND its neighborhood with a
+      // source-type color so the semantic language is actually visible
+      // at IDLE. Previously only the single centroid dot was colored
+      // (1 of ~6700 per cluster = invisible). Now each cluster recruits
+      // its ~60 nearest grid neighbors and paints them at a subtle
+      // tinted opacity, creating a visible colored cloud per cluster
+      // that the user can see at a glance.
       const source: ClusterSource = placeholderClusterSource(cluster.id);
       const sourceColor = CLUSTER_SOURCE_COLORS[source];
       const sourceShape = CLUSTER_SOURCE_SHAPES[source];
 
+      // Centroid dot: full color, standard opacity
       grid.setDotGalaxyState(dotIndex, {
         clusterId: cluster.id,
         objectType,
@@ -448,6 +449,22 @@ function GalaxyController({
       });
       if (sourceShape !== 0) {
         grid.setDotShape(dotIndex, sourceShape);
+      }
+
+      // Recruit neighborhood: ~60 nearest dots get a subtle version
+      // of the same source color. Web-source neighbors also get the
+      // square shape so the cluster reads as a different category.
+      const NEIGHBORHOOD_SIZE = 60;
+      const neighbors = grid.findNearestDots(dotIndex, NEIGHBORHOOD_SIZE);
+      for (const neighborIdx of neighbors) {
+        if (usedIndices.has(neighborIdx)) continue;
+        grid.setDotGalaxyState(neighborIdx, {
+          colorOverride: sourceColor,
+          opacityOverride: 0.06, // subtle tint, not distracting
+        });
+        if (sourceShape !== 0) {
+          grid.setDotShape(neighborIdx, sourceShape);
+        }
       }
     }
 
@@ -512,12 +529,13 @@ function GalaxyController({
       grid.setBinaryGlyphsEnabled(true);
       for (const m of mappingsRef.current) {
         grid.resetDotTarget(m.dotIndex);
-        // Pass 1a: restore the source-type color that was applied
-        // during the cluster mapping effect. Without this, IDLE
-        // resets every cluster dot to neutral and the semantic
-        // colors only show on the first page load.
+        // Pass 1a: restore source-type colors on the centroid AND its
+        // neighborhood so the semantic language persists across
+        // query cycles. Without this, returning to IDLE after a query
+        // would leave the field neutral-colored.
         const source: ClusterSource = placeholderClusterSource(m.clusterId);
         const sourceColor = CLUSTER_SOURCE_COLORS[source];
+        const sourceShape = CLUSTER_SOURCE_SHAPES[source];
         grid.setDotGalaxyState(m.dotIndex, {
           clusterId: m.clusterId,
           objectType: m.objectType,
@@ -525,6 +543,19 @@ function GalaxyController({
           opacityOverride: null,
           colorOverride: sourceColor,
         });
+
+        // Re-color neighborhood dots
+        const NEIGHBORHOOD_SIZE = 60;
+        const neighbors = grid.findNearestDots(m.dotIndex, NEIGHBORHOOD_SIZE);
+        for (const neighborIdx of neighbors) {
+          grid.setDotGalaxyState(neighborIdx, {
+            colorOverride: sourceColor,
+            opacityOverride: 0.06,
+          });
+          if (sourceShape !== 0) {
+            grid.setDotShape(neighborIdx, sourceShape);
+          }
+        }
       }
       grid.setEdges([]);
       grid.setLabels([]);
