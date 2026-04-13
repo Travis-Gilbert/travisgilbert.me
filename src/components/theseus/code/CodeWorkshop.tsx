@@ -148,6 +148,7 @@ export default function CodeWorkshop() {
           />
           <CodeEditor
             code={session.code}
+            onCodeChange={session.setCode}
             language="python"
             streamingEdits={session.streamingEdits}
             editProgress={session.editProgress}

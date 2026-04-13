@@ -21,6 +21,7 @@ export interface CodeSession {
   activeFile: string;
   openFiles: string[];
   code: string;
+  setCode: (code: string) => void;
   isEditing: boolean;
   editProgress: number;
   streamingEdits: StreamingEdit[];
@@ -42,6 +43,7 @@ export function useCodeSession(): CodeSession {
   const [suggestions, setSuggestions] = useState<Suggestion[]>(MOCK_SUGGESTIONS);
   const [activeAgents, setActiveAgents] = useState<AgentId[]>([]);
   const [plugins, setPlugins] = useState<Plugin[]>(DEFAULT_PLUGINS);
+  const [code, setCode] = useState(MOCK_CODE);
   const [pendingEdits, setPendingEdits] = useState<StreamingEdit[]>([]);
 
   // Called by useStreamingEdits via interval callback (not in effect body)
@@ -130,7 +132,8 @@ export function useCodeSession(): CodeSession {
     files: MOCK_FILES,
     activeFile,
     openFiles,
-    code: MOCK_CODE,
+    code,
+    setCode,
     isEditing,
     editProgress,
     streamingEdits: pendingEdits,

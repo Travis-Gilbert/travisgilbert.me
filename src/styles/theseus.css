@@ -3153,13 +3153,13 @@
 
 .cw-editor {
   flex: 1;
-  overflow-y: auto;
+  overflow: hidden;
   background: var(--cw-editor-bg);
-  font-family: 'JetBrains Mono', monospace;
-  font-size: 13px;
-  line-height: 22px;
-  font-feature-settings: 'liga' 1, 'calt' 1;
   min-height: 0;
+}
+
+.cw-editor .cm-editor {
+  height: 100%;
 }
 
 .cw-editor-inner {
