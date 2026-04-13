@@ -63,6 +63,16 @@ function SettingsIcon() {
   );
 }
 
+function CodeIcon() {
+  return (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" strokeWidth="1.5" aria-hidden="true">
+      <path d="M13 16H18" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" />
+      <path d="M6 8L10 12L6 16" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" />
+      <path d="M2 18V6C2 4.89543 2.89543 4 4 4H20C21.1046 4 22 4.89543 22 6V18C22 19.1046 21.1046 20 20 20H4C2.89543 20 2 19.1046 2 18Z" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
 function IntelligenceIcon() {
   return (
     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" strokeWidth="1.5" aria-hidden="true">
@@ -87,6 +97,7 @@ const NAV_ITEMS: NavItem[] = [
   { id: 'ask',      label: 'Ask',      panelId: 'ask',      icon: ChatIcon },
   { id: 'explorer', label: 'Explorer', panelId: 'explorer', icon: GraphIcon },
   { id: 'intelligence', label: 'Intelligence', panelId: 'intelligence', icon: IntelligenceIcon },
+  { id: 'code',     label: 'Code',     panelId: 'code',     icon: CodeIcon },
   { id: 'notebook', label: 'Notebook', panelId: 'notebook', icon: NotebookIcon },
   { id: 'library',  label: 'Library',  panelId: 'library',  icon: LibraryIcon },
   { id: 'settings', label: 'Settings', panelId: 'settings', icon: SettingsIcon },
