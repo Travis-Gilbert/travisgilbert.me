@@ -150,9 +150,6 @@ export default function CodeWorkshop() {
             code={session.code}
             onCodeChange={session.setCode}
             language="python"
-            streamingEdits={session.streamingEdits}
-            editProgress={session.editProgress}
-            activeAgents={session.activeAgents}
           />
         </div>
 

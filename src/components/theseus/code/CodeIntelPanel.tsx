@@ -33,7 +33,7 @@ export default function CodeIntelPanel({
     if (msgRef.current) {
       msgRef.current.scrollTop = msgRef.current.scrollHeight;
     }
-  }, [messages, activeAgents]);
+  }, [messages]);
 
   function handleKeyDown(e: React.KeyboardEvent<HTMLTextAreaElement>) {
     if (e.key === 'Enter' && !e.shiftKey && input.trim()) {

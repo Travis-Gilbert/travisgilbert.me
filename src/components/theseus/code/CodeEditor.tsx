@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useCallback } from 'react';
+import { useEffect, useRef } from 'react';
 import { EditorView, keymap, lineNumbers, highlightActiveLine, highlightActiveLineGutter } from '@codemirror/view';
 import { EditorState, type Extension } from '@codemirror/state';
 import { defaultKeymap, history, historyKeymap, indentWithTab } from '@codemirror/commands';
@@ -11,15 +11,11 @@ import { json } from '@codemirror/lang-json';
 import { markdown } from '@codemirror/lang-markdown';
 import { tags } from '@lezer/highlight';
 import { searchKeymap, highlightSelectionMatches } from '@codemirror/search';
-import type { StreamingEdit, AgentId } from './agents';
 
 interface CodeEditorProps {
   code: string;
   onCodeChange?: (code: string) => void;
   language: string;
-  streamingEdits?: StreamingEdit[];
-  editProgress?: number;
-  activeAgents?: AgentId[];
 }
 
 // Theseus dark theme matching --cw-* palette
@@ -139,15 +135,6 @@ export default function CodeEditor({
   const onChangeRef = useRef(onCodeChange);
   onChangeRef.current = onCodeChange;
 
-  // Stable update listener
-  const updateListener = useCallback(() => {
-    return EditorView.updateListener.of((update) => {
-      if (update.docChanged) {
-        onChangeRef.current?.(update.state.doc.toString());
-      }
-    });
-  }, []);
-
   // Create editor
   useEffect(() => {
     if (!containerRef.current) return;
@@ -171,7 +158,11 @@ export default function CodeEditor({
         languageExtension(language),
         syntaxHighlighting(theseusHighlight),
         theseusTheme,
-        updateListener(),
+        EditorView.updateListener.of((update) => {
+          if (update.docChanged) {
+            onChangeRef.current?.(update.state.doc.toString());
+          }
+        }),
         EditorView.lineWrapping,
       ],
     });
@@ -187,7 +178,8 @@ export default function CodeEditor({
       view.destroy();
       viewRef.current = null;
     };
-    // Only create once per mount
+    // Language change requires full editor recreation; code and
+    // onChangeRef excluded intentionally (ref pattern keeps them current).
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [language]);
 

@@ -21,6 +21,16 @@ const DEFAULT_EXPANDED_HEIGHT = 340;
 const MIN_EXPANDED_HEIGHT = 180;
 const MAX_EXPANDED_HEIGHT = 600;
 
+function TerminalIcon() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" style={{ flexShrink: 0 }} aria-hidden="true">
+      <path d="M13 16H18" stroke="#5fb3a1" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+      <path d="M6 8L10 12L6 16" stroke="#5fb3a1" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+      <path d="M2 18V6C2 4.89543 2.89543 4 4 4H20C21.1046 4 22 4.89543 22 6V18C22 19.1046 21.1046 20 20 20H4C2.89543 20 2 19.1046 2 18Z" stroke="#5fb3a1" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
 const IDLE_THOUGHTS = [
   '847 connections mapped so far. I\'m looking for patterns.',
   'Watching answer_router.py for drift signals.',
@@ -31,7 +41,7 @@ const IDLE_THOUGHTS = [
 ];
 
 export default function CodeTerminal({ open, onClose, messages, activeAgents, onSend }: CodeTerminalProps) {
-  const [expanded, setExpanded] = useState(false);
+  const [expandedWhenOpen, setExpandedWhenOpen] = useState(true);
   const [height, setHeight] = useState(DEFAULT_EXPANDED_HEIGHT);
   const [activeTab, setActiveTab] = useState<TerminalTab>('ask');
   const [inputValue, setInputValue] = useState('');
@@ -42,13 +52,12 @@ export default function CodeTerminal({ open, onClose, messages, activeAgents, on
   const inputRef = useRef<HTMLInputElement>(null);
   const widgetRef = useRef<HTMLDivElement>(null);
 
-  // Expand on first open
-  useEffect(() => {
-    if (open) setExpanded(true);
-  }, [open]);
+  // Terminal always opens expanded; user can collapse to bar while open
+  const expanded = open && expandedWhenOpen;
 
-  // Thought cycling (collapsed bar)
+  // Thought cycling (collapsed bar); only tick when terminal is open
   useEffect(() => {
+    if (!open) return;
     let timeout: ReturnType<typeof setTimeout> | null = null;
     const interval = setInterval(() => {
       setThoughtOpacity(0);
@@ -61,7 +70,7 @@ export default function CodeTerminal({ open, onClose, messages, activeAgents, on
       clearInterval(interval);
       if (timeout) clearTimeout(timeout);
     };
-  }, []);
+  }, [open]);
 
   const thoughtText = useMemo(
     () => IDLE_THOUGHTS[thoughtTick % IDLE_THOUGHTS.length],
@@ -81,7 +90,7 @@ export default function CodeTerminal({ open, onClose, messages, activeAgents, on
     function handleKeyDown(e: KeyboardEvent) {
       if (e.key === 'Escape') {
         e.stopPropagation();
-        if (expanded) setExpanded(false);
+        if (expanded) setExpandedWhenOpen(false);
         else onClose();
       }
     }
@@ -176,7 +185,7 @@ export default function CodeTerminal({ open, onClose, messages, activeAgents, on
       {/* Collapsed bar */}
       {!expanded && (
         <div
-          onClick={() => setExpanded(true)}
+          onClick={() => setExpandedWhenOpen(true)}
           style={{
             position: 'relative',
             zIndex: 2,
@@ -189,11 +198,7 @@ export default function CodeTerminal({ open, onClose, messages, activeAgents, on
             gap: 10,
           }}
         >
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" style={{ flexShrink: 0 }} aria-hidden="true">
-              <path d="M13 16H18" stroke="#5fb3a1" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-              <path d="M6 8L10 12L6 16" stroke="#5fb3a1" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-              <path d="M2 18V6C2 4.89543 2.89543 4 4 4H20C21.1046 4 22 4.89543 22 6V18C22 19.1046 21.1046 20 20 20H4C2.89543 20 2 19.1046 2 18Z" stroke="#5fb3a1" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-            </svg>
+          <TerminalIcon />
           <span style={{
             width: 6, height: 6, borderRadius: '50%',
             background: 'var(--cw-green)', flexShrink: 0,
@@ -238,11 +243,7 @@ export default function CodeTerminal({ open, onClose, messages, activeAgents, on
             display: 'flex', alignItems: 'center', gap: 10,
             flexShrink: 0, background: 'rgba(30,32,40,0.5)',
           }}>
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" style={{ flexShrink: 0 }} aria-hidden="true">
-              <path d="M13 16H18" stroke="#5fb3a1" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-              <path d="M6 8L10 12L6 16" stroke="#5fb3a1" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-              <path d="M2 18V6C2 4.89543 2.89543 4 4 4H20C21.1046 4 22 4.89543 22 6V18C22 19.1046 21.1046 20 20 20H4C2.89543 20 2 19.1046 2 18Z" stroke="#5fb3a1" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-            </svg>
+            <TerminalIcon />
             <input
               ref={inputRef}
               type="text"
@@ -272,7 +273,7 @@ export default function CodeTerminal({ open, onClose, messages, activeAgents, on
               send
             </button>
             <button
-              onClick={() => setExpanded(false)}
+              onClick={() => setExpandedWhenOpen(false)}
               style={{
                 fontFamily: "'JetBrains Mono', monospace",
                 fontSize: 9, color: 'var(--cw-text-dim)',
@@ -374,15 +375,17 @@ export default function CodeTerminal({ open, onClose, messages, activeAgents, on
                 fontFamily: "'JetBrains Mono', monospace",
                 fontSize: 11, color: 'var(--cw-text-dim)', lineHeight: 1.7,
               }}>
-                {messages.filter((m) => m.type === 'system').map((m, i) => (
-                  <div key={i} style={{ display: 'flex', gap: 8, alignItems: 'baseline' }}>
-                    <span style={{ color: 'var(--cw-teal)', flexShrink: 0 }}>[sys]</span>
-                    <span style={{ color: 'var(--cw-text-muted)' }}>{m.text}</span>
-                  </div>
-                ))}
-                {messages.filter((m) => m.type === 'system').length === 0 && (
-                  <span style={{ fontStyle: 'italic' }}>No system events yet.</span>
-                )}
+                {(() => {
+                  const sysMessages = messages.filter((m) => m.type === 'system');
+                  return sysMessages.length > 0
+                    ? sysMessages.map((m, i) => (
+                        <div key={i} style={{ display: 'flex', gap: 8, alignItems: 'baseline' }}>
+                          <span style={{ color: 'var(--cw-teal)', flexShrink: 0 }}>[sys]</span>
+                          <span style={{ color: 'var(--cw-text-muted)' }}>{m.text}</span>
+                        </div>
+                      ))
+                    : <span style={{ fontStyle: 'italic' }}>No system events yet.</span>;
+                })()}
               </div>
             )}
           </div>
