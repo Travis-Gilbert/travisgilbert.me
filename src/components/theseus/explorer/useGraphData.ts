@@ -2,7 +2,17 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import Graph from 'graphology';
-import forceAtlas2 from 'graphology-layout-forceatlas2';
+import {
+  forceSimulation,
+  forceLink,
+  forceManyBody,
+  forceCollide,
+  forceX,
+  forceY,
+  forceRadial,
+  type SimulationNodeDatum,
+  type SimulationLinkDatum,
+} from 'd3-force';
 import { getGraphData } from '@/lib/theseus-api';
 import type { GraphData } from '@/lib/theseus-types';
 
@@ -168,26 +178,97 @@ export function useGraphData(): UseGraphDataReturn {
       pruneWeakEdges(g, 8);
     }
 
-    // ForceAtlas2: tuned for legibility
-    // Higher gravity pulls disconnected components inward.
-    // Higher scalingRatio spreads clusters apart.
-    // More iterations for larger graphs.
+    // d3-force layout: clusters by object type, respects edge connections.
+    // Runs to completion (not continuously) per spec.
     if (g.order > 0) {
       const nodeCount = g.order;
-      const iterations = nodeCount > 200 ? 200 : nodeCount > 50 ? 150 : 100;
 
-      forceAtlas2.assign(g, {
-        iterations,
-        settings: {
-          gravity: 5,
-          scalingRatio: 10,
-          barnesHutOptimize: nodeCount > 100,
-          barnesHutTheta: 0.5,
-          strongGravityMode: true,
-          slowDown: 2,
-          adjustSizes: true,
-        },
+      // Cluster centroids: each type gets an angular position on a ring
+      const TYPE_ORDER = ['source', 'concept', 'person', 'hunch', 'note'];
+      const clusterAngle = (type: string) => {
+        const idx = TYPE_ORDER.indexOf(type);
+        return idx >= 0
+          ? (idx / TYPE_ORDER.length) * Math.PI * 2 - Math.PI / 2
+          : Math.PI; // unknown types at bottom
+      };
+      const clusterRadius = Math.min(250, 80 + nodeCount * 1.2);
+
+      // Build simulation nodes
+      interface SimNode extends SimulationNodeDatum {
+        nodeId: string;
+        objectType: string;
+        edgeCount: number;
+      }
+      const simNodes: SimNode[] = [];
+      const nodeIndexMap = new Map<string, number>();
+      let i = 0;
+      g.forEachNode((id, attrs) => {
+        const type = (attrs.object_type as string) ?? 'note';
+        const angle = clusterAngle(type);
+        // Initialize near cluster centroid with some jitter
+        const jitter = () => (Math.random() - 0.5) * clusterRadius * 0.4;
+        simNodes.push({
+          nodeId: id,
+          objectType: type,
+          edgeCount: (attrs.edge_count as number) ?? 0,
+          x: Math.cos(angle) * clusterRadius + jitter(),
+          y: Math.sin(angle) * clusterRadius + jitter(),
+        });
+        nodeIndexMap.set(id, i++);
       });
+
+      // Build simulation links from edges
+      const simLinks: SimulationLinkDatum<SimNode>[] = [];
+      g.forEachEdge((_key, attrs, source, target) => {
+        const si = nodeIndexMap.get(source);
+        const ti = nodeIndexMap.get(target);
+        if (si !== undefined && ti !== undefined) {
+          simLinks.push({
+            source: si,
+            target: ti,
+          });
+        }
+      });
+
+      // Custom cluster force: gently pull nodes toward their type centroid
+      function forceCluster(alpha: number) {
+        for (const node of simNodes) {
+          const angle = clusterAngle(node.objectType);
+          const cx = Math.cos(angle) * clusterRadius;
+          const cy = Math.sin(angle) * clusterRadius;
+          const strength = 0.15 * alpha;
+          node.vx = (node.vx ?? 0) + (cx - (node.x ?? 0)) * strength;
+          node.vy = (node.vy ?? 0) + (cy - (node.y ?? 0)) * strength;
+        }
+      }
+
+      const iterations = nodeCount > 200 ? 300 : nodeCount > 50 ? 200 : 150;
+
+      const sim = forceSimulation<SimNode>(simNodes)
+        .force('link', forceLink<SimNode, SimulationLinkDatum<SimNode>>(simLinks)
+          .distance(40)
+          .strength(0.3))
+        .force('charge', forceManyBody<SimNode>()
+          .strength(-30)
+          .distanceMax(300))
+        .force('collide', forceCollide<SimNode>()
+          .radius((d) => 4 + Math.sqrt(d.edgeCount) * 0.5)
+          .strength(0.7))
+        .force('cluster', forceCluster)
+        .force('centerX', forceX<SimNode>(0).strength(0.02))
+        .force('centerY', forceY<SimNode>(0).strength(0.02))
+        .stop();
+
+      // Run to completion
+      sim.tick(iterations);
+
+      // Write positions back to graphology
+      for (const sn of simNodes) {
+        if (g.hasNode(sn.nodeId)) {
+          g.setNodeAttribute(sn.nodeId, 'x', sn.x ?? 0);
+          g.setNodeAttribute(sn.nodeId, 'y', sn.y ?? 0);
+        }
+      }
     }
 
     setGraphData(data);

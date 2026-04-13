@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef } from 'react';
 import type { ExplorerNode, ExplorerEdge } from './useGraphData';
+import type { DeepFieldBlob } from './useDeepField';
 import { useCanvasInteraction } from './useCanvasInteraction';
 import type { CanvasTransform } from './useCanvasInteraction';
 import type { InvestigationView } from '@/lib/theseus-types';
@@ -38,6 +39,7 @@ interface ExplorerCanvasProps {
   highlightedNodeIds: Set<string>;
   activeView: InvestigationView;
   askState?: string;
+  deepFieldBlobs?: DeepFieldBlob[];
   onSelectNode: (id: string | null) => void;
   onHoverNode: (id: string | null) => void;
 }
@@ -49,6 +51,7 @@ export default function ExplorerCanvas({
   highlightedNodeIds,
   activeView,
   askState,
+  deepFieldBlobs,
   onSelectNode,
   onHoverNode,
 }: ExplorerCanvasProps) {
@@ -59,8 +62,22 @@ export default function ExplorerCanvas({
   const zoomRef = useRef(1);
   const zoomTargetRef = useRef(1);
   const rotationRef = useRef(0);
-  const rotationSpeedRef = useRef(1);
+  const rotationSpeedRef = useRef(0); // starts at 0 (no idle rotation by default)
   const hoveredNodeRef = useRef<string | null>(null);
+  // Construction animation: settles from 1.0 (full drift) to 0.0 (still) over ~3 seconds
+  const driftAmplitudeRef = useRef(1.0);
+  // Per-node construction stagger: fade-in alpha (0 = invisible, 1 = full)
+  const constructionFadeRef = useRef<Map<string, number>>(new Map());
+  const constructionStartRef = useRef(0); // frame when nodes first loaded
+
+  // Drag state (all refs to avoid re-renders during drag)
+  const draggedNodeIdRef = useRef<string | null>(null);
+  const dragStartScreenRef = useRef({ x: 0, y: 0 });
+  const didDragRef = useRef(false);
+  // Pinned positions: nodes that were dragged keep their new position (normalized 0-1)
+  const pinnedPositionsRef = useRef<Map<string, { x: number; y: number }>>(new Map());
+  // Cursor style managed imperatively (no state to avoid re-renders)
+  const cursorRef = useRef<string>('crosshair');
 
   // Per-node dim factor for smooth neighbor dimming (spec 2.6)
   const dimFactorsRef = useRef<Map<string, number>>(new Map());
@@ -75,6 +92,22 @@ export default function ExplorerCanvas({
   const evidenceFadeRef = useRef<Map<string, number>>(new Map());
   // Edge draw progress for evidence edges (spec section 6)
   const edgeDrawProgressRef = useRef<Map<string, number>>(new Map());
+  // Deep field fade (smooth appear/disappear)
+  const deepFieldFadeRef = useRef(0);
+  // Store deep field blobs in a ref so the draw loop reads per-frame without dep changes
+  const deepFieldBlobsRef = useRef<DeepFieldBlob[] | undefined>(undefined);
+  useEffect(() => {
+    deepFieldBlobsRef.current = deepFieldBlobs;
+  }, [deepFieldBlobs]);
+
+  // Reset construction animation when new data loads
+  useEffect(() => {
+    if (nodes.length > 0) {
+      driftAmplitudeRef.current = 1.0;
+      constructionFadeRef.current = new Map();
+      constructionStartRef.current = timeRef.current;
+    }
+  }, [nodes]);
 
   // Build neighbor set for selected node
   const neighborSetRef = useRef<Set<string>>(new Set());
@@ -123,7 +156,16 @@ export default function ExplorerCanvas({
     return () => window.removeEventListener('resize', onResize);
   }, [resizeCanvas]);
 
-  // Mouse tracking
+  // Helper: build current transform
+  const getTransform = useCallback((): CanvasTransform | null => {
+    const canvas = canvasRef.current;
+    if (!canvas) return null;
+    const w = canvas.clientWidth;
+    const h = canvas.clientHeight;
+    return { zoom: zoomRef.current, rotation: rotationRef.current, cx: w / 2, cy: h / 2 };
+  }, []);
+
+  // Mouse move: hover detection + drag movement
   const onMouseMove = useCallback(
     (e: React.MouseEvent) => {
       const rect = wrapperRef.current?.getBoundingClientRect();
@@ -132,22 +174,102 @@ export default function ExplorerCanvas({
       if (!canvas) return;
       const w = canvas.clientWidth;
       const h = canvas.clientHeight;
+      const transform = getTransform();
+      if (!transform) return;
 
-      const transform: CanvasTransform = {
-        zoom: zoomRef.current,
-        rotation: rotationRef.current,
-        cx: w / 2,
-        cy: h / 2,
-      };
+      // If dragging, update pinned position
+      if (draggedNodeIdRef.current) {
+        const screenX = e.clientX - rect.left;
+        const screenY = e.clientY - rect.top;
 
+        // Detect if we've moved enough to count as a drag (5px threshold)
+        const dx = screenX - dragStartScreenRef.current.x;
+        const dy = screenY - dragStartScreenRef.current.y;
+        if (Math.abs(dx) > 5 || Math.abs(dy) > 5) {
+          didDragRef.current = true;
+        }
+
+        if (didDragRef.current) {
+          const { x: gx, y: gy } = interaction.screenToGraph(screenX, screenY, transform);
+          // Convert graph coords to normalized [0,1]
+          pinnedPositionsRef.current.set(draggedNodeIdRef.current, { x: gx / w, y: gy / h });
+        }
+        return;
+      }
+
+      // Normal hover detection
       const hit = interaction.handleMouseMove(e, rect, nodes, w, h, transform);
       const hitId = hit?.id ?? null;
       if (hitId !== hoveredNodeRef.current) {
         hoveredNodeRef.current = hitId;
         onHoverNode(hitId);
+        // Update cursor
+        const wrapper = wrapperRef.current;
+        if (wrapper) {
+          wrapper.style.cursor = hitId ? 'grab' : 'crosshair';
+        }
       }
     },
-    [nodes, interaction, onHoverNode],
+    [nodes, interaction, onHoverNode, getTransform],
+  );
+
+  // Mouse down: start potential drag
+  const onMouseDown = useCallback(
+    (e: React.MouseEvent) => {
+      if (e.button !== 0) return; // left button only
+      const rect = wrapperRef.current?.getBoundingClientRect();
+      if (!rect) return;
+      const canvas = canvasRef.current;
+      if (!canvas) return;
+      const w = canvas.clientWidth;
+      const h = canvas.clientHeight;
+      const transform = getTransform();
+      if (!transform) return;
+
+      const hit = interaction.handleClick(e, rect, nodes, w, h, transform);
+      if (hit) {
+        draggedNodeIdRef.current = hit.id;
+        dragStartScreenRef.current = { x: e.clientX - rect.left, y: e.clientY - rect.top };
+        didDragRef.current = false;
+        const wrapper = wrapperRef.current;
+        if (wrapper) wrapper.style.cursor = 'grabbing';
+      }
+    },
+    [nodes, interaction, getTransform],
+  );
+
+  // Mouse up: end drag or fire click
+  const onMouseUp = useCallback(
+    (e: React.MouseEvent) => {
+      if (draggedNodeIdRef.current) {
+        const wasDrag = didDragRef.current;
+        const draggedId = draggedNodeIdRef.current;
+        draggedNodeIdRef.current = null;
+        didDragRef.current = false;
+        const wrapper = wrapperRef.current;
+        if (wrapper) wrapper.style.cursor = hoveredNodeRef.current ? 'grab' : 'crosshair';
+
+        if (!wasDrag) {
+          // Short click (no movement): select the node
+          onSelectNode(draggedId);
+        }
+        return;
+      }
+
+      // Click on empty space: deselect
+      const rect = wrapperRef.current?.getBoundingClientRect();
+      if (!rect) return;
+      const canvas = canvasRef.current;
+      if (!canvas) return;
+      const w = canvas.clientWidth;
+      const h = canvas.clientHeight;
+      const transform = getTransform();
+      if (!transform) return;
+
+      const hit = interaction.handleClick(e, rect, nodes, w, h, transform);
+      if (!hit) onSelectNode(null);
+    },
+    [nodes, interaction, onSelectNode, getTransform],
   );
 
   // Wheel zoom (spec 2.10: range 0.5 to 3.0)
@@ -156,29 +278,6 @@ export default function ExplorerCanvas({
     const step = e.deltaY > 0 ? -0.1 : 0.1;
     zoomTargetRef.current = Math.max(0.5, Math.min(3.0, zoomTargetRef.current + step));
   }, []);
-
-  // Click handler
-  const onClick = useCallback(
-    (e: React.MouseEvent) => {
-      const rect = wrapperRef.current?.getBoundingClientRect();
-      if (!rect) return;
-      const canvas = canvasRef.current;
-      if (!canvas) return;
-      const w = canvas.clientWidth;
-      const h = canvas.clientHeight;
-
-      const transform: CanvasTransform = {
-        zoom: zoomRef.current,
-        rotation: rotationRef.current,
-        cx: w / 2,
-        cy: h / 2,
-      };
-
-      const hit = interaction.handleClick(e, rect, nodes, w, h, transform);
-      onSelectNode(hit?.id ?? null);
-    },
-    [nodes, interaction, onSelectNode],
-  );
 
   // --- Animation loop (spec 2.3) ---
   useEffect(() => {
@@ -227,9 +326,13 @@ export default function ExplorerCanvas({
       const viewTargetFade = currentView !== 'all' ? 1 : 0;
       viewFadeRef.current += (viewTargetFade - viewFadeRef.current) * 0.08;
 
-      // Idle rotation (spec 2.9)
+      // Construction drift decay (computed early so rotation can reference it)
+      driftAmplitudeRef.current = Math.max(0, driftAmplitudeRef.current - 0.006);
+      const driftAmp = driftAmplitudeRef.current;
+
+      // Rotation: only during construction animation, then stops
       const answerActive = askState === 'CONSTRUCTING' || askState === 'EXPLORING';
-      const targetSpeed = (selectedId || answerActive) ? 0 : 1;
+      const targetSpeed = (driftAmp > 0.01 && !selectedId && !answerActive) ? driftAmp : 0;
       rotationSpeedRef.current += (targetSpeed - rotationSpeedRef.current) * 0.04;
       rotationRef.current += 0.0003 * rotationSpeedRef.current;
 
@@ -256,11 +359,82 @@ export default function ExplorerCanvas({
       ctx.fillStyle = heatGrad;
       ctx.fillRect(0, h * 0.7, w, h * 0.3);
 
+      // --- 2.5 Deep field: glowing white cluster blobs (behind personal graph) ---
+      const currentBlobs = deepFieldBlobsRef.current;
+      const dfTarget = (currentBlobs && currentBlobs.length > 0) ? 1 : 0;
+      deepFieldFadeRef.current += (dfTarget - deepFieldFadeRef.current) * 0.06;
+      const dfAlpha = deepFieldFadeRef.current;
+
+      if (dfAlpha > 0.005 && currentBlobs) {
+        for (const blob of currentBlobs) {
+          const bx = blob.x * w;
+          const by = blob.y * h;
+          const pulse = Math.sin(time * 0.01 + blob.pulseOffset) * 0.15 + 1;
+          const gr = blob.glowRadius * pulse;
+
+          // Outer glow: large soft halo
+          const outerGlow = ctx.createRadialGradient(bx, by, 0, bx, by, gr);
+          outerGlow.addColorStop(0, `rgba(255,255,255,${0.06 * dfAlpha})`);
+          outerGlow.addColorStop(0.4, `rgba(230,230,240,${0.03 * dfAlpha})`);
+          outerGlow.addColorStop(1, 'rgba(0,0,0,0)');
+          ctx.fillStyle = outerGlow;
+          ctx.fillRect(bx - gr, by - gr, gr * 2, gr * 2);
+
+          // Inner core: brighter concentrated center
+          const coreR = blob.radius * 0.6 * pulse;
+          const coreGlow = ctx.createRadialGradient(bx, by, 0, bx, by, coreR);
+          coreGlow.addColorStop(0, `rgba(255,255,255,${0.12 * dfAlpha})`);
+          coreGlow.addColorStop(0.5, `rgba(240,240,245,${0.06 * dfAlpha})`);
+          coreGlow.addColorStop(1, 'rgba(0,0,0,0)');
+          ctx.fillStyle = coreGlow;
+          ctx.fillRect(bx - coreR, by - coreR, coreR * 2, coreR * 2);
+
+          // Label: community name below the blob
+          ctx.font = '9px "JetBrains Mono", "Courier New", monospace';
+          ctx.textAlign = 'center';
+          ctx.textBaseline = 'top';
+          ctx.fillStyle = `rgba(255,255,255,${0.15 * dfAlpha})`;
+          // Truncate long labels
+          const labelText = blob.label.length > 24 ? blob.label.slice(0, 22) + '...' : blob.label;
+          ctx.fillText(labelText, bx, by + blob.radius + 4);
+
+          // Member count below label
+          ctx.font = '8px "JetBrains Mono", "Courier New", monospace';
+          ctx.fillStyle = `rgba(255,255,255,${0.08 * dfAlpha})`;
+          ctx.fillText(`${blob.memberCount} objects`, bx, by + blob.radius + 16);
+        }
+      }
+
       // --- 3. Apply zoom + rotation transform (spec 2.10, 2.9) ---
       ctx.translate(cx, cy);
       ctx.scale(zoom, zoom);
       ctx.rotate(rotationRef.current);
       ctx.translate(-cx, -cy);
+
+      // --- Helper: compute node screen position (respects pinned/dragged) ---
+      const pinnedPositions = pinnedPositionsRef.current;
+      const draggedId = draggedNodeIdRef.current;
+      const constructionStart = constructionStartRef.current;
+
+      function nodeScreenPos(node: ExplorerNode): { x: number; y: number } {
+        const pinned = pinnedPositions.get(node.id);
+        if (pinned || node.id === draggedId) {
+          const pos = pinned ?? { x: node.x, y: node.y };
+          return { x: pos.x * w, y: pos.y * h };
+        }
+        if (driftAmp < 0.001) {
+          // Fully settled: no drift
+          return { x: node.x * w, y: node.y * h };
+        }
+        // Drift with decaying amplitude (lively on load, settles to still)
+        const phase = node.driftPhase;
+        const driftX = (Math.sin(time * 0.008 + phase) * 10 + Math.sin(time * 0.003 + phase * 2.7) * 6) * driftAmp;
+        const driftY = (Math.cos(time * 0.006 + phase * 1.3) * 10 + Math.cos(time * 0.004 + phase * 3.1) * 6) * driftAmp;
+        return { x: node.x * w + driftX, y: node.y * h + driftY };
+      }
+
+      // --- Construction fade-in: stagger nodes appearing ---
+      const constructionFades = constructionFadeRef.current;
 
       // --- 4. Edges (spec 2.7) ---
       for (const edge of edges) {
@@ -268,13 +442,8 @@ export default function ExplorerCanvas({
         const tgtNode = nodeMap.get(edge.target);
         if (!srcNode || !tgtNode) continue;
 
-        // Apply Lissajous drift to edge endpoints too
-        const srcPhase = srcNode.driftPhase;
-        const sx = srcNode.x * w + Math.sin(time * 0.008 + srcPhase) * 10 + Math.sin(time * 0.003 + srcPhase * 2.7) * 6;
-        const sy = srcNode.y * h + Math.cos(time * 0.006 + srcPhase * 1.3) * 10 + Math.cos(time * 0.004 + srcPhase * 3.1) * 6;
-        const tgtPhase = tgtNode.driftPhase;
-        const tx = tgtNode.x * w + Math.sin(time * 0.008 + tgtPhase) * 10 + Math.sin(time * 0.003 + tgtPhase * 2.7) * 6;
-        const ty = tgtNode.y * h + Math.cos(time * 0.006 + tgtPhase * 1.3) * 10 + Math.cos(time * 0.004 + tgtPhase * 3.1) * 6;
+        const { x: sx, y: sy } = nodeScreenPos(srcNode);
+        const { x: tx, y: ty } = nodeScreenPos(tgtNode);
 
         // Edge draw progress for evidence animation (spec section 6)
         const edgeKey = `${edge.source}-${edge.target}`;
@@ -336,16 +505,20 @@ export default function ExplorerCanvas({
       const labelsToRender: Array<{ nx: number; ny: number; label: string; type: string; edgeCount: number; isSelected: boolean; isHovered: boolean }> = [];
 
       for (const node of nodes) {
-        // Per-node Lissajous drift (spec 2.6)
-        const phase = node.driftPhase;
-        const driftX = Math.sin(time * 0.008 + phase) * 10 + Math.sin(time * 0.003 + phase * 2.7) * 6;
-        const driftY = Math.cos(time * 0.006 + phase * 1.3) * 10 + Math.cos(time * 0.004 + phase * 3.1) * 6;
-        const nx = node.x * w + driftX;
-        const ny = node.y * h + driftY;
+        // Node position (pinned nodes skip Lissajous drift)
+        const { x: nx, y: ny } = nodeScreenPos(node);
 
-        // Per-node brightness pulsing (spec 2.6)
-        const basePulse = Math.sin(time * 0.015 + node.pulseOffset) * 0.05;
+        // Per-node brightness pulsing (decays with drift)
+        const basePulse = Math.sin(time * 0.015 + node.pulseOffset) * 0.05 * Math.max(driftAmp, 0.2);
         let alpha = node.brightness + basePulse;
+
+        // Construction fade-in: stagger by node index (50ms per node, ~30 frames each)
+        const nodeIndex = nodes.indexOf(node);
+        const staggerDelay = nodeIndex * 0.8; // frames of delay per node
+        const fadeAge = Math.max(0, time - constructionStart - staggerDelay);
+        const constructAlpha = Math.min(1, fadeAge / 30); // fade over ~30 frames
+        constructionFades.set(node.id, constructAlpha);
+        alpha *= constructAlpha;
 
         // Base color from objectType (spec 2.6)
         let [r, g, b] = getTypeColor(node.objectType);
@@ -536,8 +709,9 @@ export default function ExplorerCanvas({
     <div
       ref={wrapperRef}
       onMouseMove={onMouseMove}
+      onMouseDown={onMouseDown}
+      onMouseUp={onMouseUp}
       onWheel={onWheel}
-      onClick={onClick}
       className="explorer-canvas-wrapper"
       style={{
         position: 'relative',

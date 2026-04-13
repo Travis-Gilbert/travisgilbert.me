@@ -16,6 +16,7 @@ import ControlDock from './ControlDock';
 import StatusStrip from './StatusStrip';
 import AnswerReadingPanel from './AnswerReadingPanel';
 import ExplorerCanvas from './ExplorerCanvas';
+import { useDeepField } from './useDeepField';
 import ExplorerSearch from './ExplorerSearch';
 import EvidenceSubgraph from './EvidenceSubgraph';
 import PathOverlay from './PathOverlay';
@@ -43,6 +44,7 @@ export default function ExplorerLayout({ children, onNodeSelect }: ExplorerLayou
   const { response, askState } = useGalaxy();
   const isMobile = useIsMobile();
   const graphDataHook = useGraphData();
+  const deepField = useDeepField();
 
   // Active exploration state (triggers crossfade from IdleGraph to GraphRenderer)
   const [activeExploration, setActiveExploration] = useState(false);
@@ -100,8 +102,10 @@ export default function ExplorerLayout({ children, onNodeSelect }: ExplorerLayou
     response !== null &&
     (askState === 'CONSTRUCTING' || askState === 'EXPLORING');
 
-  // Determine if graph renderer should show (active exploration, search done, or answer active)
-  const showGraphRenderer = activeExploration || answerActive;
+  // Determine if graph renderer should show
+  // Force layout: shown when actively exploring or answer is active
+  // Face layout (IdleGraph): shown by default or when vizMode is 'face'
+  const showGraphRenderer = (activeExploration || answerActive) && explorer.vizMode !== 'face';
 
   // Open mobile overlay when answer becomes active on mobile
   useEffect(() => {
@@ -368,6 +372,7 @@ export default function ExplorerLayout({ children, onNodeSelect }: ExplorerLayou
               highlightedNodeIds={highlightedNodeIds}
               activeView={investigationView.activeView}
               askState={askState}
+              deepFieldBlobs={deepField.visible ? deepField.blobs : undefined}
               onSelectNode={handleNodeSelect}
               onHoverNode={() => {}}
             />
@@ -422,6 +427,8 @@ export default function ExplorerLayout({ children, onNodeSelect }: ExplorerLayou
           hasAnswer={answerActive}
           response={response}
           graph={graphDataHook.graph}
+          deepFieldVisible={deepField.visible}
+          onToggleDeepField={deepField.toggle}
         />
 
         {/* Status strip */}

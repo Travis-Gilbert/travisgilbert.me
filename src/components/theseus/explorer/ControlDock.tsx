@@ -23,6 +23,8 @@ interface ControlDockProps {
   hasAnswer?: boolean;
   response?: TheseusResponse | null;
   graph?: Graph;
+  deepFieldVisible?: boolean;
+  onToggleDeepField?: () => void;
 }
 
 function StructureIcon() {
@@ -82,6 +84,8 @@ export default function ControlDock({
   hasAnswer = false,
   response,
   graph,
+  deepFieldVisible = false,
+  onToggleDeepField,
 }: ControlDockProps) {
   if (hidden) return null;
 
@@ -128,6 +132,26 @@ export default function ControlDock({
         >
           <ZoomResetIcon />
         </button>
+
+        {/* Deep field toggle */}
+        {onToggleDeepField && (
+          <button
+            type="button"
+            className={`explorer-dock-btn${deepFieldVisible ? ' is-active' : ''}`}
+            onClick={onToggleDeepField}
+            aria-label={deepFieldVisible ? 'Hide full graph' : 'Show full graph'}
+            aria-pressed={deepFieldVisible}
+            title={deepFieldVisible ? 'Hide Theseus graph' : 'Show Theseus graph'}
+          >
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" strokeWidth="1.5" aria-hidden="true">
+              <circle cx="12" cy="12" r="3" stroke="currentColor" />
+              <circle cx="12" cy="12" r="8" stroke="currentColor" strokeDasharray="2 3" opacity="0.5" />
+              <circle cx="6" cy="6" r="1.5" fill="currentColor" opacity="0.4" />
+              <circle cx="18" cy="8" r="1" fill="currentColor" opacity="0.4" />
+              <circle cx="7" cy="18" r="1" fill="currentColor" opacity="0.4" />
+            </svg>
+          </button>
+        )}
 
         <DockDivider />
 
