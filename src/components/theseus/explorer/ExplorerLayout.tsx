@@ -10,13 +10,12 @@ import { useGraphData } from './useGraphData';
 import { useInvestigationView } from './useInvestigationView';
 import type { InvestigationView } from '@/lib/theseus-types';
 import type { StageEvent } from '@/lib/theseus-api';
-import type { NodeStyle, EdgeStyle } from '@/lib/graph-projections';
 import StructurePanel from './StructurePanel';
 import ContextPanel from './ContextPanel';
 import ControlDock from './ControlDock';
 import StatusStrip from './StatusStrip';
 import AnswerReadingPanel from './AnswerReadingPanel';
-import GraphRenderer from './GraphRenderer';
+import ExplorerCanvas from './ExplorerCanvas';
 import ExplorerSearch from './ExplorerSearch';
 import EvidenceSubgraph from './EvidenceSubgraph';
 import PathOverlay from './PathOverlay';
@@ -352,7 +351,7 @@ export default function ExplorerLayout({ children, onNodeSelect }: ExplorerLayou
           {children}
         </div>
 
-        {/* Active GraphRenderer with crossfade */}
+        {/* Active ExplorerCanvas with crossfade (spec section 9) */}
         {showGraphRenderer && (
           <div
             style={{
@@ -362,18 +361,15 @@ export default function ExplorerLayout({ children, onNodeSelect }: ExplorerLayou
               transition: 'opacity 400ms ease',
             }}
           >
-            <GraphRenderer
-              graphData={graphDataHook.graphData}
-              graph={graphDataHook.graph}
-              activeView={investigationView.activeView}
+            <ExplorerCanvas
+              nodes={graphDataHook.explorerNodes}
+              edges={graphDataHook.explorerEdges}
               selectedNodeId={explorer.selectedNodeId}
               highlightedNodeIds={highlightedNodeIds}
+              activeView={investigationView.activeView}
+              askState={askState}
               onSelectNode={handleNodeSelect}
-              onShiftSelectNode={(id) => setSecondarySelectedId(id)}
-              visibleNodes={effectiveVisibleNodes.size > 0 ? effectiveVisibleNodes : undefined}
-              nodeStyles={investigationView.projection.nodeStyles}
-              edgeStyles={investigationView.projection.edgeStyles}
-              secondarySelectedId={secondarySelectedId}
+              onHoverNode={() => {}}
             />
           </div>
         )}

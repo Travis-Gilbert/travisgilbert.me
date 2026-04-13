@@ -1808,27 +1808,12 @@
   text-align: center;
 }
 
-/* ─── Graph renderer container ─── */
+/* ─── Explorer Canvas 2D container ─── */
 
-.explorer-graph-renderer {
+.explorer-canvas-wrapper {
   position: absolute;
   inset: 0;
   z-index: 1;
-}
-
-.explorer-graph-sigma {
-  width: 100%;
-  height: 100%;
-  background: transparent !important;
-}
-
-.explorer-graph-sigma .sigma-container {
-  background: transparent !important;
-}
-
-/* Override @react-sigma/core's white default on .react-sigma */
-.explorer-graph-renderer .react-sigma {
-  background: transparent !important;
 }
 
 /* ─── Tension edge marching ants ─── */

@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import Graph from 'graphology';
 import forceAtlas2 from 'graphology-layout-forceatlas2';
 import { getGraphData } from '@/lib/theseus-api';
@@ -21,6 +21,62 @@ function clamp(min: number, value: number, max: number): number {
 function stripObjectPrefix(id: string): string {
   if (id.startsWith('object:')) return id.slice(7);
   return id;
+}
+
+/** mulberry32 seeded PRNG (matches GalaxyExplainer / galaxyGenerator). */
+function mulberry32(seed: number): () => number {
+  let s = seed | 0;
+  return () => {
+    s = (s + 0x6d2b79f5) | 0;
+    let t = Math.imul(s ^ (s >>> 15), 1 | s);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+/** djb2 hash to derive a stable seed from a string ID. */
+function djb2(str: string): number {
+  let hash = 5381;
+  for (let i = 0; i < str.length; i++) {
+    hash = ((hash << 5) + hash + str.charCodeAt(i)) | 0;
+  }
+  return hash >>> 0;
+}
+
+/** Visual properties for ExplorerCanvas, computed once per node at data load. */
+export interface ExplorerNode {
+  id: string;
+  x: number;
+  y: number;
+  title: string;
+  objectType: string;
+  epistemicRole?: string;
+  edgeCount: number;
+  radius: number;
+  brightness: number;
+  pulseOffset: number;
+  driftPhase: number;
+  community: number;
+}
+
+export interface ExplorerEdge {
+  source: string;
+  target: string;
+  strength: number;
+  edgeType: string;
+  reason: string;
+}
+
+/** Compute per-node visual properties using seeded PRNG keyed on node ID. */
+function computeVisualProps(id: string, edgeCount: number, clusterId: number): Pick<ExplorerNode, 'radius' | 'brightness' | 'pulseOffset' | 'driftPhase' | 'community'> {
+  const rng = mulberry32(djb2(id));
+  return {
+    radius: clamp(1.5, 1.5 + Math.sqrt(edgeCount) * 0.4, 6),
+    brightness: 0.15 + rng() * 0.25,
+    pulseOffset: rng() * Math.PI * 2,
+    driftPhase: rng() * Math.PI * 2,
+    community: clusterId,
+  };
 }
 
 /**
@@ -54,6 +110,8 @@ export interface UseGraphDataReturn {
   graph: Graph;
   loading: boolean;
   graphData: GraphData | null;
+  explorerNodes: ExplorerNode[];
+  explorerEdges: ExplorerEdge[];
   loadNeighborhood: (centerId: string, hops?: number) => Promise<void>;
   loadTopNodes: (limit?: number) => Promise<void>;
   loadSubgraph: (nodeIds: string[]) => Promise<void>;
@@ -168,10 +226,82 @@ export function useGraphData(): UseGraphDataReturn {
     setLoading(false);
   }, [mergeGraphData]);
 
+  // Derive ExplorerNode[] and ExplorerEdge[] from the graphology graph.
+  // Positions are from ForceAtlas2 (computed once per mergeGraphData).
+  // Normalized to a 0-1 coordinate space; ExplorerCanvas maps to viewport.
+  // Uses useEffect + state (not useMemo) to avoid accessing graphRef during render.
+  const [explorerNodes, setExplorerNodes] = useState<ExplorerNode[]>([]);
+  const [explorerEdges, setExplorerEdges] = useState<ExplorerEdge[]>([]);
+
+  useEffect(() => {
+    const g = graphRef.current;
+    if (!graphData || g.order === 0) {
+      setExplorerNodes([]);
+      setExplorerEdges([]);
+      return;
+    }
+
+    // Collect raw positions
+    const rawNodes: { id: string; x: number; y: number; title: string; objectType: string; edgeCount: number; clusterId: number }[] = [];
+    g.forEachNode((id, attrs) => {
+      rawNodes.push({
+        id,
+        x: attrs.x as number,
+        y: attrs.y as number,
+        title: (attrs.label as string) ?? '',
+        objectType: (attrs.object_type as string) ?? 'note',
+        edgeCount: (attrs.edge_count as number) ?? 0,
+        clusterId: (attrs.cluster_id as number) ?? 0,
+      });
+    });
+
+    // Normalize positions: fit to [0.1, 0.9] range (10% padding each side)
+    let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
+    for (const n of rawNodes) {
+      if (n.x < minX) minX = n.x;
+      if (n.x > maxX) maxX = n.x;
+      if (n.y < minY) minY = n.y;
+      if (n.y > maxY) maxY = n.y;
+    }
+    const rangeX = maxX - minX || 1;
+    const rangeY = maxY - minY || 1;
+
+    const nodes: ExplorerNode[] = rawNodes.map((n) => {
+      const normX = 0.1 + ((n.x - minX) / rangeX) * 0.8;
+      const normY = 0.1 + ((n.y - minY) / rangeY) * 0.8;
+      const visual = computeVisualProps(n.id, n.edgeCount, n.clusterId);
+      return {
+        id: n.id,
+        x: normX,
+        y: normY,
+        title: n.title,
+        objectType: n.objectType,
+        edgeCount: n.edgeCount,
+        ...visual,
+      };
+    });
+
+    const edges: ExplorerEdge[] = [];
+    g.forEachEdge((_key, attrs, source, target) => {
+      edges.push({
+        source,
+        target,
+        strength: (attrs.strength as number) ?? 0.5,
+        edgeType: (attrs.edge_type as string) ?? '',
+        reason: (attrs.reason as string) ?? '',
+      });
+    });
+
+    setExplorerNodes(nodes);
+    setExplorerEdges(edges);
+  }, [graphData]);
+
   return {
     graph: graphRef.current,
     loading,
     graphData,
+    explorerNodes,
+    explorerEdges,
     loadNeighborhood,
     loadTopNodes,
     loadSubgraph,
