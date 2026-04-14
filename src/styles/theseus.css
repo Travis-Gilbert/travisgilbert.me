@@ -4813,3 +4813,322 @@
   }
   .ce-legend { display: none; }
 }
+
+/* ══════════════════════════════════════════════════════════════════════
+   Code Explorer, minimal (cx-*)
+   One screen, one job: paste a GitHub URL, ingest, show the stats.
+   The ornate ce-* block above is dormant; kept in place so the richer
+   components can be reintroduced once we know the shape of the real
+   exploration experience.
+   ══════════════════════════════════════════════════════════════════════ */
+
+.cx-root {
+  --cx-bg-deep: #060a0e;
+  --cx-bg: #0a0f14;
+  --cx-bg-lift: #0f1520;
+  --cx-chrome: #25343e;
+  --cx-chrome-hi: #3a5063;
+  --cx-bone: #7a8d99;
+  --cx-bone-hi: #b2c1cc;
+  --cx-cream: #eef3f6;
+  --cx-phosphor: #7fff9e;
+  --cx-phosphor-hi: #c8ffda;
+  --cx-phosphor-mid: #4fbf7a;
+  --cx-phosphor-dim: #2a6b46;
+  --cx-amber: #ff9a4e;
+  --cx-rose: #ff6a6a;
+
+  --cx-font-mono: var(--font-jetbrains-mono), 'JetBrains Mono', ui-monospace, Menlo, monospace;
+  --cx-font-sans: var(--font-ibm-plex), 'IBM Plex Sans', Inter, system-ui, sans-serif;
+
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 48px 24px;
+  background:
+    radial-gradient(ellipse 80% 50% at 50% 0%, rgba(127, 255, 158, 0.04), transparent 70%),
+    linear-gradient(180deg, var(--cx-bg-deep) 0%, var(--cx-bg) 100%);
+  color: var(--cx-cream);
+  font-family: var(--cx-font-sans);
+  overflow: hidden;
+  isolation: isolate;
+}
+
+/* Sparse dot field — keeps the instrument-surface texture without
+   any of the former chrome. */
+.cx-root::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background-image: radial-gradient(circle, #13202a 1px, transparent 1px);
+  background-size: 32px 32px;
+  opacity: 0.5;
+  pointer-events: none;
+  z-index: 0;
+}
+
+.cx-card {
+  position: relative;
+  z-index: 1;
+  width: 100%;
+  max-width: 560px;
+  padding: 48px 44px 40px;
+  background: var(--cx-bg-lift);
+  border: 1px solid var(--cx-chrome);
+  border-top: 2px solid var(--cx-phosphor);
+  box-shadow: 0 32px 80px rgba(0, 0, 0, 0.5);
+}
+
+/* Eyebrow — module label, instrument-strip style. */
+.cx-eyebrow {
+  font-family: var(--cx-font-mono);
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: 0.28em;
+  text-transform: uppercase;
+  color: var(--cx-phosphor);
+  margin-bottom: 18px;
+}
+
+.cx-eyebrow--error { color: var(--cx-rose); }
+
+.cx-title {
+  font-family: var(--cx-font-sans);
+  font-size: 32px;
+  font-weight: 500;
+  line-height: 1.15;
+  letter-spacing: -0.02em;
+  color: var(--cx-cream);
+  margin: 0 0 16px;
+}
+
+.cx-title--done { color: var(--cx-phosphor); }
+
+.cx-lede {
+  font-family: var(--cx-font-sans);
+  font-size: 15px;
+  line-height: 1.6;
+  color: var(--cx-bone-hi);
+  margin: 0 0 28px;
+  max-width: 44ch;
+}
+
+/* Form */
+.cx-form { display: flex; flex-direction: column; }
+
+.cx-field {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 20px;
+}
+
+.cx-field-label {
+  font-family: var(--cx-font-mono);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.24em;
+  text-transform: uppercase;
+  color: var(--cx-bone);
+}
+
+.cx-input {
+  height: 48px;
+  padding: 0 16px;
+  background: var(--cx-bg-deep);
+  color: var(--cx-phosphor);
+  border: 1px solid var(--cx-chrome);
+  border-radius: 0;
+  font-family: var(--cx-font-mono);
+  font-size: 14px;
+  letter-spacing: 0.01em;
+  text-shadow: 0 0 6px rgba(127, 255, 158, 0.25);
+  transition: border-color 120ms ease, box-shadow 120ms ease, background-color 120ms ease;
+}
+
+.cx-input::placeholder {
+  color: var(--cx-bone);
+  text-shadow: none;
+  letter-spacing: 0.02em;
+}
+
+.cx-input:focus {
+  outline: none;
+  border-color: var(--cx-phosphor-mid);
+  box-shadow: inset 0 0 16px rgba(127, 255, 158, 0.06), 0 0 0 1px var(--cx-phosphor-dim);
+  background: #0b1218;
+}
+
+.cx-submit {
+  align-self: flex-start;
+  height: 44px;
+  padding: 0 28px;
+  background: var(--cx-phosphor);
+  color: var(--cx-bg-deep);
+  border: none;
+  border-radius: 0;
+  font-family: var(--cx-font-mono);
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.28em;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: box-shadow 160ms ease, transform 100ms ease, opacity 120ms ease;
+}
+
+.cx-submit:hover:not(:disabled) {
+  box-shadow: 0 0 22px rgba(127, 255, 158, 0.55);
+}
+
+.cx-submit:active:not(:disabled) { transform: translateY(1px); }
+
+.cx-submit:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+.cx-secondary {
+  align-self: flex-start;
+  height: 36px;
+  padding: 0 18px;
+  background: transparent;
+  color: var(--cx-bone-hi);
+  border: 1px solid var(--cx-chrome-hi);
+  border-radius: 0;
+  font-family: var(--cx-font-mono);
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: all 120ms ease;
+}
+
+.cx-secondary:hover {
+  color: var(--cx-phosphor);
+  border-color: var(--cx-phosphor-dim);
+  background: rgba(127, 255, 158, 0.05);
+}
+
+/* Ingesting */
+.cx-progress {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.cx-spinner {
+  width: 18px;
+  height: 18px;
+  border: 2px solid #1a2430;
+  border-top-color: var(--cx-phosphor);
+  border-radius: 50%;
+  animation: cx-spin 0.9s linear infinite;
+  box-shadow: 0 0 10px rgba(127, 255, 158, 0.25);
+  margin-bottom: 6px;
+}
+
+@keyframes cx-spin { to { transform: rotate(360deg); } }
+
+.cx-progress-label {
+  font-family: var(--cx-font-mono);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.28em;
+  text-transform: uppercase;
+  color: var(--cx-phosphor);
+}
+
+.cx-progress-url {
+  font-family: var(--cx-font-mono);
+  font-size: 13px;
+  color: var(--cx-cream);
+  word-break: break-all;
+  max-width: 100%;
+}
+
+.cx-progress-hint {
+  font-family: var(--cx-font-sans);
+  font-size: 13px;
+  line-height: 1.55;
+  color: var(--cx-bone);
+  margin: 6px 0 0;
+  max-width: 40ch;
+}
+
+/* Done */
+.cx-done {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+}
+
+.cx-stats {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 0;
+  width: 100%;
+  margin: 8px 0 28px;
+  padding: 0;
+  background: var(--cx-bg-deep);
+  border: 1px solid var(--cx-chrome);
+}
+
+.cx-stat {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: baseline;
+  gap: 16px;
+  padding: 11px 16px;
+  margin: 0;
+  border-bottom: 1px solid #13202a;
+}
+
+.cx-stat:last-child { border-bottom: none; }
+
+.cx-stat dt {
+  font-family: var(--cx-font-mono);
+  font-size: 10.5px;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--cx-bone);
+}
+
+.cx-stat dd {
+  font-family: var(--cx-font-mono);
+  font-size: 14px;
+  color: var(--cx-phosphor);
+  margin: 0;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+
+/* Error */
+.cx-error { display: flex; flex-direction: column; align-items: flex-start; }
+
+.cx-error-body {
+  font-family: var(--cx-font-mono);
+  font-size: 12.5px;
+  line-height: 1.6;
+  color: var(--cx-bone-hi);
+  margin: 0 0 24px;
+  padding: 12px 14px;
+  background: var(--cx-bg-deep);
+  border-left: 2px solid var(--cx-rose);
+  max-width: 100%;
+  word-break: break-word;
+}
+
+.cx-error-actions { display: flex; gap: 10px; }
+
+@media (prefers-reduced-motion: reduce) {
+  .cx-spinner { animation: none; }
+}
+
+@media (max-width: 600px) {
+  .cx-card { padding: 32px 24px 28px; }
+  .cx-title { font-size: 26px; }
+}
