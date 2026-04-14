@@ -1695,7 +1695,7 @@ export async function codeImpact(
   if (typeof options?.maxDepth === 'number') params.set('max_depth', String(options.maxDepth));
   if (typeof options?.minConfidence === 'number') params.set('min_confidence', String(options.minConfidence));
   return apiFetch<CodeImpactResult>(
-    `/api/v2/theseus/code/impact?${params.toString()}`,
+    `/api/v2/theseus/code/impact/?${params.toString()}`,
     undefined,
     undefined,
     controls,
@@ -1707,7 +1707,7 @@ export async function codeContext(
   controls?: RequestControls,
 ): Promise<ApiResult<CodeContextResult>> {
   return apiFetch<CodeContextResult>(
-    `/api/v2/theseus/code/context?symbol=${encodeURIComponent(symbolName)}`,
+    `/api/v2/theseus/code/context/?symbol=${encodeURIComponent(symbolName)}`,
     undefined,
     undefined,
     controls,
@@ -1722,7 +1722,7 @@ export async function codeProcesses(
     ? `?entry_point_type=${encodeURIComponent(options.entryPointType)}`
     : '';
   return apiFetch<{ processes: CodeProcess[] }>(
-    `/api/v2/theseus/code/processes${qs}`,
+    `/api/v2/theseus/code/processes/${qs}`,
     undefined,
     undefined,
     controls,
@@ -1734,7 +1734,7 @@ export async function codeDrift(
   controls?: RequestControls,
 ): Promise<ApiResult<{ tensions: DriftTension[] }>> {
   return apiFetch<{ tensions: DriftTension[] }>(
-    `/api/v2/theseus/code/drift?spec_id=${encodeURIComponent(specObjectId)}`,
+    `/api/v2/theseus/code/drift/?spec_id=${encodeURIComponent(specObjectId)}`,
     undefined,
     undefined,
     controls,
@@ -1746,7 +1746,7 @@ export async function codeExplain(
   controls?: RequestControls,
 ): Promise<ApiResult<CodeExplainResult>> {
   return apiFetch<CodeExplainResult>(
-    `/api/v2/theseus/code/explain?symbol=${encodeURIComponent(symbolName)}`,
+    `/api/v2/theseus/code/explain/?symbol=${encodeURIComponent(symbolName)}`,
     undefined,
     undefined,
     controls,
@@ -1763,7 +1763,7 @@ export async function getCodeSymbols(
   if (options?.search) params.set('search', options.search);
   const qs = params.toString();
   return apiFetch<{ symbols: CodeSymbol[] }>(
-    `/api/v2/theseus/code/symbols${qs ? `?${qs}` : ''}`,
+    `/api/v2/theseus/code/symbols/${qs ? `?${qs}` : ''}`,
     undefined,
     undefined,
     controls,
@@ -1775,7 +1775,7 @@ export async function ingestCodebase(
   controls?: RequestControls,
 ): Promise<ApiResult<IngestionStats>> {
   return apiFetch<IngestionStats>(
-    '/api/v2/theseus/code/ingest',
+    '/api/v2/theseus/code/ingest/',
     { method: 'POST', body: JSON.stringify(payload) },
     undefined,
     controls,
@@ -1788,7 +1788,7 @@ export async function getFixPatterns(
 ): Promise<ApiResult<{ patterns: FixPattern[] }>> {
   const qs = symbolName ? `?symbol=${encodeURIComponent(symbolName)}` : '';
   return apiFetch<{ patterns: FixPattern[] }>(
-    `/api/v2/theseus/code/patterns${qs}`,
+    `/api/v2/theseus/code/patterns/${qs}`,
     undefined,
     undefined,
     controls,
@@ -1800,7 +1800,7 @@ export async function submitFixPattern(
   controls?: RequestControls,
 ): Promise<ApiResult<{ submitted: boolean; message: string }>> {
   return apiFetch<{ submitted: boolean; message: string }>(
-    '/api/v2/theseus/code/patterns/submit',
+    '/api/v2/theseus/code/patterns/submit/',
     { method: 'POST', body: JSON.stringify({ pattern_id: patternId }) },
     undefined,
     controls,
