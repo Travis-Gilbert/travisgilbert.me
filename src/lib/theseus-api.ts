@@ -292,17 +292,38 @@ async function apiFetch<TInput extends object, TOutput extends object = TInput>(
         const rawBody = await res.text().catch(() => res.statusText);
         const status = res.status;
         const transient = status === 408 || status === 429 || status >= 500;
-        // The backend may return HTML for 404/5xx (reverse-proxy pages,
-        // Django debug pages). Showing the raw HTML in a toast is noise;
-        // collapse it to a short human-readable message.
+        // Backends return different error envelopes depending on the
+        // framework: HTML for proxy 404s, {"detail": "..."} from Ninja
+        // and DRF, bare JSON strings, or plain text. Surface the most
+        // useful human-readable line for each case.
         const trimmed = rawBody.trimStart();
         const looksLikeHtml =
           trimmed.startsWith('<!') ||
           trimmed.startsWith('<html') ||
           trimmed.startsWith('<!DOCTYPE');
-        const message = looksLikeHtml
-          ? `${status} ${res.statusText || 'Error'} (backend unavailable)`
-          : rawBody || res.statusText || 'Request failed';
+        let message: string;
+        if (looksLikeHtml) {
+          message = `${status} ${res.statusText || 'Error'} (backend unavailable)`;
+        } else {
+          // Try to unwrap a JSON error envelope ({detail} from Ninja/DRF,
+          // {message}, {error}) before falling back to the raw body.
+          let unwrapped: string | null = null;
+          if (trimmed.startsWith('{') || trimmed.startsWith('[')) {
+            try {
+              const parsed = JSON.parse(rawBody) as Record<string, unknown>;
+              const candidate =
+                (typeof parsed?.detail === 'string' && parsed.detail) ||
+                (typeof parsed?.message === 'string' && parsed.message) ||
+                (typeof parsed?.error === 'string' && parsed.error);
+              if (typeof candidate === 'string' && candidate.trim()) {
+                unwrapped = candidate.trim();
+              }
+            } catch {
+              // Not valid JSON; fall through to raw body.
+            }
+          }
+          message = unwrapped || rawBody || res.statusText || 'Request failed';
+        }
         lastError = apiError(status, message, 'http', transient);
       } else {
         const data: TInput = await res.json();
