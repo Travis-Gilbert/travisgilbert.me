@@ -289,10 +289,21 @@ async function apiFetch<TInput extends object, TOutput extends object = TInput>(
       });
 
       if (!res.ok) {
-        const text = await res.text().catch(() => res.statusText);
+        const rawBody = await res.text().catch(() => res.statusText);
         const status = res.status;
         const transient = status === 408 || status === 429 || status >= 500;
-        lastError = apiError(status, text || res.statusText, 'http', transient);
+        // The backend may return HTML for 404/5xx (reverse-proxy pages,
+        // Django debug pages). Showing the raw HTML in a toast is noise;
+        // collapse it to a short human-readable message.
+        const trimmed = rawBody.trimStart();
+        const looksLikeHtml =
+          trimmed.startsWith('<!') ||
+          trimmed.startsWith('<html') ||
+          trimmed.startsWith('<!DOCTYPE');
+        const message = looksLikeHtml
+          ? `${status} ${res.statusText || 'Error'} (backend unavailable)`
+          : rawBody || res.statusText || 'Request failed';
+        lastError = apiError(status, message, 'http', transient);
       } else {
         const data: TInput = await res.json();
         return wrapOk(normalize ? normalize(data) : (data as unknown as TOutput));

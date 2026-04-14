@@ -67,6 +67,7 @@ export interface CodeExplorerState {
   isMock: boolean;
   lastIngestionStats: IngestionStats | null;
   error: string | null;
+  clearError: () => void;
 
   // Actions
   refreshSymbols: () => Promise<void>;
@@ -219,12 +220,17 @@ export function useCodeExplorer(): CodeExplorerState {
       if (MOCK_DRIFT.length > 0) setDriftOpen(true);
       return;
     }
+    // Skip drift fetch until the user has selected a focal symbol or
+    // explicitly opened the drift panel. This avoids firing a request
+    // against an endpoint that may not be deployed yet, and keeps the
+    // empty state clean on initial load.
+    if (!focalSymbol) return;
     const result = await codeDrift('all');
     if (result.ok) {
       setDrift(result.tensions);
       if (result.tensions.length > 0) setDriftOpen(true);
     }
-  }, [isMock]);
+  }, [isMock, focalSymbol]);
 
   const ingestRepo = useCallback(
     async (payload: IngestRequest): Promise<IngestionStats | null> => {
@@ -297,6 +303,15 @@ export function useCodeExplorer(): CodeExplorerState {
     refreshImpact();
   }, [refreshImpact]);
 
+  const clearError = useCallback(() => setError(null), []);
+
+  // Auto-dismiss errors after 6s so stale messages don't linger.
+  useEffect(() => {
+    if (!error) return;
+    const id = setTimeout(() => setError(null), 6000);
+    return () => clearTimeout(id);
+  }, [error]);
+
   return {
     focalSymbol,
     setFocalSymbol,
@@ -322,6 +337,7 @@ export function useCodeExplorer(): CodeExplorerState {
     isMock,
     lastIngestionStats,
     error,
+    clearError,
     refreshSymbols,
     refreshImpact,
     ingestRepo,

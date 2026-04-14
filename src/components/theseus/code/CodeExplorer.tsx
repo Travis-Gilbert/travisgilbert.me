@@ -77,7 +77,17 @@ export default function CodeExplorer() {
 
       {state.error && (
         <div className="ce-error-toast" role="alert">
-          {state.error}
+          <span className="ce-error-toast-message">{state.error}</span>
+          <button
+            type="button"
+            className="ce-error-toast-dismiss"
+            onClick={state.clearError}
+            aria-label="Dismiss error"
+          >
+            <svg width="12" height="12" viewBox="0 0 12 12" fill="none" aria-hidden="true">
+              <path d="M3 3l6 6M9 3l-6 6" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+            </svg>
+          </button>
         </div>
       )}
 

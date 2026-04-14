@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
+import { usePathname } from 'next/navigation';
 import type { PanelId } from './PanelManager';
 
 function ChatIcon() {
@@ -73,6 +74,19 @@ function CodeIcon() {
   );
 }
 
+function CodeGraphIcon() {
+  return (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" strokeWidth="1.5" aria-hidden="true">
+      <circle cx="6" cy="6" r="2.2" stroke="currentColor" />
+      <circle cx="18" cy="6" r="2.2" stroke="currentColor" />
+      <circle cx="12" cy="18" r="2.4" stroke="currentColor" />
+      <path d="M7.6 7.5l3.2 8.8" stroke="currentColor" strokeLinecap="round" />
+      <path d="M16.4 7.5l-3.2 8.8" stroke="currentColor" strokeLinecap="round" />
+      <path d="M8.1 6h7.8" stroke="currentColor" strokeLinecap="round" />
+    </svg>
+  );
+}
+
 function IntelligenceIcon() {
   return (
     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" strokeWidth="1.5" aria-hidden="true">
@@ -99,7 +113,8 @@ const NAV_ITEMS: NavItem[] = [
   { id: 'ask',      label: 'Ask',      panelId: 'ask',      icon: ChatIcon },
   { id: 'explorer', label: 'Explorer', panelId: 'explorer', icon: GraphIcon },
   { id: 'intelligence', label: 'Intelligence', panelId: 'intelligence', icon: IntelligenceIcon },
-  { id: 'code',     label: 'Code',     panelId: 'code',     icon: CodeIcon, route: '/theseus/code' },
+  { id: 'code',     label: 'Code',     panelId: 'code',     icon: CodeIcon },
+  { id: 'code-graph', label: 'Code Graph', panelId: 'code', icon: CodeGraphIcon, route: '/theseus/code' },
   { id: 'notebook', label: 'Notebook', panelId: 'notebook', icon: NotebookIcon },
   { id: 'library',  label: 'Library',  panelId: 'library',  icon: LibraryIcon },
   { id: 'settings', label: 'Settings', panelId: 'settings', icon: SettingsIcon },
@@ -117,9 +132,14 @@ const NAV_ITEMS: NavItem[] = [
  * on <html> (set by PanelManager).
  */
 export default function TheseusSidebar() {
+  const pathname = usePathname();
+  const onPanelRoute = pathname === '/theseus';
+
   const [activePanel, setActivePanel] = useState<PanelId>('ask');
 
-  // Read active panel from DOM attribute (set by PanelManager)
+  // Read active panel from DOM attribute (set by PanelManager). Only
+  // meaningful while PanelManager is mounted (on /theseus). On route-based
+  // pages we fall back to pathname matching below.
   useEffect(() => {
     function update() {
       const panel = document.documentElement.getAttribute('data-theseus-panel');
@@ -169,45 +189,44 @@ export default function TheseusSidebar() {
         </button>
       </div>
 
-      {/* Navigation items */}
+      {/* Navigation items. Every item renders as a Link so navigation
+          works from any /theseus/* page. When already on /theseus and
+          the entry is a panel (no route), we preventDefault and dispatch
+          the custom event so PanelManager switches in place without a
+          full URL change. From a route-based page like /theseus/code,
+          we let the Link navigate to /theseus?view=<panel>; PanelManager
+          reads ?view on mount. */}
       <div className="theseus-sidebar-items">
         {NAV_ITEMS.map((item) => {
-          const active = activePanel === item.panelId;
+          const active = item.route
+            ? pathname === item.route
+            : onPanelRoute && activePanel === item.panelId;
           const Icon = item.icon;
+          const href = item.route ?? `/theseus?view=${item.panelId}`;
 
-          // Route-based entries (e.g. Code Explorer at /theseus/code)
-          // navigate to a dedicated page instead of dispatching a panel
-          // switch inside the existing PanelManager.
-          if (item.route) {
-            return (
-              <Link
-                key={item.id}
-                href={item.route}
-                className={`theseus-sidebar-item${active ? ' is-active' : ''}`}
-                aria-label={item.label}
-              >
-                <span className="theseus-sidebar-icon">
-                  <Icon />
-                </span>
-                <span className="theseus-sidebar-label">{item.label}</span>
-              </Link>
-            );
+          function handleClick(e: React.MouseEvent<HTMLAnchorElement>) {
+            if (item.route) return; // Let Link navigate to the route.
+            if (!onPanelRoute) return; // Let Link navigate to /theseus?view=X.
+            // Already on /theseus: avoid a full navigation; use the
+            // event channel so PanelManager switches in place.
+            e.preventDefault();
+            handleSwitch(item.panelId);
           }
 
           return (
-            <button
+            <Link
               key={item.id}
-              type="button"
+              href={href}
+              onClick={handleClick}
               className={`theseus-sidebar-item${active ? ' is-active' : ''}`}
               aria-label={item.label}
               aria-current={active ? 'page' : undefined}
-              onClick={() => handleSwitch(item.panelId)}
             >
               <span className="theseus-sidebar-icon">
                 <Icon />
               </span>
               <span className="theseus-sidebar-label">{item.label}</span>
-            </button>
+            </Link>
           );
         })}
       </div>
