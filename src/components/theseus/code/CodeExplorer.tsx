@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { ingestCodebase } from '@/lib/theseus-api';
 import type { IngestionStats } from '@/lib/theseus-types';
 import ChatCanvas from '@/components/theseus/chat/ChatCanvas';
@@ -24,6 +24,18 @@ export default function CodeExplorer() {
   const [status, setStatus] = useState<Status>('idle');
   const [stats, setStats] = useState<IngestionStats | null>(null);
   const [error, setError] = useState<string | null>(null);
+
+  // Autofocus the input only on fine-pointer devices. On touch devices
+  // autoFocus pops the soft keyboard before the user has seen the page,
+  // which the web interface guidelines explicitly warn against.
+  const inputRef = useRef<HTMLInputElement>(null);
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    if (status !== 'idle') return;
+    if (window.matchMedia('(pointer: fine)').matches) {
+      inputRef.current?.focus();
+    }
+  }, [status]);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -65,7 +77,12 @@ export default function CodeExplorer() {
       <div className="cx-heat" aria-hidden="true" />
 
       <main className="cx-foreground">
-        <div className="cx-card" data-state={status}>
+        <div
+          className="cx-card"
+          data-state={status}
+          aria-live="polite"
+          aria-atomic="true"
+        >
           {status === 'idle' && (
             <form className="cx-form" onSubmit={handleSubmit}>
               <div className="cx-eyebrow">
@@ -83,12 +100,12 @@ export default function CodeExplorer() {
               <label className="cx-field">
                 <span className="cx-field-label">Repository URL</span>
                 <input
+                  ref={inputRef}
                   type="url"
                   className="cx-input"
                   value={url}
                   onChange={(e) => setUrl(e.target.value)}
                   placeholder="https://github.com/owner/repo"
-                  autoFocus
                   required
                   spellCheck={false}
                   autoComplete="off"
@@ -109,9 +126,9 @@ export default function CodeExplorer() {
             <div className="cx-progress">
               <div className="cx-eyebrow cx-eyebrow--live">
                 <span className="cx-eyebrow-dot cx-eyebrow-dot--pulse" aria-hidden="true" />
-                Ingesting
+                Ingesting{'\u2026'}
               </div>
-              <h2 className="cx-title cx-title--progress">Working on it.</h2>
+              <h1 className="cx-title cx-title--progress">Working on it.</h1>
               <p className="cx-progress-url">{url}</p>
               <p className="cx-lede">
                 Tree-sitter is parsing files, resolving imports, and detecting
@@ -127,7 +144,7 @@ export default function CodeExplorer() {
                 Done
               </div>
 
-              <h2 className="cx-title">Ingested.</h2>
+              <h1 className="cx-title">Ingested.</h1>
 
               <dl className="cx-stats">
                 <div className="cx-stat">
@@ -164,7 +181,7 @@ export default function CodeExplorer() {
                 <span className="cx-eyebrow-dot cx-eyebrow-dot--error" aria-hidden="true" />
                 Failed
               </div>
-              <h2 className="cx-title">Could not ingest.</h2>
+              <h1 className="cx-title">Could not ingest.</h1>
               <p className="cx-error-body">{error}</p>
               <div className="cx-error-actions">
                 <button type="button" className="cx-secondary" onClick={reset}>

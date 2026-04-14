@@ -5004,6 +5004,7 @@
   font-family: var(--font-jetbrains-mono), 'JetBrains Mono', ui-monospace, monospace;
   font-size: 14px;
   letter-spacing: 0.01em;
+  touch-action: manipulation;
   transition:
     border-color 160ms ease,
     box-shadow 160ms ease,
@@ -5015,7 +5016,7 @@
   font-family: var(--font-jetbrains-mono), 'JetBrains Mono', ui-monospace, monospace;
 }
 
-.cx-input:focus {
+.cx-input:focus-visible {
   outline: none;
   border-color: var(--vie-type-hunch);
   box-shadow:
@@ -5024,7 +5025,7 @@
   background: rgba(0, 0, 0, 0.34);
 }
 
-/* Primary action. Teal plate, dark ink. */
+/* Primary action. Amber plate, warm dark ink. */
 .cx-submit {
   align-self: flex-start;
   height: 44px;
@@ -5039,6 +5040,7 @@
   letter-spacing: 0.24em;
   text-transform: uppercase;
   cursor: pointer;
+  touch-action: manipulation;
   transition:
     box-shadow 180ms ease,
     transform 120ms ease,
@@ -5055,12 +5057,19 @@
   transform: translateY(1px);
 }
 
+.cx-submit:focus-visible {
+  outline: none;
+  box-shadow:
+    0 0 0 2px rgba(15, 16, 18, 0.9),
+    0 0 0 4px var(--vie-type-hunch);
+}
+
 .cx-submit:disabled {
   opacity: 0.4;
   cursor: not-allowed;
 }
 
-/* Secondary action (reset / back). Ghost with teal ink. */
+/* Secondary action (reset / back). Ghost with amber ink. */
 .cx-secondary {
   align-self: flex-start;
   height: 36px;
@@ -5074,13 +5083,25 @@
   letter-spacing: 0.22em;
   text-transform: uppercase;
   cursor: pointer;
-  transition: all 160ms ease;
+  touch-action: manipulation;
+  transition:
+    color 160ms ease,
+    border-color 160ms ease,
+    background-color 160ms ease,
+    box-shadow 160ms ease;
 }
 
 .cx-secondary:hover {
   color: var(--vie-type-hunch);
   border-color: var(--vie-type-hunch);
   background: rgba(196, 154, 74, 0.07);
+}
+
+.cx-secondary:focus-visible {
+  outline: none;
+  color: var(--vie-type-hunch);
+  border-color: var(--vie-type-hunch);
+  box-shadow: 0 0 0 3px rgba(196, 154, 74, 0.22);
 }
 
 /* ── Ingesting ───────────────────────────────────────────────── */
