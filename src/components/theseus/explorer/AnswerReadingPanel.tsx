@@ -1,9 +1,23 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
+import Link from 'next/link';
 import type { TheseusResponse, EvidenceNode, NarrativeSection, StructuredVisualRegion } from '@/lib/theseus-types';
 import Markdown from './Markdown';
 import ConfidenceBar from './ConfidenceBar';
+
+/**
+ * Build the Code Explorer deep link target from a response.
+ * Extracts the entity from answer_classification when available,
+ * otherwise returns the bare /theseus/code route.
+ */
+function buildCodeExplorerHref(response: TheseusResponse): string {
+  const entity = response.answer_classification?.extracted_entity;
+  if (entity) {
+    return `/theseus/code?symbol=${encodeURIComponent(entity)}`;
+  }
+  return '/theseus/code';
+}
 
 interface AnswerReadingPanelProps {
   response: TheseusResponse;
@@ -287,6 +301,24 @@ export default function AnswerReadingPanel({
             >
               {sourceCount} sources
             </span>
+            {response.answer_type === 'code' && (
+              <Link
+                href={buildCodeExplorerHref(response)}
+                style={{
+                  fontFamily: 'var(--vie-font-mono)',
+                  fontSize: 10.5,
+                  color: 'var(--vie-teal-ink)',
+                  letterSpacing: '0.03em',
+                  textDecoration: 'none',
+                  padding: '3px 8px',
+                  borderRadius: 4,
+                  border: '1px solid var(--vie-teal-ink)',
+                  textTransform: 'uppercase',
+                }}
+              >
+                View in Code Explorer
+              </Link>
+            )}
             <div style={{ flex: 1 }} />
             <ConfidenceBar value={confidenceValue} />
           </div>

@@ -91,13 +91,15 @@ interface NavItem {
   label: string;
   panelId: PanelId;
   icon: React.ComponentType;
+  /** If set, the entry navigates to this route instead of dispatching a panel switch. */
+  route?: string;
 }
 
 const NAV_ITEMS: NavItem[] = [
   { id: 'ask',      label: 'Ask',      panelId: 'ask',      icon: ChatIcon },
   { id: 'explorer', label: 'Explorer', panelId: 'explorer', icon: GraphIcon },
   { id: 'intelligence', label: 'Intelligence', panelId: 'intelligence', icon: IntelligenceIcon },
-  { id: 'code',     label: 'Code',     panelId: 'code',     icon: CodeIcon },
+  { id: 'code',     label: 'Code',     panelId: 'code',     icon: CodeIcon, route: '/theseus/code' },
   { id: 'notebook', label: 'Notebook', panelId: 'notebook', icon: NotebookIcon },
   { id: 'library',  label: 'Library',  panelId: 'library',  icon: LibraryIcon },
   { id: 'settings', label: 'Settings', panelId: 'settings', icon: SettingsIcon },
@@ -172,6 +174,26 @@ export default function TheseusSidebar() {
         {NAV_ITEMS.map((item) => {
           const active = activePanel === item.panelId;
           const Icon = item.icon;
+
+          // Route-based entries (e.g. Code Explorer at /theseus/code)
+          // navigate to a dedicated page instead of dispatching a panel
+          // switch inside the existing PanelManager.
+          if (item.route) {
+            return (
+              <Link
+                key={item.id}
+                href={item.route}
+                className={`theseus-sidebar-item${active ? ' is-active' : ''}`}
+                aria-label={item.label}
+              >
+                <span className="theseus-sidebar-icon">
+                  <Icon />
+                </span>
+                <span className="theseus-sidebar-label">{item.label}</span>
+              </Link>
+            );
+          }
+
           return (
             <button
               key={item.id}

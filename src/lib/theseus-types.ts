@@ -48,7 +48,8 @@ export type AnswerType =
   | 'comparison'
   | 'timeline'
   | 'hierarchy'
-  | 'explanation';
+  | 'explanation'
+  | 'code';
 
 export interface AnswerClassification {
   answer_type: AnswerType;
@@ -488,4 +489,142 @@ export interface LineageResult {
   ingested_at?: string;
   parent_objects: string[];
   ingestion_method: string;  // quick_capture, corpus_crawl, openalex, etc.
+}
+
+/* ─────────────────────────────────────────────────
+   Code Intelligence (SPEC-CODE-INTELLIGENCE)
+
+   Matches the backend discrimination: Objects with
+   source_system='codebase' carry a properties.code_entity_type
+   field. Edges use edge_type (not edge_subtype) with the
+   Tree-sitter derived vocabulary.
+   ───────────────────────────────────────────────── */
+
+export type CodeEntityType =
+  | 'code_file'
+  | 'code_structure'
+  | 'code_member'
+  | 'code_process'
+  | 'specification'
+  | 'fix_pattern'
+  | 'commit';
+
+export type CodeEdgeType =
+  | 'imports'
+  | 'calls'
+  | 'inherits'
+  | 'has_member'
+  | 'references'
+  | 'belongs_to_process'
+  | 'specified_by'
+  | 'contradicts_spec';
+
+export interface CodeSymbol {
+  object_id: string;
+  name: string;
+  entity_type: CodeEntityType;
+  file_path: string;
+  line_number?: number;
+  language: string;
+  community_id?: number;
+  metadata?: Record<string, unknown>;
+}
+
+export interface ImpactSymbol {
+  object_id: string;
+  name: string;
+  entity_type: CodeEntityType;
+  ppr_score: number;
+  edge_types: CodeEdgeType[];
+  processes: string[];
+}
+
+export interface ImpactGroup {
+  depth: number;
+  symbols: ImpactSymbol[];
+}
+
+export interface CodeImpactResult {
+  target: string;
+  direction: 'upstream' | 'downstream' | 'both';
+  depth_groups: ImpactGroup[];
+  total_affected: number;
+}
+
+export interface CodeContextEdge {
+  symbol: CodeSymbol;
+  edge_type: CodeEdgeType;
+  strength: number;
+}
+
+export interface CodeContextResult {
+  symbol: CodeSymbol;
+  incoming: CodeContextEdge[];
+  outgoing: CodeContextEdge[];
+  processes: Array<{ id: string; title: string; step_count: number }>;
+  cluster: { id: number; label: string; member_count: number } | null;
+}
+
+export interface CodeProcess {
+  id: string;
+  title: string;
+  entry_point: string;
+  steps: Array<{ object_id: string; name: string; order: number }>;
+  language: string;
+}
+
+export interface DriftTension {
+  id: string;
+  title: string;
+  severity: number;
+  tension_type: 'spec_drift';
+  spec_expectation: string;
+  code_reality: string;
+  spec_object_id: string;
+  code_object_id?: string;
+  status: 'active' | 'resolved' | 'dismissed';
+}
+
+export interface FixPattern {
+  id: string;
+  title: string;
+  problem: string;
+  root_cause: string;
+  fix_summary: string;
+  reasoning_steps: string[];
+  feedback_label: string;
+  files_involved: string[];
+  created_at: string;
+  ppr_score?: number;
+}
+
+export interface IngestionStats {
+  objects_created: number;
+  edges_created: number;
+  processes_detected: number;
+  languages: string[];
+  duration_ms: number;
+}
+
+export interface IngestRequest {
+  repo?: string;
+  path?: string;
+  language?: string;
+  notebook_id?: string;
+  paths?: string[];
+}
+
+export interface CodeExplainEntry {
+  object_id: string;
+  title: string;
+  type: string;
+  epistemic_role: string;
+  relationship: string;
+  snippet: string;
+}
+
+export interface CodeExplainResult {
+  symbol: string;
+  explanations: CodeExplainEntry[];
+  specifications: Array<{ title: string; object_id: string }>;
 }

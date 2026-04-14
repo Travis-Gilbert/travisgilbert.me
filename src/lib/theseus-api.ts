@@ -5,15 +5,25 @@ import type {
   AskOptions,
   ClaimResult,
   ClusterSummary,
+  CodeContextResult,
+  CodeEntityType,
+  CodeExplainResult,
+  CodeImpactResult,
+  CodeProcess,
+  CodeSymbol,
   ConnectionResult,
+  DriftTension,
   EvidenceEdge,
   EvidenceNode,
+  FixPattern,
   FollowUp,
   GeographicRegionsSection,
   GraphData,
   GraphDiff,
   GraphWeather,
   Hypothesis,
+  IngestRequest,
+  IngestionStats,
   LineageResult,
   PathResult,
   ResponseSection,
@@ -340,6 +350,7 @@ const KNOWN_ANSWER_TYPES = new Set<AnswerType>([
   'timeline',
   'hierarchy',
   'explanation',
+  'code',
 ]);
 
 function normalizeAnswerType(value: unknown): AnswerType | undefined {
@@ -1648,5 +1659,163 @@ export async function getGraphDiff(
         : [],
       summary: typeof raw.summary === 'string' ? raw.summary : '',
     }),
+  );
+}
+
+/* ─────────────────────────────────────────────────
+   Code Intelligence (Ninja, /api/v2/theseus/code/*)
+
+   These endpoints sit on the Theseus UI API (Ninja)
+   rather than the gated product API (DRF). All paths
+   proxy through the Next.js rewrite in next.config.ts.
+   ───────────────────────────────────────────────── */
+
+export async function codeImpact(
+  symbolName: string,
+  options?: {
+    direction?: 'upstream' | 'downstream' | 'both';
+    maxDepth?: number;
+    minConfidence?: number;
+  },
+  controls?: RequestControls,
+): Promise<ApiResult<CodeImpactResult>> {
+  const params = new URLSearchParams({ symbol: symbolName });
+  if (options?.direction) params.set('direction', options.direction);
+  if (typeof options?.maxDepth === 'number') params.set('max_depth', String(options.maxDepth));
+  if (typeof options?.minConfidence === 'number') params.set('min_confidence', String(options.minConfidence));
+  return apiFetch<CodeImpactResult>(
+    `/api/v2/theseus/code/impact?${params.toString()}`,
+    undefined,
+    undefined,
+    controls,
+  );
+}
+
+export async function codeContext(
+  symbolName: string,
+  controls?: RequestControls,
+): Promise<ApiResult<CodeContextResult>> {
+  return apiFetch<CodeContextResult>(
+    `/api/v2/theseus/code/context?symbol=${encodeURIComponent(symbolName)}`,
+    undefined,
+    undefined,
+    controls,
+  );
+}
+
+export async function codeProcesses(
+  options?: { entryPointType?: string },
+  controls?: RequestControls,
+): Promise<ApiResult<{ processes: CodeProcess[] }>> {
+  const qs = options?.entryPointType
+    ? `?entry_point_type=${encodeURIComponent(options.entryPointType)}`
+    : '';
+  return apiFetch<{ processes: CodeProcess[] }>(
+    `/api/v2/theseus/code/processes${qs}`,
+    undefined,
+    undefined,
+    controls,
+  );
+}
+
+export async function codeDrift(
+  specObjectId: string,
+  controls?: RequestControls,
+): Promise<ApiResult<{ tensions: DriftTension[] }>> {
+  return apiFetch<{ tensions: DriftTension[] }>(
+    `/api/v2/theseus/code/drift?spec_id=${encodeURIComponent(specObjectId)}`,
+    undefined,
+    undefined,
+    controls,
+  );
+}
+
+export async function codeExplain(
+  symbolName: string,
+  controls?: RequestControls,
+): Promise<ApiResult<CodeExplainResult>> {
+  return apiFetch<CodeExplainResult>(
+    `/api/v2/theseus/code/explain?symbol=${encodeURIComponent(symbolName)}`,
+    undefined,
+    undefined,
+    controls,
+  );
+}
+
+export async function getCodeSymbols(
+  options?: { entityType?: CodeEntityType; language?: string; search?: string },
+  controls?: RequestControls,
+): Promise<ApiResult<{ symbols: CodeSymbol[] }>> {
+  const params = new URLSearchParams();
+  if (options?.entityType) params.set('entity_type', options.entityType);
+  if (options?.language) params.set('language', options.language);
+  if (options?.search) params.set('search', options.search);
+  const qs = params.toString();
+  return apiFetch<{ symbols: CodeSymbol[] }>(
+    `/api/v2/theseus/code/symbols${qs ? `?${qs}` : ''}`,
+    undefined,
+    undefined,
+    controls,
+  );
+}
+
+export async function ingestCodebase(
+  payload: IngestRequest,
+  controls?: RequestControls,
+): Promise<ApiResult<IngestionStats>> {
+  return apiFetch<IngestionStats>(
+    '/api/v2/theseus/code/ingest',
+    { method: 'POST', body: JSON.stringify(payload) },
+    undefined,
+    controls,
+  );
+}
+
+export async function getFixPatterns(
+  symbolName?: string,
+  controls?: RequestControls,
+): Promise<ApiResult<{ patterns: FixPattern[] }>> {
+  const qs = symbolName ? `?symbol=${encodeURIComponent(symbolName)}` : '';
+  return apiFetch<{ patterns: FixPattern[] }>(
+    `/api/v2/theseus/code/patterns${qs}`,
+    undefined,
+    undefined,
+    controls,
+  );
+}
+
+export async function submitFixPattern(
+  patternId: string,
+  controls?: RequestControls,
+): Promise<ApiResult<{ submitted: boolean; message: string }>> {
+  return apiFetch<{ submitted: boolean; message: string }>(
+    '/api/v2/theseus/code/patterns/submit',
+    { method: 'POST', body: JSON.stringify({ pattern_id: patternId }) },
+    undefined,
+    controls,
+  );
+}
+
+/**
+ * Resolve a drift tension. Hits the DRF tension endpoint
+ * (not Ninja) because tension CRUD lives on /api/v1/notebook/.
+ */
+export async function resolveDriftTension(
+  tensionId: string,
+  action: 'update_spec' | 'flag' | 'dismiss',
+  controls?: RequestControls,
+): Promise<ApiResult<{ status: string }>> {
+  const nextStatus = action === 'dismiss' ? 'dismissed' : 'resolved';
+  return apiFetch<{ status: string }>(
+    `/api/v1/notebook/tensions/${encodeURIComponent(tensionId)}/`,
+    {
+      method: 'PATCH',
+      body: JSON.stringify({
+        status: nextStatus,
+        resolution_note: `drift_action:${action}`,
+      }),
+    },
+    undefined,
+    controls,
   );
 }
