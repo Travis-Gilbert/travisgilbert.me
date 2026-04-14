@@ -1,21 +1,26 @@
 'use client';
 
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import type {
   CodeContextResult,
   CodeImpactResult,
+  CodeSymbol,
   ImpactSymbol,
 } from '@/lib/theseus-types';
 import ImpactCanvas from './ImpactCanvas';
 import ImpactLegend from './ImpactLegend';
 import SymbolHoverCard from './SymbolHoverCard';
+import { ENTITY_COLORS, ENTITY_LABELS } from './codeColors';
 
 interface Props {
   focalSymbol: string | null;
   impact: CodeImpactResult | null;
   context: CodeContextResult | null;
   loading: boolean;
+  symbols: CodeSymbol[];
+  symbolsLoading: boolean;
   onSymbolSelect: (name: string) => void;
+  onRepoConnect: () => void;
   onExplain?: (symbolName: string) => void;
 }
 
@@ -25,40 +30,94 @@ interface HoverState {
   y: number;
 }
 
-const SAMPLE_QUERIES = [
-  'What calls classify_answer_type?',
-  'Impact of changing Object.epistemic_role',
-  'Show me the ask pipeline',
-];
+/** Bias the jump-list towards the meaty entity types. */
+const PRIORITY_ENTITY_TYPES: Record<string, number> = {
+  code_structure: 3,
+  code_member: 2,
+  code_process: 2,
+  specification: 1,
+  fix_pattern: 0,
+  commit: 0,
+  code_file: -1,
+};
+
+const EMPTY_CHIP_LIMIT = 10;
 
 export default function ImpactView({
   focalSymbol,
   impact,
   context,
   loading,
+  symbols,
+  symbolsLoading,
   onSymbolSelect,
+  onRepoConnect,
   onExplain,
 }: Props) {
   const [hover, setHover] = useState<HoverState>({ symbol: null, x: 0, y: 0 });
 
+  const jumpList = useMemo(() => {
+    const priority = (s: CodeSymbol) =>
+      PRIORITY_ENTITY_TYPES[s.entity_type] ?? 0;
+    return [...symbols]
+      .sort((a, b) => priority(b) - priority(a))
+      .slice(0, EMPTY_CHIP_LIMIT);
+  }, [symbols]);
+
   if (!focalSymbol) {
+    // Three empty states:
+    //   - Loading symbols from the backend
+    //   - Zero symbols ingested (prompt to connect a repo)
+    //   - Symbols available (render clickable jump list)
     return (
       <div className="ce-empty">
         <div className="ce-empty-card">
           <div className="ce-empty-eyebrow">Code Explorer</div>
           <h2 className="ce-empty-title">Start with a symbol.</h2>
           <p className="ce-empty-body">
-            Search for a function, class, or file above. Or ask a code question
-            from the Ask panel, and jump here to see the blast radius.
+            Pick a symbol below to see its blast radius. Or search from the
+            toolbar, or ingest a repo to grow the graph.
           </p>
-          <div className="ce-empty-examples">
-            {SAMPLE_QUERIES.map((q) => (
-              <div key={q} className="ce-empty-example">
-                <span className="ce-empty-example-prefix">Try</span>
-                <span className="ce-empty-example-text">{q}</span>
+
+          {symbolsLoading && symbols.length === 0 ? (
+            <div className="ce-empty-loading">Loading symbols...</div>
+          ) : symbols.length === 0 ? (
+            <div className="ce-empty-zero">
+              <p className="ce-empty-zero-text">
+                No code ingested yet. Connect a repo to get started.
+              </p>
+              <button
+                type="button"
+                className="ce-empty-connect"
+                onClick={onRepoConnect}
+              >
+                Connect a repo
+              </button>
+            </div>
+          ) : (
+            <div className="ce-empty-jumplist">
+              <div className="ce-empty-jumplist-label">Jump to</div>
+              <div className="ce-empty-jumplist-chips">
+                {jumpList.map((s) => (
+                  <button
+                    key={s.object_id}
+                    type="button"
+                    className="ce-empty-chip"
+                    onClick={() => onSymbolSelect(s.name)}
+                    title={s.file_path}
+                  >
+                    <span
+                      className="ce-empty-chip-badge"
+                      style={{ color: ENTITY_COLORS[s.entity_type] }}
+                    >
+                      {ENTITY_LABELS[s.entity_type]}
+                    </span>
+                    <span className="ce-empty-chip-name">{s.name}</span>
+                  </button>
+                ))}
               </div>
-            ))}
-          </div>
+            </div>
+          )}
         </div>
       </div>
     );

@@ -56,7 +56,10 @@ export default function CodeExplorer() {
           impact={state.impact}
           context={state.context}
           loading={state.impactLoading}
+          symbols={state.symbols}
+          symbolsLoading={state.symbolsLoading}
           onSymbolSelect={state.setFocalSymbol}
+          onRepoConnect={() => state.setRepoConnectOpen(true)}
           onExplain={handleExplain}
         />
 

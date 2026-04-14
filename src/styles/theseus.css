@@ -3866,35 +3866,108 @@
   margin: 0 0 22px;
 }
 
-.ce-empty-examples {
+/* Empty state: jump list of real ingested symbols. Each chip is a
+   button that sets the focal symbol. Replaces earlier pseudo-buttons
+   that had click affordance without interactivity. */
+
+.ce-empty-jumplist {
   display: flex;
   flex-direction: column;
+  gap: 10px;
+}
+
+.ce-empty-jumplist-label {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: var(--cw-text-dim);
+}
+
+.ce-empty-jumplist-chips {
+  display: flex;
+  flex-wrap: wrap;
   gap: 8px;
 }
 
-.ce-empty-example {
+.ce-empty-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  background: var(--cw-bg);
+  color: var(--cw-text);
+  border: 1px solid var(--cw-border);
+  border-radius: 6px;
+  cursor: pointer;
+  font-family: inherit;
+  transition: background-color 120ms ease, border-color 120ms ease, transform 120ms ease;
+}
+
+.ce-empty-chip:hover {
+  background: var(--cw-surface-hover);
+  border-color: var(--cw-border-active);
+}
+
+.ce-empty-chip:active {
+  transform: translateY(1px);
+}
+
+.ce-empty-chip-badge {
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.ce-empty-chip-name {
+  font-family: var(--font-ibm-plex-mono), 'IBM Plex Mono', ui-monospace, monospace;
+  font-size: 13.5px;
+  color: var(--cw-text);
+  font-feature-settings: 'kern' 1, 'calt' 1;
+}
+
+.ce-empty-loading {
+  font-size: 13px;
+  color: var(--cw-text-muted);
+  padding: 10px 0;
+  font-style: italic;
+}
+
+.ce-empty-zero {
   display: flex;
-  align-items: baseline;
-  gap: 10px;
-  padding: 10px 12px;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 14px 16px;
   background: var(--cw-bg);
   border: 1px solid var(--cw-border-subtle);
   border-radius: 6px;
 }
 
-.ce-empty-example-prefix {
-  font-size: 10px;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.1em;
-  color: var(--cw-text-dim);
+.ce-empty-zero-text {
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.55;
+  color: var(--cw-text-muted);
 }
 
-.ce-empty-example-text {
-  font-size: 14.5px;
-  color: var(--cw-text);
-  font-style: italic;
-  line-height: 1.5;
+.ce-empty-connect {
+  height: 34px;
+  padding: 0 16px;
+  background: var(--cw-teal);
+  color: var(--cw-bg);
+  border: none;
+  border-radius: 6px;
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: opacity 120ms ease;
+}
+
+.ce-empty-connect:hover {
+  opacity: 0.88;
 }
 
 /* ── Loading ── */
