@@ -431,6 +431,73 @@
 }
 
 /* ─────────────────────────────────────────────────
+   Ambient motion system: "eavesdropping on the machine"
+   ───────────────────────────────────────────────── */
+
+/* R3: traveling query breathes while centered during THINKING. */
+.theseus-traveling-query[data-stage="centered"] {
+  animation: vie-query-breath 4.2s ease-in-out infinite;
+}
+
+@keyframes vie-query-breath {
+  0%, 100% { opacity: 0.88; letter-spacing: 0.005em; }
+  50%      { opacity: 1.00; letter-spacing: 0.015em; }
+}
+
+/* R4: heat wash breathes when the machine is warm (submitting/ingesting).
+   Applied by setting data-machine-warm="true" on the parent surface. */
+[data-machine-warm="true"] .cx-heat,
+[data-machine-warm="true"] .theseus-chat-heat {
+  animation: vie-heat-breath 14s ease-in-out infinite;
+}
+
+@keyframes vie-heat-breath {
+  0%, 100% { opacity: 0.55; }
+  50%      { opacity: 0.92; }
+}
+
+/* R1: ambient hypothesis whisper drift. Enters from an edge, pauses
+   mid-travel so the text is readable, fades out. Opacity peaks at 0.14
+   ("eavesdropping" tone, not "performing"). */
+@keyframes vie-whisper-left {
+  0%   { transform: translateX(-24px); opacity: 0; }
+  18%  { opacity: 0.14; }
+  45%  { transform: translateX(60px);  opacity: 0.14; }
+  70%  { transform: translateX(84px);  opacity: 0.10; }
+  100% { transform: translateX(140px); opacity: 0; }
+}
+
+@keyframes vie-whisper-right {
+  0%   { transform: translateX(24px);  opacity: 0; }
+  18%  { opacity: 0.14; }
+  45%  { transform: translateX(-60px); opacity: 0.14; }
+  70%  { transform: translateX(-84px); opacity: 0.10; }
+  100% { transform: translateX(-140px); opacity: 0; }
+}
+
+/* R1: edge formation — stroke-dashoffset animates from length to 0,
+   then a soft fade-out on the enclosing group. The component sets
+   stroke-dasharray/offset from the measured line length per instance. */
+@keyframes vie-edge-draw {
+  0%   { stroke-dashoffset: var(--len, 400); opacity: 0; }
+  22%  { opacity: 0.55; }
+  55%  { stroke-dashoffset: 0; opacity: 0.55; }
+  100% { stroke-dashoffset: 0; opacity: 0; }
+}
+
+/* R0: transmission line respects reduced motion via the component
+   (opacity is toggled only when motion is allowed), but the gradient
+   plate itself is decorative so no extra rule needed. */
+
+@media (prefers-reduced-motion: reduce) {
+  .theseus-traveling-query[data-stage="centered"] { animation: none; }
+  [data-machine-warm="true"] .cx-heat,
+  [data-machine-warm="true"] .theseus-chat-heat { animation: none; }
+  .theseus-ambient-whisper { animation: none !important; opacity: 0.1 !important; }
+  .theseus-ambient-edge line { animation: none !important; stroke-dashoffset: 0 !important; }
+}
+
+/* ─────────────────────────────────────────────────
    Sidebar rail (desktop)
    ───────────────────────────────────────────────── */
 
@@ -5104,6 +5171,27 @@
   box-shadow: 0 0 0 3px rgba(196, 154, 74, 0.22);
 }
 
+/* Done-state action row: primary "Ask Theseus" + secondary "Ingest another",
+   horizontal with generous spacing. */
+.cx-done-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-top: 4px;
+}
+
+/* Variant of the primary button rendered as a link (next/link). `<a>`
+   is inline by default, so we need explicit alignment here to match
+   `.cx-submit`'s button height and centering. */
+.cx-submit--link {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  text-decoration: none;
+  white-space: nowrap;
+}
+
 /* ── Ingesting ───────────────────────────────────────────────── */
 
 .cx-progress {
@@ -5121,6 +5209,111 @@
   background: rgba(0, 0, 0, 0.28);
   border-left: 2px solid var(--vie-type-hunch);
   border-radius: 2px;
+}
+
+/* ── Streaming transmission log ──────────────────────────────── */
+
+.cx-transmission-log {
+  list-style: none;
+  margin: 4px 0 8px;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-family: var(--font-jetbrains-mono), 'JetBrains Mono', ui-monospace, monospace;
+  font-size: 12.5px;
+  line-height: 1.45;
+}
+
+/* Each log line has three layout zones: a 10px cursor column (only the
+   live line shows a dot), the phase label, then the text. The grid keeps
+   labels column-aligned across the whole stack as lines enter. */
+.cx-log-line {
+  display: grid;
+  grid-template-columns: 10px minmax(130px, auto) 1fr;
+  column-gap: 10px;
+  align-items: baseline;
+  transition: opacity 420ms ease, color 420ms ease;
+  /* Entry motion: incoming transmissions materialize from a slight
+     left-offset with a fade. 260ms with an ease-out curve reads as
+     "arrival" — not springy, which would feel UI-toylike in a data
+     telemetry context. */
+  animation: cx-log-arrive 260ms cubic-bezier(0.22, 0.61, 0.36, 1) both;
+}
+
+.cx-log-cursor {
+  grid-column: 1;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  align-self: center;
+  background: transparent;
+  transition: background-color 220ms ease, box-shadow 220ms ease;
+}
+
+.cx-log-phase {
+  grid-column: 2;
+  color: var(--vie-text-dim, rgba(220, 214, 200, 0.42));
+  text-transform: lowercase;
+  letter-spacing: 0.06em;
+  font-size: 10.5px;
+}
+
+.cx-log-text {
+  grid-column: 3;
+  color: var(--vie-text, rgba(220, 214, 200, 0.95));
+}
+
+.cx-log-line--dim .cx-log-phase,
+.cx-log-line--dim .cx-log-text {
+  color: var(--vie-text-dim, rgba(220, 214, 200, 0.38));
+  opacity: 0.55;
+}
+
+.cx-log-line--live .cx-log-phase {
+  color: var(--vie-amber);
+}
+
+.cx-log-line--live .cx-log-text {
+  color: var(--vie-text, rgba(220, 214, 200, 1));
+}
+
+/* Live cursor: amber dot with a soft halo that pulses. Signals "this is
+   the phase the machine is working on right now." Only one line ever
+   carries this at a time; pushLog dims all previous lines on every new
+   entry, so the cursor naturally travels down the stack. */
+.cx-log-line--live .cx-log-cursor {
+  background: var(--vie-amber);
+  box-shadow:
+    0 0 0 2px rgba(196, 154, 74, 0.16),
+    0 0 8px 1px rgba(196, 154, 74, 0.24);
+  animation: cx-log-cursor-pulse 1.8s ease-in-out infinite;
+}
+
+@keyframes cx-log-arrive {
+  0%   { opacity: 0; transform: translateX(-6px); }
+  100% { opacity: 1; transform: translateX(0); }
+}
+
+@keyframes cx-log-cursor-pulse {
+  0%, 100% {
+    box-shadow:
+      0 0 0 2px rgba(196, 154, 74, 0.16),
+      0 0 8px 1px rgba(196, 154, 74, 0.24);
+  }
+  50% {
+    box-shadow:
+      0 0 0 3px rgba(196, 154, 74, 0.24),
+      0 0 12px 2px rgba(196, 154, 74, 0.34);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .cx-log-line {
+    transition: none;
+    animation: none;
+  }
+  .cx-log-line--live .cx-log-cursor { animation: none; }
 }
 
 /* ── Done ────────────────────────────────────────────────────── */

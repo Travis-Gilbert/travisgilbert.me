@@ -1,9 +1,64 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import { ingestCodebase } from '@/lib/theseus-api';
+import Link from 'next/link';
+import { ingestCodebaseStream } from '@/lib/theseus-api';
 import type { IngestionStats } from '@/lib/theseus-types';
 import ChatCanvas from '@/components/theseus/chat/ChatCanvas';
+import AmbientGraphActivity from '@/components/theseus/AmbientGraphActivity';
+
+/**
+ * Streaming ingest telemetry. Each phase boundary from ingest_codebase
+ * lands here as a transmission line, newest-first. The operator reads
+ * the backend working in real time, not a fabricated spinner.
+ */
+interface IngestLogLine {
+  id: number;
+  phase: string;
+  text: string;
+  dimmed: boolean;
+}
+
+// Phase slug → short, transmission-toned verb for the live log. Keys
+// mirror `phase` values emitted by apps/notebook/management/commands/
+// ingest_codebase.py._emit(). If backend adds phases, missing keys fall
+// through to the slug-as-label behaviour.
+const PHASE_LABEL: Record<string, string> = {
+  parsing: 'parsing AST',
+  creating_files: 'writing file objects',
+  creating_structures: 'wiring classes + interfaces',
+  creating_members: 'wiring functions + methods',
+  resolving_imports: 'resolving cross-file imports',
+  detecting_processes: 'tracing execution flows',
+  ingesting_commits: 'reading git history',
+  embedding: 'computing embeddings',
+};
+
+function formatPhaseDone(phase: string, data: Record<string, unknown>): string {
+  // One compact stat line per phase, all real fields from the callback.
+  switch (phase) {
+    case 'parsing': {
+      const { files, structures, members, imports } = data as Record<string, number>;
+      return `parsed ${files ?? 0} files · ${structures ?? 0} classes · ${members ?? 0} functions · ${imports ?? 0} imports`;
+    }
+    case 'creating_files':
+      return `${(data.files_total as number) ?? 0} files indexed`;
+    case 'creating_structures':
+      return `${(data.structures_total as number) ?? 0} structures indexed`;
+    case 'creating_members':
+      return `${(data.members_total as number) ?? 0} members indexed`;
+    case 'resolving_imports':
+      return `${(data.import_edges as number) ?? 0} import edges wired`;
+    case 'detecting_processes':
+      return `${(data.processes as number) ?? 0} processes traced · ${(data.process_edges as number) ?? 0} edges`;
+    case 'ingesting_commits':
+      return `${(data.commits as number) ?? 0} commits`;
+    case 'embedding':
+      return `embedded ${(data.embedded as number) ?? 0} objects`;
+    default:
+      return phase;
+  }
+}
 
 /**
  * CodeExplorer (minimal).
@@ -24,6 +79,9 @@ export default function CodeExplorer() {
   const [status, setStatus] = useState<Status>('idle');
   const [stats, setStats] = useState<IngestionStats | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [log, setLog] = useState<IngestLogLine[]>([]);
+  const logIdRef = useRef(1);
+  const abortRef = useRef<AbortController | null>(null);
 
   // Autofocus the input only on fine-pointer devices. On touch devices
   // autoFocus pops the soft keyboard before the user has seen the page,
@@ -37,6 +95,17 @@ export default function CodeExplorer() {
     }
   }, [status]);
 
+  function pushLog(phase: string, text: string) {
+    setLog((prev) => {
+      // Dim all previous lines so the newest reads as the live cursor.
+      const dimmed = prev.map((line) => ({ ...line, dimmed: true }));
+      const id = logIdRef.current++;
+      const next = [...dimmed, { id, phase, text, dimmed: false }];
+      // Keep the transmission log bounded.
+      return next.length > 10 ? next.slice(-10) : next;
+    });
+  }
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     const target = url.trim();
@@ -44,10 +113,32 @@ export default function CodeExplorer() {
 
     setStatus('ingesting');
     setError(null);
-    const result = await ingestCodebase(
+    setStats(null);
+    setLog([]);
+    logIdRef.current = 1;
+
+    const controller = new AbortController();
+    abortRef.current = controller;
+
+    const result = await ingestCodebaseStream(
       { repo: target },
-      { timeoutMs: 180_000, retryPolicy: 'none' },
+      {
+        onReady: () => pushLog('ready', 'stream open · cloning complete'),
+        onPhaseStart: (data) => {
+          const label =
+            typeof data.label === 'string' && data.label
+              ? data.label
+              : PHASE_LABEL[data.phase] ?? data.phase;
+          pushLog(data.phase, label);
+        },
+        onPhaseDone: (data) => {
+          pushLog(data.phase, formatPhaseDone(data.phase, data));
+        },
+      },
+      controller.signal,
     );
+
+    abortRef.current = null;
 
     if (result.ok) {
       setStats(result);
@@ -59,22 +150,39 @@ export default function CodeExplorer() {
   }
 
   function reset() {
+    abortRef.current?.abort();
+    abortRef.current = null;
     setUrl('');
     setStats(null);
     setError(null);
     setStatus('idle');
+    setLog([]);
+    logIdRef.current = 1;
   }
 
+  // Cancel inflight stream if the component unmounts mid-ingest.
+  useEffect(() => () => {
+    abortRef.current?.abort();
+  }, []);
+
   return (
-    <div className="cx-root">
+    <div className="cx-root" data-machine-warm={status === 'ingesting' ? 'true' : 'false'}>
       {/* Shared Theseus substrate: warm noir, radial patches, pixel noise. */}
       <div className="cx-substrate" aria-hidden="true">
         <ChatCanvas />
       </div>
 
       {/* Soft engine-heat wash rising from the bottom, matching the
-          VIE Layer-2 language. Stays subtle at idle. */}
+          VIE Layer-2 language. Breathes while ingesting (see
+          vie-heat-breath keyframe). Stays subtle at idle. */}
       <div className="cx-heat" aria-hidden="true" />
+
+      {/* Ambient hypothesis whispers + edge formations during the
+          ingest wait. Reinforces the "graph is growing as you watch"
+          feel so the surface reads alive even before the stream starts
+          emitting phase events (the git clone + initial parse phase
+          can run for several seconds without frontend updates). */}
+      {status === 'ingesting' && <AmbientGraphActivity active />}
 
       <main className="cx-foreground">
         <div
@@ -130,10 +238,37 @@ export default function CodeExplorer() {
               </div>
               <h1 className="cx-title cx-title--progress">Working on it.</h1>
               <p className="cx-progress-url">{url}</p>
-              <p className="cx-lede">
-                Tree-sitter is parsing files, resolving imports, and detecting
-                processes. Usually 30 to 120 seconds.
-              </p>
+
+              {/* Live transmission log: one line per phase boundary
+                  from ingest_codebase. Newest at bottom, previous
+                  lines dim to a whisper. Real data only — if the
+                  backend hasn't emitted a phase yet, no line shows. */}
+              {log.length > 0 ? (
+                <ol
+                  className="cx-transmission-log"
+                  aria-live="polite"
+                  aria-label="Ingestion progress"
+                >
+                  {log.map((line) => (
+                    <li
+                      key={line.id}
+                      className={line.dimmed ? 'cx-log-line cx-log-line--dim' : 'cx-log-line cx-log-line--live'}
+                    >
+                      {/* Live cursor: amber pulse next to the active line.
+                          Dimmed lines render an empty cursor column so the
+                          phase/text columns stay aligned. */}
+                      <span className="cx-log-cursor" aria-hidden="true" />
+                      <span className="cx-log-phase">{line.phase.replace(/_/g, ' ')}</span>
+                      <span className="cx-log-text">{line.text}</span>
+                    </li>
+                  ))}
+                </ol>
+              ) : (
+                <p className="cx-lede">
+                  Tree-sitter is parsing files, resolving imports, and detecting
+                  processes. Usually 30 to 120 seconds.
+                </p>
+              )}
             </div>
           )}
 
@@ -169,9 +304,21 @@ export default function CodeExplorer() {
                 </div>
               </dl>
 
-              <button type="button" className="cx-secondary" onClick={reset}>
-                Ingest another
-              </button>
+              <div className="cx-done-actions">
+                <Link
+                  href="/theseus?view=ask"
+                  className="cx-submit cx-submit--link"
+                >
+                  Ask Theseus
+                </Link>
+                <button
+                  type="button"
+                  className="cx-secondary"
+                  onClick={reset}
+                >
+                  Ingest another
+                </button>
+              </div>
             </div>
           )}
 
