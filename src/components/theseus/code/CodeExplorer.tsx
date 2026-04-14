@@ -3,19 +3,19 @@
 import { useState } from 'react';
 import { ingestCodebase } from '@/lib/theseus-api';
 import type { IngestionStats } from '@/lib/theseus-types';
+import ChatCanvas from '@/components/theseus/chat/ChatCanvas';
 
 /**
  * CodeExplorer (minimal).
  *
- * One input. Paste a GitHub URL, ingest it, see the stats. That is the
- * whole screen. The previous build had a toolbar, a canvas, a jump list,
- * a drift panel, a patterns panel, a hover card, and a legend — it was
- * confusing even for the person building it. This reset gives the screen
- * a single job so the next UI iteration can grow from a real need.
+ * One input. Paste a GitHub URL, ingest it, see the stats. The richer
+ * exploration surface (impact canvas, drift, patterns) is deliberately
+ * dormant on this screen until there is a confirmed user need for it.
  *
- * The richer exploration components (ImpactCanvas, DriftPanel, etc.)
- * still exist on disk and can be reintroduced when there is a confirmed
- * ingested repo and a real user question to answer.
+ * Visual substrate uses ChatCanvas — the same warm-noir texture that
+ * sits behind the Ask panel — so the Code Explorer feels like part of
+ * Theseus rather than a standalone utility. Typography, tokens, and
+ * panel glass follow the VIE design language.
  */
 export default function CodeExplorer() {
   type Status = 'idle' | 'ingesting' | 'done' | 'error';
@@ -55,100 +55,126 @@ export default function CodeExplorer() {
 
   return (
     <div className="cx-root">
-      <div className="cx-card" data-state={status}>
-        {status === 'idle' && (
-          <form className="cx-form" onSubmit={handleSubmit}>
-            <div className="cx-eyebrow">Code Explorer</div>
-            <h1 className="cx-title">Paste a repo.</h1>
-            <p className="cx-lede">
-              Theseus ingests the codebase and builds a graph you can
-              explore. Start with any public GitHub repository.
-            </p>
+      {/* Shared Theseus substrate: warm noir, radial patches, pixel noise. */}
+      <div className="cx-substrate" aria-hidden="true">
+        <ChatCanvas />
+      </div>
 
-            <label className="cx-field">
-              <span className="cx-field-label">Repository URL</span>
-              <input
-                type="url"
-                className="cx-input"
-                value={url}
-                onChange={(e) => setUrl(e.target.value)}
-                placeholder="https://github.com/owner/repo"
-                autoFocus
-                required
-                spellCheck={false}
-                autoComplete="off"
-              />
-            </label>
+      {/* Soft engine-heat wash rising from the bottom, matching the
+          VIE Layer-2 language. Stays subtle at idle. */}
+      <div className="cx-heat" aria-hidden="true" />
 
-            <button
-              type="submit"
-              className="cx-submit"
-              disabled={!url.trim()}
-            >
-              Ingest
-            </button>
-          </form>
-        )}
-
-        {status === 'ingesting' && (
-          <div className="cx-progress">
-            <div className="cx-spinner" aria-hidden="true" />
-            <div className="cx-progress-label">Ingesting</div>
-            <div className="cx-progress-url">{url}</div>
-            <p className="cx-progress-hint">
-              Tree-sitter is parsing files, resolving imports, and detecting
-              processes. Usually 30 to 120 seconds.
-            </p>
-          </div>
-        )}
-
-        {status === 'done' && stats && (
-          <div className="cx-done">
-            <div className="cx-eyebrow">Done</div>
-            <h2 className="cx-title cx-title--done">Ingested.</h2>
-
-            <dl className="cx-stats">
-              <div className="cx-stat">
-                <dt>Objects</dt>
-                <dd>{stats.objects_created}</dd>
+      <main className="cx-foreground">
+        <div className="cx-card" data-state={status}>
+          {status === 'idle' && (
+            <form className="cx-form" onSubmit={handleSubmit}>
+              <div className="cx-eyebrow">
+                <span className="cx-eyebrow-dot" aria-hidden="true" />
+                Code Explorer
               </div>
-              <div className="cx-stat">
-                <dt>Edges</dt>
-                <dd>{stats.edges_created}</dd>
-              </div>
-              <div className="cx-stat">
-                <dt>Processes</dt>
-                <dd>{stats.processes_detected}</dd>
-              </div>
-              <div className="cx-stat">
-                <dt>Languages</dt>
-                <dd>{stats.languages.join(', ') || '—'}</dd>
-              </div>
-              <div className="cx-stat">
-                <dt>Duration</dt>
-                <dd>{(stats.duration_ms / 1000).toFixed(1)}s</dd>
-              </div>
-            </dl>
 
-            <button type="button" className="cx-secondary" onClick={reset}>
-              Ingest another
-            </button>
-          </div>
-        )}
+              <h1 className="cx-title">Paste a repo.</h1>
 
-        {status === 'error' && (
-          <div className="cx-error">
-            <div className="cx-eyebrow cx-eyebrow--error">Failed</div>
-            <h2 className="cx-title">Could not ingest.</h2>
-            <p className="cx-error-body">{error}</p>
-            <div className="cx-error-actions">
+              <p className="cx-lede">
+                Theseus ingests the codebase and grows the graph. Start with any
+                public GitHub repository.
+              </p>
+
+              <label className="cx-field">
+                <span className="cx-field-label">Repository URL</span>
+                <input
+                  type="url"
+                  className="cx-input"
+                  value={url}
+                  onChange={(e) => setUrl(e.target.value)}
+                  placeholder="https://github.com/owner/repo"
+                  autoFocus
+                  required
+                  spellCheck={false}
+                  autoComplete="off"
+                />
+              </label>
+
+              <button
+                type="submit"
+                className="cx-submit"
+                disabled={!url.trim()}
+              >
+                Ingest
+              </button>
+            </form>
+          )}
+
+          {status === 'ingesting' && (
+            <div className="cx-progress">
+              <div className="cx-eyebrow cx-eyebrow--live">
+                <span className="cx-eyebrow-dot cx-eyebrow-dot--pulse" aria-hidden="true" />
+                Ingesting
+              </div>
+              <h2 className="cx-title cx-title--progress">Working on it.</h2>
+              <p className="cx-progress-url">{url}</p>
+              <p className="cx-lede">
+                Tree-sitter is parsing files, resolving imports, and detecting
+                processes. Usually 30 to 120 seconds.
+              </p>
+            </div>
+          )}
+
+          {status === 'done' && stats && (
+            <div className="cx-done">
+              <div className="cx-eyebrow cx-eyebrow--done">
+                <span className="cx-eyebrow-dot" aria-hidden="true" />
+                Done
+              </div>
+
+              <h2 className="cx-title">Ingested.</h2>
+
+              <dl className="cx-stats">
+                <div className="cx-stat">
+                  <dt>Objects</dt>
+                  <dd>{stats.objects_created}</dd>
+                </div>
+                <div className="cx-stat">
+                  <dt>Edges</dt>
+                  <dd>{stats.edges_created}</dd>
+                </div>
+                <div className="cx-stat">
+                  <dt>Processes</dt>
+                  <dd>{stats.processes_detected}</dd>
+                </div>
+                <div className="cx-stat">
+                  <dt>Languages</dt>
+                  <dd>{stats.languages.join(', ') || '—'}</dd>
+                </div>
+                <div className="cx-stat">
+                  <dt>Duration</dt>
+                  <dd>{(stats.duration_ms / 1000).toFixed(1)}s</dd>
+                </div>
+              </dl>
+
               <button type="button" className="cx-secondary" onClick={reset}>
-                Back
+                Ingest another
               </button>
             </div>
-          </div>
-        )}
-      </div>
+          )}
+
+          {status === 'error' && (
+            <div className="cx-error">
+              <div className="cx-eyebrow cx-eyebrow--error">
+                <span className="cx-eyebrow-dot cx-eyebrow-dot--error" aria-hidden="true" />
+                Failed
+              </div>
+              <h2 className="cx-title">Could not ingest.</h2>
+              <p className="cx-error-body">{error}</p>
+              <div className="cx-error-actions">
+                <button type="button" className="cx-secondary" onClick={reset}>
+                  Back
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+      </main>
     </div>
   );
 }
