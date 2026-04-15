@@ -554,6 +554,10 @@ function normalizeStructuredVisual(
     reference_image_url: typeof raw.reference_image_url === 'string'
       ? raw.reference_image_url
       : undefined,
+    renderer: typeof raw.renderer === 'string' ? raw.renderer : undefined,
+    structured: typeof raw.structured === 'object' && raw.structured !== null
+      ? raw.structured as Record<string, unknown>
+      : undefined,
   };
 }
 
@@ -1801,6 +1805,173 @@ export async function ingestCodebase(
     undefined,
     controls,
   );
+}
+
+/**
+ * Streaming ingest.
+ *
+ * POST /api/v2/theseus/code/ingest/stream/ emits Server-Sent Events with
+ * phase boundaries from ingest_codebase:
+ *   - ready                  — stream opened; clone (if any) already done.
+ *   - phase_start {phase,label,...}
+ *   - phase_done  {phase,...counts...}
+ *   - ingest_complete {...}  — fine-grained summary from the ingester
+ *   - complete {stats}       — final IngestionStats payload.
+ *   - error {message}        — terminal failure.
+ *
+ * Returns an object with a `cancel()` handle that aborts the underlying
+ * fetch. The promise resolves once the stream closes (complete or error).
+ */
+export interface IngestStreamHandlers {
+  onPhaseStart?: (data: { phase: string; label?: string; total?: number; [k: string]: unknown }) => void;
+  onPhaseDone?: (data: { phase: string; [k: string]: unknown }) => void;
+  onIngestComplete?: (data: Record<string, unknown>) => void;
+  onReady?: (data: { repo: string; path: string }) => void;
+  onError?: (message: string) => void;
+}
+
+export async function ingestCodebaseStream(
+  payload: IngestRequest,
+  handlers: IngestStreamHandlers = {},
+  signal?: AbortSignal,
+): Promise<ApiResult<IngestionStats>> {
+  // Match apiFetch() canonicalization: Next.js' trailingSlash:false issues
+  // a 308 that would break the streaming POST, so strip the tail slash
+  // before the fetch.
+  const streamUrl = canonicalizeTheseusUrl('/api/v2/theseus/code/ingest/stream/');
+  let response: Response;
+  try {
+    response = await fetch(streamUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Accept: 'text/event-stream' },
+      body: JSON.stringify(payload),
+      signal,
+    });
+  } catch (err) {
+    if (err instanceof Error && err.name === 'AbortError') {
+      return apiError(0, 'Ingest cancelled', 'network', false);
+    }
+    const msg = err instanceof Error ? err.message : String(err);
+    return apiError(0, msg || 'Network error opening ingest stream', 'network', true);
+  }
+
+  if (!response.ok) {
+    let body = '';
+    try {
+      body = await response.text();
+    } catch {
+      // fall through with empty body
+    }
+    // Try to pull a useful error message from the body.
+    let message = response.statusText || `HTTP ${response.status}`;
+    if (body) {
+      try {
+        const parsed = JSON.parse(body) as { detail?: string; message?: string };
+        message = parsed.detail || parsed.message || body.slice(0, 300);
+      } catch {
+        message = body.slice(0, 300);
+      }
+    }
+    handlers.onError?.(message);
+    return apiError(response.status, message, 'http', response.status >= 500);
+  }
+
+  const reader = response.body?.getReader();
+  if (!reader) {
+    return apiError(0, 'No response body for ingest stream', 'network', true);
+  }
+
+  const decoder = new TextDecoder();
+  let buffer = '';
+  let finalStats: IngestionStats | null = null;
+  let streamError: string | null = null;
+
+  try {
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+
+      buffer += decoder.decode(value, { stream: true });
+
+      // Parse SSE frames split by double-newline. Each frame may carry
+      // one `event:` line and one `data:` line. We dispatch one frame
+      // per tick (yielded via setTimeout) so React can flush handler-
+      // triggered state updates between frames — otherwise the while
+      // loop body runs synchronously, batches every update, and the UI
+      // skips straight from idle to the terminal state without ever
+      // painting the intermediate phase lines.
+      let boundary: number;
+      while ((boundary = buffer.indexOf('\n\n')) !== -1) {
+        const frame = buffer.slice(0, boundary);
+        buffer = buffer.slice(boundary + 2);
+
+        if (!frame.trim() || frame.startsWith(':')) {
+          // keepalive or blank
+          continue;
+        }
+
+        let event = 'message';
+        let dataStr = '';
+        for (const line of frame.split('\n')) {
+          if (line.startsWith('event:')) event = line.slice(6).trim();
+          else if (line.startsWith('data:')) dataStr += line.slice(5).trim();
+        }
+
+        let data: Record<string, unknown> = {};
+        if (dataStr) {
+          try {
+            data = JSON.parse(dataStr);
+          } catch {
+            // Malformed frame — skip without crashing the stream.
+            continue;
+          }
+        }
+
+        switch (event) {
+          case 'ready':
+            handlers.onReady?.(data as { repo: string; path: string });
+            break;
+          case 'phase_start':
+            handlers.onPhaseStart?.(data as { phase: string; label?: string; total?: number });
+            break;
+          case 'phase_done':
+            handlers.onPhaseDone?.(data as { phase: string });
+            break;
+          case 'ingest_complete':
+            handlers.onIngestComplete?.(data);
+            break;
+          case 'complete':
+            finalStats = data as unknown as IngestionStats;
+            break;
+          case 'error':
+            streamError = String((data as { message?: string }).message || 'Ingest error');
+            break;
+        }
+
+        // Yield to let React paint the handler-driven state update.
+        // Without this, a burst of frames batches into one render and
+        // the live log skips straight to completion.
+        await new Promise((resolve) => setTimeout(resolve, 0));
+      }
+    }
+  } catch (err) {
+    if (err instanceof Error && err.name === 'AbortError') {
+      return apiError(0, 'Ingest cancelled', 'network', false);
+    }
+    const msg = err instanceof Error ? err.message : String(err);
+    return apiError(0, msg || 'Ingest stream read failed', 'network', true);
+  }
+
+  if (streamError) {
+    handlers.onError?.(streamError);
+    return apiError(500, streamError, 'http', false);
+  }
+
+  if (!finalStats) {
+    return apiError(0, 'Ingest stream closed without a complete event', 'network', true);
+  }
+
+  return { ok: true, ...finalStats } as ApiResult<IngestionStats>;
 }
 
 export async function getFixPatterns(
