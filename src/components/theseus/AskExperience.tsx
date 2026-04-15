@@ -284,27 +284,15 @@ function AskDock({
             display: 'grid',
             gridTemplateAreas: '"stack"',
             placeItems: 'center',
-            // The morph: pill (input) ↔ circle (spinner). One element,
-            // one transition, three properties moving in sync.
-            width: submitting ? DOCK_SPINNER_SIZE : inputWidth,
-            height: submitting ? DOCK_SPINNER_SIZE : DOCK_INPUT_HEIGHT,
-            borderRadius: submitting ? '50%' : DOCK_INPUT_RADIUS,
-            // Submitting background: dark center with a teal-tinted
-            // outer ring. The dark center provides contrast for the
-            // bright spinner glyph that sits in the middle of the
-            // grid stack; the teal ring picks up the morph's border
-            // colour for a soft halo.
-            background: submitting
-              ? 'radial-gradient(circle, rgba(15,16,18,0.92) 0%, rgba(15,16,18,0.78) 55%, rgba(74,138,150,0.18) 100%)'
-              : 'rgba(15, 16, 18, 0.76)',
-            border: submitting
-              ? '1px solid rgba(74,138,150,0.30)'
-              : '1px solid rgba(255, 255, 255, 0.08)',
-            // Glow on the submitting state intentionally subtle: a
-            // single soft outer shadow without a second outline ring.
-            boxShadow: submitting
-              ? '0 0 14px rgba(74,138,150,0.10)'
-              : '0 4px 24px rgba(0,0,0,0.25)',
+            // The dock stays pill-shaped during submit. No circle morph,
+            // no glow, no radial gradient. The input fades out and a
+            // small terminal spinner fades in, same shape, same size.
+            width: inputWidth,
+            height: DOCK_INPUT_HEIGHT,
+            borderRadius: DOCK_INPUT_RADIUS,
+            background: 'rgba(15, 16, 18, 0.76)',
+            border: '1px solid rgba(255, 255, 255, 0.08)',
+            boxShadow: '0 4px 24px rgba(0,0,0,0.25)',
             backdropFilter: 'blur(24px)',
             WebkitBackdropFilter: 'blur(24px)',
             overflow: 'hidden',
@@ -367,9 +355,10 @@ function AskDock({
             </button>
           </div>
 
-          {/* Layer 2: spinner contents. Fades in once the morph has
-              progressed enough that the container is small enough to
-              read as a focal disc. */}
+          {/* Layer 2: terminal spinner. Small monospace braille character
+              with the stage label, centered in the pill. No glow, no
+              circle, no gradient. Same visual language as the terminal
+              stream in the bottom-left and the chat streaming indicator. */}
           <div
             aria-hidden={!submitting}
             style={{
@@ -377,6 +366,7 @@ function AskDock({
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
+              gap: 8,
               opacity: submitting ? 1 : 0,
               pointerEvents: 'none',
               transition: spinnerLayerTransition,
@@ -385,17 +375,22 @@ function AskDock({
             <span
               style={{
                 fontFamily: 'var(--vie-font-mono)',
-                fontSize: 52,
+                fontSize: 13,
                 lineHeight: 1,
-                // Brighter than var(--vie-teal-light) #4A8A96 so the
-                // glyph reads against the dark center of the morph
-                // gradient. The text-shadow gives it the slight glow
-                // that used to live on the morph's box-shadow.
-                color: '#9FD4DC',
-                textShadow: '0 0 12px rgba(74,138,150,0.55), 0 0 4px rgba(159,212,220,0.35)',
+                color: 'var(--vie-teal-light, #4A8A96)',
               }}
             >
               {BRAILLE_FRAMES[spinnerFrame]}
+            </span>
+            <span
+              style={{
+                fontFamily: 'var(--vie-font-mono)',
+                fontSize: 11,
+                letterSpacing: '0.04em',
+                color: 'var(--vie-text-dim, #5a5650)',
+              }}
+            >
+              working
             </span>
           </div>
         </div>
