@@ -31,6 +31,7 @@ import ConnectionList from './ConnectionList';
 import TensionCard from './TensionCard';
 import ClaimRow from './ClaimRow';
 import NeighborhoodSummary from './NeighborhoodSummary';
+import SkeletonRows from './SkeletonRows';
 
 type ContextTab = 'overview' | 'evidence' | 'tensions' | 'claims' | 'why';
 
@@ -252,7 +253,7 @@ export default function ObjectInspectorTabs({
           <p className="explorer-panel-empty">Select a node in the graph to inspect it.</p>
         )}
         {tab === 'overview' && loading && (
-          <p className="explorer-panel-loading">LOADING</p>
+          <SkeletonRows variant="overview" />
         )}
 
         {tab === 'evidence' && (
@@ -262,7 +263,7 @@ export default function ObjectInspectorTabs({
               onSelectNode={handleSelectConnected}
             />
           ) : (
-            <p className="explorer-panel-loading">LOADING CONNECTIONS</p>
+            <SkeletonRows variant="connections" />
           )
         )}
 
@@ -278,7 +279,7 @@ export default function ObjectInspectorTabs({
               <p className="explorer-panel-empty">No tensions involving this object.</p>
             )
           ) : (
-            <p className="explorer-panel-loading">LOADING TENSIONS</p>
+            <SkeletonRows variant="tensions" />
           )
         )}
 
@@ -294,7 +295,7 @@ export default function ObjectInspectorTabs({
               <p className="explorer-panel-empty">No claims extracted from this object.</p>
             )
           ) : (
-            <p className="explorer-panel-loading">LOADING CLAIMS</p>
+            <SkeletonRows variant="claims" />
           )
         )}
 

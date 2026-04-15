@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { getClusters, getObject } from '@/lib/theseus-api';
+import { usePrefersReducedMotion } from '@/hooks/usePrefersReducedMotion';
 
 interface GraphNode {
   id: string;
@@ -13,12 +14,25 @@ interface GraphNode {
   vx: number;
   vy: number;
   radius: number;
+  /** ms-offset from the ink-in start when this node begins materializing */
+  appearAt: number;
 }
 
 interface GraphEdge {
   source: string;
   target: string;
+  /** ms-offset from ink-in start when this edge begins drawing */
+  appearAt: number;
 }
+
+// Per-node ink-in duration: radius grows from 0 to target, opacity 0 to 1.
+const NODE_INK_MS = 260;
+// Stagger between consecutive nodes in the ink-in sequence.
+const NODE_STAGGER_MS = 38;
+// Per-edge draw duration: stroke-dashoffset unwinds to 0.
+const EDGE_DRAW_MS = 420;
+// Extra delay after both endpoints of an edge have appeared before the edge draws.
+const EDGE_AFTER_NODE_MS = 140;
 
 function typeColor(objectType: string): string {
   switch (objectType) {
@@ -116,9 +130,16 @@ export default function IdleGraph({ onSelectNode, selectedNodeId }: IdleGraphPro
   const nodesRef = useRef<GraphNode[]>([]);
   const edgesRef = useRef<GraphEdge[]>([]);
   const animRef = useRef<number>(0);
+  const inkStartRef = useRef<number>(0);
+  const inkAnimRef = useRef<number>(0);
   const [ready, setReady] = useState(false);
   const [hoveredId, setHoveredId] = useState<string | null>(null);
   const [, forceRender] = useState(0);
+  // Ink frame: ms since ink-in began. Drives per-node radius/opacity tween.
+  // Set to Infinity once every node and edge has finished; keeps render cheap
+  // without repeatedly scheduling RAFs after the ink is done.
+  const [inkFrame, setInkFrame] = useState(0);
+  const prefersReducedMotion = usePrefersReducedMotion();
 
   // Camera viewBox offset for panning
   const viewBoxRef = useRef({ x: 0, y: 0 });
@@ -144,6 +165,9 @@ export default function IdleGraph({ onSelectNode, selectedNodeId }: IdleGraphPro
       const width = svg?.clientWidth ?? 800;
       const height = svg?.clientHeight ?? 600;
 
+      // Ink-in order: clusters appear first (they anchor the composition),
+      // then their children. appearAt is assigned after the list is built so
+      // it reflects the final ordering.
       for (const cluster of clusters) {
         nodes.push({
           id: `cluster-${cluster.id}`,
@@ -154,6 +178,7 @@ export default function IdleGraph({ onSelectNode, selectedNodeId }: IdleGraphPro
           vx: 0,
           vy: 0,
           radius: Math.min(8 + Math.sqrt(cluster.member_count) * 0.8, 20),
+          appearAt: 0,
         });
 
         for (const objId of cluster.top_objects.slice(0, 3)) {
@@ -168,10 +193,28 @@ export default function IdleGraph({ onSelectNode, selectedNodeId }: IdleGraphPro
               vx: 0,
               vy: 0,
               radius: 5,
+              appearAt: 0,
             });
           }
-          edges.push({ source: `cluster-${cluster.id}`, target: objId });
+          edges.push({ source: `cluster-${cluster.id}`, target: objId, appearAt: 0 });
         }
+      }
+
+      // Clusters first, then objects. Stagger each by NODE_STAGGER_MS.
+      const orderedForInk = [...nodes].sort((a, b) => {
+        if (a.type === b.type) return 0;
+        return a.type === 'cluster' ? -1 : 1;
+      });
+      orderedForInk.forEach((n, i) => {
+        n.appearAt = i * NODE_STAGGER_MS;
+      });
+
+      // Edges appear after both endpoints have started materializing.
+      const nodeAppearById = new Map(nodes.map((n) => [n.id, n.appearAt] as const));
+      for (const edge of edges) {
+        const a = nodeAppearById.get(edge.source) ?? 0;
+        const b = nodeAppearById.get(edge.target) ?? 0;
+        edge.appearAt = Math.max(a, b) + EDGE_AFTER_NODE_MS;
       }
 
       const objNodes = nodes.filter((n) => n.type === 'object');
@@ -216,6 +259,70 @@ export default function IdleGraph({ onSelectNode, selectedNodeId }: IdleGraphPro
     animRef.current = requestAnimationFrame(animate);
     return () => cancelAnimationFrame(animRef.current);
   }, [ready]);
+
+  // Ink-in animation: tick a frame timer until every node + edge has finished
+  // appearing, then settle. On reduced motion, skip straight to the settled
+  // frame so the graph is visible immediately.
+  useEffect(() => {
+    if (!ready) return;
+
+    if (prefersReducedMotion) {
+      // Jump to the end: every node and edge is fully materialized.
+      setInkFrame(Number.POSITIVE_INFINITY);
+      return;
+    }
+
+    inkStartRef.current = performance.now();
+
+    const lastNodeAppear = nodesRef.current.reduce(
+      (m, n) => Math.max(m, n.appearAt),
+      0,
+    );
+    const lastEdgeAppear = edgesRef.current.reduce(
+      (m, e) => Math.max(m, e.appearAt),
+      0,
+    );
+    const totalDuration =
+      Math.max(lastNodeAppear + NODE_INK_MS, lastEdgeAppear + EDGE_DRAW_MS) + 80;
+
+    function tick() {
+      const elapsed = performance.now() - inkStartRef.current;
+      setInkFrame(elapsed);
+      if (elapsed < totalDuration) {
+        inkAnimRef.current = requestAnimationFrame(tick);
+      } else {
+        setInkFrame(Number.POSITIVE_INFINITY);
+      }
+    }
+
+    inkAnimRef.current = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(inkAnimRef.current);
+  }, [ready, prefersReducedMotion]);
+
+  /**
+   * nodeVisibility: 0 = not yet materializing, 1 = fully inked.
+   * Returns an easeOutCubic curve over the NODE_INK_MS window starting at
+   * the node's appearAt offset.
+   */
+  function nodeVisibility(n: GraphNode): number {
+    if (inkFrame === Number.POSITIVE_INFINITY) return 1;
+    const local = inkFrame - n.appearAt;
+    if (local <= 0) return 0;
+    if (local >= NODE_INK_MS) return 1;
+    return easeOutCubic(local / NODE_INK_MS);
+  }
+
+  /**
+   * edgeVisibility: 0 = invisible, 1 = fully drawn. Used as both opacity
+   * and as the fraction of the stroke to reveal via dashoffset.
+   */
+  function edgeVisibility(e: GraphEdge): number {
+    if (inkFrame === Number.POSITIVE_INFINITY) return 1;
+    const local = inkFrame - e.appearAt;
+    if (local <= 0) return 0;
+    if (local >= EDGE_DRAW_MS) return 1;
+    return easeOutCubic(local / EDGE_DRAW_MS);
+  }
 
   // Camera pan animation when selectedNodeId changes
   useEffect(() => {
@@ -310,11 +417,14 @@ export default function IdleGraph({ onSelectNode, selectedNodeId }: IdleGraphPro
         height: '100%',
         zIndex: 5,
         pointerEvents: ready ? 'auto' : 'none',
+        // Wrapper fade lifts the whole canvas in quickly; the per-node
+        // ink-in does the actual "writing itself" work so we don't want a
+        // long wrapper crossfade competing with it.
         opacity: ready ? 1 : 0,
-        transition: 'opacity 600ms ease',
+        transition: 'opacity 160ms ease',
       }}
     >
-      {/* Edges */}
+      {/* Edges: ink-in via stroke-dashoffset then normal selection styling. */}
       {edges.map((edge, i) => {
         const source = nodeMap.get(edge.source);
         const target = nodeMap.get(edge.target);
@@ -323,6 +433,12 @@ export default function IdleGraph({ onSelectNode, selectedNodeId }: IdleGraphPro
         const isSelected = selectedNodeId !== null
           && (edge.source === selectedNodeId || edge.target === selectedNodeId);
         const dimmedBySelection = selectedNodeId !== null && !isSelected;
+
+        const inkT = edgeVisibility(edge);
+        const lineLength = Math.hypot(target.x - source.x, target.y - source.y);
+        // Stroke-dashoffset reveal: when inkT is 0, the dash is pushed fully
+        // off the line (invisible); when 1, it sits in place (fully drawn).
+        const dashOffset = lineLength * (1 - inkT);
 
         return (
           <line
@@ -339,13 +455,18 @@ export default function IdleGraph({ onSelectNode, selectedNodeId }: IdleGraphPro
                   : 'rgba(255, 255, 255, 0.06)'
             }
             strokeWidth={isSelected ? 1.5 : isHovered ? 1.5 : 0.5}
-            opacity={dimmedBySelection ? 0.15 : 1}
-            style={{ transition: 'stroke 200ms ease, stroke-width 200ms ease, opacity 200ms ease' }}
+            opacity={(dimmedBySelection ? 0.15 : 1) * inkT}
+            strokeDasharray={lineLength > 0 ? lineLength : undefined}
+            strokeDashoffset={lineLength > 0 ? dashOffset : undefined}
+            style={{ transition: 'stroke 200ms ease, stroke-width 200ms ease' }}
           />
         );
       })}
 
-      {/* Nodes */}
+      {/* Nodes: ink-in scales each circle from 0 to target radius, then
+          selection dimming + hover styling take over. Interaction is
+          disabled until a node is at least 60% materialized so early clicks
+          on invisible dots can't land. */}
       {nodes.map((node) => {
         const isHovered = hoveredId === node.id;
         const isCluster = node.type === 'cluster';
@@ -353,6 +474,9 @@ export default function IdleGraph({ onSelectNode, selectedNodeId }: IdleGraphPro
         const isNeighbor = selectedNodeId !== null && selectedNeighborIds.has(node.id);
         const isVisited = visitedIds.has(node.id) && !isSelected;
         const color = isCluster ? '#4A8A96' : typeColor(node.objectType ?? 'note');
+
+        const inkT = nodeVisibility(node);
+        const inkInteractive = inkT >= 0.6;
 
         // Selection dimming logic
         let nodeOpacity = 1;
@@ -381,9 +505,10 @@ export default function IdleGraph({ onSelectNode, selectedNodeId }: IdleGraphPro
           <g
             key={node.id}
             style={{
-              cursor: 'pointer',
-              opacity: nodeOpacity,
+              cursor: inkInteractive ? 'pointer' : 'default',
+              opacity: nodeOpacity * inkT,
               transition: 'opacity 200ms ease',
+              pointerEvents: inkInteractive ? 'auto' : 'none',
             }}
             onClick={() => handleClick(node.id)}
             onMouseEnter={() => setHoveredId(node.id)}
@@ -394,7 +519,7 @@ export default function IdleGraph({ onSelectNode, selectedNodeId }: IdleGraphPro
               <circle
                 cx={node.x}
                 cy={node.y}
-                r={node.radius + 4}
+                r={(node.radius + 4) * inkT}
                 fill="none"
                 stroke="rgba(74, 138, 150, 0.2)"
                 strokeWidth={1}
@@ -406,7 +531,7 @@ export default function IdleGraph({ onSelectNode, selectedNodeId }: IdleGraphPro
               <circle
                 cx={node.x}
                 cy={node.y}
-                r={node.radius + 6}
+                r={(node.radius + 6) * inkT}
                 fill="none"
                 stroke="rgba(74, 138, 150, 0.3)"
                 strokeWidth={2}
@@ -416,7 +541,7 @@ export default function IdleGraph({ onSelectNode, selectedNodeId }: IdleGraphPro
             <circle
               cx={node.x}
               cy={node.y}
-              r={isHovered || isSelected ? node.radius + 2 : node.radius}
+              r={(isHovered || isSelected ? node.radius + 2 : node.radius) * inkT}
               fill={isCluster ? 'rgba(74, 138, 150, 0.15)' : `${color}22`}
               stroke={isSelected ? '#4A8A96' : color}
               strokeWidth={isSelected ? 2 : isHovered ? 1.5 : 0.8}

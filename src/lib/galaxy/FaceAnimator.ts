@@ -15,6 +15,78 @@ import type { StippleTarget } from './StipplingEngine';
 import { MOUTH_REGION, EYE_REGIONS, FACE_NODE_ID } from './TheseusAvatar';
 
 // ---------------------------------------------------------------------------
+// Expression system
+// ---------------------------------------------------------------------------
+
+/**
+ * Expression parameters. Every expression is a point in this small parameter
+ * space. Transitions between expressions are linear interpolations between
+ * two parameter sets, applied to the already-tagged face dots via the same
+ * displacement pass that handles breathing and blinking. No restippling,
+ * no Lloyd relaxation per expression, no loss of dot identity.
+ *
+ * Conventions:
+ *   browTiltL / browTiltR  0 = flat, 1 = raised ~6px. Negative = lowered.
+ *   eyeShift               -1 = look left, 1 = look right (displaces eye dots horizontally).
+ *   mouthSmile             -1 = frown, 0 = neutral, 1 = smile (curves lower lip corners).
+ *   eyeNarrow              0 = open, 1 = squinted (persistent vertical squeeze, distinct
+ *                          from blinkAmount which is a brief triangle-wave pulse).
+ */
+export interface FaceExpressionParams {
+  browTiltL: number;
+  browTiltR: number;
+  eyeShift: number;
+  mouthSmile: number;
+  eyeNarrow: number;
+}
+
+export type FaceExpressionName =
+  | 'idle'
+  | 'thinking'
+  | 'working'
+  | 'found'
+  | 'done'
+  | 'pondering'
+  | 'curious';
+
+export const EXPRESSION_PRESETS: Record<FaceExpressionName, FaceExpressionParams> = {
+  idle:       { browTiltL: 0.0, browTiltR: 0.0, eyeShift:  0.0, mouthSmile:  0.0, eyeNarrow: 0.0 },
+  thinking:   { browTiltL: 0.4, browTiltR: 0.0, eyeShift: -0.2, mouthSmile: -0.15, eyeNarrow: 0.3 },
+  working:    { browTiltL: 0.3, browTiltR: 0.3, eyeShift:  0.0, mouthSmile:  0.0, eyeNarrow: 0.5 },
+  found:      { browTiltL: 0.8, browTiltR: 0.8, eyeShift:  0.0, mouthSmile:  0.6, eyeNarrow: 0.0 },
+  done:       { browTiltL: 0.0, browTiltR: 0.0, eyeShift:  0.0, mouthSmile:  0.5, eyeNarrow: 0.0 },
+  pondering:  { browTiltL: 1.0, browTiltR: 0.0, eyeShift:  0.0, mouthSmile:  0.0, eyeNarrow: 0.0 },
+  curious:    { browTiltL: 1.0, browTiltR: 1.0, eyeShift:  0.0, mouthSmile:  0.0, eyeNarrow: 0.0 },
+};
+
+/** Default transition duration between expressions (ms). Tuned for natural feel. */
+export const EXPRESSION_TRANSITION_MS = 500;
+
+function lerp(a: number, b: number, t: number): number {
+  return a + (b - a) * t;
+}
+
+function easeOutCubic(t: number): number {
+  return 1 - Math.pow(1 - t, 3);
+}
+
+export function lerpExpression(
+  a: FaceExpressionParams,
+  b: FaceExpressionParams,
+  rawT: number,
+): FaceExpressionParams {
+  const t = Math.max(0, Math.min(1, rawT));
+  const eased = easeOutCubic(t);
+  return {
+    browTiltL: lerp(a.browTiltL, b.browTiltL, eased),
+    browTiltR: lerp(a.browTiltR, b.browTiltR, eased),
+    eyeShift:  lerp(a.eyeShift,  b.eyeShift,  eased),
+    mouthSmile: lerp(a.mouthSmile, b.mouthSmile, eased),
+    eyeNarrow: lerp(a.eyeNarrow, b.eyeNarrow, eased),
+  };
+}
+
+// ---------------------------------------------------------------------------
 // Types
 // ---------------------------------------------------------------------------
 
@@ -38,6 +110,13 @@ export interface FaceAnimationState {
   blinkAmount: number;
   /** Sine phase for breathing oscillation (radians) */
   breathPhase: number;
+  /**
+   * Active expression parameters. At rest this matches an EXPRESSION_PRESET.
+   * During a transition it's an interpolation (owner computes via
+   * lerpExpression and writes the result each frame). Optional so existing
+   * call sites that only use breathing/blink/mouthOpen don't break.
+   */
+  expression?: FaceExpressionParams;
 }
 
 export interface BlinkTimer {
@@ -155,33 +234,104 @@ export function animateFaceDots(
   state: FaceAnimationState,
 ): void {
   const breathOffset = Math.sin(state.breathPhase) * 1.5;
+  const expr = state.expression;
+
+  // Mouth center X in canvas coords (used for smile curve). Derived once so
+  // the inner loop stays allocation-free.
+  let mouthCenterX = 0;
+  let mouthSpanX = 1;
+  if (expr && expr.mouthSmile !== 0) {
+    // Find the average baseX of mouth dots as a cheap center-of-mass.
+    // In practice the stippler places mouth dots symmetrically so the
+    // mean closely matches MOUTH_REGION.cx in canvas space.
+    let sum = 0;
+    let count = 0;
+    let minX = Infinity;
+    let maxX = -Infinity;
+    for (let i = 0; i < tagged.length; i++) {
+      const t = tagged[i];
+      if (t.region === 'mouth-upper' || t.region === 'mouth-lower') {
+        sum += t.baseX;
+        count++;
+        if (t.baseX < minX) minX = t.baseX;
+        if (t.baseX > maxX) maxX = t.baseX;
+      }
+    }
+    if (count > 0) {
+      mouthCenterX = sum / count;
+      mouthSpanX = Math.max(1, (maxX - minX) / 2);
+    }
+  }
 
   for (let i = 0; i < tagged.length; i++) {
     const dot = tagged[i];
     const target = targets[dot.index];
 
     // Start from base position
+    let x = dot.baseX;
     let y = dot.baseY;
 
     // Breathing: all face dots
     y += breathOffset;
 
-    // Mouth displacement
+    // Mouth openness (legacy channel for VU meter / speaking).
     if (dot.region === 'mouth-upper') {
       y -= state.mouthOpen * 8;
     } else if (dot.region === 'mouth-lower') {
       y += state.mouthOpen * 12;
     }
 
-    // Blink: squeeze eye dots toward the eye center Y in canvas space
+    // Blink: squeeze eye dots toward the eye center Y in canvas space.
     if ((dot.region === 'eye-left' || dot.region === 'eye-right') && dot.eyeCenterCanvasY !== undefined) {
       const pullStrength = state.blinkAmount * 0.85;
       y = y * (1 - pullStrength) + dot.eyeCenterCanvasY * pullStrength;
     }
 
+    // Expression parameters: applied as additional displacements so dot
+    // identity is preserved across transitions. An expression change is a
+    // parameter lerp; animateFaceDots reads the current parameter vector
+    // and moves each dot accordingly. No restippling.
+    if (expr) {
+      const isEyeLeft = dot.region === 'eye-left';
+      const isEyeRight = dot.region === 'eye-right';
+      const isEye = isEyeLeft || isEyeRight;
+
+      // Horizontal glance: shift eye dots left/right.
+      if (isEye && expr.eyeShift !== 0) {
+        x += expr.eyeShift * 4;
+      }
+
+      // Brow tilt: for each eye, lift the upper half of that eye's dots.
+      // "Upper half" = baseY above the eye center.
+      if (isEye && dot.eyeCenterCanvasY !== undefined) {
+        const isUpperHalf = dot.baseY < dot.eyeCenterCanvasY;
+        if (isUpperHalf) {
+          const tilt = isEyeLeft ? expr.browTiltL : expr.browTiltR;
+          y -= tilt * 6;
+        }
+      }
+
+      // Persistent eye-narrow: like blink but held. Additive on top of blink.
+      if (isEye && dot.eyeCenterCanvasY !== undefined && expr.eyeNarrow > 0) {
+        const narrow = expr.eyeNarrow * 0.35;
+        y = y * (1 - narrow) + dot.eyeCenterCanvasY * narrow;
+      }
+
+      // Smile curve: lower-lip dots near the mouth corners lift (positive
+      // smile) or drop (negative frown). Center stays near neutral. Using
+      // |dx| normalized to mouthSpanX so the curve scales with mouth width.
+      if (dot.region === 'mouth-lower' && expr.mouthSmile !== 0) {
+        const dx = Math.abs(dot.baseX - mouthCenterX) / mouthSpanX;
+        y -= expr.mouthSmile * dx * dx * 4;
+      } else if (dot.region === 'mouth-upper' && expr.mouthSmile !== 0) {
+        // Upper lip tracks subtly to keep the shape coherent.
+        const dx = Math.abs(dot.baseX - mouthCenterX) / mouthSpanX;
+        y -= expr.mouthSmile * dx * dx * 1.5;
+      }
+    }
+
+    target.x = x;
     target.y = y;
-    // X is not displaced (preserve horizontal position)
-    target.x = dot.baseX;
   }
 }
 
@@ -237,5 +387,6 @@ export function tickIdleAnimation(
     mouthOpen: state.mouthOpen,
     blinkAmount,
     breathPhase,
+    expression: state.expression,
   };
 }

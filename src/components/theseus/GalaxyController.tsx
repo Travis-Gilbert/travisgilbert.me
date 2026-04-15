@@ -24,6 +24,13 @@ export interface GalaxyControllerHandle {
   getPersonalDotIndices: () => Set<number>;
   /** Set of dot indices marked corpus (teal). May be empty. */
   getCorpusDotIndices: () => Set<number>;
+  /**
+   * Tween the face into the named expression preset. Dot identity is
+   * preserved; the transition is a parameter lerp applied as displacement
+   * by the existing face animation loop. No restipple. See FaceAnimator
+   * for the preset vectors.
+   */
+  setFaceExpression: (name: FaceExpressionName, durationMs?: number) => void;
 }
 import type { ClusterSummary, EvidenceEdge, EvidenceNode, TheseusResponse, WhatIfResult } from '@/lib/theseus-types';
 import type { SceneDirective } from '@/lib/theseus-viz/SceneDirective';
@@ -54,8 +61,13 @@ import {
   tagFaceDots,
   animateFaceDots,
   tickIdleAnimation,
+  lerpExpression,
+  EXPRESSION_PRESETS,
+  EXPRESSION_TRANSITION_MS,
   type TaggedDot,
   type FaceAnimationState,
+  type FaceExpressionName,
+  type FaceExpressionParams,
   type BlinkTimer,
 } from '@/lib/galaxy/FaceAnimator';
 
@@ -259,6 +271,16 @@ function GalaxyController({
   const personalDotIndicesRef = useRef<Set<number>>(new Set());
   const corpusDotIndicesRef = useRef<Set<number>>(new Set());
 
+  // Face expression tween refs. Declared here so the imperative handle can
+  // expose setFaceExpression without needing to capture the later-defined
+  // setFaceExpression useCallback. The face animation loop reads these each
+  // frame and feeds lerpExpression with them.
+  const faceExprFromRef = useRef<FaceExpressionParams>({ ...EXPRESSION_PRESETS.idle });
+  const faceExprToRef = useRef<FaceExpressionParams>({ ...EXPRESSION_PRESETS.idle });
+  const faceExprStartRef = useRef<number>(0);
+  const faceExprDurationRef = useRef<number>(EXPRESSION_TRANSITION_MS);
+  const faceExprNameRef = useRef<FaceExpressionName>('idle');
+
   // Phase B: expose the imperative handle consumed by ThinkingChoreographer.
   // Each accessor returns the live ref contents, not a snapshot, so the
   // choreographer always sees the latest cluster-assignment state.
@@ -267,6 +289,19 @@ function GalaxyController({
     getObjectIdToDotIndex: () => objectIdIntToDotMapRef.current,
     getPersonalDotIndices: () => personalDotIndicesRef.current,
     getCorpusDotIndices: () => corpusDotIndicesRef.current,
+    setFaceExpression: (name, durationMs = EXPRESSION_TRANSITION_MS) => {
+      if (faceExprNameRef.current === name) return;
+      // Start the tween from the current lerped value (not the last
+      // destination) so rapid back-to-back transitions chain smoothly
+      // instead of snapping to the prior target.
+      faceExprFromRef.current = {
+        ...(faceAnimStateRef.current.expression ?? EXPRESSION_PRESETS.idle),
+      };
+      faceExprToRef.current = { ...EXPRESSION_PRESETS[name] };
+      faceExprStartRef.current = performance.now();
+      faceExprDurationRef.current = Math.max(60, durationMs);
+      faceExprNameRef.current = name;
+    },
   }), [gridRef]);
   // Recruited neighborhood dots (for constellation cleanup)
   const recruitedDotsRef = useRef<Set<number>>(new Set());
@@ -306,13 +341,22 @@ function GalaxyController({
   const stippleResultRef = useRef<StippleConstructionResult | null>(null);
   // Face idle state
   const faceTaggedRef = useRef<TaggedDot[]>([]);
-  const faceAnimStateRef = useRef<FaceAnimationState>({ mouthOpen: 0, blinkAmount: 0, breathPhase: 0 });
+  const faceAnimStateRef = useRef<FaceAnimationState>({
+    mouthOpen: 0,
+    blinkAmount: 0,
+    breathPhase: 0,
+    expression: { ...EXPRESSION_PRESETS.idle },
+  });
   const faceBlinkTimerRef = useRef<BlinkTimer>({ nextBlink: performance.now() + 5000, blinking: false, blinkStart: 0 });
   const faceAnimFrameRef = useRef<number>(0);
   const faceActiveRef = useRef(false);
   const faceWasActiveRef = useRef(false);
   const faceDotCountRef = useRef(0);
   const faceLastTickRef = useRef(0);
+
+  // (Face expression tween refs are declared earlier, above useImperativeHandle,
+  // so the imperative handle can expose setFaceExpression without capturing a
+  // later-defined callback.)
 
   // Keep predTypeRef current without triggering the main animation effect
   useEffect(() => {
@@ -1002,6 +1046,19 @@ function GalaxyController({
         faceAnimStateRef.current,
         delta,
         faceBlinkTimerRef.current,
+      );
+
+      // Expression tween: compute interpolated params and write them into
+      // the anim state. When the tween is complete (t >= 1) this settles on
+      // the target preset. Dots keep their identity the whole time; only
+      // displacement magnitudes change per frame.
+      const exprDuration = faceExprDurationRef.current;
+      const exprElapsed = now - faceExprStartRef.current;
+      const exprT = exprDuration > 0 ? exprElapsed / exprDuration : 1;
+      faceAnimStateRef.current.expression = lerpExpression(
+        faceExprFromRef.current,
+        faceExprToRef.current,
+        exprT,
       );
 
       // Apply displacement to stipple targets (mutates targets in place)

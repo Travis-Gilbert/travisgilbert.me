@@ -22,6 +22,7 @@ import { buildObjectLookup } from '@/components/theseus/renderers/rendering';
 import RenderRouter from '@/components/theseus/renderers/RenderRouter';
 import ThinkingScreen from '@/components/theseus/ThinkingScreen';
 import AmbientGraphActivity from '@/components/theseus/AmbientGraphActivity';
+import TerminalStream from '@/components/theseus/TerminalStream';
 import {
   getAskPresentationState,
   mergeProgressiveVisualPayload,
@@ -32,6 +33,7 @@ import SourceTrail from '@/components/theseus/SourceTrail';
 import { getModel } from '@/lib/theseus-storage';
 import { useIsMobile } from '@/hooks/useIsMobile';
 import { usePrefersReducedMotion } from '@/hooks/usePrefersReducedMotion';
+import { useTerminalStream } from '@/hooks/useTerminalStream';
 import { VoiceControls } from '@/components/ask/VoiceControls';
 // SpatialPanel removed: ExplorerLayout's AnswerReadingPanel handles
 // all narrative rendering. See the comment in the render below.
@@ -756,6 +758,56 @@ export function AskExperience() {
   const choreographerRef = useRef<ThinkingChoreographer | null>(null);
   const streamCleanupRef = useRef<(() => void) | null>(null);
 
+  // Terminal stream for the honest cycling-status line. One TerminalStream
+  // floats bottom-left, out of the centered query's path, and pushes one
+  // event per SSE stage so the user knows what the pipeline is doing.
+  const terminalStream = useTerminalStream();
+  const pushStage = useCallback(
+    (event: StageEvent) => {
+      switch (event.name) {
+        case 'pipeline_start':
+          terminalStream.reset();
+          terminalStream.push({ kind: 'milestone', text: 'parsing query' });
+          break;
+        case 'e4b_classify_start':
+          terminalStream.push({ kind: 'milestone', text: 'classifying entities' });
+          break;
+        case 'e4b_classify_complete':
+          terminalStream.push({
+            kind: 'data',
+            text: 'entity classified',
+            detail: event.extracted_entity ?? event.answer_type,
+          });
+          break;
+        case 'retrieval_start':
+          terminalStream.push({ kind: 'milestone', text: 'retrieving evidence' });
+          break;
+        case 'retrieval_complete':
+          terminalStream.push({
+            kind: 'data',
+            text: 'evidence gathered',
+            detail: `${event.evidence_count} items`,
+          });
+          break;
+        case 'objects_loaded':
+          terminalStream.push({
+            kind: 'data',
+            text: 'objects loaded',
+            detail: `${event.object_count}`,
+          });
+          break;
+        case 'expression_start':
+          terminalStream.push({ kind: 'milestone', text: 'composing answer' });
+          break;
+        case 'expression_complete':
+          terminalStream.push({ kind: 'data', text: 'answer ready' });
+          terminalStream.complete();
+          break;
+      }
+    },
+    [terminalStream],
+  );
+
   const [state, setState] = useState<AskState>(query ? 'THINKING' : 'IDLE');
   const [response, setResponse] = useState<TheseusResponse | null>(null);
   const [sceneDirective, setSceneDirective] = useState<SceneDirective | null>(null);
@@ -785,7 +837,38 @@ export function AskExperience() {
     stateRef.current = nextState;
     setState(nextState);
     pushState(nextState);
-  }, [pushState]);
+    // Drive the face expression as state changes. Expressions are tweened
+    // via parameter displacement on the already-tagged face dots, so the
+    // shape smoothly morphs without restippling and without scattering the
+    // dot identity across expressions.
+    const face = galaxyControllerRef?.current?.setFaceExpression;
+    if (face) {
+      switch (nextState) {
+        case 'THINKING':
+          face('thinking');
+          break;
+        case 'CONSTRUCTING':
+          face('working');
+          break;
+        case 'MODEL':
+          // Brief "found it" beat, then settle to "done". The found beat
+          // overlaps with the actual answer reveal so the face reacts with
+          // the content, not before it.
+          face('found', 320);
+          window.setTimeout(() => {
+            const next = galaxyControllerRef?.current?.setFaceExpression;
+            if (next && stateRef.current === 'MODEL') next('done', 420);
+          }, 700);
+          break;
+        case 'EXPLORING':
+          face('idle');
+          break;
+        case 'IDLE':
+          face('idle');
+          break;
+      }
+    }
+  }, [pushState, galaxyControllerRef]);
 
   const applyResponse = useCallback((nextResponse: TheseusResponse | null) => {
     responseRef.current = nextResponse;
@@ -1204,6 +1287,7 @@ export function AskExperience() {
           onStage: (event: StageEvent) => {
             if (isStale()) return;
             choreographerRef.current?.handleStage(event);
+            pushStage(event);
           },
           onToken: (_text: string) => {
             // Tokens are aggregated by the backend into the final response.
@@ -1294,6 +1378,8 @@ export function AskExperience() {
               reason: 'network',
               transient: err.transient,
             };
+            terminalStream.push({ kind: 'milestone', text: 'request failed' });
+            terminalStream.complete();
             if (revealAnswerWithoutScene()) {
               pushDataStatusIfCurrent({
                 phase: 'error',
@@ -1475,13 +1561,26 @@ export function AskExperience() {
         prefersReducedMotion={prefersReducedMotion}
       />
 
-      {/* Status overlay: simple "thinking…" line below the centered
-          query while a request is in flight. ThinkingScreen no longer
-          owns the query text or the spinner; it is just a small
-          status row. */}
+      {/* Status overlay: ThinkingScreen's old centered status row and
+          slow-warning text lived here. Both are now carried by the
+          TerminalStream in the bottom-left corner (below). The
+          ThinkingScreen is retained during submit for its data-status
+          behavior (e.g. loading model data) since that slot is not yet
+          represented in the terminal stream. */}
       {submitting && (
         <ThinkingScreen state={state} query={null} dataStatus={dataStatus} />
       )}
+
+      {/* Terminal stream: floating bottom-left during THINKING / CONSTRUCTING.
+          One cycling line with a braille spinner on the active stage,
+          collapses to an expandable pill once the answer is ready. */}
+      <TerminalStream
+        events={terminalStream.events}
+        active={terminalStream.active}
+        completionMs={terminalStream.completionMs}
+        variant="floating"
+        label="answer ready"
+      />
 
       {showProgressiveAnswerCard && (
         <ProgressiveAnswerCard

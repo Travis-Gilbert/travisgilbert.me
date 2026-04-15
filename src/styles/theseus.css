@@ -5555,3 +5555,39 @@
     transition: none;
   }
 }
+
+/* ── Skeleton rows (tab loading placeholders) ───────────────── */
+/* Dashed rough-feeling rectangles that pulse while waiting for tab
+   content. Each row pulses on a staggered delay so the surface reads
+   as a single breathing shape rather than several independent blinks. */
+
+.explorer-skeleton-rows {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 12px 0;
+}
+
+.explorer-skeleton-row {
+  border: 1px dashed color-mix(in oklab, var(--vie-text-dim, #5a5650) 35%, transparent);
+  border-radius: 4px;
+  background: transparent;
+  animation: explorer-skeleton-pulse 1400ms ease-in-out infinite;
+}
+
+@keyframes explorer-skeleton-pulse {
+  0%, 100% {
+    border-color: color-mix(in oklab, var(--vie-text-dim, #5a5650) 30%, transparent);
+    background-color: transparent;
+  }
+  50% {
+    border-color: color-mix(in oklab, var(--vie-amber, #c49a4a) 28%, transparent);
+    background-color: color-mix(in oklab, var(--vie-amber, #c49a4a) 5%, transparent);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .explorer-skeleton-row {
+    animation: none;
+  }
+}
