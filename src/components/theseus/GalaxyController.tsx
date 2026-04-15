@@ -161,6 +161,37 @@ function placeholderClusterSource(clusterId: number): ClusterSource {
 // canvas bubble was a legacy fallback. ExplorerLayout's
 // AnswerReadingPanel now handles all narrative display.
 
+/**
+ * Convert web_evidence sections into synthetic EvidenceNode entries so
+ * the stipple pipeline can recruit dots for external sources too. The
+ * stipple renderer only reads object_id (for dedupe), title (for
+ * crystallize labels), and gradual_strength (for recruitment weight),
+ * so synthetic IDs are safe here -- downstream graph-traversal code
+ * never sees these nodes because they are rebuilt fresh each query.
+ */
+function extractWebNodes(response: TheseusResponse): EvidenceNode[] {
+  const result: EvidenceNode[] = [];
+  let idx = 0;
+  for (const section of response.sections) {
+    if (section.type !== 'web_evidence') continue;
+    const syntheticId = `web-${idx++}`;
+    result.push({
+      object_id: syntheticId,
+      title: section.title || section.url || 'Web result',
+      object_type: 'source',
+      epistemic_role: 'referential',
+      gradual_strength: Math.min(1, Math.max(0.3, section.relevance ?? 0.5)),
+      claims: section.snippet ? [section.snippet] : [],
+      metadata: {
+        url: section.url,
+        web_source: true,
+        stance_vs_graph: section.stance_vs_graph,
+      },
+    });
+  }
+  return result;
+}
+
 interface ClusterDotMapping {
   clusterId: number;
   dotIndex: number;
@@ -301,8 +332,9 @@ function GalaxyController({
     prevArgumentViewRef.current = { view: currentView, responseQuery: currentQuery };
 
     const evidencePath = response.sections.find((s) => s.type === 'evidence_path');
-    const nodes: EvidenceNode[] = evidencePath && 'nodes' in evidencePath ? evidencePath.nodes : [];
+    const baseNodes: EvidenceNode[] = evidencePath && 'nodes' in evidencePath ? evidencePath.nodes : [];
     const edges: EvidenceEdge[] = evidencePath && 'edges' in evidencePath ? evidencePath.edges : [];
+    const nodes: EvidenceNode[] = [...baseNodes, ...extractWebNodes(response)];
 
     if (nodes.length === 0) return;
 
@@ -1164,8 +1196,12 @@ function GalaxyController({
     recruitedDotsRef.current.clear();
 
     const evidencePath = resp.sections.find((s) => s.type === 'evidence_path');
-    const nodes: EvidenceNode[] = evidencePath && 'nodes' in evidencePath ? evidencePath.nodes : [];
+    const baseNodes: EvidenceNode[] = evidencePath && 'nodes' in evidencePath ? evidencePath.nodes : [];
     const edges: EvidenceEdge[] = evidencePath && 'edges' in evidencePath ? evidencePath.edges : [];
+    // Web evidence sections feed the stipple too: the constellation should
+    // include external sources as recruited dots so a query that pulls in
+    // 5 web hits has 5 extra points contributing to the visual form.
+    const nodes: EvidenceNode[] = [...baseNodes, ...extractWebNodes(resp)];
 
     const objectSection = resp.sections.find((s) => s.type === 'objects');
     const objects = objectSection && 'objects' in objectSection ? objectSection.objects : [];
