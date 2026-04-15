@@ -72,6 +72,47 @@ function formatPhaseDone(phase: string, data: Record<string, unknown>): string {
  * Theseus rather than a standalone utility. Typography, tokens, and
  * panel glass follow the VIE design language.
  */
+// Total phase_done events the ingest pipeline can emit. Mirrors the
+// _emit('phase_done', ...) sites in ingest_codebase.py. Used to derive
+// a 0..1 ingest progress value that drives animation speed-up (cursor
+// pulse, heat breath, entry motion) — the machine reads as more
+// energetic as it closes in on completion.
+const TOTAL_PHASES = 8;
+
+const NUMBER_FORMAT = new Intl.NumberFormat();
+
+/**
+ * Stat row on the Done screen. Shows both "added this run" and the
+ * running total in graph, so a re-ingest of an already-ingested repo
+ * does not read as "0 objects created" without context.
+ *
+ * If the backend did not emit totals (older response), we fall back
+ * to showing just the delta.
+ */
+function StatRow({
+  label,
+  added,
+  total,
+}: {
+  label: string;
+  added: number;
+  total?: number;
+}) {
+  return (
+    <div className="cx-stat">
+      <dt>{label}</dt>
+      <dd>
+        <span className="cx-stat-added">
+          {added > 0 ? `+${NUMBER_FORMAT.format(added)}` : '0'}
+        </span>
+        {typeof total === 'number' && (
+          <span className="cx-stat-total"> · {NUMBER_FORMAT.format(total)} in graph</span>
+        )}
+      </dd>
+    </div>
+  );
+}
+
 export default function CodeExplorer() {
   type Status = 'idle' | 'ingesting' | 'done' | 'error';
 
@@ -80,8 +121,11 @@ export default function CodeExplorer() {
   const [stats, setStats] = useState<IngestionStats | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [log, setLog] = useState<IngestLogLine[]>([]);
+  const [phasesCompleted, setPhasesCompleted] = useState(0);
   const logIdRef = useRef(1);
   const abortRef = useRef<AbortController | null>(null);
+
+  const ingestProgress = Math.min(1, phasesCompleted / TOTAL_PHASES);
 
   // Autofocus the input only on fine-pointer devices. On touch devices
   // autoFocus pops the soft keyboard before the user has seen the page,
@@ -115,6 +159,7 @@ export default function CodeExplorer() {
     setError(null);
     setStats(null);
     setLog([]);
+    setPhasesCompleted(0);
     logIdRef.current = 1;
 
     const controller = new AbortController();
@@ -133,6 +178,9 @@ export default function CodeExplorer() {
         },
         onPhaseDone: (data) => {
           pushLog(data.phase, formatPhaseDone(data.phase, data));
+          // Each phase_done marks real progress. The CSS layer reads
+          // --ingest-progress to accelerate cursor pulse + heat breath.
+          setPhasesCompleted((n) => n + 1);
         },
       },
       controller.signal,
@@ -157,6 +205,7 @@ export default function CodeExplorer() {
     setError(null);
     setStatus('idle');
     setLog([]);
+    setPhasesCompleted(0);
     logIdRef.current = 1;
   }
 
@@ -166,7 +215,16 @@ export default function CodeExplorer() {
   }, []);
 
   return (
-    <div className="cx-root" data-machine-warm={status === 'ingesting' ? 'true' : 'false'}>
+    <div
+      className="cx-root"
+      data-machine-warm={status === 'ingesting' ? 'true' : 'false'}
+      // --ingest-speed feeds CSS calc() for cursor pulse, heat breath,
+      // and log-line entry animation. 1.0 = baseline tempo; drops toward
+      // ~0.35 as phases complete, so the machine visibly quickens as it
+      // nears done. Reduced-motion CSS rules still override to `animation:
+      // none`, which also ignores this variable.
+      style={{ '--ingest-speed': 1 - 0.65 * ingestProgress } as React.CSSProperties}
+    >
       {/* Shared Theseus substrate: warm noir, radial patches, pixel noise. */}
       <div className="cx-substrate" aria-hidden="true">
         <ChatCanvas />
@@ -282,18 +340,21 @@ export default function CodeExplorer() {
               <h1 className="cx-title">Ingested.</h1>
 
               <dl className="cx-stats">
-                <div className="cx-stat">
-                  <dt>Objects</dt>
-                  <dd>{stats.objects_created}</dd>
-                </div>
-                <div className="cx-stat">
-                  <dt>Edges</dt>
-                  <dd>{stats.edges_created}</dd>
-                </div>
-                <div className="cx-stat">
-                  <dt>Processes</dt>
-                  <dd>{stats.processes_detected}</dd>
-                </div>
+                <StatRow
+                  label="Objects"
+                  added={stats.objects_created}
+                  total={stats.objects_total}
+                />
+                <StatRow
+                  label="Edges"
+                  added={stats.edges_created}
+                  total={stats.edges_total}
+                />
+                <StatRow
+                  label="Processes"
+                  added={stats.processes_detected}
+                  total={stats.processes_total}
+                />
                 <div className="cx-stat">
                   <dt>Languages</dt>
                   <dd>{stats.languages.join(', ') || '—'}</dd>

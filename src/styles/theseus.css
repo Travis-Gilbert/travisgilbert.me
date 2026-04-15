@@ -445,10 +445,13 @@
 }
 
 /* R4: heat wash breathes when the machine is warm (submitting/ingesting).
-   Applied by setting data-machine-warm="true" on the parent surface. */
+   Applied by setting data-machine-warm="true" on the parent surface.
+   CodeExplorer feeds --ingest-speed (1 → ~0.35 over the ingest), so the
+   heat pumps faster as phases complete; Ask chat leaves the variable
+   unset and falls through to the 1.0 default. */
 [data-machine-warm="true"] .cx-heat,
 [data-machine-warm="true"] .theseus-chat-heat {
-  animation: vie-heat-breath 14s ease-in-out infinite;
+  animation: vie-heat-breath calc(14s * var(--ingest-speed, 1)) ease-in-out infinite;
 }
 
 @keyframes vie-heat-breath {
@@ -5237,8 +5240,9 @@
   /* Entry motion: incoming transmissions materialize from a slight
      left-offset with a fade. 260ms with an ease-out curve reads as
      "arrival" — not springy, which would feel UI-toylike in a data
-     telemetry context. */
-  animation: cx-log-arrive 260ms cubic-bezier(0.22, 0.61, 0.36, 1) both;
+     telemetry context. Duration scales with --ingest-speed so late
+     phases land more crisply (~140ms) than early ones. */
+  animation: cx-log-arrive calc(260ms * var(--ingest-speed, 1)) cubic-bezier(0.22, 0.61, 0.36, 1) both;
 }
 
 .cx-log-cursor {
@@ -5281,13 +5285,15 @@
 /* Live cursor: amber dot with a soft halo that pulses. Signals "this is
    the phase the machine is working on right now." Only one line ever
    carries this at a time; pushLog dims all previous lines on every new
-   entry, so the cursor naturally travels down the stack. */
+   entry, so the cursor naturally travels down the stack. Pulse tempo
+   scales with --ingest-speed, so the cursor visibly quickens as phases
+   complete — the machine reads as more focused near the finish. */
 .cx-log-line--live .cx-log-cursor {
   background: var(--vie-amber);
   box-shadow:
     0 0 0 2px rgba(196, 154, 74, 0.16),
     0 0 8px 1px rgba(196, 154, 74, 0.24);
-  animation: cx-log-cursor-pulse 1.8s ease-in-out infinite;
+  animation: cx-log-cursor-pulse calc(1.8s * var(--ingest-speed, 1)) ease-in-out infinite;
 }
 
 @keyframes cx-log-arrive {
@@ -5366,6 +5372,19 @@
   margin: 0;
   font-variant-numeric: tabular-nums;
   text-align: right;
+}
+
+/* The delta ("+N") gets the phosphor amber that matches the eyebrow.
+   The running-total tail is quieter, in ink-3, so the primary value
+   still leads the row. */
+.cx-stat-added {
+  color: var(--vie-type-hunch);
+}
+
+.cx-stat-total {
+  color: var(--vie-text-dim);
+  font-size: 12.5px;
+  letter-spacing: 0.01em;
 }
 
 /* ── Error ───────────────────────────────────────────────────── */

@@ -599,9 +599,15 @@ export interface FixPattern {
 }
 
 export interface IngestionStats {
+  // Delta: what this run added.
   objects_created: number;
   edges_created: number;
   processes_detected: number;
+  // Totals in the graph after this run. Default to 0 for forward-compat
+  // with older backend responses that did not emit totals.
+  objects_total?: number;
+  edges_total?: number;
+  processes_total?: number;
   languages: string[];
   duration_ms: number;
 }
