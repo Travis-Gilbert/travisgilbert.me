@@ -116,6 +116,21 @@ function pruneWeakEdges(g: Graph, maxEdgesPerNode: number) {
   }
 }
 
+/**
+ * Milestone callback fired by the fetch paths so an external terminal stream
+ * (see useTerminalStream / TerminalStream) can display honest status.
+ * Kept to a minimal shape so the hook stays UI-agnostic.
+ */
+export type GraphDataMilestone =
+  | { kind: 'start'; label: string; detail?: string }
+  | { kind: 'loaded'; label: string; detail?: string }
+  | { kind: 'done'; label: string; detail?: string }
+  | { kind: 'error'; label: string; detail?: string };
+
+export interface UseGraphDataOptions {
+  onMilestone?: (event: GraphDataMilestone) => void;
+}
+
 export interface UseGraphDataReturn {
   graph: Graph;
   loading: boolean;
@@ -127,7 +142,13 @@ export interface UseGraphDataReturn {
   loadSubgraph: (nodeIds: string[]) => Promise<void>;
 }
 
-export function useGraphData(): UseGraphDataReturn {
+export function useGraphData(options: UseGraphDataOptions = {}): UseGraphDataReturn {
+  const { onMilestone } = options;
+  const milestoneRef = useRef(onMilestone);
+  milestoneRef.current = onMilestone;
+  const emit = useCallback((event: GraphDataMilestone) => {
+    milestoneRef.current?.(event);
+  }, []);
   const graphRef = useRef<Graph>(new Graph({ multi: true, type: 'undirected' }));
   const [loading, setLoading] = useState(false);
   const [graphData, setGraphData] = useState<GraphData | null>(null);
@@ -276,36 +297,73 @@ export function useGraphData(): UseGraphDataReturn {
 
   const loadNeighborhood = useCallback(async (centerId: string, hops = 2) => {
     setLoading(true);
-    // Limit to 80 nodes for readable neighborhoods (not 500)
+    emit({ kind: 'start', label: `fetching neighborhood (${hops} hops)` });
     const result = await getGraphData({ center: centerId, hops, limit: 80 });
     if (result.ok) {
+      emit({
+        kind: 'loaded',
+        label: 'neighborhood received',
+        detail: `${result.nodes.length} nodes, ${result.edges.length} edges`,
+      });
       mergeGraphData(result);
+      emit({
+        kind: 'done',
+        label: 'graph ready',
+        detail: `${result.nodes.length} nodes`,
+      });
+    } else {
+      emit({ kind: 'error', label: 'failed to load neighborhood' });
     }
     setLoading(false);
-  }, [mergeGraphData]);
+  }, [mergeGraphData, emit]);
 
   const loadTopNodes = useCallback(async (limit = 30) => {
     setLoading(true);
+    emit({ kind: 'start', label: `loading top ${limit} nodes` });
     const result = await getGraphData({ limit });
     if (result.ok) {
+      emit({
+        kind: 'loaded',
+        label: 'nodes received',
+        detail: `${result.nodes.length} nodes`,
+      });
       mergeGraphData(result);
+      emit({
+        kind: 'done',
+        label: 'graph ready',
+        detail: `${result.nodes.length} nodes, ${result.edges.length} edges`,
+      });
+    } else {
+      emit({ kind: 'error', label: 'failed to load nodes' });
     }
     setLoading(false);
-  }, [mergeGraphData]);
+  }, [mergeGraphData, emit]);
 
   const loadSubgraph = useCallback(async (nodeIds: string[]) => {
     setLoading(true);
-    // Load 1-hop neighborhoods with modest limits
+    const batch = nodeIds.slice(0, 10);
+    emit({
+      kind: 'start',
+      label: `loading subgraph`,
+      detail: `${batch.length} centers`,
+    });
     const results = await Promise.all(
-      nodeIds.slice(0, 10).map((id) => getGraphData({ center: id, hops: 1, limit: 30 })),
+      batch.map((id) => getGraphData({ center: id, hops: 1, limit: 30 })),
     );
+    let totalNodes = 0;
     for (const result of results) {
       if (result.ok) {
+        totalNodes += result.nodes.length;
         mergeGraphData(result);
       }
     }
+    emit({
+      kind: 'done',
+      label: 'subgraph ready',
+      detail: `${totalNodes} nodes`,
+    });
     setLoading(false);
-  }, [mergeGraphData]);
+  }, [mergeGraphData, emit]);
 
   // Derive ExplorerNode[] and ExplorerEdge[] from the graphology graph.
   // Positions are from ForceAtlas2 (computed once per mergeGraphData).
