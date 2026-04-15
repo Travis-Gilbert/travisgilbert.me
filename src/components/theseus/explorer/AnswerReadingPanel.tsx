@@ -3,8 +3,10 @@
 import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import type { TheseusResponse, EvidenceNode, NarrativeSection, StructuredVisualRegion } from '@/lib/theseus-types';
+import type { StageEvent } from '@/lib/theseus-api';
 import Markdown from './Markdown';
 import ConfidenceBar from './ConfidenceBar';
+import ObjectInspectorTabs from './ObjectInspectorTabs';
 
 /**
  * Build the Code Explorer deep link target from a response.
@@ -24,6 +26,8 @@ interface AnswerReadingPanelProps {
   drilldownId: string | null;
   onDrilldown: (id: string) => void;
   onBack: () => void;
+  /** Stage event from the current ask run; used by the Why tab. */
+  retrievalData?: StageEvent | null;
 }
 
 function extractSources(response: TheseusResponse): EvidenceNode[] {
@@ -227,6 +231,7 @@ export default function AnswerReadingPanel({
   drilldownId,
   onDrilldown,
   onBack,
+  retrievalData,
 }: AnswerReadingPanelProps) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const [fadingOut, setFadingOut] = useState(false);
@@ -401,23 +406,35 @@ export default function AnswerReadingPanel({
           </div>
         )}
 
-        {/* Synthesis / Drilldown body */}
-        <div
-          style={{
-            fontFamily: 'var(--vie-font-body)',
-            fontSize: 15,
-            color: 'var(--vie-ink-2)',
-            lineHeight: 1.82,
-          }}
-        >
-          <Markdown
-            text={
-              isDrilldownActive && drilldownNode
-                ? drilldownNode.claims.join('\n\n')
-                : narrativeText
-            }
+        {/* Synthesis / Drilldown body. In drilldown mode with a real
+            object_id (not a synthetic web-N / region id), render the
+            five-tab object inspector (overview/evidence/tensions/claims/why)
+            so the previously-separate dark ContextPanel is absorbed into
+            this light reading panel. */}
+        {isDrilldownActive && displayed && !displayed.startsWith('web-') && !drilldownRegion ? (
+          <ObjectInspectorTabs
+            nodeId={displayed}
+            retrievalData={retrievalData}
+            onSelectNode={onDrilldown}
           />
-        </div>
+        ) : (
+          <div
+            style={{
+              fontFamily: 'var(--vie-font-body)',
+              fontSize: 15,
+              color: 'var(--vie-ink-2)',
+              lineHeight: 1.82,
+            }}
+          >
+            <Markdown
+              text={
+                isDrilldownActive && drilldownNode
+                  ? drilldownNode.claims.join('\n\n')
+                  : narrativeText
+              }
+            />
+          </div>
+        )}
 
         {/* Sources list */}
         <div style={{ marginTop: 44 }}>

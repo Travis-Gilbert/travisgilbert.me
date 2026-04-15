@@ -1,0 +1,307 @@
+'use client';
+
+/**
+ * ObjectInspectorTabs
+ *
+ * Five-tab object inspector (overview / evidence / tensions / claims / why).
+ * Extracted from the former ContextPanel so the AnswerReadingPanel can
+ * absorb the same tab surface without the dark secondary panel chrome.
+ *
+ * Loads object detail + connections + claims + tensions in parallel when
+ * `nodeId` changes. Accepts an optional `retrievalData` StageEvent so the
+ * "Why" tab can surface BM25 / SBERT / PageRank / community scores from
+ * the current ask run.
+ */
+
+import { useCallback, useEffect, useState } from 'react';
+import {
+  getObject,
+  getObjectConnections,
+  getObjectClaims,
+  getObjectTensions,
+} from '@/lib/theseus-api';
+import type {
+  TheseusObject,
+  ConnectionResult,
+  ClaimResult,
+  TensionResult,
+} from '@/lib/theseus-types';
+import type { StageEvent } from '@/lib/theseus-api';
+import ConnectionList from './ConnectionList';
+import TensionCard from './TensionCard';
+import ClaimRow from './ClaimRow';
+import NeighborhoodSummary from './NeighborhoodSummary';
+
+type ContextTab = 'overview' | 'evidence' | 'tensions' | 'claims' | 'why';
+
+function typeColor(objectType: string): string {
+  switch (objectType) {
+    case 'source': return 'var(--vie-type-source)';
+    case 'concept': return 'var(--vie-type-concept)';
+    case 'person': return 'var(--vie-type-person)';
+    case 'hunch': return 'var(--vie-type-hunch)';
+    default: return 'var(--vie-type-note)';
+  }
+}
+
+function WhyThisNodeContent({
+  nodeId,
+  retrievalData,
+}: {
+  nodeId: string;
+  retrievalData?: StageEvent | null;
+}) {
+  if (!retrievalData || retrievalData.name !== 'retrieval_complete') {
+    return (
+      <p className="explorer-panel-empty">
+        This node was not retrieved for the current query. It appears in the graph via neighborhood expansion or manual search.
+      </p>
+    );
+  }
+  const rd = retrievalData as Extract<StageEvent, { name: 'retrieval_complete' }>;
+  const bm25Hit = rd.bm25_hits?.find((h) => String(h.object_id) === nodeId);
+  const sbertHit = rd.sbert_scores?.find((h) => String(h.object_id) === nodeId);
+  const pprScore = rd.pagerank_scores?.[nodeId];
+  const community = rd.community_assignments?.[nodeId];
+
+  const inRetrievalSet = !!(bm25Hit || sbertHit || pprScore !== undefined);
+  if (!inRetrievalSet) {
+    return (
+      <p className="explorer-panel-empty">
+        This node was not retrieved for the current query. It appears in the graph via neighborhood expansion or manual search.
+      </p>
+    );
+  }
+  return (
+    <div className="explorer-context-overview" style={{ gap: 12, display: 'flex', flexDirection: 'column' }}>
+      <div
+        style={{
+          fontFamily: 'var(--vie-font-mono)',
+          fontSize: 10.5,
+          color: 'var(--vie-ink-3)',
+          textTransform: 'uppercase',
+          letterSpacing: '0.04em',
+        }}
+      >
+        Retrieval signals
+      </div>
+      {bm25Hit && (
+        <div className="explorer-panel-item" style={{ cursor: 'default' }}>
+          <span className="explorer-panel-item-label">BM25</span>
+          <span className="explorer-panel-item-count">{bm25Hit.score.toFixed(3)}</span>
+        </div>
+      )}
+      {sbertHit && (
+        <div className="explorer-panel-item" style={{ cursor: 'default' }}>
+          <span className="explorer-panel-item-label">SBERT</span>
+          <span className="explorer-panel-item-count">{sbertHit.similarity.toFixed(3)}</span>
+        </div>
+      )}
+      {pprScore !== undefined && (
+        <div className="explorer-panel-item" style={{ cursor: 'default' }}>
+          <span className="explorer-panel-item-label">PageRank</span>
+          <span className="explorer-panel-item-count">{pprScore.toFixed(4)}</span>
+        </div>
+      )}
+      {community !== undefined && (
+        <div className="explorer-panel-item" style={{ cursor: 'default' }}>
+          <span className="explorer-panel-item-label">Community</span>
+          <span className="explorer-panel-item-count">{community}</span>
+        </div>
+      )}
+    </div>
+  );
+}
+
+interface ObjectInspectorTabsProps {
+  nodeId: string;
+  retrievalData?: StageEvent | null;
+  onSelectNode?: (nodeId: string) => void;
+}
+
+export default function ObjectInspectorTabs({
+  nodeId,
+  retrievalData,
+  onSelectNode,
+}: ObjectInspectorTabsProps) {
+  const [tab, setTab] = useState<ContextTab>('overview');
+  const [object, setObject] = useState<TheseusObject | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [connections, setConnections] = useState<ConnectionResult[]>([]);
+  const [claims, setClaims] = useState<ClaimResult[]>([]);
+  const [tensions, setTensions] = useState<TensionResult[]>([]);
+  const [neighborhoodLoading, setNeighborhoodLoading] = useState(false);
+  const [loadedTabs, setLoadedTabs] = useState<Set<ContextTab>>(new Set());
+
+  useEffect(() => {
+    let cancelled = false;
+    setLoading(true);
+    setTab('overview');
+    setLoadedTabs(new Set());
+    setNeighborhoodLoading(true);
+
+    Promise.all([
+      getObject(nodeId),
+      getObjectConnections(nodeId, 20),
+      getObjectClaims(nodeId),
+      getObjectTensions(nodeId),
+    ]).then(([objResult, connResult, claimResult, tensionResult]) => {
+      if (cancelled) return;
+      setLoading(false);
+      setNeighborhoodLoading(false);
+
+      if (objResult.ok) setObject(objResult);
+      if (connResult.ok) {
+        setConnections(connResult.connections);
+        setLoadedTabs((prev) => new Set([...prev, 'evidence']));
+      }
+      if (claimResult.ok) {
+        setClaims(claimResult.claims);
+        setLoadedTabs((prev) => new Set([...prev, 'claims']));
+      }
+      if (tensionResult.ok) {
+        setTensions(tensionResult.tensions);
+        setLoadedTabs((prev) => new Set([...prev, 'tensions']));
+      }
+    });
+
+    return () => { cancelled = true; };
+  }, [nodeId]);
+
+  const handleNavigateTab = useCallback((targetTab: 'evidence' | 'claims' | 'tensions') => {
+    setTab(targetTab);
+  }, []);
+
+  const handleSelectConnected = useCallback((connectedId: string) => {
+    onSelectNode?.(connectedId);
+  }, [onSelectNode]);
+
+  const handleAskAbout = useCallback(() => {
+    if (!object) return;
+    const query = `Tell me about "${object.title}"`;
+    window.dispatchEvent(
+      new CustomEvent('theseus:navigate-ask', { detail: { query } }),
+    );
+  }, [object]);
+
+  const activeTensionCount = tensions.filter(
+    (t) => t.status === 'active' || t.status === 'open' || t.status === 'investigating',
+  ).length;
+
+  return (
+    <>
+      {/* Tabs */}
+      <div className="explorer-panel-tabs" style={{ marginBottom: 16 }}>
+        {(['overview', 'evidence', 'tensions', 'claims', 'why'] as const).map((t) => (
+          <button
+            key={t}
+            type="button"
+            className={`explorer-panel-tab${tab === t ? ' is-active' : ''}`}
+            onClick={() => setTab(t)}
+          >
+            {t}
+          </button>
+        ))}
+      </div>
+
+      {/* Content */}
+      <div className="explorer-panel-body">
+        {tab === 'overview' && object && (
+          <div className="explorer-context-overview">
+            <div className="explorer-context-meta">
+              <span
+                className="explorer-context-type"
+                style={{ color: typeColor(object.object_type ?? 'note') }}
+              >
+                {object.object_type ?? 'note'}
+              </span>
+              {object.epistemic_role && (
+                <span className="explorer-context-role">{object.epistemic_role}</span>
+              )}
+              {object.created_at && (
+                <span className="explorer-context-date">
+                  {new Intl.DateTimeFormat(undefined, { dateStyle: 'medium' }).format(new Date(object.created_at))}
+                </span>
+              )}
+            </div>
+            {object.summary && <p className="explorer-context-body">{object.summary}</p>}
+            <NeighborhoodSummary
+              connectionCount={connections.length}
+              claimCount={claims.length}
+              tensionCount={tensions.length}
+              activeTensionCount={activeTensionCount}
+              onNavigateTab={handleNavigateTab}
+              loading={neighborhoodLoading}
+            />
+            <button
+              type="button"
+              className="explorer-ask-button"
+              onClick={handleAskAbout}
+            >
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                <path d="M12 22c5.523 0 10-4.477 10-10S17.523 2 12 2 2 6.477 2 12s4.477 10 10 10z" stroke="currentColor" strokeWidth="1.5" />
+                <path d="M9 9a3 3 0 115.12 2.12A2 2 0 0012 13v1" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+                <circle cx="12" cy="17" r="1" fill="currentColor" />
+              </svg>
+              Ask Theseus about this
+            </button>
+          </div>
+        )}
+
+        {tab === 'overview' && !object && !loading && (
+          <p className="explorer-panel-empty">Select a node in the graph to inspect it.</p>
+        )}
+        {tab === 'overview' && loading && (
+          <p className="explorer-panel-loading">LOADING</p>
+        )}
+
+        {tab === 'evidence' && (
+          loadedTabs.has('evidence') ? (
+            <ConnectionList
+              connections={connections}
+              onSelectNode={handleSelectConnected}
+            />
+          ) : (
+            <p className="explorer-panel-loading">LOADING CONNECTIONS</p>
+          )
+        )}
+
+        {tab === 'tensions' && (
+          loadedTabs.has('tensions') ? (
+            tensions.length > 0 ? (
+              <div className="explorer-tension-list">
+                {tensions.map((tension) => (
+                  <TensionCard key={tension.id} tension={tension} />
+                ))}
+              </div>
+            ) : (
+              <p className="explorer-panel-empty">No tensions involving this object.</p>
+            )
+          ) : (
+            <p className="explorer-panel-loading">LOADING TENSIONS</p>
+          )
+        )}
+
+        {tab === 'claims' && (
+          loadedTabs.has('claims') ? (
+            claims.length > 0 ? (
+              <div className="explorer-claim-list">
+                {claims.map((claim) => (
+                  <ClaimRow key={claim.id} claim={claim} />
+                ))}
+              </div>
+            ) : (
+              <p className="explorer-panel-empty">No claims extracted from this object.</p>
+            )
+          ) : (
+            <p className="explorer-panel-loading">LOADING CLAIMS</p>
+          )
+        )}
+
+        {tab === 'why' && (
+          <WhyThisNodeContent nodeId={nodeId} retrievalData={retrievalData} />
+        )}
+      </div>
+    </>
+  );
+}

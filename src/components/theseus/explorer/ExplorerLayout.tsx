@@ -1,17 +1,18 @@
 'use client';
 
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { useExplorerSelection } from './useExplorerSelection';
 import type { HighlightMode } from './useExplorerSelection';
 import { useGalaxy } from '@/components/theseus/TheseusShell';
 import { useIsMobile } from '@/hooks/useIsMobile';
 import { useGraphData } from './useGraphData';
+import type { GraphDataMilestone } from './useGraphData';
 import { useInvestigationView } from './useInvestigationView';
+import { useTerminalStream } from '@/hooks/useTerminalStream';
 import type { InvestigationView } from '@/lib/theseus-types';
 import type { StageEvent } from '@/lib/theseus-api';
 import StructurePanel from './StructurePanel';
-import ContextPanel from './ContextPanel';
 import ControlDock from './ControlDock';
 import StatusStrip from './StatusStrip';
 import AnswerReadingPanel from './AnswerReadingPanel';
@@ -43,8 +44,56 @@ export default function ExplorerLayout({ children, onNodeSelect }: ExplorerLayou
   const searchParams = useSearchParams();
   const { response, askState } = useGalaxy();
   const isMobile = useIsMobile();
-  const graphDataHook = useGraphData();
   const deepField = useDeepField();
+
+  // Terminal stream: single cycling line that reflects graph-fetch milestones.
+  // Defined before useGraphData so we can wire its push() into the hook's
+  // milestone callback without a circular dependency.
+  const terminalStream = useTerminalStream();
+
+  // Stable onMilestone bridge: useGraphData receives a callback that maps
+  // GraphDataMilestone to terminal-stream events, then calls complete() on
+  // terminal states. memoized so the hook does not thrash.
+  const handleMilestone = useCallback(
+    (event: GraphDataMilestone) => {
+      switch (event.kind) {
+        case 'start':
+          terminalStream.reset();
+          terminalStream.push({
+            kind: 'milestone',
+            text: event.label,
+            detail: event.detail,
+          });
+          break;
+        case 'loaded':
+          terminalStream.push({
+            kind: 'data',
+            text: event.label,
+            detail: event.detail,
+          });
+          break;
+        case 'done':
+          terminalStream.push({
+            kind: 'data',
+            text: event.label,
+            detail: event.detail,
+          });
+          terminalStream.complete();
+          break;
+        case 'error':
+          terminalStream.push({ kind: 'milestone', text: event.label });
+          terminalStream.complete();
+          break;
+      }
+    },
+    [terminalStream],
+  );
+
+  const graphDataOptions = useMemo(
+    () => ({ onMilestone: handleMilestone }),
+    [handleMilestone],
+  );
+  const graphDataHook = useGraphData(graphDataOptions);
 
   // Active exploration state (triggers crossfade from IdleGraph to GraphRenderer)
   const [activeExploration, setActiveExploration] = useState(false);
@@ -146,6 +195,12 @@ export default function ExplorerLayout({ children, onNodeSelect }: ExplorerLayou
   const handleNodeSelect = useCallback((nodeId: string | null) => {
     explorer.selectNode(nodeId);
     onNodeSelect?.(nodeId);
+    // Mirror the selection into the reading panel's drilldown so the
+    // inspector tabs render in the light reading panel rather than the
+    // (now-removed) dark ContextPanel. Clicking a graph node opens the
+    // same tabbed object view that clicking a source in the reading
+    // panel already opened.
+    setDrilldownId(nodeId);
     // Clear secondary selection when primary changes
     if (!nodeId) {
       setSecondarySelectedId(null);
@@ -225,15 +280,10 @@ export default function ExplorerLayout({ children, onNodeSelect }: ExplorerLayou
     return () => window.removeEventListener('explorer:drilldown', handler);
   }, []);
 
-  // Dispatch structured_visual regions to stipple canvas when available
-  useEffect(() => {
-    if (!response?.structured_visual?.regions) return;
-    window.dispatchEvent(
-      new CustomEvent('explorer:visual-regions', {
-        detail: { regions: response.structured_visual.regions },
-      }),
-    );
-  }, [response?.structured_visual?.regions]);
+  // structured_visual is consumed directly by GalaxyController via the
+  // `response` prop; the previous CustomEvent dispatch had no listeners
+  // and has been removed. GalaxyController reads resp.structured_visual
+  // when choosing the renderer during the construction phase.
 
   // Capture SSE stage events for pipeline visualization and "Why" tab
   useEffect(() => {
@@ -442,11 +492,14 @@ export default function ExplorerLayout({ children, onNodeSelect }: ExplorerLayou
           pipelineStatus={pipelineStatus}
           loading={graphDataHook.loading}
           hasAnswer={answerActive}
+          stream={terminalStream}
         />
       </div>
 
-      {/* Desktop: split pane with resize handle + reading panel */}
-      {answerActive && response && !isMobile && (
+      {/* Desktop: split pane with resize handle + reading panel.
+          Shown when the answer is active OR when a node is selected
+          (the inspector tabs render inline in drilldown mode). */}
+      {(answerActive || drilldownId) && response && !isMobile && (
         <>
           {/* Resize handle */}
           <div
@@ -502,7 +555,11 @@ export default function ExplorerLayout({ children, onNodeSelect }: ExplorerLayou
               response={response}
               drilldownId={drilldownId}
               onDrilldown={setDrilldownId}
-              onBack={() => setDrilldownId(null)}
+              onBack={() => {
+                setDrilldownId(null);
+                handleNodeSelect(null);
+              }}
+              retrievalData={retrievalData}
             />
           </div>
         </>
@@ -564,19 +621,21 @@ export default function ExplorerLayout({ children, onNodeSelect }: ExplorerLayou
               response={response}
               drilldownId={drilldownId}
               onDrilldown={setDrilldownId}
-              onBack={() => setDrilldownId(null)}
+              onBack={() => {
+                setDrilldownId(null);
+                handleNodeSelect(null);
+              }}
+              retrievalData={retrievalData}
             />
           </div>
         </div>
       )}
 
-      {/* Context panel (right, node selection) */}
-      <ContextPanel
-        nodeId={explorer.selectedNodeId}
-        onClose={() => handleNodeSelect(null)}
-        onSelectNode={handleNodeSelect}
-        retrievalData={retrievalData}
-      />
+      {/* ContextPanel removed: the overview/evidence/tensions/claims/why
+          tabs now render inside AnswerReadingPanel when drilldownId is
+          set. Node selection is mirrored into drilldownId via
+          handleNodeSelect, so clicking a graph node opens the same
+          light reading panel as clicking a source. */}
     </div>
   );
 }
