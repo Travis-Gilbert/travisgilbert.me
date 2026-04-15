@@ -4,6 +4,7 @@ import { useCallback } from 'react';
 import ChatCanvas from '@/components/theseus/chat/ChatCanvas';
 import TheseusThread, { exportChatAsMarkdown } from '@/components/theseus/chat/TheseusThread';
 import { useChatHistory } from '@/components/theseus/chat/useChatHistory';
+import AmbientGraphActivity from '@/components/theseus/AmbientGraphActivity';
 
 /**
  * AskPanel: chat panel wrapper for PanelManager.
@@ -19,9 +20,19 @@ export default function AskPanel() {
     if (messages.length > 0) exportChatAsMarkdown(messages);
   }, [messages]);
 
+  // The chat panel is warm whenever a query is in flight, so the
+  // heat wash breathes during responses. See vie-heat-breath in theseus.css.
   return (
-    <div className="theseus-chat-home">
+    <div
+      className="theseus-chat-home"
+      data-machine-warm={isAsking ? 'true' : 'false'}
+    >
       <ChatCanvas />
+
+      {/* Ambient hypothesis drift + edge formations, the peripheral
+          "eavesdropping on the machine" layer. Always on behind the
+          chat so the surface reads alive between turns. */}
+      <AmbientGraphActivity active />
 
       {/* Export button (top-right, visible when there are messages) */}
       {messages.length > 0 && (

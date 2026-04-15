@@ -20,6 +20,7 @@ import {
   trainNavModel,
   type NavActionId,
 } from '@/lib/galaxy/navPredictor';
+import TransmissionLine from '@/components/theseus/TransmissionLine';
 
 interface GalaxyContextValue {
   gridRef: React.RefObject<DotGridHandle | null>;
@@ -375,6 +376,12 @@ export default function TheseusShell({ children }: { children: React.ReactNode }
             </div>
           </div>
         )}
+
+        {/* Ambient transmission line: one-line rolling readout of real
+            backend signals (graph weather, hypotheses, recent activity).
+            Always visible, always peripheral — the "eavesdropping on the
+            machine" metaphor at its most distilled. */}
+        <TransmissionLine />
       </div>
     </GalaxyContext.Provider>
   );

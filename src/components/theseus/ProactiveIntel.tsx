@@ -1,9 +1,8 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { getHypotheses, getGraphWeather } from '@/lib/theseus-api';
-import type { Hypothesis, GraphWeather } from '@/lib/theseus-types';
+import { useAmbientGraphSignal } from '@/lib/theseus-ambient';
 
 type CardType = 'hypothesis' | 'tension' | 'gap';
 
@@ -26,52 +25,39 @@ const ACCENT: Record<CardType, string> = {
 
 export function ProactiveIntel() {
   const router = useRouter();
-  const [cards, setCards] = useState<IntelCard[]>([]);
+  const { weather, hypotheses, loaded } = useAmbientGraphSignal();
   const [visible, setVisible] = useState(false);
 
-  useEffect(() => {
-    let cancelled = false;
+  const cards = useMemo<IntelCard[]>(() => {
+    const items: IntelCard[] = [];
 
-    async function load() {
-      const [hypResult, weatherResult] = await Promise.all([
-        getHypotheses(),
-        getGraphWeather(),
-      ]);
-
-      if (cancelled) return;
-
-      const items: IntelCard[] = [];
-
-      if (hypResult.ok) {
-        for (const h of hypResult.hypotheses.slice(0, 2)) {
-          items.push({
-            type: 'hypothesis',
-            label: 'hypothesis',
-            title: h.title,
-            confidence: h.confidence,
-            query: h.title,
-          });
-        }
-      }
-
-      if (weatherResult.ok && weatherResult.health_score < 0.7 && weatherResult.total_clusters > 1) {
-        items.push({
-          type: 'gap',
-          label: 'structural gap',
-          title: `${weatherResult.total_clusters} clusters with weak bridging connections`,
-          query: 'What structural gaps exist in my knowledge?',
-        });
-      }
-
-      setCards(items.slice(0, 3));
-      requestAnimationFrame(() => {
-        if (!cancelled) setVisible(true);
+    for (const h of hypotheses.slice(0, 2)) {
+      items.push({
+        type: 'hypothesis',
+        label: 'hypothesis',
+        title: h.title,
+        confidence: h.confidence,
+        query: h.title,
       });
     }
 
-    load();
-    return () => { cancelled = true; };
-  }, []);
+    if (weather && weather.health_score < 0.7 && weather.total_clusters > 1) {
+      items.push({
+        type: 'gap',
+        label: 'structural gap',
+        title: `${weather.total_clusters} clusters with weak bridging connections`,
+        query: 'What structural gaps exist in my knowledge?',
+      });
+    }
+
+    return items.slice(0, 3);
+  }, [hypotheses, weather]);
+
+  useEffect(() => {
+    if (!loaded || cards.length === 0) return;
+    const id = requestAnimationFrame(() => setVisible(true));
+    return () => cancelAnimationFrame(id);
+  }, [loaded, cards.length]);
 
   if (cards.length === 0) return null;
 

@@ -21,6 +21,7 @@ import { directScene } from '@/lib/theseus-viz/SceneDirector';
 import { buildObjectLookup } from '@/components/theseus/renderers/rendering';
 import RenderRouter from '@/components/theseus/renderers/RenderRouter';
 import ThinkingScreen from '@/components/theseus/ThinkingScreen';
+import AmbientGraphActivity from '@/components/theseus/AmbientGraphActivity';
 import {
   getAskPresentationState,
   mergeProgressiveVisualPayload,
@@ -32,8 +33,8 @@ import { getModel } from '@/lib/theseus-storage';
 import { useIsMobile } from '@/hooks/useIsMobile';
 import { usePrefersReducedMotion } from '@/hooks/usePrefersReducedMotion';
 import { VoiceControls } from '@/components/ask/VoiceControls';
-import SpatialPanel from '@/components/ask/SpatialPanel';
-import { shouldBePanel, computeAnchor } from '@/lib/galaxy/SpatialConversation';
+// SpatialPanel removed: ExplorerLayout's AnswerReadingPanel handles
+// all narrative rendering. See the comment in the render below.
 
 // 8-dot circular braille frames. These have full octant dot density
 // and read as a rotating filled disc — visually unmistakable as a
@@ -80,6 +81,8 @@ function TravelingQuery({
 
   return (
     <div
+      className="theseus-traveling-query"
+      data-stage={stage}
       style={{
         position: 'fixed',
         top: isHeader ? (isMobile ? 60 : 72) : 'auto',
@@ -809,6 +812,10 @@ export function AskExperience() {
   const requestIdRef = useRef(0);
   const askAbortRef = useRef<AbortController | null>(null);
   const askInputRef = useRef<HTMLInputElement | null>(null);
+  // Tracks whether onAnswerReady already triggered the construction pass
+  // for the current query. Prevents onComplete from re-running construction
+  // and clobbering progressive visual data with a sparser final payload.
+  const answerConstructedRef = useRef<boolean>(false);
 
   // Final safety net: tear down stream + choreographer on unmount.
   // The per-query effect below also cleans up on re-run, but this
@@ -1026,6 +1033,9 @@ export function AskExperience() {
     requestIdRef.current = requestId;
     const controller = new AbortController();
     askAbortRef.current = controller;
+    // Reset per-query construction guard so the new stream can drive
+    // construction from onAnswerReady (or onComplete in the error path).
+    answerConstructedRef.current = false;
 
     setNarrationReady(false);
     applySceneDirective(null);
@@ -1221,6 +1231,10 @@ export function AskExperience() {
             setNarrationReady(false);
             applyResponse(earlyResult);
             applyState('MODEL');
+            // Mark construction as handled so onComplete does not re-run
+            // it with the (often sparser) final payload and clobber the
+            // progressive visual data applied here.
+            answerConstructedRef.current = true;
             window.requestAnimationFrame(() => {
               if (isStale()) return;
               if (stateRef.current !== 'MODEL' || !responseRef.current) return;
@@ -1241,6 +1255,16 @@ export function AskExperience() {
           },
           onComplete: (result) => {
             if (isStale()) return;
+            // If onAnswerReady already drove construction with the early
+            // payload, skip re-running it here. The final payload from the
+            // stream is often sparser than what has already been merged
+            // via mergeVisualPayloadIfCurrent, and re-applying it would
+            // clobber the progressive visual data the user is already
+            // seeing. onAnswerReady's rAF already flipped the state into
+            // CONSTRUCTING, so no terminal cleanup is needed in this branch.
+            if (answerConstructedRef.current) {
+              return;
+            }
             runAnswerConstruction(result).catch((runError) => {
               if (isStale()) return;
               const message = runError instanceof Error
@@ -1399,8 +1423,26 @@ export function AskExperience() {
   // galaxy canvas by GalaxyController and needs no React mount here.
   const showRenderRouter = hasScene && sceneDirective && !isGraphNativeTarget(sceneDirective);
 
+  // Ambient activity layer: visible while the user is idle (the machine
+  // is "thinking elsewhere") and during THINKING/CONSTRUCTING (the
+  // machine is working on their query). Hidden once a scene is rendered
+  // so it doesn't compete with the visualization.
+  const showAmbient = !isExploring && !error && (
+    state === 'IDLE'
+    || state === 'THINKING'
+    || state === 'CONSTRUCTING'
+  );
+
   return (
-    <div style={{ position: 'relative', width: '100%', height: '100%' }}>
+    <div
+      style={{ position: 'relative', width: '100%', height: '100%' }}
+      data-machine-warm={submitting ? 'true' : 'false'}
+    >
+      {/* Ambient hypothesis drift + edge formations — the "eavesdropping"
+          layer. Mounted behind the query/dock so it never competes for
+          attention. Pointer-events: none. */}
+      <AmbientGraphActivity active={showAmbient} />
+
       {showRenderRouter && sceneDirective && response && (
         <RenderRouter
           directive={sceneDirective}
@@ -1469,63 +1511,11 @@ export function AskExperience() {
         </div>
       )}
 
-      {/* Spatial response panel: anchored near the focal node cluster.
-          narrationReady is now set the instant we transition to
-          EXPLORING (the old 3000ms hard delay was removed). */}
-      {isExploring && response && narrationReady && renderedNarratives.length > 0 && (() => {
-        const narrativeText = renderedNarratives.slice(0, 2).map((n) => n.content).join('\n\n');
-        const usePanel = shouldBePanel(narrativeText) || !isMobile;
-        const anchor = isMobile
-          ? { x: 20, y: window.innerHeight - 260 }
-          : computeAnchor([], window.innerWidth, window.innerHeight);
-
-        if (!usePanel) {
-          return (
-            <div
-              style={{
-                position: 'absolute',
-                left: 20,
-                bottom: 'calc(90px + env(safe-area-inset-bottom))',
-                width: 'calc(100vw - 40px)',
-                maxHeight: 220,
-                zIndex: 10,
-                pointerEvents: 'none',
-              }}
-            >
-              <div
-                className="theseus-insight-panel"
-                style={{
-                  padding: '14px 16px',
-                  borderRadius: 14,
-                  background: 'var(--vie-surface-panel)',
-                  border: '1px solid var(--vie-surface-panel-border)',
-                  backdropFilter: 'blur(18px)',
-                  pointerEvents: 'auto',
-                  overflowY: 'auto',
-                  maxHeight: 220,
-                }}
-              >
-                <p style={{ margin: 0, color: 'var(--vie-text)', fontFamily: 'var(--vie-font-body)', fontSize: 13, lineHeight: 1.65 }}>
-                  {narrativeText}
-                </p>
-              </div>
-            </div>
-          );
-        }
-
-        return (
-          <SpatialPanel
-            anchorX={anchor.x}
-            anchorY={anchor.y}
-            text={narrativeText + (
-              evidencePath && evidencePath.nodes.length >= 2
-                ? '\n\n' + (argumentView ? '[Back to answer]' : '[Show me why you think that]')
-                : ''
-            )}
-            complete={true}
-          />
-        );
-      })()}
+      {/* Spatial response panel removed: ExplorerLayout's
+          AnswerReadingPanel now owns all narrative rendering on
+          both desktop (split pane) and mobile (full-screen overlay).
+          The old SpatialPanel was rendering duplicate text on top
+          of the galaxy canvas. */}
 
       {/* Error overlay: rendered as a centered modal with the dock
           still visible underneath, instead of replacing the whole UI. */}
