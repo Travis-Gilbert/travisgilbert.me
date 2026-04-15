@@ -39,6 +39,18 @@ export interface StructuredVisual {
   layout?: Record<string, unknown>;
   regions?: StructuredVisualRegion[];
   reference_image_url?: string;
+  /**
+   * Backend's authoritative renderer key, overrides answer_type when present.
+   * Examples: 'comparison_table', 'timeline_strip', 'hierarchy_tree',
+   * 'concept_map', 'process_flow', 'tfjs_stipple'.
+   */
+  renderer?: string;
+  /**
+   * Renderer-specific structured payload (steps for process_flow, center
+   * for concept_map, stipple_points for tfjs_stipple, etc.). Opaque to
+   * consumers other than the matching offscreen renderer.
+   */
+  structured?: Record<string, unknown>;
 }
 
 export type AnswerType =

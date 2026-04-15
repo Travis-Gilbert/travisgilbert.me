@@ -23,7 +23,7 @@ import {
 } from './StipplingDirector';
 import { renderAnswer, renderArgumentView, renderDataVizAnswer, renderGeographicAnswer } from './renderers';
 import type { OffscreenRenderResult } from './renderers/types';
-import type { AnswerType, GeographicRegionsSection } from '@/lib/theseus-types';
+import type { AnswerType, GeographicRegionsSection, StructuredVisual } from '@/lib/theseus-types';
 import { getColorStrategy, type DotColorStrategy } from './e4bVision';
 import { TYPE_COLORS } from '@/components/theseus/renderers/rendering';
 import { resolveCollisions, clearLabelCache } from './pretextLabels';
@@ -68,6 +68,8 @@ export interface StippleConstructionOptions {
   referenceImageUrl?: string | null;
   /** Geographic regions for map answers */
   geoSection?: GeographicRegionsSection;
+  /** Backend's structured visual payload (renderer-specific data) */
+  structuredVisual?: StructuredVisual;
 }
 
 /**
@@ -79,7 +81,7 @@ export interface StippleConstructionOptions {
  * 4. Return assignments for GalaxyController to animate
  */
 export async function runStippleConstruction(
-  vizType: VizType,
+  vizType: VizType | string,
   nodes: EvidenceNode[],
   edges: EvidenceEdge[],
   directive: SceneDirective | null,
@@ -101,7 +103,7 @@ export async function runStippleConstruction(
   } else if (options.vegaSpec) {
     renderResult = await renderDataVizAnswer(options.vegaSpec, options.vegaLabels);
   } else {
-    renderResult = renderAnswer(vizType, nodes, edges);
+    renderResult = renderAnswer(vizType, nodes, edges, options.structuredVisual?.structured);
   }
 
   if (!renderResult) return null;
