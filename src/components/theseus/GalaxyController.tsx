@@ -637,126 +637,35 @@ function GalaxyController({
       let dissolveFrameId = 0;
 
       if (hadFace && faceDots > 0 && !prefersReducedMotion) {
-        // Pass 1c (updated): smooth 3-second pondering morph.
+        // Pass 1c: keep the face alive during THINKING.
         //
-        // Previously this was a ~250ms retarget via spring physics
-        // followed by a short hold. User feedback said the expression
-        // was on screen for less than a second and felt rushed. Now
-        // the morph is an explicit per-frame lerp of face dot targets
-        // from the awake-face positions to the pondering-face
-        // positions (one-eyebrow cock) over 3 seconds with an
-        // ease-out cubic curve. The springs chase the moving target,
-        // so the dots visibly trace a smooth arc across the whole
-        // duration instead of snapping and holding.
+        // The face stays visible with a 'thinking' expression (via
+        // parameter displacement, no restipple) until the answer
+        // construction calls animateStippleConstruction. That function
+        // moves dots from their CURRENT positions (face shape) directly
+        // to the answer stipple positions, giving the user a continuous
+        // face-to-answer morph instead of a meaningless face-to-grid-
+        // to-answer three-step. The face animation tick loop keeps
+        // running (breathing, blinking, expression) so the face looks
+        // alive while waiting.
         //
-        // Sequence:
-        //   t=0      awake face visible
-        //   t=3000   pondering face (cocked brow) fully formed
-        //   t=3000+  dissolve starts, 800ms back to grid
-        //
-        // Total perceived time: ~3.8 seconds of face content before
-        // the thinking pulse is visible. Backend request runs in
-        // parallel, so this adds latency to fast queries but feels
-        // deliberate for the typical 15-30s reasoning window.
-        const PONDER_MORPH_MS = 3000;
-        const DISSOLVE_MS = 800;
-        const dotCount = grid.getDotCount();
-        const count = Math.min(faceDots, dotCount);
-        const { width: viewW, height: viewH } = grid.getSize();
-
-        // Stipple results for BOTH endpoints of the morph. Both
-        // stippleFace calls hit the StipplingDirector cache so this
-        // is cheap on any transition after the first.
-        const awakeResult = stippleFace({
-          viewportWidth: viewW,
-          viewportHeight: viewH,
-          expression: 'awake',
-        });
-        const ponderResult = stippleFace({
-          viewportWidth: viewW,
-          viewportHeight: viewH,
-          expression: 'pondering',
-        });
-        const awakeTargets = awakeResult.targets;
-        const ponderTargets = ponderResult.targets;
-
-        // Snapshot the awake target positions into typed arrays so
-        // the per-frame lerp loop can read them without allocating.
-        const awakeX = new Float32Array(count);
-        const awakeY = new Float32Array(count);
-        const ponderX = new Float32Array(count);
-        const ponderY = new Float32Array(count);
-        for (let i = 0; i < count; i++) {
-          const a = awakeTargets[i];
-          const p = ponderTargets[i];
-          if (a) { awakeX[i] = a.x; awakeY[i] = a.y; }
-          if (p) { ponderX[i] = p.x; ponderY[i] = p.y; }
+        // The only thing we do here is shift to the 'thinking' expression.
+        // The dissolve is gone. faceActiveRef stays true so the face
+        // tick loop continues. When answer construction recruits these
+        // dots, it will stop the face loop and take over.
+        if (faceExprNameRef.current !== 'thinking') {
+          faceExprFromRef.current = {
+            ...(faceAnimStateRef.current.expression ?? EXPRESSION_PRESETS.idle),
+          };
+          faceExprToRef.current = { ...EXPRESSION_PRESETS.thinking };
+          faceExprStartRef.current = performance.now();
+          faceExprDurationRef.current = 500;
+          faceExprNameRef.current = 'thinking';
         }
 
-        const ponderStart = performance.now();
-
-        const ponderTick = () => {
-          const elapsed = performance.now() - ponderStart;
-          const rawT = Math.min(elapsed / PONDER_MORPH_MS, 1);
-          // Ease out cubic for a smooth, natural-feeling settle
-          const t = 1 - Math.pow(1 - rawT, 3);
-
-          for (let i = 0; i < count; i++) {
-            const x = awakeX[i] + (ponderX[i] - awakeX[i]) * t;
-            const y = awakeY[i] + (ponderY[i] - awakeY[i]) * t;
-            grid.setDotTarget(i, x, y);
-          }
-          grid.wakeAnimation();
-
-          if (rawT < 1) {
-            dissolveFrameId = requestAnimationFrame(ponderTick);
-            return;
-          }
-
-          // Morph complete — transition directly into the dissolve.
-          // Capture the pondering positions as the dissolve start
-          // state so it flows without a jump.
-          const dissolveStart = performance.now();
-          const startX = new Float32Array(count);
-          const startY = new Float32Array(count);
-          for (let i = 0; i < count; i++) {
-            const p = grid.getDotPosition(i);
-            if (p) { startX[i] = p.x; startY[i] = p.y; }
-          }
-
-          const gridX = new Float32Array(count);
-          const gridY = new Float32Array(count);
-          for (let i = 0; i < count; i++) {
-            const p = grid.getOriginalGridPosition(i);
-            if (p) { gridX[i] = p.x; gridY[i] = p.y; }
-          }
-
-          const dissolveTick = () => {
-            const dissolveElapsed = performance.now() - dissolveStart;
-            const dRawT = Math.min(dissolveElapsed / DISSOLVE_MS, 1);
-            const dT = 1 - (1 - dRawT) * (1 - dRawT); // ease-out quad
-
-            for (let i = 0; i < count; i++) {
-              const x = startX[i] + (gridX[i] - startX[i]) * dT;
-              const y = startY[i] + (gridY[i] - startY[i]) * dT;
-              grid.setDotTarget(i, x, y);
-            }
-            grid.wakeAnimation();
-
-            if (dRawT < 1) {
-              dissolveFrameId = requestAnimationFrame(dissolveTick);
-            } else {
-              for (let i = 0; i < count; i++) {
-                grid.resetDotTarget(i);
-              }
-              grid.wakeAnimation();
-            }
-          };
-
-          dissolveFrameId = requestAnimationFrame(dissolveTick);
-        };
-
-        dissolveFrameId = requestAnimationFrame(ponderTick);
+        // faceActiveRef stays true — face keeps breathing and blinking.
+        // faceWasActiveRef stays true so the answer construction path
+        // knows it needs to stop the face loop before recruiting dots.
       } else if (hadFace && faceDots > 0) {
         // Reduced motion: reset face dots immediately, no pondering beat
         const dotCount = grid.getDotCount();
@@ -1488,6 +1397,17 @@ function GalaxyController({
           // Track recruited dots for cleanup on next query
           for (const idx of stippleResult.recruitedDotIndices) {
             recruitedDotsRef.current.add(idx);
+          }
+
+          // Stop the face animation loop before answer construction takes
+          // over. The face dots are still in their current positions (face
+          // shape with expression displacement); animateStippleConstruction
+          // will morph them from here directly to the answer stipple targets
+          // via the spring system. This produces the face-to-answer
+          // transformation the user expects.
+          if (faceActiveRef.current) {
+            faceActiveRef.current = false;
+            cancelAnimationFrame(faceAnimFrameRef.current);
           }
 
           // Animate the stippled construction with per-type coloring

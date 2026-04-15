@@ -1166,6 +1166,11 @@ export function AskExperience() {
       applyState('THINKING');
       clearSourceTrail();
 
+      // Kick the terminal stream immediately so the user sees something
+      // the moment they submit, before the SSE connection opens.
+      terminalStream.reset();
+      terminalStream.push({ kind: 'milestone', text: 'connecting' });
+
       // Fire viz prediction in parallel: does not block the ask call
       import('@/lib/theseus-viz/vizPlanner').then(({ predictVizType }) => {
         predictVizType(activeQuery).then((prediction) => {
@@ -1314,6 +1319,12 @@ export function AskExperience() {
             setError(null);
             setNarrationReady(false);
             applyResponse(earlyResult);
+            // The answer has landed. Complete the terminal stream so it
+            // collapses to the re-expandable pill. No guard on active state
+            // because these callbacks capture the ref-based push/complete
+            // functions which always work regardless of render cycle.
+            terminalStream.push({ kind: 'data', text: 'answer ready' });
+            terminalStream.complete();
             applyState('MODEL');
             // Mark construction as handled so onComplete does not re-run
             // it with the (often sparser) final payload and clobber the
@@ -1561,25 +1572,16 @@ export function AskExperience() {
         prefersReducedMotion={prefersReducedMotion}
       />
 
-      {/* Status overlay: ThinkingScreen's old centered status row and
-          slow-warning text lived here. Both are now carried by the
-          TerminalStream in the bottom-left corner (below). The
-          ThinkingScreen is retained during submit for its data-status
-          behavior (e.g. loading model data) since that slot is not yet
-          represented in the terminal stream. */}
-      {submitting && (
-        <ThinkingScreen state={state} query={null} dataStatus={dataStatus} />
-      )}
-
       {/* Terminal stream: floating bottom-left during THINKING / CONSTRUCTING.
           One cycling line with a braille spinner on the active stage,
-          collapses to an expandable pill once the answer is ready. */}
+          collapses to an expandable pill once the answer is ready.
+          Replaces the old ThinkingScreen centered status text. */}
       <TerminalStream
         events={terminalStream.events}
         active={terminalStream.active}
         completionMs={terminalStream.completionMs}
         variant="floating"
-        label="answer ready"
+        label="answered"
       />
 
       {showProgressiveAnswerCard && (

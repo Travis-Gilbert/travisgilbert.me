@@ -1,16 +1,25 @@
 'use client';
 
-import { useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import type { ChatMessage as ChatMessageType } from './useChatHistory';
 import VisualPreviewCard from './VisualPreviewCard';
 
 const BRAILLE_FRAMES = ['⣾', '⣽', '⣻', '⢿', '⡿', '⣟', '⣯', '⣷'];
 
 function StreamingIndicator({ label }: { label?: string }) {
+  const [frame, setFrame] = useState(0);
+
+  useEffect(() => {
+    const id = window.setInterval(() => {
+      setFrame((n) => (n + 1) % BRAILLE_FRAMES.length);
+    }, 90);
+    return () => window.clearInterval(id);
+  }, []);
+
   return (
     <span className="theseus-chat-streaming" role="status" aria-live="polite">
       <span className="theseus-chat-spinner" aria-hidden="true">
-        {BRAILLE_FRAMES[0]}
+        {BRAILLE_FRAMES[frame]}
       </span>
       {label && <span className="theseus-chat-stage-label">{label}</span>}
     </span>

@@ -232,7 +232,7 @@ export default function TerminalStream({
           {displayedEvent?.text ?? 'working'}
         </span>
         {displayedEvent?.detail && (
-          <span className="terminal-stream-detail">{displayedEvent.detail}</span>
+          <span className="terminal-stream-detail"> · {displayedEvent.detail}</span>
         )}
         {heartbeat && (
           <span className="terminal-stream-heartbeat">· still working</span>

@@ -26,13 +26,14 @@ interface GraphEdge {
 }
 
 // Per-node ink-in duration: radius grows from 0 to target, opacity 0 to 1.
-const NODE_INK_MS = 260;
-// Stagger between consecutive nodes in the ink-in sequence.
-const NODE_STAGGER_MS = 38;
+const NODE_INK_MS = 350;
+// Stagger between consecutive nodes in the ink-in sequence. Set high enough
+// that you can visually distinguish each node appearing (not a batch).
+const NODE_STAGGER_MS = 80;
 // Per-edge draw duration: stroke-dashoffset unwinds to 0.
-const EDGE_DRAW_MS = 420;
+const EDGE_DRAW_MS = 500;
 // Extra delay after both endpoints of an edge have appeared before the edge draws.
-const EDGE_AFTER_NODE_MS = 140;
+const EDGE_AFTER_NODE_MS = 200;
 
 function typeColor(objectType: string): string {
   switch (objectType) {

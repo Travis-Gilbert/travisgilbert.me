@@ -1,6 +1,6 @@
 'use client';
 
-import { createContext, useCallback, useContext, useEffect, useMemo, useRef } from 'react';
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import {
   AssistantRuntimeProvider,
   ThreadPrimitive,
@@ -14,6 +14,28 @@ import type { ChatMessage as ChatMessageType } from './useChatHistory';
 import VisualPreviewCard from './VisualPreviewCard';
 import AskIdleHero from './AskIdleHero';
 import GraphActivity from './GraphActivity';
+
+const BRAILLE_FRAMES = ['⣾', '⣽', '⣻', '⢿', '⡿', '⣟', '⣯', '⣷'];
+
+/** Animated braille spinner + stage label for the chat streaming state. */
+function BrailleStageLabel({ label }: { label?: string | null }) {
+  const [frame, setFrame] = useState(0);
+  useEffect(() => {
+    const id = window.setInterval(() => {
+      setFrame((n) => (n + 1) % BRAILLE_FRAMES.length);
+    }, 90);
+    return () => window.clearInterval(id);
+  }, []);
+
+  return (
+    <div className="theseus-stage-label">
+      <span style={{ marginRight: 8, color: 'var(--vie-teal-light, #4a8a96)' }} aria-hidden="true">
+        {BRAILLE_FRAMES[frame]}
+      </span>
+      {label || ''}
+    </div>
+  );
+}
 
 interface TheseusThreadProps {
   messages: ChatMessageType[];
@@ -198,7 +220,7 @@ function AssistantMessageInner({ rawMsg }: { rawMsg: ChatMessageType | null }) {
     <>
       {/* Stage label: above content when no text yet, below when streaming */}
       {isStreaming && !rawMsg?.text && stageLabel && (
-        <div className="theseus-stage-label">{stageLabel}</div>
+        <BrailleStageLabel label={stageLabel} />
       )}
 
       {/* Markdown content via assistant-ui */}
@@ -212,7 +234,7 @@ function AssistantMessageInner({ rawMsg }: { rawMsg: ChatMessageType | null }) {
 
       {/* Stage label below content while still streaming */}
       {isStreaming && rawMsg?.text && (
-        <div className="theseus-stage-label">{stageLabel || '\u2588'}</div>
+        <BrailleStageLabel label={stageLabel} />
       )}
 
       {/* Error */}
