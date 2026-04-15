@@ -218,7 +218,61 @@ export function estimateReadingTime(body: string): number {
 }
 
 // ─────────────────────────────────────────────────
-// Margin Annotation Injection
+// Footnote-to-Sidenote Extraction
+// ─────────────────────────────────────────────────
+
+export interface Sidenote {
+  /** Footnote reference id (e.g. "1", "2") */
+  id: string;
+  /** HTML content of the footnote (may contain <strong>, <em>, etc.) */
+  html: string;
+}
+
+/**
+ * Extract footnotes produced by remark-gfm and convert them into sidenote data.
+ *
+ * 1. Parses the <section data-footnotes> block at the bottom of the HTML
+ * 2. Extracts each <li> as a sidenote with its content (minus the backref link)
+ * 3. Replaces inline <sup><a data-footnote-ref> with a sidenote anchor span
+ * 4. Removes the footnotes section from the HTML
+ *
+ * Returns the cleaned HTML and an array of sidenotes.
+ * If no footnotes exist, returns the original HTML and an empty array.
+ */
+export function extractFootnoteSidenotes(html: string): {
+  html: string;
+  sidenotes: Sidenote[];
+} {
+  const sectionMatch = html.match(/<section data-footnotes[\s\S]*?<\/section>/);
+  if (!sectionMatch) return { html, sidenotes: [] };
+
+  const sidenotes: Sidenote[] = [];
+  const liRegex = /<li id="user-content-fn-(\w+)">\s*<p>([\s\S]*?)<\/p>\s*<\/li>/g;
+  let liMatch;
+  while ((liMatch = liRegex.exec(sectionMatch[0])) !== null) {
+    const id = liMatch[1];
+    const content = liMatch[2]
+      .replace(/<a[^>]*data-footnote-backref[^>]*>[^<]*<\/a>/g, '')
+      .trim();
+    sidenotes.push({ id, html: content });
+  }
+
+  let cleanedHtml = html.replace(
+    /<sup><a href="#user-content-fn-(\w+)"[^>]*data-footnote-ref[^>]*>\d+<\/a><\/sup>/g,
+    (_match, id) => {
+      const index = sidenotes.findIndex((s) => s.id === id);
+      if (index === -1) return _match;
+      return `<span class="sidenote-ref" data-sidenote-id="${escapeAttr(id)}" data-sidenote-index="${index}"><sup class="sidenote-marker">${index + 1}</sup></span>`;
+    }
+  );
+
+  cleanedHtml = cleanedHtml.replace(/<section data-footnotes[\s\S]*?<\/section>/, '');
+
+  return { html: cleanedHtml, sidenotes };
+}
+
+// ─────────────────────────────────────────────────
+// Margin Annotation Injection (legacy frontmatter system)
 // ─────────────────────────────────────────────────
 
 interface Annotation {
