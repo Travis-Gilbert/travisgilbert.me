@@ -41,6 +41,36 @@ function extractSources(response: TheseusResponse): EvidenceNode[] {
     }
   }
 
+  // Web evidence sections come from the ASK pipeline's web_search_fallback
+  // (Tavily REST > SearXNG > DuckDuckGo). Surface them in the same Sources
+  // list as graph evidence, marked with epistemic_role 'web' so SourceItem
+  // can render the URL and a WEB badge.
+  let webIdx = 0;
+  for (const section of response.sections) {
+    if (section.type !== 'web_evidence') continue;
+    const syntheticId = `web-${webIdx++}`;
+    sources.push({
+      object_id: syntheticId,
+      title: section.title || section.url || 'Web result',
+      epistemic_role: 'web',
+      gradual_strength: section.relevance ?? 0.5,
+      // EvidenceNode requires several fields; fill safe defaults for
+      // web items. The renderer only reads title / epistemic_role /
+      // gradual_strength / metadata for the sources list.
+      object_type: 'source',
+      object_type_color: '#2D5F6B',
+      slug: syntheticId,
+      body_preview: section.snippet,
+      edge_count: 0,
+      metadata: {
+        url: section.url,
+        snippet: section.snippet,
+        web_source: true,
+        stance_vs_graph: section.stance_vs_graph,
+      },
+    } as unknown as EvidenceNode);
+  }
+
   return sources.sort((a, b) => b.gradual_strength - a.gradual_strength);
 }
 
@@ -75,13 +105,26 @@ function SourceItem({
   onClick: () => void;
 }) {
   const [hovered, setHovered] = useState(false);
+  const isWeb = node.epistemic_role === 'web';
+  const url = isWeb ? (node.metadata?.url as string | undefined) : undefined;
+  const hostname = url
+    ? (() => { try { return new URL(url).hostname.replace(/^www\./, ''); } catch { return url; } })()
+    : undefined;
+
+  const handleClick = () => {
+    if (isWeb && url) {
+      window.open(url, '_blank', 'noopener,noreferrer');
+      return;
+    }
+    onClick();
+  };
 
   return (
     <div
       role="button"
       tabIndex={0}
-      onClick={onClick}
-      onKeyDown={(e) => { if (e.key === 'Enter') onClick(); }}
+      onClick={handleClick}
+      onKeyDown={(e) => { if (e.key === 'Enter') handleClick(); }}
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
       style={{
@@ -95,14 +138,14 @@ function SourceItem({
         transition: 'background 0.12s',
       }}
     >
-      {/* Relevance dot */}
+      {/* Relevance dot. Web sources get a distinct hue. */}
       <div
         style={{
           width: 5,
           height: 5,
           borderRadius: '50%',
           marginTop: 6,
-          background: 'var(--vie-teal-ink)',
+          background: isWeb ? 'var(--vie-amber, #c49a4a)' : 'var(--vie-teal-ink)',
           opacity: node.gradual_strength,
           flexShrink: 0,
         }}
@@ -113,7 +156,23 @@ function SourceItem({
         <div style={{ fontSize: 13.5, color: 'var(--vie-ink-2)', lineHeight: 1.4 }}>
           {node.title}
         </div>
-        {node.epistemic_role && (
+        {isWeb && hostname && (
+          <div
+            style={{
+              fontFamily: 'var(--vie-font-mono)',
+              fontSize: 10,
+              color: 'var(--vie-ink-4)',
+              marginTop: 2,
+              opacity: 0.9,
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
+              whiteSpace: 'nowrap',
+            }}
+          >
+            {hostname}
+          </div>
+        )}
+        {!isWeb && node.epistemic_role && (
           <div
             style={{
               fontFamily: 'var(--vie-font-mono)',
@@ -129,18 +188,36 @@ function SourceItem({
         )}
       </div>
 
-      {/* Relevance percentage */}
-      <span
-        style={{
-          fontFamily: 'var(--vie-font-mono)',
-          fontSize: 10,
-          color: 'var(--vie-ink-4)',
-          marginTop: 2,
-          flexShrink: 0,
-        }}
-      >
-        {Math.round(node.gradual_strength * 100)}%
-      </span>
+      {/* WEB badge for web sources, relevance percentage otherwise */}
+      {isWeb ? (
+        <span
+          style={{
+            fontFamily: 'var(--vie-font-mono)',
+            fontSize: 9,
+            color: 'var(--vie-amber, #c49a4a)',
+            border: '1px solid var(--vie-amber, #c49a4a)',
+            borderRadius: 3,
+            padding: '1px 5px',
+            marginTop: 2,
+            flexShrink: 0,
+            letterSpacing: '0.05em',
+          }}
+        >
+          WEB
+        </span>
+      ) : (
+        <span
+          style={{
+            fontFamily: 'var(--vie-font-mono)',
+            fontSize: 10,
+            color: 'var(--vie-ink-4)',
+            marginTop: 2,
+            flexShrink: 0,
+          }}
+        >
+          {Math.round(node.gradual_strength * 100)}%
+        </span>
+      )}
     </div>
   );
 }
