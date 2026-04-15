@@ -101,12 +101,179 @@ export interface GraphWeatherData {
    API functions
    ───────────────────────────────────────────────── */
 
-/** Submit a question to the Django retrieval pipeline. */
+/* ─────────────────────────────────────────────────
+   v2 async stream adapter
+   ───────────────────────────────────────────────── */
+
+const ASK_STREAM_TIMEOUT_MS = 120_000;
+
+interface RawV2ObjectItem {
+  id?: number | string;
+  pk?: number | string;
+  slug?: string;
+  title?: string;
+  object_type_slug?: string;
+  object_type_color?: string;
+  body_preview?: string;
+  edge_count?: number;
+  priority?: string;
+  progress?: number;
+  done?: boolean;
+  subtasks?: Array<{ title: string; done: boolean }>;
+  due_date?: string;
+  project_name?: string;
+  provenance?: string;
+  event_date?: string;
+  event_time?: string;
+  event_duration?: string;
+  author?: string;
+  year?: string;
+  confidence?: string;
+  fields?: Record<string, string>;
+}
+
+interface RawV2Section {
+  type: string;
+  data: Record<string, unknown>;
+}
+
+interface RawV2CompletePayload {
+  query?: string;
+  answer?: string;
+  answer_agent?: string;
+  sections?: RawV2Section[];
+  traversal?: { signals_used?: string[] };
+}
+
+interface RawV2EnqueueResponse {
+  job_id?: string;
+  stream_url?: string;
+}
+
+function adaptV2ToAskRetrieval(raw: RawV2CompletePayload): AskRetrievalResponse {
+  const objectsSection = raw.sections?.find((s) => s.type === 'objects');
+  const rawItems = Array.isArray(objectsSection?.data?.items)
+    ? (objectsSection!.data.items as RawV2ObjectItem[])
+    : [];
+
+  const objects: AskRetrievalObject[] = rawItems.map((item) => ({
+    id: typeof item.id === 'number' ? item.id : Number(item.id ?? item.pk ?? 0),
+    slug: item.slug ?? '',
+    title: item.title ?? 'Untitled',
+    object_type_slug: item.object_type_slug ?? 'note',
+    object_type_color: item.object_type_color ?? '#D4CCC4',
+    body_preview: item.body_preview ?? '',
+    edge_count: typeof item.edge_count === 'number' ? item.edge_count : 0,
+    priority: item.priority,
+    progress: item.progress,
+    done: item.done,
+    subtasks: item.subtasks,
+    due_date: item.due_date,
+    project_name: item.project_name,
+    provenance: item.provenance,
+    event_date: item.event_date,
+    event_time: item.event_time,
+    event_duration: item.event_duration,
+    author: item.author,
+    year: item.year,
+    confidence: item.confidence,
+    fields: item.fields,
+  }));
+
+  const enginesUsed = Array.isArray(raw.traversal?.signals_used)
+    ? raw.traversal!.signals_used!
+    : [];
+
+  // v2 does not surface a top-level claims list. Callers that read
+  // retrieval.claims.length will see 0; this is acceptable since the
+  // backend does not expose claim items in the ask response.
+  return {
+    question_id: '',
+    retrieval: {
+      objects,
+      claims: [],
+      engines_used: enginesUsed,
+    },
+    answer: raw.answer ?? '',
+    answer_agent: raw.answer_agent ?? 'none',
+  };
+}
+
+/**
+ * Submit a question through the v2 async pipeline.
+ *
+ * Internally enqueues a job at /api/v2/theseus/ask/async/, opens an
+ * EventSource on the returned stream_url, and resolves with a v1-shaped
+ * AskRetrievalResponse when the 'complete' event fires. Rejects on stream
+ * error or after ASK_STREAM_TIMEOUT_MS without a complete event.
+ *
+ * The signature is preserved from the legacy v1 sync POST so existing
+ * callers (EngineAskTab, DailyPage) require no changes. Note: v2 does
+ * not expose top-level claims, so retrieval.claims is always an empty
+ * array; consumers that read claims.length will see 0.
+ */
 export async function submitQuestion(question: string): Promise<AskRetrievalResponse> {
-  return apiFetch<AskRetrievalResponse>('/ask/', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ question }),
+  let enqueueRes: Response;
+  try {
+    enqueueRes = await fetch('/api/v2/theseus/ask/async', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ query: question, include_web: true }),
+    });
+  } catch (err) {
+    throw new Error(err instanceof Error ? err.message : 'Network error enqueuing ask');
+  }
+
+  if (!enqueueRes.ok) {
+    throw new Error(`Failed to enqueue ask (${enqueueRes.status})`);
+  }
+
+  let payload: RawV2EnqueueResponse;
+  try {
+    payload = (await enqueueRes.json()) as RawV2EnqueueResponse;
+  } catch {
+    throw new Error('Malformed enqueue response');
+  }
+
+  const streamUrl = payload.stream_url
+    ?? (payload.job_id ? `/api/v2/theseus/ask/stream/${payload.job_id}` : '');
+  if (!streamUrl) {
+    throw new Error('Missing stream_url in enqueue response');
+  }
+
+  return new Promise<AskRetrievalResponse>((resolve, reject) => {
+    const es = new EventSource(streamUrl);
+    let settled = false;
+
+    const finish = (fn: () => void) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timeoutId);
+      es.close();
+      fn();
+    };
+
+    const timeoutId = setTimeout(() => {
+      finish(() => reject(new Error('Ask stream timed out')));
+    }, ASK_STREAM_TIMEOUT_MS);
+
+    es.addEventListener('complete', (e) => {
+      const data = (e as MessageEvent).data as string;
+      try {
+        const raw = JSON.parse(data) as RawV2CompletePayload;
+        finish(() => resolve(adaptV2ToAskRetrieval(raw)));
+      } catch (err) {
+        finish(() => reject(
+          new Error(err instanceof Error ? err.message : 'Failed to parse complete event'),
+        ));
+      }
+    });
+
+    es.addEventListener('error', () => {
+      // EventSource errors fire on transient disconnects too. Only
+      // reject if we have not already resolved on 'complete'.
+      finish(() => reject(new Error('Ask stream error')));
+    });
   });
 }
 

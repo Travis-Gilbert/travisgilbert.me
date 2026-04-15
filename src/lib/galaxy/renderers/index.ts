@@ -15,10 +15,19 @@ import { renderHierarchy } from './HierarchyRenderer';
 import { renderExplanation } from './ExplanationRenderer';
 import { renderArgument } from './ArgumentRenderer';
 import { renderGeographic, loadMapImage } from './GeographicRenderer';
+import { renderProcessFlow } from './ProcessFlowRenderer';
+import { renderConceptMap } from './ConceptMapRenderer';
+import { renderTfjsStipple } from './TfjsStippleRenderer';
 import type { GeographicRegionsSection } from '@/lib/theseus-types';
 
 /**
  * Render the offscreen dual-canvas pair for the given answer type.
+ *
+ * The first argument accepts either the client-side VizType prediction
+ * or the backend's authoritative structured_visual.renderer key. The
+ * third argument carries renderer-specific structured data from the
+ * backend visual pipeline (steps for process_flow, focal center for
+ * concept_map, precomputed points for tfjs_stipple, etc.).
  *
  * Returns null for types that don't use the stippling pipeline:
  *   - portrait / object-scene: uses VisionTracer pipeline instead
@@ -26,17 +35,30 @@ import type { GeographicRegionsSection } from '@/lib/theseus-types';
  *   - bar-chart / line-chart: uses async DataVizRenderer (call renderDataVizAnswer instead)
  */
 export function renderAnswer(
-  vizType: VizType,
+  vizType: VizType | string,
   nodes: EvidenceNode[],
   edges: EvidenceEdge[],
+  structured?: Record<string, unknown>,
 ): OffscreenRenderResult | null {
   switch (vizType) {
     case 'comparison':
+    case 'comparison_table':
       return renderComparison(nodes, edges);
     case 'timeline':
+    case 'timeline_strip':
       return renderTimeline(nodes, edges);
+    case 'hierarchy':
     case 'truth-map':
+    case 'hierarchy_tree':
       return renderHierarchy(nodes, edges);
+    case 'diagram':
+    case 'process_flow':
+      return renderProcessFlow(nodes, edges, structured);
+    case 'explanation':
+    case 'concept_map':
+      return renderConceptMap(nodes, edges, structured);
+    case 'tfjs_stipple':
+      return renderTfjsStipple(nodes, edges, structured);
     case 'graph-native':
       return renderExplanation(nodes, edges);
     default:
