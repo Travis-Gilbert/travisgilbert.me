@@ -5436,3 +5436,122 @@
     padding: 24px 16px;
   }
 }
+
+/* ── Terminal stream ────────────────────────────────────────── */
+/* Shared single-line status component used on Ask (floating) and
+   Explorer (inline inside the status strip). No glow, no gradients,
+   just monospace honesty. */
+
+.terminal-stream-active {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 8px;
+  font-family: var(--vie-font-mono, 'Courier Prime', monospace);
+  font-size: 11px;
+  line-height: 1.55;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+}
+
+.terminal-stream-spinner {
+  display: inline-block;
+  min-width: 1em;
+  font-size: 12px;
+}
+
+.terminal-stream-text {
+  font-weight: 500;
+}
+
+.terminal-stream-detail {
+  color: var(--vie-text-dim, #5a5650);
+  opacity: 0.75;
+}
+
+.terminal-stream-heartbeat {
+  color: var(--vie-text-dim, #5a5650);
+  opacity: 0.5;
+  font-style: italic;
+}
+
+.terminal-stream-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 10px;
+  background: transparent;
+  border: 1px solid color-mix(in oklab, var(--vie-text-dim, #5a5650) 40%, transparent);
+  border-radius: 999px;
+  font-family: var(--vie-font-mono, 'Courier Prime', monospace);
+  font-size: 11px;
+  color: var(--vie-text-dim, #5a5650);
+  cursor: pointer;
+  transition: border-color 160ms ease, color 160ms ease;
+}
+
+.terminal-stream-pill:hover {
+  border-color: color-mix(in oklab, var(--vie-amber, #c49a4a) 50%, transparent);
+  color: var(--vie-amber, #c49a4a);
+}
+
+.terminal-stream-check {
+  color: var(--vie-teal-light, #4a8a96);
+  font-size: 10px;
+}
+
+.terminal-stream-chevron {
+  display: inline-block;
+  font-size: 9px;
+  opacity: 0.6;
+  transition: transform 160ms ease;
+}
+
+.terminal-stream-chevron[data-expanded='true'] {
+  transform: rotate(90deg);
+}
+
+.terminal-stream-history {
+  position: absolute;
+  bottom: calc(100% + 8px);
+  left: 0;
+  min-width: 320px;
+  max-width: 480px;
+  max-height: 280px;
+  overflow-y: auto;
+  padding: 10px 12px;
+  background: var(--vie-bg, #1a1815);
+  border: 1px solid color-mix(in oklab, var(--vie-text-dim, #5a5650) 30%, transparent);
+  border-radius: 6px;
+  font-family: var(--vie-font-mono, 'Courier Prime', monospace);
+  font-size: 11px;
+  line-height: 1.6;
+}
+
+.terminal-stream-history-row {
+  display: grid;
+  grid-template-columns: 64px 1fr auto;
+  gap: 10px;
+  align-items: baseline;
+}
+
+.terminal-stream-history-time {
+  color: var(--vie-text-dim, #5a5650);
+  opacity: 0.6;
+  font-variant-numeric: tabular-nums;
+}
+
+.terminal-stream-history-text {
+  font-weight: 500;
+}
+
+.terminal-stream-history-detail {
+  color: var(--vie-text-dim, #5a5650);
+  opacity: 0.7;
+  text-align: right;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .terminal-stream-chevron {
+    transition: none;
+  }
+}

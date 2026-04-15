@@ -2,6 +2,8 @@
 
 import type { HighlightMode } from './useExplorerSelection';
 import type { InvestigationView } from '@/lib/theseus-types';
+import TerminalStream from '@/components/theseus/TerminalStream';
+import type { TerminalStreamHandle } from '@/hooks/useTerminalStream';
 
 interface StatusStripProps {
   highlightMode: HighlightMode;
@@ -13,6 +15,7 @@ interface StatusStripProps {
   pipelineStatus?: string;
   loading?: boolean;
   hasAnswer?: boolean;
+  stream?: TerminalStreamHandle;
 }
 
 const VIEW_LABELS: Record<InvestigationView, string> = {
@@ -27,8 +30,10 @@ const VIEW_LABELS: Record<InvestigationView, string> = {
 /**
  * StatusStrip: thin bar at the bottom of the graph canvas.
  *
- * Shows current view, active filter, node/edge counts,
- * pipeline stage, and selected node.
+ * Shows current view, active filter, node/edge counts, and, when provided,
+ * a TerminalStream for honest loading status. The legacy plain-text "loading"
+ * fallback still renders when no stream handle is passed (e.g. from older
+ * call sites that haven't migrated).
  */
 export default function StatusStrip({
   highlightMode,
@@ -39,6 +44,7 @@ export default function StatusStrip({
   pipelineStatus,
   loading,
   hasAnswer = false,
+  stream,
 }: StatusStripProps) {
   const viewLabel = VIEW_LABELS[activeView];
 
@@ -47,6 +53,9 @@ export default function StatusStrip({
     !hasAnswer && (activeView === 'evidence' || activeView === 'reasoning_trace')
       ? 'Ask a question to see evidence / reasoning trace'
       : null;
+
+  const hasStreamContent =
+    stream && (stream.active || stream.completionMs !== null || stream.events.length > 0);
 
   return (
     <div className="explorer-status-strip" data-interactive>
@@ -90,7 +99,7 @@ export default function StatusStrip({
         </>
       )}
 
-      {pipelineStatus && (
+      {pipelineStatus && !hasStreamContent && (
         <>
           <span className="explorer-status-sep" aria-hidden="true">/</span>
           <span
@@ -102,7 +111,22 @@ export default function StatusStrip({
         </>
       )}
 
-      {loading && (
+      {hasStreamContent && stream && (
+        <>
+          <span className="explorer-status-sep" aria-hidden="true">/</span>
+          <span className="explorer-status-item" style={{ position: 'relative' }}>
+            <TerminalStream
+              events={stream.events}
+              active={stream.active}
+              completionMs={stream.completionMs}
+              variant="inline"
+              label="graph ready"
+            />
+          </span>
+        </>
+      )}
+
+      {loading && !hasStreamContent && (
         <>
           <span className="explorer-status-sep" aria-hidden="true">/</span>
           <span className="explorer-status-item">loading</span>
