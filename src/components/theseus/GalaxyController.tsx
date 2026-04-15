@@ -157,30 +157,9 @@ function placeholderClusterSource(clusterId: number): ClusterSource {
   return 'web';
 }
 
-function isRawNarrativeText(text: string): boolean {
-  const normalized = text.toLowerCase();
-  return normalized.includes('perspective(s):') || normalized.startsWith('the evidence reveals');
-}
-
-function getRawNarrativeText(response: TheseusResponse | null): string {
-  if (!response) return '';
-
-  const narrativeSection = response.sections.find((section) => section.type === 'narrative');
-  const textFromSection =
-    narrativeSection && 'content' in narrativeSection && typeof narrativeSection.content === 'string'
-      ? narrativeSection.content.trim()
-      : '';
-  if (textFromSection && isRawNarrativeText(textFromSection)) {
-    return textFromSection;
-  }
-
-  const textFromAnswer = (response as TheseusResponse & { answer?: string }).answer?.trim() ?? '';
-  if (textFromAnswer && isRawNarrativeText(textFromAnswer)) {
-    return textFromAnswer;
-  }
-
-  return '';
-}
+// isRawNarrativeText + getRawNarrativeText removed: the inline
+// canvas bubble was a legacy fallback. ExplorerLayout's
+// AnswerReadingPanel now handles all narrative display.
 
 interface ClusterDotMapping {
   clusterId: number;
@@ -1357,20 +1336,39 @@ function GalaxyController({
       const vizType = predTypeRef.current;
       const geoSection = resp.geographic_regions;
       const answerType = resp.answer_type;
+      const structuredVisual = resp.structured_visual;
       geoSectionRef.current = geoSection ?? null;
       setShowGeoLegend(false);
 
+      // Pick the visual type: backend's authoritative renderer key wins,
+      // then backend answer_type, then client-side prediction (vizType).
+      const visualType: string =
+        structuredVisual?.renderer
+        ?? answerType
+        ?? vizType;
+
       // Geographic answers with regions: route through stipple + GeographicRenderer
       const isGeographicStipple = answerType === 'geographic' && geoSection;
-      const shouldStipple = isGeographicStipple || (!imageUrl && vizType !== 'portrait' && vizType !== 'object-scene');
+      // Gate on the RESOLVED visualType (backend authority preferred) rather
+      // than the client-side vizType prediction. Previously the client KNN
+      // classifier could mis-predict 'portrait' for queries like
+      // "compare X and Y" and short-circuit stippling, falling through to
+      // the legacy scattered-text path even when the backend correctly
+      // classified the answer as comparison/timeline/etc.
+      const isPortraitOrObjectScene =
+        visualType === 'portrait' || visualType === 'object-scene';
+      const shouldStipple =
+        isGeographicStipple || (!imageUrl && !isPortraitOrObjectScene);
 
       // Debug: trace answer flow
-      if (imageUrl || geoSection || answerType) {
+      if (imageUrl || geoSection || answerType || structuredVisual) {
         console.log('[Galaxy] Answer construction:', {
           imageUrl,
           hasGeoSection: !!geoSection,
           answerType,
           vizType,
+          visualType,
+          backendRenderer: structuredVisual?.renderer,
           shouldStipple,
           isGeographicStipple,
         });
@@ -1380,11 +1378,12 @@ function GalaxyController({
         // Clean up previous stipple if any (follow-up queries)
         stippleCleanupRef.current?.();
 
-        runStippleConstruction(vizType, nodes, edges, directive, grid, {
+        runStippleConstruction(visualType, nodes, edges, directive, grid, {
           instant: prefersReducedMotion,
           answerType: answerType as AnswerType | undefined,
           referenceImageUrl: isGeographicStipple ? imageUrl : undefined,
           geoSection: isGeographicStipple ? geoSection : undefined,
+          structuredVisual: structuredVisual,
         }).then((stippleResult) => {
           if (!stippleResult) {
             legacyConstruction(grid, nodes, edges, objDotMap, relevantDotIndices, imageUrl, dotCount, geoSection);
@@ -1419,33 +1418,13 @@ function GalaxyController({
     }, 500);
   }
 
-  // Raw narrative fallback: draw inline bubble when only structural narration exists.
+  // Raw narrative fallback removed: the inline canvas bubble was a
+  // legacy path that dumped perspective text over the galaxy canvas.
+  // ExplorerLayout's AnswerReadingPanel now handles all narrative
+  // display in a proper right-side split pane. Clear any stale
+  // inline response when state changes.
   useEffect(() => {
-    const grid = gridRef.current;
-    if (!grid) return;
-
-    if (state !== 'EXPLORING') {
-      grid.setInlineResponse(null);
-      return;
-    }
-
-    const rawNarrative = getRawNarrativeText(response);
-    if (!rawNarrative) {
-      grid.setInlineResponse(null);
-      return;
-    }
-
-    const { height } = grid.getSize();
-    const isMobile = typeof window !== 'undefined' && window.innerWidth < 768;
-    grid.setInlineResponse({
-      canvasX: 20,
-      canvasY: isMobile ? height - 260 : height - 200,
-      text: rawNarrative,
-      alpha: 0,
-      targetAlpha: 1,
-      visibleChars: rawNarrative.length,
-    });
-    grid.wakeAnimation();
+    gridRef.current?.setInlineResponse(null);
   }, [gridRef, response, state]);
 
   function runCrystallizePhase(
