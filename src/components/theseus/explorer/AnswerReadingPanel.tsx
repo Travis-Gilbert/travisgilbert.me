@@ -45,22 +45,29 @@ function extractSources(response: TheseusResponse): EvidenceNode[] {
     }
   }
 
-  // Web evidence sections come from the ASK pipeline's web_search_fallback
-  // (Tavily REST > SearXNG > DuckDuckGo). Surface them in the same Sources
-  // list as graph evidence, marked with epistemic_role 'web' so SourceItem
-  // can render the URL and a WEB badge.
+  // Web evidence arrives in TWO places in the response:
+  //   1. `web_evidence` sections (emitted by run_ask_pipeline for the
+  //      compose_engine path)
+  //   2. Objects in the `objects` section with metadata.web_source=true
+  //      and synthetic ids like "web-0" (emitted by run_ask_pipeline
+  //      for the v2 async path via ask_async_task)
+  //
+  // Pull from BOTH so web results surface regardless of which backend
+  // path produced the response. SourceItem detects web items via
+  // epistemic_role='web' and renders the WEB badge + hostname.
+
+  // Path 1: web_evidence sections
   let webIdx = 0;
   for (const section of response.sections) {
     if (section.type !== 'web_evidence') continue;
-    const syntheticId = `web-${webIdx++}`;
+    const syntheticId = `web-section-${webIdx++}`;
+    if (seen.has(syntheticId)) continue;
+    seen.add(syntheticId);
     sources.push({
       object_id: syntheticId,
       title: section.title || section.url || 'Web result',
       epistemic_role: 'web',
       gradual_strength: section.relevance ?? 0.5,
-      // EvidenceNode requires several fields; fill safe defaults for
-      // web items. The renderer only reads title / epistemic_role /
-      // gradual_strength / metadata for the sources list.
       object_type: 'source',
       object_type_color: '#2D5F6B',
       slug: syntheticId,
@@ -73,6 +80,34 @@ function extractSources(response: TheseusResponse): EvidenceNode[] {
         stance_vs_graph: section.stance_vs_graph,
       },
     } as unknown as EvidenceNode);
+  }
+
+  // Path 2: objects section items with metadata.web_source
+  for (const section of response.sections) {
+    if (section.type !== 'objects') continue;
+    for (const obj of section.objects) {
+      const meta = obj.metadata as Record<string, unknown> | undefined;
+      if (!meta?.web_source) continue;
+      const objId = String(obj.id);
+      if (seen.has(objId)) continue;
+      seen.add(objId);
+      sources.push({
+        object_id: objId,
+        title: obj.title || 'Web result',
+        epistemic_role: 'web',
+        gradual_strength: obj.score ?? 0.5,
+        object_type: 'source',
+        object_type_color: '#2D5F6B',
+        slug: objId,
+        body_preview: obj.summary,
+        edge_count: 0,
+        metadata: {
+          url: meta.url as string | undefined,
+          snippet: obj.summary,
+          web_source: true,
+        },
+      } as unknown as EvidenceNode);
+    }
   }
 
   return sources.sort((a, b) => b.gradual_strength - a.gradual_strength);
