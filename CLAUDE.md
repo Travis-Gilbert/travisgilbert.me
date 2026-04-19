@@ -39,7 +39,7 @@ When reviewing your own work before ending a session, grep the files you touched
 
 ## Tech Stack
 
-Next.js 16 (App Router, Turbopack, React Compiler), React 19, Tailwind CSS v4 (`@tailwindcss/postcss`), rough.js, rough-notation, `next/font` (Google + local), Zod, gray-matter + remark, Django 5.x (publishing_api + research_api), DRF, spaCy (en_core_web_md), PyTorch (CPU), sentence-transformers, FAISS, django-cotton, django-crispy-forms (`studio` pack), django-tailwind, django-template-partials
+Next.js 16 (App Router, Turbopack, React Compiler), React 19, Tailwind CSS v4 (`@tailwindcss/postcss`), rough.js, rough-notation, `next/font` (Google + local), Zod, gray-matter + remark, `@cosmos.gl/graph` 3.0-beta (WebGL force layout) + luma.gl 9.2.6 pinned, `@tensorflow/tfjs` (client-side SceneDirector GNN scorer), `@uwdata/mosaic-*` + `@uwdata/vgplot` + `@duckdb/duckdb-wasm` (Phase B: cross-filter), Django 5.x (publishing_api + research_api), DRF, spaCy (en_core_web_md), PyTorch (CPU), sentence-transformers, FAISS, django-cotton, django-crispy-forms (`studio` pack), django-tailwind, django-template-partials
 
 ## Key Directories
 
@@ -173,9 +173,38 @@ Pipeline: `TheseusResponse` -> feature extraction (`features/`) -> GNN encoder +
 
 Shared graph traversal utilities (degree maps, adjacency, BFS components) live in `features/graphUtils.ts` to avoid duplication across modules.
 
+### Explorer Canvas (cosmos.gl + Inline Ask)
+
+The Theseus Explorer panel renders against the **bare `@cosmos.gl/graph`
+Graph class**, not Cosmograph. `CosmosGraphCanvas.tsx` is the React
+wrapper: it builds flat `Float32Array` point/link/color/size buffers and
+drives the imperative Graph API (`setPointPositions`, `setPointColors`,
+`setLinks`, `render()`, `start()`). Data normalization lives in
+`useGraphData.ts` (`mapNode` / `mapEdge` are exported for reuse in
+chat-inline subgraphs via `GraphPart.tsx`).
+
+Scene intelligence is client-side: `ExplorerAskComposer.tsx` streams a
+question through `askTheseusAsyncStream` -> `/ask/async` -> SSE, then
+runs the returned `TheseusResponse` through `directScene()` from
+`src/lib/theseus-viz/SceneDirector.ts` (TF.js GNN scorer with
+rule-based fallback) to produce a `SceneDirective`. The directive
+drives the canvas via `applySceneDirective()` from
+`src/lib/theseus/cosmograph/adapter.ts`, which talks to the canvas
+through the operation-based `GraphAdapter` interface
+(`focusNodes` / `clearFocus` / `zoomToNode` / `fitView`): never reach
+into the Graph instance from outside the wrapper.
+
 ### Canvas Components
 
 All canvas components (PaneDotGrid, TerminalCanvas, KnowledgeMap, TimelineViz) must guard against zero dimensions (browsers show broken-image icon) and cap to 8192px (browser canvas size limit). Pattern: `if (w < 1 || h < 1) return; const cw = Math.min(w, 8192);`
+
+### cosmos.gl / luma.gl
+
+- **Pin luma.gl to 9.2.6** via `overrides` in `package.json`. cosmos.gl 3.0-beta.7 crashes in luma.gl 9.3.x with `TypeError: Cannot convert undefined or null to object` inside `UniformStore`. All four packages (`@luma.gl/core`, `engine`, `webgl`, `shadertools`) must be pinned AND declared as direct deps so Turbopack can resolve `@luma.gl/core` from the top level.
+- **Mount race: luma.gl `autoResize` captures initial `clientWidth`** at `Graph` construction time. If React commits before the grid layout resolves, the canvas locks onto 0x0 and never recovers. `CosmosGraphCanvas.tsx` observes the container with a `ResizeObserver` and delays `new Graph(...)` until `contentRect` has non-zero dimensions. Do not remove this gate.
+- **cosmos.gl render order**: call `setPointPositions` + `setPointColors` + `setPointSizes` + `setLinks` before `render(alpha)`, and always `render(1)` before `start(1)` on first load: the GL programs initialize inside `render()`, not the constructor. For pinned-XY (layer projection) mode call `render(0)` instead and skip `start()`.
+- **fitView after simulation ends, not at frame 0**. Calling `fitView()` while the force sim is still expanding anchors the viewport to the random seed positions and drifts out of frame as nodes cluster. Register `onSimulationEnd` in the Graph config and call `fitView` from there.
+- **SSE `error` event carries a JSON payload**. The server sends `event: error\ndata: {"error":"..."}` for backend exceptions (RQ worker crashes, Python TypeErrors, etc.). `askTheseusAsyncStream` parses that payload so real backend errors reach `handlers.onError`. If you simplify the handler to ignore `e.data`, every failure collapses to a meaningless "Stream error" label.
 
 ## Deployment
 
