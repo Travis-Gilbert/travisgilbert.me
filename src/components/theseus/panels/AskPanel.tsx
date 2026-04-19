@@ -1,17 +1,13 @@
 'use client';
 
 import { useCallback } from 'react';
-import ChatCanvas from '@/components/theseus/chat/ChatCanvas';
 import TheseusThread, { exportChatAsMarkdown } from '@/components/theseus/chat/TheseusThread';
 import { useChatHistory } from '@/components/theseus/chat/useChatHistory';
-import AmbientGraphActivity from '@/components/theseus/AmbientGraphActivity';
 
 /**
- * AskPanel: chat panel wrapper for PanelManager.
- *
- * Wraps the existing TheseusThread + ChatCanvas + useChatHistory.
- * Chat state lives inside this component, so it persists across
- * panel switches (PanelManager keeps mounted panels alive).
+ * Parchment chat surface. Chat state lives inside this component so it
+ * persists across panel switches; the shared DotGrid in TheseusShell is
+ * the panel's material backdrop.
  */
 export default function AskPanel() {
   const { messages, isAsking, ask } = useChatHistory();
@@ -20,21 +16,12 @@ export default function AskPanel() {
     if (messages.length > 0) exportChatAsMarkdown(messages);
   }, [messages]);
 
-  // The chat panel is warm whenever a query is in flight, so the
-  // heat wash breathes during responses. See vie-heat-breath in theseus.css.
   return (
     <div
       className="theseus-chat-home"
       data-machine-warm={isAsking ? 'true' : 'false'}
+      style={{ position: 'relative', height: '100%' }}
     >
-      <ChatCanvas />
-
-      {/* Ambient hypothesis drift + edge formations, the peripheral
-          "eavesdropping on the machine" layer. Always on behind the
-          chat so the surface reads alive between turns. */}
-      <AmbientGraphActivity active />
-
-      {/* Export button (top-right, visible when there are messages) */}
       {messages.length > 0 && (
         <button
           type="button"

@@ -1,8 +1,8 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { usePathname } from 'next/navigation';
-import type { ScreenState } from '@/lib/galaxy/navPredictor';
+import type { ScreenState } from '@/lib/theseus/navPredictor';
 
 const ROUTE_INDEX_MAP: Record<string, number> = {
   '/theseus':           0,
@@ -101,16 +101,24 @@ export function useNavScreenState(inputs: NavScreenStateInputs = {}): ScreenStat
     : viewportWidth < 1024 ? 0.5
     : 1;
 
-  return {
+  // Stabilise the returned object so consumers can use it as a useEffect
+  // dependency without re-running on every parent render.
+  const visibleNodeCount = Math.min(1, (inputs.visibleNodeCount ?? 0) / 200);
+  const activeTensionCount = Math.min(1, (inputs.activeTensionCount ?? 0) / 20);
+  const sessionDepth = Math.min(1, (inputs.sessionDepth ?? 0) / 10);
+  const timeSinceLastAction = Math.min(1, secondsSinceLastAction / 60);
+  const hasActiveQuery = inputs.hasActiveQuery ? 1 : 0;
+
+  return useMemo<ScreenState>(() => ({
     routeIndex,
     engineState: engineStateNum,
-    visibleNodeCount: Math.min(1, (inputs.visibleNodeCount ?? 0) / 200),
-    activeTensionCount: Math.min(1, (inputs.activeTensionCount ?? 0) / 20),
-    sessionDepth: Math.min(1, (inputs.sessionDepth ?? 0) / 10),
-    timeSinceLastAction: Math.min(1, secondsSinceLastAction / 60),
+    visibleNodeCount,
+    activeTensionCount,
+    sessionDepth,
+    timeSinceLastAction,
     scrollDepth,
-    hasActiveQuery: inputs.hasActiveQuery ? 1 : 0,
+    hasActiveQuery,
     panelOpen: panelOpenNum,
     viewportWidthBucket,
-  };
+  }), [routeIndex, engineStateNum, visibleNodeCount, activeTensionCount, sessionDepth, timeSinceLastAction, scrollDepth, hasActiveQuery, panelOpenNum, viewportWidthBucket]);
 }

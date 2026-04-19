@@ -145,6 +145,30 @@
   /* Connector lines for tree schematics */
   --color-connector: #2E2E34;
   --color-connector-patent: #C8C2B8;
+
+  /* shadcn semantic token aliases. The assistant-ui Claude-clone fork uses
+     Tailwind utilities named `bg-background`, `text-foreground`,
+     `text-muted-foreground`, etc. These aliases map those names to the
+     Patent Parchment palette so the fork renders in the right register
+     without editing its class strings. Dark mode picks up automatically
+     because every token on the right-hand side swaps under
+     html[data-theme="dark"]. */
+  --color-background:           var(--color-paper);
+  --color-foreground:           var(--color-ink);
+  --color-muted:                var(--color-bg-alt);
+  --color-muted-foreground:     var(--color-ink-muted);
+  --color-accent:               var(--color-bg-alt);
+  --color-accent-foreground:    var(--color-ink);
+  --color-popover:              var(--color-surface);
+  --color-popover-foreground:   var(--color-ink);
+  --color-primary:              var(--color-terracotta);
+  --color-primary-foreground:   #FBF0E2;
+  --color-secondary:            var(--color-bg-alt);
+  --color-secondary-foreground: var(--color-ink);
+  --color-destructive:          var(--color-error);
+  --color-destructive-foreground: #FBF0E2;
+  --color-ring:                 var(--color-terracotta);
+  --color-input:                var(--color-border);
 }
 
 /* ─────────────────────────────────────────────────
@@ -972,6 +996,212 @@ blockquote {
 }
 
 /* ─────────────────────────────────────────────────
+   Reading Surface:Responsive + Section Separator
+   ───────────────────────────────────────────────── */
+
+/* Base reading surface layout */
+.reading-surface {
+  position: relative;
+  max-width: 920px;
+  margin: 0 auto;
+  padding: 32px 48px 48px 80px;
+  border-radius: 3px;
+  background-color: var(--color-paper);
+  box-shadow: 0 2px 24px rgba(42, 36, 32, 0.10), 0 0 0 1px rgba(42, 36, 32, 0.04);
+}
+
+html[data-theme="dark"] .reading-surface {
+  box-shadow: 0 2px 32px rgba(0, 0, 0, 0.35), 0 0 0 1px rgba(255, 255, 255, 0.04);
+}
+
+/* Grain overlay */
+.reading-surface-grain {
+  position: absolute;
+  inset: 0;
+  border-radius: 3px;
+  overflow: hidden;
+  pointer-events: none;
+  z-index: 0;
+}
+
+.reading-surface-grain-svg {
+  position: absolute;
+  inset: 0;
+  opacity: 0.045;
+  mix-blend-mode: multiply;
+}
+
+html[data-theme="dark"] .reading-surface-grain-svg {
+  opacity: 0.03;
+}
+
+/* Left margin rule */
+.reading-surface-margin-rule {
+  position: absolute;
+  left: 60px;
+  top: 0;
+  bottom: 0;
+  width: 1px;
+  background-color: rgba(45, 95, 107, 0.24);
+  pointer-events: none;
+  z-index: 0;
+}
+
+html[data-theme="dark"] .reading-surface-margin-rule {
+  background-color: rgba(45, 95, 107, 0.18);
+}
+
+/* When the reading surface follows a hero, pull it up so the paper
+   extends almost to the nav bar. The hero background shows behind. */
+.reading-surface--hero-overlap {
+  margin-top: -160px;
+  padding-top: 20px;
+  z-index: 1;
+}
+
+/* Mobile: compressed padding, hide margin rule, soften shadow */
+@media (max-width: 767px) {
+  .reading-surface {
+    max-width: calc(100vw - 24px) !important;
+    padding: 24px 20px 32px 20px !important;
+    box-shadow: 0 1px 16px rgba(42, 36, 32, 0.08), 0 0 0 1px rgba(42, 36, 32, 0.03) !important;
+  }
+
+  html[data-theme="dark"] .reading-surface {
+    box-shadow: 0 1px 16px rgba(0, 0, 0, 0.25), 0 0 0 1px rgba(255, 255, 255, 0.03) !important;
+  }
+
+  .reading-surface-margin-rule {
+    display: none;
+  }
+
+  .reading-surface--hero-overlap {
+    margin-top: -120px !important;
+    padding-top: 40px !important;
+  }
+}
+
+/* ── Per-element ruled lines ──
+   Lines track actual text baselines instead of a fixed container grid.
+   Each element type gets rules matching its own line-height.
+   Baseline sits ~80% down from the top of each line box.
+   ──────────────────────────────────────────────────── */
+
+/* Per-element ruled lines using lh unit (1lh = element's computed line-height).
+   This tracks baselines correctly regardless of font-size differences between
+   paragraphs, headings, and list items. */
+
+.reading-surface .prose p,
+.reading-surface .prose li {
+  --rule-opacity: 0.07;
+  background-image: linear-gradient(
+    to bottom,
+    transparent calc(1lh - 1px),
+    rgba(45, 95, 107, var(--rule-opacity)) calc(1lh - 1px),
+    rgba(45, 95, 107, var(--rule-opacity)) 1lh,
+    transparent 1lh
+  );
+  background-size: 100% 1lh;
+  background-repeat: repeat-y;
+  background-position: 0 0;
+}
+
+/* Headings: single underline at the baseline of the first line */
+.reading-surface .prose h2,
+.reading-surface .prose h3 {
+  --rule-opacity: 0.10;
+  background-image: linear-gradient(
+    to bottom,
+    transparent calc(1lh - 1px),
+    rgba(45, 95, 107, var(--rule-opacity)) calc(1lh - 1px),
+    rgba(45, 95, 107, var(--rule-opacity)) 1lh,
+    transparent 1lh
+  );
+  background-size: 100% 1lh;
+  background-repeat: no-repeat;
+  background-position: 0 0;
+}
+
+/* Dark mode: slightly less visible */
+html[data-theme="dark"] .reading-surface .prose p,
+html[data-theme="dark"] .reading-surface .prose li {
+  --rule-opacity: 0.05;
+}
+
+html[data-theme="dark"] .reading-surface .prose h2,
+html[data-theme="dark"] .reading-surface .prose h3 {
+  --rule-opacity: 0.07;
+}
+
+/* Blockquotes and code blocks: no ruled lines */
+.reading-surface .prose blockquote,
+.reading-surface .prose pre,
+.reading-surface .prose code {
+  background-image: none !important;
+}
+
+/* Section Separator: JetBrains Mono label + trailing line */
+.reading-surface hr[data-label] {
+  border: none;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 2.5rem 0;
+  height: auto;
+}
+
+.reading-surface hr[data-label]::before {
+  content: attr(data-label);
+  font-family: var(--font-code);
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--color-teal);
+  opacity: 0.22;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.reading-surface hr[data-label]::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: var(--color-teal);
+  opacity: 0.15;
+}
+
+/* Plain hr inside reading surface: teal dot divider */
+.reading-surface .prose hr:not([data-label]) {
+  border: none;
+  height: 1px;
+  background: linear-gradient(
+    to right,
+    transparent,
+    transparent calc(50% - 2px),
+    var(--color-teal) calc(50% - 2px),
+    var(--color-teal) calc(50% + 2px),
+    transparent calc(50% + 2px),
+    transparent
+  );
+  opacity: 0.18;
+  margin: 2.5rem 0;
+  position: relative;
+}
+
+.reading-surface .prose hr:not([data-label])::before {
+  content: '';
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: var(--color-teal);
+  opacity: 0.2;
+}
+
+/* ─────────────────────────────────────────────────
    Margin Annotations:Handwritten notes in essay margins
    Frontmatter-driven, CSS-only (no Client Component).
    Desktop: positioned in the right/left margin beside prose.
@@ -1056,6 +1286,80 @@ blockquote {
     width: 1rem;
     border-top: 1px solid rgba(180, 90, 45, 0.3);
   }
+}
+
+/* ─────────────────────────────────────────────────
+   Sidenotes: Footnote-based margin notes
+   Author writes [^1] in markdown; rendered as margin notes.
+   Teal-tinted, positioned by SidenoteMargin component.
+   ───────────────────────────────────────────────── */
+
+/* Inline reference marker */
+.sidenote-ref {
+  cursor: help;
+}
+
+.sidenote-marker {
+  font-family: var(--font-code);
+  font-size: 0.7em;
+  color: var(--color-teal);
+  opacity: 0.6;
+  margin-left: 1px;
+}
+
+/* The margin container: absolutely positioned to the right of the reading surface */
+.sidenote-margin {
+  display: none;
+}
+
+@media (min-width: 1280px) {
+  .sidenote-margin {
+    display: block;
+    position: absolute;
+    top: 0;
+    left: calc(100% + 2rem);
+    width: min(280px, calc((100vw - 740px) / 2 - 4rem));
+  }
+
+  .sidenote-note {
+    position: absolute;
+    font-family: var(--font-body);
+    font-size: 13px;
+    line-height: 1.45;
+    color: var(--color-ink-muted);
+    padding-left: 12px;
+    border-left: 1px solid var(--color-teal);
+    opacity: 0.75;
+    transition: opacity 0.2s ease;
+  }
+
+  .sidenote-note:hover {
+    opacity: 1;
+  }
+
+  .sidenote-number {
+    font-family: var(--font-code);
+    font-size: 10px;
+    color: var(--color-teal);
+    opacity: 0.5;
+    margin-right: 4px;
+  }
+
+  .sidenote-text a {
+    color: var(--color-teal);
+  }
+}
+
+/* Mobile: inline expandable below the reference */
+@media (max-width: 1279px) {
+  .sidenote-ref {
+    position: relative;
+  }
+
+  /* On mobile, clicking the marker toggles a tooltip-style popup.
+     This is handled by SidenoteMargin being hidden; instead, a CSS-only
+     inline fallback shows the note. For now, the marker is the only
+     visible element on mobile. Full mobile expand is a follow-up. */
 }
 
 /* ─────────────────────────────────────────────────

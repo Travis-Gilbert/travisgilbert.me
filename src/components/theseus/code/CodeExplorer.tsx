@@ -4,8 +4,11 @@ import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { ingestCodebaseStream } from '@/lib/theseus-api';
 import type { IngestionStats } from '@/lib/theseus-types';
-import ChatCanvas from '@/components/theseus/chat/ChatCanvas';
-import AmbientGraphActivity from '@/components/theseus/AmbientGraphActivity';
+// V2 Batch 4 retired ChatCanvas; the shared DotGrid in TheseusShell
+// provides the material backdrop for every non-Explorer panel.
+// V2 Batch 7 retired AmbientGraphActivity. CodeExplorer keeps its status
+// affordances but no longer renders the ambient layer.
+import CodeStreamCanvas from './CodeIngestAnimation';
 
 /**
  * Streaming ingest telemetry. Each phase boundary from ingest_codebase
@@ -225,10 +228,10 @@ export default function CodeExplorer() {
       // none`, which also ignores this variable.
       style={{ '--ingest-speed': 1 - 0.65 * ingestProgress } as React.CSSProperties}
     >
-      {/* Shared Theseus substrate: warm noir, radial patches, pixel noise. */}
-      <div className="cx-substrate" aria-hidden="true">
-        <ChatCanvas />
-      </div>
+      {/* V2 Batch 4: the DotGrid in TheseusShell is the shared substrate.
+          The .cx-substrate wrapper is kept so CodeExplorer-specific layers
+          (heat wash, ingest affordances) still compose above it. */}
+      <div className="cx-substrate" aria-hidden="true" />
 
       {/* Soft engine-heat wash rising from the bottom, matching the
           VIE Layer-2 language. Breathes while ingesting (see
@@ -240,7 +243,16 @@ export default function CodeExplorer() {
           feel so the surface reads alive even before the stream starts
           emitting phase events (the git clone + initial parse phase
           can run for several seconds without frontend updates). */}
-      {status === 'ingesting' && <AmbientGraphActivity active />}
+      {/* V2 Batch 7 retired the AmbientGraphActivity layer. */}
+
+      {/* Layer 1.5: atmospheric glyph stream. Full-viewport backdrop
+          that sits between the heat wash and the foreground card.
+          The card's blur + 0.72 alpha background occludes the stream
+          directly behind it, so the glyphs are visible around the card
+          without competing with the text inside it. */}
+      {status === 'ingesting' && (
+        <CodeStreamCanvas active progress={ingestProgress} />
+      )}
 
       <main className="cx-foreground">
         <div

@@ -2,15 +2,9 @@
 
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type DragEvent } from 'react';
 import '@/components/theseus/capture/capture.css';
-import { usePathname, useRouter } from 'next/navigation';
-import type { GalaxyControllerHandle } from './GalaxyController';
-import type { DotGridHandle } from './TheseusDotGrid';
-import type { TheseusResponse } from '@/lib/theseus-types';
 import type { SceneDirective } from '@/lib/theseus-viz/SceneDirective';
-import type { DataProcessingStatus } from '@/lib/theseus-data/types';
-import type { VizPrediction } from '@/lib/theseus-viz/vizPlanner';
+import type { VizPrediction } from '@/lib/theseus/sceneDirector/predictor';
 import type { SourceTrailItem } from './SourceTrail';
-import type { AskState } from './askExperienceState';
 import { useNavScreenState } from './useNavScreenState';
 import {
   NAV_ACTIONS,
@@ -19,64 +13,49 @@ import {
   recordNavSignal,
   trainNavModel,
   type NavActionId,
-} from '@/lib/galaxy/navPredictor';
+} from '@/lib/theseus/navPredictor';
+import { warmUpModels } from '@/lib/theseus/sceneDirector/predictor';
 import TransmissionLine from '@/components/theseus/TransmissionLine';
+import DotGrid from '@/components/DotGrid';
+import TheseusErrorBoundary from '@/components/theseus/TheseusErrorBoundary';
+import { useTheseusKeyboardShortcuts } from '@/components/theseus/useKeyboardShortcuts';
 
-interface GalaxyContextValue {
-  gridRef: React.RefObject<DotGridHandle | null>;
-  /** Phase B: imperative handle for ThinkingChoreographer (F9 consumer). */
-  galaxyControllerRef: React.RefObject<GalaxyControllerHandle | null>;
-  /** Current engine state. Read by HomepageChrome to fade out when
-   *  the user submits a query and back in when state returns to IDLE. */
-  askState: AskState;
-  setAskState: (state: AskState) => void;
-  /** Current response/directive state (readable by Explorer page). */
-  response: TheseusResponse | null;
-  setResponse: (response: TheseusResponse | null) => void;
+/**
+ * Theseus runtime context. Panels read the cross-panel scene directive, the
+ * three-class viz prediction, the source-trail accumulator, and the
+ * file-drop hunting state from here.
+ */
+interface TheseusContextValue {
   directive: SceneDirective | null;
-  setDirective: (directive: SceneDirective | null) => void;
-  dataStatus: DataProcessingStatus | null;
-  setDataStatus: (status: DataProcessingStatus | null) => void;
-  vizPrediction: VizPrediction | null;
-  setVizPrediction: (prediction: VizPrediction | null) => void;
-  /** Toggle argument structure view ("Show me why") */
-  argumentView: boolean;
-  setArgumentView: (active: boolean) => void;
-  /** Source trail: accumulated explored sources */
+  setDirective: (d: SceneDirective | null) => void;
+
+  prediction: VizPrediction | null;
+  setPrediction: (p: VizPrediction | null) => void;
+
   sourceTrail: SourceTrailItem[];
   addToSourceTrail: (item: SourceTrailItem) => void;
   clearSourceTrail: () => void;
-  /** Mouth openness ref for voice animation (written by VoiceControls, read by GalaxyController) */
-  mouthOpenRef: React.MutableRefObject<number>;
-  /** Hunting mode: true when dragging files over the workspace */
+
   isHunting: boolean;
-  /** Cursor position during hunt (client coords) */
   huntOrigin: { x: number; y: number } | null;
 }
 
-const GalaxyContext = createContext<GalaxyContextValue | null>(null);
+const TheseusContext = createContext<TheseusContextValue | null>(null);
 
-export function useGalaxy(): GalaxyContextValue {
-  const ctx = useContext(GalaxyContext);
-  if (!ctx) throw new Error('useGalaxy must be used within TheseusShell');
+export function useTheseus(): TheseusContextValue {
+  const ctx = useContext(TheseusContext);
+  if (!ctx) throw new Error('useTheseus must be used within TheseusShell');
   return ctx;
 }
 
-export function useDotGrid(): React.RefObject<DotGridHandle | null> {
-  return useGalaxy().gridRef;
-}
+/** @deprecated prefer useTheseus. Retained as an alias for legacy imports. */
+export const useGalaxy = useTheseus;
 
 export default function TheseusShell({ children }: { children: React.ReactNode }) {
-  const gridRef = useRef<DotGridHandle>(null);
-  const galaxyControllerRef = useRef<GalaxyControllerHandle>(null);
-  const [askState, setAskState] = useState<AskState>('IDLE');
-  const [response, setResponse] = useState<TheseusResponse | null>(null);
+  useTheseusKeyboardShortcuts();
   const [directive, setDirective] = useState<SceneDirective | null>(null);
-  const [dataStatus, setDataStatus] = useState<DataProcessingStatus | null>(null);
-  const [vizPrediction, setVizPrediction] = useState<VizPrediction | null>(null);
-  const [argumentView, setArgumentView] = useState(false);
+  const [prediction, setPrediction] = useState<VizPrediction | null>(null);
   const [sourceTrail, setSourceTrail] = useState<SourceTrailItem[]>([]);
-  const mouthOpenRef = useRef(0);
 
   const addToSourceTrail = useCallback((item: SourceTrailItem) => {
     setSourceTrail((prev) => {
@@ -89,48 +68,33 @@ export default function TheseusShell({ children }: { children: React.ReactNode }
   const clearSourceTrail = useCallback(() => setSourceTrail([]), []);
 
   useEffect(() => {
-    import('@/lib/theseus-viz/vizPlanner').then(({ warmUpModels }) => {
-      warmUpModels().catch(() => {});
-    });
+    warmUpModels().catch(() => {});
   }, []);
 
-  /* ─────────────────────────────────────────────────
-     Adaptive nav: TF.js predictor → attractor buttons
-     ───────────────────────────────────────────────── */
-  const router = useRouter();
-  const pathname = usePathname();
+  // Adaptive nav predictor: still accumulates training signals. Button
+  // rendering waits on a DOM-based attractor UI.
   const navScreenState = useNavScreenState({
-    engineState:
-      askState === 'CONSTRUCTING' ? 'constructing'
-      : askState === 'THINKING' || askState === 'EXPLORING' ? 'reasoning'
-      : 'idle',
-    hasActiveQuery: askState !== 'IDLE',
+    engineState: 'idle',
+    hasActiveQuery: false,
   });
   const signalCountRef = useRef(0);
   const ignoreTimersRef = useRef<Map<string, number>>(new Map());
   const lastShownButtonsRef = useRef<Set<string>>(new Set());
   const predictTimerRef = useRef<number | null>(null);
 
-  // Initialize the model once on mount.
   useEffect(() => {
-    initNavModel().catch((err) => {
-      console.warn('[nav] init failed:', err);
-    });
+    initNavModel().catch(() => {});
   }, []);
 
   const maybeTrainAndSave = useCallback(async () => {
     if (signalCountRef.current % 10 !== 0) return;
     try {
       await trainNavModel();
-    } catch (err) {
-      console.warn('[nav] training failed:', err);
+    } catch {
+      // non-fatal: training is best-effort
     }
   }, []);
 
-  // Debounced prediction loop: re-predict whenever screen state changes,
-  // but only after the screen state has been stable for 500ms. This avoids
-  // racing route-change cascades that would otherwise wipe the nav between
-  // a click and the next prediction landing.
   useEffect(() => {
     if (predictTimerRef.current !== null) {
       window.clearTimeout(predictTimerRef.current);
@@ -138,39 +102,21 @@ export default function TheseusShell({ children }: { children: React.ReactNode }
 
     let cancelled = false;
     predictTimerRef.current = window.setTimeout(() => {
-      predictNav(navScreenState).then((prediction) => {
+      predictNav(navScreenState).then((p) => {
         if (cancelled) return;
-
-        // Explorer page has its own ControlDock with nav links;
-        // suppress the canvas-drawn attractor buttons there.
-        if (pathname === '/theseus/explorer') {
-          gridRef.current?.setNavButtons([]);
-          return;
-        }
-
-        const buttons = prediction.actions.map((a) => {
+        const buttons = p.actions.map((a) => {
           const action = NAV_ACTIONS.find((x) => x.id === a.id);
-          return {
-            id: a.id,
-            label: a.label,
-            icon: action?.icon,
-          };
+          return { id: a.id, label: a.label, icon: action?.icon };
         });
-        // Defensive: never clear the existing nav with an empty list. If the
-        // predictor has nothing to say (transient model state, etc.), keep
-        // whatever buttons are already on screen.
         if (buttons.length === 0) return;
-        gridRef.current?.setNavButtons(buttons);
 
         const newIds = new Set<string>(buttons.map((b) => b.id));
-        // Clear ignore timers for buttons that disappeared.
         for (const [id, timerId] of ignoreTimersRef.current) {
           if (!newIds.has(id)) {
             window.clearTimeout(timerId);
             ignoreTimersRef.current.delete(id);
           }
         }
-        // Start ignore timers for newly shown buttons.
         for (const id of newIds) {
           if (lastShownButtonsRef.current.has(id)) continue;
           const timerId = window.setTimeout(() => {
@@ -181,8 +127,8 @@ export default function TheseusShell({ children }: { children: React.ReactNode }
           ignoreTimersRef.current.set(id, timerId);
         }
         lastShownButtonsRef.current = newIds;
-      }).catch((err) => {
-        console.warn('[nav] prediction failed:', err);
+      }).catch(() => {
+        // non-fatal: predictor falls back to cold-start priors
       });
     }, 500);
 
@@ -195,7 +141,6 @@ export default function TheseusShell({ children }: { children: React.ReactNode }
     };
   }, [navScreenState, maybeTrainAndSave]);
 
-  // Cleanup all pending ignore timers on unmount.
   useEffect(() => () => {
     for (const timerId of ignoreTimersRef.current.values()) {
       window.clearTimeout(timerId);
@@ -203,14 +148,11 @@ export default function TheseusShell({ children }: { children: React.ReactNode }
     ignoreTimersRef.current.clear();
   }, []);
 
-  // Shell-level listener for the contextual nav action (focusInput).
-  // In panel mode, switch to the ask panel and fire focus event.
   useEffect(() => {
     if (typeof window === 'undefined') return;
     const handler = (event: Event) => {
       const detail = (event as CustomEvent<{ action?: string }>).detail ?? {};
       if (detail.action !== 'focusInput') return;
-      // Switch to ask panel and focus the input
       window.dispatchEvent(
         new CustomEvent('theseus:switch-panel', { detail: { panel: 'ask' } }),
       );
@@ -222,18 +164,14 @@ export default function TheseusShell({ children }: { children: React.ReactNode }
     return () => window.removeEventListener('theseus:nav-action', handler);
   }, []);
 
-  // Listen for "Ask about this" bridge from ContextPanel.
-  // In panel mode, switch to ask panel and prefill the query.
   useEffect(() => {
     if (typeof window === 'undefined') return;
     const handler = (event: Event) => {
       const detail = (event as CustomEvent<{ query?: string }>).detail;
       if (!detail?.query) return;
-      // Switch to ask panel
       window.dispatchEvent(
         new CustomEvent('theseus:switch-panel', { detail: { panel: 'ask' } }),
       );
-      // Prefill the query after panel is visible
       requestAnimationFrame(() => {
         window.dispatchEvent(
           new CustomEvent('theseus:prefill-ask', { detail: { query: detail.query } }),
@@ -244,58 +182,41 @@ export default function TheseusShell({ children }: { children: React.ReactNode }
     return () => window.removeEventListener('theseus:navigate-ask', handler);
   }, []);
 
-  const handleNavButtonClick = useCallback((buttonId: string) => {
-    // Cancel the ignore timer for this button: the user engaged with it.
-    const timer = ignoreTimersRef.current.get(buttonId);
-    if (timer !== undefined) {
-      window.clearTimeout(timer);
-      ignoreTimersRef.current.delete(buttonId);
-    }
-
-    recordNavSignal(buttonId as NavActionId, 'click');
-    signalCountRef.current += 1;
-    void maybeTrainAndSave();
-
-    const action = NAV_ACTIONS.find((a) => a.id === buttonId);
-    if (!action) return;
-    if ('route' in action && action.route) {
-      router.push(action.route);
-    } else if ('action' in action && action.action) {
-      // Contextual actions fire a DOM event for now. Future batches can wire
-      // these to concrete handlers (openTensions, focusInput, etc.).
-      window.dispatchEvent(
-        new CustomEvent('theseus:nav-action', { detail: { action: action.action } }),
-      );
-    }
-  }, [router, maybeTrainAndSave]);
-
-  /* ─────────────────────────────────────────────────
-     Global file drop overlay: show hint when dragging
-     files over any part of Theseus, open capture modal on drop.
-     ───────────────────────────────────────────────── */
+  // Global file-drop hunt overlay. huntOrigin is stored in a ref and
+  // synced to state via rAF to avoid a 60 Hz state update during drag.
   const [globalDragOver, setGlobalDragOver] = useState(false);
   const [isHunting, setIsHunting] = useState(false);
   const [huntOrigin, setHuntOrigin] = useState<{ x: number; y: number } | null>(null);
   const dragCounterRef = useRef(0);
+  const huntOriginRef = useRef<{ x: number; y: number } | null>(null);
+  const huntRafRef = useRef<number | null>(null);
+
+  const scheduleHuntOriginFlush = useCallback(() => {
+    if (huntRafRef.current !== null) return;
+    huntRafRef.current = window.requestAnimationFrame(() => {
+      huntRafRef.current = null;
+      setHuntOrigin(huntOriginRef.current);
+    });
+  }, []);
 
   const handleGlobalDragEnter = useCallback((e: DragEvent<HTMLDivElement>) => {
     e.preventDefault();
     dragCounterRef.current += 1;
-    // Only respond to drags containing files
     if (e.dataTransfer.types.includes('Files')) {
       setGlobalDragOver(true);
       setIsHunting(true);
-      setHuntOrigin({ x: e.clientX, y: e.clientY });
+      huntOriginRef.current = { x: e.clientX, y: e.clientY };
+      scheduleHuntOriginFlush();
     }
-  }, []);
+  }, [scheduleHuntOriginFlush]);
 
   const handleGlobalDragOver = useCallback((e: DragEvent<HTMLDivElement>) => {
     e.preventDefault();
-    // Update cursor position for hunting animation
     if (e.dataTransfer.types.includes('Files')) {
-      setHuntOrigin({ x: e.clientX, y: e.clientY });
+      huntOriginRef.current = { x: e.clientX, y: e.clientY };
+      scheduleHuntOriginFlush();
     }
-  }, []);
+  }, [scheduleHuntOriginFlush]);
 
   const handleGlobalDragLeave = useCallback((e: DragEvent<HTMLDivElement>) => {
     e.preventDefault();
@@ -304,6 +225,7 @@ export default function TheseusShell({ children }: { children: React.ReactNode }
       dragCounterRef.current = 0;
       setGlobalDragOver(false);
       setIsHunting(false);
+      huntOriginRef.current = null;
       setHuntOrigin(null);
     }
   }, []);
@@ -313,15 +235,14 @@ export default function TheseusShell({ children }: { children: React.ReactNode }
     dragCounterRef.current = 0;
     setGlobalDragOver(false);
     setIsHunting(false);
+    huntOriginRef.current = null;
     setHuntOrigin(null);
 
     const files = Array.from(e.dataTransfer.files);
     if (files.length > 0) {
-      // Switch to library panel so CaptureModal can render
       window.dispatchEvent(
         new CustomEvent('theseus:switch-panel', { detail: { panel: 'library' } }),
       );
-      // Dispatch capture event with pre-loaded files (LibraryPanel listens)
       requestAnimationFrame(() => {
         window.dispatchEvent(
           new CustomEvent('theseus:capture-open', { detail: { files } }),
@@ -330,35 +251,31 @@ export default function TheseusShell({ children }: { children: React.ReactNode }
     }
   }, []);
 
-  const contextValue = useMemo(() => ({
-    gridRef,
-    galaxyControllerRef,
-    askState,
-    setAskState,
-    response,
-    setResponse,
+  useEffect(() => () => {
+    if (huntRafRef.current !== null) {
+      window.cancelAnimationFrame(huntRafRef.current);
+      huntRafRef.current = null;
+    }
+  }, []);
+
+  const contextValue = useMemo<TheseusContextValue>(() => ({
     directive,
     setDirective,
-    dataStatus,
-    setDataStatus,
-    vizPrediction,
-    setVizPrediction,
-    argumentView,
-    setArgumentView,
+    prediction,
+    setPrediction,
     sourceTrail,
     addToSourceTrail,
     clearSourceTrail,
-    mouthOpenRef,
     isHunting,
     huntOrigin,
-  }), [gridRef, askState, response, directive, dataStatus, vizPrediction, argumentView, sourceTrail, setAskState, setResponse, setDirective, setDataStatus, setVizPrediction, setArgumentView, addToSourceTrail, clearSourceTrail, mouthOpenRef, isHunting, huntOrigin]);
+  }), [directive, prediction, sourceTrail, addToSourceTrail, clearSourceTrail, isHunting, huntOrigin]);
 
   return (
-    <GalaxyContext.Provider value={contextValue}>
-      {/* Sidebar + mobile nav are rendered by layout.tsx.
-          Galaxy (TheseusDotGrid + GalaxyController) is rendered by
-          the Explorer page, not the shell. The shell is now a pure
-          context provider + adaptive-nav predictor. */}
+    <TheseusContext.Provider value={contextValue}>
+      <div className="theseus-dotgrid-bg" aria-hidden="true">
+        <DotGrid />
+      </div>
+
       <div
         className="theseus-content"
         onDragEnter={handleGlobalDragEnter}
@@ -366,9 +283,10 @@ export default function TheseusShell({ children }: { children: React.ReactNode }
         onDragLeave={handleGlobalDragLeave}
         onDrop={handleGlobalDrop}
       >
-        {children}
+        <TheseusErrorBoundary label="theseus-shell">
+          {children}
+        </TheseusErrorBoundary>
 
-        {/* Global drop overlay hint */}
         {globalDragOver && (
           <div className="capture-drop-overlay">
             <div className="capture-drop-overlay-inner">
@@ -377,12 +295,8 @@ export default function TheseusShell({ children }: { children: React.ReactNode }
           </div>
         )}
 
-        {/* Ambient transmission line: one-line rolling readout of real
-            backend signals (graph weather, hypotheses, recent activity).
-            Always visible, always peripheral — the "eavesdropping on the
-            machine" metaphor at its most distilled. */}
         <TransmissionLine />
       </div>
-    </GalaxyContext.Provider>
+    </TheseusContext.Provider>
   );
 }

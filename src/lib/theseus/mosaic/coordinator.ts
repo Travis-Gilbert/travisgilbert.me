@@ -1,0 +1,40 @@
+'use client';
+
+// Mosaic coordinator wiring.
+//
+// The Mosaic runtime routes every client query through a single Coordinator
+// instance. We bind that coordinator to the shared DuckDB-WASM singleton so
+// Cosmograph and Mosaic widgets read the same tables without duplicating
+// them in memory. The coordinator is a process-level singleton in vgplot's
+// design; calling `initMosaicCoordinator()` more than once is idempotent.
+//
+// Named selections live here too: any widget that wants to cross-filter
+// with another should bind its params to one of these shared Selection
+// instances. The names (timeRange / cluster / hypothesis) match the
+// IntelligencePanel widget specs in §11 of the completion doc.
+
+import { coordinator, wasmConnector, Selection } from '@uwdata/vgplot';
+import { getSharedDuckDB } from '@/lib/theseus/cosmograph/duckdb';
+
+let initialized: Promise<void> | null = null;
+
+export function initMosaicCoordinator(): Promise<void> {
+  if (initialized) return initialized;
+  initialized = (async () => {
+    const { duckdb, connection } = await getSharedDuckDB();
+    const connector = wasmConnector({ duckdb, connection });
+    coordinator().databaseConnector(connector);
+  })();
+  return initialized;
+}
+
+/** Cross-filter selections shared across widgets. Widgets that want to
+ *  participate in cross-filter bind their plot `as:` param to one of these. */
+export const timeRangeSelection = Selection.intersect();
+export const clusterSelection = Selection.intersect();
+export const hypothesisSelection = Selection.intersect();
+
+/** Test/hot-reload helper: drop the init promise. */
+export function _resetMosaicCoordinator(): void {
+  initialized = null;
+}

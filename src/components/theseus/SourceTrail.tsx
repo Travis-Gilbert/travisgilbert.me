@@ -1,7 +1,16 @@
 'use client';
 
 import { useCallback } from 'react';
-import { TYPE_COLORS } from './renderers/rendering';
+
+// V2 Batch 7 retired the renderers/ tree. SourceTrail keeps its colour
+// map inline until Batch 9 restyles it to the --vie-type-* palette.
+const TYPE_COLORS: Record<string, string> = {
+  source: 'var(--vie-type-source)',
+  concept: 'var(--vie-type-concept)',
+  person: 'var(--vie-type-person)',
+  hunch: 'var(--vie-type-hunch)',
+  note: 'var(--vie-type-note)',
+};
 
 export interface SourceTrailItem {
   objectId: string;

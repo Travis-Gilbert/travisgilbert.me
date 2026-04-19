@@ -6,6 +6,7 @@ import { ModelGrid } from '@/components/theseus/library/ModelGrid';
 import { listMaps } from '@/lib/ask-theseus';
 import type { SavedMapListItem } from '@/lib/map-types';
 import CaptureModal from '@/components/theseus/capture/CaptureModal';
+import MosaicAnalytics from '@/components/theseus/library/MosaicAnalytics';
 
 // Module-level ref for files from global drop (avoids stale closure in event handler)
 let globalDropFilesRef: File[] | undefined;
@@ -193,6 +194,11 @@ export default function LibraryPanel() {
       <section style={{ marginBottom: 40 }}>
         <SectionHeader title="Saved Models" />
         <ModelGrid />
+      </section>
+
+      <section style={{ marginBottom: 40 }}>
+        <SectionHeader title="Analytics" />
+        <MosaicAnalytics />
       </section>
     </div>
   );

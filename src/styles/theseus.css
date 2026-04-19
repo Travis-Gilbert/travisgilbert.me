@@ -1,72 +1,119 @@
-/* Theseus VIE: Visual Intelligence Engine tokens and base styles */
-/* Scoped to .theseus-root to avoid conflicts with CommonPlace --cp-* tokens */
+/* Theseus VIE: tokens and base styles.
+   Scoped to .theseus-root to avoid conflicts with CommonPlace --cp-* tokens.
+
+   V2 PALETTE FORK: every Theseus-scoped --vie-* name is now an alias for a
+   main-site Patent Parchment token declared in src/styles/global.css. Light
+   and dark modes flow through automatically via html[data-theme="dark"].
+   Do not introduce new colour literals here. Add them to global.css and
+   alias below. */
 
 .theseus-root {
-  /* Backgrounds */
-  --vie-bg: hsl(30, 6%, 7%);
-  --vie-bg-subtle: hsl(28, 5%, 11%);
-  --vie-card: hsla(28, 5%, 12%, 0.95);
-  --vie-border: rgba(255, 255, 255, 0.06);
-  --vie-border-active: rgba(45, 95, 107, 0.4);
+  /* Surfaces */
+  --vie-bg:            var(--color-paper);          /* page background */
+  --vie-bg-subtle:     var(--color-surface);        /* panel surface */
+  --vie-card:          var(--color-card);
+  --vie-code:          var(--color-code);
+  --vie-chrome-bg:     var(--color-nav-bg);         /* sidebar + topbar chrome */
+  --vie-panel-bg:      var(--color-theseus-panel);  /* translucent parchment for answer cards */
+  --vie-hero-ground:   var(--color-hero-ground);    /* Explorer graph surface */
+  --vie-hero-text:     var(--color-hero-text);
 
   /* Text */
-  --vie-text: hsl(38, 12%, 88%);
-  --vie-text-muted: hsl(35, 8%, 60%);
-  --vie-text-dim: hsl(25, 5%, 36%);
-  --vie-text-ghost: hsl(25, 4%, 24%);
-  --vie-border-focus: hsl(190, 25%, 30%);
+  --vie-text:          var(--color-ink);
+  --vie-text-muted:    var(--color-ink-muted);
+  --vie-text-dim:      var(--color-ink-light);
+  --vie-text-ghost:    var(--color-ink-light);      /* legacy alias */
 
-  /* Accent colors */
-  --vie-teal: #2D5F6B;
-  --vie-teal-light: #4A8A96;
-  --vie-amber: #C49A4A;
-  --vie-amber-light: #D4B06A;
-  --vie-terra: #C4503C;
-  --vie-terra-light: #D47060;
-  --vie-purple: #7B5EA7;
+  /* Borders */
+  --vie-border:        var(--color-border);
+  --vie-border-light:  var(--color-border-light);
+  --vie-border-active: color-mix(in srgb, var(--color-terracotta) 40%, transparent);
+  --vie-border-focus:  var(--color-terracotta);
 
-  /* Object type colors */
-  --vie-type-source: #2D5F6B;
-  --vie-type-concept: #7B5EA7;
-  --vie-type-person: #C4503C;
-  --vie-type-hunch: #C49A4A;
-  --vie-type-note: #e8e5e0;
+  /* Shadows (warm brown-tinted) */
+  --vie-shadow-sm:     var(--shadow-warm-sm);
+  --vie-shadow:        var(--shadow-warm);
+  --vie-shadow-lg:     var(--shadow-warm-lg);
 
-  /* Typography */
-  --vie-font-title: 'Vollkorn', Georgia, serif;
-  --vie-font-body: 'IBM Plex Sans', -apple-system, sans-serif;
-  --vie-font-mono: 'Courier Prime', 'Courier New', monospace;
+  /* Brand (terracotta, teal, gold) */
+  --vie-terra:         var(--color-terracotta);
+  --vie-terra-hover:   var(--color-terracotta-hover);
+  --vie-terra-light:   var(--color-terracotta-light);
+  --vie-teal:          var(--color-teal);
+  --vie-teal-light:    var(--color-teal-light);
+  --vie-amber:         var(--color-gold);
+  --vie-amber-light:   var(--color-gold-light);
+  --vie-purple:        #8B7AA8;                     /* muted plum for claim type */
 
-  /* Reading panel: warm cream surface */
-  --vie-panel-bg: hsl(40, 20%, 94%);
-  --vie-panel-card: hsl(38, 16%, 90%);
-  --vie-panel-hover: hsl(36, 14%, 87%);
-  --vie-panel-border: hsl(35, 12%, 84%);
-  --vie-panel-shadow: hsl(35, 10%, 78%);
+  /* Semantic */
+  --vie-success:       var(--color-success);
+  --vie-error:         var(--color-error);
 
-  /* Dark ink text for reading on cream */
-  --vie-ink-1: hsl(25, 14%, 15%);
-  --vie-ink-2: hsl(25, 10%, 30%);
-  --vie-ink-3: hsl(25, 7%, 50%);
-  --vie-ink-4: hsl(25, 5%, 66%);
+  /* Object type colours (Cosmograph nodes) */
+  --vie-type-source:   var(--color-teal);
+  --vie-type-person:   var(--color-terracotta);
+  --vie-type-concept:  var(--color-success);
+  --vie-type-hunch:    var(--color-gold);
+  --vie-type-note:     var(--color-ink-muted);
+  --vie-type-claim:    #8B7AA8;
+  --vie-type-tension:  var(--color-error);
 
-  /* Accent colors on light backgrounds */
-  --vie-teal-ink: #1E4A54;
-  --vie-amber-ink: #8A6B2E;
-  --vie-terra-ink: #A3402F;
+  /* Engine live state */
+  --vie-engine-idle:   var(--color-teal-light);
+  --vie-engine-active: #3DD6C4;
 
-  /* Panel surfaces (improved contrast against --vie-bg) */
-  --vie-surface-panel: rgba(28, 30, 36, 0.88);
-  --vie-surface-panel-border: rgba(74, 138, 150, 0.12);
-  --vie-surface-panel-glow: 0 4px 24px rgba(0, 0, 0, 0.3), 0 0 1px rgba(74, 138, 150, 0.08);
+  /* Reading-panel legacy aliases (kept for components not yet restyled) */
+  --vie-panel-card:    var(--color-card);
+  --vie-panel-hover:   var(--color-bg-alt);
+  --vie-panel-border:  var(--color-border);
+  --vie-panel-shadow:  rgba(42, 36, 32, 0.10);
+  --vie-ink-1:         var(--color-ink);
+  --vie-ink-2:         var(--color-ink-muted);
+  --vie-ink-3:         var(--color-ink-light);
+  --vie-ink-4:         var(--color-ink-light);
+  --vie-teal-ink:      var(--color-teal);
+  --vie-amber-ink:     var(--color-gold);
+  --vie-terra-ink:     var(--color-terracotta);
+  --vie-surface-panel: var(--color-surface);
+  --vie-surface-panel-border: var(--color-border);
+  --vie-surface-panel-glow: var(--shadow-warm-lg);
 
-  /* Base surface */
+  /* Typography (inherit from main site) */
+  --vie-font-title:    var(--font-title);
+  --vie-font-body:     var(--font-body);
+  --vie-font-mono:     var(--font-mono);
+  --vie-font-code:     var(--font-code);
+
   background: var(--vie-bg);
   color: var(--vie-text);
   min-height: 100vh;
   position: relative;
   overflow: hidden;
-  color-scheme: dark;
+}
+
+/* Dark mode: main-site tokens swap via html[data-theme="dark"] in global.css,
+   so every --vie-* alias above resolves to the dark value automatically. No
+   Theseus-specific overrides needed here. */
+
+/* V2 Batch 1: main-site DotGrid background, fixed behind all panel content.
+   The main DotGrid itself sets its own canvas to z-index: -1 inside the
+   wrapper, so this container just pins the grid to the viewport. */
+.theseus-dotgrid-bg {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+}
+.theseus-dotgrid-bg > canvas {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+
+.theseus-root .theseus-content {
+  position: relative;
+  z-index: 1;
 }
 
 /* Galaxy click-through: the shell content wrapper has pointer-events: none
@@ -5200,6 +5247,83 @@
 .cx-progress {
   display: flex;
   flex-direction: column;
+}
+
+/* Layer 1.5 atmospheric glyph stream. Sits between the heat wash
+   (z:1) and the foreground card (z:2), so it fills the viewport
+   behind the ingest card. The card has backdrop-filter blur + a 0.72
+   alpha background, which naturally occludes the stream directly
+   behind it while letting glyphs show around the card. */
+.cx-stream-wrap {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  pointer-events: none;
+  overflow: hidden;
+  /* Radial mask fades the stream at the viewport edges so it never
+     reads as a hard-edged rectangle, and keeps the vertical center
+     (where the card lives) dense enough that the glyphs feel present
+     even when the card occludes the middle region. */
+  mask-image:
+    radial-gradient(
+      ellipse 70% 80% at 50% 50%,
+      rgba(0, 0, 0, 1) 50%,
+      rgba(0, 0, 0, 0.65) 80%,
+      rgba(0, 0, 0, 0) 100%
+    );
+  -webkit-mask-image:
+    radial-gradient(
+      ellipse 70% 80% at 50% 50%,
+      rgba(0, 0, 0, 1) 50%,
+      rgba(0, 0, 0, 0.65) 80%,
+      rgba(0, 0, 0, 0) 100%
+    );
+  opacity: 0.75;
+}
+
+.cx-stream-canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+/* Pause/play toggle. Sits in the bottom-right of the viewport
+   (not the card) since the stream is now full-viewport. */
+.cx-stream-pause {
+  position: absolute;
+  right: 14px;
+  bottom: 14px;
+  z-index: 3;
+  pointer-events: auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  border: 1px solid var(--vie-border, rgba(255, 255, 255, 0.15));
+  background: rgba(13, 15, 18, 0.55);
+  color: var(--vie-ink-2, rgba(220, 215, 205, 0.7));
+  border-radius: 999px;
+  cursor: pointer;
+  transition: color 0.15s ease, border-color 0.15s ease, background 0.15s ease;
+}
+
+.cx-stream-pause:hover,
+.cx-stream-pause:focus-visible {
+  color: var(--vie-ink-1, #e7e3da);
+  border-color: var(--vie-teal-light, #4a8a96);
+  background: rgba(13, 15, 18, 0.75);
+  outline: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  /* The canvas itself honors prefers-reduced-motion and paints a single
+     static frame. This rule just gives the static backdrop a touch less
+     weight so it never feels restless. */
+  .cx-stream-wrap {
+    opacity: 0.42;
+  }
 }
 
 .cx-progress-url {
