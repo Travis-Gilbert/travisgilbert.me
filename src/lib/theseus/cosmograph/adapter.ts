@@ -1,38 +1,22 @@
 'use client';
 
-// SceneDirective → imperative Cosmograph calls.
-//
-// The adapter is narrow by design: it reads a few fields from the directive
-// and drives Cosmograph via its ref. Anything that requires lower-level DOM
-// work (pretext label overlays, banner rendering) lives in dedicated
-// components that subscribe to Cosmograph events.
-//
-// The old v3 SceneDirective shape has `salience`, `camera`, `force_config`,
-// `truth_map_topology`, and `hypothesis_style` fields; we treat all of them
-// as optional so this adapter works against partial directives emitted by
-// older Django versions during the transition.
-
-import type { CosmographRef } from '@cosmograph/react';
 import type { SceneDirective } from '@/lib/theseus-viz/SceneDirective';
 
-type CosmoLike = NonNullable<CosmographRef>;
-
-function callIfPresent<T extends keyof CosmoLike>(
-  cosmo: CosmoLike,
-  method: T,
-  ...args: unknown[]
-): void {
-  const fn = (cosmo as unknown as Record<string, unknown>)[method as string];
-  if (typeof fn === 'function') {
-    (fn as (...a: unknown[]) => void).apply(cosmo, args);
-  }
+/** Narrow operation surface exposed by the graph canvas to SceneDirective
+ *  consumers. Hides the underlying Graph instance and id↔index bookkeeping
+ *  so callers don't reach into rendering internals. */
+export interface GraphAdapter {
+  focusNodes(ids: string[]): void;
+  clearFocus(): void;
+  zoomToNode(id: string, durationMs: number, distance: number): void;
+  fitView(durationMs?: number, padding?: number): void;
 }
 
 export function applySceneDirective(
-  cosmo: CosmographRef,
+  adapter: GraphAdapter | null | undefined,
   directive: SceneDirective | null | undefined,
 ): void {
-  if (!cosmo || !directive) return;
+  if (!adapter || !directive) return;
 
   const salience = Array.isArray(directive.salience) ? directive.salience : [];
   const focal = salience
@@ -40,25 +24,19 @@ export function applySceneDirective(
       Boolean(s?.is_focal) && typeof s?.node_id === 'string')
     .map((s) => s.node_id);
 
-  // Focus: dim everything except the focal ids.
   if (focal.length > 0) {
-    callIfPresent(cosmo, 'selectPoints' as keyof CosmoLike, focal);
+    adapter.focusNodes(focal);
+  } else {
+    adapter.clearFocus();
   }
 
-  // Camera: zoom to the directive's focal node if one is declared.
   const camera = directive.camera;
   if (camera && typeof camera === 'object' && 'focal_node_id' in camera) {
     const focalId = (camera as { focal_node_id?: string }).focal_node_id;
     const distance = (camera as { distance_factor?: number }).distance_factor;
     const duration = (camera as { transition_duration_ms?: number }).transition_duration_ms ?? 800;
     if (focalId) {
-      callIfPresent(
-        cosmo,
-        'zoomToPoint' as keyof CosmoLike,
-        focalId,
-        duration,
-        distance,
-      );
+      adapter.zoomToNode(focalId, duration, distance ?? 3);
     }
   }
 }

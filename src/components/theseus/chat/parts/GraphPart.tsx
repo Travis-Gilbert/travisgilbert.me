@@ -1,10 +1,15 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef } from 'react';
 import type { FC } from 'react';
-import { Cosmograph, prepareCosmographData } from '@cosmograph/react';
-import type { CosmographRef } from '@cosmograph/react';
-import { DEFAULT_COSMOGRAPH_CONFIG } from '@/lib/theseus/cosmograph/config';
+import CosmosGraphCanvas, {
+  type CosmosGraphCanvasHandle,
+} from '@/components/theseus/explorer/CosmosGraphCanvas';
+import {
+  mapNode,
+  mapEdge,
+  type CosmoLink,
+} from '@/components/theseus/explorer/useGraphData';
 import { applySceneDirective } from '@/lib/theseus/cosmograph/adapter';
 import { dispatchTheseusEvent } from '@/lib/theseus/events';
 import { normalizeDirective } from '@/lib/theseus/sceneDirector/directive';
@@ -17,37 +22,24 @@ interface GraphPartProps {
 }
 
 /**
- * Inline evidence subgraph. Renders a small Cosmograph canvas (~320px
- * tall) showing the directive's focal + context nodes and their local
- * edges. Click "Expand in Explorer" to hand the full directive to the
- * main canvas via the cross-panel event bus.
+ * Inline evidence subgraph rendered inside a chat message. Reuses the
+ * Explorer's CosmosGraphCanvas to show the directive's focal + context
+ * nodes at ~320px tall. Click "Expand in Explorer" to hand the full
+ * directive to the main canvas via the cross-panel event bus.
  */
 const GraphPart: FC<GraphPartProps> = ({ directive, points, links }) => {
-  const cosmoRef = useRef<CosmographRef>(null);
-  const [prepared, setPrepared] = useState<Record<string, unknown> | null>(null);
+  const canvasRef = useRef<CosmosGraphCanvasHandle>(null);
+
+  const cosmoPoints = useMemo(() => points.map(mapNode), [points]);
+  const cosmoLinks = useMemo<CosmoLink[]>(
+    () => (links ?? []).map(mapEdge).filter((l): l is CosmoLink => l !== null),
+    [links],
+  );
 
   useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const dataConfig: any = {
-        points: { pointIdBy: 'id' },
-        links: { linkSourceBy: 'source', linkTargetsBy: ['target'] },
-      };
-      const result = await prepareCosmographData(dataConfig, points, links ?? []);
-      if (!cancelled && result) {
-        setPrepared(result as unknown as Record<string, unknown>);
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [points, links]);
-
-  useEffect(() => {
-    if (!cosmoRef.current) return;
-    applySceneDirective(cosmoRef.current, directive);
-  }, [directive, prepared]);
+    if (!canvasRef.current) return;
+    applySceneDirective(canvasRef.current, directive);
+  }, [directive]);
 
   const handleExpand = () => {
     const normalized = normalizeDirective(directive);
@@ -67,48 +59,39 @@ const GraphPart: FC<GraphPartProps> = ({ directive, points, links }) => {
     <div
       className="aui-graph-part"
       style={{
+        position: 'relative',
+        height: 320,
         background: 'var(--color-hero-ground)',
         border: '1px solid var(--color-border)',
         borderRadius: 6,
         overflow: 'hidden',
         boxShadow: 'var(--shadow-warm-sm)',
-        position: 'relative',
       }}
     >
-      <div style={{ width: '100%', height: 320 }}>
-        {prepared ? (
-          <Cosmograph
-            ref={cosmoRef}
-            {...DEFAULT_COSMOGRAPH_CONFIG}
-            {...((prepared as { cosmographConfig?: Record<string, unknown> }).cosmographConfig ?? {})}
-            points={(prepared as { points?: unknown }).points as never}
-            links={(prepared as { links?: unknown }).links as never}
-            fitViewOnInit
-            simulationDecay={300}
-            showDynamicLabels={false}
-            pointSize={6}
-            spaceSize={2048}
-            enableRightClickRepulsion={false}
-          />
-        ) : (
-          <div
-            aria-busy="true"
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              height: '100%',
-              color: 'var(--color-hero-text)',
-              fontFamily: 'var(--font-mono)',
-              fontSize: 11,
-              letterSpacing: '0.08em',
-              textTransform: 'uppercase',
-            }}
-          >
-            Preparing graph
-          </div>
-        )}
-      </div>
+      {cosmoPoints.length > 0 ? (
+        <CosmosGraphCanvas
+          ref={canvasRef}
+          points={cosmoPoints}
+          links={cosmoLinks}
+        />
+      ) : (
+        <div
+          aria-busy="true"
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            height: '100%',
+            color: 'var(--color-hero-text)',
+            fontFamily: 'var(--font-mono)',
+            fontSize: 11,
+            letterSpacing: '0.08em',
+            textTransform: 'uppercase',
+          }}
+        >
+          Preparing graph
+        </div>
+      )}
       <button
         type="button"
         onClick={handleExpand}

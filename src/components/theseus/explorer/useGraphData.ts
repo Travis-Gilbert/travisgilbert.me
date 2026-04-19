@@ -4,57 +4,66 @@ import { useEffect, useState } from 'react';
 import { getGraphData } from '@/lib/theseus-api';
 import type { GraphNode, GraphEdge } from '@/lib/theseus-types';
 
-export interface CosmographPoint {
+export const DEFAULT_POINT_COLOR = '#7a6a58';
+
+export interface CosmoPoint {
   id: string;
   label: string;
   type: string;
-  pagerank?: number;
-  degree?: number;
-  community?: number | null;
-  confidence?: number;
-  ingested_at?: string;
+  colorHex: string;
+  degree: number;
   description?: string;
 }
 
-export interface CosmographLink {
+export interface CosmoLink {
   source: string;
   target: string;
-  weight?: number;
+  weight: number;
   reason?: string;
 }
 
 export interface UseGraphDataResult {
-  points: CosmographPoint[];
-  links: CosmographLink[];
+  points: CosmoPoint[];
+  links: CosmoLink[];
   loading: boolean;
   error: string | null;
   total: { nodes: number; edges: number };
 }
 
-function mapNode(node: GraphNode): CosmographPoint {
-  return {
-    id: node.id,
-    label: node.title,
-    type: node.object_type || 'note',
-    degree: node.edge_count,
-    description: node.body_preview,
-  };
+/** Normalise a backend GraphNode (or an unknown record with the same
+ *  fields) into the canvas-facing `CosmoPoint` shape. Accepts both the
+ *  typed Explorer payload and the directive-point records that ship
+ *  inline with chat scene directives. */
+export function mapNode(node: GraphNode | Record<string, unknown>): CosmoPoint {
+  const raw = node as Record<string, unknown>;
+  const id = String(raw.id ?? '');
+  const label = String(raw.title ?? raw.label ?? raw.slug ?? id);
+  const type = String(raw.object_type ?? raw.type ?? 'note');
+  const colorHex = String(raw.object_type_color ?? raw.colorHex ?? DEFAULT_POINT_COLOR);
+  const degree = typeof raw.edge_count === 'number'
+    ? raw.edge_count
+    : typeof raw.degree === 'number'
+      ? raw.degree
+      : 0;
+  const bodyPreview = typeof raw.body_preview === 'string' ? raw.body_preview : undefined;
+  const description = typeof raw.description === 'string' ? raw.description : bodyPreview;
+  return { id, label, type, colorHex, degree, description };
 }
 
-function mapEdge(edge: GraphEdge): CosmographLink {
-  return {
-    source: edge.source,
-    target: edge.target,
-    weight: edge.strength,
-    reason: edge.reason,
-  };
+export function mapEdge(edge: GraphEdge | Record<string, unknown>): CosmoLink | null {
+  const raw = edge as Record<string, unknown>;
+  const source = raw.source != null ? String(raw.source) : '';
+  const target = raw.target != null ? String(raw.target) : '';
+  if (!source || !target) return null;
+  const weight = typeof raw.strength === 'number'
+    ? raw.strength
+    : typeof raw.weight === 'number'
+      ? raw.weight
+      : 0.5;
+  const reason = typeof raw.reason === 'string' ? raw.reason : undefined;
+  return { source, target, weight, reason };
 }
 
-/**
- * Load graph data for the Explorer Cosmograph surface. Normalises the
- * `/api/v1/notebook/graph/` response into Cosmograph's `{ points, links }`
- * shape; Cosmograph owns physics simulation.
- */
 export function useGraphData(): UseGraphDataResult {
   const [state, setState] = useState<UseGraphDataResult>({
     points: [],
@@ -81,7 +90,7 @@ export function useGraphData(): UseGraphDataResult {
         const { nodes, edges, meta } = result;
         setState({
           points: nodes.map(mapNode),
-          links: edges.map(mapEdge),
+          links: edges.map(mapEdge).filter((l): l is CosmoLink => l !== null),
           loading: false,
           error: null,
           total: { nodes: meta.node_count, edges: meta.edge_count },
