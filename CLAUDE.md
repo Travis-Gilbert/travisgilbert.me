@@ -15,6 +15,20 @@ Personal "creative workbench" site: a living record of work, interests, and thin
 - When making visual/CSS changes, do NOT modify elements the user didn't ask to change. Preserve existing backgrounds, gradients, and patterns unless explicitly told to change them.
 - When implementing visual specs or design references (e.g., Observable examples, Figma specs), match the EXACT visual style shown. Do not substitute with similar-looking alternatives (e.g., curved Bezier paths vs straight lines, sized nodes vs hollow/filled nodes).
 
+## No Fake UI, No Mock Data in Shipped Surfaces
+
+This project has repeatedly accumulated decorative-only buttons, mock data in production views, and generic placeholder content that looks real but does nothing. It creates unbounded cleanup work because later sessions cannot tell what is intentional vs. abandoned scaffolding. Hold this line strictly:
+
+- **Every interactive element must do something real the moment it ships.** Buttons, pills, toggles, and links must either be wired to real application state, a real endpoint, a real navigation target, or a real event handler that affects observable state. No `onClick={() => {}}`, no `<span>` styled like a button, no `console.log`/`console.warn` as the primary effect.
+- **No mock data in surfaces that the user can reach.** `MOCK_*`, `SAMPLE_*`, `DEMO_*`, `FAKE_*` constants and hardcoded string arrays of "example" content are allowed only in test files and in components behind an explicit `?mock=1` URL flag. They must never be the default data source for any panel, page, or route mounted in the production app.
+- **No hardcoded "suggested questions" / "example prompts" / "try asking" arrays.** If suggestion surfaces exist, they must be backed by a real endpoint (e.g., `/ask/suggestions/`). If the endpoint returns nothing, render nothing: an empty state is always better than generic personalized-looking prompts that lie.
+- **No `TODO`/`FIXME` branches left as the runtime behavior of a user-facing action.** If a handler is not yet implemented, do not render the button that dispatches it. Add the button back in the same PR that adds the real handler.
+- **No scripted `setTimeout` "activity" theater.** Loading states, agent progress, streaming text, and any other "something is happening" UI must reflect real backend/process state. Never fake progress with timers to make an empty feature look alive.
+- **Empty states are honest, not cosmetic.** When a feature has no real backend yet, the component that would render it must render an explicit empty state (e.g., "No repository connected", "No graph activity") rather than a populated-looking fake. Link to a working alternative when one exists.
+- **Scaffold code stays inert until it is real.** It is fine to keep a richer component (file tree, editor, agent ribbon, etc.) in the repo as a scaffold for a future wiring pass, but it must not be mounted into any route or panel the user can reach until it runs against real data.
+
+When reviewing your own work before ending a session, grep the files you touched for `MOCK_`, `TODO`, `FIXME`, `placeholder`, `coming soon`, `not implemented`, `console.warn`, `console.log`, `onClick={() => {}}`. Any match in a user-reachable file needs a justification or a removal.
+
 ## Git Workflow
 
 - Before committing, run `git diff --cached` and verify only relevant files are staged. Never include previously staged unrelated files in a commit.
@@ -196,6 +210,7 @@ Vercel with native Next.js builder. **Important:** Output Directory must be blan
 | VIE-3 v3 Scene Intelligence | Complete | 7-job SceneDirective, 12,415-param GNN, rule-based fallback (91fd73f) |
 | Gemma 4B DPO fine-tuning | Complete | 804 examples, 375 DPO pairs, adapter at `s3://models/gemma-4b-gl-fusion-v1/` |
 | Gemma 26B MoE training design | Design complete | `docs/plans/2026-04-04-gemma-26b-training-design.md` |
+| Gemma 4 31B V4 GL-Fusion training | Halted after 30 iterations | Stage 1 after-contrastive valid on S3; Run 9 after-sft tainted with echo-mode labels bug; defer to V5 post-spacetime graph rebuild |
 | Graph noise cleanup | Complete | `purge_noise_sources` command removed TVTropes/Wikidata |
 | Ask pipeline GPU inference | Complete | 26B on Modal A100 via llama-cpp-python CUDA, parallel retrieval, generalized visual pipeline (2e21991) |
 | Ask frontend visual pipeline | In progress | Backend returns structured_visual for 7 types; frontend types need wiring |
@@ -246,6 +261,9 @@ Vercel with native Next.js builder. **Important:** Output Directory must be blan
 | L1 retrieval parallelization | ThreadPoolExecutor Phase 1 (4 signals) + Phase 2 (2 signals) | Cuts retrieval from ~500ms to ~200ms; async version existed but was never called |
 | Visual renderer per answer type | 7 renderers: tfjs_stipple, comparison_table, timeline_strip, hierarchy_tree, concept_map, process_flow | Generalized from geography-only; each builds structured data from evidence objects |
 | Railway worker env vars | Must mirror web service for SPEAKING_26B_URL, DISABLE_* flags | Worker runs async ask pipeline via RQ; env vars are NOT shared between Railway services |
+| 31B V4 GPU strategy | Halt multi-GPU, single-GPU only, defer to V5 | FSDP2+wrapper DTensor mixing and mystery 47 GB cuda:0 overhead under device_map burned 30 iterations without resolution; architectural rethink needed, not more code patches |
+| 31B V5 hardware target | Single B200 (192 GB) preferred over multi-H100 | Every V4 multi-GPU failure was at composition boundaries (wrapper/FSDP/accelerate), not memory capacity; bigger single GPU collapses the boundaries |
+| PyG (torch_geometric) for spacetime training | Add to Modal image for `train_spacetime.py` only; do NOT retrofit `train_true_gl_fusion.py` | PyG's `TGNMemory`, `TemporalEncoder`, `NeighborLoader`, `TemporalData`, and `HeteroData` match the spacetime pipeline directly; tested scatter ops would have avoided V4's HyperbolicMessagePassing max-mode inplace bug and `_aggregate` dtype drift; retrofitting working GL-Fusion code is a rewrite not a drop-in, so keep the custom hyperbolic MP where it already works |
 
 ## Gotchas
 
@@ -312,6 +330,7 @@ Vercel with native Next.js builder. **Important:** Output Directory must be blan
 - **Railway worker env vars not shared with web**: Each service needs its own `DATABASE_URL`, `REDIS_URL`, `FIRECRAWL_API_KEY`
 
 ### Index-API Engine Operations
+- **NEVER run Django management commands locally against Railway Postgres on this M1 Max.** It has repeatedly broken things: cold-loads every model (spaCy, SBERT, transformers) per invocation, the `gondola.proxy.rlwy.net` round-trip adds ~80ms per ORM call, and installing/running the Railway CLI on this machine has caused system-level issues on past sessions. One-shot commands (`backfill_place_geometry`, `create_spatial_edges`, `build_spacetime_training_data`, `run_connection_engine`, etc.) must run inside Railway. Preferred patterns: (a) temporarily add the command to `scripts/start_web.sh` behind a marker file, deploy, let it run, remove and redeploy; (b) push an RQ job that the already-running worker picks up; (c) change the web service start command via Railway dashboard briefly. `pg_dump` / `psql` from the laptop is fine (data-only, no Django imports), but `python manage.py <anything>` against Railway `DATABASE_URL` is off the table on this machine.
 - **Always use Modal for batch engine runs (>20 objects)**: Local CPU processes ~50s/object. Modal GPU finishes 500 objects in under an hour vs 14+ hours locally
 - **Never run concurrent `run_connection_engine` processes**: They compete for the same objects, causing duplication not parallelization
 - **Post-engine chain (run in order)**: `backfill_tensions && detect_communities && evolve_edges && iq_report`
@@ -324,3 +343,101 @@ Vercel with native Next.js builder. **Important:** Output Directory must be blan
 - **CUDA pip packages need ldconfig**: `nvidia-cuda-runtime-cu12` installs `.so` files in site-packages, not system paths. Must run `find + ldconfig` in the image build to register them
 - **Modal NegativeHealthCache is per-process**: When a speaking service is temporarily down, each gunicorn worker caches the failure independently. Restart the deployment to clear all workers
 - **speaking_dispatch auth is URL-based**: `_auth_headers()` sends Bearer token only for non-Railway URLs (checks for `.railway.internal:8080` suffix)
+
+### GL-Fusion Training (31B / 14B / M27) — hard-won gotchas
+
+Captured while debugging the Hyperbolic GL-Fusion 14B Qwen training (SPEC-EPISTEMIC-14B-V2). Most apply to any hyperbolic GL-Fusion trainer that reuses the shared primitives in `true_gl_fusion_model.py`.
+
+**Infrastructure prerequisites (check before launching)**
+- **`edge_topology.json` is a hard prerequisite on S3**: `gnn-export/edge_topology.json` MUST exist BEFORE any GL-Fusion SFT run. If missing, `GraphTopologyStore.edges` is empty, `_build_graph_data` returns None on every row, MP/CA modules never fire, gates stay at 0/16, training silently degrades to text-only DoRA fine-tune. Export with `python3 manage.py export_edge_topology` then upload to `s3://.../gnn-export/edge_topology.json` (29 MB at 254K edges)
+- **Modal image must mount `train_true_gl_fusion` source**: `GNNEmbeddingStore`, `GraphTopologyStore`, `SBERTEmbeddingStore`, `KGETokenGenerator`, `_build_graph_data`, and `_insert_graph_tokens` all live in `train_true_gl_fusion.py` (the 31B trainer) even though the 14B reuses them. Include `.add_local_python_source('train_true_gl_fusion')` in the training image or imports fail at runtime
+- **Pre-training verifier script is cheap and catches 80% of drift**: `modal run modal_app/verify_metacog_14b.py` runs 13 checks on H100 in ~2 min ($0.10): hidden_dim, DoRA target coverage, layer count, projector dims, special tokens, Poincare norm, clean forward-pass logits. Build one for every new GL-Fusion variant before spending training compute
+- **The verifier catches forward crashes but NOT backward crashes**: Forward-only smoke tests pass because autograd issues only surface during `loss.backward()`. Add a second verifier path that calls `loss.backward()` on a tiny dummy batch before launching full training. At least three bf16-specific crashes in the 14B run would have been caught by a 30-second backward check
+
+**Correctness — shared primitive bugs (fixes now merged)**
+- **Shared primitive `HyperbolicMessagePassing._aggregate` dtype**: `msgs`, `counts`, and the `ones` contributions must ALL match `node_tan.dtype`. Float32 defaults leak into the `msgs / counts` division, promoting bf16 → float32 and crashing the downstream `agg_proj` Linear. Fix is merged in `modal_app/true_gl_fusion_model.py` around line 200. 31B never hit this because Gemma ran float32 end-to-end
+- **`_aggregate` max-mode used a Python loop with overlapping slice views**: `for i, d in enumerate(dst_r): msgs[:, d, :] = torch.max(msgs[:, d, :], transformed[:, i, :])` crashes `loss.backward()` with "variable needed for gradient computation modified by inplace" when `dst_r` has repeated destinations (common in real graphs). Fix: replace with `msgs.scatter_reduce(1, idx, transformed, reduce='amax', include_self=False)` — a single vectorized autograd-friendly op. Fix merged. `mean` and `std` modes were already safe because `index_add_` is a single op
+- **In-place injection into `inputs_embeds` or `h_sem_input` must be vectorized**: The pattern `for i, pos in enumerate(node_positions): tensor[:, pos, :] = node_embs[:, i, :]` works forward but breaks backward when positions overlap or are re-read. Use a single fancy-index assignment: `tensor[:, node_positions, :] = node_embs`. Autograd sees one op instead of N
+- **DoRA-wrapped embedding returns a leaf-view**: `inputs_embeds = embed_fn(input_ids)` followed by any in-place assignment crashes with "a view of a leaf Variable that requires grad is being used in an in-place operation" on DoRA+Qwen. Add `inputs_embeds = inputs_embeds.clone()` before the injection. 31B's Gemma path returns a fresh tensor so it didn't trigger, but the clone is universally safe
+
+**Correctness — Qwen-specific host model differences (Gemma path likely untouched)**
+- **Qwen 2.5 decoder layer API needs `position_embeddings`**: When the wrapper calls `decoder_layer(...)` directly (bypassing `Qwen2Model.forward`), the caller must precompute `position_embeddings = self.rotary_emb(hidden_states, position_ids)` and pass them in. Transformers ≥4.46 hard-requires it. Gemma's decoder layer has a different API so this is Qwen-specific
+- **SDPA rejects int64 attention_mask**: The raw padding mask from the tokenizer is int64; `scaled_dot_product_attention` demands bool/float/matching-query-dtype. When there's no custom graph mask, pass `attention_mask=None` so the layer falls through to default causal. `Qwen2Model.forward` normally converts upstream; we bypass that by calling the layer directly
+- **DeepSeek-R1-Distill-Qwen-14B has 48 layers, not 40**: SPEC-EPISTEMIC-14B-V2 §2.2 says "40 decoder layers" but that's the attention-head count. Real Qwen 2.5 14B = 48 layers. MP/CA injection schedule (0..38) fits either
+
+**Stage orchestration**
+- **Stage 1 contrastive does NOT open gates**: Only the projector is exercised; MP/CA never run. Gates opening is a Stage 2 (joint SFT) signal, not a Stage 1 signal. Spec §5.1's "4 gates >0.01 by end of contrastive" is aspirational
+- **Stage 2 requires explicit DoRA unfreeze**: Stage 1 freezes DoRA with `requires_grad=False`. Fresh base load leaves DoRA trainable, but if you load a Stage 1 checkpoint into Stage 2 without flipping the flag back you'll train only the new modules again. `_set_lora_trainable(gl_model, trainable=True)` handles both
+- **Log `warm-start from Stage 1: loaded=7 missing=0`**: If Stage 2 loads a Stage 1 checkpoint, verify all 7 NEW_MODULE_ATTRS load (`gnn_projector`, `semantic_projector`, `mp_modules`, `ca_modules`, `semantic_ca_modules`, `fusion_gates`, `gnn_readout`). A silent "missing=N" means Stage 2 starts from fresh-init, wasting Stage 1 compute
+
+**Observability — add these metrics per 50 steps, not per 500**
+- **`gates=0/16` is the canonical sign graph_data is dead**: Add `gate_mean`/`gate_max`/`graph_data_pct` log lines every 50 steps. If `graph_data_pct` stays at 0, something in the data → stores → `_build_graph_data` pipeline is broken (synthetic PKs don't resolve, topology store not loaded, etc.). Catch within 5 min, not 5 hours
+- **Split `real_pct` vs `graph_data_pct`**: `real_pct` is the fraction of rows whose declared `evidence_pks` resolved naturally; `graph_data_pct` includes augmented subgraphs. If `graph_data_pct=100` but `real_pct<1`, you're relying on augmentation (fine for SFT warmup, but flag it for DPO)
+- **Log `gate_max` not just `gates>0.01`**: gates cracking off exactly 0 (e.g., to 0.006) is the first positive signal that the hyperbolic geometry is learning. They often hover below the 0.01 display threshold for several thousand steps before crossing
+
+**Performance — the 14B trained at ~65 steps/min (~8h for 34.5K steps on single H100). Effective batch_size=1 is the trap**
+- **Batch with dynamic padding**: Group 4-8 rows per step via `torch.utils.data.DataLoader` + `collate_fn=pad_and_collate`. 3-4× speedup with no correctness cost. The 14B's `train_sft` loops `for idx, row in enumerate(rows)` which forces batch=1; the 31B may have the same pattern — check before launching
+- **Length-bucket the corpus before batching**: Sort training rows by tokenized length, then form batches of near-equal length. Padding waste drops from ~40% to <5%. Pair with a BucketingSampler or pre-sort + shuffle within buckets
+- **Pre-tokenize the corpus once, offline**: Save a `.pt` or HF Datasets shard. Training loop loads tensors directly; eliminates per-step tokenization overhead
+- **Sequence packing for short examples**: Federation F5 gossip rows are ~100 tokens; many M1-M10 examples are 300-800 tokens. Packing 4-5 short examples into one 2048-token sequence with a packing-aware attention mask can 2-3× throughput
+- **Verify `max_length` matches corpus p95**: Default 2048 wastes compute if 95th percentile actual length is 1200. Drop `max_length` to 1280 or 1536 → ~1.6× speedup. Measure first
+- **Training data needs REAL connected PKs to exercise MP/CA**: Synthetic PKs like `rng.randint(1000, 99999)` almost never land on actual connected node pairs in a 135K/261K graph. Either curate `evidence_pks` from live `AskQuestion.retrieved_object_ids` / `Object.pk` OR build a subgraph-sample-pool augmentation in the trainer that walks `topology_store.edges` and emits seed+neighbor pairs. See `build_subgraph_sample_pool` in `modal_app/train_metacog_gl_fusion.py`
+- **`torch.compile` is off-limits with PEFT+DoRA**: Don't waste time trying. `gradient_checkpointing_enable()` stays on for memory; compile stays off for compatibility
+
+### GL-Fusion 31B (Gemma 4 V4) — additional gotchas from 2026-04-17/18 debug session
+
+**FSDP2 orchestration (any wrapper that bypasses `BaseModel.forward`)**
+- **FSDP2 `fully_shard` is bottom-up**: applying it to decoder layers alone without also wrapping the root module produces orphan shards. Each rank ends up holding a full model replica (77 GB OOM per rank on 31B). Always wrap root after wrapping layers
+- **FSDP2 + custom wrapper = DTensor mixing**: `get_input_embeddings()(input_ids)` crashes with `aten.embedding.default got mixed torch.Tensor and DTensor` because after `fully_shard`, `embedding.weight` is a DTensor but `input_ids` is local. Fix: `register_fsdp_forward_method(model, "method_name")` on every wrapper method that reaches root-level tensors (embed, final norm, lm_head), OR do explicit unshard/reshard around those calls
+- **HF `device_map` behavior for Gemma 4 31B on 2x H100**: `auto` and `balanced` both overload cuda:0 (sequential fill); `balanced_low_0` puts everything on cuda:1; explicit `max_memory={0: 'XGiB', 1: 'XGiB'}` forces even param split but cuda:0 still filled to 78 GB during first forward despite confirmed 50/50 split. Isolate with `torch.cuda.memory_summary()` per GPU before/after load and before/after first forward, don't trust the distribution
+
+**PEFT DoRA at 31B scale**
+- **DoRA materializes full `[out, in]` weight per forward** via `weight + scaling * lora_weight`. At Gemma 4 31B all-linear (60 layers × 7 modules), intermediates reach ~50 GB per forward. Not in any V4 memory estimate. If OOM with DoRA enabled, first test: `use_dora=False`. 31B Stage 1 with `use_dora=False` ran 5x faster than with DoRA (13 min vs 71 min)
+- **PEFT `init_lora_weights='eva'` installs activation-capture hooks** on every LoRA Linear. If EVA calibration fails (e.g. under FSDP), hooks persist and crash every subsequent forward with distributed op errors. Safest at 31B: `init_lora_weights=True`. Skip EVA until the FSDP+EVA interaction is isolated in a dedicated session
+
+**Gemma 4 decoder contract (transformers >=4.57)**
+- **Decoder layers hard-require**: `position_embeddings` tuple (cos, sin), `shared_kv_states` dict, and per-layer-type rope dispatch (based on `config.layer_types` sequence of `full_attention` / `sliding_attention`). Wrappers bypassing `Gemma4TextModel.forward` must precompute cos/sin per layer type and pass `shared_kv_states={}` into every decoder call
+- **Gemma 4 multimodal dispatch requires `mm_token_type_ids` in train mode**. Stripping it raises `ValueError`. Workaround: route all text-only training paths through the GL-Fusion wrapper (which sidesteps the vision tower) rather than calling `base_model.forward` directly with raw tokens
+
+**HyperbolicMessagePassing memory at hidden=5376**
+- `einsum('rb,bio->rio', comps, bases)` materializes `[num_rel, hidden, hidden]`. At num_rel=34, hidden=5376, bf16: 1.96 GB per MP layer, 60x = out of budget. Use factored form: `sum_b comps[r, b] * (src_features @ bases[b])`. Peak drops to tens of KB. Also: 31B Stage 1 Run 30 with factored MP ran 5x faster than Run 6
+
+**Checkpoint wrapping (don't double-wrap)**
+- **HF `gradient_checkpointing_enable()` is sufficient** for decoder layers. Wrappers that call `decoder_layer()` directly still benefit. Do NOT additionally `torch.utils.checkpoint.checkpoint(decoder_layer, ...)`: that double-wraps and triggers `CheckpointError: recomputed values have different metadata`
+- **`torch.utils.checkpoint(use_reentrant=False)` does strict metadata validation** on recomputed tensors. HyperbolicMessagePassing forward produces tensors whose save order differs between forward and recompute; manual wrap crashes. Factored MP + dropping the manual wrap removes both the memory pressure and the crash
+
+**Debug discipline (meta-lesson)**
+- **After 3 failures with the same error signature** (e.g., 78 GB OOM at identical allocation size), stop iterating code. Add `torch.cuda.memory_summary()` / `memory_snapshot()`. V4 session burned 30 runs without isolating the memory delta
+- **Pre-training verifier MUST exercise backward pass** under the actual multi-GPU config. Forward-only verifier passes even when memory OOMs during backward, the labels bug exists, or `gradient_checkpointing` is miswired. Backward smoke on minimum-viable inputs is essential. Pairs with the existing "forward-only verifier is cheap" rule: cheap for smoke, but backward catches the real bugs
+
+**Stage 1 LoRA no-train behavior (affects resume logic)**
+- **Stage 1 contrastive does NOT train LoRA adapters**: `base_model` forward is inside `torch.no_grad()` for text encoding, so only `gnn_projector` receives gradients. After Stage 1, LoRA weights are identical to init. Resume: a missing LoRA load when transitioning Stage 1 to Stage 2 doesn't compromise Stage 2, because LoRA state in `after-contrastive` equals fresh init. Don't panic if `_warm_start_from_stage1` reports `loaded=6 missing=1` where the missing=1 is the LoRA adapter
+
+**Alternative hardware**
+- **Single B200 (192 GB HBM3e) > multi-H100 for 31B** when multi-GPU orchestration keeps failing at composition boundaries (wrapper/FSDP/accelerate). Eliminates every sharding bug in one hardware swap. MEMORY.md whitelists H100 or B200 only for Modal. Modal supports B200. Try this before another FSDP refactor round
+
+### Metacog 14B deployment state (v1, Stage 2 retrain pending)
+
+As of the first deploy attempt the infrastructure is live but Stage 2 SFT produced an undertrained model. The deployed worker is safe because every federation dispatch failure falls through to `DefaultPolicyProvider`.
+
+**Deployed**: `theseus-metacog-worker` Modal app, persistent container, Stage 2 checkpoint at `models/metacog-14b-hyp-gl-fusion/stage2/` (14 files, ~9 GB). Load pipeline works: tokenizer from checkpoint (151,683 tokens), embed_tokens + lm_head restored from adapter safetensors, DoRA merged.
+
+**Active policy provider**: `DefaultPolicyProvider` (setting default is safe). **DO NOT** set `FEDERATION_POLICY_PROVIDER=apps.federation.policy.Qwen14BPolicyProvider` until the retrain lands and smoke tests pass.
+
+**Known quality defect**: the Stage 2 model is in prompt-tail echo mode — it repeats whatever the last distinctive token of the prompt is (`}` or `Response` or whatever), regardless of task or decoding strategy. Infrastructure diagnostics are all clean; the model weights themselves are undertrained.
+
+**Root cause trifecta for Stage 2 v1**:
+1. `labels = input_ids.clone()` put full-sequence CE loss on prompt tokens, so the model learned to reproduce prompt structure instead of producing outputs
+2. `--per-task 1000` with most generators falling through to `_fallback` stubs (identical structure) gave the model almost nothing to learn from
+3. Effective `batch_size=1` cut training token-throughput by ~4x, starving the limited real signal even further
+
+**Retrain plan (Stage 2 v2)** — see ticketed todos on the training-side chat. In order:
+1. DataLoader with dynamic padding + length bucketing (fix batch=1)
+2. Prompt masking: `labels[:prompt_len] = -100` so loss is completion-only
+3. Sequence packing for short examples (F5 gossip @ ~100 tok, M* stubs @ 300-800 tok)
+4. Add completion-only perplexity eval at each checkpoint (raw CE loss is misleading; track prediction quality on the JSON output span only)
+5. Audit + regenerate training data: replace `_fallback` stub rows with real graph queries; target >90% non-stub rate
+6. Resume from Stage 1 checkpoint (`_warm_start_from_stage1` already wired)
+7. Expected 4-6 hours on single H100 with proper batching
+
+After retrain + smoke tests, flip `FEDERATION_POLICY_PROVIDER` to `Qwen14BPolicyProvider` via env var (no code change needed).
