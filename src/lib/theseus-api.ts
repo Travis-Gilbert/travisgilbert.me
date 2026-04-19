@@ -1260,8 +1260,17 @@ export async function askTheseusAsyncStream(
     es.close();
   });
 
-  es.addEventListener('error', () => {
-    handlers.onError({ message: 'Stream error', transient: true });
+  es.addEventListener('error', (e) => {
+    // Named SSE 'error' events from the server carry a JSON payload; the
+    // built-in EventSource 'error' event (connection drop) does not.
+    const raw = (e as MessageEvent).data;
+    let message = 'Stream error';
+    if (typeof raw === 'string' && raw.length > 0) {
+      const parsed = safeParse<{ error?: string; message?: string }>(raw, 'error');
+      if (parsed?.error) message = parsed.error;
+      else if (parsed?.message) message = parsed.message;
+    }
+    handlers.onError({ message, transient: true });
     es.close();
   });
 

@@ -9,6 +9,7 @@ import TheseusErrorBoundary from '@/components/theseus/TheseusErrorBoundary';
 import GraphLegend from './GraphLegend';
 import NodeDetailPanel, { type NodeDetailData } from './NodeDetailPanel';
 import DirectiveBanner from './DirectiveBanner';
+import ExplorerAskComposer from './ExplorerAskComposer';
 import { useGraphData, type CosmoPoint } from './useGraphData';
 import { applySceneDirective } from '@/lib/theseus/cosmograph/adapter';
 import { onTheseusEvent } from '@/lib/theseus/events';
@@ -64,6 +65,7 @@ const ExplorerShell: FC = () => {
       </div>
 
       <div style={{ gridArea: 'canvas', position: 'relative' }}>
+        <ExplorerAskComposer canvasAdapter={canvasRef} />
         {directiveLabel && (
           <DirectiveBanner label={directiveLabel} onDismiss={handleDismissDirective} />
         )}
