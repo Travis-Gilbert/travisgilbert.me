@@ -2,7 +2,7 @@
 
 import { forwardRef, useImperativeHandle, useLayoutEffect, useMemo, useRef } from 'react';
 import { Graph } from '@cosmos.gl/graph';
-import type { GraphConfigInterface } from '@cosmos.gl/graph';
+import type { GraphConfig } from '@cosmos.gl/graph';
 import { hexToRgb } from '@/hooks/useThemeColor';
 import { DEFAULT_POINT_COLOR, type CosmoLink, type CosmoPoint } from './useGraphData';
 import type { GraphAdapter } from '@/lib/theseus/cosmograph/adapter';
@@ -188,7 +188,7 @@ const CosmosGraphCanvas = forwardRef<CosmosGraphCanvasHandle, CosmosGraphCanvasP
       let graph: Graph | null = null;
       let resizeObserver: ResizeObserver | null = null;
 
-      const config: Partial<GraphConfigInterface> = {
+      const config: GraphConfig = {
         backgroundColor: [0, 0, 0, 0],
         spaceSize: 4096,
         pointDefaultColor: DEFAULT_POINT_COLOR,
