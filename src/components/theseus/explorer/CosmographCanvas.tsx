@@ -1,9 +1,12 @@
 'use client';
 
-import { forwardRef, useEffect, useImperativeHandle, useMemo, useRef, useState } from 'react';
-import { Cosmograph, prepareCosmographData, type CosmographRef } from '@cosmograph/react';
-import { makeDefaultCosmographConfig } from '@/lib/theseus/cosmograph/config';
-import { useThemeVersion } from '@/hooks/useThemeColor';
+import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from 'react';
+import {
+  Cosmograph,
+  prepareCosmographData,
+  type CosmographConfig,
+  type CosmographRef,
+} from '@cosmograph/react';
 
 export interface CosmographCanvasProps {
   points: Array<Record<string, unknown>>;
@@ -17,47 +20,58 @@ export interface CosmographCanvasHandle {
 }
 
 /**
- * Thin wrapper around `<Cosmograph>` that owns data preparation and
- * theme-aware config. Imperative affordances flow through the exposed
- * CosmographRef; the adapter in src/lib/theseus/cosmograph/adapter.ts
- * drives focus/zoom/colour strategy from SceneDirectives.
+ * Thin wrapper around `<Cosmograph>`. Owns data preparation and exposes
+ * the Cosmograph imperative handle upward. The adapter in
+ * src/lib/theseus/cosmograph/adapter.ts drives focus/zoom/colour
+ * strategy from SceneDirectives.
  */
 const CosmographCanvas = forwardRef<CosmographCanvasHandle, CosmographCanvasProps>(
   ({ points, links, onPointClick, onSimulationTick }, ref) => {
     const cosmoRef = useRef<CosmographRef>(null);
-    const themeVersion = useThemeVersion();
-    const [prepared, setPrepared] = useState<Record<string, unknown> | null>(null);
+    const [config, setConfig] = useState<Partial<CosmographConfig> | null>(null);
 
     useImperativeHandle(ref, () => ({
       getCosmograph: () => cosmoRef.current ?? null,
     }));
 
-    const defaultConfig = useMemo(
-      () => makeDefaultCosmographConfig(themeVersion),
-      [themeVersion],
-    );
-
     useEffect(() => {
       let cancelled = false;
       (async () => {
-        // Cosmograph's data-prep config requires many fields we do not
-        // customise inline; `as any` sidesteps the strict type for those
-        // defaults. pointIdBy + pointIndexBy are required by the data
-        // kit for unique-id lookup and sequential-integer row mapping.
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const prepConfig = {
-          points: {
-            pointIdBy: 'id',
-            pointIndexBy: 'index',
-            pointColorBy: 'type',
-            pointLabelBy: 'label',
-          },
-          links: { linkSourceBy: 'source', linkTargetsBy: ['target'] },
-        } as any;
-        const result = await prepareCosmographData(prepConfig, points, links);
-        if (!cancelled && result) {
-          setPrepared(result as unknown as Record<string, unknown>);
+        // Canonical pattern from @cosmograph/react README:
+        //   const { points, links, cosmographConfig } = await prepareCosmographData(...)
+        //   setConfig({ points, links, ...cosmographConfig })
+        const result = await prepareCosmographData(
+          {
+            points: {
+              pointIdBy: 'id',
+              pointColorBy: 'type',
+              pointLabelBy: 'label',
+            },
+            links: { linkSourceBy: 'source', linkTargetsBy: ['target'] },
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          } as any,
+          points,
+          links,
+        );
+        if (cancelled || !result) return;
+        const { points: pts, links: lks, cosmographConfig } = result as unknown as {
+          points: unknown;
+          links: unknown;
+          cosmographConfig: Record<string, unknown>;
+        };
+        // Prep emits linkTargetBy (singular); the Cosmograph runtime reads
+        // linkTargetsBy (plural array) in some paths. Translate if missing.
+        const normalizedConfig: Record<string, unknown> = { ...cosmographConfig };
+        if (normalizedConfig.linkTargetBy && !normalizedConfig.linkTargetsBy) {
+          normalizedConfig.linkTargetsBy = [normalizedConfig.linkTargetBy];
         }
+        setConfig({
+          points: pts,
+          links: lks,
+          ...normalizedConfig,
+          backgroundColor: 'rgba(0, 0, 0, 0)',
+          fitViewOnInit: true,
+        } as Partial<CosmographConfig>);
       })();
       return () => {
         cancelled = true;
@@ -70,7 +84,7 @@ const CosmographCanvas = forwardRef<CosmographCanvasHandle, CosmographCanvasProp
       if (id) onPointClick(id);
     };
 
-    if (!prepared) {
+    if (!config) {
       return (
         <div
           aria-busy="true"
@@ -95,8 +109,7 @@ const CosmographCanvas = forwardRef<CosmographCanvasHandle, CosmographCanvasProp
     return (
       <Cosmograph
         ref={cosmoRef}
-        {...defaultConfig}
-        {...(prepared as object)}
+        {...config}
         onClick={handleClick}
         onSimulationTick={onSimulationTick}
       />

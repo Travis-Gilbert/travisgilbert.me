@@ -29,20 +29,12 @@ const GraphPart: FC<GraphPartProps> = ({ directive, points, links }) => {
   useEffect(() => {
     let cancelled = false;
     (async () => {
-      // Cosmograph's data prep requires pointIdBy + pointIndexBy. We
-      // assume the caller has added a sequential integer `index` column
-      // on each point (useGraphData does this; ad-hoc call sites must too).
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const prepConfig = {
-        points: {
-          pointIdBy: 'id',
-          pointIndexBy: 'index',
-          pointColorBy: 'type',
-          pointLabelBy: 'label',
-        },
+      const dataConfig: any = {
+        points: { pointIdBy: 'id' },
         links: { linkSourceBy: 'source', linkTargetsBy: ['target'] },
-      } as any;
-      const result = await prepareCosmographData(prepConfig, points, links ?? []);
+      };
+      const result = await prepareCosmographData(dataConfig, points, links ?? []);
       if (!cancelled && result) {
         setPrepared(result as unknown as Record<string, unknown>);
       }
@@ -88,7 +80,9 @@ const GraphPart: FC<GraphPartProps> = ({ directive, points, links }) => {
           <Cosmograph
             ref={cosmoRef}
             {...DEFAULT_COSMOGRAPH_CONFIG}
-            {...(prepared as object)}
+            {...((prepared as { cosmographConfig?: Record<string, unknown> }).cosmographConfig ?? {})}
+            points={(prepared as { points?: unknown }).points as never}
+            links={(prepared as { links?: unknown }).links as never}
             fitViewOnInit
             simulationDecay={300}
             showDynamicLabels={false}

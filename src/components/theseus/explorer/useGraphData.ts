@@ -6,9 +6,6 @@ import type { GraphNode, GraphEdge } from '@/lib/theseus-types';
 
 export interface CosmographPoint {
   id: string;
-  /** Sequential integer index. Required by Cosmograph's data prep
-   *  (`pointIndexBy`) for efficient row-level lookups. */
-  index: number;
   label: string;
   type: string;
   pagerank?: number;
@@ -34,10 +31,9 @@ export interface UseGraphDataResult {
   total: { nodes: number; edges: number };
 }
 
-function mapNode(node: GraphNode, index: number): CosmographPoint {
+function mapNode(node: GraphNode): CosmographPoint {
   return {
     id: node.id,
-    index,
     label: node.title,
     type: node.object_type || 'note',
     degree: node.edge_count,
@@ -84,7 +80,7 @@ export function useGraphData(): UseGraphDataResult {
         }
         const { nodes, edges, meta } = result;
         setState({
-          points: nodes.map((n, i) => mapNode(n, i)),
+          points: nodes.map(mapNode),
           links: edges.map(mapEdge),
           loading: false,
           error: null,
