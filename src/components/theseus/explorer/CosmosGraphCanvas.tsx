@@ -104,7 +104,10 @@ const CosmosGraphCanvas = forwardRef<CosmosGraphCanvasHandle, CosmosGraphCanvasP
       const pointCount = pts.length;
       const positions = new Float32Array(pointCount * 2);
       const pinnedIndices: number[] = [];
-      const space = 1024;
+      // Spread the random seed positions wider than the default 1024×1024
+      // so the force simulation doesn't start as a tight overlap. Scale
+      // with node count so very large graphs still land in one viewport.
+      const space = Math.max(2200, Math.sqrt(pointCount) * 90);
       for (let i = 0; i < pointCount; i++) {
         const id = pts[i].id;
         const fixed = pinned?.[id];
@@ -132,7 +135,7 @@ const CosmosGraphCanvas = forwardRef<CosmosGraphCanvasHandle, CosmosGraphCanvasP
       for (let i = 0; i < pointCount; i++) {
         const d = pts[i].degree;
         const norm = d > 0 ? Math.sqrt(d / maxDegree) : 0;
-        sizes[i] = 4 + norm * 20;
+        sizes[i] = 6 + norm * 30;
       }
 
       const indexMap = idToIndexRef.current;
@@ -160,6 +163,9 @@ const CosmosGraphCanvas = forwardRef<CosmosGraphCanvasHandle, CosmosGraphCanvasP
       graph.setLinkWidths(linkWidthsArray);
       graph.setPinnedPoints(pinnedIndices.length > 0 ? pinnedIndices : null);
 
+      // The onSimulationEnd config callback re-fits the view once the
+      // force sim settles; calling fitView() at frame 0 would anchor the
+      // viewport to the random seed positions and drift out of frame.
       const allPinned = pinnedIndices.length === pointCount;
       if (allPinned) {
         graph.render(0);
@@ -167,7 +173,6 @@ const CosmosGraphCanvas = forwardRef<CosmosGraphCanvasHandle, CosmosGraphCanvasP
         graph.render(1);
         graph.start?.(1);
       }
-      graph.fitView?.(400, 0.12, true);
     };
 
     // luma.gl's `autoResize` captures the canvas's initial clientWidth at
@@ -185,27 +190,33 @@ const CosmosGraphCanvas = forwardRef<CosmosGraphCanvasHandle, CosmosGraphCanvasP
 
       const config: Partial<GraphConfigInterface> = {
         backgroundColor: [0, 0, 0, 0],
+        spaceSize: 4096,
         pointDefaultColor: DEFAULT_POINT_COLOR,
-        pointDefaultSize: 6,
-        pointSizeScale: 1,
-        linkDefaultColor: [0.47, 0.42, 0.38, 0.35],
-        linkDefaultWidth: 1,
-        linkOpacity: 0.6,
+        pointDefaultSize: 10,
+        pointSizeScale: 1.6,
+        linkDefaultColor: [0.72, 0.62, 0.52, 0.55],
+        linkDefaultWidth: 1.2,
+        linkOpacity: 0.7,
         renderLinks: true,
         renderHoveredPointRing: true,
-        hoveredPointRingColor: [0.71, 0.35, 0.18, 1],
+        hoveredPointRingColor: [1, 0.64, 0.38, 1],
         hoveredPointCursor: 'pointer',
         enableDrag: true,
+        enableZoom: true,
         fitViewOnInit: true,
-        fitViewDelay: 250,
-        fitViewPadding: 0.12,
-        simulationRepulsion: 0.55,
-        simulationGravity: 0.1,
-        simulationLinkSpring: 1,
-        simulationLinkDistance: 8,
-        simulationFriction: 0.85,
-        simulationDecay: 1500,
+        fitViewDelay: 800,
+        fitViewPadding: 0.2,
+        simulationRepulsion: 1.6,
+        simulationGravity: 0.02,
+        simulationCenter: 0.2,
+        simulationLinkSpring: 0.6,
+        simulationLinkDistance: 28,
+        simulationFriction: 0.9,
+        simulationDecay: 8000,
         scalePointsOnZoom: true,
+        onSimulationEnd: () => {
+          graphRef.current?.fitView?.(600, 0.18, false);
+        },
         onClick: (index) => {
           const cb = onPointClickRef.current;
           if (!cb) return;

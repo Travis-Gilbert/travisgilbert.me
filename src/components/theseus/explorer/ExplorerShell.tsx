@@ -42,12 +42,9 @@ const ExplorerShell: FC = () => {
     <div
       style={{
         display: 'grid',
-        gridTemplateColumns: '1fr 460px',
-        gridTemplateRows: 'auto 1fr',
-        gridTemplateAreas: `
-          "topbar detail"
-          "canvas detail"
-        `,
+        gridTemplateColumns: selectedNode ? '1fr 420px' : '1fr',
+        gridTemplateRows: '1fr',
+        gridTemplateAreas: selectedNode ? `"canvas detail"` : `"canvas"`,
         height: '100%',
         width: '100%',
         background: 'var(--color-hero-ground)',
@@ -56,13 +53,11 @@ const ExplorerShell: FC = () => {
     >
       <div
         style={{
-          gridArea: 'topbar',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'flex-end',
-          padding: '12px 16px',
-          gap: 12,
+          position: 'absolute',
+          top: 12,
+          right: selectedNode ? 432 : 12,
           zIndex: 3,
+          transition: 'right 180ms ease-out',
         }}
       >
         <GraphLegend points={points} />
@@ -144,11 +139,51 @@ const ExplorerShell: FC = () => {
             />
           </TheseusErrorBoundary>
         )}
+        {!loading && !error && points.length > 0 && (
+          <div
+            style={{
+              position: 'absolute',
+              left: 16,
+              bottom: 16,
+              zIndex: 3,
+              display: 'flex',
+              alignItems: 'center',
+              gap: 10,
+              fontFamily: 'var(--font-mono)',
+              fontSize: 10,
+              letterSpacing: '0.08em',
+              textTransform: 'uppercase',
+              color: 'var(--color-ink-muted)',
+            }}
+          >
+            <button
+              type="button"
+              onClick={() => canvasRef.current?.fitView()}
+              style={{
+                fontFamily: 'inherit',
+                fontSize: 'inherit',
+                letterSpacing: 'inherit',
+                textTransform: 'inherit',
+                color: 'var(--color-hero-text)',
+                background: 'color-mix(in srgb, var(--color-hero-ground) 70%, transparent)',
+                border: '1px solid color-mix(in srgb, var(--color-hero-text) 30%, transparent)',
+                padding: '5px 10px',
+                borderRadius: 4,
+                cursor: 'pointer',
+              }}
+            >
+              Fit view
+            </button>
+            <span>drag to pan · scroll to zoom · click a node</span>
+          </div>
+        )}
       </div>
 
-      <div style={{ gridArea: 'detail', overflow: 'hidden' }}>
-        <NodeDetailPanel node={selectedNode} onClose={() => setSelectedId(null)} />
-      </div>
+      {selectedNode && (
+        <div style={{ gridArea: 'detail', overflow: 'hidden' }}>
+          <NodeDetailPanel node={selectedNode} onClose={() => setSelectedId(null)} />
+        </div>
+      )}
     </div>
   );
 };
