@@ -22,6 +22,13 @@ export interface TheseusResponse {
   answer_classification?: AnswerClassification;
   /** Structured visual directive from the visual pipeline */
   structured_visual?: StructuredVisual;
+  /**
+   * Backend-emitted VisionDirective from the 26B-external research
+   * path. When present, drives the frontend image search + TF.js
+   * tracing pipeline without running the keyword classifier
+   * fallback. See apps/notebook/schemas/vision.py for the source.
+   */
+  vision_directive?: VisionDirective;
 }
 
 export interface StructuredVisualRegion {
@@ -69,6 +76,48 @@ export interface AnswerClassification {
   confidence?: number;
   reasoning?: string;
   extracted_entity?: string | null;
+  /**
+   * Backend-emitted trace configuration. Populated from the
+   * 26B-external VisionDirective when the query has visual intent;
+   * otherwise supplied by the frontend keyword fallback.
+   */
+  trace_config?: ImageTraceConfig;
+  color_strategy?: 'geographic' | 'portrait' | 'diagram' | 'none';
+  preselected_image_url?: string;
+}
+
+/**
+ * Mirrors modal_app / apps/notebook/schemas/vision.py TraceConfig.
+ * Frontend tracers consume this directly without translation.
+ */
+export interface ImageTraceConfig {
+  preferVision: boolean;
+  contrastBoost: boolean;
+  maxDots: number;
+  weightMultiplier: number;
+}
+
+/**
+ * Vision directive payload emitted by the 26B-external research path
+ * when the query has visual intent. When present on a TheseusResponse,
+ * the frontend should (1) fire an image search with `search_query`,
+ * (2) validate the returned image, and (3) pass it to the tracer with
+ * `trace_config`. If `preselected_image_url` is set, the frontend can
+ * skip the search step and validate that URL directly; it must still
+ * be passed through `validateImageForStippling()` before tracing
+ * because the backend does not guarantee the URL resolves to a
+ * traceable image.
+ *
+ * Aligned with apps/notebook/schemas/vision.py::VisionDirective.
+ */
+export interface VisionDirective {
+  answer_type: AnswerType;
+  search_query: string;
+  trace_config: ImageTraceConfig;
+  color_strategy: 'geographic' | 'portrait' | 'diagram' | 'none';
+  reasoning?: string;
+  confidence: number;
+  preselected_image_url?: string | null;
 }
 
 export interface ConfidenceScore {
