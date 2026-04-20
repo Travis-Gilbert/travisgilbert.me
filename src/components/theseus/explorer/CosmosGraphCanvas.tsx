@@ -1184,6 +1184,32 @@ const CosmosGraphCanvas = forwardRef<CosmosGraphCanvasHandle, CosmosGraphCanvasP
       graph.setLinkColors(pool.linkColors);
       graph.setPinnedPoints(pinnedIndices.length > 0 ? pinnedIndices : null);
 
+      // Native cluster forces: each point is assigned a cluster ordinal
+      // (hybrid leiden + k-core) and cosmos.gl pulls it toward that
+      // cluster's pre-computed center. simulationCluster in GraphConfig
+      // governs the force strength; this is what keeps clusters spatially
+      // distinct instead of collapsing into the link-spring dense ball.
+      if (totalOrdinals > 0) {
+        const pointClusters: (number | undefined)[] = new Array(pointCount);
+        for (let i = 0; i < pointCount; i++) {
+          const ord = resolveClusterOrdinal(pts[i], clusterContext);
+          pointClusters[i] = ord ?? undefined;
+        }
+        const clusterPositions: (number | undefined)[] = new Array(totalOrdinals * 2);
+        for (let ord = 0; ord < totalOrdinals; ord++) {
+          const c = centersByOrdinal.get(ord);
+          if (c) {
+            clusterPositions[ord * 2] = c[0];
+            clusterPositions[ord * 2 + 1] = c[1];
+          }
+        }
+        graph.setPointClusters(pointClusters);
+        graph.setClusterPositions(clusterPositions);
+      } else {
+        graph.setPointClusters([]);
+        graph.setClusterPositions([]);
+      }
+
       encodingActiveRef.current = false;
       hypothesisMixFactorRef.current = 0;
       currentSalienceRef.current.clear();
@@ -1241,12 +1267,17 @@ const CosmosGraphCanvas = forwardRef<CosmosGraphCanvasHandle, CosmosGraphCanvasP
         // inter-cluster gaps. Matches the Cosmograph timeline demo's
         // published values (repulsion 1, spring 1, gravity 0.5) adjusted
         // for our smaller graph sizes.
-        simulationRepulsion: 2.2,
-        simulationGravity: 0.25,
-        simulationCenter: 0.2,
-        simulationLinkSpring: 0.35,
-        simulationLinkDistance: 28,
+        // Spread tuning: higher repulsion + gentler spring + strong cluster
+        // force so each hybrid cluster holds its ground against the link
+        // pull. simulationCluster defaults to 0.1; bumping to 0.55 is what
+        // separates the worm into distinct colored regions.
+        simulationRepulsion: 2.6,
+        simulationGravity: 0.15,
+        simulationCenter: 0.1,
+        simulationLinkSpring: 0.25,
+        simulationLinkDistance: 42,
         simulationFriction: 0.85,
+        simulationCluster: 0.55,
         simulationDecay: 8000,
         scalePointsOnZoom: true,
         onSimulationEnd: () => {
