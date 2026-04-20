@@ -12,6 +12,8 @@ interface ExplorerAskComposerProps {
   /** Ref to the live canvas so the TF.js-derived SceneDirective can drive
    *  focus / zoom / clearFocus on the graph in real time. */
   canvasAdapter: React.RefObject<GraphAdapter | null>;
+  /** Resolve a node id to its display label (for pretext focal labels). */
+  resolveLabelText?: (nodeId: string) => string | undefined;
 }
 
 function stageToLabel(event: StageEvent): string {
@@ -35,7 +37,7 @@ function stageToLabel(event: StageEvent): string {
  * fallback), and applies the resulting SceneDirective to the live
  * cosmos.gl canvas so the graph reacts in place.
  */
-const ExplorerAskComposer: FC<ExplorerAskComposerProps> = ({ canvasAdapter }) => {
+const ExplorerAskComposer: FC<ExplorerAskComposerProps> = ({ canvasAdapter, resolveLabelText }) => {
   const [query, setQuery] = useState('');
   const [isAsking, setIsAsking] = useState(false);
   const [stageLabel, setStageLabel] = useState<string>('');
@@ -82,7 +84,9 @@ const ExplorerAskComposer: FC<ExplorerAskComposerProps> = ({ canvasAdapter }) =>
 
           try {
             const directive = await directScene(result);
-            applySceneDirective(canvasAdapter.current, directive);
+            applySceneDirective(canvasAdapter.current, directive, {
+              resolveLabelText,
+            });
           } catch (err) {
             console.error('[ExplorerAskComposer] directScene failed', err);
           }
@@ -104,7 +108,7 @@ const ExplorerAskComposer: FC<ExplorerAskComposerProps> = ({ canvasAdapter }) =>
         // onError has already fired
       });
     },
-    [query, isAsking, canvasAdapter],
+    [query, isAsking, canvasAdapter, resolveLabelText],
   );
 
   const cancel = () => {
@@ -119,7 +123,11 @@ const ExplorerAskComposer: FC<ExplorerAskComposerProps> = ({ canvasAdapter }) =>
     setAnswer('');
     setError(null);
     setExpanded(false);
-    canvasAdapter.current?.clearFocus();
+    const adapter = canvasAdapter.current;
+    adapter?.clearFocus();
+    adapter?.clearEncoding();
+    adapter?.clearFocalLabels();
+    adapter?.fitView();
   };
 
   return (

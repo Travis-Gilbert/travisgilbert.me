@@ -64,3 +64,57 @@ export function findConnectedComponents(
 export function warmupTicksForSize(n: number): number {
   return n < 30 ? 100 : n <= 100 ? 200 : 300;
 }
+
+/**
+ * Generic string-id adjacency BFS used by the renderer. Returns the set of
+ * ids within `maxHops` hops of any seed in `seedIds`. The seeds themselves
+ * are not included in the result. Used for the evidence neighborhood
+ * gradient in CosmosGraphCanvas.
+ */
+export function bfsHopsFromSeeds(
+  seedIds: Iterable<string>,
+  adjacency: Map<string, Set<string>>,
+  maxHops: number,
+): Map<number, Set<string>> {
+  const result = new Map<number, Set<string>>();
+  for (let h = 1; h <= maxHops; h++) result.set(h, new Set());
+
+  const visited = new Set<string>();
+  for (const seed of seedIds) visited.add(seed);
+
+  let frontier: Set<string> = new Set(visited);
+  for (let hop = 1; hop <= maxHops; hop++) {
+    const next = new Set<string>();
+    for (const node of frontier) {
+      const neighbors = adjacency.get(node);
+      if (!neighbors) continue;
+      for (const n of neighbors) {
+        if (visited.has(n)) continue;
+        visited.add(n);
+        next.add(n);
+      }
+    }
+    result.set(hop, next);
+    if (next.size === 0) break;
+    frontier = next;
+  }
+  return result;
+}
+
+/**
+ * Build adjacency from plain `{source, target}` link records keyed by
+ * string id. Symmetric; self-loops are dropped.
+ */
+export function buildAdjacencyFromLinks(
+  ids: Iterable<string>,
+  links: ReadonlyArray<{ source: string; target: string }>,
+): Map<string, Set<string>> {
+  const adj = new Map<string, Set<string>>();
+  for (const id of ids) adj.set(id, new Set());
+  for (const link of links) {
+    if (!link || link.source === link.target) continue;
+    adj.get(link.source)?.add(link.target);
+    adj.get(link.target)?.add(link.source);
+  }
+  return adj;
+}

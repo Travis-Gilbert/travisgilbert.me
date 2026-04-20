@@ -40,23 +40,9 @@ const nextConfig: NextConfig = {
       // are never called. Applies to both browser and SSR bundles.
       '@mediapipe/selfie_segmentation': './src/lib/stubs/empty.ts',
       '@mediapipe/face_mesh': './src/lib/stubs/empty.ts',
-      // Cosmograph's shipped bundle uses `@/cosmograph/*` as a self-alias
-      // that collides with our `@/*` -> `./src/*` convention. Map it back
-      // to the package root so the bundle's style-module import resolves.
-      // See `node_modules/@cosmograph/cosmograph/cosmograph/managers/
-      // licensing-manager.js` for the origin.
-      '@/cosmograph/style.module.css': './node_modules/@cosmograph/cosmograph/cosmograph/style.module.css',
       '@luma.gl/shadertools': './node_modules/@luma.gl/shadertools/dist/index.js',
     },
   },
-  // Cosmograph (and its luma.gl/cosmos.gl internals) ship browser-only
-  // WebGL code; rebundling it through Next's server compile resolves the
-  // internal `@/cosmograph` alias in addition to avoiding SSR-only APIs
-  // reaching the browser bundle with stale module boundaries.
-  transpilePackages: [
-    '@cosmograph/react',
-    '@cosmograph/cosmograph',
-  ],
   async rewrites() {
     return [
       {

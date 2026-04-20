@@ -55,12 +55,22 @@ export interface ChatFollowupDetail {
   text: string;
 }
 
+export interface ExplorerIngestCompleteDetail {
+  /** Increments on every successful ingest run. Listeners can key effects
+   *  on this number to force a re-probe when DuckDB tables have been
+   *  rebuilt with fresh data. */
+  generation: number;
+  nodeCount: number;
+  edgeCount: number;
+}
+
 export interface TheseusEventMap {
-  'theseus:switch-panel':     SwitchPanelDetail;
-  'explorer:apply-directive': ApplyDirectiveDetail;
-  'theseus:stage-event':      StageEventDetail;
-  'theseus:prefill-ask':      PrefillAskDetail;
-  'theseus:chat-followup':    ChatFollowupDetail;
+  'theseus:switch-panel':        SwitchPanelDetail;
+  'explorer:apply-directive':    ApplyDirectiveDetail;
+  'explorer:ingest-complete':    ExplorerIngestCompleteDetail;
+  'theseus:stage-event':         StageEventDetail;
+  'theseus:prefill-ask':         PrefillAskDetail;
+  'theseus:chat-followup':       ChatFollowupDetail;
 }
 
 export type TheseusEventName = keyof TheseusEventMap;

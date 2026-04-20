@@ -1,11 +1,41 @@
 'use client';
 
-import { forwardRef, useImperativeHandle, useLayoutEffect, useMemo, useRef } from 'react';
-import { Graph } from '@cosmos.gl/graph';
+import { forwardRef, useCallback, useEffect, useImperativeHandle, useLayoutEffect, useMemo, useRef } from 'react';
+import { Graph, defaultConfigValues } from '@cosmos.gl/graph';
 import type { GraphConfig } from '@cosmos.gl/graph';
-import { hexToRgb } from '@/hooks/useThemeColor';
-import { DEFAULT_POINT_COLOR, type CosmoLink, type CosmoPoint } from './useGraphData';
-import type { GraphAdapter } from '@/lib/theseus/cosmograph/adapter';
+import {
+  cssVarToRgba,
+  mixTowardTokenRgba,
+  resolveTypeColor,
+  resolveTypeColorRgba,
+  resetTypeColorCache,
+} from '@/lib/theseus/cosmograph/typeColors';
+import {
+  buildClusterContext,
+  resolveClusterOrdinal,
+  resolveHybridClusterColorRgba,
+  resetClusterColorCache,
+  type ClusterContext,
+} from '@/lib/theseus/cosmograph/clusterColors';
+import { readCssVar, useThemeVersion } from '@/hooks/useThemeColor';
+import {
+  buildAdjacencyFromLinks,
+  bfsHopsFromSeeds,
+} from '@/lib/theseus-viz/features/graphUtils';
+import type {
+  FocalLabel,
+  GraphAdapter,
+  NeighborhoodTiers,
+} from '@/lib/theseus/cosmograph/adapter';
+import type {
+  ConstructionPhase,
+  ConstructionSequence,
+  HypothesisEdgeStyle,
+  NodeSalience,
+} from '@/lib/theseus-viz/SceneDirective';
+import { type CosmoLink, type CosmoPoint } from './useGraphData';
+import { renderLabelToCanvas } from '@/lib/theseus/pretext/canvas';
+import { LABEL_FONT, LABEL_LINE_HEIGHT } from '@/lib/theseus/pretext/fonts';
 
 export interface CosmosGraphCanvasProps {
   points: CosmoPoint[];
@@ -20,27 +50,109 @@ export interface CosmosGraphCanvasProps {
 
 export type CosmosGraphCanvasHandle = GraphAdapter;
 
-function hexToRgbaFloats(hex: string, alpha = 1): [number, number, number, number] {
-  try {
-    const [r, g, b] = hexToRgb(hex);
-    if (Number.isNaN(r) || Number.isNaN(g) || Number.isNaN(b)) {
-      throw new Error('nan');
-    }
-    return [r / 255, g / 255, b / 255, alpha];
-  } catch {
-    const [dr, dg, db] = hexToRgb(DEFAULT_POINT_COLOR);
-    return [dr / 255, dg / 255, db / 255, alpha];
-  }
+// --- Buffer pools -------------------------------------------------------
+//
+// cosmos.gl consumes Float32Array buffers for positions, colors, sizes,
+// links, link widths, and link colors. Allocating fresh typed arrays on
+// every directive update fragments GC; we pool by exact element count,
+// clearing entries when the count changes (which is rare: only on a new
+// dataset load).
+
+interface BufferPool {
+  pointCount: number;
+  linkCount: number;
+  linkEndpoints: Int32Array;         // 2 entries per valid link: [srcIndex, dstIndex]
+  baseColors: Float32Array;
+  baseSizes: Float32Array;
+  colors: Float32Array;               // Live colors (post-encoding + filter).
+  encodedColors: Float32Array;        // Colors before the filter mask is applied.
+  sizes: Float32Array;                // Live sizes (written by tween + filter).
+  encodedSizes: Float32Array;         // Post-salience target sizes.
+  baseLinkWidths: Float32Array;
+  baseLinkColors: Float32Array;
+  linkWidths: Float32Array;
+  linkColors: Float32Array;
+  encodedLinkWidths: Float32Array;    // Link widths before filter mask is applied.
+  encodedLinkColors: Float32Array;    // Link colors before filter mask is applied.
+  // Construction tween scratch. Populated at phase start with the pool's
+  // current state; the tween lerps from these toward the encoded*
+  // buffers. Allocated once at pool init.
+  tweenStartColors: Float32Array;
+  tweenStartSizes: Float32Array;
+  tweenStartLinkWidths: Float32Array;
+  tweenStartLinkColors: Float32Array;
+  // Per-point filter mask (1 = visible, 0 = filtered). `null` filter
+  // state is represented by all-1s. Same length as pointCount.
+  filterMask: Uint8Array;
+  filterActive: boolean;
 }
+
+function makeBufferPool(pointCount: number, linkCount: number): BufferPool {
+  const filterMask = new Uint8Array(pointCount);
+  filterMask.fill(1);
+  return {
+    pointCount,
+    linkCount,
+    linkEndpoints: new Int32Array(linkCount * 2),
+    baseColors: new Float32Array(pointCount * 4),
+    baseSizes: new Float32Array(pointCount),
+    colors: new Float32Array(pointCount * 4),
+    encodedColors: new Float32Array(pointCount * 4),
+    sizes: new Float32Array(pointCount),
+    encodedSizes: new Float32Array(pointCount),
+    baseLinkWidths: new Float32Array(linkCount),
+    baseLinkColors: new Float32Array(linkCount * 4),
+    linkWidths: new Float32Array(linkCount),
+    linkColors: new Float32Array(linkCount * 4),
+    encodedLinkWidths: new Float32Array(linkCount),
+    encodedLinkColors: new Float32Array(linkCount * 4),
+    tweenStartColors: new Float32Array(pointCount * 4),
+    tweenStartSizes: new Float32Array(pointCount),
+    tweenStartLinkWidths: new Float32Array(linkCount),
+    tweenStartLinkColors: new Float32Array(linkCount * 4),
+    filterMask,
+    filterActive: false,
+  };
+}
+
+// --- Construction tween -------------------------------------------------
+
+/** Scoped target for a single construction phase. `colors`, `sizes`,
+ *  `linkWidths`, `linkColors` reference the pool's encoded target buffers;
+ *  `startColors` etc. are the pool's tween-start scratch. A phase tween
+ *  linearly interpolates each index between start and target over its
+ *  duration. */
+type EasingFn = (t: number) => number;
+
+const EASING: Record<string, EasingFn> = {
+  'ease-out': (t) => 1 - (1 - t) * (1 - t),
+  'ease-in-out': (t) => (t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2),
+  'linear': (t) => t,
+  // Soft cosmic overshoot for 'spring'; keeps everything within 0..1 so
+  // we never drive buffers past their encoded targets.
+  'spring': (t) => {
+    const c = 1.70158;
+    return 1 + (c + 1) * Math.pow(t - 1, 3) + c * Math.pow(t - 1, 2);
+  },
+};
+
+function getEasing(name: string): EasingFn {
+  return EASING[name] ?? EASING.linear;
+}
+
+// --- Component ----------------------------------------------------------
 
 /**
  * React wrapper around the cosmos.gl `Graph` class. Points and links are
  * flat Float32Arrays; this wrapper converts the JS object arrays from
- * `useGraphData` and pushes them via the imperative API.
+ * `useGraphData` and pushes them via the imperative API. All directive
+ * setters live here; callers reach the rendering layer only through the
+ * `GraphAdapter` interface exposed on the forwarded ref.
  */
 const CosmosGraphCanvas = forwardRef<CosmosGraphCanvasHandle, CosmosGraphCanvasProps>(
   function CosmosGraphCanvas({ points, links, pinnedPositions, onPointClick, onReady }, ref) {
     const containerRef = useRef<HTMLDivElement | null>(null);
+    const overlayCanvasRef = useRef<HTMLCanvasElement | null>(null);
     const graphRef = useRef<Graph | null>(null);
     const onPointClickRef = useRef(onPointClick);
     const onReadyRef = useRef(onReady);
@@ -51,6 +163,54 @@ const CosmosGraphCanvas = forwardRef<CosmosGraphCanvasHandle, CosmosGraphCanvasP
       links: [] as CosmoLink[],
       pinnedPositions: null as Record<string, [number, number]> | null | undefined,
     });
+
+    const poolRef = useRef<BufferPool | null>(null);
+    const adjacencyRef = useRef<Map<string, Set<string>>>(new Map());
+    const currentSalienceRef = useRef<Map<string, NodeSalience>>(new Map());
+    // Count of distinct non-null leiden_community values in the current
+    // point set. Stable across encoding passes: only rewritten when a
+    // fresh dataset is pushed. Zero triggers the pending-visual branch
+    // for every node (honest empty state per claim M7).
+    const clusterContextRef = useRef<ClusterContext>({
+      leidenOrdinal: new Map(),
+      kCoreOrdinal: new Map(),
+      totalOrdinals: 0,
+    });
+    const encodingActiveRef = useRef(false);
+    const focalLabelsRef = useRef<FocalLabel[]>([]);
+    const overlayAnimRef = useRef<number | null>(null);
+    // Hypothesis color-mix factor applied on top of encoded colors. Kept
+    // on a ref so theme-flip re-encodes can reapply without plumbing the
+    // value through adapter calls.
+    const hypothesisMixFactorRef = useRef(0);
+
+    // --- Construction tween state ---------------------------------------
+    //
+    // `phaseTimers` stores queued phase kickoffs (setTimeout handles); the
+    // active tween uses `rafHandle`. `finalCallback` fires exactly once on
+    // natural completion or cancel. Start-value snapshots are taken at
+    // each phase's kickoff so the interpolation begins from the pool's
+    // current state (not whatever it was when the sequence was handed in).
+    const constructionStateRef = useRef<{
+      phaseTimers: number[];
+      rafHandle: number | null;
+      finalCallback: (() => void) | null;
+      active: boolean;
+    }>({ phaseTimers: [], rafHandle: null, finalCallback: null, active: false });
+
+    // --- Ambient idle breathing ----------------------------------------
+    //
+    // Tracks the last wall-clock time the user interacted with the canvas
+    // (hover, pan, zoom, click, ask submit). After ~10s of silence we enter
+    // a subtle alpha-modulation breathing loop. Exits on any interaction.
+    const lastInteractionAtRef = useRef<number>(Date.now());
+    const ambientRafRef = useRef<number | null>(null);
+    const ambientActiveRef = useRef(false);
+
+    // Theme version bumps when the document theme flips. The CSS variables
+    // referenced by resolveTypeColor get new resolved values under the new
+    // theme; re-upload point+link colors to match.
+    const themeVersion = useThemeVersion();
 
     onPointClickRef.current = onPointClick;
     onReadyRef.current = onReady;
@@ -64,6 +224,714 @@ const CosmosGraphCanvas = forwardRef<CosmosGraphCanvasHandle, CosmosGraphCanvasP
 
     idToIndexRef.current = idToIndex;
     indexToIdRef.current = indexToId;
+
+    // -------- Helpers on refs (stable across renders) ---------------------
+
+    const writeBaselineColors = useCallback((pool: BufferPool, pts: CosmoPoint[]) => {
+      // Hybrid color: leiden_community if present, else k_core_number as a
+      // structural fallback, both on the same warm continuous ramp. Nodes
+      // with neither signal fall through the resolver to the dim note
+      // token at 60% alpha (claim M7 honest pending visual).
+      const ctx = clusterContextRef.current;
+      for (let i = 0; i < pts.length; i++) {
+        const [r, g, b, a] = resolveHybridClusterColorRgba(
+          pts[i],
+          ctx,
+          1,
+          themeVersion,
+        );
+        const off = i * 4;
+        pool.baseColors[off] = r;
+        pool.baseColors[off + 1] = g;
+        pool.baseColors[off + 2] = b;
+        pool.baseColors[off + 3] = a;
+        pool.colors[off] = r;
+        pool.colors[off + 1] = g;
+        pool.colors[off + 2] = b;
+        pool.colors[off + 3] = a;
+      }
+    }, [themeVersion]);
+
+    const writeBaselineSizes = useCallback((pool: BufferPool, pts: CosmoPoint[]) => {
+      const maxDegree = pts.reduce((m, p) => Math.max(m, p.degree), 1);
+      for (let i = 0; i < pts.length; i++) {
+        const d = pts[i].degree;
+        const norm = d > 0 ? Math.sqrt(d / maxDegree) : 0;
+        const size = 6 + norm * 30;
+        pool.baseSizes[i] = size;
+        pool.sizes[i] = size;
+      }
+    }, []);
+
+    const writeBaselineLinkStyles = useCallback((pool: BufferPool, lks: CosmoLink[], indexMap: Map<string, number>) => {
+      const linkTint = cssVarToRgba('--vie-text-dim', 0.55);
+      let li = 0;
+      for (const link of lks) {
+        if (!indexMap.has(link.source) || !indexMap.has(link.target)) continue;
+        const w = 0.5 + link.weight * 1.5;
+        pool.baseLinkWidths[li] = w;
+        pool.linkWidths[li] = w;
+        const off = li * 4;
+        pool.baseLinkColors[off] = linkTint[0];
+        pool.baseLinkColors[off + 1] = linkTint[1];
+        pool.baseLinkColors[off + 2] = linkTint[2];
+        pool.baseLinkColors[off + 3] = linkTint[3];
+        pool.linkColors[off] = linkTint[0];
+        pool.linkColors[off + 1] = linkTint[1];
+        pool.linkColors[off + 2] = linkTint[2];
+        pool.linkColors[off + 3] = linkTint[3];
+        li++;
+      }
+    }, []);
+
+    // -------- Overlay (pretext labels) ------------------------------------
+
+    const sizeOverlayToContainer = useCallback(() => {
+      const container = containerRef.current;
+      const overlay = overlayCanvasRef.current;
+      if (!container || !overlay) return;
+      const rect = container.getBoundingClientRect();
+      const dpr = window.devicePixelRatio || 1;
+      const w = Math.max(1, Math.floor(rect.width));
+      const h = Math.max(1, Math.floor(rect.height));
+      const cw = Math.min(w, 8192);
+      const ch = Math.min(h, 8192);
+      const backingW = Math.min(cw * dpr, 8192);
+      const backingH = Math.min(ch * dpr, 8192);
+      if (overlay.width !== backingW) overlay.width = backingW;
+      if (overlay.height !== backingH) overlay.height = backingH;
+      overlay.style.width = `${cw}px`;
+      overlay.style.height = `${ch}px`;
+    }, []);
+
+    const drawOverlay = useCallback(() => {
+      const overlay = overlayCanvasRef.current;
+      const graph = graphRef.current;
+      if (!overlay || !graph) return;
+      const ctx = overlay.getContext('2d');
+      if (!ctx) return;
+
+      const dpr = window.devicePixelRatio || 1;
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      ctx.clearRect(0, 0, overlay.width, overlay.height);
+
+      const labels = focalLabelsRef.current;
+      if (labels.length === 0) return;
+
+      const textColor = resolveTypeColor(undefined, themeVersion);
+      const shadowColor = readCssVar('--color-shadow') || readCssVar('--color-ink-muted');
+      // Positions are stable for the whole frame; read once, not per label.
+      const positions = graph.getPointPositions();
+      if (!positions) return;
+      for (const label of labels) {
+        const idx = idToIndexRef.current.get(label.nodeId);
+        if (typeof idx !== 'number') continue;
+        if (positions.length < (idx + 1) * 2) continue;
+        const spaceX = positions[idx * 2];
+        const spaceY = positions[idx * 2 + 1];
+        const screen = graph.spaceToScreenPosition([spaceX, spaceY]);
+        if (!screen) continue;
+        const [sx, sy] = screen;
+        const poolSize = poolRef.current?.sizes[idx] ?? 10;
+        const labelY = sy + poolSize * 0.9 + 8;
+
+        ctx.save();
+        ctx.shadowColor = shadowColor;
+        ctx.shadowBlur = 4;
+        ctx.shadowOffsetX = 0;
+        ctx.shadowOffsetY = 1;
+        renderLabelToCanvas(ctx, label.text, sx, labelY, {
+          font: LABEL_FONT,
+          lineHeight: LABEL_LINE_HEIGHT,
+          color: textColor,
+          maxWidth: 220,
+          align: 'center',
+          baseline: 'top',
+        });
+        ctx.restore();
+      }
+    }, [themeVersion]);
+
+    const scheduleOverlayTick = useCallback(() => {
+      if (overlayAnimRef.current != null) return;
+      const tick = () => {
+        overlayAnimRef.current = null;
+        drawOverlay();
+        if (focalLabelsRef.current.length > 0) {
+          overlayAnimRef.current = requestAnimationFrame(tick);
+        }
+      };
+      overlayAnimRef.current = requestAnimationFrame(tick);
+    }, [drawOverlay]);
+
+    // -------- Encoding setters (adapter implementations) -----------------
+
+    const uploadColorsAndSizes = useCallback(() => {
+      const graph = graphRef.current;
+      const pool = poolRef.current;
+      if (!graph || !pool) return;
+      graph.setPointColors(pool.colors);
+      graph.setPointSizes(pool.sizes);
+    }, []);
+
+    const uploadLinkStyles = useCallback(() => {
+      const graph = graphRef.current;
+      const pool = poolRef.current;
+      if (!graph || !pool) return;
+      graph.setLinkWidths(pool.linkWidths);
+      graph.setLinkColors(pool.linkColors);
+    }, []);
+
+    // Apply pool.filterMask into the live `colors` buffer by zeroing
+    // alpha on filtered points. Also walks valid link pairs and zeros
+    // alpha on links whose endpoints are filtered. Call AFTER the
+    // encoded buffers (`encodedColors`, `encodedLinkColors`) hold the
+    // desired pre-filter state, and after `colors` has been set to the
+    // encoded baseline.
+    const applyFilterMaskToLive = useCallback(() => {
+      const pool = poolRef.current;
+      if (!pool) return;
+      if (!pool.filterActive) return;
+      const mask = pool.filterMask;
+      for (let i = 0; i < pool.pointCount; i++) {
+        if (mask[i] === 0) {
+          pool.colors[i * 4 + 3] = 0;
+        }
+      }
+      if (pool.linkCount === 0) return;
+      for (let li = 0; li < pool.linkCount; li++) {
+        const src = pool.linkEndpoints[li * 2];
+        const dst = pool.linkEndpoints[li * 2 + 1];
+        if (mask[src] === 0 || mask[dst] === 0) {
+          pool.linkColors[li * 4 + 3] = 0;
+        }
+      }
+    }, []);
+
+    const applySalienceToPool = useCallback((salience: NodeSalience[]) => {
+      const pool = poolRef.current;
+      if (!pool) return;
+      const bySalience = currentSalienceRef.current;
+      bySalience.clear();
+      for (const s of salience) {
+        if (s && typeof s.node_id === 'string') bySalience.set(s.node_id, s);
+      }
+
+      const { points: pts } = latestDataRef.current;
+      const offAlpha = bySalience.size > 0 ? 0.18 : 1.0;
+      const offScale = bySalience.size > 0 ? 0.75 : 1.0;
+
+      for (let i = 0; i < pts.length; i++) {
+        const id = pts[i].id;
+        const s = bySalience.get(id);
+        const baseOff = i * 4;
+        const br = pool.baseColors[baseOff];
+        const bg = pool.baseColors[baseOff + 1];
+        const bb = pool.baseColors[baseOff + 2];
+
+        if (s) {
+          const emissive = Math.max(0, Math.min(0.5, s.suggested_emissive ?? 0));
+          const opacity = Math.max(0.2, Math.min(1, s.suggested_opacity ?? 1));
+          const scale = Math.max(0.3, Math.min(2, s.suggested_scale ?? 1));
+          const r = Math.min(1, br + emissive * (1 - br));
+          const g = Math.min(1, bg + emissive * (1 - bg));
+          const b = Math.min(1, bb + emissive * (1 - bb));
+          pool.colors[baseOff] = r;
+          pool.colors[baseOff + 1] = g;
+          pool.colors[baseOff + 2] = b;
+          pool.colors[baseOff + 3] = opacity;
+          pool.sizes[i] = pool.baseSizes[i] * scale;
+        } else {
+          pool.colors[baseOff] = br;
+          pool.colors[baseOff + 1] = bg;
+          pool.colors[baseOff + 2] = bb;
+          pool.colors[baseOff + 3] = offAlpha;
+          pool.sizes[i] = pool.baseSizes[i] * offScale;
+        }
+      }
+
+      // Mirror live -> encoded so subsequent gradient/color-mix calls
+      // layer on top without losing the salience baseline. The encoded
+      // buffer is the "target" for the filter-mask and tween pipelines.
+      pool.encodedColors.set(pool.colors);
+      pool.encodedSizes.set(pool.sizes);
+      applyFilterMaskToLive();
+      encodingActiveRef.current = true;
+      uploadColorsAndSizes();
+    }, [applyFilterMaskToLive, uploadColorsAndSizes]);
+
+    const applyNeighborhoodToPool = useCallback((evidenceIds: string[], tiers: NeighborhoodTiers) => {
+      const pool = poolRef.current;
+      if (!pool) return;
+      const { points: pts } = latestDataRef.current;
+      const adj = adjacencyRef.current;
+      if (pts.length === 0 || adj.size === 0) return;
+
+      const evidenceSet = new Set<string>(evidenceIds.filter((id) => idToIndexRef.current.has(id)));
+      if (evidenceSet.size === 0) return;
+
+      const hops = bfsHopsFromSeeds(evidenceSet, adj, 2);
+      const oneHop = hops.get(1) ?? new Set<string>();
+      const twoHop = hops.get(2) ?? new Set<string>();
+
+      for (let i = 0; i < pts.length; i++) {
+        const id = pts[i].id;
+        const off = i * 4 + 3;
+        if (evidenceSet.has(id)) continue;
+        const currentAlpha = pool.encodedColors[off];
+        let tier = tiers.rest;
+        if (oneHop.has(id)) tier = tiers.oneHop;
+        else if (twoHop.has(id)) tier = tiers.twoHop;
+        const dimmed = Math.min(1, currentAlpha * tier);
+        pool.encodedColors[off] = dimmed;
+        pool.colors[off] = dimmed;
+      }
+
+      applyFilterMaskToLive();
+      encodingActiveRef.current = true;
+      uploadColorsAndSizes();
+    }, [applyFilterMaskToLive, uploadColorsAndSizes]);
+
+    const applyHypothesisMixToPool = useCallback((mixFactor: number) => {
+      const pool = poolRef.current;
+      if (!pool) return;
+      hypothesisMixFactorRef.current = Math.max(0, Math.min(1, mixFactor));
+      if (hypothesisMixFactorRef.current === 0) return;
+      const { points: pts } = latestDataRef.current;
+      const m = hypothesisMixFactorRef.current;
+      for (let i = 0; i < pts.length; i++) {
+        if (pts[i].epistemic_role !== 'hypothetical') continue;
+        const off = i * 4;
+        const base: [number, number, number, number] = [
+          pool.encodedColors[off],
+          pool.encodedColors[off + 1],
+          pool.encodedColors[off + 2],
+          pool.encodedColors[off + 3],
+        ];
+        const [r, g, b, a] = mixTowardTokenRgba(base, '--vie-amber', m, themeVersion);
+        pool.encodedColors[off] = r;
+        pool.encodedColors[off + 1] = g;
+        pool.encodedColors[off + 2] = b;
+        pool.encodedColors[off + 3] = a;
+        pool.colors[off] = r;
+        pool.colors[off + 1] = g;
+        pool.colors[off + 2] = b;
+        pool.colors[off + 3] = a;
+      }
+      applyFilterMaskToLive();
+      encodingActiveRef.current = true;
+      uploadColorsAndSizes();
+    }, [applyFilterMaskToLive, themeVersion, uploadColorsAndSizes]);
+
+    const applyEdgeStylesToPool = useCallback((
+      styles: HypothesisEdgeStyle[],
+      globalTentativeFactor = 0,
+    ) => {
+      const pool = poolRef.current;
+      if (!pool) return;
+      const { links: lks } = latestDataRef.current;
+      const indexMap = idToIndexRef.current;
+
+      // Global tentative nudge: every edge width scales by
+      // (1 - global*0.3). Capped between 0 and 1 defensively.
+      const gt = Math.max(0, Math.min(1, globalTentativeFactor));
+      const baselineScale = 1 - gt * 0.3;
+
+      pool.linkWidths.set(pool.baseLinkWidths);
+      pool.linkColors.set(pool.baseLinkColors);
+
+      const styleMap = new Map<string, HypothesisEdgeStyle>();
+      for (const s of styles) {
+        if (s && typeof s.edge_key === 'string') styleMap.set(s.edge_key, s);
+      }
+
+      let li = 0;
+      for (const link of lks) {
+        if (!indexMap.has(link.source) || !indexMap.has(link.target)) continue;
+        const keyForward = `${link.source}->${link.target}`;
+        const keyReverse = `${link.target}->${link.source}`;
+        const style = styleMap.get(keyForward) ?? styleMap.get(keyReverse);
+        if (style) {
+          const visibility = Math.max(0, Math.min(1, style.visibility ?? 1));
+          pool.linkWidths[li] = pool.baseLinkWidths[li] * Math.max(0.4, visibility);
+          if (style.color_override) {
+            const varMatch = /var\((--[a-z0-9-]+)/i.exec(style.color_override);
+            const cssVar = varMatch?.[1] ?? '--vie-amber';
+            const [r, g, b, a] = cssVarToRgba(cssVar, 0.8 * visibility + 0.1);
+            const off = li * 4;
+            pool.linkColors[off] = r;
+            pool.linkColors[off + 1] = g;
+            pool.linkColors[off + 2] = b;
+            pool.linkColors[off + 3] = a;
+          }
+        } else if (gt > 0) {
+          // Non-hypothesis edges get the global tentative nudge.
+          pool.linkWidths[li] = pool.baseLinkWidths[li] * baselineScale;
+        }
+        li++;
+      }
+
+      // Mirror to the encoded snapshots so the filter-mask step reads a
+      // pre-filter truth, and the tween controller has a real target.
+      pool.encodedLinkColors.set(pool.linkColors);
+      pool.encodedLinkWidths.set(pool.linkWidths);
+      applyFilterMaskToLive();
+      encodingActiveRef.current = true;
+      uploadLinkStyles();
+    }, [applyFilterMaskToLive, uploadLinkStyles]);
+
+    const restoreBaseline = useCallback(() => {
+      const pool = poolRef.current;
+      const graph = graphRef.current;
+      if (!pool || !graph) return;
+      pool.colors.set(pool.baseColors);
+      pool.encodedColors.set(pool.baseColors);
+      pool.sizes.set(pool.baseSizes);
+      pool.encodedSizes.set(pool.baseSizes);
+      pool.linkWidths.set(pool.baseLinkWidths);
+      pool.encodedLinkWidths.set(pool.baseLinkWidths);
+      pool.linkColors.set(pool.baseLinkColors);
+      pool.encodedLinkColors.set(pool.baseLinkColors);
+      pool.filterMask.fill(1);
+      pool.filterActive = false;
+      hypothesisMixFactorRef.current = 0;
+      currentSalienceRef.current.clear();
+      encodingActiveRef.current = false;
+      graph.setPointColors(pool.colors);
+      graph.setPointSizes(pool.sizes);
+      graph.setLinkWidths(pool.linkWidths);
+      graph.setLinkColors(pool.linkColors);
+    }, []);
+
+    // -------- Construction tween controller ------------------------------
+    //
+    // Each phase snapshots the pool's current (visible) state into the
+    // pre-allocated `tweenStart*` scratch buffers, then runs a rAF loop
+    // that lerps from start -> encoded-target over `duration_ms`. All
+    // writes go into the live `colors` / `sizes` / `linkWidths` /
+    // `linkColors` buffers; the filter mask (if any) is applied on every
+    // frame so the effect looks consistent even under cross-filter.
+
+    const cancelConstructionInternal = useCallback((jumpToFinal: boolean) => {
+      const state = constructionStateRef.current;
+      for (const t of state.phaseTimers) clearTimeout(t);
+      state.phaseTimers = [];
+      if (state.rafHandle != null) {
+        cancelAnimationFrame(state.rafHandle);
+        state.rafHandle = null;
+      }
+      state.active = false;
+
+      if (jumpToFinal) {
+        const pool = poolRef.current;
+        const graph = graphRef.current;
+        if (pool && graph) {
+          pool.colors.set(pool.encodedColors);
+          pool.sizes.set(pool.encodedSizes);
+          pool.linkColors.set(pool.encodedLinkColors);
+          pool.linkWidths.set(pool.encodedLinkWidths);
+          applyFilterMaskToLive();
+          graph.setPointColors(pool.colors);
+          graph.setPointSizes(pool.sizes);
+          graph.setLinkWidths(pool.linkWidths);
+          graph.setLinkColors(pool.linkColors);
+        }
+      }
+
+      const cb = state.finalCallback;
+      state.finalCallback = null;
+      if (cb) cb();
+    }, [applyFilterMaskToLive]);
+
+    const runPhaseTween = useCallback((
+      phase: ConstructionPhase,
+      onPhaseDone: () => void,
+    ) => {
+      const pool = poolRef.current;
+      const graph = graphRef.current;
+      if (!pool || !graph) { onPhaseDone(); return; }
+
+      // Some phase ids are intentional no-ops in Phase B (see plan).
+      if (phase.name === 'clusters_coalesce' || phase.name === 'data_builds'
+        || phase.name === 'agreement_clusters_form' || phase.name === 'tensions_bridge'
+        || phase.name === 'blind_spots_reveal' || phase.name === 'entrenchment_pulse') {
+        onPhaseDone();
+        return;
+      }
+
+      // Label phases use the overlay rather than the pool buffers. Fade
+      // is handled by the overlay alpha path; here we just mark the
+      // phase complete after its duration. Label stamp-in is performed
+      // in `applySceneDirective` on completion.
+      if (phase.name === 'labels_fade_in') {
+        const timer = window.setTimeout(onPhaseDone, Math.max(0, phase.duration_ms));
+        constructionStateRef.current.phaseTimers.push(timer);
+        return;
+      }
+
+      if (phase.name === 'crystallize') {
+        // Single snapshot at end: force live buffers to the encoded
+        // target, then upload once.
+        pool.colors.set(pool.encodedColors);
+        pool.sizes.set(pool.encodedSizes);
+        pool.linkColors.set(pool.encodedLinkColors);
+        pool.linkWidths.set(pool.encodedLinkWidths);
+        applyFilterMaskToLive();
+        graph.setPointColors(pool.colors);
+        graph.setPointSizes(pool.sizes);
+        graph.setLinkWidths(pool.linkWidths);
+        graph.setLinkColors(pool.linkColors);
+        onPhaseDone();
+        return;
+      }
+
+      // focal_nodes_appear / supporting_nodes_appear / edges_draw all
+      // share the same mechanic: tween live buffers toward encoded.
+      // Snapshot the current live state into tween-start scratch.
+      pool.tweenStartColors.set(pool.colors);
+      pool.tweenStartSizes.set(pool.sizes);
+      pool.tweenStartLinkWidths.set(pool.linkWidths);
+      pool.tweenStartLinkColors.set(pool.linkColors);
+
+      const duration = Math.max(16, phase.duration_ms);
+      const easing = getEasing(phase.easing);
+      const startedAt = performance.now();
+      const { pointCount, linkCount } = pool;
+      const animatePoints = phase.name !== 'edges_draw';
+      const animateLinks = phase.name === 'edges_draw';
+      // Edge widths start from zero during edges_draw so they visibly
+      // "draw in" (the encoded target is the final per-style width).
+      if (phase.name === 'edges_draw') {
+        for (let li = 0; li < linkCount; li++) {
+          pool.tweenStartLinkWidths[li] = 0;
+        }
+        // Also zero out link-color alpha at start so the stroke fades
+        // up with the width, not a solid line of growing width.
+        for (let li = 0; li < linkCount; li++) {
+          pool.tweenStartLinkColors[li * 4 + 3] = 0;
+        }
+      }
+
+      const tick = (now: number) => {
+        const state = constructionStateRef.current;
+        if (!state.active) return;
+        const t = Math.min(1, (now - startedAt) / duration);
+        const eased = easing(t);
+
+        if (animatePoints) {
+          for (let i = 0; i < pointCount; i++) {
+            const o = i * 4;
+            pool.colors[o] = pool.tweenStartColors[o]
+              + (pool.encodedColors[o] - pool.tweenStartColors[o]) * eased;
+            pool.colors[o + 1] = pool.tweenStartColors[o + 1]
+              + (pool.encodedColors[o + 1] - pool.tweenStartColors[o + 1]) * eased;
+            pool.colors[o + 2] = pool.tweenStartColors[o + 2]
+              + (pool.encodedColors[o + 2] - pool.tweenStartColors[o + 2]) * eased;
+            pool.colors[o + 3] = pool.tweenStartColors[o + 3]
+              + (pool.encodedColors[o + 3] - pool.tweenStartColors[o + 3]) * eased;
+            // Lerp sizes from tween-start snapshot toward encoded target
+            // (which includes the salience scale applied by applySalience).
+            pool.sizes[i] = pool.tweenStartSizes[i]
+              + (pool.encodedSizes[i] - pool.tweenStartSizes[i]) * eased;
+          }
+        }
+
+        if (animateLinks) {
+          for (let li = 0; li < linkCount; li++) {
+            const encodedW = pool.encodedLinkWidths[li];
+            pool.linkWidths[li] = pool.tweenStartLinkWidths[li]
+              + (encodedW - pool.tweenStartLinkWidths[li]) * eased;
+            const o = li * 4;
+            pool.linkColors[o] = pool.tweenStartLinkColors[o]
+              + (pool.encodedLinkColors[o] - pool.tweenStartLinkColors[o]) * eased;
+            pool.linkColors[o + 1] = pool.tweenStartLinkColors[o + 1]
+              + (pool.encodedLinkColors[o + 1] - pool.tweenStartLinkColors[o + 1]) * eased;
+            pool.linkColors[o + 2] = pool.tweenStartLinkColors[o + 2]
+              + (pool.encodedLinkColors[o + 2] - pool.tweenStartLinkColors[o + 2]) * eased;
+            pool.linkColors[o + 3] = pool.tweenStartLinkColors[o + 3]
+              + (pool.encodedLinkColors[o + 3] - pool.tweenStartLinkColors[o + 3]) * eased;
+          }
+        }
+
+        applyFilterMaskToLive();
+        if (animatePoints) {
+          graph.setPointColors(pool.colors);
+          graph.setPointSizes(pool.sizes);
+        }
+        if (animateLinks) {
+          graph.setLinkWidths(pool.linkWidths);
+          graph.setLinkColors(pool.linkColors);
+        }
+
+        if (t < 1) {
+          state.rafHandle = requestAnimationFrame(tick);
+        } else {
+          state.rafHandle = null;
+          onPhaseDone();
+        }
+      };
+
+      // Defensive: cancel any in-flight rAF before scheduling our own.
+      // Rule-based SequenceComposer emits non-overlapping phases so this
+      // is a no-op today, but a learned director with high theatricality
+      // could emit overlapping phases; the cancel prevents an orphan rAF
+      // from outliving its phase.
+      if (constructionStateRef.current.rafHandle != null) {
+        cancelAnimationFrame(constructionStateRef.current.rafHandle);
+      }
+      constructionStateRef.current.rafHandle = requestAnimationFrame(tick);
+    }, [applyFilterMaskToLive]);
+
+    const playConstructionInternal = useCallback((
+      seq: ConstructionSequence,
+      options?: { onComplete?: () => void },
+    ) => {
+      const state = constructionStateRef.current;
+      // Cancel anything already queued; don't jump-to-final because the
+      // new sequence will rewrite the state.
+      for (const t of state.phaseTimers) clearTimeout(t);
+      state.phaseTimers = [];
+      if (state.rafHandle != null) {
+        cancelAnimationFrame(state.rafHandle);
+        state.rafHandle = null;
+      }
+      state.active = true;
+      state.finalCallback = options?.onComplete ?? null;
+
+      // At sequence start, set the live buffers to a "galaxy dim" state
+      // so the first phase has something visible to tween out of. The
+      // encoded buffers are preserved as the final target; only the
+      // live `colors` / `sizes` / `linkWidths` / `linkColors` move.
+      const pool = poolRef.current;
+      const graph = graphRef.current;
+      if (pool && graph) {
+        for (let i = 0; i < pool.pointCount; i++) {
+          const o = i * 4;
+          pool.colors[o] = pool.baseColors[o];
+          pool.colors[o + 1] = pool.baseColors[o + 1];
+          pool.colors[o + 2] = pool.baseColors[o + 2];
+          pool.colors[o + 3] = pool.baseColors[o + 3] * 0.35;
+          // Shrink sizes to 60% of base so focal points pop on appearance.
+          pool.sizes[i] = pool.baseSizes[i] * 0.6;
+        }
+        // Edges: zero width + zero alpha so edges_draw grows them.
+        for (let li = 0; li < pool.linkCount; li++) {
+          pool.linkWidths[li] = 0;
+          pool.linkColors[li * 4 + 3] = 0;
+        }
+        applyFilterMaskToLive();
+        graph.setPointColors(pool.colors);
+        graph.setPointSizes(pool.sizes);
+        graph.setLinkWidths(pool.linkWidths);
+        graph.setLinkColors(pool.linkColors);
+      }
+
+      const phases = seq.phases;
+      let completedCount = 0;
+      const onAllDone = () => {
+        state.active = false;
+        // Guarantee the final snapshot is exact.
+        cancelConstructionInternal(true);
+      };
+
+      phases.forEach((phase) => {
+        const delayTimer = window.setTimeout(() => {
+          if (!constructionStateRef.current.active) return;
+          runPhaseTween(phase, () => {
+            completedCount++;
+            if (completedCount === phases.length) onAllDone();
+          });
+        }, Math.max(0, phase.delay_ms));
+        constructionStateRef.current.phaseTimers.push(delayTimer);
+      });
+    }, [applyFilterMaskToLive, cancelConstructionInternal, runPhaseTween]);
+
+    // -------- Ambient idle breathing --------------------------------------
+    //
+    // A slow sin-wave modulation of live-buffer alpha, active only when
+    // no ask is running and the user has been still for 10s+. Every
+    // interaction (hover, pan, zoom, click, ask submit) resets the
+    // lastInteractionAt clock and restores the encoded alpha.
+
+    const AMBIENT_IDLE_MS = 10_000;
+    const AMBIENT_AMPLITUDE = 0.03;
+    const AMBIENT_PERIOD_MS = 3_000;
+
+    const stopAmbientBreathing = useCallback(() => {
+      ambientActiveRef.current = false;
+      if (ambientRafRef.current != null) {
+        cancelAnimationFrame(ambientRafRef.current);
+        ambientRafRef.current = null;
+      }
+      // Restore the live buffer to the encoded state (modulo filter).
+      const pool = poolRef.current;
+      const graph = graphRef.current;
+      if (pool && graph) {
+        pool.colors.set(pool.encodedColors);
+        applyFilterMaskToLive();
+        graph.setPointColors(pool.colors);
+      }
+    }, [applyFilterMaskToLive]);
+
+    const ambientTick = useCallback(() => {
+      // Bail conditions: any interaction happened, or an ask/encoding is
+      // running, or a construction tween is active.
+      const idleFor = Date.now() - lastInteractionAtRef.current;
+      if (
+        idleFor < AMBIENT_IDLE_MS
+        || encodingActiveRef.current
+        || constructionStateRef.current.active
+      ) {
+        stopAmbientBreathing();
+        return;
+      }
+      const pool = poolRef.current;
+      const graph = graphRef.current;
+      if (!pool || !graph || !ambientActiveRef.current) {
+        // Either the graph / pool isn't ready, or unmount flipped the
+        // active flag while a frame was queued. Exit without rescheduling;
+        // maybeStartAmbient will re-arm when the idle watcher decides.
+        ambientRafRef.current = null;
+        return;
+      }
+      const t = performance.now();
+      const pulse = 1 + AMBIENT_AMPLITUDE * Math.sin((2 * Math.PI * t) / AMBIENT_PERIOD_MS);
+      for (let i = 0; i < pool.pointCount; i++) {
+        const off = i * 4 + 3;
+        pool.colors[off] = Math.min(1, pool.encodedColors[off] * pulse);
+      }
+      applyFilterMaskToLive();
+      graph.setPointColors(pool.colors);
+      ambientRafRef.current = requestAnimationFrame(ambientTick);
+    }, [applyFilterMaskToLive, stopAmbientBreathing]);
+
+    const maybeStartAmbient = useCallback(() => {
+      if (ambientActiveRef.current) return;
+      if (encodingActiveRef.current) return;
+      if (constructionStateRef.current.active) return;
+      ambientActiveRef.current = true;
+      ambientRafRef.current = requestAnimationFrame(ambientTick);
+    }, [ambientTick]);
+
+    const noteInteraction = useCallback(() => {
+      lastInteractionAtRef.current = Date.now();
+      if (ambientActiveRef.current) stopAmbientBreathing();
+    }, [stopAmbientBreathing]);
+
+    // Long-running idle checker: every 2s, ask whether we should start
+    // the ambient loop. Cheap; does not touch buffers unless we enter
+    // breathing mode.
+    useEffect(() => {
+      const interval = window.setInterval(() => {
+        const idleFor = Date.now() - lastInteractionAtRef.current;
+        if (idleFor >= AMBIENT_IDLE_MS) maybeStartAmbient();
+      }, 2_000);
+      return () => {
+        window.clearInterval(interval);
+      };
+    }, [maybeStartAmbient]);
+
+    // -------- Adapter implementation -------------------------------------
 
     useImperativeHandle(
       ref,
@@ -92,22 +960,168 @@ const CosmosGraphCanvas = forwardRef<CosmosGraphCanvasHandle, CosmosGraphCanvasP
         fitView(durationMs = 400, padding = 0.12) {
           graphRef.current?.fitView(durationMs, padding, true);
         },
+        setSalienceEncoding(salience: NodeSalience[]) {
+          noteInteraction();
+          applySalienceToPool(salience);
+        },
+        setEdgeStyles(styles: HypothesisEdgeStyle[], globalTentativeFactor = 0) {
+          noteInteraction();
+          applyEdgeStylesToPool(styles, globalTentativeFactor);
+        },
+        setNeighborhoodGradient(evidenceIds, tiers) {
+          applyNeighborhoodToPool(evidenceIds, tiers);
+        },
+        applyHypothesisColorMix(mixFactor: number) {
+          applyHypothesisMixToPool(mixFactor);
+        },
+        clearEncoding() {
+          cancelConstructionInternal(false);
+          restoreBaseline();
+          focalLabelsRef.current = [];
+          drawOverlay();
+        },
+        fitViewToNodes(ids, durationMs, padding) {
+          const graph = graphRef.current;
+          if (!graph) return;
+          const indices = ids
+            .map((id) => idToIndexRef.current.get(id))
+            .filter((i): i is number => typeof i === 'number');
+          if (indices.length === 0) return;
+          graph.fitViewByPointIndices(indices, durationMs, padding, true);
+        },
+        getProjectedPosition(nodeId) {
+          const graph = graphRef.current;
+          const idx = idToIndexRef.current.get(nodeId);
+          if (!graph || typeof idx !== 'number') return null;
+          const positions = graph.getPointPositions();
+          if (!positions || positions.length < (idx + 1) * 2) return null;
+          const screen = graph.spaceToScreenPosition([
+            positions[idx * 2],
+            positions[idx * 2 + 1],
+          ]);
+          if (!screen) return null;
+          return { x: screen[0], y: screen[1] };
+        },
+        setFocalLabels(labels) {
+          focalLabelsRef.current = labels.slice(0, 5);
+          sizeOverlayToContainer();
+          scheduleOverlayTick();
+        },
+        clearFocalLabels() {
+          focalLabelsRef.current = [];
+          drawOverlay();
+        },
+        playConstructionSequence(seq, playOptions) {
+          noteInteraction();
+          playConstructionInternal(seq, playOptions);
+        },
+        cancelConstruction() {
+          cancelConstructionInternal(true);
+        },
+        setVisibleIds(ids) {
+          const pool = poolRef.current;
+          const graph = graphRef.current;
+          if (!pool || !graph) return;
+          if (ids === null) {
+            pool.filterMask.fill(1);
+            pool.filterActive = false;
+            pool.colors.set(pool.encodedColors);
+            pool.linkColors.set(pool.encodedLinkColors);
+            graph.setPointColors(pool.colors);
+            graph.setLinkColors(pool.linkColors);
+            return;
+          }
+          const visible = new Set(ids);
+          pool.filterActive = true;
+          for (let i = 0; i < pool.pointCount; i++) {
+            pool.filterMask[i] = visible.has(indexToIdRef.current[i]) ? 1 : 0;
+          }
+          // Reapply encoded baseline, then punch through with mask.
+          pool.colors.set(pool.encodedColors);
+          pool.linkColors.set(pool.encodedLinkColors);
+          applyFilterMaskToLive();
+          graph.setPointColors(pool.colors);
+          graph.setLinkColors(pool.linkColors);
+          noteInteraction();
+        },
       }),
-      [],
+      [
+        applyEdgeStylesToPool,
+        applyFilterMaskToLive,
+        applyHypothesisMixToPool,
+        applyNeighborhoodToPool,
+        applySalienceToPool,
+        cancelConstructionInternal,
+        drawOverlay,
+        noteInteraction,
+        playConstructionInternal,
+        restoreBaseline,
+        scheduleOverlayTick,
+        sizeOverlayToContainer,
+      ],
     );
 
-    const pushDataToGraph = () => {
+    // -------- Data push ---------------------------------------------------
+
+    const pushDataToGraph = useCallback(() => {
       const graph = graphRef.current;
       const { points: pts, links: lks, pinnedPositions: pinned } = latestDataRef.current;
       if (!graph || pts.length === 0) return;
 
       const pointCount = pts.length;
+      const indexMap = idToIndexRef.current;
+      let validLinkCount = 0;
+      for (const link of lks) {
+        if (indexMap.has(link.source) && indexMap.has(link.target)) validLinkCount++;
+      }
+
+      if (
+        !poolRef.current
+        || poolRef.current.pointCount !== pointCount
+        || poolRef.current.linkCount !== validLinkCount
+      ) {
+        poolRef.current = makeBufferPool(pointCount, validLinkCount);
+      }
+      const pool = poolRef.current;
+
+      // Hybrid cluster context: leiden_community where present, k_core_number
+      // as a structural fallback. Both tiers share one ordinal domain so
+      // the warm ramp and the position-seed spiral both read from the same
+      // source of truth (clusterContextRef).
+      const clusterContext = buildClusterContext(pts);
+      clusterContextRef.current = clusterContext;
+      const totalOrdinals = clusterContext.totalOrdinals;
+
+      // spaceSize drives simulation extents; read the library default so
+      // we stay consistent with cosmos.gl's internal coord system. Fall
+      // back to the GraphConfig literal below if the export disappears.
+      const spaceSize = defaultConfigValues.spaceSize;
+      const centerXY = spaceSize * 0.5;
+
+      // Cluster centers: one per distinct ordinal (leiden first, then
+      // k-core). Distribute on a staggered spiral from 10% to 45% of
+      // spaceSize; angle uses the worm demo's 15*PI factor.
+      const centersByOrdinal = new Map<number, [number, number]>();
+      if (totalOrdinals > 0) {
+        const rMin = spaceSize * 0.1;
+        const rMax = spaceSize * 0.45;
+        const denom = Math.max(1, totalOrdinals - 1);
+        for (let ord = 0; ord < totalOrdinals; ord++) {
+          const t = ord / denom;
+          const radius = rMin + (rMax - rMin) * t;
+          const angle = 15 * Math.PI * (ord / totalOrdinals);
+          const cx = centerXY + radius * Math.cos(angle);
+          const cy = centerXY + radius * Math.sin(angle);
+          centersByOrdinal.set(ord, [cx, cy]);
+        }
+      }
+
       const positions = new Float32Array(pointCount * 2);
       const pinnedIndices: number[] = [];
-      // Spread the random seed positions wider than the default 1024×1024
-      // so the force simulation doesn't start as a tight overlap. Scale
-      // with node count so very large graphs still land in one viewport.
-      const space = Math.max(2200, Math.sqrt(pointCount) * 90);
+      // Jitter scale: small enough that neighbors stay clustered but big
+      // enough to give the force sim something to refine (not zero).
+      const jitter = 40;
+      const fallbackSpread = Math.max(2200, Math.sqrt(pointCount) * 90);
       for (let i = 0; i < pointCount; i++) {
         const id = pts[i].id;
         const fixed = pinned?.[id];
@@ -115,57 +1129,66 @@ const CosmosGraphCanvas = forwardRef<CosmosGraphCanvasHandle, CosmosGraphCanvasP
           positions[i * 2] = fixed[0];
           positions[i * 2 + 1] = fixed[1];
           pinnedIndices.push(i);
+          continue;
+        }
+        const ordinal = resolveClusterOrdinal(pts[i], clusterContext);
+        const center = ordinal != null ? centersByOrdinal.get(ordinal) : undefined;
+        if (center) {
+          positions[i * 2] = center[0] + (Math.random() - 0.5) * jitter;
+          positions[i * 2 + 1] = center[1] + (Math.random() - 0.5) * jitter;
         } else {
-          positions[i * 2] = (Math.random() - 0.5) * space;
-          positions[i * 2 + 1] = (Math.random() - 0.5) * space;
+          // Truly uncovered (no leiden AND no k_core) node: drop into a
+          // small random cloud at canvas center. Honest M7 pending visual.
+          positions[i * 2] = centerXY + (Math.random() - 0.5) * (fallbackSpread * 0.1);
+          positions[i * 2 + 1] = centerXY + (Math.random() - 0.5) * (fallbackSpread * 0.1);
         }
       }
 
-      const colors = new Float32Array(pointCount * 4);
-      for (let i = 0; i < pointCount; i++) {
-        const [r, g, b, a] = hexToRgbaFloats(pts[i].colorHex, 1);
-        colors[i * 4] = r;
-        colors[i * 4 + 1] = g;
-        colors[i * 4 + 2] = b;
-        colors[i * 4 + 3] = a;
-      }
+      writeBaselineColors(pool, pts);
+      writeBaselineSizes(pool, pts);
 
-      const sizes = new Float32Array(pointCount);
-      const maxDegree = pts.reduce((m, p) => Math.max(m, p.degree), 1);
-      for (let i = 0; i < pointCount; i++) {
-        const d = pts[i].degree;
-        const norm = d > 0 ? Math.sqrt(d / maxDegree) : 0;
-        sizes[i] = 6 + norm * 30;
-      }
-
-      const indexMap = idToIndexRef.current;
-      let validLinkCount = 0;
-      for (const link of lks) {
-        if (indexMap.has(link.source) && indexMap.has(link.target)) validLinkCount++;
-      }
       const linksArray = new Float32Array(validLinkCount * 2);
-      const linkWidthsArray = new Float32Array(validLinkCount);
       let li = 0;
       for (const link of lks) {
         const src = indexMap.get(link.source);
         const tgt = indexMap.get(link.target);
         if (src === undefined || tgt === undefined) continue;
+        pool.linkEndpoints[li * 2] = src;
+        pool.linkEndpoints[li * 2 + 1] = tgt;
         linksArray[li * 2] = src;
         linksArray[li * 2 + 1] = tgt;
-        linkWidthsArray[li] = 0.5 + link.weight * 1.5;
         li++;
       }
+      writeBaselineLinkStyles(pool, lks, indexMap);
+
+      // Seed encoded snapshots to baseline so pre-encoding reads/renders
+      // use a sane canvas state. The first `applySceneDirective` call
+      // overwrites them.
+      pool.encodedColors.set(pool.baseColors);
+      pool.encodedSizes.set(pool.baseSizes);
+      pool.encodedLinkColors.set(pool.baseLinkColors);
+      pool.encodedLinkWidths.set(pool.baseLinkWidths);
+      pool.filterMask.fill(1);
+      pool.filterActive = false;
+
+      adjacencyRef.current = buildAdjacencyFromLinks(
+        pts.map((p) => p.id),
+        lks,
+      );
 
       graph.setPointPositions(positions);
-      graph.setPointColors(colors);
-      graph.setPointSizes(sizes);
+      graph.setPointColors(pool.colors);
+      graph.setPointSizes(pool.sizes);
       graph.setLinks(linksArray);
-      graph.setLinkWidths(linkWidthsArray);
+      graph.setLinkWidths(pool.linkWidths);
+      graph.setLinkColors(pool.linkColors);
       graph.setPinnedPoints(pinnedIndices.length > 0 ? pinnedIndices : null);
 
-      // The onSimulationEnd config callback re-fits the view once the
-      // force sim settles; calling fitView() at frame 0 would anchor the
-      // viewport to the random seed positions and drift out of frame.
+      encodingActiveRef.current = false;
+      hypothesisMixFactorRef.current = 0;
+      currentSalienceRef.current.clear();
+      focalLabelsRef.current = [];
+
       const allPinned = pinnedIndices.length === pointCount;
       if (allPinned) {
         graph.render(0);
@@ -173,13 +1196,15 @@ const CosmosGraphCanvas = forwardRef<CosmosGraphCanvasHandle, CosmosGraphCanvasP
         graph.render(1);
         graph.start?.(1);
       }
-    };
+    }, [writeBaselineColors, writeBaselineLinkStyles, writeBaselineSizes]);
 
-    // luma.gl's `autoResize` captures the canvas's initial clientWidth at
-    // construction time; if we instantiate Graph during the React commit
-    // before the grid layout resolves, autoResize locks onto 0 and never
-    // recovers. Observe the container ourselves and delay Graph
-    // construction until it has real pixels.
+    // -------- Graph lifecycle --------------------------------------------
+
+    // luma.gl's autoResize captures the canvas's initial clientWidth at
+    // construction time; instantiating Graph during the React commit before
+    // the grid layout resolves locks autoResize onto 0 and never recovers.
+    // Observe the container and delay Graph construction until it has real
+    // pixels.
     useLayoutEffect(() => {
       const container = containerRef.current;
       if (!container) return;
@@ -191,40 +1216,64 @@ const CosmosGraphCanvas = forwardRef<CosmosGraphCanvasHandle, CosmosGraphCanvasP
       const config: GraphConfig = {
         backgroundColor: [0, 0, 0, 0],
         spaceSize: 4096,
-        pointDefaultColor: DEFAULT_POINT_COLOR,
+        // Resolved default via the VIE token pipeline. Overwritten by the
+        // per-point setPointColors call in pushDataToGraph almost
+        // immediately; this only shows during the single-frame gap
+        // between Graph construction and the first data push.
+        pointDefaultColor: cssVarToRgba('--vie-type-note', 1),
         pointDefaultSize: 10,
         pointSizeScale: 1.6,
-        linkDefaultColor: [0.72, 0.62, 0.52, 0.55],
+        linkDefaultColor: cssVarToRgba('--vie-text-dim', 0.55),
         linkDefaultWidth: 1.2,
         linkOpacity: 0.7,
         renderLinks: true,
         renderHoveredPointRing: true,
-        hoveredPointRingColor: [1, 0.64, 0.38, 1],
+        hoveredPointRingColor: cssVarToRgba('--vie-terra-hover', 1),
         hoveredPointCursor: 'pointer',
         enableDrag: true,
         enableZoom: true,
         fitViewOnInit: true,
-        fitViewDelay: 800,
+        fitViewDelay: 1400,
         fitViewPadding: 0.2,
-        simulationRepulsion: 1.6,
-        simulationGravity: 0.02,
+        // Worm-look simulation tuning: higher repulsion + lower spring
+        // + larger spaceSize + cluster-seeded positions combine to spread
+        // distinct warm-colored regions across the canvas with visible
+        // inter-cluster gaps. Matches the Cosmograph timeline demo's
+        // published values (repulsion 1, spring 1, gravity 0.5) adjusted
+        // for our smaller graph sizes.
+        simulationRepulsion: 2.2,
+        simulationGravity: 0.25,
         simulationCenter: 0.2,
-        simulationLinkSpring: 0.6,
+        simulationLinkSpring: 0.35,
         simulationLinkDistance: 28,
-        simulationFriction: 0.9,
+        simulationFriction: 0.85,
         simulationDecay: 8000,
         scalePointsOnZoom: true,
         onSimulationEnd: () => {
           graphRef.current?.fitView?.(600, 0.18, false);
+          drawOverlay();
+        },
+        onZoom: () => {
+          noteInteraction();
+          drawOverlay();
+        },
+        onMouseMove: () => {
+          noteInteraction();
         },
         onClick: (index) => {
+          noteInteraction();
           const cb = onPointClickRef.current;
-          if (!cb) return;
           if (typeof index !== 'number') {
-            cb(null);
+            if (encodingActiveRef.current) {
+              cancelConstructionInternal(false);
+              restoreBaseline();
+              focalLabelsRef.current = [];
+              drawOverlay();
+            }
+            cb?.(null);
             return;
           }
-          cb(indexToIdRef.current[index] ?? null);
+          cb?.(indexToIdRef.current[index] ?? null);
         },
       };
 
@@ -232,6 +1281,7 @@ const CosmosGraphCanvas = forwardRef<CosmosGraphCanvasHandle, CosmosGraphCanvasP
         if (cancelled || graph) return;
         graph = new Graph(container, config);
         graphRef.current = graph;
+        sizeOverlayToContainer();
         graph.ready.then(() => {
           if (!cancelled && graphRef.current === graph && graph) {
             onReadyRef.current?.(graph);
@@ -250,34 +1300,115 @@ const CosmosGraphCanvas = forwardRef<CosmosGraphCanvasHandle, CosmosGraphCanvasP
           const { width, height } = entry.contentRect;
           if (width > 0 && height > 0 && !graph) {
             construct();
-            resizeObserver?.disconnect();
-            resizeObserver = null;
           }
+          sizeOverlayToContainer();
+          drawOverlay();
         });
         resizeObserver.observe(container);
       }
 
+      const onKey = (e: KeyboardEvent) => {
+        if (e.key === 'Escape' && encodingActiveRef.current) {
+          cancelConstructionInternal(false);
+          restoreBaseline();
+          focalLabelsRef.current = [];
+          drawOverlay();
+        }
+        noteInteraction();
+      };
+      window.addEventListener('keydown', onKey);
+
       return () => {
         cancelled = true;
         graphRef.current = null;
+        window.removeEventListener('keydown', onKey);
         resizeObserver?.disconnect();
+        if (overlayAnimRef.current != null) {
+          cancelAnimationFrame(overlayAnimRef.current);
+          overlayAnimRef.current = null;
+        }
+        // Construction timers + raf: drop without invoking the final
+        // callback to avoid running React state updates from a destroyed
+        // component.
+        const cstate = constructionStateRef.current;
+        for (const t of cstate.phaseTimers) clearTimeout(t);
+        cstate.phaseTimers = [];
+        if (cstate.rafHandle != null) {
+          cancelAnimationFrame(cstate.rafHandle);
+          cstate.rafHandle = null;
+        }
+        cstate.active = false;
+        cstate.finalCallback = null;
+        // Ambient rAF cleanup.
+        if (ambientRafRef.current != null) {
+          cancelAnimationFrame(ambientRafRef.current);
+          ambientRafRef.current = null;
+        }
+        ambientActiveRef.current = false;
         graph?.destroy();
       };
       // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
-    // Re-push when data identity changes. We read from refs inside
-    // `pushDataToGraph`, so this effect only needs the triggers as deps.
+    // Re-push when data identity changes.
     useLayoutEffect(() => {
       if (graphRef.current) pushDataToGraph();
       // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [points, links, pinnedPositions]);
 
+    // Theme flips invalidate the color cache; re-upload baseline and
+    // any active encoding.
+    useEffect(() => {
+      resetTypeColorCache();
+      resetClusterColorCache();
+      const pool = poolRef.current;
+      const graph = graphRef.current;
+      const { points: pts, links: lks } = latestDataRef.current;
+      if (!pool || !graph || pts.length === 0) return;
+      writeBaselineColors(pool, pts);
+      writeBaselineLinkStyles(pool, lks, idToIndexRef.current);
+      if (encodingActiveRef.current) {
+        const salienceArr = Array.from(currentSalienceRef.current.values());
+        applySalienceToPool(salienceArr);
+        if (hypothesisMixFactorRef.current > 0) {
+          applyHypothesisMixToPool(hypothesisMixFactorRef.current);
+        }
+      } else {
+        pool.encodedColors.set(pool.baseColors);
+        pool.encodedLinkColors.set(pool.baseLinkColors);
+        pool.colors.set(pool.baseColors);
+        pool.linkColors.set(pool.baseLinkColors);
+        applyFilterMaskToLive();
+        graph.setPointColors(pool.colors);
+        graph.setLinkColors(pool.linkColors);
+      }
+      drawOverlay();
+    }, [
+      applyFilterMaskToLive,
+      applyHypothesisMixToPool,
+      applySalienceToPool,
+      drawOverlay,
+      themeVersion,
+      writeBaselineColors,
+      writeBaselineLinkStyles,
+    ]);
+
     return (
       <div
         ref={containerRef}
         style={{ width: '100%', height: '100%', position: 'relative' }}
-      />
+      >
+        <canvas
+          ref={overlayCanvasRef}
+          aria-hidden="true"
+          style={{
+            position: 'absolute',
+            inset: 0,
+            pointerEvents: 'none',
+            zIndex: 2,
+          }}
+        />
+      </div>
     );
   },
 );

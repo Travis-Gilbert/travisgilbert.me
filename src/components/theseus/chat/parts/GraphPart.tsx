@@ -10,6 +10,7 @@ import {
   mapEdge,
   type CosmoLink,
 } from '@/components/theseus/explorer/useGraphData';
+import { useLabelResolver } from '@/components/theseus/explorer/useLabelResolver';
 import { applySceneDirective } from '@/lib/theseus/cosmograph/adapter';
 import { dispatchTheseusEvent } from '@/lib/theseus/events';
 import { normalizeDirective } from '@/lib/theseus/sceneDirector/directive';
@@ -36,10 +37,14 @@ const GraphPart: FC<GraphPartProps> = ({ directive, points, links }) => {
     [links],
   );
 
+  const resolveLabelText = useLabelResolver(cosmoPoints);
+
   useEffect(() => {
     if (!canvasRef.current) return;
-    applySceneDirective(canvasRef.current, directive);
-  }, [directive]);
+    applySceneDirective(canvasRef.current, directive, {
+      resolveLabelText,
+    });
+  }, [directive, resolveLabelText]);
 
   const handleExpand = () => {
     const normalized = normalizeDirective(directive);

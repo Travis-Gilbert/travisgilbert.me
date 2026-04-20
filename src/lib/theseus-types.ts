@@ -459,6 +459,16 @@ export interface GraphNode {
   edge_count: number;
   size: number;
   status: string;
+  /** Structural metrics from the nightly engine. All optional because
+   *  compute_pagerank / detect_communities / backfill_k_core may not have
+   *  run yet on a given Object. */
+  pagerank?: number | null;
+  leiden_community?: number | null;
+  k_core_number?: number | null;
+  graph_uncertainty?: number | null;
+  novelty_score?: number | null;
+  captured_at?: string | null;
+  epistemic_role?: string | null;
 }
 
 export interface GraphEdge {

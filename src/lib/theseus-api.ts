@@ -1528,6 +1528,16 @@ export async function getGraphData(
       edge_count: typeof n.edge_count === 'number' ? n.edge_count : 0,
       size: typeof n.size === 'number' ? n.size : 1,
       status: typeof n.status === 'string' ? n.status : '',
+      // Structural metrics: pass through nullable numeric + string fields so
+      // Mosaic cross-filter charts and the cluster-gradient color path see
+      // them. All optional on the backend; every consumer handles null.
+      pagerank: typeof n.pagerank === 'number' ? n.pagerank : null,
+      leiden_community: typeof n.leiden_community === 'number' ? n.leiden_community : null,
+      k_core_number: typeof n.k_core_number === 'number' ? n.k_core_number : null,
+      graph_uncertainty: typeof n.graph_uncertainty === 'number' ? n.graph_uncertainty : null,
+      novelty_score: typeof n.novelty_score === 'number' ? n.novelty_score : null,
+      captured_at: typeof n.captured_at === 'string' ? n.captured_at : null,
+      epistemic_role: typeof n.epistemic_role === 'string' ? n.epistemic_role : null,
     })) : [];
 
     const edges = Array.isArray(raw.edges) ? (raw.edges as Record<string, unknown>[]).map((e) => ({
