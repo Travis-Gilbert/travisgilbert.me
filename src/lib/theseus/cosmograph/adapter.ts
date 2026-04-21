@@ -1,6 +1,7 @@
 'use client';
 
 import type {
+  ConstructionPhase,
   ConstructionSequence,
   HypothesisEdgeStyle,
   HypothesisStyle,
@@ -117,6 +118,36 @@ export interface GraphAdapter {
    * invoking setters after this call preserves the filter.
    */
   setVisibleIds(ids: string[] | null): void;
+
+  // --- Batch 3: streaming reveal primitives ---
+
+  /**
+   * Stagger-reveal a set of evidence nodes. Each id in `nodeIds` receives
+   * its own in-phase delay of `staggerMs * index` so the nodes light up
+   * in order, not all at once. Internally wraps `playConstructionSequence`
+   * with a single `focal_nodes_appear` phase whose `targets` carry the
+   * per-node offsets. Safe to call mid-stream; cancels any in-flight
+   * construction first so the reveal isn't cross-faded.
+   */
+  revealEvidence(
+    nodeIds: string[],
+    options?: { staggerMs?: number; durationMs?: number; easing?: ConstructionPhase['easing'] },
+  ): void;
+
+  /**
+   * Sequence camera waypoints. Walks the array top-to-bottom, calling
+   * `zoomToNode(id, transitionMs, distanceFactor)` for each, then dwelling
+   * for `dwellMs` before moving to the next. Returns a cancel handle; call
+   * it to interrupt the path (e.g. on new ask submission).
+   */
+  queueCameraWaypoints(
+    waypoints: Array<{
+      nodeId: string;
+      dwellMs: number;
+      distanceFactor?: number;
+      transitionMs?: number;
+    }>,
+  ): () => void;
 }
 
 function readSalience(directive: SceneDirective): NodeSalience[] {
@@ -342,5 +373,133 @@ export function applySceneDirective(
   } else {
     applyLabels();
     applyCamera();
+  }
+}
+
+/** Partial directive used for mid-stream patches. Every field is optional,
+ *  and `applySceneDirectivePatch` applies only the fields explicitly set.
+ *  Unlike {@link applySceneDirective}, a patch never calls
+ *  {@link GraphAdapter.cancelConstruction}, never rebuilds the encoded
+ *  buffers from scratch, and never routes through the "empty state"
+ *  branch. The Choreographer emits these as SSE events arrive so the
+ *  canvas responds incrementally rather than snapping on `complete`. */
+export interface SceneDirectivePatch {
+  salience?: NodeSalience[];
+  edge_styles?: HypothesisEdgeStyle[];
+  global_tentative_factor?: number;
+  hypothesis_color_mix?: number;
+  neighborhood?: { evidenceIds: string[]; tiers: NeighborhoodTiers };
+  focus?: { ids: string[] };
+  clear_focus?: boolean;
+  camera?:
+    | { kind: 'fit'; ids: string[]; durationMs?: number; padding?: number }
+    | { kind: 'zoom'; nodeId: string; durationMs?: number; distanceFactor?: number }
+    | {
+        kind: 'waypoints';
+        waypoints: Array<{
+          nodeId: string;
+          dwellMs: number;
+          distanceFactor?: number;
+          transitionMs?: number;
+        }>;
+      }
+    | { kind: 'clear' };
+  /** When present, staggers node reveals via `adapter.revealEvidence`. The
+   *  ids are animated in array order; `staggerMs` controls the gap between
+   *  successive reveals. */
+  reveal_evidence?: {
+    nodeIds: string[];
+    staggerMs?: number;
+    durationMs?: number;
+    easing?: ConstructionPhase['easing'];
+  };
+  labels?: FocalLabel[] | { auto_from_salience: NodeSalience[]; limit?: number };
+  clear_labels?: boolean;
+  reset?: boolean;
+}
+
+/** Apply a partial directive to the live canvas without rebuilding from
+ *  scratch. Safe to call repeatedly mid-stream. Order of operations mirrors
+ *  {@link applySceneDirective} but each step is gated on the patch carrying
+ *  that field, and construction tweens are deliberately NOT cancelled so an
+ *  in-flight entry animation can keep playing while later patches refine
+ *  encodings underneath it. */
+export function applySceneDirectivePatch(
+  adapter: GraphAdapter | null | undefined,
+  patch: SceneDirectivePatch | null | undefined,
+  options?: {
+    resolveLabelText?: (nodeId: string) => string | undefined;
+  },
+): void {
+  if (!adapter || !patch) return;
+
+  if (patch.reset) {
+    adapter.cancelConstruction();
+    adapter.clearEncoding();
+    adapter.clearFocalLabels();
+    adapter.clearFocus();
+    return;
+  }
+
+  if (patch.clear_focus) adapter.clearFocus();
+  if (patch.focus && patch.focus.ids.length > 0) adapter.focusNodes(patch.focus.ids);
+
+  if (patch.salience && patch.salience.length > 0) {
+    adapter.setSalienceEncoding(patch.salience);
+  }
+
+  if (patch.neighborhood && patch.neighborhood.evidenceIds.length > 0) {
+    adapter.setNeighborhoodGradient(patch.neighborhood.evidenceIds, patch.neighborhood.tiers);
+  }
+
+  if (patch.edge_styles && patch.edge_styles.length > 0) {
+    adapter.setEdgeStyles(patch.edge_styles, patch.global_tentative_factor ?? 0);
+  }
+
+  if (typeof patch.hypothesis_color_mix === 'number') {
+    adapter.applyHypothesisColorMix(patch.hypothesis_color_mix);
+  }
+
+  if (patch.camera) {
+    const cam = patch.camera;
+    switch (cam.kind) {
+      case 'fit':
+        if (cam.ids.length > 0) {
+          adapter.fitViewToNodes(cam.ids, cam.durationMs ?? 900, cam.padding ?? 0.2);
+        }
+        break;
+      case 'zoom':
+        adapter.zoomToNode(cam.nodeId, cam.durationMs ?? 800, cam.distanceFactor ?? 3);
+        break;
+      case 'waypoints':
+        if (cam.waypoints.length > 0) adapter.queueCameraWaypoints(cam.waypoints);
+        break;
+      case 'clear':
+        adapter.fitView(600);
+        break;
+    }
+  }
+
+  if (patch.reveal_evidence && patch.reveal_evidence.nodeIds.length > 0) {
+    adapter.revealEvidence(patch.reveal_evidence.nodeIds, {
+      staggerMs: patch.reveal_evidence.staggerMs,
+      durationMs: patch.reveal_evidence.durationMs,
+      easing: patch.reveal_evidence.easing,
+    });
+  }
+
+  if (patch.clear_labels) {
+    adapter.clearFocalLabels();
+  } else if (patch.labels) {
+    if (Array.isArray(patch.labels)) {
+      adapter.setFocalLabels(patch.labels);
+    } else if (options?.resolveLabelText) {
+      const derived = buildFocalLabels(
+        patch.labels.auto_from_salience,
+        options.resolveLabelText,
+        patch.labels.limit ?? 3,
+      );
+      if (derived.length > 0) adapter.setFocalLabels(derived);
+    }
   }
 }

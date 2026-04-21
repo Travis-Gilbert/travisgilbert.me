@@ -1,12 +1,13 @@
 'use client';
 
-import { useCallback, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { FC, FormEvent } from 'react';
 import { askTheseusAsyncStream } from '@/lib/theseus-api';
-import type { AsyncStreamHandlers, StageEvent } from '@/lib/theseus-api';
-import type { TheseusResponse } from '@/lib/theseus-types';
-import { directScene } from '@/lib/theseus-viz/SceneDirector';
-import { applySceneDirective, type GraphAdapter } from '@/lib/theseus/cosmograph/adapter';
+import type { ProgressiveVisualPayload, StageEvent } from '@/lib/theseus-api';
+import type { StructuredVisual, StructuredVisualRegion, TheseusResponse } from '@/lib/theseus-types';
+import { Choreographer } from '@/lib/theseus-viz/Choreographer';
+import { type GraphAdapter } from '@/lib/theseus/cosmograph/adapter';
+import VisualRenderer from '@/components/theseus/visuals/VisualRenderer';
 
 interface ExplorerAskComposerProps {
   /** Ref to the live canvas so the TF.js-derived SceneDirective can drive
@@ -14,6 +15,9 @@ interface ExplorerAskComposerProps {
   canvasAdapter: React.RefObject<GraphAdapter | null>;
   /** Resolve a node id to its display label (for pretext focal labels). */
   resolveLabelText?: (nodeId: string) => string | undefined;
+  /** Resolve a node id to label + description, used by the
+   *  DirectiveAdapter foundation encoder for learned re-ranking. */
+  resolveEvidenceText?: (nodeId: string) => string | undefined;
 }
 
 function stageToLabel(event: StageEvent): string {
@@ -37,15 +41,42 @@ function stageToLabel(event: StageEvent): string {
  * fallback), and applies the resulting SceneDirective to the live
  * cosmos.gl canvas so the graph reacts in place.
  */
-const ExplorerAskComposer: FC<ExplorerAskComposerProps> = ({ canvasAdapter, resolveLabelText }) => {
+const ExplorerAskComposer: FC<ExplorerAskComposerProps> = ({
+  canvasAdapter,
+  resolveLabelText,
+  resolveEvidenceText,
+}) => {
   const [query, setQuery] = useState('');
   const [isAsking, setIsAsking] = useState(false);
   const [stageLabel, setStageLabel] = useState<string>('');
   const [answer, setAnswer] = useState<string>('');
   const [error, setError] = useState<string | null>(null);
   const [expanded, setExpanded] = useState(false);
+  const [structuredVisual, setStructuredVisual] = useState<StructuredVisual | null>(null);
   const abortRef = useRef<AbortController | null>(null);
   const completedRef = useRef(false);
+
+  const prefersReducedMotion = useMemo(() => {
+    if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') return false;
+    return window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  }, []);
+
+  const choreographer = useMemo(
+    () =>
+      new Choreographer({
+        getAdapter: () => canvasAdapter.current,
+        resolveLabelText,
+        resolveEvidenceText,
+        prefersReducedMotion,
+      }),
+    [canvasAdapter, resolveLabelText, resolveEvidenceText, prefersReducedMotion],
+  );
+
+  useEffect(() => {
+    return () => {
+      choreographer.reset();
+    };
+  }, [choreographer]);
 
   const submit = useCallback(
     (e: FormEvent) => {
@@ -58,13 +89,25 @@ const ExplorerAskComposer: FC<ExplorerAskComposerProps> = ({ canvasAdapter, reso
       abortRef.current = controller;
 
       completedRef.current = false;
+      choreographer.reset();
       setIsAsking(true);
       setStageLabel('Starting…');
       setAnswer('');
       setError(null);
       setExpanded(true);
+      setStructuredVisual(null);
 
-      const handlers: AsyncStreamHandlers = {
+      const captureVisual = (payload: ProgressiveVisualPayload) => {
+        // `visualization` on the stream payload contains the backend's
+        // structured-visual blob; forward only when it has a renderer or
+        // regions worth rendering to avoid flicker on empty payloads.
+        const viz = payload.visualization as StructuredVisual | undefined;
+        if (!viz) return;
+        if (!viz.renderer && !viz.structured && !viz.regions) return;
+        setStructuredVisual(viz);
+      };
+
+      const handlers = choreographer.observe({
         onStage(event) {
           setStageLabel(stageToLabel(event));
         },
@@ -72,7 +115,12 @@ const ExplorerAskComposer: FC<ExplorerAskComposerProps> = ({ canvasAdapter, reso
           setAnswer((prev) => prev + token);
           setStageLabel('');
         },
-        async onComplete(result: TheseusResponse) {
+        onVisualDelta: captureVisual,
+        onVisualComplete: captureVisual,
+        onAnswerReady(result: TheseusResponse) {
+          if (result.structured_visual) setStructuredVisual(result.structured_visual);
+        },
+        onComplete(result: TheseusResponse) {
           completedRef.current = true;
           const narrative = result.sections?.find((s) => s.type === 'narrative');
           const finalText =
@@ -81,15 +129,6 @@ const ExplorerAskComposer: FC<ExplorerAskComposerProps> = ({ canvasAdapter, reso
           setStageLabel('');
           setIsAsking(false);
           abortRef.current = null;
-
-          try {
-            const directive = await directScene(result);
-            applySceneDirective(canvasAdapter.current, directive, {
-              resolveLabelText,
-            });
-          } catch (err) {
-            console.error('[ExplorerAskComposer] directScene failed', err);
-          }
         },
         onError(err) {
           // EventSource fires a generic 'error' when the server closes the
@@ -102,13 +141,13 @@ const ExplorerAskComposer: FC<ExplorerAskComposerProps> = ({ canvasAdapter, reso
           setIsAsking(false);
           abortRef.current = null;
         },
-      };
+      });
 
       askTheseusAsyncStream(trimmed, { signal: controller.signal }, handlers).catch(() => {
         // onError has already fired
       });
     },
-    [query, isAsking, canvasAdapter, resolveLabelText],
+    [query, isAsking, choreographer],
   );
 
   const cancel = () => {
@@ -116,6 +155,7 @@ const ExplorerAskComposer: FC<ExplorerAskComposerProps> = ({ canvasAdapter, reso
     abortRef.current = null;
     setIsAsking(false);
     setStageLabel('');
+    choreographer.reset();
   };
 
   const clear = () => {
@@ -251,6 +291,27 @@ const ExplorerAskComposer: FC<ExplorerAskComposerProps> = ({ canvasAdapter, reso
           )}
           {answer && (
             <div style={{ whiteSpace: 'pre-wrap' }}>{answer}</div>
+          )}
+          {structuredVisual && (
+            <div style={{ marginTop: 12 }}>
+              <VisualRenderer
+                visual={structuredVisual}
+                onRegionHover={(region: StructuredVisualRegion | null) => {
+                  const adapter = canvasAdapter.current;
+                  if (!adapter) return;
+                  if (!region || !region.linked_evidence || region.linked_evidence.length === 0) {
+                    adapter.clearFocus();
+                    return;
+                  }
+                  adapter.focusNodes(region.linked_evidence);
+                }}
+                onRegionSelect={(region) => {
+                  const adapter = canvasAdapter.current;
+                  if (!adapter || !region.linked_evidence?.length) return;
+                  adapter.fitViewToNodes(region.linked_evidence, 700, 0.22);
+                }}
+              />
+            </div>
           )}
           {error && (
             <div role="alert" style={{ color: 'var(--color-error)' }}>{error}</div>

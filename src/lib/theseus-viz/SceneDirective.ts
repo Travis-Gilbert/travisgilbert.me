@@ -73,9 +73,25 @@ export type ConstructionPhaseName =
   | 'blind_spots_reveal'
   | 'entrenchment_pulse';
 
+export interface ConstructionPhaseTarget {
+  /** Node id the phase's tween should animate. */
+  id: string;
+  /** Offset within the phase when this target starts tweening. Relative to
+   *  the phase's own start; NOT relative to the sequence. */
+  delay_ms?: number;
+  /** Per-target weight to influence size/emissive ramps. 0..1, default 1. */
+  weight?: number;
+}
+
 export interface ConstructionPhase {
   name: ConstructionPhaseName;
+  /** Legacy uniform reveal: every id in target_ids animates in lockstep. */
   target_ids: string[];
+  /** Optional per-target timing. When present, target_ids is ignored by
+   *  the runtime and each entry carries its own `delay_ms`. Used by the
+   *  Choreographer's `revealEvidence`/`revealEdgesBetween` primitives to
+   *  stage per-node reveal order during the ask stream. */
+  targets?: ConstructionPhaseTarget[];
   delay_ms: number;
   duration_ms: number;
   easing: 'ease-out' | 'ease-in-out' | 'spring' | 'linear';

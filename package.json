@@ -30,6 +30,7 @@
     "@duckdb/duckdb-wasm": "1.32.0",
     "@floating-ui/react": "^0.27.19",
     "@hello-pangea/dnd": "^18.0.1",
+    "@huggingface/transformers": "^4.1.0",
     "@inkjs/ui": "^2.0.0",
     "@luma.gl/core": "9.2.6",
     "@luma.gl/engine": "9.2.6",

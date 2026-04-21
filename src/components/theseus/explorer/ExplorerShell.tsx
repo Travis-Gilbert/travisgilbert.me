@@ -11,7 +11,7 @@ import NodeDetailPanel, { type NodeDetailData } from './NodeDetailPanel';
 import DirectiveBanner from './DirectiveBanner';
 import ExplorerAskComposer from './ExplorerAskComposer';
 import { useGraphData, type CosmoPoint } from './useGraphData';
-import { useLabelResolver } from './useLabelResolver';
+import { useEvidenceTextResolver, useLabelResolver } from './useLabelResolver';
 import {
   applySceneDirective,
   readTopologyInterpretation,
@@ -45,6 +45,7 @@ const ExplorerShell: FC = () => {
   const [directiveTopology, setDirectiveTopology] = useState<TopologyInterpretation | null>(null);
 
   const resolveLabelText = useLabelResolver(points);
+  const resolveEvidenceText = useEvidenceTextResolver(points);
 
   useEffect(() => {
     const off = onTheseusEvent('explorer:apply-directive', ({ directive }) => {
@@ -147,7 +148,11 @@ const ExplorerShell: FC = () => {
       </div>
 
       <div style={{ gridArea: 'canvas', position: 'relative' }}>
-        <ExplorerAskComposer canvasAdapter={canvasRef} resolveLabelText={resolveLabelText} />
+        <ExplorerAskComposer
+          canvasAdapter={canvasRef}
+          resolveLabelText={resolveLabelText}
+          resolveEvidenceText={resolveEvidenceText}
+        />
         {directiveLabel && (
           <DirectiveBanner
             label={directiveLabel}

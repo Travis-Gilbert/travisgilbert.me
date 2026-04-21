@@ -699,6 +699,47 @@ const CosmosGraphCanvas = forwardRef<CosmosGraphCanvasHandle, CosmosGraphCanvasP
       const { pointCount, linkCount } = pool;
       const animatePoints = phase.name !== 'edges_draw';
       const animateLinks = phase.name === 'edges_draw';
+
+      // Per-target timing: when `phase.targets` is present, each id gets
+      // its own `delay_ms` offset. Build an index→offset array so the
+      // tight rAF loop can look up staggers in O(1). Falls through to the
+      // uniform-lockstep behavior when `targets` is absent.
+      let pointDelays: Float32Array | null = null;
+      let linkDelays: Float32Array | null = null;
+      if (phase.targets && phase.targets.length > 0) {
+        if (animatePoints) {
+          pointDelays = new Float32Array(pointCount);
+          for (const t of phase.targets) {
+            const idx = idToIndexRef.current.get(t.id);
+            if (typeof idx === 'number') pointDelays[idx] = Math.max(0, t.delay_ms ?? 0);
+          }
+        }
+        if (animateLinks) {
+          // For edges_draw, map each target id to its incident edges: a
+          // link starts its stagger when EITHER endpoint has "arrived"
+          // (minimum delay of the two endpoints). This gives a natural
+          // citation-order reveal: as each evidence node lights up, its
+          // edges crawl out toward already-revealed neighbors.
+          linkDelays = new Float32Array(linkCount);
+          const idToDelay = new Map<string, number>();
+          for (const t of phase.targets) idToDelay.set(t.id, Math.max(0, t.delay_ms ?? 0));
+          const links = latestDataRef.current.links;
+          for (let li = 0; li < linkCount && li < links.length; li++) {
+            const link = links[li];
+            const da = idToDelay.get(String(link?.source ?? ''));
+            const db = idToDelay.get(String(link?.target ?? ''));
+            if (da === undefined && db === undefined) {
+              linkDelays[li] = 0;
+            } else if (da === undefined) {
+              linkDelays[li] = db!;
+            } else if (db === undefined) {
+              linkDelays[li] = da;
+            } else {
+              linkDelays[li] = Math.min(da, db);
+            }
+          }
+        }
+      }
       // Edge widths start from zero during edges_draw so they visibly
       // "draw in" (the encoded target is the final per-style width).
       if (phase.name === 'edges_draw') {
@@ -719,37 +760,73 @@ const CosmosGraphCanvas = forwardRef<CosmosGraphCanvasHandle, CosmosGraphCanvasP
         const eased = easing(t);
 
         if (animatePoints) {
+          const elapsed = now - startedAt;
           for (let i = 0; i < pointCount; i++) {
+            // Per-target delay: a node stays at its tween-start until its
+            // own delay elapses, then ramps over the remaining duration.
+            let localT = t;
+            if (pointDelays !== null) {
+              const offset = pointDelays[i];
+              if (offset > 0) {
+                const localDuration = Math.max(16, duration - offset);
+                const localElapsed = elapsed - offset;
+                if (localElapsed <= 0) {
+                  localT = 0;
+                } else if (localElapsed >= localDuration) {
+                  localT = 1;
+                } else {
+                  localT = localElapsed / localDuration;
+                }
+              }
+            }
+            const localEased = localT === t ? eased : easing(localT);
             const o = i * 4;
             pool.colors[o] = pool.tweenStartColors[o]
-              + (pool.encodedColors[o] - pool.tweenStartColors[o]) * eased;
+              + (pool.encodedColors[o] - pool.tweenStartColors[o]) * localEased;
             pool.colors[o + 1] = pool.tweenStartColors[o + 1]
-              + (pool.encodedColors[o + 1] - pool.tweenStartColors[o + 1]) * eased;
+              + (pool.encodedColors[o + 1] - pool.tweenStartColors[o + 1]) * localEased;
             pool.colors[o + 2] = pool.tweenStartColors[o + 2]
-              + (pool.encodedColors[o + 2] - pool.tweenStartColors[o + 2]) * eased;
+              + (pool.encodedColors[o + 2] - pool.tweenStartColors[o + 2]) * localEased;
             pool.colors[o + 3] = pool.tweenStartColors[o + 3]
-              + (pool.encodedColors[o + 3] - pool.tweenStartColors[o + 3]) * eased;
+              + (pool.encodedColors[o + 3] - pool.tweenStartColors[o + 3]) * localEased;
             // Lerp sizes from tween-start snapshot toward encoded target
             // (which includes the salience scale applied by applySalience).
             pool.sizes[i] = pool.tweenStartSizes[i]
-              + (pool.encodedSizes[i] - pool.tweenStartSizes[i]) * eased;
+              + (pool.encodedSizes[i] - pool.tweenStartSizes[i]) * localEased;
           }
         }
 
         if (animateLinks) {
+          const elapsed = now - startedAt;
           for (let li = 0; li < linkCount; li++) {
+            let localT = t;
+            if (linkDelays !== null) {
+              const offset = linkDelays[li];
+              if (offset > 0) {
+                const localDuration = Math.max(16, duration - offset);
+                const localElapsed = elapsed - offset;
+                if (localElapsed <= 0) {
+                  localT = 0;
+                } else if (localElapsed >= localDuration) {
+                  localT = 1;
+                } else {
+                  localT = localElapsed / localDuration;
+                }
+              }
+            }
+            const localEased = localT === t ? eased : easing(localT);
             const encodedW = pool.encodedLinkWidths[li];
             pool.linkWidths[li] = pool.tweenStartLinkWidths[li]
-              + (encodedW - pool.tweenStartLinkWidths[li]) * eased;
+              + (encodedW - pool.tweenStartLinkWidths[li]) * localEased;
             const o = li * 4;
             pool.linkColors[o] = pool.tweenStartLinkColors[o]
-              + (pool.encodedLinkColors[o] - pool.tweenStartLinkColors[o]) * eased;
+              + (pool.encodedLinkColors[o] - pool.tweenStartLinkColors[o]) * localEased;
             pool.linkColors[o + 1] = pool.tweenStartLinkColors[o + 1]
-              + (pool.encodedLinkColors[o + 1] - pool.tweenStartLinkColors[o + 1]) * eased;
+              + (pool.encodedLinkColors[o + 1] - pool.tweenStartLinkColors[o + 1]) * localEased;
             pool.linkColors[o + 2] = pool.tweenStartLinkColors[o + 2]
-              + (pool.encodedLinkColors[o + 2] - pool.tweenStartLinkColors[o + 2]) * eased;
+              + (pool.encodedLinkColors[o + 2] - pool.tweenStartLinkColors[o + 2]) * localEased;
             pool.linkColors[o + 3] = pool.tweenStartLinkColors[o + 3]
-              + (pool.encodedLinkColors[o + 3] - pool.tweenStartLinkColors[o + 3]) * eased;
+              + (pool.encodedLinkColors[o + 3] - pool.tweenStartLinkColors[o + 3]) * localEased;
           }
         }
 
@@ -1017,6 +1094,55 @@ const CosmosGraphCanvas = forwardRef<CosmosGraphCanvasHandle, CosmosGraphCanvasP
         },
         cancelConstruction() {
           cancelConstructionInternal(true);
+        },
+        revealEvidence(nodeIds, revealOptions) {
+          noteInteraction();
+          if (!nodeIds || nodeIds.length === 0) return;
+          const staggerMs = Math.max(0, revealOptions?.staggerMs ?? 120);
+          const durationMs = Math.max(200, revealOptions?.durationMs ?? 800);
+          const easing = revealOptions?.easing ?? 'ease-out';
+          const targets = nodeIds.map((id, i) => ({ id, delay_ms: staggerMs * i }));
+          const totalDuration = durationMs + staggerMs * Math.max(0, nodeIds.length - 1);
+          playConstructionInternal(
+            {
+              phases: [
+                {
+                  name: 'focal_nodes_appear',
+                  target_ids: nodeIds,
+                  targets,
+                  delay_ms: 0,
+                  duration_ms: totalDuration,
+                  easing,
+                },
+              ],
+              total_duration_ms: totalDuration,
+              theatricality: 0.5,
+            },
+            undefined,
+          );
+        },
+        queueCameraWaypoints(waypoints) {
+          noteInteraction();
+          const graph = graphRef.current;
+          if (!graph || !waypoints || waypoints.length === 0) return () => {};
+          let cancelled = false;
+          let timeoutHandle: ReturnType<typeof setTimeout> | null = null;
+          const step = (i: number) => {
+            if (cancelled || i >= waypoints.length) return;
+            const wp = waypoints[i];
+            const idx = idToIndexRef.current.get(wp.nodeId);
+            const transitionMs = Math.max(100, wp.transitionMs ?? 700);
+            if (typeof idx === 'number') {
+              graph.zoomToPointByIndex(idx, transitionMs, wp.distanceFactor ?? 2.5);
+            }
+            const next = transitionMs + Math.max(0, wp.dwellMs);
+            timeoutHandle = setTimeout(() => step(i + 1), next);
+          };
+          step(0);
+          return () => {
+            cancelled = true;
+            if (timeoutHandle !== null) clearTimeout(timeoutHandle);
+          };
         },
         setVisibleIds(ids) {
           const pool = poolRef.current;
