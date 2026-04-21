@@ -651,11 +651,146 @@ const CosmosGraphCanvas = forwardRef<CosmosGraphCanvasHandle, CosmosGraphCanvasP
       const graph = graphRef.current;
       if (!pool || !graph) { onPhaseDone(); return; }
 
-      // Some phase ids are intentional no-ops in Phase B (see plan).
-      if (phase.name === 'clusters_coalesce' || phase.name === 'data_builds'
-        || phase.name === 'agreement_clusters_form' || phase.name === 'tensions_bridge'
-        || phase.name === 'blind_spots_reveal' || phase.name === 'entrenchment_pulse') {
+      // `clusters_coalesce` and `data_builds` remain no-ops: the former
+      // is a force-sim concept (cosmos.gl owns cluster positions), and
+      // the latter is deferred to the context_shelf surface.
+      if (phase.name === 'clusters_coalesce' || phase.name === 'data_builds') {
         onPhaseDone();
+        return;
+      }
+
+      // The four "epistemic state" phases (agreement_clusters_form,
+      // tensions_bridge, blind_spots_reveal, entrenchment_pulse) all
+      // use a pulse envelope that returns to the encoded baseline at
+      // t=1. Each owns its own rAF loop so the existing lerp-to-encoded
+      // pipeline stays untouched. They share the sin(pi*t) pulse shape
+      // so theatricality ramps in and out naturally without a snap.
+      if (
+        phase.name === 'agreement_clusters_form'
+        || phase.name === 'tensions_bridge'
+        || phase.name === 'blind_spots_reveal'
+        || phase.name === 'entrenchment_pulse'
+      ) {
+        const duration = Math.max(16, phase.duration_ms);
+        const startedAt = performance.now();
+        const { linkCount } = pool;
+
+        const targetIndices: number[] = [];
+        for (const id of phase.target_ids) {
+          const idx = idToIndexRef.current.get(id);
+          if (typeof idx === 'number') targetIndices.push(idx);
+        }
+
+        // tensions_bridge resolves its edge set from link endpoints so
+        // we can amber-tint the edges that actually span the tension.
+        const targetLinkIndices: number[] = [];
+        if (phase.name === 'tensions_bridge' && targetIndices.length > 0) {
+          const targetSet = new Set(phase.target_ids);
+          const links = latestDataRef.current.links;
+          for (let li = 0; li < linkCount && li < links.length; li++) {
+            const link = links[li];
+            const src = String(link?.source ?? '');
+            const dst = String(link?.target ?? '');
+            if (targetSet.has(src) && targetSet.has(dst)) targetLinkIndices.push(li);
+          }
+        }
+
+        const pulseTick = (now: number) => {
+          const state = constructionStateRef.current;
+          if (!state.active) return;
+          const t = Math.min(1, (now - startedAt) / duration);
+          // sin(pi * t) returns to 0 at both endpoints and peaks at 0.5.
+          const envelope = Math.sin(Math.PI * t);
+
+          if (phase.name === 'agreement_clusters_form') {
+            // Scale-up pulse on cluster members; no color change.
+            for (const idx of targetIndices) {
+              pool.sizes[idx] = pool.encodedSizes[idx] * (1 + 0.35 * envelope);
+            }
+          } else if (phase.name === 'entrenchment_pulse') {
+            // Emissive rim-light: nudge RGB toward white by up to 0.5.
+            for (const idx of targetIndices) {
+              const off = idx * 4;
+              const br = pool.encodedColors[off];
+              const bg = pool.encodedColors[off + 1];
+              const bb = pool.encodedColors[off + 2];
+              const lift = 0.5 * envelope;
+              pool.colors[off] = Math.min(1, br + lift * (1 - br));
+              pool.colors[off + 1] = Math.min(1, bg + lift * (1 - bg));
+              pool.colors[off + 2] = Math.min(1, bb + lift * (1 - bb));
+              pool.colors[off + 3] = pool.encodedColors[off + 3];
+            }
+          } else if (phase.name === 'blind_spots_reveal') {
+            // Desaturation halo: mix target RGB toward paper-muted and
+            // dim alpha by up to 45% at peak. Returns to baseline at t=1.
+            for (const idx of targetIndices) {
+              const off = idx * 4;
+              const base: [number, number, number, number] = [
+                pool.encodedColors[off],
+                pool.encodedColors[off + 1],
+                pool.encodedColors[off + 2],
+                pool.encodedColors[off + 3],
+              ];
+              const [r, g, b] = mixTowardTokenRgba(base, '--cp-text-muted', envelope * 0.6, themeVersion);
+              pool.colors[off] = r;
+              pool.colors[off + 1] = g;
+              pool.colors[off + 2] = b;
+              pool.colors[off + 3] = base[3] * (1 - envelope * 0.45);
+            }
+          } else if (phase.name === 'tensions_bridge') {
+            // Amber glow on tension-spanning edges: mix link color toward
+            // the VIE amber token, swell width up to 80% at peak.
+            for (const li of targetLinkIndices) {
+              const off = li * 4;
+              const base: [number, number, number, number] = [
+                pool.encodedLinkColors[off],
+                pool.encodedLinkColors[off + 1],
+                pool.encodedLinkColors[off + 2],
+                pool.encodedLinkColors[off + 3],
+              ];
+              const [r, g, b, a] = mixTowardTokenRgba(base, '--vie-amber', envelope * 0.75, themeVersion);
+              pool.linkColors[off] = r;
+              pool.linkColors[off + 1] = g;
+              pool.linkColors[off + 2] = b;
+              pool.linkColors[off + 3] = a;
+              pool.linkWidths[li] = pool.encodedLinkWidths[li] * (1 + 0.8 * envelope);
+            }
+          }
+
+          applyFilterMaskToLive();
+          if (phase.name === 'tensions_bridge') {
+            graph.setLinkWidths(pool.linkWidths);
+            graph.setLinkColors(pool.linkColors);
+          } else {
+            graph.setPointColors(pool.colors);
+            graph.setPointSizes(pool.sizes);
+          }
+
+          if (t < 1) {
+            state.rafHandle = requestAnimationFrame(pulseTick);
+          } else {
+            // Snap live buffers back to encoded so the phase is a pure
+            // transient that leaves no residue downstream.
+            if (phase.name === 'tensions_bridge') {
+              pool.linkWidths.set(pool.encodedLinkWidths);
+              pool.linkColors.set(pool.encodedLinkColors);
+              graph.setLinkWidths(pool.linkWidths);
+              graph.setLinkColors(pool.linkColors);
+            } else {
+              pool.colors.set(pool.encodedColors);
+              pool.sizes.set(pool.encodedSizes);
+              graph.setPointColors(pool.colors);
+              graph.setPointSizes(pool.sizes);
+            }
+            state.rafHandle = null;
+            onPhaseDone();
+          }
+        };
+
+        if (constructionStateRef.current.rafHandle != null) {
+          cancelAnimationFrame(constructionStateRef.current.rafHandle);
+        }
+        constructionStateRef.current.rafHandle = requestAnimationFrame(pulseTick);
         return;
       }
 

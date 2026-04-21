@@ -98,10 +98,10 @@ const ExplorerAskComposer: FC<ExplorerAskComposerProps> = ({
       setStructuredVisual(null);
 
       const captureVisual = (payload: ProgressiveVisualPayload) => {
-        // `visualization` on the stream payload contains the backend's
-        // structured-visual blob; forward only when it has a renderer or
-        // regions worth rendering to avoid flicker on empty payloads.
-        const viz = payload.visualization as StructuredVisual | undefined;
+        // The backend's structured_visual payload (renderer key + body)
+        // lands directly on the normalized payload. Forward only when it
+        // has a renderer or regions worth rendering to avoid flicker.
+        const viz = payload.structured_visual;
         if (!viz) return;
         if (!viz.renderer && !viz.structured && !viz.regions) return;
         setStructuredVisual(viz);
@@ -257,7 +257,7 @@ const ExplorerAskComposer: FC<ExplorerAskComposerProps> = ({
           </button>
         )}
       </form>
-      {expanded && (stageLabel || answer || error) && (
+      {expanded && (stageLabel || answer || error || structuredVisual) && (
         <div
           style={{
             background: 'color-mix(in srgb, var(--color-hero-ground) 90%, transparent)',

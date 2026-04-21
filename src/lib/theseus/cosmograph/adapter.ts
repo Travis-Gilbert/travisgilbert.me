@@ -267,6 +267,12 @@ export function applySceneDirective(
   directive: SceneDirective | null | undefined,
   options?: {
     resolveLabelText?: (nodeId: string) => string | undefined;
+    /** When true, do NOT call `cancelConstruction()` on entry. Used by
+     *  the Choreographer's mid-stream directive passes so an in-flight
+     *  staggered reveal keeps playing while the encoded state refreshes
+     *  underneath it. When false (default), the directive wins and any
+     *  ongoing construction tween is terminated. */
+    streamingMode?: boolean;
   },
 ): void {
   if (!adapter) return;
@@ -288,8 +294,12 @@ export function applySceneDirective(
     return;
   }
 
-  // A new directive always wins over an in-flight construction tween.
-  adapter.cancelConstruction();
+  // A new directive usually wins over an in-flight construction tween.
+  // In streaming mode we keep the tween playing so the Choreographer's
+  // staggered reveal isn't cancelled by a near-simultaneous directive.
+  if (!options?.streamingMode) {
+    adapter.cancelConstruction();
+  }
 
   const focal = salience
     .filter((s): s is typeof s & { is_focal: true; node_id: string } =>

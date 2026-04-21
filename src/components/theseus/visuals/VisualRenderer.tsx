@@ -22,6 +22,10 @@ import type { StructuredVisual, StructuredVisualRegion } from '@/lib/theseus-typ
 import ComparisonTable from './ComparisonTable';
 import TimelineStrip from './TimelineStrip';
 import HierarchyTree from './HierarchyTree';
+import ConceptMap from './ConceptMap';
+import ProcessFlow from './ProcessFlow';
+import TFJSStipple from './TFJSStipple';
+import GeographicMap from './GeographicMap';
 
 export interface VisualRendererProps {
   visual: StructuredVisual | null | undefined;
@@ -66,15 +70,38 @@ const VisualRenderer: FC<VisualRendererProps> = ({ visual, onRegionHover, onRegi
           onRegionSelect={onRegionSelect}
         />
       );
-    // The remaining 4 renderers (concept_map, process_flow, tfjs_stipple,
-    // geographic_map) land in a follow-up batch. Returning null here is
-    // deliberate: the "No Fake UI" rule says empty states are honest,
-    // placeholders pretending to be renderers are not.
     case 'concept_map':
+      return (
+        <ConceptMap
+          visual={visual}
+          onRegionHover={onRegionHover}
+          onRegionSelect={onRegionSelect}
+        />
+      );
     case 'process_flow':
+      return (
+        <ProcessFlow
+          visual={visual}
+          onRegionHover={onRegionHover}
+          onRegionSelect={onRegionSelect}
+        />
+      );
     case 'tfjs_stipple':
+      return (
+        <TFJSStipple
+          visual={visual}
+          onRegionHover={onRegionHover}
+          onRegionSelect={onRegionSelect}
+        />
+      );
     case 'geographic_map':
-      return null;
+      return (
+        <GeographicMap
+          visual={visual}
+          onRegionHover={onRegionHover}
+          onRegionSelect={onRegionSelect}
+        />
+      );
     default:
       return null;
   }

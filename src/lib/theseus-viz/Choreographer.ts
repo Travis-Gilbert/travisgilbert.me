@@ -335,8 +335,12 @@ export class Choreographer {
     this.transition('settle');
     try {
       const directive = await directScene(result);
+      // Stream mode: don't cancel the in-flight staggered reveal. The
+      // encoded state refreshes under the tween and the reveal plays
+      // through to the new targets naturally.
       applySceneDirective(this.options.getAdapter(), directive, {
         resolveLabelText: this.options.resolveLabelText,
+        streamingMode: true,
       });
     } catch (err) {
       console.error('[Choreographer] directScene (onAnswerReady) failed', err);
@@ -345,6 +349,12 @@ export class Choreographer {
 
   private async handleComplete(result: TheseusResponse): Promise<void> {
     this.transition('linger');
+    // onAnswerReady already applied the directive with the full payload
+    // (it fires 1-2ms before onComplete in the backend's burst release).
+    // Running directScene again here just stomps the reveal. Only fall
+    // back to applying on complete when onAnswerReady didn't fire
+    // (older backend that skips that event).
+    if (this.answerReadyApplied) return;
     try {
       const directive = await directScene(result);
       applySceneDirective(this.options.getAdapter(), directive, {

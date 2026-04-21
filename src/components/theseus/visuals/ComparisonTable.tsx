@@ -25,25 +25,50 @@ interface ComparisonRow {
 }
 
 function readRows(visual: StructuredVisual): ComparisonRow[] | null {
+  // Preferred: explicit rows + columns.
   const raw = visual.structured?.rows;
-  if (!Array.isArray(raw)) return null;
-  const rows: ComparisonRow[] = [];
-  for (const r of raw) {
-    if (!r || typeof r !== 'object') continue;
-    const rec = r as Record<string, unknown>;
-    const label = typeof rec.label === 'string' ? rec.label : '';
-    const columns = Array.isArray(rec.columns) ? rec.columns.map((c) => String(c ?? '')) : [];
-    const linked = Array.isArray(rec.linked_evidence) ? rec.linked_evidence.map(String) : undefined;
-    if (label.length === 0 || columns.length === 0) continue;
-    rows.push({ label, columns, linked_evidence: linked });
+  if (Array.isArray(raw)) {
+    const rows: ComparisonRow[] = [];
+    for (const r of raw) {
+      if (!r || typeof r !== 'object') continue;
+      const rec = r as Record<string, unknown>;
+      const label = typeof rec.label === 'string' ? rec.label : '';
+      const columns = Array.isArray(rec.columns) ? rec.columns.map((c) => String(c ?? '')) : [];
+      const linked = Array.isArray(rec.linked_evidence) ? rec.linked_evidence.map(String) : undefined;
+      if (label.length === 0 || columns.length === 0) continue;
+      rows.push({ label, columns, linked_evidence: linked });
+    }
+    if (rows.length > 0) return rows;
   }
-  return rows.length > 0 ? rows : null;
+  // Fallback: items[] with {label, snippet, object_pk, object_type}. This
+  // is the shape the 26B currently ships for `comparison` answer_type.
+  const items = visual.structured?.items;
+  if (Array.isArray(items)) {
+    const rows: ComparisonRow[] = [];
+    for (const r of items) {
+      if (!r || typeof r !== 'object') continue;
+      const rec = r as Record<string, unknown>;
+      const label = typeof rec.label === 'string' ? rec.label : '';
+      const snippet = typeof rec.snippet === 'string' ? rec.snippet : '';
+      if (label.length === 0) continue;
+      const objectPk = rec.object_pk;
+      const linked = objectPk !== null && objectPk !== undefined ? [String(objectPk)] : undefined;
+      rows.push({ label, columns: [snippet], linked_evidence: linked });
+    }
+    if (rows.length > 0) return rows;
+  }
+  return null;
 }
 
 function readColumns(visual: StructuredVisual): string[] {
   const raw = visual.structured?.columns;
-  if (!Array.isArray(raw)) return [];
-  return raw.map((c) => String(c ?? '')).filter((c) => c.length > 0);
+  if (Array.isArray(raw)) {
+    const cols = raw.map((c) => String(c ?? '')).filter((c) => c.length > 0);
+    if (cols.length > 0) return cols;
+  }
+  // When we synthesized rows from items[], there's a single snippet column.
+  if (Array.isArray(visual.structured?.items)) return ['Excerpt'];
+  return [];
 }
 
 const ComparisonTable: FC<ComparisonTableProps> = ({ visual, onRegionHover }) => {

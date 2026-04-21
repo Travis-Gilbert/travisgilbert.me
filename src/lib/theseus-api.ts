@@ -146,6 +146,7 @@ interface RawProgressiveVisualPayload {
   reference_image_url?: string;
   geographic_regions?: GeographicRegionsSection;
   visualization?: RawVisualizationSection | Record<string, unknown>;
+  structured_visual?: Record<string, unknown>;
 }
 
 export interface ProgressiveVisualPayload {
@@ -155,6 +156,11 @@ export interface ProgressiveVisualPayload {
   reference_image_url?: string;
   geographic_regions?: GeographicRegionsSection;
   visualization?: VisualizationSection;
+  /** The backend's structured_visual payload (renderer key + structured
+   *  body) fires mid-stream inside visual_delta / visual_complete events.
+   *  Frontend dispatcher reads this directly to mount the matching
+   *  renderer (comparison_table, timeline_strip, concept_map, ...). */
+  structured_visual?: StructuredVisual;
 }
 
 interface RawGraphWeather {
@@ -446,6 +452,7 @@ export function normalizeProgressiveVisualPayload(
         ? raw.geographic_regions
         : undefined,
     visualization: normalizeVisualizationSection(raw.visualization),
+    structured_visual: normalizeStructuredVisual(raw.structured_visual),
   };
 }
 
@@ -523,7 +530,10 @@ function normalizeStructuredVisual(
 ): StructuredVisual | undefined {
   if (!raw || typeof raw !== 'object') return undefined;
 
-  const visualType = normalizeAnswerType(raw.visual_type as string | undefined);
+  // The backend uses `type` in the mid-stream structured_visual blob and
+  // `visual_type` in the final response. Accept either.
+  const typeCandidate = (raw.visual_type ?? raw.type) as string | undefined;
+  const visualType = normalizeAnswerType(typeCandidate);
   if (!visualType) return undefined;
 
   const regions: StructuredVisualRegion[] = [];
@@ -545,6 +555,26 @@ function normalizeStructuredVisual(
     }
   }
 
+  // Merge any non-standard top-level fields (e.g., items, query) into
+  // structured so renderers have a stable read path regardless of
+  // whether the backend nests data under `structured` or ships it at
+  // the top level.
+  const STANDARD_FIELDS = new Set([
+    'visual_type', 'type', 'layout', 'regions', 'reference_image_url',
+    'renderer', 'structured',
+  ]);
+  const mergedStructured: Record<string, unknown> = {
+    ...(typeof raw.structured === 'object' && raw.structured !== null
+      ? (raw.structured as Record<string, unknown>)
+      : {}),
+  };
+  for (const [key, value] of Object.entries(raw)) {
+    if (!STANDARD_FIELDS.has(key) && mergedStructured[key] === undefined) {
+      mergedStructured[key] = value;
+    }
+  }
+  const structured = Object.keys(mergedStructured).length > 0 ? mergedStructured : undefined;
+
   return {
     visual_type: visualType,
     layout: typeof raw.layout === 'object' && raw.layout !== null
@@ -555,9 +585,7 @@ function normalizeStructuredVisual(
       ? raw.reference_image_url
       : undefined,
     renderer: typeof raw.renderer === 'string' ? raw.renderer : undefined,
-    structured: typeof raw.structured === 'object' && raw.structured !== null
-      ? raw.structured as Record<string, unknown>
-      : undefined,
+    structured,
   };
 }
 

@@ -68,3 +68,15 @@ test('visualTypeToRenderer: code → null (no fake UI)', () => {
 test('visualTypeToRenderer: undefined → null', () => {
   assert.equal(visualTypeToRenderer(undefined), null);
 });
+
+test('visualTypeToRenderer: diagram → concept_map', () => {
+  assert.equal(visualTypeToRenderer('diagram'), 'concept_map');
+});
+
+test('visualTypeToRenderer: geographic → geographic_map', () => {
+  assert.equal(visualTypeToRenderer('geographic'), 'geographic_map');
+});
+
+test('visualTypeToRenderer: portrait → tfjs_stipple', () => {
+  assert.equal(visualTypeToRenderer('portrait'), 'tfjs_stipple');
+});
