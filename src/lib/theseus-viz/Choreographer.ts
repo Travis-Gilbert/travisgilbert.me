@@ -51,6 +51,22 @@ import {
   type SceneDirectivePatch,
 } from '@/lib/theseus/cosmograph/adapter';
 
+/** Gate for motion diagnostics. Enable by appending `?debugmotion=1`
+ *  to the Explorer URL (or by setting `localStorage.debugMotion = '1'`
+ *  in devtools). No-op in normal use; costs a URLSearchParams lookup
+ *  per patch when active. Easy to roll back: remove the two call sites
+ *  plus this helper. */
+function debugMotionEnabled(): boolean {
+  if (typeof window === 'undefined') return false;
+  try {
+    if (new URLSearchParams(window.location.search).get('debugmotion') === '1') return true;
+    if (window.localStorage?.getItem('debugMotion') === '1') return true;
+  } catch {
+    // localStorage blocked or SSR-like env; fall through to false.
+  }
+  return false;
+}
+
 export type ChoreographerState =
   | 'idle'
   | 'anticipate'
@@ -216,11 +232,22 @@ export class Choreographer {
     const prev = this.state;
     this.state = next;
     this.options.onStateChange?.(next, prev);
+    if (debugMotionEnabled()) {
+      console.info('[Choreographer] state', prev, '->', next);
+    }
   }
 
   private applyPatch(patch: SceneDirectivePatch): void {
     if (this.options.prefersReducedMotion) return;
-    applySceneDirectivePatch(this.options.getAdapter(), patch, {
+    const adapter = this.options.getAdapter();
+    if (debugMotionEnabled()) {
+      console.info('[Choreographer] patch', {
+        state: this.state,
+        keys: Object.keys(patch),
+        adapter: adapter ? 'present' : 'NULL',
+      });
+    }
+    applySceneDirectivePatch(adapter, patch, {
       resolveLabelText: this.options.resolveLabelText,
     });
   }

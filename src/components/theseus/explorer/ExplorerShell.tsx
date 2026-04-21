@@ -47,6 +47,25 @@ const ExplorerShell: FC = () => {
   const resolveLabelText = useLabelResolver(points);
   const resolveEvidenceText = useEvidenceTextResolver(points);
 
+  // Opt-in diagnostic: expose the live adapter ref on window so a user
+  // running with ?debugmotion=1 can sanity-check from devtools whether
+  // the cosmos.gl handle is wired up. Behind a feature gate so it never
+  // leaks into production traffic.
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    try {
+      const flag = new URLSearchParams(window.location.search).get('debugmotion') === '1'
+        || window.localStorage?.getItem('debugMotion') === '1';
+      if (!flag) return;
+    } catch {
+      return;
+    }
+    const w = window as unknown as { __theseusCanvasRef?: React.RefObject<CosmosGraphCanvasHandle | null> };
+    w.__theseusCanvasRef = canvasRef;
+    // eslint-disable-next-line no-console
+    console.info('[ExplorerShell] debugmotion active. Adapter ref:', canvasRef);
+  }, []);
+
   useEffect(() => {
     const off = onTheseusEvent('explorer:apply-directive', ({ directive }) => {
       const typed = directive as SceneDirective;
