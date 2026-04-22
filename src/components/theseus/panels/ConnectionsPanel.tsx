@@ -2,6 +2,8 @@
 
 import { useEffect, useState, type CSSProperties } from 'react';
 import { ATLAS_SOURCES, type AtlasSource } from '../atlas/sources';
+import { PAPER_TOKENS } from '../atlas/paperTokens';
+import { PLUGIN_STATE_ACCENT } from '../atlas/stateAccent';
 import {
   fetchPluginsManifest,
   pluginStateLabel,
@@ -68,18 +70,6 @@ export default function ConnectionsPanel() {
     };
   }, []);
 
-  const paperTokens: CSSProperties & Record<string, string> = {
-    background: 'var(--paper)',
-    color: 'var(--paper-ink)',
-    ['--ink']: 'var(--paper-ink)',
-    ['--ink-2']: 'var(--paper-ink-2)',
-    ['--ink-3']: 'var(--paper-ink-3)',
-    ['--rule']: 'var(--paper-rule)',
-    ['--rule-strong']: '#a89d8f',
-    ['--accent-color']: 'var(--paper-pencil)',
-    ['--pencil']: 'var(--paper-pencil)',
-  };
-
   const hasInstalled = installed.length > 0;
 
   return (
@@ -125,7 +115,7 @@ export default function ConnectionsPanel() {
           minHeight: 0,
           display: 'grid',
           gridTemplateColumns: '340px 1fr',
-          ...paperTokens,
+          ...PAPER_TOKENS,
         }}
       >
         {/* Source list */}
@@ -158,7 +148,7 @@ export default function ConnectionsPanel() {
                           width: 10,
                           height: 10,
                           borderRadius: '50%',
-                          background: 'var(--sage, #6e7f54)',
+                          background: PLUGIN_STATE_ACCENT[p.state],
                           marginTop: 8,
                         }}
                       />

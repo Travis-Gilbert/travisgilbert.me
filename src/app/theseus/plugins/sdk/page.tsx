@@ -1,3 +1,4 @@
+import type { CSSProperties } from 'react';
 import type { Metadata } from 'next';
 
 export const metadata: Metadata = {
@@ -8,6 +9,27 @@ export const metadata: Metadata = {
 
 const RUNTIME_DOC_URL =
   'https://github.com/Travis-Gilbert/Index-API/blob/main/docs/runtime/plugin-runtime-guide.md';
+
+/** Shared inline style for all `<code>` tokens on this page. Kept
+ *  alongside the text so the Vollkorn / JetBrains contrast is visible
+ *  while reading the prose; extracted to avoid 7 near-identical style
+ *  objects at the callsites. */
+const CODE_STYLE: CSSProperties = {
+  padding: '2px 6px',
+  margin: '0 4px',
+  background: 'var(--paper-2, rgba(0,0,0,0.04))',
+  border: '1px solid var(--paper-rule)',
+  borderRadius: 3,
+  fontFamily: 'var(--font-mono)',
+  fontSize: 14,
+};
+
+/** Compact variant for `<code>` inside bullet text, where a smaller
+ *  body font is already in play. */
+const CODE_STYLE_SM: CSSProperties = {
+  fontFamily: 'var(--font-mono)',
+  fontSize: 13,
+};
 
 const BASE_ABCS = [
   {
@@ -88,31 +110,11 @@ export default function PluginsSdkPage() {
         }}
       >
         The Theseus Index-API ships a single plugin runtime at
-        <code
-          style={{
-            padding: '2px 6px',
-            margin: '0 4px',
-            background: 'var(--paper-2, rgba(0,0,0,0.04))',
-            border: '1px solid var(--paper-rule)',
-            borderRadius: 3,
-            fontFamily: 'var(--font-mono)',
-            fontSize: 14,
-          }}
-        >
+        <code style={CODE_STYLE}>
           /api/v2/plugins/
         </code>
         . A plugin is a Python package that declares a
-        <code
-          style={{
-            padding: '2px 6px',
-            margin: '0 4px',
-            background: 'var(--paper-2, rgba(0,0,0,0.04))',
-            border: '1px solid var(--paper-rule)',
-            borderRadius: 3,
-            fontFamily: 'var(--font-mono)',
-            fontSize: 14,
-          }}
-        >
+        <code style={CODE_STYLE}>
           theseus.plugins
         </code>
         entry point resolving to a <strong>TheseusPlugin</strong> subclass.
@@ -194,17 +196,17 @@ export default function PluginsSdkPage() {
         </li>
         <li>
           Capability-based permissions: every plugin declares the subset
-          of <code style={{ fontFamily: 'var(--font-mono)', fontSize: 13 }}>read_graph</code>,
-          <code style={{ fontFamily: 'var(--font-mono)', fontSize: 13 }}> write_objects</code>,
-          <code style={{ fontFamily: 'var(--font-mono)', fontSize: 13 }}> sign_claims</code>,
-          <code style={{ fontFamily: 'var(--font-mono)', fontSize: 13 }}> train_model</code>,
+          of <code style={CODE_STYLE_SM}>read_graph</code>,
+          <code style={CODE_STYLE_SM}> write_objects</code>,
+          <code style={CODE_STYLE_SM}> sign_claims</code>,
+          <code style={CODE_STYLE_SM}> train_model</code>,
           … it needs; anything else raises CapabilityDenied.
         </li>
         <li>
           Subprocess runner with memory (resource.setrlimit) and
           wall-clock timeouts. Cgroups unsupported on Railway; the
           reduced isolation is reported honestly via
-          <code style={{ fontFamily: 'var(--font-mono)', fontSize: 13 }}> GET /api/v2/plugins/capabilities</code>.
+          <code style={CODE_STYLE_SM}> GET /api/v2/plugins/capabilities</code>.
         </li>
         <li>
           Per-invocation telemetry: every call records a PluginRun
@@ -234,9 +236,9 @@ export default function PluginsSdkPage() {
       >
         The canonical runtime reference lives in the Index-API repo. It
         covers every module under
-        <code style={{ fontFamily: 'var(--font-mono)', fontSize: 13 }}> apps/plugins/</code>,
-        the API surface at <code style={{ fontFamily: 'var(--font-mono)', fontSize: 13 }}>/api/v2/plugins/</code>,
-        deferred SPEC-C batches (the <code style={{ fontFamily: 'var(--font-mono)', fontSize: 13 }}>theseus-plugin-sdk</code> PyPI package,
+        <code style={CODE_STYLE_SM}> apps/plugins/</code>,
+        the API surface at <code style={CODE_STYLE_SM}>/api/v2/plugins/</code>,
+        deferred SPEC-C batches (the <code style={CODE_STYLE_SM}>theseus-plugin-sdk</code> PyPI package,
         the four connector repos, sigstore supply-chain signing), and the
         verification log.
       </p>

@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useState, type CSSProperties } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { toast } from 'sonner';
 import {
   disablePlugin,
@@ -12,9 +12,10 @@ import {
   rehabilitatePlugin,
   type PluginCategory,
   type PluginManifestEntry,
-  type PluginState,
   type RunnerCapabilities,
 } from '@/lib/theseus-plugins-api';
+import { PAPER_TOKENS } from '../atlas/paperTokens';
+import { PLUGIN_STATE_ACCENT } from '../atlas/stateAccent';
 
 /**
  * Atlas Plugins panel.
@@ -45,14 +46,6 @@ const CATEGORY_LABEL: Record<PluginCategory, string> = {
   verb: 'Verb',
   surface: 'Surface',
   theorem: 'Theorem',
-};
-
-const STATE_ACCENT: Record<PluginState, string> = {
-  discovered: 'var(--paper-ink-3)',
-  enabled: 'var(--sage, #6e7f54)',
-  disabled: 'var(--paper-ink-3)',
-  failing: 'var(--vie-error, #c65c3a)',
-  quarantined: 'var(--vie-error, #c65c3a)',
 };
 
 export default function PluginsPanel() {
@@ -138,17 +131,6 @@ export default function PluginsPanel() {
     }
   }
 
-  const paperTokens: CSSProperties & Record<string, string> = {
-    background: 'var(--paper)',
-    color: 'var(--paper-ink)',
-    ['--ink']: 'var(--paper-ink)',
-    ['--ink-2']: 'var(--paper-ink-2)',
-    ['--ink-3']: 'var(--paper-ink-3)',
-    ['--rule']: 'var(--paper-rule)',
-    ['--accent-color']: 'var(--paper-pencil)',
-    ['--pencil']: 'var(--paper-pencil)',
-  };
-
   return (
     <div
       style={{
@@ -182,7 +164,7 @@ export default function PluginsPanel() {
           minHeight: 0,
           display: 'flex',
           flexDirection: 'column',
-          ...paperTokens,
+          ...PAPER_TOKENS,
         }}
       >
         <div
@@ -339,7 +321,7 @@ function PluginCard({
   onDisable,
   onRehabilitate,
 }: CardProps) {
-  const accent = STATE_ACCENT[entry.state];
+  const accent = PLUGIN_STATE_ACCENT[entry.state];
   return (
     <article
       style={{
