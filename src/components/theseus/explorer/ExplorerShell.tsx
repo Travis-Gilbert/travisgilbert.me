@@ -56,6 +56,8 @@ const ExplorerShell: FC = () => {
   const [directiveTopology, setDirectiveTopology] =
     useState<TopologyInterpretation | null>(null);
   const [measureOpen, setMeasureOpen] = useState(false);
+  const [labelsOn, setLabelsOn] = useState(true);
+  const [zoomLevel, setZoomLevel] = useState<number | undefined>(undefined);
 
   const resolveLabelText = useLabelResolver(points);
   const resolveEvidenceText = useEvidenceTextResolver(points);
@@ -129,6 +131,21 @@ const ExplorerShell: FC = () => {
       new KeyboardEvent('keydown', { key: 'k', metaKey: true, bubbles: true }),
     );
   }
+
+  // Subscribe to the canvas's zoom stream so AtlasScaleBar can show
+  // the live level. The subscription must be re-attached whenever the
+  // canvas handle reboots (webgl support flipping, dataset swap). We
+  // key the effect on webgl2Support + canRenderCanvas proxy.
+  useEffect(() => {
+    const adapter = canvasRef.current;
+    if (!adapter) return;
+    setZoomLevel(adapter.getZoom());
+    const off = adapter.onZoomChange((z) => setZoomLevel(z));
+    return off;
+    // canRenderCanvas is derived below; we depend on its upstream
+    // inputs so the subscription re-runs once the canvas mounts.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [loading, error, points.length, webgl2Support]);
 
   const selectedNode: NodeDetailData | null =
     (points.find((p: CosmoPoint) => p.id === selectedId) as NodeDetailData | undefined) ?? null;
@@ -209,6 +226,7 @@ const ExplorerShell: FC = () => {
             points={points}
             links={links}
             onPointClick={setSelectedId}
+            labelsOn={labelsOn}
           />
         </TheseusErrorBoundary>
       )}
@@ -257,7 +275,7 @@ const ExplorerShell: FC = () => {
 
       <AtlasIngestBar />
 
-      {canRenderCanvas && <AtlasScaleBar zoom={undefined} />}
+      {canRenderCanvas && <AtlasScaleBar zoom={zoomLevel} />}
 
       {canRenderCanvas && (
         <AtlasGraphControls
@@ -266,6 +284,8 @@ const ExplorerShell: FC = () => {
           onOpenCmdK={handleOpenCmdK}
           onToggleMeasure={() => setMeasureOpen((v) => !v)}
           measureOpen={measureOpen}
+          onToggleLabels={() => setLabelsOn((v) => !v)}
+          labelsOn={labelsOn}
         />
       )}
 

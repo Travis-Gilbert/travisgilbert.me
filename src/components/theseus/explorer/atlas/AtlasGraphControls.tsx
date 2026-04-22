@@ -6,11 +6,13 @@ interface AtlasGraphControlsProps {
   onOpenCmdK: () => void;
   onToggleMeasure: () => void;
   measureOpen: boolean;
+  onToggleLabels: () => void;
+  labelsOn: boolean;
 }
 
 /**
  * Bottom-right parchment-glass control cluster on the Explorer canvas.
- * Fit, Reset, Measure, ⌘K.
+ * Fit, Reset, Labels, Measure, ⌘K.
  */
 export default function AtlasGraphControls({
   onFit,
@@ -18,6 +20,8 @@ export default function AtlasGraphControls({
   onOpenCmdK,
   onToggleMeasure,
   measureOpen,
+  onToggleLabels,
+  labelsOn,
 }: AtlasGraphControlsProps) {
   return (
     <div className="atlas-graph-controls">
@@ -26,6 +30,15 @@ export default function AtlasGraphControls({
       </button>
       <button type="button" className="atlas-gc-btn" onClick={onReset} title="Reset view">
         Reset
+      </button>
+      <button
+        type="button"
+        className="atlas-gc-btn"
+        onClick={onToggleLabels}
+        aria-pressed={labelsOn}
+        title={labelsOn ? 'Hide focal labels' : 'Show focal labels'}
+      >
+        Labels · {labelsOn ? 'on' : 'off'}
       </button>
       <button
         type="button"

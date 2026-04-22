@@ -38,6 +38,11 @@ function makeRecordingAdapter(): { adapter: GraphAdapter; calls: AdapterCall[] }
       calls.push({ method: 'queueCameraWaypoints', args });
       return () => {};
     },
+    getZoom: () => 1,
+    onZoomChange: (...args: unknown[]) => {
+      calls.push({ method: 'onZoomChange', args });
+      return () => {};
+    },
   };
   return { adapter, calls };
 }

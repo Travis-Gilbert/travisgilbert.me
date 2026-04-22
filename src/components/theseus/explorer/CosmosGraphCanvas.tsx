@@ -46,6 +46,9 @@ export interface CosmosGraphCanvasProps {
   pinnedPositions?: Record<string, [number, number]> | null;
   onPointClick?: (pointId: string | null) => void;
   onReady?: (graph: Graph) => void;
+  /** When false, the overlay canvas is cleared every frame but no
+   *  focal labels are drawn. Defaults to true. */
+  labelsOn?: boolean;
 }
 
 export type CosmosGraphCanvasHandle = GraphAdapter;
@@ -150,12 +153,20 @@ function getEasing(name: string): EasingFn {
  * `GraphAdapter` interface exposed on the forwarded ref.
  */
 const CosmosGraphCanvas = forwardRef<CosmosGraphCanvasHandle, CosmosGraphCanvasProps>(
-  function CosmosGraphCanvas({ points, links, pinnedPositions, onPointClick, onReady }, ref) {
+  function CosmosGraphCanvas(
+    { points, links, pinnedPositions, onPointClick, onReady, labelsOn = true },
+    ref,
+  ) {
     const containerRef = useRef<HTMLDivElement | null>(null);
     const overlayCanvasRef = useRef<HTMLCanvasElement | null>(null);
     const graphRef = useRef<Graph | null>(null);
     const onPointClickRef = useRef(onPointClick);
     const onReadyRef = useRef(onReady);
+    const labelsOnRef = useRef<boolean>(labelsOn);
+    // Zoom subscription plumbing. Lives next to the Graph instance so
+    // the adapter can broadcast to multiple listeners without tying
+    // into React state each tick.
+    const zoomListenersRef = useRef<Set<(zoom: number) => void>>(new Set());
     const indexToIdRef = useRef<string[]>([]);
     const idToIndexRef = useRef<Map<string, number>>(new Map());
     const latestDataRef = useRef({
@@ -315,6 +326,11 @@ const CosmosGraphCanvas = forwardRef<CosmosGraphCanvasHandle, CosmosGraphCanvasP
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
       ctx.clearRect(0, 0, overlay.width, overlay.height);
 
+      // Labels toggle: clear the overlay every frame but skip label
+      // rendering when the Atlas controls have hidden labels. Keeps
+      // the overlay layer honest rather than caching stale text.
+      if (!labelsOnRef.current) return;
+
       const labels = focalLabelsRef.current;
       if (labels.length === 0) return;
 
@@ -363,6 +379,16 @@ const CosmosGraphCanvas = forwardRef<CosmosGraphCanvasHandle, CosmosGraphCanvasP
       };
       overlayAnimRef.current = requestAnimationFrame(tick);
     }, [drawOverlay]);
+
+    // Labels toggle: mirror prop into the render-time ref, then force a
+    // redraw so the overlay canvas reflects the new setting on the same
+    // frame the prop changes. Running `drawOverlay` is cheap because it
+    // just clears and returns when labels are off.
+    useEffect(() => {
+      const changed = labelsOnRef.current !== labelsOn;
+      labelsOnRef.current = labelsOn;
+      if (changed) drawOverlay();
+    }, [labelsOn, drawOverlay]);
 
     // -------- Encoding setters (adapter implementations) -----------------
 
@@ -1305,6 +1331,18 @@ const CosmosGraphCanvas = forwardRef<CosmosGraphCanvasHandle, CosmosGraphCanvasP
           graph.setLinkColors(pool.linkColors);
           noteInteraction();
         },
+
+        // --- Atlas chrome hooks --------------------------------------
+
+        getZoom() {
+          return graphRef.current?.getZoomLevel() ?? 1;
+        },
+        onZoomChange(cb) {
+          zoomListenersRef.current.add(cb);
+          return () => {
+            zoomListenersRef.current.delete(cb);
+          };
+        },
       }),
       [
         applyEdgeStylesToPool,
@@ -1548,6 +1586,20 @@ const CosmosGraphCanvas = forwardRef<CosmosGraphCanvasHandle, CosmosGraphCanvasP
         onZoom: () => {
           noteInteraction();
           drawOverlay();
+          const listeners = zoomListenersRef.current;
+          if (listeners.size > 0) {
+            const graph = graphRef.current;
+            if (graph) {
+              const level = graph.getZoomLevel();
+              for (const cb of listeners) {
+                try {
+                  cb(level);
+                } catch {
+                  // Listener misbehaviour must not break zoom event dispatch.
+                }
+              }
+            }
+          }
         },
         onMouseMove: () => {
           noteInteraction();

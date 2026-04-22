@@ -148,6 +148,17 @@ export interface GraphAdapter {
       transitionMs?: number;
     }>,
   ): () => void;
+
+  // --- Atlas chrome hooks -------------------------------------------------
+
+  /** Current zoom level (cosmos.gl `Graph.getZoomLevel()`). Returns 1
+   *  when the Graph instance isn't ready yet. */
+  getZoom(): number;
+
+  /** Subscribe to zoom changes. The callback fires once per cosmos.gl
+   *  zoom event with the new level. Returns an unsubscribe function;
+   *  callers MUST invoke it on unmount to avoid leaks. */
+  onZoomChange(cb: (zoom: number) => void): () => void;
 }
 
 function readSalience(directive: SceneDirective): NodeSalience[] {

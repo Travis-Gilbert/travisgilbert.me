@@ -72,9 +72,25 @@ export interface CaptureOpenDetail {
   source?: string;
 }
 
+export interface CaptureCompleteDetail {
+  /** Terminal status of a single capture attempt. */
+  status: 'ok' | 'error';
+  /** Matches the ``source`` field dispatched on the matching
+   *  ``theseus:capture-open`` when present. Consumers like the Atlas
+   *  ingest bar filter on this so they only react to their own
+   *  submissions, not every capture across the app. */
+  source?: string;
+  /** Display label — for URL captures this is the URL, for file
+   *  captures the filename. Optional. */
+  label?: string;
+  /** Error message when ``status === 'error'``. */
+  error?: string;
+}
+
 export interface TheseusEventMap {
   'theseus:switch-panel':        SwitchPanelDetail;
   'theseus:capture-open':        CaptureOpenDetail;
+  'theseus:capture-complete':    CaptureCompleteDetail;
   'explorer:apply-directive':    ApplyDirectiveDetail;
   'explorer:ingest-complete':    ExplorerIngestCompleteDetail;
   'theseus:stage-event':         StageEventDetail;

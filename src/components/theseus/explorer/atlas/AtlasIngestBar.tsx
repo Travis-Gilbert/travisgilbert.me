@@ -1,33 +1,55 @@
 'use client';
 
 import { useState } from 'react';
+import { captureText } from '@/components/theseus/capture/captureApi';
 import { dispatchTheseusEvent } from '@/lib/theseus/events';
+
+type Status = 'idle' | 'pending' | 'ingested' | 'error';
+
+interface Entry {
+  label: string;
+  status: Status;
+  error?: string;
+}
 
 /**
  * Top-right ingest bar on the Explorer canvas.
  *
- * Accepts a URL / repo / doc reference. On submit, dispatches the
- * existing global `theseus:capture-open` event with a synthetic File
- * payload representing the URL; the Capture modal picks it up from
- * there. This reuses the existing drop-in capture flow — no fake
- * status theatre.
+ * Submits a URL / repo / doc reference directly to the `/capture/`
+ * backend via `captureText`. The status pill reflects the real state:
+ * `pending` while the POST is in flight, `ingested` once the backend
+ * confirms, `error` on failure. No timers, no fake-ready theatre.
+ *
+ * Also emits the shared `theseus:capture-complete` event so other
+ * surfaces (the Explorer ingest-complete listener, the Plugins panel)
+ * can react to a successful capture.
  */
 export default function AtlasIngestBar() {
   const [value, setValue] = useState('');
-  const [lastSubmitted, setLastSubmitted] = useState<string | null>(null);
+  const [entry, setEntry] = useState<Entry | null>(null);
 
-  function submit() {
+  async function submit() {
     const v = value.trim();
     if (!v) return;
-    // Hand off to the capture pipeline via the shared event. Downstream
-    // listeners (CaptureModal) report real progress; we surface only
-    // "submitted" and leave actual ingest status to the capture surface.
-    dispatchTheseusEvent('theseus:capture-open', {
-      url: v,
-      source: 'atlas-ingest',
-    });
-    setLastSubmitted(v);
     setValue('');
+    setEntry({ label: v, status: 'pending' });
+    const result = await captureText(v);
+    if (result.ok) {
+      setEntry({ label: v, status: 'ingested' });
+      dispatchTheseusEvent('theseus:capture-complete', {
+        status: 'ok',
+        source: 'atlas-ingest',
+        label: v,
+      });
+    } else {
+      setEntry({ label: v, status: 'error', error: result.error });
+      dispatchTheseusEvent('theseus:capture-complete', {
+        status: 'error',
+        source: 'atlas-ingest',
+        label: v,
+        error: result.error,
+      });
+    }
   }
 
   return (
@@ -61,57 +83,78 @@ export default function AtlasIngestBar() {
           value={value}
           onChange={(e) => setValue(e.target.value)}
           onKeyDown={(e) => {
-            if (e.key === 'Enter') submit();
+            if (e.key === 'Enter') void submit();
           }}
           placeholder="paste a repo, link, or doc to ingest…"
           aria-label="Ingest URL or file reference"
+          disabled={entry?.status === 'pending'}
         />
-        <button type="button" onClick={submit}>
-          Ingest
+        <button
+          type="button"
+          onClick={() => void submit()}
+          disabled={entry?.status === 'pending'}
+        >
+          {entry?.status === 'pending' ? 'Ingesting…' : 'Ingest'}
         </button>
       </div>
-      {lastSubmitted && (
-        <div
-          style={{
-            padding: '6px 10px',
-            background: 'rgba(243, 239, 230, 0.82)',
-            backdropFilter: 'blur(6px)',
-            border: '1px solid var(--paper-rule)',
-            borderRadius: 3,
-            display: 'flex',
-            alignItems: 'center',
-            gap: 10,
-            font: '500 10px/1.3 var(--font-mono)',
-            letterSpacing: '0.06em',
-            textTransform: 'uppercase',
-            color: 'var(--paper-ink-2)',
-            maxWidth: 360,
-            boxShadow: '0 6px 16px -6px rgba(0, 0, 0, 0.18)',
-          }}
-        >
-          <span
-            aria-hidden
-            style={{
-              width: 6,
-              height: 6,
-              borderRadius: '50%',
-              background: 'var(--paper-pencil)',
-            }}
-          />
-          <span style={{ color: 'var(--paper-ink)' }}>submitted</span>
-          <span
-            style={{
-              color: 'var(--paper-ink-3)',
-              overflow: 'hidden',
-              textOverflow: 'ellipsis',
-              whiteSpace: 'nowrap',
-              maxWidth: 220,
-            }}
-          >
-            {lastSubmitted.replace(/^https?:\/\//, '')}
-          </span>
-        </div>
-      )}
+      {entry && <StatusPill entry={entry} />}
+    </div>
+  );
+}
+
+function StatusPill({ entry }: { entry: Entry }) {
+  const tone = entry.status === 'error'
+    ? 'var(--vie-error, #c65c3a)'
+    : entry.status === 'ingested'
+      ? 'var(--sage, #6e7f54)'
+      : 'var(--paper-pencil)';
+  const label = entry.status === 'error'
+    ? 'error'
+    : entry.status === 'ingested'
+      ? 'ingested'
+      : 'submitting';
+  return (
+    <div
+      style={{
+        padding: '6px 10px',
+        background: 'rgba(243, 239, 230, 0.82)',
+        backdropFilter: 'blur(6px)',
+        border: '1px solid var(--paper-rule)',
+        borderRadius: 3,
+        display: 'flex',
+        alignItems: 'center',
+        gap: 10,
+        font: '500 10px/1.3 var(--font-mono)',
+        letterSpacing: '0.06em',
+        textTransform: 'uppercase',
+        color: 'var(--paper-ink-2)',
+        maxWidth: 360,
+        boxShadow: '0 6px 16px -6px rgba(0, 0, 0, 0.18)',
+      }}
+      role={entry.status === 'error' ? 'alert' : 'status'}
+    >
+      <span
+        aria-hidden
+        style={{
+          width: 6,
+          height: 6,
+          borderRadius: '50%',
+          background: tone,
+        }}
+      />
+      <span style={{ color: 'var(--paper-ink)' }}>{label}</span>
+      <span
+        style={{
+          color: 'var(--paper-ink-3)',
+          overflow: 'hidden',
+          textOverflow: 'ellipsis',
+          whiteSpace: 'nowrap',
+          maxWidth: 220,
+        }}
+        title={entry.error ?? entry.label}
+      >
+        {entry.error ?? entry.label.replace(/^https?:\/\//, '')}
+      </span>
     </div>
   );
 }
