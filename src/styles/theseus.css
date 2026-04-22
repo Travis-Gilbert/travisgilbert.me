@@ -6195,20 +6195,13 @@
   overflow: hidden;
   background: var(--paper);
   color: var(--paper-ink);
-  /* Darker grid lines with a light sub-grid at 1/4 the spacing so the
-     blueprint reads strongly against the paper. */
-  --grid-line:     rgba(120, 104, 82, 0.55);
-  --grid-sub-line: rgba(120, 104, 82, 0.18);
+  /* Faint blueprint grid — single set of lines at low opacity so it
+     sits behind the graph without competing for attention. */
+  --grid-line: rgba(120, 104, 82, 0.12);
   background-image:
     linear-gradient(var(--grid-line) 1px, transparent 1px),
-    linear-gradient(90deg, var(--grid-line) 1px, transparent 1px),
-    linear-gradient(var(--grid-sub-line) 1px, transparent 1px),
-    linear-gradient(90deg, var(--grid-sub-line) 1px, transparent 1px);
-  background-size:
-    var(--grid-size) var(--grid-size),
-    var(--grid-size) var(--grid-size),
-    calc(var(--grid-size) / 4) calc(var(--grid-size) / 4),
-    calc(var(--grid-size) / 4) calc(var(--grid-size) / 4);
+    linear-gradient(90deg, var(--grid-line) 1px, transparent 1px);
+  background-size: var(--grid-size) var(--grid-size);
   /* Override ink tokens inside the canvas so absolutely-positioned
      chrome children render against paper ink. */
   --ink:         var(--paper-ink);
