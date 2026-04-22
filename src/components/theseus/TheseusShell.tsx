@@ -15,15 +15,15 @@ import {
   type NavActionId,
 } from '@/lib/theseus/navPredictor';
 import { warmUpModels } from '@/lib/theseus/sceneDirector/predictor';
-import TransmissionLine from '@/components/theseus/TransmissionLine';
-import DotGrid from '@/components/DotGrid';
 import TheseusErrorBoundary from '@/components/theseus/TheseusErrorBoundary';
 import { useTheseusKeyboardShortcuts } from '@/components/theseus/useKeyboardShortcuts';
+import { useAtlasFilters, type AtlasFiltersState } from './atlas/useAtlasFilters';
+import AtlasCommandPalette from './atlas/AtlasCommandPalette';
 
 /**
  * Theseus runtime context. Panels read the cross-panel scene directive, the
- * three-class viz prediction, the source-trail accumulator, and the
- * file-drop hunting state from here.
+ * three-class viz prediction, the source-trail accumulator, the file-drop
+ * hunting state, and the Atlas filter/surface-overlay state from here.
  */
 interface TheseusContextValue {
   directive: SceneDirective | null;
@@ -38,6 +38,8 @@ interface TheseusContextValue {
 
   isHunting: boolean;
   huntOrigin: { x: number; y: number } | null;
+
+  atlasFilters: AtlasFiltersState;
 }
 
 const TheseusContext = createContext<TheseusContextValue | null>(null);
@@ -53,9 +55,24 @@ export const useGalaxy = useTheseus;
 
 export default function TheseusShell({ children }: { children: React.ReactNode }) {
   useTheseusKeyboardShortcuts();
+  const atlasFilters = useAtlasFilters();
+  const [cmdKOpen, setCmdKOpen] = useState(false);
   const [directive, setDirective] = useState<SceneDirective | null>(null);
   const [prediction, setPrediction] = useState<VizPrediction | null>(null);
   const [sourceTrail, setSourceTrail] = useState<SourceTrailItem[]>([]);
+
+  // ⌘K opens the palette; ⌘1-6 Places switching is handled by
+  // useTheseusKeyboardShortcuts above, so it isn't duplicated here.
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) {
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
+        e.preventDefault();
+        setCmdKOpen(true);
+      }
+    }
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, []);
 
   const addToSourceTrail = useCallback((item: SourceTrailItem) => {
     setSourceTrail((prev) => {
@@ -240,8 +257,10 @@ export default function TheseusShell({ children }: { children: React.ReactNode }
 
     const files = Array.from(e.dataTransfer.files);
     if (files.length > 0) {
+      // Route drops into the Connections panel (Atlas: sources live
+      // there) and open the capture modal via the existing event.
       window.dispatchEvent(
-        new CustomEvent('theseus:switch-panel', { detail: { panel: 'library' } }),
+        new CustomEvent('theseus:switch-panel', { detail: { panel: 'connections' } }),
       );
       requestAnimationFrame(() => {
         window.dispatchEvent(
@@ -268,16 +287,13 @@ export default function TheseusShell({ children }: { children: React.ReactNode }
     clearSourceTrail,
     isHunting,
     huntOrigin,
-  }), [directive, prediction, sourceTrail, addToSourceTrail, clearSourceTrail, isHunting, huntOrigin]);
+    atlasFilters,
+  }), [directive, prediction, sourceTrail, addToSourceTrail, clearSourceTrail, isHunting, huntOrigin, atlasFilters]);
 
   return (
     <TheseusContext.Provider value={contextValue}>
-      <div className="theseus-dotgrid-bg" aria-hidden="true">
-        <DotGrid />
-      </div>
-
       <div
-        className="theseus-content"
+        style={{ display: 'contents' }}
         onDragEnter={handleGlobalDragEnter}
         onDragOver={handleGlobalDragOver}
         onDragLeave={handleGlobalDragLeave}
@@ -295,8 +311,16 @@ export default function TheseusShell({ children }: { children: React.ReactNode }
           </div>
         )}
 
-        <TransmissionLine />
       </div>
+      <AtlasCommandPalette
+        open={cmdKOpen}
+        onClose={() => setCmdKOpen(false)}
+        onPick={(panel) => {
+          window.dispatchEvent(
+            new CustomEvent('theseus:switch-panel', { detail: { panel } }),
+          );
+        }}
+      />
     </TheseusContext.Provider>
   );
 }

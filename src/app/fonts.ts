@@ -1,4 +1,4 @@
-import { Vollkorn, Vollkorn_SC, IBM_Plex_Sans, Courier_Prime, JetBrains_Mono, Ysabeau, Caveat, Caudex, Literata, Lora } from 'next/font/google';
+import { Vollkorn, Vollkorn_SC, IBM_Plex_Sans, IBM_Plex_Mono, Courier_Prime, JetBrains_Mono, Ysabeau, Caveat, Caudex, Literata, Lora } from 'next/font/google';
 import localFont from 'next/font/local';
 
 export const vollkorn = Vollkorn({
@@ -21,6 +21,15 @@ export const ibmPlexSans = IBM_Plex_Sans({
   variable: '--font-ibm-plex',
   display: 'swap',
   weight: ['300', '400', '500', '600', '700'],
+  style: ['normal', 'italic'],
+});
+
+export const ibmPlexMono = IBM_Plex_Mono({
+  subsets: ['latin'],
+  variable: '--font-ibm-plex-mono',
+  display: 'swap',
+  weight: ['400', '500', '600'],
+  style: ['normal', 'italic'],
 });
 
 export const ysabeau = Ysabeau({
@@ -85,6 +94,7 @@ export const fontVariableClasses = [
   vollkorn.variable,
   vollkornSC.variable,
   ibmPlexSans.variable,
+  ibmPlexMono.variable,
   ysabeau.variable,
   courierPrime.variable,
   jetBrainsMono.variable,

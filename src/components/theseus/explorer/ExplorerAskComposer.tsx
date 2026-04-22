@@ -41,6 +41,14 @@ function stageToLabel(event: StageEvent): string {
  * fallback), and applies the resulting SceneDirective to the live
  * cosmos.gl canvas so the graph reacts in place.
  */
+type AtlasComposerTool = null | 'simulate' | 'search';
+
+const PLACEHOLDERS: Record<Exclude<AtlasComposerTool, null> | 'default', string> = {
+  default: 'Ask, think out loud, or @cite a node…',
+  simulate: 'Simulate the ideal Theseus peer for a $500 BOM and 30W thermal envelope…',
+  search: 'Find: attention-head pairs that freeze around epoch 14…',
+};
+
 const ExplorerAskComposer: FC<ExplorerAskComposerProps> = ({
   canvasAdapter,
   resolveLabelText,
@@ -53,6 +61,7 @@ const ExplorerAskComposer: FC<ExplorerAskComposerProps> = ({
   const [error, setError] = useState<string | null>(null);
   const [expanded, setExpanded] = useState(false);
   const [structuredVisual, setStructuredVisual] = useState<StructuredVisual | null>(null);
+  const [tool, setTool] = useState<AtlasComposerTool>(null);
   const abortRef = useRef<AbortController | null>(null);
   const completedRef = useRef(false);
 
@@ -171,129 +180,23 @@ const ExplorerAskComposer: FC<ExplorerAskComposerProps> = ({
   };
 
   return (
-    <div
-      style={{
-        position: 'absolute',
-        top: 16,
-        left: '50%',
-        transform: 'translateX(-50%)',
-        width: 'min(640px, calc(100% - 480px))',
-        zIndex: 4,
-        display: 'flex',
-        flexDirection: 'column',
-        gap: 8,
-      }}
-    >
-      <form
-        onSubmit={submit}
-        style={{
-          display: 'flex',
-          alignItems: 'center',
-          gap: 8,
-          background: 'color-mix(in srgb, var(--color-hero-ground) 82%, transparent)',
-          border: '1px solid color-mix(in srgb, var(--color-hero-text) 22%, transparent)',
-          borderRadius: 6,
-          padding: '6px 6px 6px 14px',
-          boxShadow: 'var(--shadow-warm-sm)',
-          backdropFilter: 'blur(8px)',
-        }}
-      >
-        <input
-          type="text"
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-          placeholder="Ask Theseus about the graph…"
-          disabled={isAsking}
-          style={{
-            flex: 1,
-            background: 'transparent',
-            border: 'none',
-            outline: 'none',
-            color: 'var(--color-hero-text)',
-            fontFamily: 'var(--font-body)',
-            fontSize: 14,
-            padding: '6px 0',
-          }}
-          aria-label="Ask Theseus a question about the graph"
-        />
-        {isAsking ? (
-          <button
-            type="button"
-            onClick={cancel}
-            style={{
-              fontFamily: 'var(--font-mono)',
-              fontSize: 10,
-              letterSpacing: '0.08em',
-              textTransform: 'uppercase',
-              color: 'var(--color-hero-text)',
-              background: 'transparent',
-              border: '1px solid color-mix(in srgb, var(--color-hero-text) 30%, transparent)',
-              padding: '6px 12px',
-              borderRadius: 4,
-              cursor: 'pointer',
-            }}
-          >
-            Stop
-          </button>
-        ) : (
-          <button
-            type="submit"
-            disabled={!query.trim()}
-            style={{
-              fontFamily: 'var(--font-mono)',
-              fontSize: 10,
-              letterSpacing: '0.08em',
-              textTransform: 'uppercase',
-              color: '#fff',
-              background: 'var(--color-terracotta)',
-              border: '1px solid var(--color-terracotta)',
-              padding: '6px 12px',
-              borderRadius: 4,
-              cursor: query.trim() ? 'pointer' : 'not-allowed',
-              opacity: query.trim() ? 1 : 0.5,
-            }}
-          >
-            Ask
-          </button>
-        )}
-      </form>
+    <>
       {expanded && (stageLabel || answer || error || structuredVisual) && (
-        <div
-          style={{
-            background: 'color-mix(in srgb, var(--color-hero-ground) 90%, transparent)',
-            border: '1px solid color-mix(in srgb, var(--color-hero-text) 18%, transparent)',
-            borderRadius: 6,
-            padding: '10px 14px',
-            maxHeight: 260,
-            overflowY: 'auto',
-            fontFamily: 'var(--font-body)',
-            fontSize: 13,
-            lineHeight: 1.5,
-            color: 'var(--color-hero-text)',
-            boxShadow: 'var(--shadow-warm-sm)',
-            backdropFilter: 'blur(8px)',
-          }}
-        >
+        <div className="atlas-chat-transcript">
           {stageLabel && (
-            <div
-              aria-live="polite"
-              style={{
-                fontFamily: 'var(--font-mono)',
-                fontSize: 10,
-                letterSpacing: '0.08em',
-                textTransform: 'uppercase',
-                color: 'var(--color-ink-muted)',
-                marginBottom: answer ? 6 : 0,
-              }}
-            >
+            <div aria-live="polite" className="atlas-chat-msg" style={{ color: 'var(--paper-ink-3)' }}>
+              <span className="role">Θ</span>
               {stageLabel}
             </div>
           )}
           {answer && (
-            <div style={{ whiteSpace: 'pre-wrap' }}>{answer}</div>
+            <div className="atlas-chat-msg" style={{ whiteSpace: 'pre-wrap' }}>
+              <span className="role">Θ</span>
+              {answer}
+            </div>
           )}
           {structuredVisual && (
-            <div style={{ marginTop: 12 }}>
+            <div style={{ marginTop: 8 }}>
               <VisualRenderer
                 visual={structuredVisual}
                 onRegionHover={(region: StructuredVisualRegion | null) => {
@@ -314,32 +217,71 @@ const ExplorerAskComposer: FC<ExplorerAskComposerProps> = ({
             </div>
           )}
           {error && (
-            <div role="alert" style={{ color: 'var(--color-error)' }}>{error}</div>
-          )}
-          {!isAsking && (answer || error) && (
-            <button
-              type="button"
-              onClick={clear}
-              style={{
-                marginTop: 10,
-                fontFamily: 'var(--font-mono)',
-                fontSize: 10,
-                letterSpacing: '0.08em',
-                textTransform: 'uppercase',
-                color: 'var(--color-ink-muted)',
-                background: 'transparent',
-                border: '1px solid color-mix(in srgb, var(--color-hero-text) 20%, transparent)',
-                padding: '4px 10px',
-                borderRadius: 4,
-                cursor: 'pointer',
-              }}
-            >
-              Clear
-            </button>
+            <div role="alert" className="atlas-chat-msg" style={{ color: 'var(--paper-pencil)' }}>
+              <span className="role">!</span>
+              {error}
+            </div>
           )}
         </div>
       )}
-    </div>
+      <form onSubmit={submit} className="atlas-chat-input-row">
+        <textarea
+          className="atlas-chat-input"
+          rows={1}
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' && !e.shiftKey) {
+              e.preventDefault();
+              submit(e as unknown as FormEvent<HTMLFormElement>);
+            }
+          }}
+          placeholder={PLACEHOLDERS[tool ?? 'default']}
+          disabled={isAsking}
+          aria-label="Ask Theseus a question about the graph"
+        />
+      </form>
+      <div className="atlas-chat-tools">
+        <button
+          type="button"
+          className={`atlas-chat-tool${tool === 'simulate' ? ' active' : ''}`}
+          onClick={() => setTool((t) => (t === 'simulate' ? null : 'simulate'))}
+          title="Compose an interactive answer"
+          aria-pressed={tool === 'simulate'}
+        >
+          <span aria-hidden className="dot" /> Simulate
+        </button>
+        <button
+          type="button"
+          className={`atlas-chat-tool${tool === 'search' ? ' active' : ''}`}
+          onClick={() => setTool((t) => (t === 'search' ? null : 'search'))}
+          title="Find subgraphs"
+          aria-pressed={tool === 'search'}
+        >
+          <span aria-hidden className="dot" /> Search
+        </button>
+        {!isAsking && (answer || error) && (
+          <button type="button" className="atlas-chat-tool" onClick={clear}>
+            Clear
+          </button>
+        )}
+        {isAsking ? (
+          <button type="button" className="atlas-chat-send" onClick={cancel} style={{ marginLeft: 'auto' }}>
+            Stop
+          </button>
+        ) : (
+          <button
+            type="submit"
+            className="atlas-chat-send"
+            disabled={!query.trim()}
+            onClick={(e) => submit(e as unknown as FormEvent<HTMLFormElement>)}
+            style={{ marginLeft: 'auto' }}
+          >
+            {tool === 'simulate' ? 'Assemble ↵' : 'Send ↵'}
+          </button>
+        )}
+      </div>
+    </>
   );
 };
 

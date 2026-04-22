@@ -1,8 +1,10 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { getGraphData } from '@/lib/theseus-api';
 import type { GraphNode, GraphEdge } from '@/lib/theseus-types';
+import type { AtlasKind } from '@/components/theseus/atlas/sources';
+import type { AtlasSurfaces } from '@/components/theseus/atlas/useAtlasFilters';
 
 /** Sentinel color value signalling "use the VIE token fallback chain".
  *  The cosmos.gl encoder (`resolveTypeColorRgba`) treats any non-hex
@@ -52,6 +54,40 @@ export interface UseGraphDataResult {
   loading: boolean;
   error: string | null;
   total: { nodes: number; edges: number };
+}
+
+export interface UseGraphDataOptions {
+  /** Active kind set from the Atlas filter block. When a kind is not
+   *  present in the set, nodes of that kind are filtered out. When the
+   *  set covers all known kinds, no filtering is applied. */
+  activeKinds?: Set<AtlasKind>;
+  /** Atlas surface overlay toggles. Codd Graph ON restricts the canvas
+   *  to code-kind / code-sourced nodes so the user sees the code slice
+   *  of the graph. Theseus / Theorem Web overlays are held as metadata
+   *  for the plate label for now — the data layer backing them will
+   *  arrive in a later pass. */
+  surfaces?: AtlasSurfaces;
+}
+
+/** Atlas "code" taxonomy — kinds or object-types that count as code when
+ *  the Code Graph overlay is on. Matches the Atlas KINDS map. */
+const CODE_TYPE_HINTS = new Set(['code', 'github', 'repo', 'commit', 'symbol']);
+/** Kinds we know how to filter on; types outside this set are never
+ *  hidden by the Atlas kind pills. */
+const KNOWN_ATLAS_KINDS = new Set<AtlasKind>([
+  'concept',
+  'finding',
+  'paper',
+  'person',
+  'code',
+  'note',
+]);
+
+function isCodeNode(point: CosmoPoint): boolean {
+  const t = point.type.toLowerCase();
+  if (CODE_TYPE_HINTS.has(t)) return true;
+  if (t.includes('code') || t.includes('git')) return true;
+  return false;
 }
 
 /** Normalise a backend GraphNode (or an unknown record with the same
@@ -116,7 +152,8 @@ export function mapEdge(edge: GraphEdge | Record<string, unknown>): CosmoLink | 
   return { source, target, weight, reason, edge_type, engine };
 }
 
-export function useGraphData(): UseGraphDataResult {
+export function useGraphData(options: UseGraphDataOptions = {}): UseGraphDataResult {
+  const { activeKinds, surfaces } = options;
   const [state, setState] = useState<UseGraphDataResult>({
     points: [],
     links: [],
@@ -161,5 +198,41 @@ export function useGraphData(): UseGraphDataResult {
     };
   }, []);
 
-  return state;
+  // Derive filtered points + links from the raw state plus Atlas surface
+  // and kind filters. When filters are fully-open this is a no-op.
+  const filtered = useMemo((): UseGraphDataResult => {
+    if (state.loading || state.error || state.points.length === 0) return state;
+
+    const codeOnly = surfaces?.codeGraph === true;
+    const kindSet = activeKinds;
+
+    const keepNode = (p: CosmoPoint): boolean => {
+      if (codeOnly && !isCodeNode(p)) return false;
+      if (kindSet && kindSet.size > 0) {
+        // Hide only nodes whose type maps to a known Atlas kind that's
+        // been toggled off. Types outside the catalog pass through.
+        const typeLower = p.type.toLowerCase() as AtlasKind;
+        if (KNOWN_ATLAS_KINDS.has(typeLower) && !kindSet.has(typeLower)) return false;
+      }
+      return true;
+    };
+
+    const nextPoints = state.points.filter(keepNode);
+    if (nextPoints.length === state.points.length) {
+      return state;
+    }
+
+    const keptIds = new Set(nextPoints.map((p) => p.id));
+    const nextLinks = state.links.filter(
+      (l) => keptIds.has(l.source) && keptIds.has(l.target),
+    );
+
+    return {
+      ...state,
+      points: nextPoints,
+      links: nextLinks,
+    };
+  }, [state, activeKinds, surfaces]);
+
+  return filtered;
 }

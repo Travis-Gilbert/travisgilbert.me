@@ -9,13 +9,14 @@ import { dispatchTheseusEvent, type TheseusView } from '@/lib/theseus/events';
  * a text-editing element (textarea, input, or contenteditable) unless
  * explicitly allow-listed.
  */
+// Atlas Places ordering. ⌘1-6 jump across the sidebar.
 const VIEW_BY_DIGIT: Record<string, TheseusView> = {
   '1': 'ask',
   '2': 'explorer',
-  '3': 'intelligence',
-  '4': 'library',
-  '5': 'notebook',
-  '6': 'code',
+  '3': 'connections',
+  '4': 'plugins',
+  '5': 'intelligence',
+  '6': 'notebook',
 };
 
 function isEditingContext(target: EventTarget | null): boolean {
@@ -37,16 +38,6 @@ export function useTheseusKeyboardShortcuts(): void {
         e.preventDefault();
         dispatchTheseusEvent('theseus:switch-panel', {
           panel: VIEW_BY_DIGIT[e.key],
-          source: 'keyboard',
-        });
-        return;
-      }
-
-      // Cmd/Ctrl + , opens Settings.
-      if (mod && e.key === ',') {
-        e.preventDefault();
-        dispatchTheseusEvent('theseus:switch-panel', {
-          panel: 'settings',
           source: 'keyboard',
         });
         return;

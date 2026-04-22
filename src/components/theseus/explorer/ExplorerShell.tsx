@@ -6,10 +6,12 @@ import CosmosGraphCanvas, {
   type CosmosGraphCanvasHandle,
 } from './CosmosGraphCanvas';
 import TheseusErrorBoundary from '@/components/theseus/TheseusErrorBoundary';
-import GraphLegend from './GraphLegend';
-import NodeDetailPanel, { type NodeDetailData } from './NodeDetailPanel';
-import DirectiveBanner from './DirectiveBanner';
 import ExplorerAskComposer from './ExplorerAskComposer';
+import AtlasPlateLabel from './atlas/AtlasPlateLabel';
+import AtlasIngestBar from './atlas/AtlasIngestBar';
+import AtlasGraphControls from './atlas/AtlasGraphControls';
+import AtlasScaleBar from './atlas/AtlasScaleBar';
+import AtlasNodeDetail from './atlas/AtlasNodeDetail';
 import { useGraphData, type CosmoPoint } from './useGraphData';
 import { useEvidenceTextResolver, useLabelResolver } from './useLabelResolver';
 import {
@@ -24,54 +26,44 @@ import { attachSelectionBridge } from '@/lib/theseus/mosaic/selectionBridge';
 import EdgeTypeHistogram from './charts/EdgeTypeHistogram';
 import CommunityStrip from './charts/CommunityStrip';
 import TimelineBrush from './charts/TimelineBrush';
+import { useTheseus } from '@/components/theseus/TheseusShell';
+import type { NodeDetailData } from './NodeDetailPanel';
 import type {
   SceneDirective,
   TopologyInterpretation,
 } from '@/lib/theseus-viz/SceneDirective';
 
-function pickGridAreas(hasDetail: boolean, hasCharts: boolean): string {
-  if (hasDetail && hasCharts) return `"canvas detail" "charts charts"`;
-  if (hasDetail) return `"canvas detail"`;
-  if (hasCharts) return `"canvas" "charts"`;
-  return `"canvas"`;
-}
-
+/**
+ * Atlas Explorer shell — warm-dark + paper-canvas blueprint surface.
+ *
+ * Layout model: the cosmos.gl canvas fills the main area; Atlas chrome
+ * (plate label, ingest bar, node detail, graph controls, chat composer,
+ * scale bar) floats over it via absolute positioning.
+ *
+ * Uses the existing CosmosGraphCanvas + ExplorerAskComposer + SceneDirector
+ * pipeline unchanged; only the surrounding chrome is Atlas-specific.
+ */
 const ExplorerShell: FC = () => {
-  const { points, links, loading, error, total } = useGraphData();
+  const { atlasFilters } = useTheseus();
+  const { points, links, loading, error, total } = useGraphData({
+    activeKinds: atlasFilters.activeKinds,
+    surfaces: atlasFilters.surfaces,
+  });
   const webgl2Support = useWebGL2Support();
   const canvasRef = useRef<CosmosGraphCanvasHandle>(null);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [directiveLabel, setDirectiveLabel] = useState<string | null>(null);
-  const [directiveTopology, setDirectiveTopology] = useState<TopologyInterpretation | null>(null);
+  const [directiveTopology, setDirectiveTopology] =
+    useState<TopologyInterpretation | null>(null);
+  const [measureOpen, setMeasureOpen] = useState(false);
 
   const resolveLabelText = useLabelResolver(points);
   const resolveEvidenceText = useEvidenceTextResolver(points);
 
-  // Opt-in diagnostic: expose the live adapter ref on window so a user
-  // running with ?debugmotion=1 can sanity-check from devtools whether
-  // the cosmos.gl handle is wired up. Behind a feature gate so it never
-  // leaks into production traffic.
-  useEffect(() => {
-    if (typeof window === 'undefined') return;
-    try {
-      const flag = new URLSearchParams(window.location.search).get('debugmotion') === '1'
-        || window.localStorage?.getItem('debugMotion') === '1';
-      if (!flag) return;
-    } catch {
-      return;
-    }
-    const w = window as unknown as { __theseusCanvasRef?: React.RefObject<CosmosGraphCanvasHandle | null> };
-    w.__theseusCanvasRef = canvasRef;
-    // eslint-disable-next-line no-console
-    console.info('[ExplorerShell] debugmotion active. Adapter ref:', canvasRef);
-  }, []);
-
   useEffect(() => {
     const off = onTheseusEvent('explorer:apply-directive', ({ directive }) => {
       const typed = directive as SceneDirective;
-      applySceneDirective(canvasRef.current, typed, {
-        resolveLabelText,
-      });
+      applySceneDirective(canvasRef.current, typed, { resolveLabelText });
       const maybeLabel = (directive as { label?: string }).label;
       setDirectiveLabel(typeof maybeLabel === 'string' ? maybeLabel : 'Focused from chat');
       setDirectiveTopology(readTopologyInterpretation(typed));
@@ -80,11 +72,6 @@ const ExplorerShell: FC = () => {
   }, [resolveLabelText]);
 
   // Phase C: Mosaic Coordinator init + DuckDB ingestion + Selection bridge.
-  // Runs once after the graph data lands; survives StrictMode double-mount
-  // via the disposed flag (init + ingest are idempotent on the singletons).
-  // If WebGL2 is unsupported the canvas never mounts so the bridge step
-  // is skipped; init + ingest still run so Mosaic widgets (charts added
-  // by later phases) still work.
   useEffect(() => {
     if (loading || error) return;
     if (points.length === 0) return;
@@ -94,7 +81,6 @@ const ExplorerShell: FC = () => {
       try {
         await initMosaicCoordinator();
       } catch (err) {
-        // eslint-disable-next-line no-console
         console.warn('[ExplorerShell] Mosaic coordinator init failed', err);
         return;
       }
@@ -102,16 +88,11 @@ const ExplorerShell: FC = () => {
       try {
         await ingestExplorerData(points, links);
       } catch (err) {
-        // eslint-disable-next-line no-console
-        console.warn('[ExplorerShell] Explorer ingest failed; canvas will run unfiltered', err);
+        console.warn('[ExplorerShell] Explorer ingest failed', err);
         return;
       }
       if (disposed) return;
-      if (webgl2Support !== 'supported') {
-        // eslint-disable-next-line no-console
-        console.info('[ExplorerShell] mosaic initialized, canvas unavailable');
-        return;
-      }
+      if (webgl2Support !== 'supported') return;
       const adapter = canvasRef.current;
       if (!adapter) return;
       disposeBridge = attachSelectionBridge(adapter);
@@ -125,234 +106,210 @@ const ExplorerShell: FC = () => {
     };
   }, [points, links, loading, error, webgl2Support]);
 
-  const handleDismissDirective = () => {
+  function handleDismissDirective() {
     setDirectiveLabel(null);
     setDirectiveTopology(null);
     canvasRef.current?.cancelConstruction();
     canvasRef.current?.clearEncoding();
     canvasRef.current?.clearFocalLabels();
     canvasRef.current?.fitView();
-  };
+  }
+
+  function handleFit() {
+    canvasRef.current?.fitView();
+  }
+  function handleReset() {
+    canvasRef.current?.clearEncoding();
+    canvasRef.current?.clearFocalLabels();
+    canvasRef.current?.fitView();
+  }
+  function handleOpenCmdK() {
+    // Defer to the shell-level palette by synthesizing the shortcut.
+    window.dispatchEvent(
+      new KeyboardEvent('keydown', { key: 'k', metaKey: true, bubbles: true }),
+    );
+  }
 
   const selectedNode: NodeDetailData | null =
     (points.find((p: CosmoPoint) => p.id === selectedId) as NodeDetailData | undefined) ?? null;
 
-  const showCharts =
+  const canRenderCanvas =
     !loading && !error && points.length > 0 && webgl2Support === 'supported';
-  const gridAreas = pickGridAreas(Boolean(selectedNode), showCharts);
+  const plateTitle = directiveLabel ?? (selectedNode?.label ?? 'Your personal graph');
 
   return (
-    <div
-      style={{
-        display: 'grid',
-        gridTemplateColumns: selectedNode ? '1fr 420px' : '1fr',
-        gridTemplateRows: showCharts ? '1fr 96px' : '1fr',
-        gridTemplateAreas: gridAreas,
-        height: '100%',
-        width: '100%',
-        background: 'var(--color-hero-ground)',
-        position: 'relative',
-      }}
-    >
+    <div className="atlas-canvas" style={{ flex: 1, minHeight: 0 }}>
+      {loading && (
+        <div
+          aria-busy="true"
+          style={{
+            position: 'absolute',
+            inset: 0,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            color: 'var(--paper-ink-2)',
+            fontFamily: 'var(--font-mono)',
+            fontSize: 11,
+            letterSpacing: '0.1em',
+            textTransform: 'uppercase',
+            zIndex: 2,
+          }}
+        >
+          Loading graph ({total.nodes || '…'} nodes)
+        </div>
+      )}
+      {error && (
+        <div
+          role="alert"
+          style={{
+            position: 'absolute',
+            inset: 0,
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            justifyContent: 'center',
+            color: 'var(--vie-error)',
+            fontFamily: 'var(--font-body)',
+            fontSize: 14,
+            zIndex: 2,
+            padding: 24,
+            textAlign: 'center',
+          }}
+        >
+          <strong style={{ marginBottom: 8 }}>Graph failed to load.</strong>
+          <span style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: 'var(--paper-ink-3)' }}>
+            {error}
+          </span>
+        </div>
+      )}
+      {!loading && !error && points.length === 0 && (
+        <div
+          style={{
+            position: 'absolute',
+            inset: 0,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            color: 'var(--paper-ink-2)',
+            fontFamily: 'var(--font-body)',
+            fontSize: 14,
+            textAlign: 'center',
+            padding: 24,
+          }}
+        >
+          No graph data yet. Drop files anywhere on this surface to ingest.
+        </div>
+      )}
+
+      {canRenderCanvas && (
+        <TheseusErrorBoundary label="explorer-canvas">
+          <CosmosGraphCanvas
+            ref={canvasRef}
+            points={points}
+            links={links}
+            onPointClick={setSelectedId}
+          />
+        </TheseusErrorBoundary>
+      )}
+      {!loading && !error && points.length > 0 && webgl2Support === 'unsupported' && (
+        <div
+          role="alert"
+          style={{
+            position: 'absolute',
+            inset: 0,
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            justifyContent: 'center',
+            color: 'var(--paper-ink-2)',
+            fontFamily: 'var(--font-body)',
+            fontSize: 14,
+            textAlign: 'center',
+            padding: 24,
+            gap: 10,
+            zIndex: 2,
+          }}
+        >
+          <strong>Your browser doesn&rsquo;t support WebGL2.</strong>
+          <span
+            style={{
+              fontFamily: 'var(--font-mono)',
+              fontSize: 11,
+              color: 'var(--paper-ink-3)',
+              maxWidth: 480,
+            }}
+          >
+            Explorer needs WebGL2 to render the graph.
+          </span>
+        </div>
+      )}
+
+      {/* Atlas chrome — absolutely positioned over the canvas. */}
+      <AtlasPlateLabel
+        title={plateTitle}
+        nodes={points.length}
+        edges={links.length}
+        surfaceLabel={atlasFilters.surfaceLabel}
+        directiveActive={Boolean(directiveLabel)}
+        onDismissDirective={handleDismissDirective}
+      />
+
+      <AtlasIngestBar />
+
+      {canRenderCanvas && <AtlasScaleBar zoom={undefined} />}
+
+      {canRenderCanvas && (
+        <AtlasGraphControls
+          onFit={handleFit}
+          onReset={handleReset}
+          onOpenCmdK={handleOpenCmdK}
+          onToggleMeasure={() => setMeasureOpen((v) => !v)}
+          measureOpen={measureOpen}
+        />
+      )}
+
+      {selectedNode && (
+        <AtlasNodeDetail node={selectedNode} onClose={() => setSelectedId(null)} />
+      )}
+
+      {/* Ask composer wraps in .atlas-chat for the paper floating card. */}
       <div
+        className="atlas-chat"
         style={{
-          position: 'absolute',
-          top: 12,
-          right: selectedNode ? 432 : 12,
-          zIndex: 3,
-          transition: 'right 180ms ease-out',
+          // The ExplorerAskComposer renders its own input/submit; the
+          // paper card chrome comes from the .atlas-chat wrapper.
+          padding: '4px 4px 0',
         }}
       >
-        <GraphLegend points={points} />
-      </div>
-
-      <div style={{ gridArea: 'canvas', position: 'relative' }}>
         <ExplorerAskComposer
           canvasAdapter={canvasRef}
           resolveLabelText={resolveLabelText}
           resolveEvidenceText={resolveEvidenceText}
         />
-        {directiveLabel && (
-          <DirectiveBanner
-            label={directiveLabel}
-            topology={directiveTopology}
-            onDismiss={handleDismissDirective}
-          />
-        )}
-        {loading && (
-          <div
-            aria-busy="true"
-            style={{
-              position: 'absolute',
-              inset: 0,
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              color: 'var(--color-hero-text)',
-              fontFamily: 'var(--font-mono)',
-              fontSize: 11,
-              letterSpacing: '0.1em',
-              textTransform: 'uppercase',
-              zIndex: 2,
-            }}
-          >
-            Loading graph ({total.nodes || '...'} nodes)
-          </div>
-        )}
-        {error && (
-          <div
-            role="alert"
-            style={{
-              position: 'absolute',
-              inset: 0,
-              display: 'flex',
-              flexDirection: 'column',
-              alignItems: 'center',
-              justifyContent: 'center',
-              color: 'var(--color-error)',
-              fontFamily: 'var(--font-body)',
-              fontSize: 14,
-              zIndex: 2,
-              padding: 24,
-              textAlign: 'center',
-            }}
-          >
-            <strong style={{ marginBottom: 8 }}>Graph failed to load.</strong>
-            <span style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: 'var(--color-ink-muted)' }}>
-              {error}
-            </span>
-          </div>
-        )}
-        {!loading && !error && points.length === 0 && (
-          <div
-            style={{
-              position: 'absolute',
-              inset: 0,
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              color: 'var(--color-hero-text)',
-              fontFamily: 'var(--font-body)',
-              fontSize: 14,
-              textAlign: 'center',
-              padding: 24,
-            }}
-          >
-            No graph data yet. Drop files anywhere on this surface to ingest.
-          </div>
-        )}
-        {!loading && !error && points.length > 0 && webgl2Support === 'supported' && (
-          <TheseusErrorBoundary label="explorer-canvas">
-            <CosmosGraphCanvas
-              ref={canvasRef}
-              points={points}
-              links={links}
-              onPointClick={setSelectedId}
-            />
-          </TheseusErrorBoundary>
-        )}
-        {!loading && !error && points.length > 0 && webgl2Support === 'unsupported' && (
-          <div
-            role="alert"
-            style={{
-              position: 'absolute',
-              inset: 0,
-              display: 'flex',
-              flexDirection: 'column',
-              alignItems: 'center',
-              justifyContent: 'center',
-              color: 'var(--color-hero-text)',
-              fontFamily: 'var(--font-body)',
-              fontSize: 14,
-              textAlign: 'center',
-              padding: 24,
-              gap: 10,
-              zIndex: 2,
-            }}
-          >
-            <strong>Your browser doesn&rsquo;t support WebGL2.</strong>
-            <span
-              style={{
-                fontFamily: 'var(--font-mono)',
-                fontSize: 11,
-                color: 'var(--color-ink-muted)',
-                maxWidth: 480,
-              }}
-            >
-              Explorer needs WebGL2 to render the graph.{' '}
-              <a
-                href="https://developer.mozilla.org/docs/Web/API/WebGL2RenderingContext"
-                target="_blank"
-                rel="noreferrer"
-                style={{ color: 'var(--color-terracotta)', textDecoration: 'underline' }}
-              >
-                See browser support
-              </a>
-              .
-            </span>
-          </div>
-        )}
-        {!loading && !error && points.length > 0 && webgl2Support === 'supported' && (
-          <div
-            style={{
-              position: 'absolute',
-              left: 16,
-              bottom: 16,
-              zIndex: 3,
-              display: 'flex',
-              alignItems: 'center',
-              gap: 10,
-              fontFamily: 'var(--font-mono)',
-              fontSize: 10,
-              letterSpacing: '0.08em',
-              textTransform: 'uppercase',
-              color: 'var(--color-ink-muted)',
-            }}
-          >
-            <button
-              type="button"
-              onClick={() => canvasRef.current?.fitView()}
-              style={{
-                fontFamily: 'inherit',
-                fontSize: 'inherit',
-                letterSpacing: 'inherit',
-                textTransform: 'inherit',
-                color: 'var(--color-hero-text)',
-                background: 'color-mix(in srgb, var(--color-hero-ground) 70%, transparent)',
-                border: '1px solid color-mix(in srgb, var(--color-hero-text) 30%, transparent)',
-                padding: '5px 10px',
-                borderRadius: 4,
-                cursor: 'pointer',
-              }}
-            >
-              Fit view
-            </button>
-            <span>drag to pan · scroll to zoom · click a node</span>
-          </div>
-        )}
       </div>
 
-      {selectedNode && (
-        <div style={{ gridArea: 'detail', overflow: 'hidden' }}>
-          <NodeDetailPanel node={selectedNode} onClose={() => setSelectedId(null)} />
-        </div>
-      )}
-
-      {showCharts && (
+      {/* Measure strip — collapsible, hosts the three Mosaic widgets. */}
+      {canRenderCanvas && measureOpen && (
         <div
           style={{
-            gridArea: 'charts',
+            position: 'absolute',
+            left: 0,
+            right: 0,
+            bottom: 0,
+            height: 128,
+            borderTop: '1px solid var(--paper-rule)',
+            background: 'rgba(243, 239, 230, 0.85)',
+            backdropFilter: 'blur(6px)',
             display: 'grid',
             gridTemplateColumns: '1fr 1fr 1fr',
-            borderTop: '1px solid var(--cp-surface-border, var(--color-border))',
-            background: 'var(--color-hero-ground)',
-            overflow: 'hidden',
+            zIndex: 5,
           }}
         >
-          <div style={{ borderRight: '1px solid var(--cp-surface-border, var(--color-border))' }}>
+          <div style={{ borderRight: '1px solid var(--paper-rule)' }}>
             <EdgeTypeHistogram />
           </div>
-          <div style={{ borderRight: '1px solid var(--cp-surface-border, var(--color-border))' }}>
+          <div style={{ borderRight: '1px solid var(--paper-rule)' }}>
             <CommunityStrip />
           </div>
           <div>

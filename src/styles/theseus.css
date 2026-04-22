@@ -1,99 +1,179 @@
-/* Theseus VIE: tokens and base styles.
-   Scoped to .theseus-root to avoid conflicts with CommonPlace --cp-* tokens.
+/* Theseus VIE: Atlas design language.
+   Scoped to .theseus-root to avoid conflicts with CommonPlace --cp-* tokens
+   and the main-site Patent Parchment palette.
 
-   V2 PALETTE FORK: every Theseus-scoped --vie-* name is now an alias for a
-   main-site Patent Parchment token declared in src/styles/global.css. Light
-   and dark modes flow through automatically via html[data-theme="dark"].
-   Do not introduce new colour literals here. Add them to global.css and
-   alias below. */
+   ATLAS FORK (2026-04-21): warm-dark ink-brown surfaces with iridescent
+   brass/rose/plum washes. Single palette — no data-theme swap inside
+   Theseus. IBM Plex Sans + IBM Plex Mono + Vollkorn display. Tokens are
+   named after their Atlas role; legacy --vie-* names kept as aliases so
+   existing component CSS keeps rendering through the palette change. */
 
 .theseus-root {
+  /* Atlas surfaces — dark ink, close-to-black with a warm undertone.
+     Sidebar sits slightly inky-blue so the iridescent wash reads. */
+  --app-base:    #1A1817;
+  --top-chrome:  #1F1D1C;
+  --sidebar:     #171110;
+  --panel:       #2A2725;
+  --panel-2:     #322E2C;
+  --panel-3:     #3C3734;
+
+  /* Iridescent tones — very low intensity washes for chrome only. */
+  --tone-brass:  rgba(176, 148, 104, 0.07);
+  --tone-rose:   rgba(162, 124, 116, 0.05);
+  --tone-plum:   rgba(108, 96, 122, 0.05);
+  --tone-blue:   rgba(72, 96, 138, 0.10);
+  --tone-ink:    rgba(40, 58, 92, 0.14);
+  --tone-bone:   rgba(232, 222, 208, 0.05);
+
+  /* Patina'd solids — slightly muted accents. */
+  --brass:       #B09468;
+  --rose:        #A27C74;
+  --plum:        #6C607A;
+  --blue:        #606E86;
+  --bone:        #E8DED0;
+
+  /* Ink (type) — softer, less saturated warm. */
+  --ink:         #E6DDD0;
+  --ink-2:       #B8AC9E;
+  --ink-3:       #847869;
+  --ink-4:       #554B44;
+  --rule:        rgba(232, 222, 208, 0.06);
+  --rule-strong: rgba(232, 222, 208, 0.14);
+
+  /* Accent (the "pencil" role = brass glow). */
+  --pencil:      var(--brass);
+  --accent:      var(--brass);
+  --accent-color: var(--brass);
+
+  /* Paper palette kept for Ask Correspondence surface. */
+  --paper:       #f3efe6;
+  --paper-2:     #ece7db;
+  --paper-3:     #e2dcc9;
+  --paper-ink:   #140E0C;
+  --paper-ink-2: #2E241F;
+  --paper-ink-3: #554A43;
+  --paper-rule:  #b8ae98;
+  --paper-pencil:#a8301e;
+
+  /* Kind colors — rebalanced for warm-dark backdrops. */
+  --sage:   #7FA37A;
+  --indigo: #9AA6D4;
+  --ochre:  var(--brass);
+  --teal:   #7DB8B4;
+  --mauve:  var(--rose);
+  --lilac:  var(--plum);
+
+  /* Tweakables. */
+  --sidebar-w:     220px;
+  --grid-size:     28px;
+  --grid-opacity:  0.10;
+
+  /* Typography (Atlas uses IBM Plex Sans body, Vollkorn display,
+     IBM Plex Mono for labels/kbd/metadata). We keep alias names so the
+     legacy --vie-font-* classes keep resolving through the change. */
+  --font-body:    var(--font-ibm-plex, 'IBM Plex Sans', system-ui, sans-serif);
+  --font-display: var(--font-vollkorn, Georgia, serif);
+  --font-ui:      var(--font-ibm-plex, 'IBM Plex Sans', system-ui, sans-serif);
+  --font-mono:    var(--font-ibm-plex-mono, var(--font-jetbrains-mono), ui-monospace, monospace);
+
+  /* ── Legacy --vie-* aliases (re-pointed at Atlas tokens) ────────────
+     Existing component CSS still references --vie-*; we map every one to
+     its Atlas equivalent so the palette switches without a 39-file
+     refactor. New Atlas components should consume the raw tokens above. */
+
   /* Surfaces */
-  --vie-bg:            var(--color-paper);          /* page background */
-  --vie-bg-subtle:     var(--color-surface);        /* panel surface */
-  --vie-card:          var(--color-card);
-  --vie-code:          var(--color-code);
-  --vie-chrome-bg:     var(--color-nav-bg);         /* sidebar + topbar chrome */
-  --vie-panel-bg:      var(--color-theseus-panel);  /* translucent parchment for answer cards */
-  --vie-hero-ground:   var(--color-hero-ground);    /* Explorer graph surface */
-  --vie-hero-text:     var(--color-hero-text);
+  --vie-bg:            var(--app-base);
+  --vie-bg-subtle:     var(--panel);
+  --vie-card:          var(--panel);
+  --vie-code:          var(--panel-3);
+  --vie-chrome-bg:     var(--sidebar);
+  --vie-panel-bg:      var(--panel);
+  --vie-hero-ground:   var(--app-base);
+  --vie-hero-text:     var(--ink);
 
   /* Text */
-  --vie-text:          var(--color-ink);
-  --vie-text-muted:    var(--color-ink-muted);
-  --vie-text-dim:      var(--color-ink-light);
-  --vie-text-ghost:    var(--color-ink-light);      /* legacy alias */
+  --vie-text:          var(--ink);
+  --vie-text-muted:    var(--ink-2);
+  --vie-text-dim:      var(--ink-3);
+  --vie-text-ghost:    var(--ink-4);
 
   /* Borders */
-  --vie-border:        var(--color-border);
-  --vie-border-light:  var(--color-border-light);
-  --vie-border-active: color-mix(in srgb, var(--color-terracotta) 40%, transparent);
-  --vie-border-focus:  var(--color-terracotta);
+  --vie-border:        var(--rule-strong);
+  --vie-border-light:  var(--rule);
+  --vie-border-active: color-mix(in srgb, var(--brass) 40%, transparent);
+  --vie-border-focus:  var(--brass);
 
-  /* Shadows (warm brown-tinted) */
-  --vie-shadow-sm:     var(--shadow-warm-sm);
-  --vie-shadow:        var(--shadow-warm);
-  --vie-shadow-lg:     var(--shadow-warm-lg);
+  /* Shadows (warm ink-brown tinted) */
+  --vie-shadow-sm:     0 2px 6px rgba(0, 0, 0, 0.25);
+  --vie-shadow:        0 8px 20px -6px rgba(0, 0, 0, 0.38);
+  --vie-shadow-lg:     0 24px 48px -14px rgba(0, 0, 0, 0.55);
 
-  /* Brand (terracotta, teal, gold) */
-  --vie-terra:         var(--color-terracotta);
-  --vie-terra-hover:   var(--color-terracotta-hover);
-  --vie-terra-light:   var(--color-terracotta-light);
-  --vie-teal:          var(--color-teal);
-  --vie-teal-light:    var(--color-teal-light);
-  --vie-amber:         var(--color-gold);
-  --vie-amber-light:   var(--color-gold-light);
-  --vie-purple:        #8B7AA8;                     /* muted plum for claim type */
+  /* Brand aliases — terracotta → rose, gold → brass (kept legacy hues
+     for anything truly committed to a specific colour, but default to
+     Atlas patina solids). */
+  --vie-terra:         var(--rose);
+  --vie-terra-hover:   #B58478;
+  --vie-terra-light:   color-mix(in srgb, var(--rose) 65%, transparent);
+  --vie-teal:          var(--teal);
+  --vie-teal-light:    color-mix(in srgb, var(--teal) 80%, transparent);
+  --vie-amber:         var(--brass);
+  --vie-amber-light:   color-mix(in srgb, var(--brass) 80%, transparent);
+  --vie-purple:        var(--plum);
 
   /* Semantic */
-  --vie-success:       var(--color-success);
-  --vie-error:         var(--color-error);
+  --vie-success:       var(--sage);
+  --vie-error:         #C97373;
 
   /* Object type colours (Cosmograph nodes) */
-  --vie-type-source:   var(--color-teal);
-  --vie-type-person:   var(--color-terracotta);
-  --vie-type-concept:  var(--color-success);
-  --vie-type-hunch:    var(--color-gold);
-  --vie-type-note:     var(--color-ink-muted);
-  --vie-type-claim:    #8B7AA8;
-  --vie-type-tension:  var(--color-error);
+  --vie-type-source:   var(--teal);
+  --vie-type-person:   var(--rose);
+  --vie-type-concept:  var(--indigo);
+  --vie-type-hunch:    var(--brass);
+  --vie-type-note:     var(--lilac);
+  --vie-type-claim:    var(--plum);
+  --vie-type-tension:  var(--vie-error);
 
   /* Engine live state */
-  --vie-engine-idle:   var(--color-teal-light);
-  --vie-engine-active: #3DD6C4;
+  --vie-engine-idle:   color-mix(in srgb, var(--teal) 70%, transparent);
+  --vie-engine-active: var(--teal);
 
-  /* Reading-panel legacy aliases (kept for components not yet restyled) */
-  --vie-panel-card:    var(--color-card);
-  --vie-panel-hover:   var(--color-bg-alt);
-  --vie-panel-border:  var(--color-border);
-  --vie-panel-shadow:  rgba(42, 36, 32, 0.10);
-  --vie-ink-1:         var(--color-ink);
-  --vie-ink-2:         var(--color-ink-muted);
-  --vie-ink-3:         var(--color-ink-light);
-  --vie-ink-4:         var(--color-ink-light);
-  --vie-teal-ink:      var(--color-teal);
-  --vie-amber-ink:     var(--color-gold);
-  --vie-terra-ink:     var(--color-terracotta);
-  --vie-surface-panel: var(--color-surface);
-  --vie-surface-panel-border: var(--color-border);
-  --vie-surface-panel-glow: var(--shadow-warm-lg);
+  /* Reading-panel legacy aliases */
+  --vie-panel-card:    var(--panel);
+  --vie-panel-hover:   var(--panel-2);
+  --vie-panel-border:  var(--rule-strong);
+  --vie-panel-shadow:  rgba(0, 0, 0, 0.28);
+  --vie-ink-1:         var(--ink);
+  --vie-ink-2:         var(--ink-2);
+  --vie-ink-3:         var(--ink-3);
+  --vie-ink-4:         var(--ink-4);
+  --vie-teal-ink:      var(--teal);
+  --vie-amber-ink:     var(--brass);
+  --vie-terra-ink:     var(--rose);
+  --vie-surface-panel: var(--panel);
+  --vie-surface-panel-border: var(--rule-strong);
+  --vie-surface-panel-glow: var(--vie-shadow-lg);
 
-  /* Typography (inherit from main site) */
-  --vie-font-title:    var(--font-title);
+  /* Typography aliases */
+  --vie-font-title:    var(--font-display);
   --vie-font-body:     var(--font-body);
   --vie-font-mono:     var(--font-mono);
-  --vie-font-code:     var(--font-code);
+  --vie-font-code:     var(--font-mono);
 
-  background: var(--vie-bg);
-  color: var(--vie-text);
+  background: var(--app-base);
+  color: var(--ink);
   min-height: 100vh;
   position: relative;
   overflow: hidden;
+  font-family: var(--font-ui);
+  font-size: 13px;
+  letter-spacing: -0.003em;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
-/* Dark mode: main-site tokens swap via html[data-theme="dark"] in global.css,
-   so every --vie-* alias above resolves to the dark value automatically. No
-   Theseus-specific overrides needed here. */
+/* Atlas has a single palette. The main-site data-theme swap does not
+   apply inside Theseus — .theseus-root locks its own tokens. */
 
 /* V2 Batch 1: main-site DotGrid background, fixed behind all panel content.
    The main DotGrid itself sets its own canvas to z-index: -1 inside the
@@ -5714,4 +5794,899 @@
   .explorer-skeleton-row {
     animation: none;
   }
+}
+
+/* ═════════════════════════════════════════════════════════════════
+   ATLAS SHELL — two-column grid, sidebar + main (2026-04-21)
+   ═════════════════════════════════════════════════════════════════ */
+
+.theseus-root {
+  width: 100vw;
+  height: 100vh;
+  display: grid;
+  grid-template-columns: var(--sidebar-w) 1fr;
+  background: var(--app-base);
+}
+
+.atlas-sidebar {
+  grid-column: 1;
+  border-right: 1px solid var(--rule-strong);
+  background: var(--sidebar);
+  background-image:
+    radial-gradient(120% 70% at 0% 0%, var(--tone-ink), transparent 55%),
+    radial-gradient(100% 60% at 100% 100%, var(--tone-blue), transparent 50%),
+    radial-gradient(80% 40% at 50% 40%, rgba(72, 96, 138, 0.05), transparent 60%);
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
+
+  /* Cooler + higher-contrast ink inside the sidebar so navigation reads
+     distinct from content ink in the main surface. */
+  --ink:   #F3F0EA;
+  --ink-2: #D7D3CB;
+  --ink-3: #A7B0BE;
+  --ink-4: #6A7383;
+}
+
+.atlas-sidebar-scroll {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 16px 14px 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+.atlas-sidebar-scroll::-webkit-scrollbar { width: 0; height: 0; display: none; }
+
+.atlas-emblem {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--rule);
+}
+.atlas-emblem .mark {
+  width: 26px;
+  height: 26px;
+  display: grid;
+  place-items: center;
+  border: 1px solid var(--ink-2);
+  border-radius: 3px;
+  font-family: var(--font-body);
+  font-weight: 500;
+  font-size: 15px;
+  color: var(--ink);
+  background: linear-gradient(135deg, var(--tone-brass), var(--tone-rose));
+}
+.atlas-emblem .name {
+  font-family: var(--font-display);
+  font-weight: 500;
+  font-size: 18px;
+  letter-spacing: -0.01em;
+  color: var(--ink);
+}
+.atlas-emblem .vol {
+  margin-left: auto;
+  font: 500 9px/1 var(--font-mono);
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+}
+
+.atlas-group { display: flex; flex-direction: column; gap: 2px; }
+
+.atlas-group-eyebrow {
+  font: 500 10px/1 var(--font-mono);
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+  padding-bottom: 6px;
+  margin-bottom: 2px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.atlas-nav-item {
+  all: unset;
+  display: grid;
+  grid-template-columns: 18px 1fr auto;
+  align-items: center;
+  padding: 7px 8px;
+  font-family: var(--font-body);
+  font-size: 14.5px;
+  font-weight: 400;
+  color: var(--ink-2);
+  cursor: pointer;
+  letter-spacing: -0.005em;
+  border-radius: 3px;
+  gap: 8px;
+}
+.atlas-nav-item:hover {
+  background: var(--tone-bone);
+  color: var(--ink);
+}
+.atlas-nav-item .n {
+  font: 500 10px/1 var(--font-mono);
+  letter-spacing: 0.08em;
+  color: var(--ink-3);
+}
+.atlas-nav-item .meta {
+  text-align: right;
+  font: 500 10px/1 var(--font-mono);
+  color: var(--ink-3);
+  opacity: 0.7;
+}
+.atlas-nav-item.active {
+  background: linear-gradient(90deg, var(--tone-brass), var(--tone-rose));
+  color: var(--ink);
+  box-shadow: inset 2px 0 0 var(--accent-color);
+}
+.atlas-nav-item.active .n { color: var(--accent-color); }
+.atlas-nav-item .swatch {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  justify-self: center;
+}
+
+.atlas-place-row {
+  display: grid;
+  grid-template-columns: 18px 1fr auto auto;
+  align-items: center;
+  padding: 7px 8px;
+  gap: 8px;
+  border-radius: 3px;
+  cursor: default;
+}
+.atlas-place-row:hover { background: var(--tone-bone); }
+.atlas-place-row.active {
+  background: linear-gradient(90deg, var(--tone-brass), var(--tone-rose));
+  box-shadow: inset 2px 0 0 var(--accent-color);
+}
+.atlas-place-row .n {
+  font: 500 10px/1 var(--font-mono);
+  letter-spacing: 0.08em;
+  color: var(--ink-3);
+}
+.atlas-place-row.active .n { color: var(--accent-color); }
+.atlas-place-row .label-btn {
+  all: unset;
+  cursor: pointer;
+  font: 500 14.5px/1 var(--font-body);
+  letter-spacing: -0.005em;
+  color: var(--ink-2);
+}
+.atlas-place-row.active .label-btn { color: var(--ink); }
+.atlas-place-row .meta {
+  text-align: right;
+  font: 500 10px/1 var(--font-mono);
+  color: var(--ink-3);
+  opacity: 0.7;
+}
+.atlas-place-row .chev {
+  all: unset;
+  cursor: pointer;
+  width: 20px;
+  height: 20px;
+  display: grid;
+  place-items: center;
+  color: var(--ink-3);
+  font: 500 11px/1 var(--font-mono);
+  transition: transform 140ms;
+}
+.atlas-place-row .chev[data-open="true"] { transform: rotate(90deg); }
+
+.atlas-place-children {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  padding-left: 18px;
+  margin-top: 2px;
+  margin-bottom: 4px;
+  margin-left: 14px;
+  border-left: 1px solid var(--rule);
+}
+.atlas-place-children-sep {
+  font: 500 9px/1 var(--font-mono);
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+  padding: 8px 10px 4px;
+}
+.atlas-place-children .atlas-nav-item {
+  grid-template-columns: 14px 1fr auto;
+  padding-left: 10px;
+}
+.atlas-place-note {
+  font: 400 11px/1.35 var(--font-body);
+  color: var(--ink-3);
+  padding-left: 12px;
+  margin-top: 2px;
+}
+
+.atlas-surface-check {
+  all: unset;
+  display: grid;
+  grid-template-columns: 18px 14px 1fr auto;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 10px 5px 10px;
+  font-family: var(--font-body);
+  font-size: 13.5px;
+  cursor: pointer;
+  border-radius: 3px;
+  color: var(--ink-3);
+}
+.atlas-surface-check.is-on { color: var(--ink); }
+.atlas-surface-check:hover { background: var(--tone-bone); }
+.atlas-surface-check .box {
+  width: 12px;
+  height: 12px;
+  border-radius: 2px;
+  border: 1px solid var(--rule-strong);
+  display: grid;
+  place-items: center;
+  color: var(--app-base);
+  font-family: var(--font-mono);
+  font-size: 9px;
+  font-weight: 700;
+}
+.atlas-surface-check.is-on .box {
+  background: var(--accent-color);
+  border-color: var(--accent-color);
+}
+.atlas-surface-check .swatch { width: 6px; height: 6px; border-radius: 50%; }
+.atlas-surface-check .meta {
+  font: 500 10px/1 var(--font-mono);
+  color: var(--ink-3);
+  opacity: 0.55;
+}
+
+.atlas-filter-block {
+  border-top: 1px solid var(--rule);
+  background: rgba(0, 0, 0, 0.12);
+  padding: 10px 14px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.atlas-filter-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font: 500 10px/1 var(--font-mono);
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+  cursor: pointer;
+  user-select: none;
+  background: transparent;
+  border: 0;
+  padding: 0;
+}
+.atlas-filter-head .caret { color: var(--ink-3); }
+.atlas-filter-pills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+.atlas-filter-pills .chip {
+  all: unset;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 7px;
+  font: 500 9.5px/1 var(--font-mono);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  border: 1px solid var(--rule-strong);
+  border-radius: 999px;
+  color: var(--ink-3);
+  background: transparent;
+}
+.atlas-filter-pills .chip.on {
+  color: var(--ink);
+  background: var(--tone-bone);
+  border-color: var(--rule-strong);
+}
+.atlas-filter-pills .chip .sw {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  opacity: 0.5;
+}
+.atlas-filter-pills .chip.on .sw { opacity: 1; }
+
+/* Atlas main surface. Overrides the legacy .theseus-content offset. */
+.atlas-main {
+  grid-column: 2;
+  min-width: 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  background: var(--app-base);
+  position: relative;
+}
+
+/* ── Command palette ─────────────────────────────────────────── */
+.atlas-cmdk-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.55);
+  display: grid;
+  place-items: start center;
+  padding-top: 140px;
+  z-index: 100;
+  backdrop-filter: blur(4px);
+}
+.atlas-cmdk {
+  width: 540px;
+  max-width: calc(100% - 32px);
+  background: var(--panel);
+  background-image: linear-gradient(180deg, var(--tone-bone), transparent 70%);
+  border: 1px solid var(--rule-strong);
+  border-radius: 6px;
+  box-shadow: 0 40px 80px -20px rgba(0, 0, 0, 0.6);
+}
+.atlas-cmdk-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 14px;
+  border-bottom: 1px solid var(--rule);
+}
+.atlas-cmdk-eyebrow {
+  font: 500 10px/1 var(--font-mono);
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+}
+.atlas-cmdk-input {
+  flex: 1;
+  outline: none;
+  border: 0;
+  background: transparent;
+  font-family: var(--font-mono);
+  font-size: 14px;
+  color: var(--ink);
+}
+.atlas-cmdk-input::placeholder { color: var(--ink-3); }
+.atlas-cmdk-list { padding: 6px; }
+.atlas-cmdk-item {
+  display: flex;
+  justify-content: space-between;
+  padding: 10px;
+  border-radius: 2px;
+  font-family: var(--font-body);
+  font-size: 16px;
+  color: var(--ink-2);
+  cursor: pointer;
+  background: transparent;
+  border: 0;
+  width: 100%;
+  text-align: left;
+}
+.atlas-cmdk-item:hover,
+.atlas-cmdk-item.is-active {
+  background: var(--tone-bone);
+  color: var(--ink);
+}
+.atlas-cmdk-item .kind {
+  font: 500 10px/1 var(--font-mono);
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+  align-self: center;
+}
+
+/* ── Atlas Explorer chrome (paper canvas, floating composer, parchment-glass) ── */
+
+.atlas-canvas {
+  flex: 1;
+  position: relative;
+  min-height: 0;
+  overflow: hidden;
+  background: var(--paper);
+  color: var(--paper-ink);
+  /* Darker grid lines with a light sub-grid at 1/4 the spacing so the
+     blueprint reads strongly against the paper. */
+  --grid-line:     rgba(120, 104, 82, 0.55);
+  --grid-sub-line: rgba(120, 104, 82, 0.18);
+  background-image:
+    linear-gradient(var(--grid-line) 1px, transparent 1px),
+    linear-gradient(90deg, var(--grid-line) 1px, transparent 1px),
+    linear-gradient(var(--grid-sub-line) 1px, transparent 1px),
+    linear-gradient(90deg, var(--grid-sub-line) 1px, transparent 1px);
+  background-size:
+    var(--grid-size) var(--grid-size),
+    var(--grid-size) var(--grid-size),
+    calc(var(--grid-size) / 4) calc(var(--grid-size) / 4),
+    calc(var(--grid-size) / 4) calc(var(--grid-size) / 4);
+  /* Override ink tokens inside the canvas so absolutely-positioned
+     chrome children render against paper ink. */
+  --ink:         var(--paper-ink);
+  --ink-2:       var(--paper-ink-2);
+  --ink-3:       var(--paper-ink-3);
+  --ink-4:       #a89d8f;
+  --rule:        var(--paper-rule);
+  --rule-strong: #a89d8f;
+  --pencil:      var(--paper-pencil);
+  --accent-color: var(--paper-pencil);
+}
+.atlas-canvas > * { position: relative; z-index: 1; }
+
+.parchment-glass {
+  background: rgba(243, 239, 230, 0.62);
+  background-image:
+    radial-gradient(120% 80% at 0% 0%, rgba(168, 140, 108, 0.10), transparent 60%),
+    radial-gradient(80% 60% at 100% 100%, rgba(102, 122, 150, 0.07), transparent 60%);
+  backdrop-filter: blur(10px) saturate(1.05);
+  -webkit-backdrop-filter: blur(10px) saturate(1.05);
+  border: 1px solid rgba(120, 104, 82, 0.40);
+  box-shadow:
+    0 18px 44px -18px rgba(30, 22, 18, 0.30),
+    inset 0 1px 0 rgba(255, 250, 238, 0.45);
+  color: var(--paper-ink);
+}
+
+/* Floating graph controls (bottom-right) */
+.atlas-graph-controls {
+  position: absolute;
+  right: 16px;
+  bottom: 16px;
+  z-index: 6;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.atlas-gc-btn {
+  all: unset;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 10px;
+  font: 500 10px/1 var(--font-mono);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--paper-ink-2);
+  background: rgba(243, 239, 230, 0.62);
+  backdrop-filter: blur(10px) saturate(1.05);
+  -webkit-backdrop-filter: blur(10px) saturate(1.05);
+  border: 1px solid rgba(120, 104, 82, 0.40);
+  border-radius: 3px;
+  box-shadow: 0 2px 6px rgba(30, 22, 18, 0.12);
+}
+.atlas-gc-btn:hover { color: var(--paper-ink); border-color: var(--paper-pencil); }
+.atlas-gc-btn kbd {
+  background: transparent;
+  border: 0;
+  padding: 0;
+  color: var(--paper-ink-3);
+  font-size: 10px;
+}
+
+/* Atlas chat composer — paper card. Default layout is in-flow (used by
+   the Threads panel composer at the bottom of the viewport). When placed
+   over the Explorer canvas, the `.atlas-canvas > .atlas-chat` selector
+   promotes it to absolute-centered floating. */
+.atlas-chat {
+  display: flex;
+  flex-direction: column;
+  background: var(--paper);
+  color: var(--paper-ink);
+  border: 1px solid var(--paper-rule);
+  border-radius: 6px;
+  box-shadow:
+    0 24px 48px -16px rgba(0, 0, 0, 0.35),
+    0 2px 6px rgba(0, 0, 0, 0.15);
+}
+
+.atlas-canvas .atlas-chat {
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  bottom: 56px;
+  width: min(720px, calc(100% - 48px));
+  z-index: 10;
+}
+
+/* Threads composer variant: sit in the sticky footer inside .ask-paper,
+   take full width of the thread column. */
+.ask-paper .atlas-chat {
+  width: 100%;
+  max-width: var(--thread-max-width, 44rem);
+  margin: 0 auto;
+}
+.atlas-chat-input-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 12px 14px 8px;
+}
+.atlas-chat-input {
+  flex: 1;
+  outline: none;
+  border: 0;
+  background: transparent;
+  resize: none;
+  font-family: var(--font-body);
+  font-size: 15px;
+  line-height: 1.5;
+  color: var(--paper-ink);
+  min-height: 22px;
+  max-height: 120px;
+}
+.atlas-chat-input::placeholder { color: var(--paper-ink-3); }
+.atlas-chat-tools {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px 10px;
+}
+.atlas-chat-tool {
+  all: unset;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 9px;
+  font: 500 10px/1 var(--font-mono);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  border: 1px solid var(--paper-rule);
+  border-radius: 999px;
+  color: var(--paper-ink-2);
+  background: transparent;
+}
+.atlas-chat-tool:hover { color: var(--paper-ink); border-color: var(--paper-pencil); }
+.atlas-chat-tool.active {
+  color: var(--paper);
+  background: var(--paper-pencil);
+  border-color: var(--paper-pencil);
+}
+.atlas-chat-tool .dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: currentColor;
+  opacity: 0.6;
+}
+.atlas-chat-send {
+  all: unset;
+  cursor: pointer;
+  margin-left: auto;
+  font: 500 10px/1 var(--font-mono);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  padding: 6px 12px;
+  border-radius: 2px;
+  background: var(--paper-pencil);
+  color: var(--paper);
+}
+.atlas-chat-send:hover { filter: brightness(1.08); }
+.atlas-chat-send[disabled] {
+  background: #d6ccb8;
+  color: var(--paper-ink-3);
+  cursor: default;
+}
+
+/* Atlas ingest bar (top-right of canvas) */
+.atlas-ingest {
+  position: absolute;
+  top: 14px;
+  right: 14px;
+  z-index: 6;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 8px 5px 10px;
+  background: var(--paper);
+  border: 1px solid var(--paper-rule);
+  border-radius: 3px;
+  box-shadow: 0 6px 16px -6px rgba(0, 0, 0, 0.15);
+  width: 320px;
+  max-width: calc(100% - 260px);
+  color: var(--paper-ink);
+}
+.atlas-ingest input {
+  flex: 1;
+  outline: none;
+  border: 0;
+  background: transparent;
+  font: 500 11px/1.2 var(--font-mono);
+  color: var(--paper-ink);
+}
+.atlas-ingest input::placeholder { color: var(--paper-ink-3); }
+.atlas-ingest button {
+  all: unset;
+  cursor: pointer;
+  font: 500 9px/1 var(--font-mono);
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  padding: 5px 8px;
+  border-radius: 2px;
+  color: var(--paper);
+  background: var(--paper-ink);
+}
+.atlas-ingest button:hover { background: var(--paper-pencil); }
+
+/* Atlas topbar (Ask / Connections / Plugins crumb) */
+.atlas-topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 22px;
+  border-bottom: 1px solid var(--rule);
+  background: var(--top-chrome);
+  background-image: linear-gradient(180deg, var(--tone-bone), transparent 80%);
+  min-height: 40px;
+  color: var(--ink);
+  flex-shrink: 0;
+}
+.atlas-crumbs {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-family: var(--font-body);
+  font-size: 15px;
+  color: var(--ink-2);
+}
+.atlas-crumbs .sep { color: var(--ink-4); }
+.atlas-crumbs .active { color: var(--ink); font-weight: 500; }
+.atlas-tools { display: flex; align-items: center; gap: 6px; }
+.atlas-tool {
+  all: unset;
+  font: 500 11px/1 var(--font-mono);
+  letter-spacing: 0.06em;
+  padding: 6px 10px;
+  border: 1px solid var(--rule-strong);
+  background: rgba(0, 0, 0, 0.2);
+  color: var(--ink-2);
+  border-radius: 2px;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+.atlas-tool:hover { color: var(--ink); border-color: var(--accent-color); }
+.atlas-tool.active {
+  background: var(--accent-color);
+  color: var(--app-base);
+  border-color: var(--accent-color);
+}
+
+/* Atlas Correspondence (Ask) paper surface */
+.ask-paper {
+  background: var(--paper);
+  color: var(--paper-ink);
+  background-image:
+    url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='240' height='240'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 0.08  0 0 0 0 0.05  0 0 0 0 0.03  0 0 0 0.10 0'/></filter><rect width='100%25' height='100%25' filter='url(%23n)'/></svg>"),
+    url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='360' height='360'><filter id='n2'><feTurbulence type='fractalNoise' baseFrequency='0.22' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 0.30  0 0 0 0 0.20  0 0 0 0 0.10  0 0 0 0.07 0'/></filter><rect width='100%25' height='100%25' filter='url(%23n2)'/></svg>"),
+    radial-gradient(140% 90% at 20% 10%, rgba(228, 214, 184, 0.55), transparent 60%),
+    radial-gradient(120% 80% at 80% 100%, rgba(192, 172, 140, 0.35), transparent 60%),
+    linear-gradient(var(--paper), var(--paper));
+  background-repeat: repeat, repeat, no-repeat, no-repeat, no-repeat;
+  background-blend-mode: multiply, multiply, normal, normal, normal;
+  /* Re-point ink tokens to the paper palette so child components that
+     consume --vie-* aliases render as paper ink instead of warm-dark. */
+  --ink:         var(--paper-ink);
+  --ink-2:       var(--paper-ink-2);
+  --ink-3:       var(--paper-ink-3);
+  --ink-4:       #a89d8f;
+  --rule:        var(--paper-rule);
+  --rule-strong: #a89d8f;
+  --pencil:      var(--paper-pencil);
+  --accent-color: var(--paper-pencil);
+  --vie-text:         var(--paper-ink);
+  --vie-text-muted:   var(--paper-ink-2);
+  --vie-text-dim:     var(--paper-ink-3);
+  --vie-border:       var(--paper-rule);
+  --vie-border-light: var(--paper-rule);
+  --vie-border-focus: var(--paper-pencil);
+  --vie-bg:           var(--paper);
+  --vie-bg-subtle:    var(--paper-2);
+  --vie-card:         var(--paper-2);
+  --vie-panel-bg:     var(--paper-2);
+}
+.ask-paper .eyebrow { color: var(--paper-ink-3); }
+
+/* Paper-surface override for the Atlas Threads empty state. When the
+   thread is empty the composer stays sticky at the bottom of the viewport
+   by default; we add a quiet eyebrow + headline above it so the paper
+   doesn't read as blank. No fake data — the headline is scene-agnostic. */
+.ask-paper .aui-thread-root {
+  position: relative;
+}
+.ask-paper .aui-thread-welcome-root {
+  min-height: 40%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  padding: 48px 32px;
+  text-align: center;
+  color: var(--paper-ink-3);
+}
+.ask-paper .aui-thread-welcome-root::before {
+  content: 'Threads · start a new one';
+  font: 500 10px/1 var(--font-mono);
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--paper-pencil);
+}
+
+/* Paper treatment for the shared ChatComposer (assistant-ui primitives).
+   Targets the actual rendered structure (.aui-composer-root is a <form>
+   wrapper; [data-slot="aui_composer-shell"] is the bordered chrome
+   container; .aui-composer-input is the textarea). */
+.ask-paper .aui-thread-viewport-footer {
+  background: transparent;
+}
+.ask-paper .aui-composer-root {
+  background: transparent;
+}
+.ask-paper [data-slot="aui_composer-shell"] {
+  background: rgba(243, 239, 230, 0.92);
+  color: var(--paper-ink);
+  border-color: var(--paper-rule);
+  box-shadow: 0 10px 24px -12px rgba(30, 22, 18, 0.22);
+  backdrop-filter: blur(6px);
+}
+.ask-paper .aui-composer-input {
+  color: var(--paper-ink);
+  background: transparent;
+  caret-color: var(--paper-pencil);
+}
+.ask-paper .aui-composer-input::placeholder {
+  color: var(--paper-ink-3);
+}
+.ask-paper .aui-composer-action-wrapper button {
+  color: var(--paper-ink-2);
+  border-color: var(--paper-rule);
+}
+.ask-paper .aui-composer-action-wrapper button:hover {
+  color: var(--paper-ink);
+  border-color: var(--paper-pencil);
+}
+.ask-paper .aui-composer-action-wrapper button[data-slot="aui_composer-send"],
+.ask-paper .aui-composer-action-wrapper button[aria-label="Send message"] {
+  background: var(--paper-pencil);
+  color: var(--paper);
+  border-color: var(--paper-pencil);
+}
+
+/* Folio rail — dash marks along the left edge of Correspondence */
+.ask-folio-rail {
+  position: absolute;
+  left: 14px;
+  top: 100px;
+  bottom: 40px;
+  z-index: 8;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  padding: 14px 0;
+  pointer-events: none;
+}
+.ask-folio-rail .dash {
+  pointer-events: auto;
+  width: 14px;
+  height: 2px;
+  background: var(--paper-ink-3);
+  opacity: 0.35;
+  cursor: pointer;
+  transition: opacity 120ms, width 120ms, background 120ms;
+  border: 0;
+  padding: 0;
+}
+.ask-folio-rail .dash:hover { opacity: 1; width: 22px; }
+.ask-folio-rail .dash.current {
+  opacity: 1;
+  width: 22px;
+  height: 3px;
+  background: var(--paper-pencil);
+}
+.ask-folio-rail .label {
+  pointer-events: auto;
+  font: 500 9px/1 var(--font-mono);
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--paper-ink-3);
+  writing-mode: vertical-rl;
+  transform: rotate(180deg);
+  margin-bottom: 6px;
+}
+
+/* Pretext-style margin note */
+.margin-note {
+  float: right;
+  clear: right;
+  width: 220px;
+  margin: 4px -256px 18px 28px;
+  font-family: var(--font-mono);
+  font-weight: 700;
+  font-size: 11px;
+  line-height: 1.5;
+  color: var(--paper-ink);
+  letter-spacing: 0.01em;
+  border-left: 2px solid var(--paper-pencil);
+  padding: 2px 0 2px 10px;
+}
+.margin-note .mn-ref {
+  display: block;
+  font-weight: 700;
+  font-size: 9px;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--paper-pencil);
+  margin-bottom: 4px;
+}
+
+/* Atlas placeholders for Connections/Plugins panels — honest empty states */
+.atlas-placeholder {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 48px 32px;
+  gap: 14px;
+  text-align: center;
+  color: var(--ink-2);
+}
+.atlas-placeholder .eyebrow {
+  font: 500 10px/1 var(--font-mono);
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+}
+.atlas-placeholder h2 {
+  margin: 0;
+  font-family: var(--font-display);
+  font-weight: 500;
+  font-size: 22px;
+  color: var(--ink);
+}
+.atlas-placeholder p {
+  margin: 0;
+  max-width: 440px;
+  font-size: 13.5px;
+  line-height: 1.55;
+  font-family: var(--font-body);
+  color: var(--ink-2);
+}
+
+/* Atlas overrides for legacy sidebar + content styles. The pre-Atlas rules
+   set `.theseus-content { margin-left: 48px }` and fixed the old 48px
+   sidebar. In the Atlas shell those layout rules are replaced by the CSS
+   grid on .theseus-root above; we zero the offsets here so legacy styles
+   don't fight the grid. */
+.theseus-root .theseus-content {
+  margin-left: 0;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+}
+.theseus-root .atlas-sidebar + .atlas-main .theseus-content {
+  width: 100%;
+}
+
+/* Panel manager mounts inside atlas-main. Give it a flex context so
+   individual panels (ExplorerShell, AskPanel) can claim the full
+   main-area height via flex:1. */
+.atlas-main > .theseus-panel-manager {
+  flex: 1;
+  min-height: 0;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  position: relative;
 }

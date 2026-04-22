@@ -11,6 +11,13 @@ export const metadata = {
   description: 'Visual Intelligence Engine',
 };
 
+/**
+ * Theseus Atlas shell: sidebar (220px, numbered Places) + main surface.
+ *
+ * TheseusShell provides the Atlas filter context, the command palette,
+ * the global drop-target, and the `atlas-main` wrapper that hosts the
+ * active panel from PanelManager.
+ */
 export default function TheseusLayout({
   children,
 }: {
@@ -18,8 +25,10 @@ export default function TheseusLayout({
 }) {
   return (
     <div className="theseus-root">
-      <TheseusSidebar />
-      <TheseusShell>{children}</TheseusShell>
+      <TheseusShell>
+        <TheseusSidebar />
+        <main className="atlas-main">{children}</main>
+      </TheseusShell>
       <TheseusMobileNav />
     </div>
   );

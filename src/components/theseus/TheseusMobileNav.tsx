@@ -30,16 +30,6 @@ function GraphIcon() {
   );
 }
 
-function CodeIcon() {
-  return (
-    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" strokeWidth="1.5" aria-hidden="true">
-      <path d="M13 16H18" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" />
-      <path d="M6 8L10 12L6 16" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" />
-      <path d="M2 18V6C2 4.89543 2.89543 4 4 4H20C21.1046 4 22 4.89543 22 6V18C22 19.1046 21.1046 20 20 20H4C2.89543 20 2 19.1046 2 18Z" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" />
-    </svg>
-  );
-}
-
 function IntelligenceIcon() {
   return (
     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" strokeWidth="1.5" aria-hidden="true">
@@ -53,13 +43,15 @@ function IntelligenceIcon() {
   );
 }
 
-function LibraryIcon() {
+function ConnectionsIcon() {
   return (
     <svg width="20" height="20" viewBox="0 0 24 24" strokeWidth="1.5" fill="none" aria-hidden="true">
-      <path d="M12 22C17.5228 22 22 17.5228 22 12C22 6.47715 17.5228 2 12 2C6.47715 2 2 6.47715 2 12C2 17.5228 6.47715 22 12 22Z" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" />
-      <path d="M5 6C5.55228 6 6 5.55228 6 5C6 4.44772 5.55228 4 5 4C4.44772 4 4 4.44772 4 5C4 5.55228 4.44772 6 5 6Z" fill="currentColor" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" />
-      <path d="M5 20C5.55228 20 6 19.5523 6 19C6 18.4477 5.55228 18 5 18C4.44772 18 4 18.4477 4 19C4 19.5523 4.44772 20 5 20Z" fill="currentColor" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" />
-      <path d="M19 20C19.5523 20 20 19.5523 20 19C20 18.4477 19.5523 18 19 18C18.4477 18 18 18.4477 18 19C18 19.5523 18.4477 20 19 20Z" fill="currentColor" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" />
+      <circle cx="6" cy="6" r="2.2" stroke="currentColor" />
+      <circle cx="18" cy="6" r="2.2" stroke="currentColor" />
+      <circle cx="12" cy="18" r="2.4" stroke="currentColor" />
+      <path d="M7.6 7.5l3.2 8.8" stroke="currentColor" strokeLinecap="round" />
+      <path d="M16.4 7.5l-3.2 8.8" stroke="currentColor" strokeLinecap="round" />
+      <path d="M8.1 6h7.8" stroke="currentColor" strokeLinecap="round" />
     </svg>
   );
 }
@@ -72,11 +64,10 @@ interface MobileNavItem {
 }
 
 const MOBILE_NAV_ITEMS: MobileNavItem[] = [
-  { id: 'ask',      label: 'Ask',      panelId: 'ask',      icon: ChatIcon },
+  { id: 'ask',      label: 'Threads',  panelId: 'ask',      icon: ChatIcon },
   { id: 'explorer', label: 'Explorer', panelId: 'explorer', icon: GraphIcon },
-  { id: 'intelligence', label: 'Intelligence', panelId: 'intelligence', icon: IntelligenceIcon },
-  { id: 'code',     label: 'Code',     panelId: 'code',     icon: CodeIcon },
-  { id: 'library',  label: 'Library',  panelId: 'library',  icon: LibraryIcon },
+  { id: 'connections', label: 'Sources', panelId: 'connections', icon: ConnectionsIcon },
+  { id: 'intelligence', label: 'Intel', panelId: 'intelligence', icon: IntelligenceIcon },
 ];
 
 /**

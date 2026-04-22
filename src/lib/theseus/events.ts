@@ -14,10 +14,10 @@ export type TheseusView =
   | 'ask'
   | 'explorer'
   | 'intelligence'
-  | 'library'
   | 'notebook'
-  | 'code'
-  | 'settings';
+  | 'connections'
+  | 'plugins'
+  | 'code';
 
 export type TheseusStage =
   | 'retrieving'
@@ -64,8 +64,17 @@ export interface ExplorerIngestCompleteDetail {
   edgeCount: number;
 }
 
+export interface CaptureOpenDetail {
+  /** Either a file drop or a URL reference from an ingest bar. */
+  files?: File[];
+  url?: string;
+  /** Where the capture came from; used by CaptureModal for UX copy. */
+  source?: string;
+}
+
 export interface TheseusEventMap {
   'theseus:switch-panel':        SwitchPanelDetail;
+  'theseus:capture-open':        CaptureOpenDetail;
   'explorer:apply-directive':    ApplyDirectiveDetail;
   'explorer:ingest-complete':    ExplorerIngestCompleteDetail;
   'theseus:stage-event':         StageEventDetail;

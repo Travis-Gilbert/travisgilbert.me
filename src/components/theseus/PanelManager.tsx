@@ -3,19 +3,34 @@
 import { useCallback, useEffect, useMemo, useState, lazy, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 
-export type PanelId = 'ask' | 'explorer' | 'intelligence' | 'notebook' | 'library' | 'code' | 'settings';
+export type PanelId =
+  | 'ask'
+  | 'explorer'
+  | 'intelligence'
+  | 'notebook'
+  | 'connections'
+  | 'plugins'
+  | 'code';
 
 const PANEL_COMPONENTS: Record<PanelId, React.LazyExoticComponent<React.ComponentType>> = {
   ask: lazy(() => import('./panels/AskPanel')),
   explorer: lazy(() => import('./panels/ExplorerPanel')),
   intelligence: lazy(() => import('./panels/IntelligencePanel')),
   notebook: lazy(() => import('./panels/NotebookPanel')),
-  library: lazy(() => import('./panels/LibraryPanel')),
+  connections: lazy(() => import('./panels/ConnectionsPanel')),
+  plugins: lazy(() => import('./panels/PluginsPanel')),
   code: lazy(() => import('./panels/CodePanel')),
-  settings: lazy(() => import('./panels/SettingsPanel')),
 };
 
-const VALID_PANELS = new Set<string>(['ask', 'explorer', 'intelligence', 'notebook', 'library', 'code', 'settings']);
+const VALID_PANELS = new Set<string>([
+  'ask',
+  'explorer',
+  'intelligence',
+  'notebook',
+  'connections',
+  'plugins',
+  'code',
+]);
 
 function isValidPanel(value: string | null): value is PanelId {
   return value !== null && VALID_PANELS.has(value);

@@ -5,38 +5,41 @@ import {
   ComposerPrimitive,
   MessagePrimitive,
 } from '@assistant-ui/react';
-import { TooltipIconButton } from '@/components/assistant-ui/tooltip-icon-button';
 import {
   ComposerAttachments,
   ComposerAddAttachment,
 } from '@/components/assistant-ui/attachment';
 import { Button } from '@/components/ui/button';
-import { ArrowUpIcon, SquareIcon } from 'lucide-react';
 import type { FC } from 'react';
 
 /**
- * Composer forked from the Claude-clone thread. Keeps the full primitive
- * tree: AttachmentDropzone wrapping the shell, Input, AddAttachment
- * affordance, Send / Cancel toggle. Styling is tuned in
- * src/styles/assistant-ui-theme.css so the visual register follows
- * parchment.
+ * Atlas Threads composer. Keeps the assistant-ui primitive tree (Root /
+ * Input / Send / Cancel) so thread runtime, attachments, and submit
+ * wiring are preserved, but styles the chrome as an Atlas paper card
+ * via the `.atlas-chat` / `.atlas-chat-*` CSS classes. The paper palette
+ * resolves correctly because TheseusThread mounts inside `.ask-paper`.
  */
 const ChatComposer: FC = () => {
   return (
-    <ComposerPrimitive.Root className="aui-composer-root relative flex w-full flex-col">
+    <ComposerPrimitive.Root
+      className="atlas-chat"
+      style={{ position: 'static', transform: 'none', width: '100%' }}
+    >
       <ComposerPrimitive.AttachmentDropzone asChild>
         <div
           data-slot="aui_composer-shell"
-          className="flex w-full flex-col gap-2 rounded-(--composer-radius) border p-(--composer-padding) transition-shadow focus-within:ring-2 data-[dragging=true]:border-dashed"
+          style={{ display: 'contents' }}
         >
           <ComposerAttachments />
-          <ComposerPrimitive.Input
-            placeholder="Ask Theseus..."
-            className="aui-composer-input max-h-32 min-h-10 w-full resize-none bg-transparent px-1.75 py-1 text-sm outline-none"
-            rows={1}
-            autoFocus
-            aria-label="Message input"
-          />
+          <div className="atlas-chat-input-row">
+            <ComposerPrimitive.Input
+              placeholder="Ask, think out loud, or @cite a node…"
+              className="atlas-chat-input"
+              rows={1}
+              autoFocus
+              aria-label="Message input"
+            />
+          </div>
           <ComposerAction />
         </div>
       </ComposerPrimitive.AttachmentDropzone>
@@ -46,34 +49,30 @@ const ChatComposer: FC = () => {
 
 const ComposerAction: FC = () => {
   return (
-    <div className="aui-composer-action-wrapper relative flex items-center justify-between">
+    <div className="atlas-chat-tools">
       <ComposerAddAttachment />
       <AuiIf condition={(s) => !s.thread.isRunning}>
         <ComposerPrimitive.Send asChild>
-          <TooltipIconButton
-            tooltip="Send message"
-            side="bottom"
+          <button
             type="button"
-            variant="default"
-            size="icon"
-            className="aui-composer-send size-8 rounded-full"
+            className="atlas-chat-send"
             aria-label="Send message"
+            style={{ marginLeft: 'auto' }}
           >
-            <ArrowUpIcon className="aui-composer-send-icon size-4" />
-          </TooltipIconButton>
+            Send ↵
+          </button>
         </ComposerPrimitive.Send>
       </AuiIf>
       <AuiIf condition={(s) => s.thread.isRunning}>
         <ComposerPrimitive.Cancel asChild>
-          <Button
+          <button
             type="button"
-            variant="default"
-            size="icon"
-            className="aui-composer-cancel size-8 rounded-full"
+            className="atlas-chat-send"
             aria-label="Stop generating"
+            style={{ marginLeft: 'auto' }}
           >
-            <SquareIcon className="aui-composer-cancel-icon size-3 fill-current" />
-          </Button>
+            Stop
+          </button>
         </ComposerPrimitive.Cancel>
       </AuiIf>
     </div>
@@ -85,6 +84,8 @@ export default ChatComposer;
 /**
  * Standalone edit composer for user message edits. Rendered by the
  * Claude-clone thread when `message.composer.isEditing` is true.
+ * Keeps the shadcn treatment for the edit surface — different context
+ * from the main paper card below the thread.
  */
 export const EditComposer: FC = () => {
   return (
