@@ -10,20 +10,20 @@ export interface AtlasSurfaces {
   codeGraph: boolean;
 }
 
+/**
+ * Defaults: `theseus` (pipeline-ingested corpus) and `theorem` (your
+ * captures) both on → the baseline renders `combined` scope. `codeGraph`
+ * is a separate client-side overlay that restricts the canvas to
+ * code-kind nodes; off by default.
+ *
+ * The three existing surface checkboxes are the data-source UI; scope
+ * below is a derivation of `theseus` + `theorem`, not independent state.
+ */
 const DEFAULT_SURFACES: AtlasSurfaces = {
-  theseus: false,
-  theorem: false,
+  theseus: true,
+  theorem: true,
   codeGraph: false,
 };
-
-/**
- * Baseline scope for the Explorer canvas. `combined` is the full
- * Theseus graph (pipeline-ingested corpus + user captures). `corpus`
- * drops user captures; `personal` keeps only them. Backed server-side
- * by the `source_system IS NULL` predicate; see
- * apps/notebook/views/graph.py::graph_data_view.
- */
-const DEFAULT_SCOPE: GraphScope = 'combined';
 
 export interface AtlasFiltersState {
   activeSources: Set<string>;
@@ -33,7 +33,6 @@ export interface AtlasFiltersState {
   toggleSource: (id: string) => void;
   toggleKind: (kind: AtlasKind) => void;
   toggleSurface: (key: keyof AtlasSurfaces) => void;
-  setScope: (scope: GraphScope) => void;
   surfaceLabel: string;
   scopeLabel: string;
 }
@@ -42,10 +41,15 @@ export interface AtlasFiltersState {
  * Atlas filter + surface-overlay state. Lifts up to TheseusShell so the
  * sidebar writes it and Explorer / Plate label read it.
  *
- * Initial scope: `combined` — the full Theseus corpus plus the user's
- * captures, rendered like the cosmos.gl worm-clusters example so the
- * baseline reads as "machine thinking" rather than one blob.
- * Initial surfaces: all off.
+ * Scope is derived from the Theseus + Theorem Web checkboxes:
+ *   Theseus ON  + Theorem Web ON  → combined (corpus + captures)
+ *   Theseus ON  + Theorem Web OFF → corpus   (pipeline-ingested only)
+ *   Theseus OFF + Theorem Web ON  → personal (user captures only)
+ *   both OFF                      → combined fallback (the server would
+ *                                   otherwise receive no signal; the
+ *                                   canvas's own empty state still fires
+ *                                   if the user actively deselects)
+ *
  * Active sources/kinds: all on = no filtering.
  */
 export function useAtlasFilters(): AtlasFiltersState {
@@ -56,7 +60,6 @@ export function useAtlasFilters(): AtlasFiltersState {
     () => new Set(Object.keys(ATLAS_KINDS) as AtlasKind[]),
   );
   const [surfaces, setSurfaces] = useState<AtlasSurfaces>(DEFAULT_SURFACES);
-  const [scope, setScopeState] = useState<GraphScope>(DEFAULT_SCOPE);
 
   const toggleSource = useCallback((id: string) => {
     setActiveSources((prev) => {
@@ -80,18 +83,19 @@ export function useAtlasFilters(): AtlasFiltersState {
     setSurfaces((prev) => ({ ...prev, [key]: !prev[key] }));
   }, []);
 
-  const setScope = useCallback((next: GraphScope) => {
-    setScopeState(next);
-  }, []);
+  const scope: GraphScope = useMemo(() => {
+    if (surfaces.theseus && surfaces.theorem) return 'combined';
+    if (surfaces.theseus) return 'corpus';
+    if (surfaces.theorem) return 'personal';
+    return 'combined';
+  }, [surfaces.theseus, surfaces.theorem]);
 
   const surfaceLabel = useMemo(() => {
     const parts = [] as string[];
-    if (surfaces.theseus) parts.push('T');
-    if (surfaces.theorem) parts.push('TW');
     if (surfaces.codeGraph) parts.push('CG');
-    if (parts.length === 0) return 'Argo';
-    return `Argo+${parts.join('+')}`;
-  }, [surfaces]);
+    if (parts.length === 0) return '';
+    return parts.join('+');
+  }, [surfaces.codeGraph]);
 
   const scopeLabel = useMemo(() => {
     switch (scope) {
@@ -113,7 +117,6 @@ export function useAtlasFilters(): AtlasFiltersState {
     toggleSource,
     toggleKind,
     toggleSurface,
-    setScope,
     surfaceLabel,
     scopeLabel,
   };

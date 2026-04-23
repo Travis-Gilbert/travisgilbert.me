@@ -66,9 +66,11 @@ export default function AtlasPlateLabel({
       </div>
       <div>
         {nodes} nodes · {edges} edges
-        <span style={{ marginLeft: 8, color: 'var(--paper-pencil)' }}>
-          · {surfaceLabel}
-        </span>
+        {surfaceLabel && (
+          <span style={{ marginLeft: 8, color: 'var(--paper-pencil)' }}>
+            · {surfaceLabel}
+          </span>
+        )}
       </div>
       {directiveActive && onDismissDirective && (
         <button

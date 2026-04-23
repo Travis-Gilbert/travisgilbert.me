@@ -94,11 +94,8 @@ export default function TheseusSidebar() {
             n="02"
             active={activePanel === 'explorer'}
             onOpen={() => switchPanel('explorer')}
-            surfaceLabel={atlasFilters.surfaceLabel}
             surfaces={atlasFilters.surfaces}
             onToggleSurface={atlasFilters.toggleSurface}
-            scope={atlasFilters.scope}
-            onChangeScope={atlasFilters.setScope}
             scopeLabel={atlasFilters.scopeLabel}
           />
 
