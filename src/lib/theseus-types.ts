@@ -446,6 +446,10 @@ export interface GraphData {
     edge_count: number;
     type_distribution: Record<string, number>;
     truncated: boolean;
+    /** Echo of the `scope` query param the server resolved. Slice 1
+     *  of the Explorer baseline redesign; optional so existing callers
+     *  that predate the field keep type-checking. */
+    scope?: 'combined' | 'corpus' | 'personal';
   };
 }
 

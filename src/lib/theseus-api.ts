@@ -1706,13 +1706,16 @@ export async function getObjectLineage(
    Graph Explorer: graph data, path, artifacts, diff
    ───────────────────────────────────────────────── */
 
+export type GraphScope = 'combined' | 'corpus' | 'personal';
+
 export async function getGraphData(
-  params?: { center?: string; hops?: number; limit?: number },
+  params?: { center?: string; hops?: number; limit?: number; scope?: GraphScope },
 ): Promise<ApiResult<GraphData>> {
   const searchParams = new URLSearchParams();
   if (params?.center) searchParams.set('center', params.center);
   if (params?.hops) searchParams.set('hops', String(params.hops));
   if (params?.limit) searchParams.set('limit', String(params.limit));
+  if (params?.scope) searchParams.set('scope', params.scope);
   const qs = searchParams.toString();
   const path = `/api/v1/notebook/graph/${qs ? `?${qs}` : ''}`;
 
@@ -1761,6 +1764,9 @@ export async function getGraphData(
           ? meta.type_distribution as Record<string, number>
           : {},
         truncated: typeof meta.truncated === 'boolean' ? meta.truncated : false,
+        scope: meta.scope === 'corpus' || meta.scope === 'personal' || meta.scope === 'combined'
+          ? meta.scope
+          : undefined,
       },
     };
   });

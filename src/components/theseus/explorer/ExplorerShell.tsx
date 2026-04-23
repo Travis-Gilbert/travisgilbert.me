@@ -10,6 +10,7 @@ import ExplorerAskComposer from './ExplorerAskComposer';
 import AtlasPlateLabel from './atlas/AtlasPlateLabel';
 import AtlasIngestBar from './atlas/AtlasIngestBar';
 import AtlasGraphControls from './atlas/AtlasGraphControls';
+import AtlasScopeControl from './atlas/AtlasScopeControl';
 import AtlasScaleBar from './atlas/AtlasScaleBar';
 import AtlasNodeDetail from './atlas/AtlasNodeDetail';
 import { useGraphData, type CosmoPoint } from './useGraphData';
@@ -48,6 +49,7 @@ const ExplorerShell: FC = () => {
   const { points, links, loading, error, total } = useGraphData({
     activeKinds: atlasFilters.activeKinds,
     surfaces: atlasFilters.surfaces,
+    scope: atlasFilters.scope,
   });
   const webgl2Support = useWebGL2Support();
   const canvasRef = useRef<CosmosGraphCanvasHandle>(null);
@@ -152,28 +154,47 @@ const ExplorerShell: FC = () => {
 
   const canRenderCanvas =
     !loading && !error && points.length > 0 && webgl2Support === 'supported';
-  const plateTitle = directiveLabel ?? (selectedNode?.label ?? 'Your personal graph');
+  // Baseline plate label reflects the active scope (corpus / personal /
+  // combined). Directive label and selection take precedence when set.
+  const plateTitle = directiveLabel ?? (selectedNode?.label ?? atlasFilters.scopeLabel);
 
   return (
     <div className="atlas-canvas" style={{ flex: 1, minHeight: 0 }}>
       {loading && (
         <div
           aria-busy="true"
+          aria-live="polite"
           style={{
             position: 'absolute',
             inset: 0,
             display: 'flex',
+            flexDirection: 'column',
             alignItems: 'center',
             justifyContent: 'center',
+            gap: 8,
             color: 'var(--paper-ink-2)',
             fontFamily: 'var(--font-mono)',
             fontSize: 11,
-            letterSpacing: '0.1em',
+            letterSpacing: '0.14em',
             textTransform: 'uppercase',
             zIndex: 2,
           }}
         >
-          Loading graph ({total.nodes || '…'} nodes)
+          <span
+            aria-hidden="true"
+            className="atlas-loading-pulse"
+            style={{
+              width: 8,
+              height: 8,
+              borderRadius: '50%',
+              background: 'var(--paper-ink)',
+              opacity: 0.6,
+            }}
+          />
+          <span>Loading {atlasFilters.scopeLabel}</span>
+          <span style={{ opacity: 0.65 }}>
+            {total.nodes ? `${total.nodes} nodes` : 'preparing'}
+          </span>
         </div>
       )}
       {error && (
@@ -271,6 +292,11 @@ const ExplorerShell: FC = () => {
         surfaceLabel={atlasFilters.surfaceLabel}
         directiveActive={Boolean(directiveLabel)}
         onDismissDirective={handleDismissDirective}
+      />
+
+      <AtlasScopeControl
+        scope={atlasFilters.scope}
+        onChange={atlasFilters.setScope}
       />
 
       <AtlasIngestBar />

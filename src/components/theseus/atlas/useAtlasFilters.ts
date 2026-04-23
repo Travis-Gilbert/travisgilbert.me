@@ -2,6 +2,7 @@
 
 import { useCallback, useMemo, useState } from 'react';
 import { ATLAS_SOURCES, ATLAS_KINDS, type AtlasKind } from './sources';
+import type { GraphScope } from '@/lib/theseus-api';
 
 export interface AtlasSurfaces {
   theseus: boolean;
@@ -15,21 +16,36 @@ const DEFAULT_SURFACES: AtlasSurfaces = {
   codeGraph: false,
 };
 
+/**
+ * Baseline scope for the Explorer canvas. `combined` is the full
+ * Theseus graph (pipeline-ingested corpus + user captures). `corpus`
+ * drops user captures; `personal` keeps only them. Backed server-side
+ * by the `source_system IS NULL` predicate; see
+ * apps/notebook/views/graph.py::graph_data_view.
+ */
+const DEFAULT_SCOPE: GraphScope = 'combined';
+
 export interface AtlasFiltersState {
   activeSources: Set<string>;
   activeKinds: Set<AtlasKind>;
   surfaces: AtlasSurfaces;
+  scope: GraphScope;
   toggleSource: (id: string) => void;
   toggleKind: (kind: AtlasKind) => void;
   toggleSurface: (key: keyof AtlasSurfaces) => void;
+  setScope: (scope: GraphScope) => void;
   surfaceLabel: string;
+  scopeLabel: string;
 }
 
 /**
  * Atlas filter + surface-overlay state. Lifts up to TheseusShell so the
  * sidebar writes it and Explorer / Plate label read it.
  *
- * Initial surfaces: all off = user's personal Argo graph.
+ * Initial scope: `combined` — the full Theseus corpus plus the user's
+ * captures, rendered like the cosmos.gl worm-clusters example so the
+ * baseline reads as "machine thinking" rather than one blob.
+ * Initial surfaces: all off.
  * Active sources/kinds: all on = no filtering.
  */
 export function useAtlasFilters(): AtlasFiltersState {
@@ -40,6 +56,7 @@ export function useAtlasFilters(): AtlasFiltersState {
     () => new Set(Object.keys(ATLAS_KINDS) as AtlasKind[]),
   );
   const [surfaces, setSurfaces] = useState<AtlasSurfaces>(DEFAULT_SURFACES);
+  const [scope, setScopeState] = useState<GraphScope>(DEFAULT_SCOPE);
 
   const toggleSource = useCallback((id: string) => {
     setActiveSources((prev) => {
@@ -63,6 +80,10 @@ export function useAtlasFilters(): AtlasFiltersState {
     setSurfaces((prev) => ({ ...prev, [key]: !prev[key] }));
   }, []);
 
+  const setScope = useCallback((next: GraphScope) => {
+    setScopeState(next);
+  }, []);
+
   const surfaceLabel = useMemo(() => {
     const parts = [] as string[];
     if (surfaces.theseus) parts.push('T');
@@ -72,13 +93,28 @@ export function useAtlasFilters(): AtlasFiltersState {
     return `Argo+${parts.join('+')}`;
   }, [surfaces]);
 
+  const scopeLabel = useMemo(() => {
+    switch (scope) {
+      case 'corpus':
+        return 'Theseus corpus';
+      case 'personal':
+        return 'My captures';
+      case 'combined':
+      default:
+        return 'Corpus + mine';
+    }
+  }, [scope]);
+
   return {
     activeSources,
     activeKinds,
     surfaces,
+    scope,
     toggleSource,
     toggleKind,
     toggleSurface,
+    setScope,
     surfaceLabel,
+    scopeLabel,
   };
 }

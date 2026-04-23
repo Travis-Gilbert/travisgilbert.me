@@ -1231,6 +1231,14 @@ const CosmosGraphCanvas = forwardRef<CosmosGraphCanvasHandle, CosmosGraphCanvasP
       if (ambientActiveRef.current) return;
       if (encodingActiveRef.current) return;
       if (constructionStateRef.current.active) return;
+      // Respect OS-level reduced-motion; the alpha pulse is decorative.
+      if (
+        typeof window !== 'undefined'
+        && typeof window.matchMedia === 'function'
+        && window.matchMedia('(prefers-reduced-motion: reduce)').matches
+      ) {
+        return;
+      }
       ambientActiveRef.current = true;
       ambientRafRef.current = requestAnimationFrame(ambientTick);
     }, [ambientTick]);
@@ -1599,7 +1607,8 @@ const CosmosGraphCanvas = forwardRef<CosmosGraphCanvasHandle, CosmosGraphCanvasP
       // Native cluster forces: each point is assigned a cluster ordinal
       // (hybrid leiden + k-core) and cosmos.gl pulls it toward that
       // cluster's pre-computed center. simulationCluster in GraphConfig
-      // governs the force strength; this is what keeps clusters spatially
+      // governs the global force strength; setPointClusterStrength
+      // scales the pull per point. Together they keep clusters spatially
       // distinct instead of collapsing into the link-spring dense ball.
       if (totalOrdinals > 0) {
         const pointClusters: (number | undefined)[] = new Array(pointCount);
@@ -1617,9 +1626,19 @@ const CosmosGraphCanvas = forwardRef<CosmosGraphCanvasHandle, CosmosGraphCanvasP
         }
         graph.setPointClusters(pointClusters);
         graph.setClusterPositions(clusterPositions);
+        // Per-point cluster pull coefficient. Uniform 0.7 is the
+        // worm-look default from cosmos-pro recipes/clustering-force.md;
+        // points without an ordinal stay at 0 (they ignore cluster
+        // forces, as specified by setPointClusters `undefined` above).
+        const pointClusterStrengths = new Float32Array(pointCount);
+        for (let i = 0; i < pointCount; i++) {
+          pointClusterStrengths[i] = pointClusters[i] === undefined ? 0 : 0.7;
+        }
+        graph.setPointClusterStrength(pointClusterStrengths);
       } else {
         graph.setPointClusters([]);
         graph.setClusterPositions([]);
+        graph.setPointClusterStrength(new Float32Array(pointCount));
       }
 
       encodingActiveRef.current = false;
@@ -1691,7 +1710,13 @@ const CosmosGraphCanvas = forwardRef<CosmosGraphCanvasHandle, CosmosGraphCanvasP
         simulationLinkSpring: 0.25,
         simulationLinkDistance: 42,
         simulationFriction: 0.85,
-        simulationCluster: 0.55,
+        // Global cluster force multiplier. 0.7 matches cosmos-pro
+        // `recipes/clustering-force.md` tight-grouping guidance and
+        // produces the distinct warm regions seen in the cosmos.gl
+        // clusters--worm example. Per-point pull strength is set via
+        // `setPointClusterStrength(Float32Array)` inside
+        // pushDataToGraph to scale individual points on top of this.
+        simulationCluster: 0.7,
         simulationDecay: 8000,
         scalePointsOnZoom: true,
         onSimulationEnd: () => {

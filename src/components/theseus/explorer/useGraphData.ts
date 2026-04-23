@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
-import { getGraphData } from '@/lib/theseus-api';
+import { getGraphData, type GraphScope } from '@/lib/theseus-api';
 import type { GraphNode, GraphEdge } from '@/lib/theseus-types';
 import type { AtlasKind } from '@/components/theseus/atlas/sources';
 import type { AtlasSurfaces } from '@/components/theseus/atlas/useAtlasFilters';
@@ -67,6 +67,10 @@ export interface UseGraphDataOptions {
    *  for the plate label for now — the data layer backing them will
    *  arrive in a later pass. */
   surfaces?: AtlasSurfaces;
+  /** Baseline scope. `combined` (default) renders the full corpus plus
+   *  user captures; `corpus` drops user captures; `personal` keeps only
+   *  them. Changing this param refetches the graph. */
+  scope?: GraphScope;
 }
 
 /** Atlas "code" taxonomy — kinds or object-types that count as code when
@@ -153,7 +157,7 @@ export function mapEdge(edge: GraphEdge | Record<string, unknown>): CosmoLink | 
 }
 
 export function useGraphData(options: UseGraphDataOptions = {}): UseGraphDataResult {
-  const { activeKinds, surfaces } = options;
+  const { activeKinds, surfaces, scope } = options;
   const [state, setState] = useState<UseGraphDataResult>({
     points: [],
     links: [],
@@ -164,9 +168,15 @@ export function useGraphData(options: UseGraphDataOptions = {}): UseGraphDataRes
 
   useEffect(() => {
     let cancelled = false;
+    // Reset to loading when scope changes so the canvas can show the
+    // honest booting overlay between scope toggles.
+    setState((s) => ({ ...s, loading: true, error: null }));
     (async () => {
       try {
-        const result = await getGraphData({ limit: 2000 });
+        // 3000 nodes is the target density for the worm-clusters
+        // baseline; backend caps at GRAPH_MAX_LIMIT=5000. Scope is
+        // passed through so the server filters server-side.
+        const result = await getGraphData({ limit: 3000, scope });
         if (cancelled) return;
         if (!result.ok) {
           setState((s) => ({
@@ -196,7 +206,7 @@ export function useGraphData(options: UseGraphDataOptions = {}): UseGraphDataRes
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [scope]);
 
   // Derive filtered points + links from the raw state plus Atlas surface
   // and kind filters. When filters are fully-open this is a no-op.

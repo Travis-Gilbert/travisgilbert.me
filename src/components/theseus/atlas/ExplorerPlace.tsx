@@ -72,7 +72,7 @@ export default function ExplorerPlace({
           />
           <div className="atlas-place-note">
             {!surfaces.theseus && !surfaces.theorem && !surfaces.codeGraph
-              ? 'your personal graph'
+              ? 'Theseus corpus + your captures'
               : 'overlaid on Argo'}
           </div>
         </div>
