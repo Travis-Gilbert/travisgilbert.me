@@ -7,6 +7,7 @@ import { isMosaicSpec } from '@/lib/theseus/mosaic/specs';
 import MosaicPart from './MosaicPart';
 import GraphPart from './GraphPart';
 import SceneDirectivePart from './SceneDirectivePart';
+import SimulationPart from './SimulationPart';
 
 interface VisualAnswerPartProps {
   directive?: SceneDirective | null;
@@ -57,6 +58,14 @@ const VisualAnswerPart: FC<VisualAnswerPartProps> = ({
     return (
       <div className="aui-visual-answer" style={{ marginTop: 12 }}>
         <SceneDirectivePart directive={directive} />
+      </div>
+    );
+  }
+
+  if (target === 'simulation' && directive?.simulation) {
+    return (
+      <div className="aui-visual-answer" style={{ marginTop: 12 }}>
+        <SimulationPart payload={directive.simulation} />
       </div>
     );
   }

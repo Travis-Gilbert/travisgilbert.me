@@ -21,8 +21,12 @@
  *   focus
  *     └─ first token           → speak
  *   speak
+ *     ├─ simulation_assembling → simulate
  *     ├─ answer_ready          → settle      (full directive applied)
  *     └─ complete              → linger      (answer_ready skipped)
+ *   simulate
+ *     ├─ answer_ready          → settle
+ *     └─ complete              → linger
  *   settle
  *     └─ complete              → linger
  *   {any}
@@ -74,6 +78,7 @@ export type ChoreographerState =
   | 'retrieve'
   | 'focus'
   | 'speak'
+  | 'simulate'
   | 'settle'
   | 'linger';
 
@@ -284,6 +289,10 @@ export class Choreographer {
           focus: { ids: focalIds },
           camera: { kind: 'fit', ids: focalIds, durationMs: 900, padding: 0.22 },
         });
+        break;
+      }
+      case 'simulation_assembling': {
+        this.transition('simulate');
         break;
       }
       default:

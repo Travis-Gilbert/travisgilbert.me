@@ -28,6 +28,10 @@ function stageToLabel(event: StageEvent): string {
     case 'retrieval_start': return 'Searching knowledge graph…';
     case 'retrieval_complete': return `Found ${event.evidence_count} evidence nodes`;
     case 'objects_loaded': return `Loaded ${event.object_count} objects`;
+    case 'simulation_assembling':
+      return typeof event.primitive_count === 'number'
+        ? `Assembling simulation with ${event.primitive_count} primitives`
+        : 'Assembling simulation';
     case 'expression_start': return 'Composing answer…';
     case 'expression_complete': return '';
     default: return '';

@@ -159,6 +159,68 @@ export interface GraphAdapter {
    *  zoom event with the new level. Returns an unsubscribe function;
    *  callers MUST invoke it on unmount to avoid leaks. */
   onZoomChange(cb: (zoom: number) => void): () => void;
+
+  // --- Simulation surface (SPEC-SIMULATION-ANSWERS §Seam 1 / §Seam 3) ---
+  //
+  // Not invoked from applySceneDirective. SimulationPart calls these
+  // directly; they do NOT participate in the salience / hypothesis /
+  // construction pipeline the adapter otherwise orchestrates. Designed
+  // so that simulation scenes mutate without requiring a full directive
+  // rebuild on every drag-to-remove.
+
+  /**
+   * Replace the current point/link set with a new one. Reuses buffer pools
+   * when counts match; reallocates only when they differ (V-perf-2). Cancels
+   * any in-flight construction tween. Safe to call with ≤15 primitives
+   * (the spec cap); heavier use should diff instead of rebuild. Adjacency,
+   * id-index maps, and encoded buffers all rebuild from scratch.
+   */
+  replaceScene(
+    points: SimulationPoint[],
+    links: SimulationLink[],
+  ): void;
+
+  /**
+   * Stamp per-primitive metadata on the hover-tooltip layer. v1 renders via
+   * cosmos.gl's onHover path (not a DOM badge) to keep label pressure low
+   * at 15+ primitives. Callers pass all entries at once; previous stamps
+   * are replaced, not merged.
+   */
+  applyPrimitiveMetadata(
+    entries: Array<{
+      id: string;
+      metadata: Record<string, number | string | boolean>;
+      displayKeys?: string[];
+    }>,
+  ): void;
+}
+
+// ---- Simulation-surface types ----
+//
+// Mirror of CosmoPoint / CosmoLink (see components/theseus/explorer/
+// useGraphData.ts) but re-exported from the adapter so SimulationPart and
+// any future simulation mappers aren't forced to import from a file under
+// components/. Keeping these in sync with the explorer shape is
+// intentional; they model the same buffer contract cosmos.gl consumes.
+
+export interface SimulationPoint {
+  id: string;
+  label: string;
+  type: string;
+  colorHex: string;
+  degree: number;
+  description?: string;
+  /** Per-primitive metadata surfaced on hover. Numeric values drive chart
+   *  bindings in mixed mode; string values display as-is. */
+  metadata?: Record<string, number | string | boolean>;
+}
+
+export interface SimulationLink {
+  source: string;
+  target: string;
+  weight: number;
+  reason?: string;
+  edge_type?: string;
 }
 
 function readSalience(directive: SceneDirective): NodeSalience[] {

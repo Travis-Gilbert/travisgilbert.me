@@ -63,8 +63,22 @@ export type StageEvent =
       tensions: Array<{ object_a: number; object_b: number; nli_score: number }>;
     }
   | { name: 'objects_loaded'; object_count: number; focal_object_ids: number[] }
+  | {
+      name: 'simulation_assembling';
+      domain?: string;
+      primitive_count?: number;
+      render_target?: string;
+      scene_id?: string;
+    }
   | { name: 'expression_start' }
   | { name: 'expression_complete' };
+
+export type ExplainNodeInteraction =
+  | 'click'
+  | 'double_click'
+  | 'drag'
+  | 'remove'
+  | 'hover';
 
 export interface AsyncStreamHandlers {
   onStage: (event: StageEvent) => void;
@@ -389,6 +403,7 @@ const KNOWN_ANSWER_TYPES = new Set<AnswerType>([
   'hierarchy',
   'explanation',
   'code',
+  'simulation',
 ]);
 
 function normalizeAnswerType(value: unknown): AnswerType | undefined {
@@ -1308,6 +1323,163 @@ export async function askTheseusAsyncStream(
   }
 
   return () => es.close();
+}
+
+interface ExplainNodeStreamHandlers {
+  onToken?: (token: string) => void;
+  onDone?: () => void;
+  onError?: (error: { message: string; transient: boolean }) => void;
+}
+
+function parseSseFrames(
+  input: string,
+): {
+  frames: Array<{ event: string; data: string }>;
+  rest: string;
+} {
+  const frames: Array<{ event: string; data: string }> = [];
+  let cursor = 0;
+
+  while (true) {
+    const boundary = input.indexOf('\n\n', cursor);
+    if (boundary === -1) break;
+
+    const chunk = input.slice(cursor, boundary);
+    cursor = boundary + 2;
+
+    let event = 'message';
+    const dataLines: string[] = [];
+
+    for (const rawLine of chunk.split('\n')) {
+      const line = rawLine.replace(/\r$/, '');
+      if (!line) continue;
+      if (line.startsWith('event:')) {
+        event = line.slice(6).trim() || 'message';
+        continue;
+      }
+      if (line.startsWith('data:')) {
+        dataLines.push(line.slice(5).trimStart());
+      }
+    }
+
+    frames.push({
+      event,
+      data: dataLines.join('\n'),
+    });
+  }
+
+  return {
+    frames,
+    rest: input.slice(cursor),
+  };
+}
+
+export async function explainNode(
+  payload: {
+    sceneId: string;
+    nodeId: string;
+    interaction: ExplainNodeInteraction;
+    priorExplanations?: string[];
+  },
+  handlers: ExplainNodeStreamHandlers,
+  controls?: { signal?: AbortSignal },
+): Promise<void> {
+  let response: Response;
+  try {
+    response = await fetch('/api/v2/theseus/explain_node/', {
+      method: 'POST',
+      headers: {
+        Accept: 'text/event-stream',
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        scene_id: payload.sceneId,
+        node_id: payload.nodeId,
+        interaction: payload.interaction,
+        prior_explanations: payload.priorExplanations ?? [],
+      }),
+      signal: controls?.signal,
+    });
+  } catch (err) {
+    handlers.onError?.({
+      message: err instanceof Error ? err.message : 'Network error opening explanation stream',
+      transient: true,
+    });
+    return;
+  }
+
+  if (!response.ok) {
+    handlers.onError?.({
+      message: `Failed to open explanation stream (${response.status})`,
+      transient: response.status >= 500 || response.status === 408 || response.status === 429,
+    });
+    return;
+  }
+
+  if (!response.body) {
+    handlers.onError?.({
+      message: 'No response body for explanation stream',
+      transient: true,
+    });
+    return;
+  }
+
+  const reader = response.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = '';
+
+  try {
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+
+      buffer += decoder.decode(value, { stream: true });
+      const parsed = parseSseFrames(buffer);
+      buffer = parsed.rest;
+
+      for (const frame of parsed.frames) {
+        if (!frame.data) continue;
+
+        let data: Record<string, unknown> | null = null;
+        try {
+          data = JSON.parse(frame.data) as Record<string, unknown>;
+        } catch {
+          data = null;
+        }
+
+        if (frame.event === 'error') {
+          handlers.onError?.({
+            message:
+              (data?.message as string | undefined)
+              ?? (data?.error as string | undefined)
+              ?? 'Explanation stream error',
+            transient: true,
+          });
+          return;
+        }
+
+        if (frame.event === 'done') {
+          handlers.onDone?.();
+          return;
+        }
+
+        const token = data?.token;
+        if (typeof token === 'string' && token.length > 0) {
+          handlers.onToken?.(token);
+        }
+      }
+    }
+
+    handlers.onDone?.();
+  } catch (err) {
+    if (controls?.signal?.aborted) return;
+    handlers.onError?.({
+      message: err instanceof Error ? err.message : 'Explanation stream interrupted',
+      transient: true,
+    });
+  } finally {
+    reader.releaseLock();
+  }
 }
 
 export async function getObject(

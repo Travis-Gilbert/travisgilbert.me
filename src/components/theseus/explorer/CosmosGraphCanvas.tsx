@@ -45,11 +45,37 @@ export interface CosmosGraphCanvasProps {
    *  KGE / GeoGCN / spacetime layer projections). */
   pinnedPositions?: Record<string, [number, number]> | null;
   onPointClick?: (pointId: string | null) => void;
+  /** Fires within DOUBLE_CLICK_MS of a previous click on the same point.
+   *  Used by SimulationPart to trigger /api/v2/theseus/explain_node/. */
+  onPointDoubleClick?: (pointId: string) => void;
+  /** Fires on drag gesture frames after the threshold is crossed.
+   *  SimulationPart listens to compute remove intent. */
+  onPointDragStart?: (pointId: string) => void;
+  /** Fires on pointer-up after a drag. finalPosition is screen-space
+   *  relative to the canvas; null when cosmos.gl can't report a position.
+   *  When the drag delta exceeds DRAG_REMOVE_THRESHOLD_PX, the canvas
+   *  also fires onPointRemoveRequested. */
+  onPointDragEnd?: (pointId: string, finalPosition: [number, number] | null) => void;
+  /** Fires when a drag gesture exceeds DRAG_REMOVE_THRESHOLD_PX.
+   *  SimulationPart consumes this to remove the primitive via
+   *  adapter.replaceScene(). */
+  onPointRemoveRequested?: (pointId: string) => void;
   onReady?: (graph: Graph) => void;
   /** When false, the overlay canvas is cleared every frame but no
    *  focal labels are drawn. Defaults to true. */
   labelsOn?: boolean;
 }
+
+/** Screen-space drag distance past which the canvas interprets a gesture
+ *  as a remove-from-scene request. Tuned so casual pans don't strip nodes
+ *  but an intentional fling off the card does. Matches spec §What shipping
+ *  looks like ("drags something out"). */
+const DRAG_REMOVE_THRESHOLD_PX = 120;
+
+/** Window in ms during which a second click on the same point fires
+ *  onPointDoubleClick. Outside this window the second click is a fresh
+ *  single click instead. Matches browser default dblclick expectations. */
+const DOUBLE_CLICK_MS = 320;
 
 export type CosmosGraphCanvasHandle = GraphAdapter;
 
@@ -143,6 +169,35 @@ function getEasing(name: string): EasingFn {
   return EASING[name] ?? EASING.linear;
 }
 
+function formatPrimitiveTooltip(
+  entry: {
+    metadata: Record<string, number | string | boolean>;
+    displayKeys?: string[];
+  } | null | undefined,
+): string {
+  if (!entry) return '';
+  const keys = entry.displayKeys && entry.displayKeys.length > 0
+    ? entry.displayKeys
+    : Object.keys(entry.metadata);
+  const lines: string[] = [];
+  for (const key of keys) {
+    const value = entry.metadata[key];
+    if (value === undefined) continue;
+    if (typeof value === 'number' && Number.isFinite(value)) {
+      lines.push(`${key}: ${value % 1 === 0 ? value : value.toFixed(2)}`);
+      continue;
+    }
+    if (typeof value === 'boolean') {
+      lines.push(`${key}: ${value ? 'yes' : 'no'}`);
+      continue;
+    }
+    if (typeof value === 'string' && value.trim().length > 0) {
+      lines.push(`${key}: ${value}`);
+    }
+  }
+  return lines.join('\n');
+}
+
 // --- Component ----------------------------------------------------------
 
 /**
@@ -154,13 +209,28 @@ function getEasing(name: string): EasingFn {
  */
 const CosmosGraphCanvas = forwardRef<CosmosGraphCanvasHandle, CosmosGraphCanvasProps>(
   function CosmosGraphCanvas(
-    { points, links, pinnedPositions, onPointClick, onReady, labelsOn = true },
+    {
+      points,
+      links,
+      pinnedPositions,
+      onPointClick,
+      onPointDoubleClick,
+      onPointDragStart,
+      onPointDragEnd,
+      onPointRemoveRequested,
+      onReady,
+      labelsOn = true,
+    },
     ref,
   ) {
     const containerRef = useRef<HTMLDivElement | null>(null);
     const overlayCanvasRef = useRef<HTMLCanvasElement | null>(null);
     const graphRef = useRef<Graph | null>(null);
     const onPointClickRef = useRef(onPointClick);
+    const onPointDoubleClickRef = useRef(onPointDoubleClick);
+    const onPointDragStartRef = useRef(onPointDragStart);
+    const onPointDragEndRef = useRef(onPointDragEnd);
+    const onPointRemoveRequestedRef = useRef(onPointRemoveRequested);
     const onReadyRef = useRef(onReady);
     const labelsOnRef = useRef<boolean>(labelsOn);
     // Zoom subscription plumbing. Lives next to the Graph instance so
@@ -194,6 +264,16 @@ const CosmosGraphCanvas = forwardRef<CosmosGraphCanvasHandle, CosmosGraphCanvasP
     // on a ref so theme-flip re-encodes can reapply without plumbing the
     // value through adapter calls.
     const hypothesisMixFactorRef = useRef(0);
+    const primitiveMetadataRef = useRef(new Map<string, {
+      metadata: Record<string, number | string | boolean>;
+      displayKeys?: string[];
+    }>());
+    const lastClickRef = useRef<{ id: string; at: number } | null>(null);
+    const dragStateRef = useRef<{
+      pointId: string;
+      startedAt: [number, number];
+    } | null>(null);
+    const pushDataToGraphRef = useRef<(() => void) | null>(null);
 
     // --- Construction tween state ---------------------------------------
     //
@@ -224,6 +304,10 @@ const CosmosGraphCanvas = forwardRef<CosmosGraphCanvasHandle, CosmosGraphCanvasP
     const themeVersion = useThemeVersion();
 
     onPointClickRef.current = onPointClick;
+    onPointDoubleClickRef.current = onPointDoubleClick;
+    onPointDragStartRef.current = onPointDragStart;
+    onPointDragEndRef.current = onPointDragEnd;
+    onPointRemoveRequestedRef.current = onPointRemoveRequested;
     onReadyRef.current = onReady;
     latestDataRef.current = { points, links, pinnedPositions };
 
@@ -1331,6 +1415,35 @@ const CosmosGraphCanvas = forwardRef<CosmosGraphCanvasHandle, CosmosGraphCanvasP
           graph.setLinkColors(pool.linkColors);
           noteInteraction();
         },
+        replaceScene(nextPoints, nextLinks) {
+          latestDataRef.current = {
+            points: nextPoints as unknown as CosmoPoint[],
+            links: nextLinks as unknown as CosmoLink[],
+            pinnedPositions: latestDataRef.current.pinnedPositions,
+          };
+          const nextIndexToId = nextPoints.map((point) => point.id);
+          const nextIdToIndex = new Map(nextIndexToId.map((id, index) => [id, index]));
+          indexToIdRef.current = nextIndexToId;
+          idToIndexRef.current = nextIdToIndex;
+          cancelConstructionInternal(false);
+          focalLabelsRef.current = [];
+          pushDataToGraphRef.current?.();
+          drawOverlay();
+          noteInteraction();
+        },
+        applyPrimitiveMetadata(entries) {
+          const next = new Map<string, {
+            metadata: Record<string, number | string | boolean>;
+            displayKeys?: string[];
+          }>();
+          for (const entry of entries) {
+            next.set(entry.id, {
+              metadata: entry.metadata,
+              displayKeys: entry.displayKeys,
+            });
+          }
+          primitiveMetadataRef.current = next;
+        },
 
         // --- Atlas chrome hooks --------------------------------------
 
@@ -1523,6 +1636,8 @@ const CosmosGraphCanvas = forwardRef<CosmosGraphCanvasHandle, CosmosGraphCanvasP
       }
     }, [writeBaselineColors, writeBaselineLinkStyles, writeBaselineSizes]);
 
+    pushDataToGraphRef.current = pushDataToGraph;
+
     // -------- Graph lifecycle --------------------------------------------
 
     // luma.gl's autoResize captures the canvas's initial clientWidth at
@@ -1604,20 +1719,82 @@ const CosmosGraphCanvas = forwardRef<CosmosGraphCanvasHandle, CosmosGraphCanvasP
         onMouseMove: () => {
           noteInteraction();
         },
+        onPointMouseOver: (index) => {
+          if (typeof index !== 'number') return;
+          const pointId = indexToIdRef.current[index];
+          if (!pointId) return;
+          const tooltip = formatPrimitiveTooltip(
+            primitiveMetadataRef.current.get(pointId),
+          );
+          if (containerRef.current) {
+            containerRef.current.title = tooltip;
+          }
+        },
+        onPointMouseOut: () => {
+          if (containerRef.current) {
+            containerRef.current.title = '';
+          }
+        },
+        onDragStart: (event) => {
+          noteInteraction();
+          const index = event?.subject?.index;
+          if (typeof index !== 'number') return;
+          const pointId = indexToIdRef.current[index];
+          if (!pointId) return;
+          dragStateRef.current = {
+            pointId,
+            startedAt: [event.x, event.y],
+          };
+          onPointDragStartRef.current?.(pointId);
+        },
+        onDragEnd: (event) => {
+          noteInteraction();
+          const drag = dragStateRef.current;
+          dragStateRef.current = null;
+          if (!drag) return;
+          const finalPosition: [number, number] | null =
+            typeof event?.x === 'number' && typeof event?.y === 'number'
+              ? [event.x, event.y]
+              : null;
+          onPointDragEndRef.current?.(drag.pointId, finalPosition);
+          if (!finalPosition) return;
+          const dx = finalPosition[0] - drag.startedAt[0];
+          const dy = finalPosition[1] - drag.startedAt[1];
+          if (Math.hypot(dx, dy) >= DRAG_REMOVE_THRESHOLD_PX) {
+            onPointRemoveRequestedRef.current?.(drag.pointId);
+          }
+        },
         onClick: (index) => {
           noteInteraction();
           const cb = onPointClickRef.current;
           if (typeof index !== 'number') {
+            lastClickRef.current = null;
             if (encodingActiveRef.current) {
               cancelConstructionInternal(false);
               restoreBaseline();
               focalLabelsRef.current = [];
               drawOverlay();
             }
+            if (containerRef.current) {
+              containerRef.current.title = '';
+            }
             cb?.(null);
             return;
           }
-          cb?.(indexToIdRef.current[index] ?? null);
+          const pointId = indexToIdRef.current[index] ?? null;
+          if (!pointId) {
+            cb?.(null);
+            return;
+          }
+          const now = performance.now();
+          const last = lastClickRef.current;
+          if (last && last.id === pointId && now - last.at <= DOUBLE_CLICK_MS) {
+            lastClickRef.current = null;
+            onPointDoubleClickRef.current?.(pointId);
+            return;
+          }
+          lastClickRef.current = { id: pointId, at: now };
+          cb?.(pointId);
         },
       };
 

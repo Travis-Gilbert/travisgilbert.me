@@ -26,6 +26,7 @@ import ConceptMap from './ConceptMap';
 import ProcessFlow from './ProcessFlow';
 import TFJSStipple from './TFJSStipple';
 import GeographicMap from './GeographicMap';
+import SimulationPart, { readSimulationPayload } from '@/components/theseus/chat/parts/SimulationPart';
 
 export interface VisualRendererProps {
   visual: StructuredVisual | null | undefined;
@@ -102,6 +103,11 @@ const VisualRenderer: FC<VisualRendererProps> = ({ visual, onRegionHover, onRegi
           onRegionSelect={onRegionSelect}
         />
       );
+    case 'simulation_scene': {
+      const payload = readSimulationPayload(visual.structured);
+      if (!payload) return null;
+      return <SimulationPart payload={payload} />;
+    }
     default:
       return null;
   }
@@ -124,6 +130,8 @@ function visualTypeToRenderer(
       return 'geographic_map';
     case 'portrait':
       return 'tfjs_stipple';
+    case 'simulation':
+      return 'simulation_scene';
     case 'explanation':
     case 'code':
     default:

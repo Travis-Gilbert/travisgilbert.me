@@ -68,7 +68,8 @@ export type AnswerType =
   | 'timeline'
   | 'hierarchy'
   | 'explanation'
-  | 'code';
+  | 'code'
+  | 'simulation';
 
 export interface AnswerClassification {
   answer_type: AnswerType;

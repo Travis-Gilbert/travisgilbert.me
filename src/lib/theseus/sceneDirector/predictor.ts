@@ -10,7 +10,7 @@
 // in USE + KNN like the old planner; for now the three-way split is coarse
 // enough that a tiny rule set beats model latency.
 
-export type VizMode = 'graph' | 'chart' | 'text';
+export type VizMode = 'graph' | 'chart' | 'text' | 'simulation';
 
 export type ChartKind =
   | 'bar' | 'line' | 'heatmap' | 'scatter' | 'timeline' | 'map';
@@ -22,6 +22,21 @@ export interface VizPrediction {
   shouldWarmCosmograph: boolean;
   shouldWarmMosaic: boolean;
 }
+
+/** Phrases that signal the user wants Theseus to compose a system from
+ *  primitives rather than describe or explain. Mirrors the backend's
+ *  _SIMULATION_SIGNALS list in answer_router.py so pre-warming fires on the
+ *  same queries the backend will classify as `simulation`. */
+const SIMULATION_KEYWORDS = [
+  'simulate ', 'simulation of', 'simulation for',
+  'model the ', 'design the ideal',
+  'build a system that', 'build the system',
+  'ideal hardware for', 'ideal architecture for',
+  'ideal setup for', 'ideal peer',
+  'configure the best', 'configure the ideal',
+  'what would the ideal', 'what would an ideal',
+  'if i wanted to build',
+];
 
 /** Phrases that, when present, push a query toward the graph surface.
  *  Tuned for concept-space and relation-space queries. */
@@ -88,6 +103,20 @@ export function predictVizType(query: string): VizPrediction {
       confidence: 0,
       shouldWarmCosmograph: false,
       shouldWarmMosaic: false,
+    };
+  }
+
+  // Simulation wins before graph/chart because simulations warm BOTH
+  // Cosmograph (construction sequence) and Mosaic (budget chart in mixed
+  // mode). Score needs only one hit because the keywords are specific
+  // verbs ("simulate the ideal ..."), not ambient nouns like "connect".
+  const simulationScore = scoreKeywords(trimmed, SIMULATION_KEYWORDS);
+  if (simulationScore > 0) {
+    return {
+      mode: 'simulation',
+      confidence: Math.min(1, simulationScore / 2),
+      shouldWarmCosmograph: true,
+      shouldWarmMosaic: true,
     };
   }
 

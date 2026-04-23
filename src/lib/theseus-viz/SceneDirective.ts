@@ -71,7 +71,8 @@ export type ConstructionPhaseName =
   | 'agreement_clusters_form'
   | 'tensions_bridge'
   | 'blind_spots_reveal'
-  | 'entrenchment_pulse';
+  | 'entrenchment_pulse'
+  | 'simulation_assembles';
 
 export interface ConstructionPhaseTarget {
   /** Node id the phase's tween should animate. */
@@ -160,13 +161,44 @@ export interface TopologyInterpretation {
 // ---- Render target ----
 
 export interface RenderTargetDirective {
-  primary: 'particle-field' | 'force-graph-3d' | 'sigma-2d' | 'vega-lite' | 'd3';
+  primary: 'particle-field' | 'force-graph-3d' | 'sigma-2d' | 'vega-lite' | 'd3'
+    | 'simulation' | 'mixed';
   fallback: 'force-graph-3d' | 'sigma-2d';
   reason: string;
   data_viz_type?: 'heatmap' | 'bar' | 'line' | 'scatter' | 'geographic'
     | 'surface' | 'sankey' | 'chord' | 'custom' | 'none';
   vega_spec?: object;
   d3_spec?: object;
+}
+
+// ---- Simulation payload (spec SPEC-SIMULATION-ANSWERS §Seam 1) ----
+
+export interface SimulationPrimitive {
+  id: string;
+  kind: string;
+  metadata: Record<string, number | string | boolean>;
+  provenance_object_ids: number[];
+}
+
+export interface SimulationRelation {
+  from_id: string;
+  to_id: string;
+  relation_kind: string;
+  metadata?: Record<string, unknown>;
+}
+
+export type SimulationRenderTarget = 'cosmograph' | 'mosaic' | 'r3f' | 'mixed';
+
+export interface SimulationPayload {
+  domain: string;
+  intent: Record<string, unknown>;
+  primitives: SimulationPrimitive[];
+  relations: SimulationRelation[];
+  metadata_slots: string[];
+  render_target: SimulationRenderTarget;
+  pattern_provenance: string[];
+  scene_id: string;
+  construction?: ConstructionSequence;
 }
 
 // ---- Truth Map topology (epistemic overlay) ----
@@ -215,6 +247,9 @@ export interface SceneDirective {
   inference_time_ms: number;
   /** Present only for truth map render mode. Describes epistemic topology. */
   truth_map_topology?: TruthMapTopologyDirective;
+  /** Present only when the answer is a simulation. Carries primitives,
+   *  relations, and render target sub-dispatch for the SimulationPart. */
+  simulation?: SimulationPayload;
 }
 
 // ---- Model weights bundle (v3: ~12,415 params) ----

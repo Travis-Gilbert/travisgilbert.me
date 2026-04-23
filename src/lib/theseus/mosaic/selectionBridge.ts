@@ -38,10 +38,12 @@ import {
   clusterSelection,
   edgeTypeSelection,
   hypothesisSelection,
+  simulationBrushSelection,
   timeRangeSelection,
   typeSelection,
 } from './coordinator';
 import { EXPLORER_TABLES } from './ingestExplorerData';
+import { SIMULATION_TABLES_FOR } from './ingestSimulationPrimitives';
 
 type Predicate = unknown;
 
@@ -51,6 +53,7 @@ interface ExplorerSelections {
   hypothesis: typeof hypothesisSelection;
   edgeType: typeof edgeTypeSelection;
   type: typeof typeSelection;
+  simulationBrush: typeof simulationBrushSelection;
 }
 
 const DEFAULT_SELECTIONS: ExplorerSelections = {
@@ -59,6 +62,7 @@ const DEFAULT_SELECTIONS: ExplorerSelections = {
   hypothesis: hypothesisSelection,
   edgeType: edgeTypeSelection,
   type: typeSelection,
+  simulationBrush: simulationBrushSelection,
 };
 
 function predicateToSql(p: Predicate): string | null {
@@ -115,7 +119,35 @@ function combinePredicates(parts: Array<string | null>): string | null {
  */
 async function resolveVisibleIds(
   selections: ExplorerSelections,
+  context: {
+    mode: 'explorer' | 'simulation';
+    simulationSceneId?: string;
+    simulationSlot?: string;
+  },
 ): Promise<string[] | null> {
+  if (context.mode === 'simulation') {
+    const simulationPredicate = predicateToSql(selections.simulationBrush.predicate(null));
+    if (simulationPredicate === null) return null;
+    if (!context.simulationSceneId || !context.simulationSlot) return null;
+
+    const { metricBySlot } = SIMULATION_TABLES_FOR(context.simulationSceneId);
+    const slotTable = metricBySlot(context.simulationSlot).name;
+    const { connection } = await getSharedDuckDB();
+    const table = await connection.query(`
+      SELECT DISTINCT primitive_id AS id
+      FROM ${slotTable}
+      WHERE ${simulationPredicate}
+    `);
+    const column = table.getChild('id');
+    if (!column) return [];
+    const ids: string[] = [];
+    for (let i = 0; i < column.length; i++) {
+      const value = column.get(i);
+      if (value != null) ids.push(String(value));
+    }
+    return ids;
+  }
+
   const nodeParts = [
     predicateToSql(selections.timeRange.predicate(null)),
     predicateToSql(selections.cluster.predicate(null)),
@@ -172,6 +204,14 @@ export interface BridgeOptions {
    * to console.warn so failures don't crash the Explorer.
    */
   onError?: (err: unknown) => void;
+  /** Bridge mode. Explorer mode applies shared Explorer selections against
+   *  objects/edges tables. Simulation mode applies only simulationBrush
+   *  against a scene-local metric table. */
+  mode?: 'explorer' | 'simulation';
+  /** Required for simulation mode. */
+  simulationSceneId?: string;
+  /** Required for simulation mode. */
+  simulationSlot?: string;
 }
 
 /**
@@ -190,7 +230,9 @@ export function attachSelectionBridge(
     hypothesis: options.selections?.hypothesis ?? DEFAULT_SELECTIONS.hypothesis,
     edgeType: options.selections?.edgeType ?? DEFAULT_SELECTIONS.edgeType,
     type: options.selections?.type ?? DEFAULT_SELECTIONS.type,
+    simulationBrush: options.selections?.simulationBrush ?? DEFAULT_SELECTIONS.simulationBrush,
   };
+  const mode = options.mode ?? 'explorer';
 
   const onError = options.onError ?? ((err: unknown) => {
     // Keep the canvas running; just surface at info-level.
@@ -203,7 +245,11 @@ export function attachSelectionBridge(
 
   const update = () => {
     const token = ++inflight;
-    void resolveVisibleIds(selections)
+    void resolveVisibleIds(selections, {
+      mode,
+      simulationSceneId: options.simulationSceneId,
+      simulationSlot: options.simulationSlot,
+    })
       .then((ids) => {
         if (disposed || token !== inflight) return;
         adapter.setVisibleIds(ids);
@@ -224,6 +270,7 @@ export function attachSelectionBridge(
   selections.hypothesis.addEventListener('value', handler);
   selections.edgeType.addEventListener('value', handler);
   selections.type.addEventListener('value', handler);
+  selections.simulationBrush.addEventListener('value', handler);
 
   // Run once immediately so the canvas reflects any clauses that were
   // already present on Selections when the bridge attached.
@@ -237,5 +284,6 @@ export function attachSelectionBridge(
     selections.hypothesis.removeEventListener('value', handler);
     selections.edgeType.removeEventListener('value', handler);
     selections.type.removeEventListener('value', handler);
+    selections.simulationBrush.removeEventListener('value', handler);
   };
 }

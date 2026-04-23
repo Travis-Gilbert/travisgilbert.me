@@ -47,6 +47,9 @@ export const clusterSelection = Selection.intersect();
 export const hypothesisSelection = Selection.intersect();
 export const edgeTypeSelection = Selection.intersect();
 export const typeSelection = Selection.intersect();
+/** Simulation-scoped brush selection. Used by SimulationPart mixed/mosaic
+ *  charts to cross-filter primitive visibility on the Cosmograph surface. */
+export const simulationBrushSelection = Selection.intersect();
 
 /** Test/hot-reload helper: drop the init promise. */
 export function _resetMosaicCoordinator(): void {

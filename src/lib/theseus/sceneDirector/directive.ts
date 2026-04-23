@@ -11,7 +11,7 @@
 
 import type { SceneDirective } from '@/lib/theseus-viz/SceneDirective';
 
-export type RenderTargetPrimary = 'graph' | 'mosaic' | 'text';
+export type RenderTargetPrimary = 'graph' | 'mosaic' | 'text' | 'simulation';
 
 const LEGACY_MAP: Record<string, RenderTargetPrimary> = {
   'particle-field':  'graph',
@@ -24,11 +24,19 @@ const LEGACY_MAP: Record<string, RenderTargetPrimary> = {
   'chart':           'mosaic',
   'text':            'text',
   'prose':           'text',
+  'simulation':      'simulation',
+  'mixed':           'simulation',
 };
 
-/** Resolve a directive's primary render target to the v2 three-way vocabulary. */
+/** Resolve a directive's primary render target to the v2 four-way vocabulary.
+ *  A present `simulation` payload wins over the legacy `render_target.primary`
+ *  value so the Shell can dispatch to SimulationPart regardless of what the
+ *  backend emitted for `primary` (composer may set `'mixed'`, `'simulation'`,
+ *  or leave the legacy value untouched). */
 export function resolveRenderTarget(directive: SceneDirective | null | undefined): RenderTargetPrimary {
   if (!directive) return 'text';
+  const sim = (directive as { simulation?: unknown }).simulation;
+  if (sim && typeof sim === 'object') return 'simulation';
   const target = (directive as { render_target?: { primary?: string } }).render_target;
   const primary = target?.primary;
   if (!primary) return 'text';
