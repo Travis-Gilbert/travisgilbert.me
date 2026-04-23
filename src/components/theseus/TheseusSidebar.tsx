@@ -97,6 +97,9 @@ export default function TheseusSidebar() {
             surfaceLabel={atlasFilters.surfaceLabel}
             surfaces={atlasFilters.surfaces}
             onToggleSurface={atlasFilters.toggleSurface}
+            scope={atlasFilters.scope}
+            onChangeScope={atlasFilters.setScope}
+            scopeLabel={atlasFilters.scopeLabel}
           />
 
           {TRAILING_PLACES.map((p) => (

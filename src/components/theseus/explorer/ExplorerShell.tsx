@@ -10,7 +10,6 @@ import ExplorerAskComposer from './ExplorerAskComposer';
 import AtlasPlateLabel from './atlas/AtlasPlateLabel';
 import AtlasIngestBar from './atlas/AtlasIngestBar';
 import AtlasGraphControls from './atlas/AtlasGraphControls';
-import AtlasScopeControl from './atlas/AtlasScopeControl';
 import AtlasScaleBar from './atlas/AtlasScaleBar';
 import AtlasNodeDetail from './atlas/AtlasNodeDetail';
 import { useGraphData, type CosmoPoint } from './useGraphData';
@@ -292,11 +291,6 @@ const ExplorerShell: FC = () => {
         surfaceLabel={atlasFilters.surfaceLabel}
         directiveActive={Boolean(directiveLabel)}
         onDismissDirective={handleDismissDirective}
-      />
-
-      <AtlasScopeControl
-        scope={atlasFilters.scope}
-        onChange={atlasFilters.setScope}
       />
 
       <AtlasIngestBar />
