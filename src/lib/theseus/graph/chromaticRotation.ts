@@ -1,16 +1,54 @@
 /**
- * Chromatic rotation: shift each point's color by one slot within its
- * Leiden cluster on every tick. Cluster identity is preserved; only
- * the color mapping rotates, so the canvas appears to flow without
- * any structural change.
+ * Chromatic rotation (global): shift every point's color forward by
+ * one slot. Point `i` receives the color previously held by point
+ * `i - 1`; point `0` wraps to the last point's color. Over time this
+ * produces a visible chromatic wave across the entire canvas.
  *
- * Global rotation (ignoring clusters) is destructive to community
- * identity and reads as noise; the within-cluster path is the Flow
- * lens baseline.
+ * Semantic color identity (type -> color) is only disturbed during the
+ * Flow lens; Atlas and Clusters lenses reload colors from backend data
+ * on lens switch, restoring type-to-color meaning for reading. This
+ * matches the cosmos.gl worm example reference.
  *
  * Buffer reuse: writes into `dst` (must match `src` length).
  * Allocations in hot paths are a known perf smell (claim 9d94e0e528c3),
  * so the caller must always pass a pooled `dst`.
+ */
+export function rotateColorsGlobally(src: Float32Array, dst: Float32Array): void {
+  if (dst.length !== src.length) {
+    throw new Error(
+      `rotateColorsGlobally: dst length ${dst.length} must equal src length ${src.length}`,
+    );
+  }
+  const pointCount = src.length / 4;
+  if (pointCount < 2) {
+    dst.set(src);
+    return;
+  }
+  // First point wraps to last point's color.
+  const lastOff = (pointCount - 1) * 4;
+  dst[0] = src[lastOff];
+  dst[1] = src[lastOff + 1];
+  dst[2] = src[lastOff + 2];
+  dst[3] = src[lastOff + 3];
+  // Remaining points receive the previous point's color.
+  for (let i = 1; i < pointCount; i++) {
+    const dstOff = i * 4;
+    const srcOff = (i - 1) * 4;
+    dst[dstOff] = src[srcOff];
+    dst[dstOff + 1] = src[srcOff + 1];
+    dst[dstOff + 2] = src[srcOff + 2];
+    dst[dstOff + 3] = src[srcOff + 3];
+  }
+}
+
+/**
+ * Within-cluster rotation: shift each point's color by one slot
+ * within its Leiden cluster. Kept for future lens experimentation;
+ * NOT currently used by the Flow lens because Leiden clusters are
+ * color-homogeneous (points of the same type cluster together), so
+ * within-cluster rotation is visually null.
+ *
+ * Buffer reuse: writes into `dst` (must match `src` length).
  */
 export function rotateColorsWithinClusters(
   src: Float32Array,

@@ -36,7 +36,7 @@ import type {
 import { type CosmoLink, type CosmoPoint } from './useGraphData';
 import { renderLabelToCanvas } from '@/lib/theseus/pretext/canvas';
 import { LABEL_FONT, LABEL_LINE_HEIGHT } from '@/lib/theseus/pretext/fonts';
-import { rotateColorsWithinClusters } from '@/lib/theseus/graph/chromaticRotation';
+import { rotateColorsGlobally } from '@/lib/theseus/graph/chromaticRotation';
 
 export interface CosmosGraphCanvasProps {
   points: CosmoPoint[];
@@ -1750,7 +1750,7 @@ const CosmosGraphCanvas = forwardRef<CosmosGraphCanvasHandle, CosmosGraphCanvasP
           if (!graph || !pool) return;
           tickCounterRef.current += 1;
           if (tickCounterRef.current % rotationEveryNTicksRef.current !== 0) return;
-          rotateColorsWithinClusters(pool.colors, pool.clusterIds, pool.rotationScratch);
+          rotateColorsGlobally(pool.colors, pool.rotationScratch);
           pool.colors.set(pool.rotationScratch);
           graph.setPointColors(pool.colors);
           // No graph.render() here: cosmos.gl drives its own frame
