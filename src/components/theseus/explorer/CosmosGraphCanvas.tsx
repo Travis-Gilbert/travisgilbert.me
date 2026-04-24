@@ -36,6 +36,7 @@ import type {
 import { type CosmoLink, type CosmoPoint } from './useGraphData';
 import { renderLabelToCanvas } from '@/lib/theseus/pretext/canvas';
 import { LABEL_FONT, LABEL_LINE_HEIGHT } from '@/lib/theseus/pretext/fonts';
+import { rotateColorsWithinClusters } from '@/lib/theseus/graph/chromaticRotation';
 
 export interface CosmosGraphCanvasProps {
   points: CosmoPoint[];
@@ -114,6 +115,11 @@ interface BufferPool {
   // state is represented by all-1s. Same length as pointCount.
   filterMask: Uint8Array;
   filterActive: boolean;
+  /** Scratch target for within-cluster chromatic rotation (RGBA per point). */
+  rotationScratch: Float32Array;
+  /** Per-point Leiden community id, populated during pushDataToGraph.
+   *  -1 means "no cluster" (sentinel used by rotateColorsWithinClusters). */
+  clusterIds: Int32Array;
 }
 
 function makeBufferPool(pointCount: number, linkCount: number): BufferPool {
@@ -141,6 +147,8 @@ function makeBufferPool(pointCount: number, linkCount: number): BufferPool {
     tweenStartLinkColors: new Float32Array(linkCount * 4),
     filterMask,
     filterActive: false,
+    rotationScratch: new Float32Array(pointCount * 4),
+    clusterIds: new Int32Array(pointCount),
   };
 }
 
@@ -274,6 +282,12 @@ const CosmosGraphCanvas = forwardRef<CosmosGraphCanvasHandle, CosmosGraphCanvasP
       startedAt: [number, number];
     } | null>(null);
     const pushDataToGraphRef = useRef<(() => void) | null>(null);
+
+    /** Chromatic rotation pacing. 1 means rotate every tick (fastest);
+     *  higher values slow the flow. Set to 90 (~1.5s at 60fps) under
+     *  prefers-reduced-motion. */
+    const rotationEveryNTicksRef = useRef<number>(1);
+    const tickCounterRef = useRef<number>(0);
 
     // --- Construction tween state ---------------------------------------
     //
@@ -476,6 +490,17 @@ const CosmosGraphCanvas = forwardRef<CosmosGraphCanvasHandle, CosmosGraphCanvasP
       labelsOnRef.current = labelsOn;
       if (changed) drawOverlay();
     }, [labelsOn, drawOverlay]);
+
+    useEffect(() => {
+      if (typeof window === 'undefined') return;
+      const mq = window.matchMedia('(prefers-reduced-motion: reduce)');
+      const apply = () => {
+        rotationEveryNTicksRef.current = mq.matches ? 90 : 1;
+      };
+      apply();
+      mq.addEventListener('change', apply);
+      return () => mq.removeEventListener('change', apply);
+    }, []);
 
     // -------- Encoding setters (adapter implementations) -----------------
 
@@ -1618,6 +1643,7 @@ const CosmosGraphCanvas = forwardRef<CosmosGraphCanvasHandle, CosmosGraphCanvasP
         for (let i = 0; i < pointCount; i++) {
           const ord = resolveClusterOrdinal(pts[i], clusterContext);
           pointClusters[i] = ord ?? undefined;
+          pool.clusterIds[i] = typeof ord === 'number' ? ord : -1;
         }
         const clusterPositions: (number | undefined)[] = new Array(totalOrdinals * 2);
         for (let ord = 0; ord < totalOrdinals; ord++) {
@@ -1639,6 +1665,7 @@ const CosmosGraphCanvas = forwardRef<CosmosGraphCanvasHandle, CosmosGraphCanvasP
         }
         graph.setPointClusterStrength(pointClusterStrengths);
       } else {
+        pool.clusterIds.fill(-1);
         graph.setPointClusters([]);
         graph.setClusterPositions([]);
         graph.setPointClusterStrength(new Float32Array(pointCount));
@@ -1717,6 +1744,18 @@ const CosmosGraphCanvas = forwardRef<CosmosGraphCanvasHandle, CosmosGraphCanvasP
         simulationCluster: 0.7,
         simulationDecay: Number.POSITIVE_INFINITY,
         scalePointsOnZoom: true,
+        onSimulationTick: () => {
+          const graph = graphRef.current;
+          const pool = poolRef.current;
+          if (!graph || !pool) return;
+          tickCounterRef.current += 1;
+          if (tickCounterRef.current % rotationEveryNTicksRef.current !== 0) return;
+          rotateColorsWithinClusters(pool.colors, pool.clusterIds, pool.rotationScratch);
+          pool.colors.set(pool.rotationScratch);
+          graph.setPointColors(pool.colors);
+          // No graph.render() here: cosmos.gl drives its own frame
+          // after the tick callback returns.
+        },
         onSimulationEnd: () => {
           graphRef.current?.fitView?.(600, 0.18, false);
           drawOverlay();
