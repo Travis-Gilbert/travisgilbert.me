@@ -1694,21 +1694,16 @@ const CosmosGraphCanvas = forwardRef<CosmosGraphCanvasHandle, CosmosGraphCanvasP
         fitViewOnInit: true,
         fitViewDelay: 1400,
         fitViewPadding: 0.2,
-        // Worm-look simulation tuning: higher repulsion + lower spring
-        // + larger spaceSize + cluster-seeded positions combine to spread
-        // distinct warm-colored regions across the canvas with visible
-        // inter-cluster gaps. Matches the Cosmograph timeline demo's
-        // published values (repulsion 1, spring 1, gravity 0.5) adjusted
-        // for our smaller graph sizes.
-        // Spread tuning: higher repulsion + gentler spring + strong cluster
-        // force so each hybrid cluster holds its ground against the link
-        // pull. simulationCluster defaults to 0.1; bumping to 0.55 is what
-        // separates the worm into distinct colored regions.
-        simulationRepulsion: 2.6,
-        simulationGravity: 0.15,
+        // Flow-lens worm tuning. Gentler repulsion + stronger spring
+        // than the previous "worm-cluster" baseline so points pull into
+        // soft interconnected limbs. simulationDecay: Infinity keeps
+        // the worm alive instead of freezing (this is the point).
+        // prefers-reduced-motion falls back to a finite decay in Task 7.
+        simulationRepulsion: 1.2,
+        simulationGravity: 0.5,
         simulationCenter: 0.1,
-        simulationLinkSpring: 0.25,
-        simulationLinkDistance: 42,
+        simulationLinkSpring: 0.9,
+        simulationLinkDistance: 38,
         simulationFriction: 0.85,
         // Global cluster force multiplier. 0.7 matches cosmos-pro
         // `recipes/clustering-force.md` tight-grouping guidance and
@@ -1717,7 +1712,7 @@ const CosmosGraphCanvas = forwardRef<CosmosGraphCanvasHandle, CosmosGraphCanvasP
         // `setPointClusterStrength(Float32Array)` inside
         // pushDataToGraph to scale individual points on top of this.
         simulationCluster: 0.7,
-        simulationDecay: 8000,
+        simulationDecay: Number.POSITIVE_INFINITY,
         scalePointsOnZoom: true,
         onSimulationEnd: () => {
           graphRef.current?.fitView?.(600, 0.18, false);
