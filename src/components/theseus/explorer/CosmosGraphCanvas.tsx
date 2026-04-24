@@ -37,6 +37,7 @@ import { type CosmoLink, type CosmoPoint } from './useGraphData';
 import { renderLabelToCanvas } from '@/lib/theseus/pretext/canvas';
 import { LABEL_FONT, LABEL_LINE_HEIGHT } from '@/lib/theseus/pretext/fonts';
 import { rotateColorsGlobally } from '@/lib/theseus/graph/chromaticRotation';
+import type { LensId } from '@/lib/theseus-viz/SceneDirective';
 
 export interface CosmosGraphCanvasProps {
   points: CosmoPoint[];
@@ -288,6 +289,15 @@ const CosmosGraphCanvas = forwardRef<CosmosGraphCanvasHandle, CosmosGraphCanvasP
      *  prefers-reduced-motion. */
     const rotationEveryNTicksRef = useRef<number>(1);
     const tickCounterRef = useRef<number>(0);
+
+    /** Active Explorer lens. Gates chromatic rotation (Flow only) and
+     *  other lens-specific behavior. `setLens` updates this ref and
+     *  reshapes the live buffer state. */
+    const lensRef = useRef<LensId>('flow');
+    /** Scratch buffer that holds the Flow-lens-rotated colors so we can
+     *  restore them when switching back from Atlas. Allocated lazily on
+     *  first lens switch. */
+    const flowColorsSnapshotRef = useRef<Float32Array | null>(null);
 
     // --- Construction tween state ---------------------------------------
     //
@@ -1492,6 +1502,51 @@ const CosmosGraphCanvas = forwardRef<CosmosGraphCanvasHandle, CosmosGraphCanvasP
             zoomListenersRef.current.delete(cb);
           };
         },
+        setLens(lens: LensId) {
+          const graph = graphRef.current;
+          const pool = poolRef.current;
+          if (!graph || !pool) {
+            lensRef.current = lens;
+            return;
+          }
+          const prev = lensRef.current;
+          if (prev === lens) return;
+
+          // Leaving Flow: snapshot the rotated colors so we can restore
+          // them on return.
+          if (prev === 'flow') {
+            if (!flowColorsSnapshotRef.current
+              || flowColorsSnapshotRef.current.length !== pool.colors.length) {
+              flowColorsSnapshotRef.current = new Float32Array(pool.colors.length);
+            }
+            flowColorsSnapshotRef.current.set(pool.colors);
+          }
+
+          // Entering Atlas or Clusters: reset colors to the semantic
+          // per-type baseline so points read their object_type_color.
+          // Atlas is the map; Clusters is the navigation view. Both
+          // need stable type-identity coloring, not rotated flow.
+          if (lens === 'atlas' || lens === 'clusters') {
+            pool.colors.set(pool.baseColors);
+            graph.setPointColors(pool.colors);
+            // Reset tween counter so re-enter animations are clean.
+            tickCounterRef.current = 0;
+          }
+
+          // Returning to Flow: restore rotated colors from snapshot if
+          // we have one, otherwise start fresh from baseColors.
+          if (lens === 'flow') {
+            if (flowColorsSnapshotRef.current
+              && flowColorsSnapshotRef.current.length === pool.colors.length) {
+              pool.colors.set(flowColorsSnapshotRef.current);
+            } else {
+              pool.colors.set(pool.baseColors);
+            }
+            graph.setPointColors(pool.colors);
+          }
+
+          lensRef.current = lens;
+        },
       }),
       [
         applyEdgeStylesToPool,
@@ -1748,6 +1803,9 @@ const CosmosGraphCanvas = forwardRef<CosmosGraphCanvasHandle, CosmosGraphCanvasP
           const graph = graphRef.current;
           const pool = poolRef.current;
           if (!graph || !pool) return;
+          // Chromatic rotation is the Flow-lens signature; Atlas and
+          // Clusters are static, so skip the rotation there.
+          if (lensRef.current !== 'flow') return;
           tickCounterRef.current += 1;
           if (tickCounterRef.current % rotationEveryNTicksRef.current !== 0) return;
           rotateColorsGlobally(pool.colors, pool.rotationScratch);

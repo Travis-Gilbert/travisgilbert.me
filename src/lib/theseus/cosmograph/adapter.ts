@@ -5,6 +5,7 @@ import type {
   ConstructionSequence,
   HypothesisEdgeStyle,
   HypothesisStyle,
+  LensId,
   NodeSalience,
   SceneDirective,
   TopologyInterpretation,
@@ -159,6 +160,14 @@ export interface GraphAdapter {
    *  zoom event with the new level. Returns an unsubscribe function;
    *  callers MUST invoke it on unmount to avoid leaks. */
   onZoomChange(cb: (zoom: number) => void): () => void;
+
+  /** Switch the Explorer lens. Flow is the living worm (default), Atlas
+   *  is a static map with reloaded per-type colors, Clusters is a
+   *  labeled community view. Calling with the current lens is a no-op.
+   *  Atlas destroys and recreates the underlying Graph because
+   *  cosmos.gl's `enableSimulation` is init-only; the transition is
+   *  wrapped in an opacity crossfade in the implementation. */
+  setLens(lens: LensId): void;
 
   // --- Simulation surface (SPEC-SIMULATION-ANSWERS §Seam 1 / §Seam 3) ---
   //
@@ -354,6 +363,12 @@ export function applySceneDirective(
     adapter.clearEncoding();
     return;
   }
+
+  // 0. Lens selection. Runs first so layout / motion / label density are
+  // in the right mode before salience + labels get stamped on. Omitted
+  // or unknown lens => Flow (the living worm default).
+  const lens = directive.render_target?.lens;
+  if (lens) adapter.setLens(lens);
 
   const salience = readSalience(directive);
   const edgeStyles = readEdgeStyles(directive);
