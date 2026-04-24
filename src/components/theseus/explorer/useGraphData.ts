@@ -5,6 +5,11 @@ import { getGraphData, type GraphScope } from '@/lib/theseus-api';
 import type { GraphNode, GraphEdge } from '@/lib/theseus-types';
 import type { AtlasKind } from '@/components/theseus/atlas/sources';
 import type { AtlasSurfaces } from '@/components/theseus/atlas/useAtlasFilters';
+import { topKPerNode } from '@/lib/theseus/graph/topK';
+
+/** Top-K per-node edge filter for the Flow lens. Tuning knob: raising
+ *  this shows more structure at the cost of visual density. */
+export const FLOW_EDGE_TOP_K = 4;
 
 /** Sentinel color value signalling "use the VIE token fallback chain".
  *  The cosmos.gl encoder (`resolveTypeColorRgba`) treats any non-hex
@@ -189,7 +194,10 @@ export function useGraphData(options: UseGraphDataOptions = {}): UseGraphDataRes
         const { nodes, edges, meta } = result;
         setState({
           points: nodes.map(mapNode),
-          links: edges.map(mapEdge).filter((l): l is CosmoLink => l !== null),
+          links: topKPerNode(
+            edges.map(mapEdge).filter((l): l is CosmoLink => l !== null),
+            FLOW_EDGE_TOP_K,
+          ),
           loading: false,
           error: null,
           total: { nodes: meta.node_count, edges: meta.edge_count },
