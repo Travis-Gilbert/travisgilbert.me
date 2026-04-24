@@ -152,73 +152,78 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   return (await res.json()) as T;
 }
 
-/** GET /api/v2/plugins/manifest — every known plugin. */
+// Every Index-API v2 Ninja route is registered with a trailing slash;
+// requests without one resolve to Django's 404. Keep all paths ending in '/'.
+
+/** GET /api/v2/plugins/manifest/ — every known plugin. */
 export function fetchPluginsManifest(): Promise<PluginManifestEntry[]> {
-  return request<PluginManifestEntry[]>('/manifest');
+  return request<PluginManifestEntry[]>('/manifest/');
 }
 
-/** GET /api/v2/plugins/{slug}. */
+/** GET /api/v2/plugins/{slug}/. */
 export function fetchPluginDetail(
   slug: string,
 ): Promise<PluginManifestEntry> {
-  return request<PluginManifestEntry>(`/${encodeURIComponent(slug)}`);
+  return request<PluginManifestEntry>(`/${encodeURIComponent(slug)}/`);
 }
 
-/** GET /api/v2/plugins/health — aggregated health report. */
+/** GET /api/v2/plugins/health/ — aggregated health report. */
 export function fetchPluginHealth(): Promise<PluginHealthEntry[]> {
-  return request<PluginHealthEntry[]>('/health');
+  return request<PluginHealthEntry[]>('/health/');
 }
 
-/** GET /api/v2/plugins/capabilities — runner isolation guarantees. */
+/** GET /api/v2/plugins/capabilities/ — runner isolation guarantees. */
 export function fetchRunnerCapabilities(): Promise<RunnerCapabilities> {
-  return request<RunnerCapabilities>('/capabilities');
+  return request<RunnerCapabilities>('/capabilities/');
 }
 
-/** GET /api/v2/plugins/{slug}/runs?limit=N. */
+/** GET /api/v2/plugins/{slug}/runs/?limit=N. */
 export function fetchPluginRuns(
   slug: string,
   limit = 25,
 ): Promise<PluginRunSummary[]> {
   const q = `?limit=${encodeURIComponent(String(limit))}`;
-  return request<PluginRunSummary[]>(`/${encodeURIComponent(slug)}/runs${q}`);
+  return request<PluginRunSummary[]>(
+    `/${encodeURIComponent(slug)}/runs/${q}`,
+  );
 }
 
-/** POST /api/v2/plugins/{slug}/enable. */
+/** POST /api/v2/plugins/{slug}/enable/. */
 export function enablePlugin(
   slug: string,
 ): Promise<LifecycleTransitionResult> {
   return request<LifecycleTransitionResult>(
-    `/${encodeURIComponent(slug)}/enable`,
+    `/${encodeURIComponent(slug)}/enable/`,
     { method: 'POST' },
   );
 }
 
-/** POST /api/v2/plugins/{slug}/disable. */
+/** POST /api/v2/plugins/{slug}/disable/. */
 export function disablePlugin(
   slug: string,
 ): Promise<LifecycleTransitionResult> {
   return request<LifecycleTransitionResult>(
-    `/${encodeURIComponent(slug)}/disable`,
+    `/${encodeURIComponent(slug)}/disable/`,
     { method: 'POST' },
   );
 }
 
-/** POST /api/v2/plugins/{slug}/rehabilitate. */
+/** POST /api/v2/plugins/{slug}/rehabilitate/. */
 export function rehabilitatePlugin(
   slug: string,
 ): Promise<LifecycleTransitionResult> {
   return request<LifecycleTransitionResult>(
-    `/${encodeURIComponent(slug)}/rehabilitate`,
+    `/${encodeURIComponent(slug)}/rehabilitate/`,
     { method: 'POST' },
   );
 }
 
-/** POST /api/v2/plugins/{slug}/uninstall. */
+/** POST /api/v2/plugins/{slug}/uninstall/. */
 export function uninstallPlugin(
   slug: string,
 ): Promise<LifecycleTransitionResult> {
   return request<LifecycleTransitionResult>(
-    `/${encodeURIComponent(slug)}/uninstall`,
+    `/${encodeURIComponent(slug)}/uninstall/`,
     { method: 'POST' },
   );
 }
