@@ -1551,6 +1551,10 @@ const CosmosGraphCanvas = forwardRef<CosmosGraphCanvasHandle, CosmosGraphCanvasP
           }
 
           lensRef.current = lens;
+          // Redraw the overlay so any pretext focal labels reposition
+          // against the new lens state. Atlas positions are frozen, so
+          // this single redraw is the truth until the next zoom / resize.
+          drawOverlay();
         },
       }),
       [
