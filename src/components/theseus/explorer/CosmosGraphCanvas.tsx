@@ -37,6 +37,11 @@ import { type CosmoLink, type CosmoPoint } from './useGraphData';
 import { renderLabelToCanvas } from '@/lib/theseus/pretext/canvas';
 import { LABEL_FONT, LABEL_LINE_HEIGHT } from '@/lib/theseus/pretext/fonts';
 import { rotateColorsGlobally } from '@/lib/theseus/graph/chromaticRotation';
+import {
+  computeClusterHulls,
+  type ClusterHull,
+} from '@/lib/theseus/graph/clusterHulls';
+import rough from 'roughjs';
 import type { LensId } from '@/lib/theseus-viz/SceneDirective';
 
 export interface CosmosGraphCanvasProps {
@@ -298,6 +303,15 @@ const CosmosGraphCanvas = forwardRef<CosmosGraphCanvasHandle, CosmosGraphCanvasP
      *  restore them when switching back from Atlas. Allocated lazily on
      *  first lens switch. */
     const flowColorsSnapshotRef = useRef<Float32Array | null>(null);
+    /** Current points, mirrored into a ref so setLens('clusters') can
+     *  resolve dominant object_type per Leiden community without
+     *  threading props through the imperative handle. */
+    const pointsRef = useRef<CosmoPoint[]>(points);
+    pointsRef.current = points;
+    /** Cached Clusters-lens hulls in space coordinates. Recomputed each
+     *  time the user enters the Clusters lens (positions are stable
+     *  then, so the cache is valid until the next setLens call). */
+    const clusterHullsRef = useRef<ClusterHull[]>([]);
 
     // --- Construction tween state ---------------------------------------
     //
@@ -436,6 +450,58 @@ const CosmosGraphCanvas = forwardRef<CosmosGraphCanvasHandle, CosmosGraphCanvasP
       const dpr = window.devicePixelRatio || 1;
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
       ctx.clearRect(0, 0, overlay.width, overlay.height);
+
+      // Clusters lens: draw rough.js convex hulls around each Leiden
+      // community plus a centroid label naming the dominant type.
+      // spaceToScreenPosition returns buffer-pixel values (already
+      // scaled for DPR), so we draw hulls + labels under an identity
+      // transform, then restore the DPR transform for the focal-label
+      // branch below. Only the top 20 largest clusters are labelled
+      // to control overlap at overview zoom.
+      if (lensRef.current === 'clusters' && clusterHullsRef.current.length > 0) {
+        const rc = rough.canvas(overlay);
+        const hullStroke = cssVarToRgba('--vie-terra', 1);
+        const strokeColor = `rgba(${Math.round(hullStroke[0] * 255)},${Math.round(hullStroke[1] * 255)},${Math.round(hullStroke[2] * 255)},0.7)`;
+        const fillColor = `rgba(${Math.round(hullStroke[0] * 255)},${Math.round(hullStroke[1] * 255)},${Math.round(hullStroke[2] * 255)},0.06)`;
+        ctx.save();
+        ctx.setTransform(1, 0, 0, 1, 0, 0);
+        const topHulls = clusterHullsRef.current.slice(0, 20);
+        for (const hull of topHulls) {
+          const screenHull: Array<[number, number]> = [];
+          for (const [sx, sy] of hull.hullSpace) {
+            const projected = graph.spaceToScreenPosition([sx, sy]);
+            if (!projected) continue;
+            screenHull.push([projected[0], projected[1]]);
+          }
+          if (screenHull.length >= 3) {
+            rc.polygon(screenHull, {
+              stroke: strokeColor,
+              strokeWidth: 1.5,
+              roughness: 2.0,
+              bowing: 1.8,
+              fill: fillColor,
+              fillStyle: 'hachure',
+              hachureGap: 14,
+              hachureAngle: -30,
+            });
+          }
+          const centerScreen = graph.spaceToScreenPosition(hull.centroidSpace);
+          if (centerScreen) {
+            const labelText = `${hull.dominantType.toUpperCase()} · ${hull.count}`;
+            ctx.font = '500 22px ui-monospace, SFMono-Regular, Menlo, monospace';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            // Soft halo so labels stay readable over hachure.
+            ctx.lineWidth = 5;
+            ctx.strokeStyle = 'rgba(243, 239, 230, 0.85)';
+            ctx.strokeText(labelText, centerScreen[0], centerScreen[1]);
+            ctx.fillStyle = strokeColor;
+            ctx.fillText(labelText, centerScreen[0], centerScreen[1]);
+          }
+        }
+        ctx.restore();
+        ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      }
 
       // Labels toggle: clear the overlay every frame but skip label
       // rendering when the Atlas controls have hidden labels. Keeps
@@ -1534,6 +1600,25 @@ const CosmosGraphCanvas = forwardRef<CosmosGraphCanvasHandle, CosmosGraphCanvasP
             // Freeze physics so the map reads as static. cosmos.gl 3.0
             // exposes pause()/unpause(); graceful no-op if missing.
             graph.pause?.();
+          }
+
+          // Clusters-specific: compute convex hulls per Leiden
+          // community against the current (frozen) positions. Cached
+          // in space coordinates and reprojected to screen each draw.
+          if (lens === 'clusters') {
+            const positions = graph.getPointPositions();
+            if (positions && positions.length > 0) {
+              clusterHullsRef.current = computeClusterHulls(
+                pointsRef.current,
+                positions,
+                pool.clusterIds,
+                /* minMembers */ 10,
+              );
+            } else {
+              clusterHullsRef.current = [];
+            }
+          } else {
+            clusterHullsRef.current = [];
           }
 
           // Returning to Flow: restore rotated colors from snapshot if
