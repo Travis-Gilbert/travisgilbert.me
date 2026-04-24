@@ -37,6 +37,7 @@ import { type CosmoLink, type CosmoPoint } from './useGraphData';
 import { renderLabelToCanvas } from '@/lib/theseus/pretext/canvas';
 import { LABEL_FONT, LABEL_LINE_HEIGHT } from '@/lib/theseus/pretext/fonts';
 import { rotateColorsGlobally } from '@/lib/theseus/graph/chromaticRotation';
+import { assignFlowGradient } from '@/lib/theseus/graph/flowColors';
 import {
   computeClusterHulls,
   type ClusterHull,
@@ -123,6 +124,9 @@ interface BufferPool {
   filterActive: boolean;
   /** Scratch target for within-cluster chromatic rotation (RGBA per point). */
   rotationScratch: Float32Array;
+  /** Scratch target for Flow-lens position rotation (x/y per point).
+   *  Pre-allocated so the onSimulationTick handler never churns GC. */
+  rotationPositionScratch: Float32Array;
   /** Per-point Leiden community id, populated during pushDataToGraph.
    *  -1 means "no cluster" (sentinel used by rotateColorsWithinClusters). */
   clusterIds: Int32Array;
@@ -154,6 +158,7 @@ function makeBufferPool(pointCount: number, linkCount: number): BufferPool {
     filterMask,
     filterActive: false,
     rotationScratch: new Float32Array(pointCount * 4),
+    rotationPositionScratch: new Float32Array(pointCount * 2),
     clusterIds: new Int32Array(pointCount),
   };
 }
@@ -1621,11 +1626,15 @@ const CosmosGraphCanvas = forwardRef<CosmosGraphCanvasHandle, CosmosGraphCanvasP
             clusterHullsRef.current = [];
           }
 
-          // Returning to Flow: restore rotated colors from snapshot if
-          // we have one, otherwise start fresh from baseColors. Also
-          // unpause so the worm starts moving again.
+          // Returning to Flow: always paint the warm angular gradient
+          // fresh so the rotation produces a visible pinwheel (the
+          // type-color baseline only has ~7 distinct hues, which
+          // disappear under rotation). Unpause so the worm moves.
           if (lens === 'flow') {
-            if (flowColorsSnapshotRef.current
+            const positions = graph.getPointPositions();
+            if (positions && positions.length > 0) {
+              assignFlowGradient(positions, pool.colors);
+            } else if (flowColorsSnapshotRef.current
               && flowColorsSnapshotRef.current.length === pool.colors.length) {
               pool.colors.set(flowColorsSnapshotRef.current);
             } else {
@@ -1774,6 +1783,13 @@ const CosmosGraphCanvas = forwardRef<CosmosGraphCanvasHandle, CosmosGraphCanvasP
       );
 
       graph.setPointPositions(positions);
+      // If we're loading directly into the Flow lens (the default),
+      // paint the warm angular gradient so chromatic rotation is
+      // visible immediately. Other lenses will reset colors on
+      // entry via setLens.
+      if (lensRef.current === 'flow') {
+        assignFlowGradient(positions, pool.colors);
+      }
       graph.setPointColors(pool.colors);
       graph.setPointSizes(pool.sizes);
       graph.setLinks(linksArray);
@@ -1897,16 +1913,46 @@ const CosmosGraphCanvas = forwardRef<CosmosGraphCanvasHandle, CosmosGraphCanvasP
           const graph = graphRef.current;
           const pool = poolRef.current;
           if (!graph || !pool) return;
-          // Chromatic rotation is the Flow-lens signature; Atlas and
-          // Clusters are static, so skip the rotation there.
+          // Flow lens is the living worm: the whole graph slowly
+          // rotates around its centroid so the reader sees genuine
+          // motion. Atlas and Clusters are static, so skip this.
           if (lensRef.current !== 'flow') return;
           tickCounterRef.current += 1;
-          if (tickCounterRef.current % rotationEveryNTicksRef.current !== 0) return;
-          rotateColorsGlobally(pool.colors, pool.rotationScratch);
-          pool.colors.set(pool.rotationScratch);
-          graph.setPointColors(pool.colors);
-          // No graph.render() here: cosmos.gl drives its own frame
-          // after the tick callback returns.
+
+          const positions = graph.getPointPositions();
+          if (!positions || positions.length < 2) return;
+          const n = positions.length / 2;
+          if (pool.rotationPositionScratch.length < positions.length) return;
+
+          let cx = 0;
+          let cy = 0;
+          for (let i = 0; i < n; i++) {
+            cx += positions[i * 2];
+            cy += positions[i * 2 + 1];
+          }
+          cx /= n;
+          cy /= n;
+
+          // ~14 degrees per second at 60fps, slowing to ~1.6 deg/s under
+          // prefers-reduced-motion. Full revolution in ~26s normally.
+          const baseTheta = 0.004;
+          const theta = rotationEveryNTicksRef.current > 1
+            ? baseTheta / rotationEveryNTicksRef.current
+            : baseTheta;
+          const cosT = Math.cos(theta);
+          const sinT = Math.sin(theta);
+          const out = pool.rotationPositionScratch;
+          for (let i = 0; i < n; i++) {
+            const dx = positions[i * 2] - cx;
+            const dy = positions[i * 2 + 1] - cy;
+            out[i * 2] = cx + dx * cosT - dy * sinT;
+            out[i * 2 + 1] = cy + dx * sinT + dy * cosT;
+          }
+          // `dontRescale = true`: cosmos.gl re-fits the view on every
+          // setPointPositions by default. Without this flag the
+          // camera jumps every tick and the graph vanishes.
+          graph.setPointPositions(out, true);
+          graph.render?.();
         },
         onSimulationEnd: () => {
           graphRef.current?.fitView?.(600, 0.18, false);
@@ -2016,6 +2062,9 @@ const CosmosGraphCanvas = forwardRef<CosmosGraphCanvasHandle, CosmosGraphCanvasP
         if (cancelled || graph) return;
         graph = new Graph(container, config);
         graphRef.current = graph;
+        if (process.env.NODE_ENV !== 'production') {
+          (window as unknown as { __theseusGraph?: Graph }).__theseusGraph = graph;
+        }
         sizeOverlayToContainer();
         graph.ready.then(() => {
           if (!cancelled && graphRef.current === graph && graph) {
