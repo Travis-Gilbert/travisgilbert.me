@@ -160,6 +160,10 @@ export interface TopologyInterpretation {
 
 // ---- Render target ----
 
+/** Lens id for the Explorer cosmos.gl canvas. Controls layout, motion,
+ *  and label density without changing the node set. */
+export type LensId = 'flow' | 'atlas' | 'clusters';
+
 export interface RenderTargetDirective {
   primary: 'particle-field' | 'force-graph-3d' | 'sigma-2d' | 'vega-lite' | 'd3'
     | 'simulation' | 'mixed';
@@ -169,6 +173,10 @@ export interface RenderTargetDirective {
     | 'surface' | 'sankey' | 'chord' | 'custom' | 'none';
   vega_spec?: object;
   d3_spec?: object;
+  /** Explorer lens selection. Default 'flow' when omitted. Changing
+   *  this field at runtime routes through applySceneDirective -> the
+   *  CosmosGraphCanvas setLens handle. */
+  lens?: LensId;
 }
 
 // ---- Simulation payload (spec SPEC-SIMULATION-ANSWERS §Seam 1) ----
