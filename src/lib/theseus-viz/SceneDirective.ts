@@ -162,7 +162,7 @@ export interface TopologyInterpretation {
 
 /** Lens id for the Explorer cosmos.gl canvas. Controls layout, motion,
  *  and label density without changing the node set. */
-export type LensId = 'flow' | 'atlas' | 'clusters';
+export type LensId = 'flow' | 'atlas' | 'clusters' | 'orbit';
 
 export interface RenderTargetDirective {
   primary: 'particle-field' | 'force-graph-3d' | 'sigma-2d' | 'vega-lite' | 'd3'

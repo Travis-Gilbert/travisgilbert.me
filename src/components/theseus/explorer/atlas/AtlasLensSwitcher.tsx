@@ -12,6 +12,7 @@ const LENS_OPTIONS: Array<{ id: LensId; label: string; key: string }> = [
   { id: 'flow', label: 'Flow', key: '1' },
   { id: 'atlas', label: 'Atlas', key: '2' },
   { id: 'clusters', label: 'Clusters', key: '3' },
+  { id: 'orbit', label: 'Orbit', key: '4' },
 ];
 
 /**

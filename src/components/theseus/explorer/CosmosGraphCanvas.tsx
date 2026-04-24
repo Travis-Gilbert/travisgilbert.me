@@ -130,6 +130,18 @@ interface BufferPool {
   /** Per-point Leiden community id, populated during pushDataToGraph.
    *  -1 means "no cluster" (sentinel used by rotateColorsWithinClusters). */
   clusterIds: Int32Array;
+  // --- Orbit-lens fields (populated on setLens('orbit')) -------------
+  /** Per-point solar-system center: cluster centroid coordinates. */
+  orbitCenters: Float32Array;
+  /** Per-point orbital radius (distance from centroid at lens entry). */
+  orbitRadii: Float32Array;
+  /** Per-point orbital phase in radians (atan2 at lens entry). */
+  orbitPhases: Float32Array;
+  /** Per-point angular velocity. Slower for larger radii (Kepler-ish). */
+  orbitOmegas: Float32Array;
+  /** Tick counter at the moment the orbit lens was entered so phase
+   *  animation starts from t=0 rather than the absolute sim clock. */
+  orbitT0: number;
 }
 
 function makeBufferPool(pointCount: number, linkCount: number): BufferPool {
@@ -160,6 +172,11 @@ function makeBufferPool(pointCount: number, linkCount: number): BufferPool {
     rotationScratch: new Float32Array(pointCount * 4),
     rotationPositionScratch: new Float32Array(pointCount * 2),
     clusterIds: new Int32Array(pointCount),
+    orbitCenters: new Float32Array(pointCount * 2),
+    orbitRadii: new Float32Array(pointCount),
+    orbitPhases: new Float32Array(pointCount),
+    orbitOmegas: new Float32Array(pointCount),
+    orbitT0: 0,
   };
 }
 
@@ -1644,6 +1661,104 @@ const CosmosGraphCanvas = forwardRef<CosmosGraphCanvasHandle, CosmosGraphCanvasP
             graph.unpause?.();
           }
 
+          // Orbit lens: each Leiden community becomes its own little
+          // solar system. Importance (PageRank, with degree fallback)
+          // determines orbital radius — the heaviest node sits near
+          // the centroid as the "sun", fringe nodes orbit far out.
+          // Angular velocity drops with radius (Kepler-ish) so outer
+          // orbits drift slowly while inner orbits whip around.
+          if (lens === 'orbit') {
+            pool.colors.set(pool.baseColors);
+            graph.setPointColors(pool.colors);
+            graph.unpause?.();
+
+            const pts = pointsRef.current;
+            const positions = graph.getPointPositions();
+            if (pts.length > 0 && positions && positions.length >= pts.length * 2) {
+              type Entry = { idx: number; importance: number };
+              const byCluster = new Map<number, Entry[]>();
+              const nPts = pts.length;
+              for (let i = 0; i < nPts; i++) {
+                const cid = pool.clusterIds[i];
+                if (cid < 0) continue;
+                const p = pts[i];
+                const importance = typeof p.pagerank === 'number' && p.pagerank > 0
+                  ? p.pagerank
+                  : p.degree;
+                const list = byCluster.get(cid);
+                if (list) list.push({ idx: i, importance });
+                else byCluster.set(cid, [{ idx: i, importance }]);
+              }
+
+              // Compute cluster centroids from current graph positions.
+              const centroids = new Map<number, { x: number; y: number }>();
+              for (const [cid, members] of byCluster) {
+                let sx = 0;
+                let sy = 0;
+                for (const m of members) {
+                  sx += positions[m.idx * 2];
+                  sy += positions[m.idx * 2 + 1];
+                }
+                centroids.set(cid, { x: sx / members.length, y: sy / members.length });
+              }
+
+              // Assign orbital parameters per point, ordered by
+              // importance within each cluster. Alternate rotation
+              // direction per cluster so the view reads as multiple
+              // independent systems rather than one big turntable.
+              let clusterNum = 0;
+              for (const [cid, members] of byCluster) {
+                members.sort((a, b) => b.importance - a.importance);
+                const centroid = centroids.get(cid);
+                if (!centroid) continue;
+                // Max radius scales with the cluster's natural spread
+                // in the pre-orbit layout. Measure existing spread:
+                let maxExisting = 0;
+                for (const m of members) {
+                  const dx = positions[m.idx * 2] - centroid.x;
+                  const dy = positions[m.idx * 2 + 1] - centroid.y;
+                  const r = Math.sqrt(dx * dx + dy * dy);
+                  if (r > maxExisting) maxExisting = r;
+                }
+                const maxRadius = Math.max(60, maxExisting);
+                const direction = clusterNum % 2 === 0 ? 1 : -1;
+                clusterNum++;
+
+                for (let rank = 0; rank < members.length; rank++) {
+                  const { idx } = members[rank];
+                  const t = members.length <= 1 ? 0 : rank / (members.length - 1);
+                  // Sqrt spacing so the innermost handful sits tight
+                  // near the centroid and outer ones spread out more.
+                  const radius = Math.sqrt(t) * maxRadius;
+                  // Even angular distribution gives a stable orbit ring.
+                  const phase = (rank / Math.max(1, members.length)) * Math.PI * 2;
+                  // Kepler-ish: omega falls off with radius. Base 0.03
+                  // rad/tick means the sun point rotates ~100 deg/sec;
+                  // outer points slow to ~20 deg/sec.
+                  const omega = (0.03 / Math.sqrt(1 + radius * 0.01)) * direction;
+                  pool.orbitCenters[idx * 2] = centroid.x;
+                  pool.orbitCenters[idx * 2 + 1] = centroid.y;
+                  pool.orbitRadii[idx] = radius;
+                  pool.orbitPhases[idx] = phase;
+                  pool.orbitOmegas[idx] = omega;
+                }
+              }
+
+              // Orphan points (clusterId < 0) stay where they are by
+              // getting radius 0 + their current phase of 0.
+              for (let i = 0; i < nPts; i++) {
+                if (pool.clusterIds[i] >= 0) continue;
+                pool.orbitCenters[i * 2] = positions[i * 2];
+                pool.orbitCenters[i * 2 + 1] = positions[i * 2 + 1];
+                pool.orbitRadii[i] = 0;
+                pool.orbitPhases[i] = 0;
+                pool.orbitOmegas[i] = 0;
+              }
+
+              pool.orbitT0 = tickCounterRef.current;
+            }
+          }
+
           lensRef.current = lens;
           // Redraw the overlay so any pretext focal labels reposition
           // against the new lens state. Atlas positions are frozen, so
@@ -1889,38 +2004,62 @@ const CosmosGraphCanvas = forwardRef<CosmosGraphCanvasHandle, CosmosGraphCanvasP
         fitViewOnInit: true,
         fitViewDelay: 1400,
         fitViewPadding: 0.2,
-        // Flow-lens tuning. Stronger repulsion + gentler cluster force
-        // than the original baseline so communities have room to
-        // breathe. Infinite decay keeps the sim alive; the per-tick
-        // onSimulationTick handler layers rotation + wobble on top.
-        simulationRepulsion: 2.4,
-        simulationGravity: 0.2,
-        simulationCenter: 0.05,
-        simulationLinkSpring: 0.35,
-        simulationLinkDistance: 60,
+        // Flow-lens tuning. Strong repulsion + gentle cluster force
+        // so communities have plenty of room to breathe. Infinite
+        // decay keeps the sim alive; the per-tick onSimulationTick
+        // handler layers rotation + wobble on top.
+        simulationRepulsion: 3.8,
+        simulationGravity: 0.18,
+        simulationCenter: 0.04,
+        simulationLinkSpring: 0.28,
+        simulationLinkDistance: 70,
         simulationFriction: 0.85,
-        // Cluster force dropped from 0.7 -> 0.35 so communities spread
-        // instead of collapsing into tight balls. Still enough to keep
-        // each Leiden group recognizable but far less "dense ball".
-        simulationCluster: 0.35,
+        // Cluster force kept light so communities are visible groups
+        // without collapsing into dense balls.
+        simulationCluster: 0.3,
         simulationDecay: Number.POSITIVE_INFINITY,
         scalePointsOnZoom: true,
         onSimulationTick: () => {
           const graph = graphRef.current;
           const pool = poolRef.current;
           if (!graph || !pool) return;
-          // Flow lens is the living worm: the whole graph slowly
-          // rotates around its centroid AND each point wobbles on a
-          // unique sinusoidal phase, giving macro spin + organic
-          // micro-drift. Atlas and Clusters are static, so skip this.
-          if (lensRef.current !== 'flow') return;
+          const lens = lensRef.current;
+          // Flow is the living worm; Orbit is the solar system.
+          // Atlas and Clusters are static, so skip this handler.
+          if (lens !== 'flow' && lens !== 'orbit') return;
           tickCounterRef.current += 1;
 
           const positions = graph.getPointPositions();
           if (!positions || positions.length < 2) return;
           const n = positions.length / 2;
           if (pool.rotationPositionScratch.length < positions.length) return;
+          const out = pool.rotationPositionScratch;
 
+          if (lens === 'orbit') {
+            // Each point holds a stable circular orbit around its
+            // cluster centroid. Phase advances by omega every tick;
+            // inner orbits are faster than outer orbits (Kepler feel).
+            const dt = tickCounterRef.current - pool.orbitT0;
+            for (let i = 0; i < n; i++) {
+              const r = pool.orbitRadii[i];
+              if (r <= 0) {
+                // Orphan or sun point: stays on its center.
+                out[i * 2] = pool.orbitCenters[i * 2];
+                out[i * 2 + 1] = pool.orbitCenters[i * 2 + 1];
+                continue;
+              }
+              const phase = pool.orbitPhases[i] + pool.orbitOmegas[i] * dt;
+              out[i * 2] = pool.orbitCenters[i * 2] + r * Math.cos(phase);
+              out[i * 2 + 1] = pool.orbitCenters[i * 2 + 1] + r * Math.sin(phase);
+            }
+            graph.setPointPositions(out, true);
+            graph.render?.();
+            return;
+          }
+
+          // Flow: rotate the whole graph around its centroid, then
+          // add a per-point wobble so each node drifts on its own
+          // phase. Macro spin + organic micro-drift.
           let cx = 0;
           let cy = 0;
           for (let i = 0; i < n; i++) {
@@ -1930,9 +2069,9 @@ const CosmosGraphCanvas = forwardRef<CosmosGraphCanvasHandle, CosmosGraphCanvasP
           cx /= n;
           cy /= n;
 
-          // Macro rotation: ~14 degrees per second at 60fps. Under
+          // Macro rotation: ~22 degrees per second at 60fps. Under
           // prefers-reduced-motion the rate drops proportionally.
-          const baseTheta = 0.004;
+          const baseTheta = 0.0065;
           const theta = rotationEveryNTicksRef.current > 1
             ? baseTheta / rotationEveryNTicksRef.current
             : baseTheta;
@@ -1940,15 +2079,10 @@ const CosmosGraphCanvas = forwardRef<CosmosGraphCanvasHandle, CosmosGraphCanvasP
           const sinT = Math.sin(theta);
 
           // Per-point wobble: unique phase based on golden-ratio
-          // increments so adjacent indices drift out of sync. The
-          // wobble amplitude scales with each point's orbital radius
-          // so nothing breaks cluster structure — hub points wobble
-          // more than peripheral points in absolute terms, but the
-          // relative displacement stays bounded. Pace is slowed
-          // further under reduced-motion.
-          const time = tickCounterRef.current * (0.025 / rotationEveryNTicksRef.current);
-          const wobbleAmp = rotationEveryNTicksRef.current > 1 ? 4 : 12;
-          const out = pool.rotationPositionScratch;
+          // increments so adjacent indices drift out of sync. Larger
+          // amplitude = more organic / worm-like feel.
+          const time = tickCounterRef.current * (0.045 / rotationEveryNTicksRef.current);
+          const wobbleAmp = rotationEveryNTicksRef.current > 1 ? 6 : 22;
           for (let i = 0; i < n; i++) {
             const dx = positions[i * 2] - cx;
             const dy = positions[i * 2 + 1] - cy;
