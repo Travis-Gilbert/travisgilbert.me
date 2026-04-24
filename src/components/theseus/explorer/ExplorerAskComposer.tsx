@@ -156,11 +156,16 @@ const ExplorerAskComposer: FC<ExplorerAskComposerProps> = ({
         },
       });
 
-      askTheseusAsyncStream(trimmed, { signal: controller.signal }, handlers).catch(() => {
+      const renderHints =
+        tool === 'simulate'
+          ? { answer_type: 'simulation' }
+          : undefined;
+
+      askTheseusAsyncStream(trimmed, { signal: controller.signal, render_hints: renderHints }, handlers).catch(() => {
         // onError has already fired
       });
     },
-    [query, isAsking, choreographer],
+    [query, isAsking, choreographer, tool],
   );
 
   const cancel = () => {

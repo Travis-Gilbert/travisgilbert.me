@@ -1091,7 +1091,7 @@ async function askTheseusStream(
   const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
 
   try {
-    const res = await fetch('/api/v2/theseus/ask/stream', {
+    const res = await fetch('/api/v2/theseus/ask/stream/', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(buildAskBody(query, options)),
@@ -1191,17 +1191,22 @@ async function askTheseusStream(
  */
 export async function askTheseusAsyncStream(
   query: string,
-  options: { include_web?: boolean; signal?: AbortSignal },
+  options: {
+    include_web?: boolean;
+    render_hints?: Record<string, unknown>;
+    signal?: AbortSignal;
+  },
   handlers: AsyncStreamHandlers,
 ): Promise<() => void> {
   let response: Response;
   try {
-    response = await fetch('/api/v2/theseus/ask/async', {
+    response = await fetch('/api/v2/theseus/ask/async/', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         query,
         include_web: options.include_web ?? true,
+        render_hints: options.render_hints,
       }),
       signal: options.signal,
     });
@@ -1231,7 +1236,7 @@ export async function askTheseusAsyncStream(
 
   const jobId = payload.job_id;
   const streamUrl = canonicalizeTheseusUrl(
-    payload.stream_url ?? (jobId ? `/api/v2/theseus/ask/stream/${jobId}` : ''),
+    payload.stream_url ?? (jobId ? `/api/v2/theseus/ask/stream/${jobId}/` : ''),
   );
   if (!streamUrl) {
     handlers.onError({ message: 'Missing job_id in enqueue response', transient: false });
