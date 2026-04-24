@@ -288,6 +288,7 @@ const ExplorerShell: FC = () => {
         title={plateTitle}
         nodes={points.length}
         edges={links.length}
+        edgesTotal={total.edges}
         surfaceLabel={atlasFilters.surfaceLabel}
         directiveActive={Boolean(directiveLabel)}
         onDismissDirective={handleDismissDirective}

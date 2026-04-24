@@ -6,6 +6,10 @@ interface AtlasPlateLabelProps {
   title: string;
   nodes: number;
   edges: number;
+  /** Pre-filter total edge count from the backend. If set and larger
+   *  than `edges`, the plate renders "DISPLAYED OF TOTAL EDGES" to be
+   *  honest about the top-K filter in effect. */
+  edgesTotal?: number;
   surfaceLabel: string;
   onDismissDirective?: () => void;
   directiveActive?: boolean;
@@ -25,6 +29,7 @@ export default function AtlasPlateLabel({
   title,
   nodes,
   edges,
+  edgesTotal,
   surfaceLabel,
   onDismissDirective,
   directiveActive = false,
@@ -65,7 +70,14 @@ export default function AtlasPlateLabel({
         {title}
       </div>
       <div>
-        {nodes} nodes · {edges} edges
+        {nodes} nodes ·{' '}
+        {edgesTotal !== undefined && edgesTotal !== edges ? (
+          <>
+            {edges} of {edgesTotal} edges
+          </>
+        ) : (
+          <>{edges} edges</>
+        )}
         {surfaceLabel && (
           <span style={{ marginLeft: 8, color: 'var(--paper-pencil)' }}>
             · {surfaceLabel}
