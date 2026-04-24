@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import type { FC } from 'react';
 import CosmosGraphCanvas, {
   type CosmosGraphCanvasHandle,
@@ -10,6 +10,7 @@ import ExplorerAskComposer from './ExplorerAskComposer';
 import AtlasPlateLabel from './atlas/AtlasPlateLabel';
 import AtlasIngestBar from './atlas/AtlasIngestBar';
 import AtlasGraphControls from './atlas/AtlasGraphControls';
+import AtlasLensSwitcher from './atlas/AtlasLensSwitcher';
 import AtlasScaleBar from './atlas/AtlasScaleBar';
 import AtlasNodeDetail from './atlas/AtlasNodeDetail';
 import { useGraphData, type CosmoPoint } from './useGraphData';
@@ -29,6 +30,7 @@ import TimelineBrush from './charts/TimelineBrush';
 import { useTheseus } from '@/components/theseus/TheseusShell';
 import type { NodeDetailData } from './NodeDetailPanel';
 import type {
+  LensId,
   SceneDirective,
   TopologyInterpretation,
 } from '@/lib/theseus-viz/SceneDirective';
@@ -59,9 +61,35 @@ const ExplorerShell: FC = () => {
   const [measureOpen, setMeasureOpen] = useState(false);
   const [labelsOn, setLabelsOn] = useState(true);
   const [zoomLevel, setZoomLevel] = useState<number | undefined>(undefined);
+  const [lens, setLens] = useState<LensId>('flow');
 
   const resolveLabelText = useLabelResolver(points);
   const resolveEvidenceText = useEvidenceTextResolver(points);
+
+  const handleLensChange = useCallback((next: LensId) => {
+    canvasRef.current?.setLens(next);
+    setLens(next);
+  }, []);
+
+  // Double-click on empty canvas in Flow lens transitions to Atlas.
+  // Double-click on a point is already handled by the canvas itself
+  // (SimulationPart's explain_node path), so we only react when the
+  // click target is the canvas container itself.
+  useEffect(() => {
+    const container = document.querySelector('.atlas-canvas');
+    if (!container) return;
+    function onDblClick(event: Event) {
+      if (lens !== 'flow') return;
+      const target = event.target as HTMLElement | null;
+      if (!target) return;
+      // Only fire when the double-click lands on the canvas itself,
+      // not on any floating chrome (plate, composer, controls, etc.).
+      if (target.tagName !== 'CANVAS') return;
+      handleLensChange('atlas');
+    }
+    container.addEventListener('dblclick', onDblClick);
+    return () => container.removeEventListener('dblclick', onDblClick);
+  }, [lens, handleLensChange]);
 
   useEffect(() => {
     const off = onTheseusEvent('explorer:apply-directive', ({ directive }) => {
@@ -308,6 +336,10 @@ const ExplorerShell: FC = () => {
           onToggleLabels={() => setLabelsOn((v) => !v)}
           labelsOn={labelsOn}
         />
+      )}
+
+      {canRenderCanvas && (
+        <AtlasLensSwitcher lens={lens} onChange={handleLensChange} />
       )}
 
       {selectedNode && (

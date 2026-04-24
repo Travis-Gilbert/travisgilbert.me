@@ -6288,6 +6288,61 @@
   font-size: 10px;
 }
 
+/* Floating lens switcher (bottom-left). Three text buttons switch the
+   Explorer canvas between Flow (living worm), Atlas (static map), and
+   Clusters (labeled regions). Active lens carries a single-color
+   underline in the editorial palette. */
+.atlas-lens-switcher {
+  position: absolute;
+  left: 16px;
+  top: 124px;
+  z-index: 6;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px;
+  background: rgba(243, 239, 230, 0.62);
+  backdrop-filter: blur(10px) saturate(1.05);
+  -webkit-backdrop-filter: blur(10px) saturate(1.05);
+  border: 1px solid rgba(120, 104, 82, 0.40);
+  border-radius: 3px;
+  box-shadow: 0 2px 6px rgba(30, 22, 18, 0.12);
+}
+.atlas-lens-btn {
+  all: unset;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: baseline;
+  gap: 6px;
+  padding: 6px 10px;
+  font: 500 10px/1 var(--font-mono);
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--paper-ink-3);
+  border-radius: 2px;
+  position: relative;
+  transition: color 120ms ease;
+}
+.atlas-lens-btn:hover { color: var(--paper-ink); }
+.atlas-lens-btn.is-active { color: var(--paper-ink); }
+.atlas-lens-btn.is-active::after {
+  content: "";
+  position: absolute;
+  left: 10px;
+  right: 24px;
+  bottom: 2px;
+  height: 1px;
+  background: var(--paper-ink);
+  opacity: 0.7;
+}
+.atlas-lens-btn-key {
+  color: var(--paper-ink-3);
+  font-size: 9px;
+  letter-spacing: 0;
+  opacity: 0.7;
+}
+.atlas-lens-btn.is-active .atlas-lens-btn-key { opacity: 0.9; }
+
 /* Atlas chat composer — paper card. Default layout is in-flow (used by
    the Threads panel composer at the bottom of the viewport). When placed
    over the Explorer canvas, the `.atlas-canvas > .atlas-chat` selector
