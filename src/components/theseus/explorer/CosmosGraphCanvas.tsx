@@ -1889,24 +1889,20 @@ const CosmosGraphCanvas = forwardRef<CosmosGraphCanvasHandle, CosmosGraphCanvasP
         fitViewOnInit: true,
         fitViewDelay: 1400,
         fitViewPadding: 0.2,
-        // Flow-lens worm tuning. Gentler repulsion + stronger spring
-        // than the previous "worm-cluster" baseline so points pull into
-        // soft interconnected limbs. simulationDecay: Infinity keeps
-        // the worm alive instead of freezing (this is the point).
-        // prefers-reduced-motion falls back to a finite decay in Task 7.
-        simulationRepulsion: 1.2,
-        simulationGravity: 0.5,
-        simulationCenter: 0.1,
-        simulationLinkSpring: 0.9,
-        simulationLinkDistance: 38,
+        // Flow-lens tuning. Stronger repulsion + gentler cluster force
+        // than the original baseline so communities have room to
+        // breathe. Infinite decay keeps the sim alive; the per-tick
+        // onSimulationTick handler layers rotation + wobble on top.
+        simulationRepulsion: 2.4,
+        simulationGravity: 0.2,
+        simulationCenter: 0.05,
+        simulationLinkSpring: 0.35,
+        simulationLinkDistance: 60,
         simulationFriction: 0.85,
-        // Global cluster force multiplier. 0.7 matches cosmos-pro
-        // `recipes/clustering-force.md` tight-grouping guidance and
-        // produces the distinct warm regions seen in the cosmos.gl
-        // clusters--worm example. Per-point pull strength is set via
-        // `setPointClusterStrength(Float32Array)` inside
-        // pushDataToGraph to scale individual points on top of this.
-        simulationCluster: 0.7,
+        // Cluster force dropped from 0.7 -> 0.35 so communities spread
+        // instead of collapsing into tight balls. Still enough to keep
+        // each Leiden group recognizable but far less "dense ball".
+        simulationCluster: 0.35,
         simulationDecay: Number.POSITIVE_INFINITY,
         scalePointsOnZoom: true,
         onSimulationTick: () => {
@@ -1914,8 +1910,9 @@ const CosmosGraphCanvas = forwardRef<CosmosGraphCanvasHandle, CosmosGraphCanvasP
           const pool = poolRef.current;
           if (!graph || !pool) return;
           // Flow lens is the living worm: the whole graph slowly
-          // rotates around its centroid so the reader sees genuine
-          // motion. Atlas and Clusters are static, so skip this.
+          // rotates around its centroid AND each point wobbles on a
+          // unique sinusoidal phase, giving macro spin + organic
+          // micro-drift. Atlas and Clusters are static, so skip this.
           if (lensRef.current !== 'flow') return;
           tickCounterRef.current += 1;
 
@@ -1933,20 +1930,35 @@ const CosmosGraphCanvas = forwardRef<CosmosGraphCanvasHandle, CosmosGraphCanvasP
           cx /= n;
           cy /= n;
 
-          // ~14 degrees per second at 60fps, slowing to ~1.6 deg/s under
-          // prefers-reduced-motion. Full revolution in ~26s normally.
+          // Macro rotation: ~14 degrees per second at 60fps. Under
+          // prefers-reduced-motion the rate drops proportionally.
           const baseTheta = 0.004;
           const theta = rotationEveryNTicksRef.current > 1
             ? baseTheta / rotationEveryNTicksRef.current
             : baseTheta;
           const cosT = Math.cos(theta);
           const sinT = Math.sin(theta);
+
+          // Per-point wobble: unique phase based on golden-ratio
+          // increments so adjacent indices drift out of sync. The
+          // wobble amplitude scales with each point's orbital radius
+          // so nothing breaks cluster structure — hub points wobble
+          // more than peripheral points in absolute terms, but the
+          // relative displacement stays bounded. Pace is slowed
+          // further under reduced-motion.
+          const time = tickCounterRef.current * (0.025 / rotationEveryNTicksRef.current);
+          const wobbleAmp = rotationEveryNTicksRef.current > 1 ? 4 : 12;
           const out = pool.rotationPositionScratch;
           for (let i = 0; i < n; i++) {
             const dx = positions[i * 2] - cx;
             const dy = positions[i * 2 + 1] - cy;
-            out[i * 2] = cx + dx * cosT - dy * sinT;
-            out[i * 2 + 1] = cy + dx * sinT + dy * cosT;
+            const rx = cx + dx * cosT - dy * sinT;
+            const ry = cy + dx * sinT + dy * cosT;
+            const phase = i * 0.618;
+            const wobX = Math.sin(time + phase) * wobbleAmp;
+            const wobY = Math.cos(time + phase * 1.3) * wobbleAmp;
+            out[i * 2] = rx + wobX;
+            out[i * 2 + 1] = ry + wobY;
           }
           // `dontRescale = true`: cosmos.gl re-fits the view on every
           // setPointPositions by default. Without this flag the
