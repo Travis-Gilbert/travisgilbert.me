@@ -359,11 +359,14 @@ const CosmosGraphCanvas = forwardRef<CosmosGraphCanvasHandle, CosmosGraphCanvasP
     }, []);
 
     const writeBaselineLinkStyles = useCallback((pool: BufferPool, lks: CosmoLink[], indexMap: Map<string, number>) => {
-      const linkTint = cssVarToRgba('--vie-text-dim', 0.55);
+      // Flow-lens baseline edge tint: near-invisible backdrop hatching.
+      // Hover / focus handlers promote incident edges to full alpha;
+      // this is only the at-rest ambient layer.
+      const linkTint = cssVarToRgba('--vie-text-dim', 0.08);
       let li = 0;
       for (const link of lks) {
         if (!indexMap.has(link.source) || !indexMap.has(link.target)) continue;
-        const w = 0.5 + link.weight * 1.5;
+        const w = 0.4 + link.weight * 0.8;
         pool.baseLinkWidths[li] = w;
         pool.linkWidths[li] = w;
         const off = li * 4;
@@ -1682,9 +1685,9 @@ const CosmosGraphCanvas = forwardRef<CosmosGraphCanvasHandle, CosmosGraphCanvasP
         pointDefaultColor: cssVarToRgba('--vie-type-note', 1),
         pointDefaultSize: 10,
         pointSizeScale: 1.6,
-        linkDefaultColor: cssVarToRgba('--vie-text-dim', 0.55),
-        linkDefaultWidth: 1.2,
-        linkOpacity: 0.7,
+        linkDefaultColor: cssVarToRgba('--vie-text-dim', 0.08),
+        linkDefaultWidth: 0.8,
+        linkOpacity: 1.0,
         renderLinks: true,
         renderHoveredPointRing: true,
         hoveredPointRingColor: cssVarToRgba('--vie-terra-hover', 1),
