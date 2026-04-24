@@ -1531,10 +1531,14 @@ const CosmosGraphCanvas = forwardRef<CosmosGraphCanvasHandle, CosmosGraphCanvasP
             graph.setPointColors(pool.colors);
             // Reset tween counter so re-enter animations are clean.
             tickCounterRef.current = 0;
+            // Freeze physics so the map reads as static. cosmos.gl 3.0
+            // exposes pause()/unpause(); graceful no-op if missing.
+            graph.pause?.();
           }
 
           // Returning to Flow: restore rotated colors from snapshot if
-          // we have one, otherwise start fresh from baseColors.
+          // we have one, otherwise start fresh from baseColors. Also
+          // unpause so the worm starts moving again.
           if (lens === 'flow') {
             if (flowColorsSnapshotRef.current
               && flowColorsSnapshotRef.current.length === pool.colors.length) {
@@ -1543,6 +1547,7 @@ const CosmosGraphCanvas = forwardRef<CosmosGraphCanvasHandle, CosmosGraphCanvasP
               pool.colors.set(pool.baseColors);
             }
             graph.setPointColors(pool.colors);
+            graph.unpause?.();
           }
 
           lensRef.current = lens;
