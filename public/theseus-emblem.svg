@@ -1,0 +1,496 @@
+
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 900" role="img" aria-label="Theseus · fractal IC diagram">
+  <defs>
+    <pattern id="c-hatch" patternUnits="userSpaceOnUse" width="4" height="4" patternTransform="rotate(45)">
+      <line x1="0" y1="0" x2="0" y2="4" stroke="#0d3a2a" stroke-width="0.5"/>
+    </pattern>
+    <pattern id="c-grid" patternUnits="userSpaceOnUse" width="20" height="20">
+      <path d="M 20 0 L 0 0 0 20" fill="none" stroke="#0d3a2a" stroke-width="0.3"/>
+    </pattern>
+  </defs>
+
+  <!-- PCB -->
+  <rect width="900" height="900" fill="#0a2a20"/>
+  <rect width="900" height="900" fill="url(#c-hatch)" opacity="0.2"/>
+
+  <!-- silkscreen frame -->
+  <rect x="32" y="32" width="836" height="836" fill="none" stroke="#d4c88a" stroke-width="1" stroke-dasharray="6 3"/>
+  <rect x="42" y="42" width="816" height="816" fill="none" stroke="#d4c88a" stroke-width="0.4"/>
+
+  <!-- corner fiducials -->
+  
+    <g>
+      <circle cx="60" cy="60" r="9" fill="none" stroke="#d4c88a" stroke-width="0.8"/>
+      <circle cx="60" cy="60" r="3" fill="#d4c88a"/>
+    </g>
+  
+    <g>
+      <circle cx="840" cy="60" r="9" fill="none" stroke="#d4c88a" stroke-width="0.8"/>
+      <circle cx="840" cy="60" r="3" fill="#d4c88a"/>
+    </g>
+  
+    <g>
+      <circle cx="60" cy="840" r="9" fill="none" stroke="#d4c88a" stroke-width="0.8"/>
+      <circle cx="60" cy="840" r="3" fill="#d4c88a"/>
+    </g>
+  
+    <g>
+      <circle cx="840" cy="840" r="9" fill="none" stroke="#d4c88a" stroke-width="0.8"/>
+      <circle cx="840" cy="840" r="3" fill="#d4c88a"/>
+    </g>
+  
+
+  <!-- title -->
+  <g font-family="IBM Plex Sans Condensed, sans-serif" fill="#d4c88a">
+    <text x="450" y="95" text-anchor="middle" font-size="22" font-weight="700" letter-spacing="14">T H E S E U S</text>
+    <text x="450" y="113" text-anchor="middle" font-size="9" fill="#8fa89c" letter-spacing="5">THS-V5 · BLOCK DIAGRAM · SILICON-ON-PCB · SHEET 02</text>
+    <line x1="310" y1="124" x2="590" y2="124" stroke="#d4c88a" stroke-width="0.5"/>
+  </g>
+
+  <!-- motherboard grid in center die area -->
+  <rect x="58" y="135" width="784" height="540" fill="url(#c-grid)" opacity="0.4"/>
+
+  <!-- radial capillary traces (dense at center, sparse at edge) -->
+  <g class="capillaries"><path d="M 523.7 430.7 L 523.7 439.6 L 588.7 439.6" stroke="#c9a23a" stroke-width="0.9" opacity="0.55" fill="none" stroke-linecap="square"/><path d="M 523.7 436.0 L 522.0 423.7" stroke="#c9a23a" stroke-width="0.63" opacity="0.41" fill="none"/><path d="M 523.8 436.2 L 523.8 448.5 L 583.7 448.5" stroke="#c9a23a" stroke-width="0.9" opacity="0.55" fill="none" stroke-linecap="square"/><path d="M 518.4 451.0 L 578.7 451.0 L 578.7 476.5" stroke="#c9a23a" stroke-width="0.9" opacity="0.55" fill="none" stroke-linecap="square"/><path d="M 519.5 456.0 L 519.5 477.7 L 564.4 477.7" stroke="#c9a23a" stroke-width="0.9" opacity="0.55" fill="none" stroke-linecap="square"/><path d="M 519.5 467.8 L 527.2 452.0" stroke="#c9a23a" stroke-width="0.63" opacity="0.41" fill="none"/><path d="M 508.2 465.3 L 508.2 498.5 L 554.5 498.5" stroke="#c9a23a" stroke-width="0.9" opacity="0.55" fill="none" stroke-linecap="square"/><path d="M 499.1 477.8 L 538.2 477.8 L 538.2 519.5" stroke="#c9a23a" stroke-width="0.9" opacity="0.55" fill="none" stroke-linecap="square"/><path d="M 486.4 486.5 L 519.2 486.5 L 519.2 539.0" stroke="#c9a23a" stroke-width="0.9" opacity="0.55" fill="none" stroke-linecap="square"/><path d="M 483.6 488.9 L 483.6 536.2 L 510.0 536.2" stroke="#c9a23a" stroke-width="0.9" opacity="0.55" fill="none" stroke-linecap="square"/><path d="M 483.6 515.0 L 489.4 518.2" stroke="#c9a23a" stroke-width="0.63" opacity="0.41" fill="none"/><path d="M 475.8 492.4 L 501.2 492.4 L 501.2 552.2" stroke="#c9a23a" stroke-width="0.9" opacity="0.55" fill="none" stroke-linecap="square"/><path d="M 453.7 501.5 L 453.7 559.8 L 460.0 559.8" stroke="#c9a23a" stroke-width="0.9" opacity="0.55" fill="none" stroke-linecap="square"/><path d="M 445.2 502.9 L 445.2 557.3 L 445.4 557.3" stroke="#c9a23a" stroke-width="0.9" opacity="0.55" fill="none" stroke-linecap="square"/><path d="M 443.3 499.9 L 443.3 563.9 L 442.0 563.9" stroke="#c9a23a" stroke-width="0.9" opacity="0.55" fill="none" stroke-linecap="square"/><path d="M 426.7 495.4 L 426.7 560.0 L 411.1 560.0" stroke="#c9a23a" stroke-width="0.9" opacity="0.55" fill="none" stroke-linecap="square"/><path d="M 426.7 524.4 L 442.1 520.7" stroke="#c9a23a" stroke-width="0.63" opacity="0.41" fill="none"/><path d="M 423.0 493.6 L 423.0 563.0 L 402.3 563.0" stroke="#c9a23a" stroke-width="0.9" opacity="0.55" fill="none" stroke-linecap="square"/><path d="M 404.7 486.8 L 404.7 539.6 L 372.9 539.6" stroke="#c9a23a" stroke-width="0.9" opacity="0.55" fill="none" stroke-linecap="square"/><path d="M 400.5 485.2 L 400.5 540.9 L 362.5 540.9" stroke="#c9a23a" stroke-width="0.9" opacity="0.55" fill="none" stroke-linecap="square"/><path d="M 386.8 468.8 L 386.8 515.2 L 331.4 515.2" stroke="#c9a23a" stroke-width="0.9" opacity="0.55" fill="none" stroke-linecap="square"/><path d="M 386.8 500.0 L 378.7 490.3" stroke="#c9a23a" stroke-width="0.63" opacity="0.41" fill="none"/><path d="M 384.5 469.7 L 338.1 469.7 L 338.1 507.9" stroke="#c9a23a" stroke-width="0.9" opacity="0.55" fill="none" stroke-linecap="square"/><path d="M 364.8 469.7 L 359.1 476.7" stroke="#c9a23a" stroke-width="0.63" opacity="0.41" fill="none"/><path d="M 371.8 451.8 L 311.1 451.8 L 311.1 478.2" stroke="#c9a23a" stroke-width="0.9" opacity="0.55" fill="none" stroke-linecap="square"/><path d="M 372.4 440.1 L 372.4 456.3 L 313.7 456.3" stroke="#c9a23a" stroke-width="0.9" opacity="0.55" fill="none" stroke-linecap="square"/><path d="M 367.6 437.5 L 315.3 437.5 L 315.3 449.2" stroke="#c9a23a" stroke-width="0.9" opacity="0.55" fill="none" stroke-linecap="square"/><path d="M 369.9 429.4 L 369.9 438.4 L 298.3 438.4" stroke="#c9a23a" stroke-width="0.9" opacity="0.55" fill="none" stroke-linecap="square"/><path d="M 369.9 435.2 L 367.9 451.2" stroke="#c9a23a" stroke-width="0.63" opacity="0.41" fill="none"/><path d="M 366.1 416.7 L 309.8 416.7 L 309.8 414.4" stroke="#c9a23a" stroke-width="0.9" opacity="0.55" fill="none" stroke-linecap="square"/><path d="M 371.8 396.2 L 314.4 396.2 L 314.4 377.6" stroke="#c9a23a" stroke-width="0.9" opacity="0.55" fill="none" stroke-linecap="square"/><path d="M 369.8 391.1 L 369.8 367.9 L 309.5 367.9" stroke="#c9a23a" stroke-width="0.9" opacity="0.55" fill="none" stroke-linecap="square"/><path d="M 369.8 381.2 L 376.0 397.2" stroke="#c9a23a" stroke-width="0.63" opacity="0.41" fill="none"/><path d="M 378.4 382.8 L 318.1 382.8 L 318.1 349.1" stroke="#c9a23a" stroke-width="0.9" opacity="0.55" fill="none" stroke-linecap="square"/><path d="M 382.0 370.9 L 336.6 370.9 L 336.6 335.4" stroke="#c9a23a" stroke-width="0.9" opacity="0.55" fill="none" stroke-linecap="square"/><path d="M 389.0 366.8 L 389.0 327.8 L 348.0 327.8" stroke="#c9a23a" stroke-width="0.9" opacity="0.55" fill="none" stroke-linecap="square"/><path d="M 402.2 355.1 L 402.2 308.8 L 371.6 308.8" stroke="#c9a23a" stroke-width="0.9" opacity="0.55" fill="none" stroke-linecap="square"/><path d="M 408.7 352.6 L 377.9 352.6 L 377.9 295.3" stroke="#c9a23a" stroke-width="0.9" opacity="0.55" fill="none" stroke-linecap="square"/><path d="M 425.3 344.7 L 407.1 344.7 L 407.1 275.1" stroke="#c9a23a" stroke-width="0.9" opacity="0.55" fill="none" stroke-linecap="square"/><path d="M 416.1 344.7 L 421.9 346.2" stroke="#c9a23a" stroke-width="0.63" opacity="0.41" fill="none"/><path d="M 435.1 344.8 L 435.1 278.2 L 426.4 278.2" stroke="#c9a23a" stroke-width="0.9" opacity="0.55" fill="none" stroke-linecap="square"/><path d="M 435.1 317.1 L 442.2 318.0" stroke="#c9a23a" stroke-width="0.63" opacity="0.41" fill="none"/><path d="M 445.4 341.0 L 445.4 270.8 L 445.7 270.8" stroke="#c9a23a" stroke-width="0.9" opacity="0.55" fill="none" stroke-linecap="square"/><path d="M 455.2 341.5 L 455.2 288.9 L 462.1 288.9" stroke="#c9a23a" stroke-width="0.9" opacity="0.55" fill="none" stroke-linecap="square"/><path d="M 461.0 341.8 L 461.0 288.7 L 471.9 288.7" stroke="#c9a23a" stroke-width="0.9" opacity="0.55" fill="none" stroke-linecap="square"/><path d="M 461.0 309.6 L 445.1 312.8" stroke="#c9a23a" stroke-width="0.63" opacity="0.41" fill="none"/><path d="M 473.6 348.2 L 497.1 348.2 L 497.1 289.2" stroke="#c9a23a" stroke-width="0.9" opacity="0.55" fill="none" stroke-linecap="square"/><path d="M 484.3 348.2 L 472.8 343.7" stroke="#c9a23a" stroke-width="0.63" opacity="0.41" fill="none"/><path d="M 484.3 349.7 L 516.7 349.7 L 516.7 291.7" stroke="#c9a23a" stroke-width="0.9" opacity="0.55" fill="none" stroke-linecap="square"/><path d="M 506.4 349.7 L 518.2 343.1" stroke="#c9a23a" stroke-width="0.63" opacity="0.41" fill="none"/><path d="M 487.6 354.1 L 487.6 296.7 L 524.8 296.7" stroke="#c9a23a" stroke-width="0.9" opacity="0.55" fill="none" stroke-linecap="square"/><path d="M 509.0 368.5 L 552.4 368.5 L 552.4 333.6" stroke="#c9a23a" stroke-width="0.9" opacity="0.55" fill="none" stroke-linecap="square"/><path d="M 506.2 374.7 L 559.9 374.7 L 559.9 335.0" stroke="#c9a23a" stroke-width="0.9" opacity="0.55" fill="none" stroke-linecap="square"/><path d="M 515.0 386.5 L 567.9 386.5 L 567.9 361.2" stroke="#c9a23a" stroke-width="0.9" opacity="0.55" fill="none" stroke-linecap="square"/><path d="M 516.7 395.6 L 580.9 395.6 L 580.9 373.8" stroke="#c9a23a" stroke-width="0.9" opacity="0.55" fill="none" stroke-linecap="square"/><path d="M 520.2 410.1 L 591.1 410.1 L 591.1 400.8" stroke="#c9a23a" stroke-width="0.9" opacity="0.55" fill="none" stroke-linecap="square"/><path d="M 524.7 410.9 L 587.8 410.9 L 587.8 403.6" stroke="#c9a23a" stroke-width="0.9" opacity="0.55" fill="none" stroke-linecap="square"/><path d="M 598.7 422.9 L 690.2 422.9 L 690.2 424.6" stroke="#c9a23a" stroke-width="0.7" opacity="0.38" fill="none" stroke-linecap="square"/><path d="M 596.2 457.8 L 596.2 479.7 L 683.7 479.7" stroke="#c9a23a" stroke-width="0.7" opacity="0.38" fill="none" stroke-linecap="square"/><path d="M 579.3 500.0 L 649.5 500.0 L 649.5 541.9" stroke="#c9a23a" stroke-width="0.7" opacity="0.38" fill="none" stroke-linecap="square"/><path d="M 618.2 500.0 L 609.9 486.1" stroke="#c9a23a" stroke-width="0.49" opacity="0.29" fill="none"/><path d="M 553.4 526.2 L 613.4 526.2 L 613.4 584.9" stroke="#c9a23a" stroke-width="0.7" opacity="0.38" fill="none" stroke-linecap="square"/><path d="M 522.4 555.3 L 522.4 629.0 L 564.6 629.0" stroke="#c9a23a" stroke-width="0.7" opacity="0.38" fill="none" stroke-linecap="square"/><path d="M 494.7 567.2 L 524.3 567.2 L 524.3 654.9" stroke="#c9a23a" stroke-width="0.7" opacity="0.38" fill="none" stroke-linecap="square"/><path d="M 454.6 570.5 L 454.6 655.4 L 460.0 655.4" stroke="#c9a23a" stroke-width="0.7" opacity="0.38" fill="none" stroke-linecap="square"/><path d="M 402.8 570.1 L 402.8 656.4 L 378.6 656.4" stroke="#c9a23a" stroke-width="0.7" opacity="0.38" fill="none" stroke-linecap="square"/><path d="M 402.8 605.2 L 416.7 609.1" stroke="#c9a23a" stroke-width="0.49" opacity="0.29" fill="none"/><path d="M 388.6 563.4 L 388.6 637.9 L 359.3 637.9" stroke="#c9a23a" stroke-width="0.7" opacity="0.38" fill="none" stroke-linecap="square"/><path d="M 351.0 542.6 L 351.0 607.8 L 301.0 607.8" stroke="#c9a23a" stroke-width="0.7" opacity="0.38" fill="none" stroke-linecap="square"/><path d="M 318.8 502.1 L 249.5 502.1 L 249.5 547.1" stroke="#c9a23a" stroke-width="0.7" opacity="0.38" fill="none" stroke-linecap="square"/><path d="M 302.8 485.0 L 302.8 518.4 L 229.9 518.4" stroke="#c9a23a" stroke-width="0.7" opacity="0.38" fill="none" stroke-linecap="square"/><path d="M 302.8 501.2 L 309.2 515.1" stroke="#c9a23a" stroke-width="0.49" opacity="0.29" fill="none"/><path d="M 296.9 453.3 L 207.9 453.3 L 207.9 473.2" stroke="#c9a23a" stroke-width="0.7" opacity="0.38" fill="none" stroke-linecap="square"/><path d="M 236.8 453.3 L 239.0 463.3" stroke="#c9a23a" stroke-width="0.49" opacity="0.29" fill="none"/><path d="M 293.8 399.4 L 211.6 399.4 L 211.6 388.3" stroke="#c9a23a" stroke-width="0.7" opacity="0.38" fill="none" stroke-linecap="square"/><path d="M 301.3 374.4 L 217.4 374.4 L 217.4 347.8" stroke="#c9a23a" stroke-width="0.7" opacity="0.38" fill="none" stroke-linecap="square"/><path d="M 318.7 339.1 L 249.5 339.1 L 249.5 294.8" stroke="#c9a23a" stroke-width="0.7" opacity="0.38" fill="none" stroke-linecap="square"/><path d="M 273.4 339.1 L 266.2 350.4" stroke="#c9a23a" stroke-width="0.49" opacity="0.29" fill="none"/><path d="M 345.6 301.9 L 345.6 236.9 L 290.8 236.9" stroke="#c9a23a" stroke-width="0.7" opacity="0.38" fill="none" stroke-linecap="square"/><path d="M 345.6 260.7 L 354.4 268.1" stroke="#c9a23a" stroke-width="0.49" opacity="0.29" fill="none"/><path d="M 360.3 295.9 L 360.3 218.3 L 307.4 218.3" stroke="#c9a23a" stroke-width="0.7" opacity="0.38" fill="none" stroke-linecap="square"/><path d="M 402.9 270.8 L 381.0 270.8 L 381.0 193.1" stroke="#c9a23a" stroke-width="0.7" opacity="0.38" fill="none" stroke-linecap="square"/><path d="M 443.9 263.1 L 443.9 187.4 L 443.3 187.4" stroke="#c9a23a" stroke-width="0.7" opacity="0.38" fill="none" stroke-linecap="square"/><path d="M 476.7 271.6 L 476.7 179.6 L 496.4 179.6" stroke="#c9a23a" stroke-width="0.7" opacity="0.38" fill="none" stroke-linecap="square"/><path d="M 504.6 275.5 L 504.6 191.1 L 539.4 191.1" stroke="#c9a23a" stroke-width="0.7" opacity="0.38" fill="none" stroke-linecap="square"/><path d="M 539.1 297.0 L 596.9 297.0 L 596.9 221.4" stroke="#c9a23a" stroke-width="0.7" opacity="0.38" fill="none" stroke-linecap="square"/><path d="M 559.7 321.3 L 624.8 321.3 L 624.8 265.3" stroke="#c9a23a" stroke-width="0.7" opacity="0.38" fill="none" stroke-linecap="square"/><path d="M 593.3 321.3 L 603.3 309.7" stroke="#c9a23a" stroke-width="0.49" opacity="0.29" fill="none"/><path d="M 588.8 354.7 L 662.3 354.7 L 662.3 321.4" stroke="#c9a23a" stroke-width="0.7" opacity="0.38" fill="none" stroke-linecap="square"/><path d="M 637.3 354.7 L 642.4 343.4" stroke="#c9a23a" stroke-width="0.49" opacity="0.29" fill="none"/><path d="M 600.0 396.9 L 686.2 396.9 L 686.2 384.0" stroke="#c9a23a" stroke-width="0.7" opacity="0.38" fill="none" stroke-linecap="square"/><path d="M 651.4 396.9 L 650.2 388.7" stroke="#c9a23a" stroke-width="0.49" opacity="0.29" fill="none"/><path d="M 699.4 428.6 L 699.4 431.9 L 795.9 431.9" stroke="#c9a23a" stroke-width="0.55" opacity="0.22" fill="none" stroke-linecap="square"/><path d="M 661.5 546.1 L 751.6 546.1 L 751.6 598.6" stroke="#c9a23a" stroke-width="0.55" opacity="0.22" fill="none" stroke-linecap="square"/><path d="M 581.1 639.0 L 581.1 724.2 L 634.0 724.2" stroke="#c9a23a" stroke-width="0.55" opacity="0.22" fill="none" stroke-linecap="square"/><path d="M 472.1 673.2 L 481.6 673.2 L 481.6 762.3" stroke="#c9a23a" stroke-width="0.55" opacity="0.22" fill="none" stroke-linecap="square"/><path d="M 347.8 653.8 L 347.8 744.7 L 310.0 744.7" stroke="#c9a23a" stroke-width="0.55" opacity="0.22" fill="none" stroke-linecap="square"/><path d="M 283.4 615.0 L 219.1 615.0 L 219.1 692.6" stroke="#c9a23a" stroke-width="0.55" opacity="0.22" fill="none" stroke-linecap="square"/><path d="M 213.9 529.0 L 130.2 529.0 L 130.2 568.5" stroke="#c9a23a" stroke-width="0.55" opacity="0.22" fill="none" stroke-linecap="square"/><path d="M 196.2 385.4 L 90.2 385.4 L 90.2 370.6" stroke="#c9a23a" stroke-width="0.55" opacity="0.22" fill="none" stroke-linecap="square"/><path d="M 222.5 302.5 L 222.5 252.9 L 128.4 252.9" stroke="#c9a23a" stroke-width="0.55" opacity="0.22" fill="none" stroke-linecap="square"/><path d="M 306.3 204.1 L 306.3 125.0 L 255.4 125.0" stroke="#c9a23a" stroke-width="0.55" opacity="0.22" fill="none" stroke-linecap="square"/><path d="M 430.1 165.9 L 430.1 71.8 L 424.6 71.8" stroke="#c9a23a" stroke-width="0.55" opacity="0.22" fill="none" stroke-linecap="square"/><path d="M 516.7 173.2 L 516.7 84.1 L 542.6 84.1" stroke="#c9a23a" stroke-width="0.55" opacity="0.22" fill="none" stroke-linecap="square"/><path d="M 627.8 244.8 L 627.8 183.1 L 692.2 183.1" stroke="#c9a23a" stroke-width="0.55" opacity="0.22" fill="none" stroke-linecap="square"/><path d="M 683.6 332.7 L 766.3 332.7 L 766.3 302.5" stroke="#c9a23a" stroke-width="0.55" opacity="0.22" fill="none" stroke-linecap="square"/><circle cx="588.7" cy="439.6" r="1.6" fill="#c9a23a" opacity="0.65"/><circle cx="522.0" cy="423.7" r="1.2" fill="#c9a23a" opacity="0.55"/><circle cx="578.7" cy="476.5" r="1.6" fill="#c9a23a" opacity="0.65"/><circle cx="564.4" cy="477.7" r="1.6" fill="#c9a23a" opacity="0.65"/><circle cx="527.2" cy="452.0" r="1.2" fill="#c9a23a" opacity="0.55"/><circle cx="554.5" cy="498.5" r="1.6" fill="#c9a23a" opacity="0.65"/><circle cx="519.2" cy="539.0" r="1.6" fill="#c9a23a" opacity="0.65"/><circle cx="501.2" cy="552.2" r="1.6" fill="#c9a23a" opacity="0.65"/><circle cx="442.0" cy="563.9" r="1.6" fill="#c9a23a" opacity="0.65"/><circle cx="442.1" cy="520.7" r="1.2" fill="#c9a23a" opacity="0.55"/><circle cx="362.5" cy="540.9" r="1.6" fill="#c9a23a" opacity="0.65"/><circle cx="378.7" cy="490.3" r="1.2" fill="#c9a23a" opacity="0.55"/><circle cx="338.1" cy="507.9" r="1.6" fill="#c9a23a" opacity="0.65"/><circle cx="315.3" cy="449.2" r="1.6" fill="#c9a23a" opacity="0.65"/><circle cx="367.9" cy="451.2" r="1.2" fill="#c9a23a" opacity="0.55"/><circle cx="376.0" cy="397.2" r="1.2" fill="#c9a23a" opacity="0.55"/><circle cx="318.1" cy="349.1" r="1.6" fill="#c9a23a" opacity="0.65"/><circle cx="336.6" cy="335.4" r="1.6" fill="#c9a23a" opacity="0.65"/><circle cx="348.0" cy="327.8" r="1.6" fill="#c9a23a" opacity="0.65"/><circle cx="371.6" cy="308.8" r="1.6" fill="#c9a23a" opacity="0.65"/><circle cx="377.9" cy="295.3" r="1.6" fill="#c9a23a" opacity="0.65"/><circle cx="462.1" cy="288.9" r="1.6" fill="#c9a23a" opacity="0.65"/><circle cx="472.8" cy="343.7" r="1.2" fill="#c9a23a" opacity="0.55"/><circle cx="559.9" cy="335.0" r="1.6" fill="#c9a23a" opacity="0.65"/><circle cx="567.9" cy="361.2" r="1.6" fill="#c9a23a" opacity="0.65"/><circle cx="683.7" cy="479.7" r="1.6" fill="#c9a23a" opacity="0.48"/><circle cx="649.5" cy="541.9" r="1.6" fill="#c9a23a" opacity="0.48"/><circle cx="609.9" cy="486.1" r="1.2" fill="#c9a23a" opacity="0.38"/><circle cx="564.6" cy="629.0" r="1.6" fill="#c9a23a" opacity="0.48"/><circle cx="524.3" cy="654.9" r="1.6" fill="#c9a23a" opacity="0.48"/><circle cx="378.6" cy="656.4" r="1.6" fill="#c9a23a" opacity="0.48"/><circle cx="416.7" cy="609.1" r="1.2" fill="#c9a23a" opacity="0.38"/><circle cx="359.3" cy="637.9" r="1.6" fill="#c9a23a" opacity="0.48"/><circle cx="301.0" cy="607.8" r="1.6" fill="#c9a23a" opacity="0.48"/><circle cx="309.2" cy="515.1" r="1.2" fill="#c9a23a" opacity="0.38"/><circle cx="217.4" cy="347.8" r="1.6" fill="#c9a23a" opacity="0.48"/><circle cx="266.2" cy="350.4" r="1.2" fill="#c9a23a" opacity="0.38"/><circle cx="290.8" cy="236.9" r="1.6" fill="#c9a23a" opacity="0.48"/><circle cx="307.4" cy="218.3" r="1.6" fill="#c9a23a" opacity="0.48"/><circle cx="443.3" cy="187.4" r="1.6" fill="#c9a23a" opacity="0.48"/><circle cx="624.8" cy="265.3" r="1.6" fill="#c9a23a" opacity="0.48"/><circle cx="603.3" cy="309.7" r="1.2" fill="#c9a23a" opacity="0.38"/></g>
+
+  <!-- traces -->
+  
+    <g stroke="#c9a23a" stroke-width="1.2" fill="none">
+      <!-- ingestion → structure -->
+      <path d="M 115 305 V 530 H 200"/>
+      <!-- structure → kernel -->
+      <path d="M 240 540 V 500 H 360"/>
+      <!-- ingestion → relate (top) -->
+      <path d="M 165 230 H 300"/>
+      <!-- relate → kernel -->
+      <path d="M 405 310 V 360"/>
+      <!-- relate → evaluate -->
+      <path d="M 510 225 H 560"/>
+      <!-- evaluate → revise -->
+      <path d="M 617 305 V 520 H 405 V 540"/>
+      <!-- revise → kernel -->
+      <path d="M 405 540 V 500"/>
+      <!-- kernel → express -->
+      <path d="M 530 425 H 590 V 540"/>
+      <!-- express back out -->
+      <path d="M 675 593 H 720"/>
+    </g>
+    <!-- vias -->
+    <g fill="#0a2a20" stroke="#c9a23a" stroke-width="1">
+      <circle cx="115" cy="305" r="3.5"/>
+      <circle cx="200" cy="530" r="3.5"/>
+      <circle cx="300" cy="230" r="3.5"/>
+      <circle cx="560" cy="225" r="3.5"/>
+      <circle cx="617" cy="305" r="3.5"/>
+      <circle cx="405" cy="520" r="3.5"/>
+      <circle cx="530" cy="425" r="3.5"/>
+      <circle cx="590" cy="540" r="3.5"/>
+      <circle cx="720" cy="593" r="3.5"/>
+    </g>
+  
+
+  <!-- level-1 chips -->
+  <rect x="65" y="145" width="100" height="160" fill="#162f26" stroke="#d4c88a" stroke-width="1.2"/><circle cx="73" cy="153" r="2.2" fill="#d4c88a"/><text x="115" y="159" text-anchor="middle" font-family="IBM Plex Sans Condensed, sans-serif" font-size="10" font-weight="700" fill="#d4c88a" letter-spacing="4">INGESTION</text><text x="115" y="169" text-anchor="middle" font-family="Roboto Mono, monospace" font-size="6.5" fill="#8fa89c" letter-spacing="1.5">U1 · 001</text><rect x="59" y="175.5" width="6" height="3" fill="#c9a23a"/><line x1="59" y1="177" x2="53" y2="177" stroke="#c9a23a" stroke-width="0.9"/><text x="50" y="179" text-anchor="end" font-family="Roboto Mono, monospace" font-size="7" fill="#d4c88a" letter-spacing="0.5">url</text><rect x="59" y="194.7" width="6" height="3" fill="#c9a23a"/><line x1="59" y1="196.2" x2="53" y2="196.2" stroke="#c9a23a" stroke-width="0.9"/><text x="50" y="198.2" text-anchor="end" font-family="Roboto Mono, monospace" font-size="7" fill="#d4c88a" letter-spacing="0.5">pdf</text><rect x="59" y="213.9" width="6" height="3" fill="#c9a23a"/><line x1="59" y1="215.4" x2="53" y2="215.4" stroke="#c9a23a" stroke-width="0.9"/><text x="50" y="217.4" text-anchor="end" font-family="Roboto Mono, monospace" font-size="7" fill="#d4c88a" letter-spacing="0.5">wik</text><rect x="59" y="233.1" width="6" height="3" fill="#c9a23a"/><line x1="59" y1="234.6" x2="53" y2="234.6" stroke="#c9a23a" stroke-width="0.9"/><text x="50" y="236.6" text-anchor="end" font-family="Roboto Mono, monospace" font-size="7" fill="#d4c88a" letter-spacing="0.5">fil</text><rect x="59" y="252.3" width="6" height="3" fill="#c9a23a"/><line x1="59" y1="253.8" x2="53" y2="253.8" stroke="#c9a23a" stroke-width="0.9"/><text x="50" y="255.8" text-anchor="end" font-family="Roboto Mono, monospace" font-size="7" fill="#d4c88a" letter-spacing="0.5">api</text><rect x="59" y="271.5" width="6" height="3" fill="#c9a23a"/><line x1="59" y1="273" x2="53" y2="273" stroke="#c9a23a" stroke-width="0.9"/><text x="50" y="275" text-anchor="end" font-family="Roboto Mono, monospace" font-size="7" fill="#d4c88a" letter-spacing="0.5">hok</text><rect x="113.5" y="139" width="3" height="6" fill="#c9a23a"/><line x1="115" y1="139" x2="115" y2="133" stroke="#c9a23a" stroke-width="0.9"/><text x="115" y="129" text-anchor="middle" font-family="Roboto Mono, monospace" font-size="7" fill="#d4c88a" letter-spacing="0.5">in</text><rect x="77" y="177" width="76" height="90" fill="#0d3a2a" stroke="#c9a23a" stroke-width="0.6"/><g class="l2"><rect x="80" y="170" width="70" height="56" fill="#0d3a2a" stroke="#d4c88a" stroke-width="1.2"/><circle cx="88" cy="178" r="2.2" fill="#d4c88a"/><text x="115" y="184" text-anchor="middle" font-family="IBM Plex Sans Condensed, sans-serif" font-size="6" font-weight="700" fill="#d4c88a" letter-spacing="1.5">CAPTURE</text><text x="115" y="194" text-anchor="middle" font-family="Roboto Mono, monospace" font-size="6.5" fill="#8fa89c" letter-spacing="1.5">U1.A</text><rect x="88.5" y="164" width="3" height="6" fill="#c9a23a"/><line x1="90" y1="164" x2="90" y2="158" stroke="#c9a23a" stroke-width="0.9"/><text x="90" y="154" text-anchor="middle" font-family="Roboto Mono, monospace" font-size="5" fill="#d4c88a" letter-spacing="0.5">url</text><rect x="113.5" y="164" width="3" height="6" fill="#c9a23a"/><line x1="115" y1="164" x2="115" y2="158" stroke="#c9a23a" stroke-width="0.9"/><text x="115" y="154" text-anchor="middle" font-family="Roboto Mono, monospace" font-size="5" fill="#d4c88a" letter-spacing="0.5">pdf</text><rect x="138.5" y="164" width="3" height="6" fill="#c9a23a"/><line x1="140" y1="164" x2="140" y2="158" stroke="#c9a23a" stroke-width="0.9"/><text x="140" y="154" text-anchor="middle" font-family="Roboto Mono, monospace" font-size="5" fill="#d4c88a" letter-spacing="0.5">file</text><rect x="88.5" y="226" width="3" height="6" fill="#c9a23a"/><line x1="90" y1="232" x2="90" y2="238" stroke="#c9a23a" stroke-width="0.9"/><text x="90" y="246" text-anchor="middle" font-family="Roboto Mono, monospace" font-size="5" fill="#d4c88a" letter-spacing="0.5">obj</text><rect x="138.5" y="226" width="3" height="6" fill="#c9a23a"/><line x1="140" y1="232" x2="140" y2="238" stroke="#c9a23a" stroke-width="0.9"/><text x="140" y="246" text-anchor="middle" font-family="Roboto Mono, monospace" font-size="5" fill="#d4c88a" letter-spacing="0.5">sha</text><rect x="90" y="190" width="50" height="10" fill="#0d3a2a" stroke="#c9a23a" stroke-width="0.6"/>
+        
+      <rect x="86" y="192" width="27" height="22" fill="#114634" stroke="#d4c88a" stroke-width="0.8"/>
+      <circle cx="89" cy="195" r="1.2" fill="#d4c88a"/>
+      <text x="99.5" y="205" text-anchor="middle"
+            font-family="IBM Plex Sans Condensed, sans-serif" font-size="6"
+            font-weight="700" fill="#d4c88a" letter-spacing="1.2">FIRE</text>
+      <rect x="90" y="214" width="1.2" height="2.5" fill="#c9a23a"/><rect x="90" y="189.5" width="1.2" height="2.5" fill="#c9a23a"/><rect x="94.75" y="214" width="1.2" height="2.5" fill="#c9a23a"/><rect x="94.75" y="189.5" width="1.2" height="2.5" fill="#c9a23a"/><rect x="99.5" y="214" width="1.2" height="2.5" fill="#c9a23a"/><rect x="99.5" y="189.5" width="1.2" height="2.5" fill="#c9a23a"/><rect x="104.25" y="214" width="1.2" height="2.5" fill="#c9a23a"/><rect x="104.25" y="189.5" width="1.2" height="2.5" fill="#c9a23a"/><rect x="109" y="214" width="1.2" height="2.5" fill="#c9a23a"/><rect x="109" y="189.5" width="1.2" height="2.5" fill="#c9a23a"/>
+    
+        
+      <rect x="117" y="192" width="27" height="22" fill="#114634" stroke="#d4c88a" stroke-width="0.8"/>
+      <circle cx="120" cy="195" r="1.2" fill="#d4c88a"/>
+      <text x="130.5" y="205" text-anchor="middle"
+            font-family="IBM Plex Sans Condensed, sans-serif" font-size="6"
+            font-weight="700" fill="#d4c88a" letter-spacing="1.2">WIKI</text>
+      <rect x="121" y="214" width="1.2" height="2.5" fill="#c9a23a"/><rect x="121" y="189.5" width="1.2" height="2.5" fill="#c9a23a"/><rect x="125.75" y="214" width="1.2" height="2.5" fill="#c9a23a"/><rect x="125.75" y="189.5" width="1.2" height="2.5" fill="#c9a23a"/><rect x="130.5" y="214" width="1.2" height="2.5" fill="#c9a23a"/><rect x="130.5" y="189.5" width="1.2" height="2.5" fill="#c9a23a"/><rect x="135.25" y="214" width="1.2" height="2.5" fill="#c9a23a"/><rect x="135.25" y="189.5" width="1.2" height="2.5" fill="#c9a23a"/><rect x="140" y="214" width="1.2" height="2.5" fill="#c9a23a"/><rect x="140" y="189.5" width="1.2" height="2.5" fill="#c9a23a"/>
+    
+      <rect x="80" y="238" width="70" height="52" fill="#0d3a2a" stroke="#d4c88a" stroke-width="1.2"/><circle cx="88" cy="246" r="2.2" fill="#d4c88a"/><text x="115" y="252" text-anchor="middle" font-family="IBM Plex Sans Condensed, sans-serif" font-size="6" font-weight="700" fill="#d4c88a" letter-spacing="1.5">PARSE</text><text x="115" y="262" text-anchor="middle" font-family="Roboto Mono, monospace" font-size="6.5" fill="#8fa89c" letter-spacing="1.5">U1.B</text><rect x="88.5" y="290" width="3" height="6" fill="#c9a23a"/><line x1="90" y1="296" x2="90" y2="302" stroke="#c9a23a" stroke-width="0.9"/><text x="90" y="310" text-anchor="middle" font-family="Roboto Mono, monospace" font-size="5" fill="#d4c88a" letter-spacing="0.5">chunk</text><rect x="138.5" y="290" width="3" height="6" fill="#c9a23a"/><line x1="140" y1="296" x2="140" y2="302" stroke="#c9a23a" stroke-width="0.9"/><text x="140" y="310" text-anchor="middle" font-family="Roboto Mono, monospace" font-size="5" fill="#d4c88a" letter-spacing="0.5">meta</text><rect x="90" y="258" width="50" height="6" fill="#0d3a2a" stroke="#c9a23a" stroke-width="0.6"/>
+        
+      <rect x="86" y="258" width="27" height="22" fill="#114634" stroke="#d4c88a" stroke-width="0.8"/>
+      <circle cx="89" cy="261" r="1.2" fill="#d4c88a"/>
+      <text x="99.5" y="271" text-anchor="middle"
+            font-family="IBM Plex Sans Condensed, sans-serif" font-size="6"
+            font-weight="700" fill="#d4c88a" letter-spacing="1.2">HTML</text>
+      <rect x="90" y="280" width="1.2" height="2.5" fill="#c9a23a"/><rect x="90" y="255.5" width="1.2" height="2.5" fill="#c9a23a"/><rect x="94.75" y="280" width="1.2" height="2.5" fill="#c9a23a"/><rect x="94.75" y="255.5" width="1.2" height="2.5" fill="#c9a23a"/><rect x="99.5" y="280" width="1.2" height="2.5" fill="#c9a23a"/><rect x="99.5" y="255.5" width="1.2" height="2.5" fill="#c9a23a"/><rect x="104.25" y="280" width="1.2" height="2.5" fill="#c9a23a"/><rect x="104.25" y="255.5" width="1.2" height="2.5" fill="#c9a23a"/><rect x="109" y="280" width="1.2" height="2.5" fill="#c9a23a"/><rect x="109" y="255.5" width="1.2" height="2.5" fill="#c9a23a"/>
+    
+        
+      <rect x="117" y="258" width="27" height="22" fill="#114634" stroke="#d4c88a" stroke-width="0.8"/>
+      <circle cx="120" cy="261" r="1.2" fill="#d4c88a"/>
+      <text x="130.5" y="271" text-anchor="middle"
+            font-family="IBM Plex Sans Condensed, sans-serif" font-size="6"
+            font-weight="700" fill="#d4c88a" letter-spacing="1.2">PDF </text>
+      <rect x="121" y="280" width="1.2" height="2.5" fill="#c9a23a"/><rect x="121" y="255.5" width="1.2" height="2.5" fill="#c9a23a"/><rect x="125.75" y="280" width="1.2" height="2.5" fill="#c9a23a"/><rect x="125.75" y="255.5" width="1.2" height="2.5" fill="#c9a23a"/><rect x="130.5" y="280" width="1.2" height="2.5" fill="#c9a23a"/><rect x="130.5" y="255.5" width="1.2" height="2.5" fill="#c9a23a"/><rect x="135.25" y="280" width="1.2" height="2.5" fill="#c9a23a"/><rect x="135.25" y="255.5" width="1.2" height="2.5" fill="#c9a23a"/><rect x="140" y="280" width="1.2" height="2.5" fill="#c9a23a"/><rect x="140" y="255.5" width="1.2" height="2.5" fill="#c9a23a"/>
+    
+      <line x1="100" y1="226" x2="100" y2="238" stroke="#c9a23a" stroke-width="0.8"/><line x1="130" y1="226" x2="130" y2="238" stroke="#c9a23a" stroke-width="0.8"/></g>
+  <rect x="165" y="540" width="145" height="105" fill="#162f26" stroke="#d4c88a" stroke-width="1.2"/><circle cx="173" cy="548" r="2.2" fill="#d4c88a"/><text x="237.5" y="554" text-anchor="middle" font-family="IBM Plex Sans Condensed, sans-serif" font-size="10" font-weight="700" fill="#d4c88a" letter-spacing="4">STRUCTURE</text><text x="237.5" y="564" text-anchor="middle" font-family="Roboto Mono, monospace" font-size="6.5" fill="#8fa89c" letter-spacing="1.5">U2 · 002</text><rect x="177.5" y="534" width="3" height="6" fill="#c9a23a"/><line x1="179" y1="534" x2="179" y2="528" stroke="#c9a23a" stroke-width="0.9"/><text x="179" y="524" text-anchor="middle" font-family="Roboto Mono, monospace" font-size="7" fill="#d4c88a" letter-spacing="0.5">raw</text><rect x="216.5" y="534" width="3" height="6" fill="#c9a23a"/><line x1="218" y1="534" x2="218" y2="528" stroke="#c9a23a" stroke-width="0.9"/><text x="218" y="524" text-anchor="middle" font-family="Roboto Mono, monospace" font-size="7" fill="#d4c88a" letter-spacing="0.5">hck</text><rect x="255.5" y="534" width="3" height="6" fill="#c9a23a"/><line x1="257" y1="534" x2="257" y2="528" stroke="#c9a23a" stroke-width="0.9"/><text x="257" y="524" text-anchor="middle" font-family="Roboto Mono, monospace" font-size="7" fill="#d4c88a" letter-spacing="0.5">ast</text><rect x="294.5" y="534" width="3" height="6" fill="#c9a23a"/><line x1="296" y1="534" x2="296" y2="528" stroke="#c9a23a" stroke-width="0.9"/><text x="296" y="524" text-anchor="middle" font-family="Roboto Mono, monospace" font-size="7" fill="#d4c88a" letter-spacing="0.5">chk</text><rect x="177.5" y="645" width="3" height="6" fill="#c9a23a"/><line x1="179" y1="651" x2="179" y2="657" stroke="#c9a23a" stroke-width="0.9"/><text x="179" y="665" text-anchor="middle" font-family="Roboto Mono, monospace" font-size="7" fill="#d4c88a" letter-spacing="0.5">atm</text><rect x="236" y="645" width="3" height="6" fill="#c9a23a"/><line x1="237.5" y1="651" x2="237.5" y2="657" stroke="#c9a23a" stroke-width="0.9"/><text x="237.5" y="665" text-anchor="middle" font-family="Roboto Mono, monospace" font-size="7" fill="#d4c88a" letter-spacing="0.5">cls</text><rect x="294.5" y="645" width="3" height="6" fill="#c9a23a"/><line x1="296" y1="651" x2="296" y2="657" stroke="#c9a23a" stroke-width="0.9"/><text x="296" y="665" text-anchor="middle" font-family="Roboto Mono, monospace" font-size="7" fill="#d4c88a" letter-spacing="0.5">rol</text><rect x="179" y="568" width="117" height="43" fill="#0d3a2a" stroke="#c9a23a" stroke-width="0.6"/><g class="l2"><rect x="180" y="560" width="120" height="50" fill="#0d3a2a" stroke="#d4c88a" stroke-width="1.2"/><circle cx="188" cy="568" r="2.2" fill="#d4c88a"/><text x="240" y="574" text-anchor="middle" font-family="IBM Plex Sans Condensed, sans-serif" font-size="6" font-weight="700" fill="#d4c88a" letter-spacing="1.5">EXTRACT</text><text x="240" y="584" text-anchor="middle" font-family="Roboto Mono, monospace" font-size="6.5" fill="#8fa89c" letter-spacing="1.5">U2</text><rect x="188.5" y="554" width="3" height="6" fill="#c9a23a"/><line x1="190" y1="554" x2="190" y2="548" stroke="#c9a23a" stroke-width="0.9"/><text x="190" y="544" text-anchor="middle" font-family="Roboto Mono, monospace" font-size="5" fill="#d4c88a" letter-spacing="0.5">tok</text><rect x="238.5" y="554" width="3" height="6" fill="#c9a23a"/><line x1="240" y1="554" x2="240" y2="548" stroke="#c9a23a" stroke-width="0.9"/><text x="240" y="544" text-anchor="middle" font-family="Roboto Mono, monospace" font-size="5" fill="#d4c88a" letter-spacing="0.5">sent</text><rect x="288.5" y="554" width="3" height="6" fill="#c9a23a"/><line x1="290" y1="554" x2="290" y2="548" stroke="#c9a23a" stroke-width="0.9"/><text x="290" y="544" text-anchor="middle" font-family="Roboto Mono, monospace" font-size="5" fill="#d4c88a" letter-spacing="0.5">ent</text><rect x="190" y="578" width="100" height="8" fill="#0d3a2a" stroke="#c9a23a" stroke-width="0.6"/>
+        
+      <rect x="188" y="582" width="22" height="22" fill="#114634" stroke="#d4c88a" stroke-width="0.8"/>
+      <circle cx="191" cy="585" r="1.2" fill="#d4c88a"/>
+      <text x="199" y="595" text-anchor="middle"
+            font-family="IBM Plex Sans Condensed, sans-serif" font-size="6"
+            font-weight="700" fill="#d4c88a" letter-spacing="1.2">NER </text>
+      <rect x="192" y="604" width="1.2" height="2.5" fill="#c9a23a"/><rect x="192" y="579.5" width="1.2" height="2.5" fill="#c9a23a"/><rect x="195.5" y="604" width="1.2" height="2.5" fill="#c9a23a"/><rect x="195.5" y="579.5" width="1.2" height="2.5" fill="#c9a23a"/><rect x="199" y="604" width="1.2" height="2.5" fill="#c9a23a"/><rect x="199" y="579.5" width="1.2" height="2.5" fill="#c9a23a"/><rect x="202.5" y="604" width="1.2" height="2.5" fill="#c9a23a"/><rect x="202.5" y="579.5" width="1.2" height="2.5" fill="#c9a23a"/><rect x="206" y="604" width="1.2" height="2.5" fill="#c9a23a"/><rect x="206" y="579.5" width="1.2" height="2.5" fill="#c9a23a"/>
+    
+        
+      <rect x="212" y="582" width="22" height="22" fill="#114634" stroke="#d4c88a" stroke-width="0.8"/>
+      <circle cx="215" cy="585" r="1.2" fill="#d4c88a"/>
+      <text x="223" y="595" text-anchor="middle"
+            font-family="IBM Plex Sans Condensed, sans-serif" font-size="6"
+            font-weight="700" fill="#d4c88a" letter-spacing="1.2">CLM </text>
+      <rect x="216" y="604" width="1.2" height="2.5" fill="#c9a23a"/><rect x="216" y="579.5" width="1.2" height="2.5" fill="#c9a23a"/><rect x="219.5" y="604" width="1.2" height="2.5" fill="#c9a23a"/><rect x="219.5" y="579.5" width="1.2" height="2.5" fill="#c9a23a"/><rect x="223" y="604" width="1.2" height="2.5" fill="#c9a23a"/><rect x="223" y="579.5" width="1.2" height="2.5" fill="#c9a23a"/><rect x="226.5" y="604" width="1.2" height="2.5" fill="#c9a23a"/><rect x="226.5" y="579.5" width="1.2" height="2.5" fill="#c9a23a"/><rect x="230" y="604" width="1.2" height="2.5" fill="#c9a23a"/><rect x="230" y="579.5" width="1.2" height="2.5" fill="#c9a23a"/>
+    
+        
+      <rect x="236" y="582" width="22" height="22" fill="#114634" stroke="#d4c88a" stroke-width="0.8"/>
+      <circle cx="239" cy="585" r="1.2" fill="#d4c88a"/>
+      <text x="247" y="595" text-anchor="middle"
+            font-family="IBM Plex Sans Condensed, sans-serif" font-size="6"
+            font-weight="700" fill="#d4c88a" letter-spacing="1.2">ROLE</text>
+      <rect x="240" y="604" width="1.2" height="2.5" fill="#c9a23a"/><rect x="240" y="579.5" width="1.2" height="2.5" fill="#c9a23a"/><rect x="243.5" y="604" width="1.2" height="2.5" fill="#c9a23a"/><rect x="243.5" y="579.5" width="1.2" height="2.5" fill="#c9a23a"/><rect x="247" y="604" width="1.2" height="2.5" fill="#c9a23a"/><rect x="247" y="579.5" width="1.2" height="2.5" fill="#c9a23a"/><rect x="250.5" y="604" width="1.2" height="2.5" fill="#c9a23a"/><rect x="250.5" y="579.5" width="1.2" height="2.5" fill="#c9a23a"/><rect x="254" y="604" width="1.2" height="2.5" fill="#c9a23a"/><rect x="254" y="579.5" width="1.2" height="2.5" fill="#c9a23a"/>
+    
+        
+      <rect x="260" y="582" width="34" height="22" fill="#114634" stroke="#d4c88a" stroke-width="0.8"/>
+      <circle cx="263" cy="585" r="1.2" fill="#d4c88a"/>
+      <text x="277" y="595" text-anchor="middle"
+            font-family="IBM Plex Sans Condensed, sans-serif" font-size="6"
+            font-weight="700" fill="#d4c88a" letter-spacing="1.2">CLUS</text>
+      <rect x="264" y="604" width="1.2" height="2.5" fill="#c9a23a"/><rect x="264" y="579.5" width="1.2" height="2.5" fill="#c9a23a"/><rect x="270.5" y="604" width="1.2" height="2.5" fill="#c9a23a"/><rect x="270.5" y="579.5" width="1.2" height="2.5" fill="#c9a23a"/><rect x="277" y="604" width="1.2" height="2.5" fill="#c9a23a"/><rect x="277" y="579.5" width="1.2" height="2.5" fill="#c9a23a"/><rect x="283.5" y="604" width="1.2" height="2.5" fill="#c9a23a"/><rect x="283.5" y="579.5" width="1.2" height="2.5" fill="#c9a23a"/><rect x="290" y="604" width="1.2" height="2.5" fill="#c9a23a"/><rect x="290" y="579.5" width="1.2" height="2.5" fill="#c9a23a"/>
+    
+      </g>
+  <rect x="300" y="140" width="210" height="170" fill="#162f26" stroke="#d4c88a" stroke-width="1.2"/><circle cx="308" cy="148" r="2.2" fill="#d4c88a"/><text x="405" y="154" text-anchor="middle" font-family="IBM Plex Sans Condensed, sans-serif" font-size="10" font-weight="700" fill="#d4c88a" letter-spacing="3">RELATE / CONNECTION ENGINE</text><text x="405" y="164" text-anchor="middle" font-family="Roboto Mono, monospace" font-size="6.5" fill="#8fa89c" letter-spacing="1.5">U3 · 003</text><rect x="308.5" y="134" width="3" height="6" fill="#c9a23a"/><line x1="310" y1="134" x2="310" y2="128" stroke="#c9a23a" stroke-width="0.9"/><text x="310" y="124" text-anchor="middle" font-family="Roboto Mono, monospace" font-size="7" fill="#d4c88a" letter-spacing="0.5">q1</text><rect x="371.8333333333333" y="134" width="3" height="6" fill="#c9a23a"/><line x1="373.3333333333333" y1="134" x2="373.3333333333333" y2="128" stroke="#c9a23a" stroke-width="0.9"/><text x="373.3333333333333" y="124" text-anchor="middle" font-family="Roboto Mono, monospace" font-size="7" fill="#d4c88a" letter-spacing="0.5">q2</text><rect x="435.1666666666667" y="134" width="3" height="6" fill="#c9a23a"/><line x1="436.6666666666667" y1="134" x2="436.6666666666667" y2="128" stroke="#c9a23a" stroke-width="0.9"/><text x="436.6666666666667" y="124" text-anchor="middle" font-family="Roboto Mono, monospace" font-size="7" fill="#d4c88a" letter-spacing="0.5">q3</text><rect x="498.5" y="134" width="3" height="6" fill="#c9a23a"/><line x1="500" y1="134" x2="500" y2="128" stroke="#c9a23a" stroke-width="0.9"/><text x="500" y="124" text-anchor="middle" font-family="Roboto Mono, monospace" font-size="7" fill="#d4c88a" letter-spacing="0.5">q4</text><rect x="308.5" y="310" width="3" height="6" fill="#c9a23a"/><line x1="310" y1="316" x2="310" y2="322" stroke="#c9a23a" stroke-width="0.9"/><text x="310" y="330" text-anchor="middle" font-family="Roboto Mono, monospace" font-size="7" fill="#d4c88a" letter-spacing="0.5">e1</text><rect x="335.64285714285717" y="310" width="3" height="6" fill="#c9a23a"/><line x1="337.14285714285717" y1="316" x2="337.14285714285717" y2="322" stroke="#c9a23a" stroke-width="0.9"/><text x="337.14285714285717" y="330" text-anchor="middle" font-family="Roboto Mono, monospace" font-size="7" fill="#d4c88a" letter-spacing="0.5">e2</text><rect x="362.7857142857143" y="310" width="3" height="6" fill="#c9a23a"/><line x1="364.2857142857143" y1="316" x2="364.2857142857143" y2="322" stroke="#c9a23a" stroke-width="0.9"/><text x="364.2857142857143" y="330" text-anchor="middle" font-family="Roboto Mono, monospace" font-size="7" fill="#d4c88a" letter-spacing="0.5">e3</text><rect x="389.92857142857144" y="310" width="3" height="6" fill="#c9a23a"/><line x1="391.42857142857144" y1="316" x2="391.42857142857144" y2="322" stroke="#c9a23a" stroke-width="0.9"/><text x="391.42857142857144" y="330" text-anchor="middle" font-family="Roboto Mono, monospace" font-size="7" fill="#d4c88a" letter-spacing="0.5">e4</text><rect x="417.07142857142856" y="310" width="3" height="6" fill="#c9a23a"/><line x1="418.57142857142856" y1="316" x2="418.57142857142856" y2="322" stroke="#c9a23a" stroke-width="0.9"/><text x="418.57142857142856" y="330" text-anchor="middle" font-family="Roboto Mono, monospace" font-size="7" fill="#d4c88a" letter-spacing="0.5">e5</text><rect x="444.2142857142857" y="310" width="3" height="6" fill="#c9a23a"/><line x1="445.7142857142857" y1="316" x2="445.7142857142857" y2="322" stroke="#c9a23a" stroke-width="0.9"/><text x="445.7142857142857" y="330" text-anchor="middle" font-family="Roboto Mono, monospace" font-size="7" fill="#d4c88a" letter-spacing="0.5">e6</text><rect x="471.3571428571429" y="310" width="3" height="6" fill="#c9a23a"/><line x1="472.8571428571429" y1="316" x2="472.8571428571429" y2="322" stroke="#c9a23a" stroke-width="0.9"/><text x="472.8571428571429" y="330" text-anchor="middle" font-family="Roboto Mono, monospace" font-size="7" fill="#d4c88a" letter-spacing="0.5">e7</text><rect x="498.5" y="310" width="3" height="6" fill="#c9a23a"/><line x1="500" y1="316" x2="500" y2="322" stroke="#c9a23a" stroke-width="0.9"/><text x="500" y="330" text-anchor="middle" font-family="Roboto Mono, monospace" font-size="7" fill="#d4c88a" letter-spacing="0.5">e8</text><rect x="310" y="174" width="190" height="96" fill="#0d3a2a" stroke="#c9a23a" stroke-width="0.6"/><g class="l2"><rect x="320" y="162" width="90" height="64" fill="#0d3a2a" stroke="#d4c88a" stroke-width="1.2"/><circle cx="328" cy="170" r="2.2" fill="#d4c88a"/><text x="365" y="176" text-anchor="middle" font-family="IBM Plex Sans Condensed, sans-serif" font-size="6" font-weight="700" fill="#d4c88a" letter-spacing="1.5">LEXICAL</text><text x="365" y="186" text-anchor="middle" font-family="Roboto Mono, monospace" font-size="6.5" fill="#8fa89c" letter-spacing="1.5">U3.A</text><rect x="326.5" y="156" width="3" height="6" fill="#c9a23a"/><line x1="328" y1="156" x2="328" y2="150" stroke="#c9a23a" stroke-width="0.9"/><text x="328" y="146" text-anchor="middle" font-family="Roboto Mono, monospace" font-size="5" fill="#d4c88a" letter-spacing="0.5">q</text><rect x="400.5" y="156" width="3" height="6" fill="#c9a23a"/><line x1="402" y1="156" x2="402" y2="150" stroke="#c9a23a" stroke-width="0.9"/><text x="402" y="146" text-anchor="middle" font-family="Roboto Mono, monospace" font-size="5" fill="#d4c88a" letter-spacing="0.5">k</text><rect x="326.5" y="226" width="3" height="6" fill="#c9a23a"/><line x1="328" y1="232" x2="328" y2="238" stroke="#c9a23a" stroke-width="0.9"/><text x="328" y="246" text-anchor="middle" font-family="Roboto Mono, monospace" font-size="5" fill="#d4c88a" letter-spacing="0.5">hit</text><rect x="400.5" y="226" width="3" height="6" fill="#c9a23a"/><line x1="402" y1="232" x2="402" y2="238" stroke="#c9a23a" stroke-width="0.9"/><text x="402" y="246" text-anchor="middle" font-family="Roboto Mono, monospace" font-size="5" fill="#d4c88a" letter-spacing="0.5">w</text><rect x="328" y="184" width="74" height="14" fill="#0d3a2a" stroke="#c9a23a" stroke-width="0.6"/>
+        
+      <rect x="326" y="188" width="24" height="30" fill="#114634" stroke="#d4c88a" stroke-width="0.8"/>
+      <circle cx="329" cy="191" r="1.2" fill="#d4c88a"/>
+      <text x="338" y="205" text-anchor="middle"
+            font-family="IBM Plex Sans Condensed, sans-serif" font-size="6"
+            font-weight="700" fill="#d4c88a" letter-spacing="1.2">BM25</text>
+      <rect x="330" y="218" width="1.2" height="2.5" fill="#c9a23a"/><rect x="330" y="185.5" width="1.2" height="2.5" fill="#c9a23a"/><rect x="334" y="218" width="1.2" height="2.5" fill="#c9a23a"/><rect x="334" y="185.5" width="1.2" height="2.5" fill="#c9a23a"/><rect x="338" y="218" width="1.2" height="2.5" fill="#c9a23a"/><rect x="338" y="185.5" width="1.2" height="2.5" fill="#c9a23a"/><rect x="342" y="218" width="1.2" height="2.5" fill="#c9a23a"/><rect x="342" y="185.5" width="1.2" height="2.5" fill="#c9a23a"/><rect x="346" y="218" width="1.2" height="2.5" fill="#c9a23a"/><rect x="346" y="185.5" width="1.2" height="2.5" fill="#c9a23a"/>
+    
+        
+      <rect x="352" y="188" width="24" height="30" fill="#114634" stroke="#d4c88a" stroke-width="0.8"/>
+      <circle cx="355" cy="191" r="1.2" fill="#d4c88a"/>
+      <text x="364" y="205" text-anchor="middle"
+            font-family="IBM Plex Sans Condensed, sans-serif" font-size="6"
+            font-weight="700" fill="#d4c88a" letter-spacing="1.2">TF·I</text>
+      <rect x="356" y="218" width="1.2" height="2.5" fill="#c9a23a"/><rect x="356" y="185.5" width="1.2" height="2.5" fill="#c9a23a"/><rect x="360" y="218" width="1.2" height="2.5" fill="#c9a23a"/><rect x="360" y="185.5" width="1.2" height="2.5" fill="#c9a23a"/><rect x="364" y="218" width="1.2" height="2.5" fill="#c9a23a"/><rect x="364" y="185.5" width="1.2" height="2.5" fill="#c9a23a"/><rect x="368" y="218" width="1.2" height="2.5" fill="#c9a23a"/><rect x="368" y="185.5" width="1.2" height="2.5" fill="#c9a23a"/><rect x="372" y="218" width="1.2" height="2.5" fill="#c9a23a"/><rect x="372" y="185.5" width="1.2" height="2.5" fill="#c9a23a"/>
+    
+        
+      <rect x="378" y="188" width="24" height="30" fill="#114634" stroke="#d4c88a" stroke-width="0.8"/>
+      <circle cx="381" cy="191" r="1.2" fill="#d4c88a"/>
+      <text x="390" y="205" text-anchor="middle"
+            font-family="IBM Plex Sans Condensed, sans-serif" font-size="6"
+            font-weight="700" fill="#d4c88a" letter-spacing="1.2">JACD</text>
+      <rect x="382" y="218" width="1.2" height="2.5" fill="#c9a23a"/><rect x="382" y="185.5" width="1.2" height="2.5" fill="#c9a23a"/><rect x="386" y="218" width="1.2" height="2.5" fill="#c9a23a"/><rect x="386" y="185.5" width="1.2" height="2.5" fill="#c9a23a"/><rect x="390" y="218" width="1.2" height="2.5" fill="#c9a23a"/><rect x="390" y="185.5" width="1.2" height="2.5" fill="#c9a23a"/><rect x="394" y="218" width="1.2" height="2.5" fill="#c9a23a"/><rect x="394" y="185.5" width="1.2" height="2.5" fill="#c9a23a"/><rect x="398" y="218" width="1.2" height="2.5" fill="#c9a23a"/><rect x="398" y="185.5" width="1.2" height="2.5" fill="#c9a23a"/>
+    
+      <rect x="420" y="162" width="70" height="64" fill="#0d3a2a" stroke="#d4c88a" stroke-width="1.2"/><circle cx="428" cy="170" r="2.2" fill="#d4c88a"/><text x="455" y="176" text-anchor="middle" font-family="IBM Plex Sans Condensed, sans-serif" font-size="6" font-weight="700" fill="#d4c88a" letter-spacing="1.2">SEMANTIC</text><text x="455" y="186" text-anchor="middle" font-family="Roboto Mono, monospace" font-size="6.5" fill="#8fa89c" letter-spacing="1.5">U3.B</text><rect x="426.5" y="156" width="3" height="6" fill="#c9a23a"/><line x1="428" y1="156" x2="428" y2="150" stroke="#c9a23a" stroke-width="0.9"/><text x="428" y="146" text-anchor="middle" font-family="Roboto Mono, monospace" font-size="5" fill="#d4c88a" letter-spacing="0.5">emb</text><rect x="480.5" y="156" width="3" height="6" fill="#c9a23a"/><line x1="482" y1="156" x2="482" y2="150" stroke="#c9a23a" stroke-width="0.9"/><text x="482" y="146" text-anchor="middle" font-family="Roboto Mono, monospace" font-size="5" fill="#d4c88a" letter-spacing="0.5">nli</text><rect x="426.5" y="226" width="3" height="6" fill="#c9a23a"/><line x1="428" y1="232" x2="428" y2="238" stroke="#c9a23a" stroke-width="0.9"/><text x="428" y="246" text-anchor="middle" font-family="Roboto Mono, monospace" font-size="5" fill="#d4c88a" letter-spacing="0.5">sup</text><rect x="480.5" y="226" width="3" height="6" fill="#c9a23a"/><line x1="482" y1="232" x2="482" y2="238" stroke="#c9a23a" stroke-width="0.9"/><text x="482" y="246" text-anchor="middle" font-family="Roboto Mono, monospace" font-size="5" fill="#d4c88a" letter-spacing="0.5">con</text><rect x="428" y="184" width="54" height="14" fill="#0d3a2a" stroke="#c9a23a" stroke-width="0.6"/>
+        
+      <rect x="426" y="188" width="27" height="30" fill="#114634" stroke="#d4c88a" stroke-width="0.8"/>
+      <circle cx="429" cy="191" r="1.2" fill="#d4c88a"/>
+      <text x="439.5" y="205" text-anchor="middle"
+            font-family="IBM Plex Sans Condensed, sans-serif" font-size="6"
+            font-weight="700" fill="#d4c88a" letter-spacing="1.2">SBRT</text>
+      <rect x="430" y="218" width="1.2" height="2.5" fill="#c9a23a"/><rect x="430" y="185.5" width="1.2" height="2.5" fill="#c9a23a"/><rect x="434.75" y="218" width="1.2" height="2.5" fill="#c9a23a"/><rect x="434.75" y="185.5" width="1.2" height="2.5" fill="#c9a23a"/><rect x="439.5" y="218" width="1.2" height="2.5" fill="#c9a23a"/><rect x="439.5" y="185.5" width="1.2" height="2.5" fill="#c9a23a"/><rect x="444.25" y="218" width="1.2" height="2.5" fill="#c9a23a"/><rect x="444.25" y="185.5" width="1.2" height="2.5" fill="#c9a23a"/><rect x="449" y="218" width="1.2" height="2.5" fill="#c9a23a"/><rect x="449" y="185.5" width="1.2" height="2.5" fill="#c9a23a"/>
+    
+        
+      <rect x="455" y="188" width="27" height="30" fill="#114634" stroke="#d4c88a" stroke-width="0.8"/>
+      <circle cx="458" cy="191" r="1.2" fill="#d4c88a"/>
+      <text x="468.5" y="205" text-anchor="middle"
+            font-family="IBM Plex Sans Condensed, sans-serif" font-size="6"
+            font-weight="700" fill="#d4c88a" letter-spacing="1.2">NLI </text>
+      <rect x="459" y="218" width="1.2" height="2.5" fill="#c9a23a"/><rect x="459" y="185.5" width="1.2" height="2.5" fill="#c9a23a"/><rect x="463.75" y="218" width="1.2" height="2.5" fill="#c9a23a"/><rect x="463.75" y="185.5" width="1.2" height="2.5" fill="#c9a23a"/><rect x="468.5" y="218" width="1.2" height="2.5" fill="#c9a23a"/><rect x="468.5" y="185.5" width="1.2" height="2.5" fill="#c9a23a"/><rect x="473.25" y="218" width="1.2" height="2.5" fill="#c9a23a"/><rect x="473.25" y="185.5" width="1.2" height="2.5" fill="#c9a23a"/><rect x="478" y="218" width="1.2" height="2.5" fill="#c9a23a"/><rect x="478" y="185.5" width="1.2" height="2.5" fill="#c9a23a"/>
+    
+      <rect x="320" y="238" width="90" height="60" fill="#0d3a2a" stroke="#d4c88a" stroke-width="1.2"/><circle cx="328" cy="246" r="2.2" fill="#d4c88a"/><text x="365" y="252" text-anchor="middle" font-family="IBM Plex Sans Condensed, sans-serif" font-size="6" font-weight="700" fill="#d4c88a" letter-spacing="1.2">STRUCTURAL</text><text x="365" y="262" text-anchor="middle" font-family="Roboto Mono, monospace" font-size="6.5" fill="#8fa89c" letter-spacing="1.5">U3.C</text><rect x="326.5" y="298" width="3" height="6" fill="#c9a23a"/><line x1="328" y1="304" x2="328" y2="310" stroke="#c9a23a" stroke-width="0.9"/><text x="328" y="318" text-anchor="middle" font-family="Roboto Mono, monospace" font-size="5" fill="#d4c88a" letter-spacing="0.5">e3d</text><rect x="400.5" y="298" width="3" height="6" fill="#c9a23a"/><line x1="402" y1="304" x2="402" y2="310" stroke="#c9a23a" stroke-width="0.9"/><text x="402" y="318" text-anchor="middle" font-family="Roboto Mono, monospace" font-size="5" fill="#d4c88a" letter-spacing="0.5">n3d</text><rect x="328" y="260" width="74" height="10" fill="#0d3a2a" stroke="#c9a23a" stroke-width="0.6"/>
+        
+      <rect x="330" y="264" width="26" height="26" fill="#114634" stroke="#d4c88a" stroke-width="0.8"/>
+      <circle cx="333" cy="267" r="1.2" fill="#d4c88a"/>
+      <text x="343" y="279" text-anchor="middle"
+            font-family="IBM Plex Sans Condensed, sans-serif" font-size="6"
+            font-weight="700" fill="#d4c88a" letter-spacing="1.2">KGE </text>
+      <rect x="334" y="290" width="1.2" height="2.5" fill="#c9a23a"/><rect x="334" y="261.5" width="1.2" height="2.5" fill="#c9a23a"/><rect x="338.5" y="290" width="1.2" height="2.5" fill="#c9a23a"/><rect x="338.5" y="261.5" width="1.2" height="2.5" fill="#c9a23a"/><rect x="343" y="290" width="1.2" height="2.5" fill="#c9a23a"/><rect x="343" y="261.5" width="1.2" height="2.5" fill="#c9a23a"/><rect x="347.5" y="290" width="1.2" height="2.5" fill="#c9a23a"/><rect x="347.5" y="261.5" width="1.2" height="2.5" fill="#c9a23a"/><rect x="352" y="290" width="1.2" height="2.5" fill="#c9a23a"/><rect x="352" y="261.5" width="1.2" height="2.5" fill="#c9a23a"/>
+    
+        
+      <rect x="358" y="264" width="26" height="26" fill="#114634" stroke="#d4c88a" stroke-width="0.8"/>
+      <circle cx="361" cy="267" r="1.2" fill="#d4c88a"/>
+      <text x="371" y="279" text-anchor="middle"
+            font-family="IBM Plex Sans Condensed, sans-serif" font-size="6"
+            font-weight="700" fill="#d4c88a" letter-spacing="1.2">GNN </text>
+      <rect x="362" y="290" width="1.2" height="2.5" fill="#c9a23a"/><rect x="362" y="261.5" width="1.2" height="2.5" fill="#c9a23a"/><rect x="366.5" y="290" width="1.2" height="2.5" fill="#c9a23a"/><rect x="366.5" y="261.5" width="1.2" height="2.5" fill="#c9a23a"/><rect x="371" y="290" width="1.2" height="2.5" fill="#c9a23a"/><rect x="371" y="261.5" width="1.2" height="2.5" fill="#c9a23a"/><rect x="375.5" y="290" width="1.2" height="2.5" fill="#c9a23a"/><rect x="375.5" y="261.5" width="1.2" height="2.5" fill="#c9a23a"/><rect x="380" y="290" width="1.2" height="2.5" fill="#c9a23a"/><rect x="380" y="261.5" width="1.2" height="2.5" fill="#c9a23a"/>
+    
+        
+      <rect x="386" y="250" width="18" height="10" fill="#114634" stroke="#d4c88a" stroke-width="0.8"/>
+      <circle cx="389" cy="253" r="1.2" fill="#d4c88a"/>
+      <text x="395" y="257" text-anchor="middle"
+            font-family="IBM Plex Sans Condensed, sans-serif" font-size="6"
+            font-weight="700" fill="#d4c88a" letter-spacing="1.2">RGCN</text>
+      <rect x="390" y="260" width="1.2" height="2.5" fill="#c9a23a"/><rect x="390" y="247.5" width="1.2" height="2.5" fill="#c9a23a"/><rect x="392.5" y="260" width="1.2" height="2.5" fill="#c9a23a"/><rect x="392.5" y="247.5" width="1.2" height="2.5" fill="#c9a23a"/><rect x="395" y="260" width="1.2" height="2.5" fill="#c9a23a"/><rect x="395" y="247.5" width="1.2" height="2.5" fill="#c9a23a"/><rect x="397.5" y="260" width="1.2" height="2.5" fill="#c9a23a"/><rect x="397.5" y="247.5" width="1.2" height="2.5" fill="#c9a23a"/><rect x="400" y="260" width="1.2" height="2.5" fill="#c9a23a"/><rect x="400" y="247.5" width="1.2" height="2.5" fill="#c9a23a"/>
+    
+        
+      <rect x="386" y="262" width="18" height="10" fill="#114634" stroke="#d4c88a" stroke-width="0.8"/>
+      <circle cx="389" cy="265" r="1.2" fill="#d4c88a"/>
+      <text x="395" y="269" text-anchor="middle"
+            font-family="IBM Plex Sans Condensed, sans-serif" font-size="6"
+            font-weight="700" fill="#d4c88a" letter-spacing="1.2">ROTE</text>
+      <rect x="390" y="272" width="1.2" height="2.5" fill="#c9a23a"/><rect x="390" y="259.5" width="1.2" height="2.5" fill="#c9a23a"/><rect x="392.5" y="272" width="1.2" height="2.5" fill="#c9a23a"/><rect x="392.5" y="259.5" width="1.2" height="2.5" fill="#c9a23a"/><rect x="395" y="272" width="1.2" height="2.5" fill="#c9a23a"/><rect x="395" y="259.5" width="1.2" height="2.5" fill="#c9a23a"/><rect x="397.5" y="272" width="1.2" height="2.5" fill="#c9a23a"/><rect x="397.5" y="259.5" width="1.2" height="2.5" fill="#c9a23a"/><rect x="400" y="272" width="1.2" height="2.5" fill="#c9a23a"/><rect x="400" y="259.5" width="1.2" height="2.5" fill="#c9a23a"/>
+    
+      <rect x="420" y="238" width="70" height="60" fill="#0d3a2a" stroke="#d4c88a" stroke-width="1.2"/><circle cx="428" cy="246" r="2.2" fill="#d4c88a"/><text x="455" y="252" text-anchor="middle" font-family="IBM Plex Sans Condensed, sans-serif" font-size="6" font-weight="700" fill="#d4c88a" letter-spacing="1.2">ANALOGY</text><text x="455" y="262" text-anchor="middle" font-family="Roboto Mono, monospace" font-size="6.5" fill="#8fa89c" letter-spacing="1.5">U3.D</text><rect x="453.5" y="298" width="3" height="6" fill="#c9a23a"/><line x1="455" y1="304" x2="455" y2="310" stroke="#c9a23a" stroke-width="0.9"/><text x="455" y="318" text-anchor="middle" font-family="Roboto Mono, monospace" font-size="5" fill="#d4c88a" letter-spacing="0.5">map</text><rect x="428" y="260" width="54" height="10" fill="#0d3a2a" stroke="#c9a23a" stroke-width="0.6"/>
+        
+      <rect x="426" y="264" width="27" height="26" fill="#114634" stroke="#d4c88a" stroke-width="0.8"/>
+      <circle cx="429" cy="267" r="1.2" fill="#d4c88a"/>
+      <text x="439.5" y="279" text-anchor="middle"
+            font-family="IBM Plex Sans Condensed, sans-serif" font-size="6"
+            font-weight="700" fill="#d4c88a" letter-spacing="1.2">NER </text>
+      <rect x="430" y="290" width="1.2" height="2.5" fill="#c9a23a"/><rect x="430" y="261.5" width="1.2" height="2.5" fill="#c9a23a"/><rect x="434.75" y="290" width="1.2" height="2.5" fill="#c9a23a"/><rect x="434.75" y="261.5" width="1.2" height="2.5" fill="#c9a23a"/><rect x="439.5" y="290" width="1.2" height="2.5" fill="#c9a23a"/><rect x="439.5" y="261.5" width="1.2" height="2.5" fill="#c9a23a"/><rect x="444.25" y="290" width="1.2" height="2.5" fill="#c9a23a"/><rect x="444.25" y="261.5" width="1.2" height="2.5" fill="#c9a23a"/><rect x="449" y="290" width="1.2" height="2.5" fill="#c9a23a"/><rect x="449" y="261.5" width="1.2" height="2.5" fill="#c9a23a"/>
+    
+        
+      <rect x="455" y="264" width="27" height="26" fill="#114634" stroke="#d4c88a" stroke-width="0.8"/>
+      <circle cx="458" cy="267" r="1.2" fill="#d4c88a"/>
+      <text x="468.5" y="279" text-anchor="middle"
+            font-family="IBM Plex Sans Condensed, sans-serif" font-size="6"
+            font-weight="700" fill="#d4c88a" letter-spacing="1.2">SME </text>
+      <rect x="459" y="290" width="1.2" height="2.5" fill="#c9a23a"/><rect x="459" y="261.5" width="1.2" height="2.5" fill="#c9a23a"/><rect x="463.75" y="290" width="1.2" height="2.5" fill="#c9a23a"/><rect x="463.75" y="261.5" width="1.2" height="2.5" fill="#c9a23a"/><rect x="468.5" y="290" width="1.2" height="2.5" fill="#c9a23a"/><rect x="468.5" y="261.5" width="1.2" height="2.5" fill="#c9a23a"/><rect x="473.25" y="290" width="1.2" height="2.5" fill="#c9a23a"/><rect x="473.25" y="261.5" width="1.2" height="2.5" fill="#c9a23a"/><rect x="478" y="290" width="1.2" height="2.5" fill="#c9a23a"/><rect x="478" y="261.5" width="1.2" height="2.5" fill="#c9a23a"/>
+    
+      <path d="M 410 194 H 420 M 410 268 H 420 M 365 226 V 238 M 455 226 V 238" stroke="#c9a23a" stroke-width="0.8" fill="none"/></g>
+  <rect x="560" y="150" width="115" height="155" fill="#162f26" stroke="#d4c88a" stroke-width="1.2"/><circle cx="568" cy="158" r="2.2" fill="#d4c88a"/><text x="617.5" y="164" text-anchor="middle" font-family="IBM Plex Sans Condensed, sans-serif" font-size="10" font-weight="700" fill="#d4c88a" letter-spacing="4">EVALUATE</text><text x="617.5" y="174" text-anchor="middle" font-family="Roboto Mono, monospace" font-size="6.5" fill="#8fa89c" letter-spacing="1.5">U5 · 005</text><rect x="675" y="182.5" width="6" height="3" fill="#c9a23a"/><line x1="681" y1="184" x2="687" y2="184" stroke="#c9a23a" stroke-width="0.9"/><text x="690" y="186" font-family="Roboto Mono, monospace" font-size="7" fill="#d4c88a" letter-spacing="0.5">scr</text><rect x="675" y="199.9" width="6" height="3" fill="#c9a23a"/><line x1="681" y1="201.4" x2="687" y2="201.4" stroke="#c9a23a" stroke-width="0.9"/><text x="690" y="203.4" font-family="Roboto Mono, monospace" font-size="7" fill="#d4c88a" letter-spacing="0.5">web</text><rect x="675" y="217.3" width="6" height="3" fill="#c9a23a"/><line x1="681" y1="218.8" x2="687" y2="218.8" stroke="#c9a23a" stroke-width="0.9"/><text x="690" y="220.8" font-family="Roboto Mono, monospace" font-size="7" fill="#d4c88a" letter-spacing="0.5">unc</text><rect x="675" y="234.7" width="6" height="3" fill="#c9a23a"/><line x1="681" y1="236.2" x2="687" y2="236.2" stroke="#c9a23a" stroke-width="0.9"/><text x="690" y="238.2" font-family="Roboto Mono, monospace" font-size="7" fill="#d4c88a" letter-spacing="0.5">nov</text><rect x="675" y="252.1" width="6" height="3" fill="#c9a23a"/><line x1="681" y1="253.6" x2="687" y2="253.6" stroke="#c9a23a" stroke-width="0.9"/><text x="690" y="255.6" font-family="Roboto Mono, monospace" font-size="7" fill="#d4c88a" letter-spacing="0.5">con</text><rect x="675" y="269.5" width="6" height="3" fill="#c9a23a"/><line x1="681" y1="271" x2="687" y2="271" stroke="#c9a23a" stroke-width="0.9"/><text x="690" y="273" font-family="Roboto Mono, monospace" font-size="7" fill="#d4c88a" letter-spacing="0.5">tns</text><rect x="616" y="144" width="3" height="6" fill="#c9a23a"/><line x1="617.5" y1="144" x2="617.5" y2="138" stroke="#c9a23a" stroke-width="0.9"/><text x="617.5" y="134" text-anchor="middle" font-family="Roboto Mono, monospace" font-size="7" fill="#d4c88a" letter-spacing="0.5">ev</text><rect x="574" y="184" width="87" height="81" fill="#0d3a2a" stroke="#c9a23a" stroke-width="0.6"/><g class="l2"><rect x="580" y="170" width="80" height="56" fill="#0d3a2a" stroke="#d4c88a" stroke-width="1.2"/><circle cx="588" cy="178" r="2.2" fill="#d4c88a"/><text x="620" y="184" text-anchor="middle" font-family="IBM Plex Sans Condensed, sans-serif" font-size="6" font-weight="700" fill="#d4c88a" letter-spacing="1.5">SCORER</text><text x="620" y="194" text-anchor="middle" font-family="Roboto Mono, monospace" font-size="6.5" fill="#8fa89c" letter-spacing="1.5">U5.A</text><rect x="588.5" y="164" width="3" height="6" fill="#c9a23a"/><line x1="590" y1="164" x2="590" y2="158" stroke="#c9a23a" stroke-width="0.9"/><text x="590" y="154" text-anchor="middle" font-family="Roboto Mono, monospace" font-size="5" fill="#d4c88a" letter-spacing="0.5">f.v</text><rect x="648.5" y="164" width="3" height="6" fill="#c9a23a"/><line x1="650" y1="164" x2="650" y2="158" stroke="#c9a23a" stroke-width="0.9"/><text x="650" y="154" text-anchor="middle" font-family="Roboto Mono, monospace" font-size="5" fill="#d4c88a" letter-spacing="0.5">hum</text><rect x="588.5" y="226" width="3" height="6" fill="#c9a23a"/><line x1="590" y1="232" x2="590" y2="238" stroke="#c9a23a" stroke-width="0.9"/><text x="590" y="246" text-anchor="middle" font-family="Roboto Mono, monospace" font-size="5" fill="#d4c88a" letter-spacing="0.5">p</text><rect x="648.5" y="226" width="3" height="6" fill="#c9a23a"/><line x1="650" y1="232" x2="650" y2="238" stroke="#c9a23a" stroke-width="0.9"/><text x="650" y="246" text-anchor="middle" font-family="Roboto Mono, monospace" font-size="5" fill="#d4c88a" letter-spacing="0.5">r</text><rect x="590" y="190" width="60" height="10" fill="#0d3a2a" stroke="#c9a23a" stroke-width="0.6"/>
+        
+      <rect x="588" y="192" width="30" height="22" fill="#114634" stroke="#d4c88a" stroke-width="0.8"/>
+      <circle cx="591" cy="195" r="1.2" fill="#d4c88a"/>
+      <text x="603" y="205" text-anchor="middle"
+            font-family="IBM Plex Sans Condensed, sans-serif" font-size="6"
+            font-weight="700" fill="#d4c88a" letter-spacing="1.2">GBT </text>
+      <rect x="592" y="214" width="1.2" height="2.5" fill="#c9a23a"/><rect x="592" y="189.5" width="1.2" height="2.5" fill="#c9a23a"/><rect x="597.5" y="214" width="1.2" height="2.5" fill="#c9a23a"/><rect x="597.5" y="189.5" width="1.2" height="2.5" fill="#c9a23a"/><rect x="603" y="214" width="1.2" height="2.5" fill="#c9a23a"/><rect x="603" y="189.5" width="1.2" height="2.5" fill="#c9a23a"/><rect x="608.5" y="214" width="1.2" height="2.5" fill="#c9a23a"/><rect x="608.5" y="189.5" width="1.2" height="2.5" fill="#c9a23a"/><rect x="614" y="214" width="1.2" height="2.5" fill="#c9a23a"/><rect x="614" y="189.5" width="1.2" height="2.5" fill="#c9a23a"/>
+    
+        
+      <rect x="622" y="192" width="30" height="22" fill="#114634" stroke="#d4c88a" stroke-width="0.8"/>
+      <circle cx="625" cy="195" r="1.2" fill="#d4c88a"/>
+      <text x="637" y="205" text-anchor="middle"
+            font-family="IBM Plex Sans Condensed, sans-serif" font-size="6"
+            font-weight="700" fill="#d4c88a" letter-spacing="1.2">FEED</text>
+      <rect x="626" y="214" width="1.2" height="2.5" fill="#c9a23a"/><rect x="626" y="189.5" width="1.2" height="2.5" fill="#c9a23a"/><rect x="631.5" y="214" width="1.2" height="2.5" fill="#c9a23a"/><rect x="631.5" y="189.5" width="1.2" height="2.5" fill="#c9a23a"/><rect x="637" y="214" width="1.2" height="2.5" fill="#c9a23a"/><rect x="637" y="189.5" width="1.2" height="2.5" fill="#c9a23a"/><rect x="642.5" y="214" width="1.2" height="2.5" fill="#c9a23a"/><rect x="642.5" y="189.5" width="1.2" height="2.5" fill="#c9a23a"/><rect x="648" y="214" width="1.2" height="2.5" fill="#c9a23a"/><rect x="648" y="189.5" width="1.2" height="2.5" fill="#c9a23a"/>
+    
+      <rect x="580" y="238" width="80" height="52" fill="#0d3a2a" stroke="#d4c88a" stroke-width="1.2"/><circle cx="588" cy="246" r="2.2" fill="#d4c88a"/><text x="620" y="252" text-anchor="middle" font-family="IBM Plex Sans Condensed, sans-serif" font-size="6" font-weight="700" fill="#d4c88a" letter-spacing="1.2">VALIDATE</text><text x="620" y="262" text-anchor="middle" font-family="Roboto Mono, monospace" font-size="6.5" fill="#8fa89c" letter-spacing="1.5">U5.B</text><rect x="588.5" y="290" width="3" height="6" fill="#c9a23a"/><line x1="590" y1="296" x2="590" y2="302" stroke="#c9a23a" stroke-width="0.9"/><text x="590" y="310" text-anchor="middle" font-family="Roboto Mono, monospace" font-size="5" fill="#d4c88a" letter-spacing="0.5">w</text><rect x="648.5" y="290" width="3" height="6" fill="#c9a23a"/><line x1="650" y1="296" x2="650" y2="302" stroke="#c9a23a" stroke-width="0.9"/><text x="650" y="310" text-anchor="middle" font-family="Roboto Mono, monospace" font-size="5" fill="#d4c88a" letter-spacing="0.5">dk</text><rect x="590" y="258" width="60" height="6" fill="#0d3a2a" stroke="#c9a23a" stroke-width="0.6"/>
+        
+      <rect x="588" y="258" width="30" height="22" fill="#114634" stroke="#d4c88a" stroke-width="0.8"/>
+      <circle cx="591" cy="261" r="1.2" fill="#d4c88a"/>
+      <text x="603" y="271" text-anchor="middle"
+            font-family="IBM Plex Sans Condensed, sans-serif" font-size="6"
+            font-weight="700" fill="#d4c88a" letter-spacing="1.2">SRXN</text>
+      <rect x="592" y="280" width="1.2" height="2.5" fill="#c9a23a"/><rect x="592" y="255.5" width="1.2" height="2.5" fill="#c9a23a"/><rect x="597.5" y="280" width="1.2" height="2.5" fill="#c9a23a"/><rect x="597.5" y="255.5" width="1.2" height="2.5" fill="#c9a23a"/><rect x="603" y="280" width="1.2" height="2.5" fill="#c9a23a"/><rect x="603" y="255.5" width="1.2" height="2.5" fill="#c9a23a"/><rect x="608.5" y="280" width="1.2" height="2.5" fill="#c9a23a"/><rect x="608.5" y="255.5" width="1.2" height="2.5" fill="#c9a23a"/><rect x="614" y="280" width="1.2" height="2.5" fill="#c9a23a"/><rect x="614" y="255.5" width="1.2" height="2.5" fill="#c9a23a"/>
+    
+        
+      <rect x="622" y="258" width="30" height="22" fill="#114634" stroke="#d4c88a" stroke-width="0.8"/>
+      <circle cx="625" cy="261" r="1.2" fill="#d4c88a"/>
+      <text x="637" y="271" text-anchor="middle"
+            font-family="IBM Plex Sans Condensed, sans-serif" font-size="6"
+            font-weight="700" fill="#d4c88a" letter-spacing="1.2">DKGO</text>
+      <rect x="626" y="280" width="1.2" height="2.5" fill="#c9a23a"/><rect x="626" y="255.5" width="1.2" height="2.5" fill="#c9a23a"/><rect x="631.5" y="280" width="1.2" height="2.5" fill="#c9a23a"/><rect x="631.5" y="255.5" width="1.2" height="2.5" fill="#c9a23a"/><rect x="637" y="280" width="1.2" height="2.5" fill="#c9a23a"/><rect x="637" y="255.5" width="1.2" height="2.5" fill="#c9a23a"/><rect x="642.5" y="280" width="1.2" height="2.5" fill="#c9a23a"/><rect x="642.5" y="255.5" width="1.2" height="2.5" fill="#c9a23a"/><rect x="648" y="280" width="1.2" height="2.5" fill="#c9a23a"/><rect x="648" y="255.5" width="1.2" height="2.5" fill="#c9a23a"/>
+    
+      </g>
+  <rect x="310" y="540" width="195" height="105" fill="#162f26" stroke="#d4c88a" stroke-width="1.2"/><circle cx="318" cy="548" r="2.2" fill="#d4c88a"/><text x="407.5" y="554" text-anchor="middle" font-family="IBM Plex Sans Condensed, sans-serif" font-size="10" font-weight="700" fill="#d4c88a" letter-spacing="3">REVISE</text><text x="407.5" y="564" text-anchor="middle" font-family="Roboto Mono, monospace" font-size="6.5" fill="#8fa89c" letter-spacing="1.5">U4 · 004</text><rect x="322.5" y="534" width="3" height="6" fill="#c9a23a"/><line x1="324" y1="534" x2="324" y2="528" stroke="#c9a23a" stroke-width="0.9"/><text x="324" y="524" text-anchor="middle" font-family="Roboto Mono, monospace" font-size="7" fill="#d4c88a" letter-spacing="0.5">tru</text><rect x="406" y="534" width="3" height="6" fill="#c9a23a"/><line x1="407.5" y1="534" x2="407.5" y2="528" stroke="#c9a23a" stroke-width="0.9"/><text x="407.5" y="524" text-anchor="middle" font-family="Roboto Mono, monospace" font-size="7" fill="#d4c88a" letter-spacing="0.5">bel</text><rect x="489.5" y="534" width="3" height="6" fill="#c9a23a"/><line x1="491" y1="534" x2="491" y2="528" stroke="#c9a23a" stroke-width="0.9"/><text x="491" y="524" text-anchor="middle" font-family="Roboto Mono, monospace" font-size="7" fill="#d4c88a" letter-spacing="0.5">ret</text><rect x="322.5" y="645" width="3" height="6" fill="#c9a23a"/><line x1="324" y1="651" x2="324" y2="657" stroke="#c9a23a" stroke-width="0.9"/><text x="324" y="665" text-anchor="middle" font-family="Roboto Mono, monospace" font-size="7" fill="#d4c88a" letter-spacing="0.5">mem</text><rect x="406" y="645" width="3" height="6" fill="#c9a23a"/><line x1="407.5" y1="651" x2="407.5" y2="657" stroke="#c9a23a" stroke-width="0.9"/><text x="407.5" y="665" text-anchor="middle" font-family="Roboto Mono, monospace" font-size="7" fill="#d4c88a" letter-spacing="0.5">ent</text><rect x="489.5" y="645" width="3" height="6" fill="#c9a23a"/><line x1="491" y1="651" x2="491" y2="657" stroke="#c9a23a" stroke-width="0.9"/><text x="491" y="665" text-anchor="middle" font-family="Roboto Mono, monospace" font-size="7" fill="#d4c88a" letter-spacing="0.5">dec</text><rect x="324" y="568" width="167" height="43" fill="#0d3a2a" stroke="#c9a23a" stroke-width="0.6"/><g class="l2"><rect x="320" y="560" width="70" height="50" fill="#0d3a2a" stroke="#d4c88a" stroke-width="1.2"/><circle cx="328" cy="568" r="2.2" fill="#d4c88a"/><text x="355" y="574" text-anchor="middle" font-family="IBM Plex Sans Condensed, sans-serif" font-size="6" font-weight="700" fill="#d4c88a" letter-spacing="1.5">TMS</text><text x="355" y="584" text-anchor="middle" font-family="Roboto Mono, monospace" font-size="6.5" fill="#8fa89c" letter-spacing="1.5">U4.A</text><rect x="326.5" y="554" width="3" height="6" fill="#c9a23a"/><line x1="328" y1="554" x2="328" y2="548" stroke="#c9a23a" stroke-width="0.9"/><text x="328" y="544" text-anchor="middle" font-family="Roboto Mono, monospace" font-size="5" fill="#d4c88a" letter-spacing="0.5">dep</text><rect x="380.5" y="554" width="3" height="6" fill="#c9a23a"/><line x1="382" y1="554" x2="382" y2="548" stroke="#c9a23a" stroke-width="0.9"/><text x="382" y="544" text-anchor="middle" font-family="Roboto Mono, monospace" font-size="5" fill="#d4c88a" letter-spacing="0.5">prop</text><rect x="328" y="578" width="54" height="8" fill="#0d3a2a" stroke="#c9a23a" stroke-width="0.6"/>
+        
+      <rect x="326" y="582" width="27" height="22" fill="#114634" stroke="#d4c88a" stroke-width="0.8"/>
+      <circle cx="329" cy="585" r="1.2" fill="#d4c88a"/>
+      <text x="339.5" y="595" text-anchor="middle"
+            font-family="IBM Plex Sans Condensed, sans-serif" font-size="6"
+            font-weight="700" fill="#d4c88a" letter-spacing="1.2">JTMS</text>
+      <rect x="330" y="604" width="1.2" height="2.5" fill="#c9a23a"/><rect x="330" y="579.5" width="1.2" height="2.5" fill="#c9a23a"/><rect x="334.75" y="604" width="1.2" height="2.5" fill="#c9a23a"/><rect x="334.75" y="579.5" width="1.2" height="2.5" fill="#c9a23a"/><rect x="339.5" y="604" width="1.2" height="2.5" fill="#c9a23a"/><rect x="339.5" y="579.5" width="1.2" height="2.5" fill="#c9a23a"/><rect x="344.25" y="604" width="1.2" height="2.5" fill="#c9a23a"/><rect x="344.25" y="579.5" width="1.2" height="2.5" fill="#c9a23a"/><rect x="349" y="604" width="1.2" height="2.5" fill="#c9a23a"/><rect x="349" y="579.5" width="1.2" height="2.5" fill="#c9a23a"/>
+    
+        
+      <rect x="357" y="582" width="27" height="22" fill="#114634" stroke="#d4c88a" stroke-width="0.8"/>
+      <circle cx="360" cy="585" r="1.2" fill="#d4c88a"/>
+      <text x="370.5" y="595" text-anchor="middle"
+            font-family="IBM Plex Sans Condensed, sans-serif" font-size="6"
+            font-weight="700" fill="#d4c88a" letter-spacing="1.2">CASC</text>
+      <rect x="361" y="604" width="1.2" height="2.5" fill="#c9a23a"/><rect x="361" y="579.5" width="1.2" height="2.5" fill="#c9a23a"/><rect x="365.75" y="604" width="1.2" height="2.5" fill="#c9a23a"/><rect x="365.75" y="579.5" width="1.2" height="2.5" fill="#c9a23a"/><rect x="370.5" y="604" width="1.2" height="2.5" fill="#c9a23a"/><rect x="370.5" y="579.5" width="1.2" height="2.5" fill="#c9a23a"/><rect x="375.25" y="604" width="1.2" height="2.5" fill="#c9a23a"/><rect x="375.25" y="579.5" width="1.2" height="2.5" fill="#c9a23a"/><rect x="380" y="604" width="1.2" height="2.5" fill="#c9a23a"/><rect x="380" y="579.5" width="1.2" height="2.5" fill="#c9a23a"/>
+    
+      <rect x="400" y="560" width="90" height="50" fill="#0d3a2a" stroke="#d4c88a" stroke-width="1.2"/><circle cx="408" cy="568" r="2.2" fill="#d4c88a"/><text x="445" y="574" text-anchor="middle" font-family="IBM Plex Sans Condensed, sans-serif" font-size="6" font-weight="700" fill="#d4c88a" letter-spacing="1.2">AGM</text><text x="445" y="584" text-anchor="middle" font-family="Roboto Mono, monospace" font-size="6.5" fill="#8fa89c" letter-spacing="1.5">U4.B</text><rect x="408.5" y="554" width="3" height="6" fill="#c9a23a"/><line x1="410" y1="554" x2="410" y2="548" stroke="#c9a23a" stroke-width="0.9"/><text x="410" y="544" text-anchor="middle" font-family="Roboto Mono, monospace" font-size="5" fill="#d4c88a" letter-spacing="0.5">exp</text><rect x="443.5" y="554" width="3" height="6" fill="#c9a23a"/><line x1="445" y1="554" x2="445" y2="548" stroke="#c9a23a" stroke-width="0.9"/><text x="445" y="544" text-anchor="middle" font-family="Roboto Mono, monospace" font-size="5" fill="#d4c88a" letter-spacing="0.5">con</text><rect x="478.5" y="554" width="3" height="6" fill="#c9a23a"/><line x1="480" y1="554" x2="480" y2="548" stroke="#c9a23a" stroke-width="0.9"/><text x="480" y="544" text-anchor="middle" font-family="Roboto Mono, monospace" font-size="5" fill="#d4c88a" letter-spacing="0.5">rev</text><rect x="410" y="578" width="70" height="8" fill="#0d3a2a" stroke="#c9a23a" stroke-width="0.6"/>
+        
+      <rect x="406" y="582" width="24" height="22" fill="#114634" stroke="#d4c88a" stroke-width="0.8"/>
+      <circle cx="409" cy="585" r="1.2" fill="#d4c88a"/>
+      <text x="418" y="595" text-anchor="middle"
+            font-family="IBM Plex Sans Condensed, sans-serif" font-size="6"
+            font-weight="700" fill="#d4c88a" letter-spacing="1.2">EXP </text>
+      <rect x="410" y="604" width="1.2" height="2.5" fill="#c9a23a"/><rect x="410" y="579.5" width="1.2" height="2.5" fill="#c9a23a"/><rect x="414" y="604" width="1.2" height="2.5" fill="#c9a23a"/><rect x="414" y="579.5" width="1.2" height="2.5" fill="#c9a23a"/><rect x="418" y="604" width="1.2" height="2.5" fill="#c9a23a"/><rect x="418" y="579.5" width="1.2" height="2.5" fill="#c9a23a"/><rect x="422" y="604" width="1.2" height="2.5" fill="#c9a23a"/><rect x="422" y="579.5" width="1.2" height="2.5" fill="#c9a23a"/><rect x="426" y="604" width="1.2" height="2.5" fill="#c9a23a"/><rect x="426" y="579.5" width="1.2" height="2.5" fill="#c9a23a"/>
+    
+        
+      <rect x="432" y="582" width="24" height="22" fill="#114634" stroke="#d4c88a" stroke-width="0.8"/>
+      <circle cx="435" cy="585" r="1.2" fill="#d4c88a"/>
+      <text x="444" y="595" text-anchor="middle"
+            font-family="IBM Plex Sans Condensed, sans-serif" font-size="6"
+            font-weight="700" fill="#d4c88a" letter-spacing="1.2">CTR </text>
+      <rect x="436" y="604" width="1.2" height="2.5" fill="#c9a23a"/><rect x="436" y="579.5" width="1.2" height="2.5" fill="#c9a23a"/><rect x="440" y="604" width="1.2" height="2.5" fill="#c9a23a"/><rect x="440" y="579.5" width="1.2" height="2.5" fill="#c9a23a"/><rect x="444" y="604" width="1.2" height="2.5" fill="#c9a23a"/><rect x="444" y="579.5" width="1.2" height="2.5" fill="#c9a23a"/><rect x="448" y="604" width="1.2" height="2.5" fill="#c9a23a"/><rect x="448" y="579.5" width="1.2" height="2.5" fill="#c9a23a"/><rect x="452" y="604" width="1.2" height="2.5" fill="#c9a23a"/><rect x="452" y="579.5" width="1.2" height="2.5" fill="#c9a23a"/>
+    
+        
+      <rect x="458" y="582" width="24" height="22" fill="#114634" stroke="#d4c88a" stroke-width="0.8"/>
+      <circle cx="461" cy="585" r="1.2" fill="#d4c88a"/>
+      <text x="470" y="595" text-anchor="middle"
+            font-family="IBM Plex Sans Condensed, sans-serif" font-size="6"
+            font-weight="700" fill="#d4c88a" letter-spacing="1.2">ENT </text>
+      <rect x="462" y="604" width="1.2" height="2.5" fill="#c9a23a"/><rect x="462" y="579.5" width="1.2" height="2.5" fill="#c9a23a"/><rect x="466" y="604" width="1.2" height="2.5" fill="#c9a23a"/><rect x="466" y="579.5" width="1.2" height="2.5" fill="#c9a23a"/><rect x="470" y="604" width="1.2" height="2.5" fill="#c9a23a"/><rect x="470" y="579.5" width="1.2" height="2.5" fill="#c9a23a"/><rect x="474" y="604" width="1.2" height="2.5" fill="#c9a23a"/><rect x="474" y="579.5" width="1.2" height="2.5" fill="#c9a23a"/><rect x="478" y="604" width="1.2" height="2.5" fill="#c9a23a"/><rect x="478" y="579.5" width="1.2" height="2.5" fill="#c9a23a"/>
+    
+      </g>
+  <rect x="505" y="540" width="170" height="105" fill="#162f26" stroke="#d4c88a" stroke-width="1.2"/><circle cx="513" cy="548" r="2.2" fill="#d4c88a"/><text x="590" y="554" text-anchor="middle" font-family="IBM Plex Sans Condensed, sans-serif" font-size="10" font-weight="700" fill="#d4c88a" letter-spacing="3">EXPRESS</text><text x="590" y="564" text-anchor="middle" font-family="Roboto Mono, monospace" font-size="6.5" fill="#8fa89c" letter-spacing="1.5">U6 · 006</text><rect x="675" y="566.5" width="6" height="3" fill="#c9a23a"/><line x1="681" y1="568" x2="687" y2="568" stroke="#c9a23a" stroke-width="0.9"/><text x="690" y="570" font-family="Roboto Mono, monospace" font-size="7" fill="#d4c88a" letter-spacing="0.5">cmp</text><rect x="675" y="578.75" width="6" height="3" fill="#c9a23a"/><line x1="681" y1="580.25" x2="687" y2="580.25" stroke="#c9a23a" stroke-width="0.9"/><text x="690" y="582.25" font-family="Roboto Mono, monospace" font-size="7" fill="#d4c88a" letter-spacing="0.5">inq</text><rect x="675" y="591" width="6" height="3" fill="#c9a23a"/><line x1="681" y1="592.5" x2="687" y2="592.5" stroke="#c9a23a" stroke-width="0.9"/><text x="690" y="594.5" font-family="Roboto Mono, monospace" font-size="7" fill="#d4c88a" letter-spacing="0.5">brf</text><rect x="675" y="603.25" width="6" height="3" fill="#c9a23a"/><line x1="681" y1="604.75" x2="687" y2="604.75" stroke="#c9a23a" stroke-width="0.9"/><text x="690" y="606.75" font-family="Roboto Mono, monospace" font-size="7" fill="#d4c88a" letter-spacing="0.5">rdm</text><rect x="675" y="615.5" width="6" height="3" fill="#c9a23a"/><line x1="681" y1="617" x2="687" y2="617" stroke="#c9a23a" stroke-width="0.9"/><text x="690" y="619" font-family="Roboto Mono, monospace" font-size="7" fill="#d4c88a" letter-spacing="0.5">mcp</text><rect x="588.5" y="645" width="3" height="6" fill="#c9a23a"/><line x1="590" y1="651" x2="590" y2="657" stroke="#c9a23a" stroke-width="0.9"/><text x="590" y="665" text-anchor="middle" font-family="Roboto Mono, monospace" font-size="7" fill="#d4c88a" letter-spacing="0.5">out</text><rect x="519" y="568" width="142" height="43" fill="#0d3a2a" stroke="#c9a23a" stroke-width="0.6"/><g class="l2"><rect x="510" y="560" width="150" height="50" fill="#0d3a2a" stroke="#d4c88a" stroke-width="1.2"/><circle cx="518" cy="568" r="2.2" fill="#d4c88a"/><text x="585" y="574" text-anchor="middle" font-family="IBM Plex Sans Condensed, sans-serif" font-size="6" font-weight="700" fill="#d4c88a" letter-spacing="1.5">COMPOSE</text><text x="585" y="584" text-anchor="middle" font-family="Roboto Mono, monospace" font-size="6.5" fill="#8fa89c" letter-spacing="1.5">U6</text><rect x="518.5" y="554" width="3" height="6" fill="#c9a23a"/><line x1="520" y1="554" x2="520" y2="548" stroke="#c9a23a" stroke-width="0.9"/><text x="520" y="544" text-anchor="middle" font-family="Roboto Mono, monospace" font-size="5" fill="#d4c88a" letter-spacing="0.5">dos</text><rect x="561.8333333333334" y="554" width="3" height="6" fill="#c9a23a"/><line x1="563.3333333333334" y1="554" x2="563.3333333333334" y2="548" stroke="#c9a23a" stroke-width="0.9"/><text x="563.3333333333334" y="544" text-anchor="middle" font-family="Roboto Mono, monospace" font-size="5" fill="#d4c88a" letter-spacing="0.5">qst</text><rect x="605.1666666666666" y="554" width="3" height="6" fill="#c9a23a"/><line x1="606.6666666666666" y1="554" x2="606.6666666666666" y2="548" stroke="#c9a23a" stroke-width="0.9"/><text x="606.6666666666666" y="544" text-anchor="middle" font-family="Roboto Mono, monospace" font-size="5" fill="#d4c88a" letter-spacing="0.5">tns</text><rect x="648.5" y="554" width="3" height="6" fill="#c9a23a"/><line x1="650" y1="554" x2="650" y2="548" stroke="#c9a23a" stroke-width="0.9"/><text x="650" y="544" text-anchor="middle" font-family="Roboto Mono, monospace" font-size="5" fill="#d4c88a" letter-spacing="0.5">mcp</text><rect x="520" y="578" width="130" height="8" fill="#0d3a2a" stroke="#c9a23a" stroke-width="0.6"/>
+        
+      <rect x="518" y="582" width="28" height="22" fill="#114634" stroke="#d4c88a" stroke-width="0.8"/>
+      <circle cx="521" cy="585" r="1.2" fill="#d4c88a"/>
+      <text x="532" y="595" text-anchor="middle"
+            font-family="IBM Plex Sans Condensed, sans-serif" font-size="6"
+            font-weight="700" fill="#d4c88a" letter-spacing="1.2">COMP</text>
+      <rect x="522" y="604" width="1.2" height="2.5" fill="#c9a23a"/><rect x="522" y="579.5" width="1.2" height="2.5" fill="#c9a23a"/><rect x="527" y="604" width="1.2" height="2.5" fill="#c9a23a"/><rect x="527" y="579.5" width="1.2" height="2.5" fill="#c9a23a"/><rect x="532" y="604" width="1.2" height="2.5" fill="#c9a23a"/><rect x="532" y="579.5" width="1.2" height="2.5" fill="#c9a23a"/><rect x="537" y="604" width="1.2" height="2.5" fill="#c9a23a"/><rect x="537" y="579.5" width="1.2" height="2.5" fill="#c9a23a"/><rect x="542" y="604" width="1.2" height="2.5" fill="#c9a23a"/><rect x="542" y="579.5" width="1.2" height="2.5" fill="#c9a23a"/>
+    
+        
+      <rect x="548" y="582" width="28" height="22" fill="#114634" stroke="#d4c88a" stroke-width="0.8"/>
+      <circle cx="551" cy="585" r="1.2" fill="#d4c88a"/>
+      <text x="562" y="595" text-anchor="middle"
+            font-family="IBM Plex Sans Condensed, sans-serif" font-size="6"
+            font-weight="700" fill="#d4c88a" letter-spacing="1.2">RDMX</text>
+      <rect x="552" y="604" width="1.2" height="2.5" fill="#c9a23a"/><rect x="552" y="579.5" width="1.2" height="2.5" fill="#c9a23a"/><rect x="557" y="604" width="1.2" height="2.5" fill="#c9a23a"/><rect x="557" y="579.5" width="1.2" height="2.5" fill="#c9a23a"/><rect x="562" y="604" width="1.2" height="2.5" fill="#c9a23a"/><rect x="562" y="579.5" width="1.2" height="2.5" fill="#c9a23a"/><rect x="567" y="604" width="1.2" height="2.5" fill="#c9a23a"/><rect x="567" y="579.5" width="1.2" height="2.5" fill="#c9a23a"/><rect x="572" y="604" width="1.2" height="2.5" fill="#c9a23a"/><rect x="572" y="579.5" width="1.2" height="2.5" fill="#c9a23a"/>
+    
+        
+      <rect x="578" y="582" width="28" height="22" fill="#114634" stroke="#d4c88a" stroke-width="0.8"/>
+      <circle cx="581" cy="585" r="1.2" fill="#d4c88a"/>
+      <text x="592" y="595" text-anchor="middle"
+            font-family="IBM Plex Sans Condensed, sans-serif" font-size="6"
+            font-weight="700" fill="#d4c88a" letter-spacing="1.2">INQ </text>
+      <rect x="582" y="604" width="1.2" height="2.5" fill="#c9a23a"/><rect x="582" y="579.5" width="1.2" height="2.5" fill="#c9a23a"/><rect x="587" y="604" width="1.2" height="2.5" fill="#c9a23a"/><rect x="587" y="579.5" width="1.2" height="2.5" fill="#c9a23a"/><rect x="592" y="604" width="1.2" height="2.5" fill="#c9a23a"/><rect x="592" y="579.5" width="1.2" height="2.5" fill="#c9a23a"/><rect x="597" y="604" width="1.2" height="2.5" fill="#c9a23a"/><rect x="597" y="579.5" width="1.2" height="2.5" fill="#c9a23a"/><rect x="602" y="604" width="1.2" height="2.5" fill="#c9a23a"/><rect x="602" y="579.5" width="1.2" height="2.5" fill="#c9a23a"/>
+    
+        
+      <rect x="608" y="582" width="28" height="22" fill="#114634" stroke="#d4c88a" stroke-width="0.8"/>
+      <circle cx="611" cy="585" r="1.2" fill="#d4c88a"/>
+      <text x="622" y="595" text-anchor="middle"
+            font-family="IBM Plex Sans Condensed, sans-serif" font-size="6"
+            font-weight="700" fill="#d4c88a" letter-spacing="1.2">MCP </text>
+      <rect x="612" y="604" width="1.2" height="2.5" fill="#c9a23a"/><rect x="612" y="579.5" width="1.2" height="2.5" fill="#c9a23a"/><rect x="617" y="604" width="1.2" height="2.5" fill="#c9a23a"/><rect x="617" y="579.5" width="1.2" height="2.5" fill="#c9a23a"/><rect x="622" y="604" width="1.2" height="2.5" fill="#c9a23a"/><rect x="622" y="579.5" width="1.2" height="2.5" fill="#c9a23a"/><rect x="627" y="604" width="1.2" height="2.5" fill="#c9a23a"/><rect x="627" y="579.5" width="1.2" height="2.5" fill="#c9a23a"/><rect x="632" y="604" width="1.2" height="2.5" fill="#c9a23a"/><rect x="632" y="579.5" width="1.2" height="2.5" fill="#c9a23a"/>
+    
+        
+      <rect x="638" y="582" width="16" height="22" fill="#114634" stroke="#d4c88a" stroke-width="0.8"/>
+      <circle cx="641" cy="585" r="1.2" fill="#d4c88a"/>
+      <text x="646" y="595" text-anchor="middle"
+            font-family="IBM Plex Sans Condensed, sans-serif" font-size="6"
+            font-weight="700" fill="#d4c88a" letter-spacing="1.2">RS</text>
+      <rect x="642" y="604" width="1.2" height="2.5" fill="#c9a23a"/><rect x="642" y="579.5" width="1.2" height="2.5" fill="#c9a23a"/><rect x="644" y="604" width="1.2" height="2.5" fill="#c9a23a"/><rect x="644" y="579.5" width="1.2" height="2.5" fill="#c9a23a"/><rect x="646" y="604" width="1.2" height="2.5" fill="#c9a23a"/><rect x="646" y="579.5" width="1.2" height="2.5" fill="#c9a23a"/><rect x="648" y="604" width="1.2" height="2.5" fill="#c9a23a"/><rect x="648" y="579.5" width="1.2" height="2.5" fill="#c9a23a"/><rect x="650" y="604" width="1.2" height="2.5" fill="#c9a23a"/><rect x="650" y="579.5" width="1.2" height="2.5" fill="#c9a23a"/>
+    
+      </g>
+
+  <!-- graph kernel -->
+  
+    <g>
+      <rect x="360" y="360" width="170" height="130" fill="#162f26" stroke="#d4c88a" stroke-width="1.4"/>
+      <circle cx="368" cy="368" r="2.5" fill="#d4c88a"/>
+      <text x="445" y="378" text-anchor="middle"
+            font-family="IBM Plex Sans Condensed, sans-serif" font-size="13"
+            font-weight="700" fill="#c9a23a" letter-spacing="6">THEOREM</text>
+      <text x="445" y="392" text-anchor="middle"
+            font-family="Roboto Mono, monospace" font-size="7" fill="#8fa89c" letter-spacing="2">THS·V5·KERNEL</text>
+      <line x1="375" y1="398" x2="515" y2="398" stroke="#d4c88a" stroke-width="0.5"/>
+
+      <!-- graph viz: nodes + edges in the die -->
+      <g stroke="#c9a23a" stroke-width="0.7" fill="none">
+        <line x1="390" y1="435" x2="430" y2="415"/>
+        <line x1="430" y1="415" x2="470" y2="430"/>
+        <line x1="470" y1="430" x2="505" y2="420"/>
+        <line x1="430" y1="415" x2="460" y2="465"/>
+        <line x1="390" y1="435" x2="460" y2="465"/>
+        <line x1="470" y1="430" x2="495" y2="470"/>
+        <line x1="460" y1="465" x2="495" y2="470"/>
+        <line x1="390" y1="435" x2="410" y2="475"/>
+      </g>
+      <g fill="#d4c88a" stroke="#c9a23a" stroke-width="0.8">
+        <circle cx="390" cy="435" r="3.5"/>
+        <circle cx="430" cy="415" r="4"/>
+        <circle cx="470" cy="430" r="3.5"/>
+        <circle cx="505" cy="420" r="3"/>
+        <circle cx="460" cy="465" r="4"/>
+        <circle cx="495" cy="470" r="3"/>
+        <circle cx="410" cy="475" r="3"/>
+      </g>
+
+      <!-- datasheet-style footer -->
+      <text x="445" y="482" text-anchor="middle"
+            font-family="Roboto Mono, monospace" font-size="5.5" fill="#8fa89c" letter-spacing="1.5">OBJECT · EDGE · CLAIM · TENSION</text>
+    </g>
+  
+
+  <!-- secondary figures -->
+  
+    <g class="figs" transform="translate(60 695)">
+      <rect x="0" y="0" width="200" height="140" fill="none" stroke="#d4c88a" stroke-width="0.8"/>
+      <text x="100" y="14" text-anchor="middle"
+            font-family="IBM Plex Sans Condensed, sans-serif" font-size="8"
+            fill="#d4c88a" letter-spacing="3">FIG. A · NESTING LEVELS</text>
+      <line x1="10" y1="20" x2="190" y2="20" stroke="#d4c88a" stroke-width="0.3"/>
+
+      <!-- level ladder -->
+      <g font-family="Roboto Mono, monospace" font-size="7" fill="#d4c88a" letter-spacing="0.5">
+        <!-- L0 -->
+        <rect x="10" y="30" width="180" height="24" fill="none" stroke="#c9a23a" stroke-width="0.6"/>
+        <text x="18" y="45">L0 · MOTHERBOARD</text>
+        <text x="182" y="45" text-anchor="end" fill="#8fa89c">theseus</text>
+
+        <!-- L1 -->
+        <rect x="22" y="58" width="156" height="22" fill="none" stroke="#c9a23a" stroke-width="0.6"/>
+        <text x="30" y="72">L1 · SUBSYSTEM IC</text>
+        <text x="170" y="72" text-anchor="end" fill="#8fa89c">U1…U6</text>
+
+        <!-- L2 -->
+        <rect x="34" y="84" width="132" height="20" fill="none" stroke="#c9a23a" stroke-width="0.6"/>
+        <text x="42" y="96">L2 · SUB-BLOCK</text>
+        <text x="158" y="96" text-anchor="end" fill="#8fa89c">UX.A…D</text>
+
+        <!-- L3 -->
+        <rect x="46" y="108" width="108" height="18" fill="none" stroke="#c9a23a" stroke-width="0.6"/>
+        <text x="54" y="119">L3 · ENGINE CELL</text>
+        <text x="146" y="119" text-anchor="end" fill="#8fa89c">bm25 · sbert</text>
+      </g>
+    </g>
+  
+  
+    <g class="figs" transform="translate(640 695)">
+      <rect x="0" y="0" width="200" height="140" fill="none" stroke="#d4c88a" stroke-width="0.8"/>
+      <text x="100" y="14" text-anchor="middle"
+            font-family="IBM Plex Sans Condensed, sans-serif" font-size="8"
+            fill="#d4c88a" letter-spacing="3">FIG. B · PINOUT LEGEND</text>
+      <line x1="10" y1="20" x2="190" y2="20" stroke="#d4c88a" stroke-width="0.3"/>
+
+      <g font-family="Roboto Mono, monospace" font-size="7" fill="#d4c88a" letter-spacing="0.3">
+        
+            <rect x="10" y="24" width="22" height="12" fill="none" stroke="#c9a23a" stroke-width="0.6"/>
+            <text x="21" y="33" text-anchor="middle" font-weight="700">U1</text>
+            <text x="38" y="33" font-weight="700">INGESTION</text>
+            <text x="190" y="33" text-anchor="end" fill="#8fa89c">capture · parse</text>
+          
+            <rect x="10" y="40" width="22" height="12" fill="none" stroke="#c9a23a" stroke-width="0.6"/>
+            <text x="21" y="49" text-anchor="middle" font-weight="700">U2</text>
+            <text x="38" y="49" font-weight="700">STRUCTURE</text>
+            <text x="190" y="49" text-anchor="end" fill="#8fa89c">ner · claim · role</text>
+          
+            <rect x="10" y="56" width="22" height="12" fill="none" stroke="#c9a23a" stroke-width="0.6"/>
+            <text x="21" y="65" text-anchor="middle" font-weight="700">U3</text>
+            <text x="38" y="65" font-weight="700">RELATE</text>
+            <text x="190" y="65" text-anchor="end" fill="#8fa89c">lex · sem · struct</text>
+          
+            <rect x="10" y="72" width="22" height="12" fill="none" stroke="#c9a23a" stroke-width="0.6"/>
+            <text x="21" y="81" text-anchor="middle" font-weight="700">U4</text>
+            <text x="38" y="81" font-weight="700">REVISE</text>
+            <text x="190" y="81" text-anchor="end" fill="#8fa89c">tms · agm · decay</text>
+          
+            <rect x="10" y="88" width="22" height="12" fill="none" stroke="#c9a23a" stroke-width="0.6"/>
+            <text x="21" y="97" text-anchor="middle" font-weight="700">U5</text>
+            <text x="38" y="97" font-weight="700">EVALUATE</text>
+            <text x="190" y="97" text-anchor="end" fill="#8fa89c">score · validate</text>
+          
+            <rect x="10" y="104" width="22" height="12" fill="none" stroke="#c9a23a" stroke-width="0.6"/>
+            <text x="21" y="113" text-anchor="middle" font-weight="700">U6</text>
+            <text x="38" y="113" font-weight="700">EXPRESS</text>
+            <text x="190" y="113" text-anchor="end" fill="#8fa89c">compose · mcp</text>
+          
+      </g>
+    </g>
+  
+
+  <!-- bottom tagline -->
+  <text x="450" y="880" text-anchor="middle"
+        font-family="IBM Plex Sans Condensed, sans-serif" font-size="8"
+        fill="#8fa89c" letter-spacing="6">◆ THE THEOREM IS THE BRAIN · THE LLM IS THE VOICE ◇</text>
+</svg>

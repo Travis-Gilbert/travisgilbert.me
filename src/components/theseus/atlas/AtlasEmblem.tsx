@@ -1,10 +1,10 @@
 'use client';
 
-/** Atlas sidebar emblem — Θ mark + "Theseus" + volume eyebrow. */
+/** Atlas sidebar emblem — Theseus PCB mark + wordmark + volume eyebrow. */
 export default function AtlasEmblem() {
   return (
     <div className="atlas-emblem">
-      <span className="mark">Θ</span>
+      <img className="mark" src="/theseus-emblem.svg" alt="" aria-hidden="true" />
       <span className="name">Theseus</span>
       <span className="vol">Vol · III</span>
     </div>

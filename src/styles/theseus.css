@@ -5872,17 +5872,16 @@
   border-bottom: 1px solid var(--rule);
 }
 .atlas-emblem .mark {
-  width: 26px;
-  height: 26px;
-  display: grid;
-  place-items: center;
+  width: 28px;
+  height: 28px;
+  display: block;
   border: 1px solid var(--ink-2);
   border-radius: 3px;
-  font-family: var(--font-body);
-  font-weight: 500;
-  font-size: 15px;
-  color: var(--ink);
-  background: linear-gradient(135deg, var(--tone-brass), var(--tone-rose));
+  /* The SVG carries its own dark-green PCB background and gold trace
+     detail, so we replace the prior brass/rose gradient with a flat
+     box that just provides the framing border. */
+  background: transparent;
+  object-fit: contain;
 }
 .atlas-emblem .name {
   font-family: var(--font-display);
