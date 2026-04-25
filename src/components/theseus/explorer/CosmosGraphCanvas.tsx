@@ -36,7 +36,6 @@ import type {
 import { type CosmoLink, type CosmoPoint } from './useGraphData';
 import { renderLabelToCanvas } from '@/lib/theseus/pretext/canvas';
 import { LABEL_FONT, LABEL_LINE_HEIGHT } from '@/lib/theseus/pretext/fonts';
-import { rotateColorsGlobally } from '@/lib/theseus/graph/chromaticRotation';
 import { assignFlowGradient } from '@/lib/theseus/graph/flowColors';
 import {
   computeClusterHulls,
@@ -122,13 +121,12 @@ interface BufferPool {
   // state is represented by all-1s. Same length as pointCount.
   filterMask: Uint8Array;
   filterActive: boolean;
-  /** Scratch target for within-cluster chromatic rotation (RGBA per point). */
-  rotationScratch: Float32Array;
-  /** Scratch target for Flow-lens position rotation (x/y per point).
-   *  Pre-allocated so the onSimulationTick handler never churns GC. */
+  /** Scratch target for Flow / Orbit position transforms (x/y per
+   *  point). Pre-allocated so the per-frame handlers never churn GC. */
   rotationPositionScratch: Float32Array;
   /** Per-point Leiden community id, populated during pushDataToGraph.
-   *  -1 means "no cluster" (sentinel used by rotateColorsWithinClusters). */
+   *  -1 means "no cluster" (sentinel used by Orbit setup and the
+   *  Clusters lens hull builder). */
   clusterIds: Int32Array;
   // --- Orbit-lens fields (populated on setLens('orbit')) -------------
   /** Per-point solar-system center: cluster centroid coordinates. */
@@ -184,7 +182,6 @@ function makeBufferPool(pointCount: number, linkCount: number): BufferPool {
     tweenStartLinkColors: new Float32Array(linkCount * 4),
     filterMask,
     filterActive: false,
-    rotationScratch: new Float32Array(pointCount * 4),
     rotationPositionScratch: new Float32Array(pointCount * 2),
     clusterIds: new Int32Array(pointCount),
     orbitCenters: new Float32Array(pointCount * 2),

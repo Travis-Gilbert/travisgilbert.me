@@ -1,9 +1,8 @@
 /**
  * Assign a warm chromatic gradient to points sorted by their angle
- * around the graph centroid. Adjacent indices in the rotation buffer
- * become adjacent on the rotation wave, so `rotateColorsGlobally`
- * produces a visible pinwheel instead of an imperceptible shuffle
- * of type colors (which only has ~7 distinct hues).
+ * around the graph centroid. Each point gets a unique hue so the
+ * Flow-lens position rotation reads as a visible pinwheel instead
+ * of an imperceptible shuffle of the ~7 type colors.
  *
  * The gradient spans warm hues only (reddish -> gold -> chartreuse)
  * to stay within the editorial palette. Writes into `colors` in
