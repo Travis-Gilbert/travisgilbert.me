@@ -138,9 +138,20 @@ interface BufferPool {
   /** Per-point orbital phase in radians (atan2 at lens entry). */
   orbitPhases: Float32Array;
   /** Per-point angular velocity in radians per second. Slower for
-   *  larger radii (Kepler-ish). Using rad/sec (not rad/tick) keeps
-   *  motion smooth across variable frame intervals. */
+   *  larger radii (Kepler-ish), plus a small per-point jitter so
+   *  points on the same orbital ring don't lock into a rigid wheel. */
   orbitOmegas: Float32Array;
+  /** Per-point eccentricity. 0 = circular orbit, approaching 1 =
+   *  highly elliptical. Each point has its own value so no two
+   *  orbits are the same shape. */
+  orbitEccentricities: Float32Array;
+  /** Per-point initial orbit-plane tilt in radians. The major axis
+   *  of each ellipse points in this direction at t=0. */
+  orbitTilts: Float32Array;
+  /** Per-point precession rate in radians per second. The orbit's
+   *  major axis rotates around the centroid at this rate, so even
+   *  identical orbits would drift out of alignment over time. */
+  orbitPrecessions: Float32Array;
   /** performance.now() timestamp captured at orbit-lens entry. Phase
    *  advances by omega * (now - orbitT0) / 1000 so motion scales
    *  with real time and does not hiccup when the sim tick rate
@@ -180,6 +191,9 @@ function makeBufferPool(pointCount: number, linkCount: number): BufferPool {
     orbitRadii: new Float32Array(pointCount),
     orbitPhases: new Float32Array(pointCount),
     orbitOmegas: new Float32Array(pointCount),
+    orbitEccentricities: new Float32Array(pointCount),
+    orbitTilts: new Float32Array(pointCount),
+    orbitPrecessions: new Float32Array(pointCount),
     orbitT0: 0,
   };
 }
@@ -1738,26 +1752,45 @@ const CosmosGraphCanvas = forwardRef<CosmosGraphCanvasHandle, CosmosGraphCanvasP
                   const t = members.length <= 1 ? 0 : rank / (members.length - 1);
                   // Sqrt spacing so the innermost handful sits tight
                   // near the centroid and outer ones spread out more.
-                  const radius = Math.sqrt(t) * maxRadius;
-                  // Even angular distribution gives a stable orbit ring.
-                  const phase = (rank / Math.max(1, members.length)) * Math.PI * 2;
-                  // Kepler-ish omega in rad/sec. Inner orbits spin at
-                  // ~0.8 rad/sec (~46 deg/sec, 8s per revolution),
-                  // outer orbits at ~0.3 rad/sec (~17 deg/sec, 21s).
-                  // Slow stately motion reads as "solar system",
-                  // not "centrifuge". rad/sec keeps motion smooth
-                  // across variable sim tick intervals.
-                  const omega = (0.8 / Math.sqrt(1 + radius * 0.008)) * direction;
+                  // Add a small per-point radial offset so points on
+                  // the same rank tier don't trace identical circles.
+                  const baseRadius = Math.sqrt(t) * maxRadius;
+                  const radius = baseRadius * (0.85 + Math.random() * 0.30);
+                  // Random initial angular phase so points are
+                  // scattered around the ring rather than evenly
+                  // spaced spokes. (Even spacing read as a wheel.)
+                  const phase = Math.random() * Math.PI * 2;
+                  // Kepler-ish base omega plus per-point jitter (±50%)
+                  // so neighbouring points drift in and out of phase
+                  // rather than locking into rigid bands. Inner
+                  // orbits ~0.8 rad/sec (8s revolution), outer
+                  // ~0.3 rad/sec (21s). rad/sec keeps motion smooth.
+                  const omegaBase = 0.8 / Math.sqrt(1 + radius * 0.008);
+                  const omegaJitter = 0.5 + Math.random() * 1.0;
+                  const omega = omegaBase * omegaJitter * direction;
+                  // Per-point ellipse: eccentricity 0..0.55 so some
+                  // orbits are nearly circular and others are
+                  // dramatically elongated. Initial tilt is random,
+                  // and precession (the orbit's major axis rotation)
+                  // runs at 0.02-0.12 rad/sec so the ellipse itself
+                  // turns over 50-300 seconds.
+                  const eccentricity = Math.random() * 0.55;
+                  const tilt = Math.random() * Math.PI * 2;
+                  const precession = (0.02 + Math.random() * 0.10)
+                    * (Math.random() < 0.5 ? -1 : 1);
                   pool.orbitCenters[idx * 2] = centroid.x;
                   pool.orbitCenters[idx * 2 + 1] = centroid.y;
                   pool.orbitRadii[idx] = radius;
                   pool.orbitPhases[idx] = phase;
                   pool.orbitOmegas[idx] = omega;
+                  pool.orbitEccentricities[idx] = eccentricity;
+                  pool.orbitTilts[idx] = tilt;
+                  pool.orbitPrecessions[idx] = precession;
                 }
               }
 
               // Orphan points (clusterId < 0) stay where they are by
-              // getting radius 0 + their current phase of 0.
+              // getting radius 0 + zero motion params.
               for (let i = 0; i < nPts; i++) {
                 if (pool.clusterIds[i] >= 0) continue;
                 pool.orbitCenters[i * 2] = positions[i * 2];
@@ -1765,6 +1798,9 @@ const CosmosGraphCanvas = forwardRef<CosmosGraphCanvasHandle, CosmosGraphCanvasP
                 pool.orbitRadii[i] = 0;
                 pool.orbitPhases[i] = 0;
                 pool.orbitOmegas[i] = 0;
+                pool.orbitEccentricities[i] = 0;
+                pool.orbitTilts[i] = 0;
+                pool.orbitPrecessions[i] = 0;
               }
 
               pool.orbitT0 = performance.now();
@@ -1801,15 +1837,30 @@ const CosmosGraphCanvas = forwardRef<CosmosGraphCanvasHandle, CosmosGraphCanvasP
               const nPts = p.orbitRadii.length;
               const out = p.rotationPositionScratch;
               for (let i = 0; i < nPts; i++) {
-                const r = p.orbitRadii[i];
-                if (r <= 0) {
+                const a = p.orbitRadii[i]; // semi-major axis
+                if (a <= 0) {
                   out[i * 2] = p.orbitCenters[i * 2];
                   out[i * 2 + 1] = p.orbitCenters[i * 2 + 1];
                   continue;
                 }
-                const phase = p.orbitPhases[i] + p.orbitOmegas[i] * dt;
-                out[i * 2] = p.orbitCenters[i * 2] + r * Math.cos(phase);
-                out[i * 2 + 1] = p.orbitCenters[i * 2 + 1] + r * Math.sin(phase);
+                // Each point traces an ellipse rotated by its tilt.
+                // The tilt itself precesses over time, so the orbit
+                // shape never sits still: speed varies along the
+                // path (slower at apohelion, faster at perihelion)
+                // and the major axis sweeps around the centroid.
+                const ecc = p.orbitEccentricities[i];
+                const b = a * (1 - ecc); // semi-minor axis
+                const theta = p.orbitPhases[i] + p.orbitOmegas[i] * dt;
+                const tilt = p.orbitTilts[i] + p.orbitPrecessions[i] * dt;
+                const cosT = Math.cos(theta);
+                const sinT = Math.sin(theta);
+                const cosTilt = Math.cos(tilt);
+                const sinTilt = Math.sin(tilt);
+                // Local ellipse coords -> rotated -> centered.
+                const ex = a * cosT;
+                const ey = b * sinT;
+                out[i * 2] = p.orbitCenters[i * 2] + ex * cosTilt - ey * sinTilt;
+                out[i * 2 + 1] = p.orbitCenters[i * 2 + 1] + ex * sinTilt + ey * cosTilt;
               }
               g.setPointPositions(out, true);
               g.render?.();
