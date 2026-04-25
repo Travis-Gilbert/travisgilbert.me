@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { FC } from 'react';
+import { useSearchParams } from 'next/navigation';
 import CosmosGraphCanvas, {
   type CosmosGraphCanvasHandle,
 } from './CosmosGraphCanvas';
@@ -17,10 +18,12 @@ import { useGraphData, type CosmoPoint } from './useGraphData';
 import { useEvidenceTextResolver, useLabelResolver } from './useLabelResolver';
 import {
   applySceneDirective,
+  applySceneDirectivePatch,
   readTopologyInterpretation,
 } from '@/lib/theseus/cosmograph/adapter';
 import { useWebGL2Support } from '@/lib/theseus/cosmograph/useWebGL2Support';
 import { onTheseusEvent } from '@/lib/theseus/events';
+import { openNodeDetail } from '@/lib/theseus/nodeDetailUrl';
 import { initMosaicCoordinator } from '@/lib/theseus/mosaic/coordinator';
 import { ingestExplorerData } from '@/lib/theseus/mosaic/ingestExplorerData';
 import { attachSelectionBridge } from '@/lib/theseus/mosaic/selectionBridge';
@@ -54,6 +57,7 @@ const ExplorerShell: FC = () => {
   });
   const webgl2Support = useWebGL2Support();
   const canvasRef = useRef<CosmosGraphCanvasHandle>(null);
+  const nodeDoubleClickedRef = useRef(false);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [directiveLabel, setDirectiveLabel] = useState<string | null>(null);
   const [directiveTopology, setDirectiveTopology] =
@@ -62,6 +66,9 @@ const ExplorerShell: FC = () => {
   const [labelsOn, setLabelsOn] = useState(true);
   const [zoomLevel, setZoomLevel] = useState<number | undefined>(undefined);
   const [lens, setLens] = useState<LensId>('flow');
+  const searchParams = useSearchParams();
+  const focusPk = searchParams?.get('focus') ?? null;
+  const focusAppliedRef = useRef<string | null>(null);
 
   const resolveLabelText = useLabelResolver(points);
   const resolveEvidenceText = useEvidenceTextResolver(points);
@@ -71,26 +78,47 @@ const ExplorerShell: FC = () => {
     setLens(next);
   }, []);
 
-  // Double-click on empty canvas anywhere transitions to Atlas (the
-  // reading lens). Double-click on a point is already handled by
-  // the canvas itself (SimulationPart's explain_node path), so we
-  // only react when the click target is the canvas container.
-  // No-op when Atlas is already active.
+  // Per-node double-click opens the Reflex node detail tab. Empty-canvas
+  // double-click continues to toggle the atlas lens. The two paths are
+  // mutually exclusive: onPointDoubleClick (cosmos.gl synthesized event)
+  // sets nodeDoubleClickedRef.current=true; the DOM dblclick listener
+  // early returns when that flag is set so the lens toggle does not
+  // fire on top of a node open.
   useEffect(() => {
     const container = document.querySelector('.atlas-canvas');
     if (!container) return;
     function onDblClick(event: Event) {
+      if (nodeDoubleClickedRef.current) return;
       if (lens === 'atlas') return;
       const target = event.target as HTMLElement | null;
       if (!target) return;
-      // Only fire when the double-click lands on the canvas itself,
-      // not on any floating chrome (plate, composer, controls, etc.).
       if (target.tagName !== 'CANVAS') return;
       handleLensChange('atlas');
     }
     container.addEventListener('dblclick', onDblClick);
     return () => container.removeEventListener('dblclick', onDblClick);
   }, [lens, handleLensChange]);
+
+  // Honor ?focus=<pk> on mount so the Reflex page's "Back to Explorer"
+  // link lands on a focused node. Runs once per (focus, points) pair so
+  // the user can pan / zoom away after the initial focus without it
+  // snapping back. Skips when points are empty (graph still loading).
+  useEffect(() => {
+    if (!focusPk) return;
+    if (points.length === 0) return;
+    if (focusAppliedRef.current === focusPk) return;
+    const found = points.find((p: CosmoPoint) => String(p.id) === String(focusPk));
+    if (!found) return;
+    applySceneDirectivePatch(canvasRef.current, {
+      focus: { ids: [String(found.id)] },
+      camera: { kind: 'zoom', nodeId: String(found.id), durationMs: 800, distanceFactor: 3 },
+    });
+    // One-shot mount-time focus driven by URL: cascading-renders concern
+    // does not apply because focusAppliedRef gates re-entry.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setSelectedId(String(found.id));
+    focusAppliedRef.current = focusPk;
+  }, [focusPk, points]);
 
   useEffect(() => {
     const off = onTheseusEvent('explorer:apply-directive', ({ directive }) => {
@@ -275,6 +303,13 @@ const ExplorerShell: FC = () => {
             points={points}
             links={links}
             onPointClick={setSelectedId}
+            onPointDoubleClick={(pointId) => {
+              nodeDoubleClickedRef.current = true;
+              window.setTimeout(() => {
+                nodeDoubleClickedRef.current = false;
+              }, 50);
+              openNodeDetail(pointId);
+            }}
             labelsOn={labelsOn}
           />
         </TheseusErrorBoundary>
