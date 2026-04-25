@@ -71,15 +71,16 @@ const ExplorerShell: FC = () => {
     setLens(next);
   }, []);
 
-  // Double-click on empty canvas in Flow lens transitions to Atlas.
-  // Double-click on a point is already handled by the canvas itself
-  // (SimulationPart's explain_node path), so we only react when the
-  // click target is the canvas container itself.
+  // Double-click on empty canvas anywhere transitions to Atlas (the
+  // reading lens). Double-click on a point is already handled by
+  // the canvas itself (SimulationPart's explain_node path), so we
+  // only react when the click target is the canvas container.
+  // No-op when Atlas is already active.
   useEffect(() => {
     const container = document.querySelector('.atlas-canvas');
     if (!container) return;
     function onDblClick(event: Event) {
-      if (lens !== 'flow') return;
+      if (lens === 'atlas') return;
       const target = event.target as HTMLElement | null;
       if (!target) return;
       // Only fire when the double-click lands on the canvas itself,

@@ -319,6 +319,10 @@ const CosmosGraphCanvas = forwardRef<CosmosGraphCanvasHandle, CosmosGraphCanvasP
      *  is guaranteed smooth at vsync regardless of how often the sim
      *  itself ticks. Null when the loop is not running. */
     const orbitRafRef = useRef<number | null>(null);
+    /** Snapshot of point positions taken when entering Atlas, so the
+     *  Atlas spread (1.6x outward scaling) can be cleanly reversed
+     *  on exit instead of stacking. Null while not in Atlas. */
+    const atlasPositionsBackupRef = useRef<Float32Array | null>(null);
     // Hypothesis color-mix factor applied on top of encoded colors. Kept
     // on a ref so theme-flip re-encodes can reapply without plumbing the
     // value through adapter calls.
@@ -1645,6 +1649,51 @@ const CosmosGraphCanvas = forwardRef<CosmosGraphCanvasHandle, CosmosGraphCanvasP
             // Freeze physics so the map reads as static. cosmos.gl 3.0
             // exposes pause()/unpause(); graceful no-op if missing.
             graph.pause?.();
+          }
+
+          // Atlas-specific: spread positions outward 1.6x around the
+          // global centroid so the map reads roomier than Flow / Orbit.
+          // Snapshot the originals so leaving Atlas can restore them
+          // cleanly (otherwise repeated entries would compound the
+          // scale).
+          if (lens === 'atlas' && prev !== 'atlas') {
+            const positions = graph.getPointPositions();
+            if (positions && positions.length >= 2) {
+              if (!atlasPositionsBackupRef.current
+                || atlasPositionsBackupRef.current.length !== positions.length) {
+                atlasPositionsBackupRef.current = new Float32Array(positions.length);
+              }
+              atlasPositionsBackupRef.current.set(positions);
+              const nPts = positions.length / 2;
+              let acx = 0;
+              let acy = 0;
+              for (let i = 0; i < nPts; i++) {
+                acx += positions[i * 2];
+                acy += positions[i * 2 + 1];
+              }
+              acx /= nPts;
+              acy /= nPts;
+              const spread = 1.6;
+              if (pool.rotationPositionScratch.length >= positions.length) {
+                const out = pool.rotationPositionScratch;
+                for (let i = 0; i < nPts; i++) {
+                  out[i * 2] = acx + (positions[i * 2] - acx) * spread;
+                  out[i * 2 + 1] = acy + (positions[i * 2 + 1] - acy) * spread;
+                }
+                graph.setPointPositions(out, true);
+                graph.fitView?.(600, 0.18, false);
+              }
+            }
+          }
+
+          // Leaving Atlas: restore the un-spread positions so Flow,
+          // Orbit, and Clusters work with their natural geometry.
+          if (prev === 'atlas' && lens !== 'atlas') {
+            const backup = atlasPositionsBackupRef.current;
+            if (backup) {
+              graph.setPointPositions(backup, true);
+              atlasPositionsBackupRef.current = null;
+            }
           }
 
           // Clusters-specific: compute convex hulls per Leiden
