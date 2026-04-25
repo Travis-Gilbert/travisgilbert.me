@@ -137,10 +137,14 @@ interface BufferPool {
   orbitRadii: Float32Array;
   /** Per-point orbital phase in radians (atan2 at lens entry). */
   orbitPhases: Float32Array;
-  /** Per-point angular velocity. Slower for larger radii (Kepler-ish). */
+  /** Per-point angular velocity in radians per second. Slower for
+   *  larger radii (Kepler-ish). Using rad/sec (not rad/tick) keeps
+   *  motion smooth across variable frame intervals. */
   orbitOmegas: Float32Array;
-  /** Tick counter at the moment the orbit lens was entered so phase
-   *  animation starts from t=0 rather than the absolute sim clock. */
+  /** performance.now() timestamp captured at orbit-lens entry. Phase
+   *  advances by omega * (now - orbitT0) / 1000 so motion scales
+   *  with real time and does not hiccup when the sim tick rate
+   *  briefly drops. */
   orbitT0: number;
 }
 
@@ -296,6 +300,11 @@ const CosmosGraphCanvas = forwardRef<CosmosGraphCanvasHandle, CosmosGraphCanvasP
     const encodingActiveRef = useRef(false);
     const focalLabelsRef = useRef<FocalLabel[]>([]);
     const overlayAnimRef = useRef<number | null>(null);
+    /** Orbit-lens animation handle. The Orbit lens runs its own rAF
+     *  loop (independent of cosmos.gl's onSimulationTick) so motion
+     *  is guaranteed smooth at vsync regardless of how often the sim
+     *  itself ticks. Null when the loop is not running. */
+    const orbitRafRef = useRef<number | null>(null);
     // Hypothesis color-mix factor applied on top of encoded colors. Kept
     // on a ref so theme-flip re-encodes can reapply without plumbing the
     // value through adapter calls.
@@ -1732,10 +1741,13 @@ const CosmosGraphCanvas = forwardRef<CosmosGraphCanvasHandle, CosmosGraphCanvasP
                   const radius = Math.sqrt(t) * maxRadius;
                   // Even angular distribution gives a stable orbit ring.
                   const phase = (rank / Math.max(1, members.length)) * Math.PI * 2;
-                  // Kepler-ish: omega falls off with radius. Base 0.03
-                  // rad/tick means the sun point rotates ~100 deg/sec;
-                  // outer points slow to ~20 deg/sec.
-                  const omega = (0.03 / Math.sqrt(1 + radius * 0.01)) * direction;
+                  // Kepler-ish omega in rad/sec. Inner orbits spin at
+                  // ~0.8 rad/sec (~46 deg/sec, 8s per revolution),
+                  // outer orbits at ~0.3 rad/sec (~17 deg/sec, 21s).
+                  // Slow stately motion reads as "solar system",
+                  // not "centrifuge". rad/sec keeps motion smooth
+                  // across variable sim tick intervals.
+                  const omega = (0.8 / Math.sqrt(1 + radius * 0.008)) * direction;
                   pool.orbitCenters[idx * 2] = centroid.x;
                   pool.orbitCenters[idx * 2 + 1] = centroid.y;
                   pool.orbitRadii[idx] = radius;
@@ -1755,11 +1767,57 @@ const CosmosGraphCanvas = forwardRef<CosmosGraphCanvasHandle, CosmosGraphCanvasP
                 pool.orbitOmegas[i] = 0;
               }
 
-              pool.orbitT0 = tickCounterRef.current;
+              pool.orbitT0 = performance.now();
             }
           }
 
           lensRef.current = lens;
+
+          // Cancel any in-flight orbit rAF before deciding whether to
+          // start a new one. This guarantees clean lens transitions
+          // and stops the loop on every leave path.
+          if (orbitRafRef.current !== null) {
+            cancelAnimationFrame(orbitRafRef.current);
+            orbitRafRef.current = null;
+          }
+
+          // Drive the Orbit lens from a dedicated requestAnimationFrame
+          // loop rather than cosmos.gl's onSimulationTick. rAF gives
+          // us guaranteed vsync (60fps) frame timing and decouples
+          // the visual smoothness from the sim's tick cadence.
+          if (lens === 'orbit') {
+            const tickOrbit = () => {
+              const g = graphRef.current;
+              const p = poolRef.current;
+              if (!g || !p || lensRef.current !== 'orbit') {
+                orbitRafRef.current = null;
+                return;
+              }
+              if (p.rotationPositionScratch.length < p.orbitRadii.length * 2) {
+                orbitRafRef.current = requestAnimationFrame(tickOrbit);
+                return;
+              }
+              const dt = (performance.now() - p.orbitT0) / 1000;
+              const nPts = p.orbitRadii.length;
+              const out = p.rotationPositionScratch;
+              for (let i = 0; i < nPts; i++) {
+                const r = p.orbitRadii[i];
+                if (r <= 0) {
+                  out[i * 2] = p.orbitCenters[i * 2];
+                  out[i * 2 + 1] = p.orbitCenters[i * 2 + 1];
+                  continue;
+                }
+                const phase = p.orbitPhases[i] + p.orbitOmegas[i] * dt;
+                out[i * 2] = p.orbitCenters[i * 2] + r * Math.cos(phase);
+                out[i * 2 + 1] = p.orbitCenters[i * 2 + 1] + r * Math.sin(phase);
+              }
+              g.setPointPositions(out, true);
+              g.render?.();
+              orbitRafRef.current = requestAnimationFrame(tickOrbit);
+            };
+            orbitRafRef.current = requestAnimationFrame(tickOrbit);
+          }
+
           // Redraw the overlay so any pretext focal labels reposition
           // against the new lens state. Atlas positions are frozen, so
           // this single redraw is the truth until the next zoom / resize.
@@ -2024,9 +2082,10 @@ const CosmosGraphCanvas = forwardRef<CosmosGraphCanvasHandle, CosmosGraphCanvasP
           const pool = poolRef.current;
           if (!graph || !pool) return;
           const lens = lensRef.current;
-          // Flow is the living worm; Orbit is the solar system.
-          // Atlas and Clusters are static, so skip this handler.
-          if (lens !== 'flow' && lens !== 'orbit') return;
+          // Flow is the living worm. Orbit runs on its own rAF loop
+          // (started from setLens) so we exit early there. Atlas and
+          // Clusters are static, so skip too.
+          if (lens !== 'flow') return;
           tickCounterRef.current += 1;
 
           const positions = graph.getPointPositions();
@@ -2034,28 +2093,6 @@ const CosmosGraphCanvas = forwardRef<CosmosGraphCanvasHandle, CosmosGraphCanvasP
           const n = positions.length / 2;
           if (pool.rotationPositionScratch.length < positions.length) return;
           const out = pool.rotationPositionScratch;
-
-          if (lens === 'orbit') {
-            // Each point holds a stable circular orbit around its
-            // cluster centroid. Phase advances by omega every tick;
-            // inner orbits are faster than outer orbits (Kepler feel).
-            const dt = tickCounterRef.current - pool.orbitT0;
-            for (let i = 0; i < n; i++) {
-              const r = pool.orbitRadii[i];
-              if (r <= 0) {
-                // Orphan or sun point: stays on its center.
-                out[i * 2] = pool.orbitCenters[i * 2];
-                out[i * 2 + 1] = pool.orbitCenters[i * 2 + 1];
-                continue;
-              }
-              const phase = pool.orbitPhases[i] + pool.orbitOmegas[i] * dt;
-              out[i * 2] = pool.orbitCenters[i * 2] + r * Math.cos(phase);
-              out[i * 2 + 1] = pool.orbitCenters[i * 2 + 1] + r * Math.sin(phase);
-            }
-            graph.setPointPositions(out, true);
-            graph.render?.();
-            return;
-          }
 
           // Flow: rotate the whole graph around its centroid, then
           // add a per-point wobble so each node drifts on its own
@@ -2275,6 +2312,11 @@ const CosmosGraphCanvas = forwardRef<CosmosGraphCanvasHandle, CosmosGraphCanvasP
           ambientRafRef.current = null;
         }
         ambientActiveRef.current = false;
+        // Orbit rAF cleanup.
+        if (orbitRafRef.current != null) {
+          cancelAnimationFrame(orbitRafRef.current);
+          orbitRafRef.current = null;
+        }
         graph?.destroy();
       };
       // eslint-disable-next-line react-hooks/exhaustive-deps
