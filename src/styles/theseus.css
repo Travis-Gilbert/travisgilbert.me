@@ -5875,11 +5875,8 @@
   width: 28px;
   height: 28px;
   display: block;
-  border: 1px solid var(--ink-2);
-  border-radius: 3px;
-  /* The SVG carries its own dark-green PCB background and gold trace
-     detail, so we replace the prior brass/rose gradient with a flat
-     box that just provides the framing border. */
+  /* The SVG carries its own dark-green PCB background, rounded corners,
+     and silkscreen border, so no CSS framing is needed. */
   background: transparent;
   object-fit: contain;
 }
