@@ -60,6 +60,44 @@ export default function LensShellRenderer({
         );
       })}
 
+      {/* Curved Bezier edges from focused pole to each neighbor. */}
+      {layout.placed.map((nb) => {
+        const isHover = nb.id === hoverId;
+        const a = LENS_CENTER;
+        const b = { x: nb.x, y: nb.y };
+        const mx = (a.x + b.x) / 2;
+        const my = (a.y + b.y) / 2;
+        const dx = b.x - a.x;
+        const dy = b.y - a.y;
+        const len = Math.max(1, Math.hypot(dx, dy));
+        const px = -dy / len;
+        const py = dx / len;
+        const bend = 18;
+        const cx = mx + px * bend;
+        const cy = my + py * bend;
+        const d = `M ${a.x} ${a.y} Q ${cx} ${cy} ${b.x} ${b.y}`;
+        const dimmed = !isHover && shellHover && shellHover !== nb.shell;
+        const dash =
+          nb.edgeType === 'pairs'
+            ? '3 3'
+            : nb.edgeType === 'interacts'
+              ? '1 2'
+              : nb.edgeType === 'cites'
+                ? '5 2'
+                : 'none';
+        return (
+          <path
+            key={`edge-${nb.id}`}
+            d={d}
+            fill="none"
+            stroke={isHover ? 'var(--paper-pencil)' : 'var(--paper-ink)'}
+            strokeOpacity={isHover ? 0.85 : dimmed ? 0.10 : 0.32}
+            strokeWidth={isHover ? 1.0 : 0.55}
+            strokeDasharray={dash}
+          />
+        );
+      })}
+
       {/* Neighbor halos + nuclei with shell-conditional opacity tiers. */}
       {layout.placed.map((nb) => {
         const isHover = nb.id === hoverId;
