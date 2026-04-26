@@ -40,11 +40,25 @@ import {
 
 // ── Wire types for panel endpoints ──────────────────────────────────────────
 
-interface PropertiesPayload {
+// Mirrors apps/notebook/views/_lens_helpers.py:build_properties_payload.
+// An earlier version of this type invented `properties: Record<...>`
+// and `recent_edits: [...]` fields the backend never emitted, which
+// crashed LensPropertiesStrip with `Object.entries(undefined)` on
+// every Lens activation.
+export interface PropertiesPayload {
+  id: number;
   title: string;
-  properties: Record<string, string | number | boolean>;
-  claims: Array<{ id: number; text: string; reviewed: boolean }>;
-  recent_edits: Array<{ node_id: number; kind: string; created_at: string }>;
+  summary: string;
+  kind: string;
+  source_system: string | null;
+  evidence_count: number;
+  confidence: number | null;
+  kin_count: number;
+  anchoring_count: number;
+  context_count: number;
+  pinned_by: string[];
+  last_touched: string | null;
+  claims: Array<{ id: number; text: string; confidence: number | null }>;
 }
 
 interface DossierPayload {
@@ -222,15 +236,23 @@ export default function LensView() {
 
   return (
     <div className="lens-root" style={OUTER_STYLE}>
-      {/* Left strip: properties, claims, recent edits */}
+      {/* Left strip: properties, claims, shell counts */}
       <div className="lens-left-panel" style={LEFT_CELL_STYLE}>
         {properties ? (
           <LensPropertiesStrip
             objectId={node}
             title={properties.title}
-            properties={properties.properties}
+            kind={properties.kind}
+            summary={properties.summary}
+            sourceSystem={properties.source_system}
+            evidenceCount={properties.evidence_count}
+            confidence={properties.confidence}
+            kinCount={properties.kin_count}
+            anchoringCount={properties.anchoring_count}
+            contextCount={properties.context_count}
+            pinnedBy={properties.pinned_by}
+            lastTouched={properties.last_touched}
             claims={properties.claims}
-            recentEdits={properties.recent_edits}
           />
         ) : (
           <div className="lens-panel-loading" aria-label="Loading properties">
