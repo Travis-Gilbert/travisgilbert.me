@@ -1195,6 +1195,12 @@ const CosmosGraphCanvas = forwardRef<CosmosGraphCanvasHandle, CosmosGraphCanvasP
       drawOverlay();
     }, [applyFilterMaskToLive, drawOverlay]);
 
+    // Mirror applyFocusDimming into a ref so the cosmos.gl `onClick`
+    // closure (captured once in `useLayoutEffect`) can call the
+    // current implementation without becoming stale on theme flips.
+    const applyFocusDimmingRef = useRef(applyFocusDimming);
+    applyFocusDimmingRef.current = applyFocusDimming;
+
     // -------- Construction tween controller ------------------------------
     //
     // Each phase snapshots the pool's current (visible) state into the
@@ -2725,6 +2731,16 @@ const CosmosGraphCanvas = forwardRef<CosmosGraphCanvasHandle, CosmosGraphCanvasP
               focalLabelsRef.current = [];
               drawOverlay();
             }
+            // Empty-canvas click clears Tier-1 focus dimming so the
+            // bloom releases back to the ambient layer. Per ADR 0003
+            // we never filter; we always restore the full bloom.
+            if (focusedIdRef.current !== null) {
+              focusedIdRef.current = null;
+              setFocusedIdState(null);
+              neighborIdsRef.current = new Set<string>();
+              incidentLinksRef.current = new Set<string>();
+              applyFocusDimmingRef.current?.();
+            }
             if (containerRef.current) {
               containerRef.current.title = '';
             }
@@ -2744,6 +2760,35 @@ const CosmosGraphCanvas = forwardRef<CosmosGraphCanvasHandle, CosmosGraphCanvasP
             return;
           }
           lastClickRef.current = { id: pointId, at: now };
+          // Tier-1 focus dimming on single click (Task 5.14): drive
+          // the dimming pipeline AND zoom the camera to 1.2x. Both
+          // happen on the same frame as the click. The parent's
+          // onPointClick callback still fires so existing surfaces
+          // (AtlasNodeDetail, etc.) keep working.
+          focusedIdRef.current = pointId;
+          setFocusedIdState(pointId);
+          const nbrs = new Set<string>();
+          const incident = new Set<string>();
+          const { links: lks } = latestDataRef.current;
+          for (const link of lks) {
+            const s = String(link.source);
+            const t = String(link.target);
+            if (s === pointId) {
+              nbrs.add(t);
+              incident.add(`${s}|${t}`);
+            }
+            if (t === pointId) {
+              nbrs.add(s);
+              incident.add(`${s}|${t}`);
+            }
+          }
+          neighborIdsRef.current = nbrs;
+          incidentLinksRef.current = incident;
+          applyFocusDimmingRef.current?.();
+          const graph = graphRef.current;
+          if (graph) {
+            graph.zoomToPointByIndex(index, 600, 1 / 1.2);
+          }
           cb?.(pointId);
         },
       };
