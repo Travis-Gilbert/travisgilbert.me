@@ -3,7 +3,7 @@ import fs from 'node:fs';
 import nodePath from 'node:path';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
-import { getCollection, getEntry, renderMarkdown, injectAnnotations, injectConnectionCallouts, injectFootnoteMarkers, estimateReadingTime } from '@/lib/content';
+import { getCollection, getEntry, renderMarkdown, injectAnnotations, injectConnectionCallouts, injectFootnoteMarkers, extractFootnoteSidenotes, estimateReadingTime } from '@/lib/content';
 import type { Essay, FieldNote, ShelfEntry, ContentEntry } from '@/lib/content';
 import AnnotatedArticle from '@/components/AnnotatedArticle';
 import TagList from '@/components/TagList';
@@ -19,7 +19,7 @@ import { computeConnections, positionConnections, generateNavigationSuggestions 
 import type { AllContent } from '@/lib/connectionEngine';
 import WhereToNext from '@/components/WhereToNext';
 import ResearchTrail from '@/components/research/ResearchTrail';
-import DocumentStamp from '@/components/DocumentStamp';
+import ReadingSurface from '@/components/ReadingSurface';
 import ProcessNotes from '@/components/ProcessNotes';
 import { fetchVideosForEssay, fetchVideoDetail } from '@/lib/videos';
 import RoughBox from '@/components/rough/RoughBox';
@@ -50,7 +50,8 @@ export default async function EssayDetailPage({ params }: Props) {
   if (!entry) notFound();
 
   const rawHtml = await renderMarkdown(entry.body);
-  const annotatedHtml = injectAnnotations(rawHtml, entry.data.annotations ?? []);
+  const { html: sidenotedHtml, sidenotes } = extractFootnoteSidenotes(rawHtml);
+  const annotatedHtml = injectAnnotations(sidenotedHtml, entry.data.annotations ?? []);
   const readingTime = estimateReadingTime(entry.body);
 
   // Fetch linked video projects from Studio API (graceful: empty array on failure)
@@ -148,7 +149,6 @@ export default async function EssayDetailPage({ params }: Props) {
       tags={entry.data.tags}
     />
     <ReadingProgress />
-    <DocumentStamp title={entry.data.title} />
     <article data-pagefind-body data-pagefind-filter="type:essay">
       {/* Full-bleed editorial hero header */}
       <EssayHero
@@ -187,15 +187,116 @@ export default async function EssayDetailPage({ params }: Props) {
         </div>
       )}
 
-      <AnnotatedArticle
-        html={html}
-        className="prose prose-essays mt-8"
-        contentType="essays"
-        articleSlug={slug}
-        essayTitle={entry.data.title}
-        positionedConnections={positionedConnections}
-        annotations={entry.data.annotations ?? []}
-      />
+      <ReadingSurface className="reading-surface--hero-overlap">
+        {/* All header metadata on the reading surface */}
+        <header className="mb-8">
+          {/* Top row: category + date/reading time/sources */}
+          <div className="flex justify-between items-start mb-2">
+            {entry.data.tags[0] && (
+              <div className="flex items-center gap-3">
+                <span
+                  className="font-mono"
+                  style={{
+                    fontSize: 11,
+                    textTransform: 'uppercase',
+                    letterSpacing: '0.12em',
+                    color: 'var(--color-terracotta)',
+                  }}
+                >
+                  {entry.data.tags[0]}
+                </span>
+                <div
+                  style={{
+                    width: 32,
+                    height: 1,
+                    backgroundColor: 'var(--color-terracotta)',
+                    opacity: 0.4,
+                  }}
+                />
+              </div>
+            )}
+            <div className="text-right">
+              <span className="font-mono block text-[10px] uppercase tracking-[0.08em] text-ink-faint">
+                {entry.data.date.toLocaleDateString('en-US', {
+                  year: 'numeric',
+                  month: 'long',
+                  day: 'numeric',
+                })}
+              </span>
+              <span className="font-mono block text-[10px] uppercase tracking-[0.08em] text-ink-faint">
+                {readingTime} min read
+              </span>
+              {entry.data.sourceCount != null && entry.data.sourceCount > 0 && (
+                <span className="font-mono block text-[10px] uppercase tracking-[0.08em] text-ink-faint">
+                  Based on {entry.data.sourceCount} {entry.data.sourceCount === 1 ? 'source' : 'sources'}
+                </span>
+              )}
+            </div>
+          </div>
+
+          {/* Title */}
+          <h1 className="font-title text-3xl sm:text-4xl md:text-[2.75rem] font-bold leading-[1.15] mb-3">
+            {entry.data.title}
+          </h1>
+
+          {/* Thesis */}
+          {entry.data.thesis && (
+            <p
+              className="text-base leading-relaxed mb-4 line-clamp-2"
+              style={{
+                fontFamily: 'var(--font-body-alt)',
+                fontStyle: 'italic',
+                color: 'var(--color-ink-muted)',
+                borderLeft: '2px solid var(--color-terracotta)',
+                paddingLeft: '0.75rem',
+                maxWidth: '55ch',
+              }}
+            >
+              {entry.data.thesis}
+            </p>
+          )}
+
+          {/* Summary */}
+          {entry.data.summary && (
+            <p className="text-base max-w-prose leading-relaxed mb-4 text-ink-muted">
+              {entry.data.summary}
+            </p>
+          )}
+
+          {/* Tags + progress tracker */}
+          <div className="flex items-center justify-between gap-4 flex-wrap">
+            <TagList tags={entry.data.tags} tint="terracotta" />
+            <ProgressTracker
+              stages={ESSAY_STAGES}
+              currentStage={entry.data.stage || 'published'}
+              color="var(--color-terracotta)"
+              annotationCount={entry.data.annotations?.length}
+              lastAdvanced={entry.data.lastAdvanced?.toISOString()}
+            />
+          </div>
+        </header>
+
+        {/* Separator between header metadata and prose body */}
+        <div
+          style={{
+            height: 1,
+            background: 'var(--color-teal)',
+            opacity: 0.15,
+            marginBottom: '2rem',
+          }}
+        />
+
+        <AnnotatedArticle
+          html={html}
+          className="prose prose-essays"
+          contentType="essays"
+          articleSlug={slug}
+          essayTitle={entry.data.title}
+          positionedConnections={positionedConnections}
+          annotations={entry.data.annotations ?? []}
+          sidenotes={sidenotes}
+        />
+      </ReadingSurface>
 
       {(entry.data.sources.length > 0 || shelfStandalone.length > 0) && (
         <>
