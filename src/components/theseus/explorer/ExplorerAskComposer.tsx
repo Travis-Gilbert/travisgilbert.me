@@ -9,8 +9,8 @@ import { Choreographer } from '@/lib/theseus-viz/Choreographer';
 import { type GraphAdapter } from '@/lib/theseus/cosmograph/adapter';
 import VisualRenderer from '@/components/theseus/visuals/VisualRenderer';
 import { classifyComposerInput } from '@/lib/theseus/composerInputDetect';
-import { instantKgStream } from '@/lib/theseus/instantKg';
 import type { InstantKgStreamHandlers } from '@/lib/theseus/instantKg';
+import { streamInstantKg } from '@/components/theseus/capture/captureApi';
 
 interface ExplorerAskComposerProps {
   /** Ref to the live canvas so the TF.js-derived SceneDirective can drive
@@ -127,7 +127,11 @@ const ExplorerAskComposer: FC<ExplorerAskComposerProps> = ({
       setExpanded(true);
       setStructuredVisual(null);
 
-      if (classified.kind === 'url' || classified.kind === 'file') {
+      if (
+        classified.kind === 'url' ||
+        classified.kind === 'youtube' ||
+        classified.kind === 'file'
+      ) {
         runInstantKg(
           { kind: classified.kind, text: classified.text, files: classified.files },
           controller.signal,
@@ -199,7 +203,7 @@ const ExplorerAskComposer: FC<ExplorerAskComposerProps> = ({
 
   const runInstantKg = useCallback(
     (
-      classified: { kind: 'url' | 'file'; text: string; files: File[] },
+      classified: { kind: 'url' | 'youtube' | 'file'; text: string; files: File[] },
       signal: AbortSignal,
     ) => {
       const parentHandlers = onInstantKgRef.current;
@@ -210,7 +214,13 @@ const ExplorerAskComposer: FC<ExplorerAskComposerProps> = ({
       const handlers: InstantKgStreamHandlers = {
         onStage(stage) {
           if (stage.name === 'pipeline_start') {
-            setStageLabel(classified.kind === 'url' ? 'Reading URL…' : 'Reading file…');
+            setStageLabel(
+              classified.kind === 'file'
+                ? 'Reading file…'
+                : classified.kind === 'youtube'
+                ? 'Reading YouTube transcript…'
+                : 'Reading URL…',
+            );
           }
           parentHandlers?.onStage?.(stage);
         },
@@ -272,14 +282,32 @@ const ExplorerAskComposer: FC<ExplorerAskComposerProps> = ({
         },
       };
 
-      const request =
-        classified.kind === 'file'
-          ? { mode: 'file' as const, file: classified.files[0] ?? null }
-          : { mode: 'url' as const, text: classified.text };
-
-      instantKgStream(request, { signal }, handlers).catch(() => {
-        // onError already fired
-      });
+      streamInstantKg(
+        {
+          input: classified.text,
+          kind: classified.kind,
+          files: classified.kind === 'file' ? classified.files : undefined,
+        },
+        handlers,
+      )
+        .then(({ close }) => {
+          // Caller may abort the request while the SSE stream is open;
+          // wire AbortSignal.abort to close the EventSource cleanly.
+          if (signal.aborted) {
+            close();
+            return;
+          }
+          signal.addEventListener('abort', close, { once: true });
+        })
+        .catch((err: unknown) => {
+          if (completedRef.current) return;
+          const message = err instanceof Error ? err.message : 'Failed to start instant-kg';
+          setError(message);
+          setStageLabel('');
+          setIsAsking(false);
+          abortRef.current = null;
+          parentHandlers?.onError?.({ message, transient: true });
+        });
     },
     [],
   );
