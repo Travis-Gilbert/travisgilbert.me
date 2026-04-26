@@ -360,6 +360,38 @@ const ExplorerShell: FC = () => {
     return () => container.removeEventListener('dblclick', onDblClick);
   }, [lens, handleLensChange]);
 
+  // Keyboard `L` opens the focused node in the Tier 2 Lens. The handler
+  // reads the canvas's `getFocusedId()` first (covers programmatic focus
+  // applied by ExplorerAskComposer) and falls back to `selectedId` (set
+  // by user click). Pushes `?view=lens&node=<id>` and dispatches the
+  // theseus:switch-panel event so PanelManager mounts the Lens panel.
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) {
+      if (e.key !== 'l' && e.key !== 'L') return;
+      // Skip when typing in an input / contentEditable so the chat
+      // composer doesn't lose its `l` keystroke.
+      const target = e.target as HTMLElement | null;
+      if (target) {
+        const tag = target.tagName;
+        if (tag === 'INPUT' || tag === 'TEXTAREA' || target.isContentEditable) {
+          return;
+        }
+      }
+      const focusedId =
+        canvasRef.current?.getFocusedId?.() ?? selectedId ?? null;
+      if (!focusedId) return;
+      const url = new URL(window.location.href);
+      url.searchParams.set('view', 'lens');
+      url.searchParams.set('node', focusedId);
+      window.history.pushState({}, '', url.toString());
+      window.dispatchEvent(
+        new CustomEvent('theseus:switch-panel', { detail: { panel: 'lens' } }),
+      );
+    }
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [selectedId]);
+
   // Honor ?focus=<pk> on mount so the Reflex page's "Back to Explorer"
   // link lands on a focused node. Runs once per (focus, points) pair so
   // the user can pan / zoom away after the initial focus without it
@@ -679,6 +711,43 @@ const ExplorerShell: FC = () => {
 
       {selectedNode && (
         <AtlasNodeDetail node={selectedNode} onClose={() => setSelectedId(null)} />
+      )}
+
+      {/* Forward-to-Lens button surfaces only when a node is focused. */}
+      {selectedId && (
+        <button
+          type="button"
+          className="atlas-focus-to-lens"
+          onClick={() => {
+            const url = new URL(window.location.href);
+            url.searchParams.set('view', 'lens');
+            url.searchParams.set('node', selectedId);
+            window.history.pushState({}, '', url.toString());
+            window.dispatchEvent(
+              new CustomEvent('theseus:switch-panel', {
+                detail: { panel: 'lens' },
+              }),
+            );
+          }}
+          style={{
+            position: 'absolute',
+            top: 14,
+            right: 14,
+            zIndex: 5,
+            fontFamily: 'var(--font-mono)',
+            fontSize: 11,
+            letterSpacing: '0.18em',
+            textTransform: 'uppercase',
+            padding: '6px 12px',
+            background: 'var(--paper)',
+            border: '1px solid var(--paper-rule)',
+            color: 'var(--paper-ink)',
+            cursor: 'pointer',
+          }}
+          title="Press L to open the focused node in the Lens close-read view"
+        >
+          Open in Lens
+        </button>
       )}
 
       {/* Ask composer wraps in .atlas-chat for the paper floating card. */}
