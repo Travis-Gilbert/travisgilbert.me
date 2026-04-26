@@ -4,6 +4,10 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { FC } from 'react';
 import { clausePoints } from '@uwdata/mosaic-core';
 import { typeSelection } from '@/lib/theseus/mosaic/coordinator';
+import {
+  loadEdgeTypeMeta,
+  type EdgeTypeMeta,
+} from '@/components/theseus/lens/edgeTypeMeta';
 import type { CosmoPoint } from './useGraphData';
 
 interface GraphLegendProps {
@@ -32,6 +36,23 @@ const GraphLegend: FC<GraphLegendProps> = ({ points }) => {
   // dim styling updates synchronously without waiting for a Selection
   // round trip.
   const [activeTypes, setActiveTypes] = useState<Set<string> | null>(null);
+
+  // Edge type metadata cache (Stage 5 Task 5.13). The legend's chips
+  // are NODE types, not edge types, so this fetch primarily warms the
+  // shared cache used by the Lens classifyShell (Stage 6). When edge
+  // type metadata also covers a node type slug we fall through to the
+  // backend display_label for the chip's title attribute, which gives
+  // the legend honest labels without overriding the type identity.
+  const [edgeMeta, setEdgeMeta] = useState<Map<string, EdgeTypeMeta> | null>(null);
+  useEffect(() => {
+    let cancelled = false;
+    loadEdgeTypeMeta().then((m) => {
+      if (!cancelled) setEdgeMeta(m);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   // Aggregate over the rendered points to produce both:
   //   - visibleTypes: the distinct type set (Stage 5 Task 5.12 honest
@@ -130,12 +151,18 @@ const GraphLegend: FC<GraphLegendProps> = ({ points }) => {
       {entries.slice(0, 10).map(([type, { color, count }]) => {
         const isActive = anyActive && activeTypes!.has(type);
         const isDimmed = anyActive && !isActive;
+        // Prefer the backend display_label when the edge-types
+        // endpoint covers this slug; fall through to the slug
+        // otherwise. Stays in the title (tooltip) so the chip's
+        // visible text remains the canonical type slug for
+        // unambiguous filter targeting.
+        const label = edgeMeta?.get(type)?.display_label ?? type;
         return (
           <button
             key={type}
             type="button"
             aria-pressed={isActive}
-            title={`${type} (${count})`}
+            title={`${label} (${count})`}
             onClick={(e) => handleClick(type, e.shiftKey)}
             style={{
               display: 'inline-flex',
