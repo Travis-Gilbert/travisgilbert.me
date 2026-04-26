@@ -12,6 +12,7 @@ import TagList from '@/components/TagList';
 import RoughLine from '@/components/rough/RoughLine';
 import { CompactTracker, NOTE_STAGES } from '@/components/ProgressTracker';
 import { ArticleJsonLd } from '@/components/JsonLd';
+import ReadingSurface from '@/components/ReadingSurface';
 
 interface Props {
   params: Promise<{ slug: string }>;
@@ -116,12 +117,14 @@ export default async function FieldNoteDetailPage({ params }: Props) {
         </div>
       </header>
 
-      <ArticleBody
-        html={html}
-        className="prose"
-        contentType="field-notes"
-        articleSlug={slug}
-      />
+      <ReadingSurface>
+        <ArticleBody
+          html={html}
+          className="prose"
+          contentType="field-notes"
+          articleSlug={slug}
+        />
+      </ReadingSurface>
 
       <RoughLine />
 

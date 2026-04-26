@@ -17,8 +17,10 @@
 import { useRef } from 'react';
 import ArticleBody from '@/components/ArticleBody';
 import ScrollAnnotation from '@/components/ScrollAnnotation';
+import SidenoteMargin from '@/components/SidenoteMargin';
 import type { ContentType } from '@/lib/comments';
 import type { PositionedConnection } from '@/lib/connectionEngine';
+import type { Sidenote } from '@/lib/content';
 
 interface Annotation {
   paragraph: number;
@@ -33,8 +35,10 @@ interface AnnotatedArticleProps {
   /** Essay title forwarded to ConnectionDots for the popup graph header */
   essayTitle?: string;
   positionedConnections?: PositionedConnection[];
-  /** Frontmatter annotations for scroll-reveal margin notes */
+  /** Frontmatter annotations for scroll-reveal margin notes (legacy) */
   annotations?: Annotation[];
+  /** Footnote-based sidenotes extracted at build time */
+  sidenotes?: Sidenote[];
 }
 
 export default function AnnotatedArticle({
@@ -45,6 +49,7 @@ export default function AnnotatedArticle({
   essayTitle,
   positionedConnections,
   annotations = [],
+  sidenotes = [],
 }: AnnotatedArticleProps) {
   const proseRef = useRef<HTMLDivElement>(null);
 
@@ -69,6 +74,7 @@ export default function AnnotatedArticle({
           style="handwritten"
         />
       ))}
+      <SidenoteMargin sidenotes={sidenotes} proseRef={proseRef} />
     </div>
   );
 }

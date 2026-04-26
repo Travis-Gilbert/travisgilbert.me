@@ -1,7 +1,7 @@
 'use client';
 
-import { useCallback, useEffect, useRef, useState } from 'react';
-import type { FC } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import type { DragEvent, FC } from 'react';
 import { useSearchParams } from 'next/navigation';
 import CosmosGraphCanvas, {
   type CosmosGraphCanvasHandle,
@@ -9,12 +9,14 @@ import CosmosGraphCanvas, {
 import TheseusErrorBoundary from '@/components/theseus/TheseusErrorBoundary';
 import ExplorerAskComposer from './ExplorerAskComposer';
 import AtlasPlateLabel from './atlas/AtlasPlateLabel';
-import AtlasIngestBar from './atlas/AtlasIngestBar';
 import AtlasGraphControls from './atlas/AtlasGraphControls';
 import AtlasLensSwitcher from './atlas/AtlasLensSwitcher';
 import AtlasScaleBar from './atlas/AtlasScaleBar';
 import AtlasNodeDetail from './atlas/AtlasNodeDetail';
-import { useGraphData, type CosmoPoint } from './useGraphData';
+import GraphLegend from './GraphLegend';
+import { useGraphData, type CosmoLink, type CosmoPoint } from './useGraphData';
+import type { InstantKgStreamHandlers } from '@/lib/theseus/instantKg';
+import { instantKgStream } from '@/lib/theseus/instantKg';
 import { useEvidenceTextResolver, useLabelResolver } from './useLabelResolver';
 import {
   applySceneDirective,
@@ -48,13 +50,94 @@ import type {
  * Uses the existing CosmosGraphCanvas + ExplorerAskComposer + SceneDirector
  * pipeline unchanged; only the surrounding chrome is Atlas-specific.
  */
+
+const TYPE_FALLBACK = 'note';
+
+function mergePointsById(base: CosmoPoint[], additions: CosmoPoint[]): CosmoPoint[] {
+  if (additions.length === 0) return base;
+  const seen = new Map<string, CosmoPoint>();
+  for (const p of base) {
+    seen.set(String(p.id), p);
+  }
+  for (const p of additions) {
+    seen.set(String(p.id), { ...seen.get(String(p.id)), ...p });
+  }
+  return Array.from(seen.values());
+}
+
+function entityEventToPoint(event: {
+  object_id: number | null;
+  label: string;
+  type: string;
+  color: string;
+}): CosmoPoint | null {
+  if (event.object_id == null) return null;
+  return {
+    id: String(event.object_id),
+    label: event.label,
+    type: event.type || TYPE_FALLBACK,
+    colorHex: event.color || '#2D5F6B',
+    degree: 0,
+  };
+}
+
+function relationEventToLink(event: {
+  source_object_id: number | null;
+  target_object_id: number | null;
+  edge_type: string;
+  weight: number;
+}): CosmoLink | null {
+  if (event.source_object_id == null || event.target_object_id == null) return null;
+  return {
+    source: String(event.source_object_id),
+    target: String(event.target_object_id),
+    weight: event.weight,
+    edge_type: event.edge_type,
+    engine: 'glirel',
+  };
+}
+
+function documentEventToPoint(event: {
+  object_id: number | null;
+  title: string;
+  object_type: string;
+  color: string;
+}): CosmoPoint | null {
+  if (event.object_id == null) return null;
+  return {
+    id: String(event.object_id),
+    label: event.title,
+    type: event.object_type || 'source',
+    colorHex: event.color || '#C49A4A',
+    degree: 0,
+  };
+}
 const ExplorerShell: FC = () => {
   const { atlasFilters } = useTheseus();
-  const { points, links, loading, error, total } = useGraphData({
+  const {
+    points: basePoints,
+    links: baseLinks,
+    loading,
+    error,
+    total,
+  } = useGraphData({
     activeKinds: atlasFilters.activeKinds,
     surfaces: atlasFilters.surfaces,
     scope: atlasFilters.scope,
   });
+  const [liveAdditions, setLiveAdditions] = useState<{
+    points: CosmoPoint[];
+    links: CosmoLink[];
+  }>({ points: [], links: [] });
+  const [shellDragOver, setShellDragOver] = useState(false);
+  const points = useMemo(
+    () => mergePointsById(basePoints, liveAdditions.points),
+    [basePoints, liveAdditions.points],
+  );
+  const links = useMemo(
+    () => [...baseLinks, ...liveAdditions.links],
+    [baseLinks, liveAdditions.links],
+  );
   const webgl2Support = useWebGL2Support();
   const canvasRef = useRef<CosmosGraphCanvasHandle>(null);
   const nodeDoubleClickedRef = useRef(false);
@@ -77,6 +160,91 @@ const ExplorerShell: FC = () => {
     canvasRef.current?.setLens(next);
     setLens(next);
   }, []);
+
+  // Instant-KG SSE handlers. Each event mutates the live additions state
+  // so the cosmos.gl canvas rebuilds via the existing pushDataToGraph
+  // path on the next prop update. The post-complete handler emits a
+  // SceneDirectivePatch that focuses the highest-PPR new entity and
+  // queues a 3-stop camera tour through its strongest neighbors.
+  const instantKgHandlers = useMemo<InstantKgStreamHandlers>(
+    () => ({
+      onDocument(event) {
+        const point = documentEventToPoint(event);
+        if (!point) return;
+        setLiveAdditions((prev) => ({
+          ...prev,
+          points: mergePointsById(prev.points, [point]),
+        }));
+      },
+      onEntity(event) {
+        const point = entityEventToPoint(event);
+        if (!point) return;
+        setLiveAdditions((prev) => ({
+          ...prev,
+          points: mergePointsById(prev.points, [point]),
+        }));
+      },
+      onRelation(event) {
+        const link = relationEventToLink(event);
+        if (!link) return;
+        setLiveAdditions((prev) => ({
+          ...prev,
+          links: [...prev.links, link],
+        }));
+      },
+      onCrossDocEdge(event) {
+        const link = relationEventToLink({
+          source_object_id: event.source_object_id,
+          target_object_id: event.target_object_id,
+          edge_type: event.edge_type,
+          weight: event.weight,
+        });
+        if (!link) return;
+        setLiveAdditions((prev) => ({
+          ...prev,
+          links: [...prev.links, { ...link, engine: 'sbert_faiss' }],
+        }));
+      },
+      onComplete(event) {
+        const adapter = canvasRef.current;
+        if (!adapter) return;
+        const pivotPk = event.focus.pivot_object_id;
+        if (pivotPk == null) {
+          adapter.fitView();
+          return;
+        }
+        const pivotId = String(pivotPk);
+        const neighborIds = event.focus.neighbors
+          .map((n) => (n.object_id == null ? null : String(n.object_id)))
+          .filter((s): s is string => Boolean(s));
+
+        applySceneDirectivePatch(adapter, {
+          focus: { ids: [pivotId, ...neighborIds] },
+          camera: {
+            kind: 'waypoints',
+            waypoints: [
+              { nodeId: pivotId, dwellMs: 1200, distanceFactor: 0.7, transitionMs: 600 },
+              ...neighborIds.map((nodeId) => ({
+                nodeId,
+                dwellMs: 800,
+                distanceFactor: 1.1,
+                transitionMs: 600,
+              })),
+            ],
+          },
+        });
+
+        const newIds = [pivotId, ...neighborIds];
+        if (newIds.length > 0 && typeof adapter.revealEvidence === 'function') {
+          adapter.revealEvidence(newIds, { staggerMs: 80, durationMs: 600 });
+        }
+      },
+      onError() {
+        // Composer surfaces the error in chat. Nothing extra to do here.
+      },
+    }),
+    [],
+  );
 
   // Per-node double-click opens the Reflex node detail tab. Empty-canvas
   // double-click continues to toggle the atlas lens. The two paths are
@@ -214,8 +382,54 @@ const ExplorerShell: FC = () => {
   // combined). Directive label and selection take precedence when set.
   const plateTitle = directiveLabel ?? (selectedNode?.label ?? atlasFilters.scopeLabel);
 
+  // Drop zone: dropping files anywhere on the canvas surface dispatches
+  // a fresh instant-KG SSE stream per file. The composer is the visual
+  // entry point for paste-from-clipboard and explicit drag-onto-input;
+  // this wider zone exists because the empty-state copy promises
+  // "Drop files anywhere on this surface to ingest."
+  const handleShellDrop = useCallback(
+    (event: DragEvent<HTMLDivElement>) => {
+      if (!event.dataTransfer.files || event.dataTransfer.files.length === 0) return;
+      event.preventDefault();
+      setShellDragOver(false);
+      const files = Array.from(event.dataTransfer.files);
+      // Phase 1 backend rejects file mode (multipart arrives in Phase 4).
+      // Until that lands, surface the first file's name as a "would
+      // ingest" placeholder via instantKgStream's own error handler.
+      for (const file of files) {
+        const controller = new AbortController();
+        instantKgStream(
+          { mode: 'file', file },
+          { signal: controller.signal },
+          {
+            onComplete: (e) => instantKgHandlers.onComplete(e),
+            onDocument: instantKgHandlers.onDocument,
+            onChunk: instantKgHandlers.onChunk,
+            onEntity: instantKgHandlers.onEntity,
+            onRelation: instantKgHandlers.onRelation,
+            onCrossDocEdge: instantKgHandlers.onCrossDocEdge,
+            onStage: instantKgHandlers.onStage,
+            onError: instantKgHandlers.onError ?? (() => {}),
+          },
+        );
+      }
+    },
+    [instantKgHandlers],
+  );
+
   return (
-    <div className="atlas-canvas" style={{ flex: 1, minHeight: 0 }}>
+    <div
+      className={`atlas-canvas${shellDragOver ? ' shell-drag-over' : ''}`}
+      style={{ flex: 1, minHeight: 0 }}
+      onDragOver={(e: DragEvent<HTMLDivElement>) => {
+        if (e.dataTransfer.types.includes('Files')) {
+          e.preventDefault();
+          setShellDragOver(true);
+        }
+      }}
+      onDragLeave={() => setShellDragOver(false)}
+      onDrop={handleShellDrop}
+    >
       {loading && (
         <div
           aria-busy="true"
@@ -358,8 +572,6 @@ const ExplorerShell: FC = () => {
         onDismissDirective={handleDismissDirective}
       />
 
-      <AtlasIngestBar />
-
       {canRenderCanvas && <AtlasScaleBar zoom={zoomLevel} />}
 
       {canRenderCanvas && (
@@ -376,6 +588,20 @@ const ExplorerShell: FC = () => {
 
       {canRenderCanvas && (
         <AtlasLensSwitcher lens={lens} onChange={handleLensChange} />
+      )}
+
+      {canRenderCanvas && points.length > 0 && (
+        <div
+          style={{
+            position: 'absolute',
+            top: 14,
+            left: 14,
+            zIndex: 4,
+            pointerEvents: 'auto',
+          }}
+        >
+          <GraphLegend points={points} />
+        </div>
       )}
 
       {selectedNode && (
@@ -395,6 +621,7 @@ const ExplorerShell: FC = () => {
           canvasAdapter={canvasRef}
           resolveLabelText={resolveLabelText}
           resolveEvidenceText={resolveEvidenceText}
+          onInstantKg={instantKgHandlers}
         />
       </div>
 
