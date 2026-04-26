@@ -25,6 +25,26 @@ interface Props {
   events: TimelineEvent[];
 }
 
+/**
+ * Defensive fallback mapping from event-type short labels to color
+ * tokens. The backend precomputes `event.color` per event-type via
+ * `EVENT_COLOR_BY_TYPE` in `apps/notebook/views/_lens_helpers.py`,
+ * so this fallback only fires when the server omits the field
+ * (e.g. older clients hitting a future server). Keep keys stable
+ * with the server-side `EVENT_COLOR_BY_TYPE` keys.
+ */
+const EVENT_COLOR_FALLBACK: Record<string, string> = {
+  'edge added': '#5A7A4A',
+  'claim added': '#C49A4A',
+  updated: '#2D5F6B',
+  'capture': '#B45A2D',
+};
+
+function dotColor(event: TimelineEvent): string {
+  if (event.color && event.color.length > 0) return event.color;
+  return EVENT_COLOR_FALLBACK[event.short] ?? 'var(--paper-ink)';
+}
+
 const FOOTER_STYLE: React.CSSProperties = {
   position: 'absolute',
   left: 16,
@@ -60,7 +80,7 @@ export default function LensTimeline({ events }: Props) {
         />
         {events.map((e, i) => (
           <g key={`${e.days_ago}-${i}`}>
-            <circle cx={xs[i]} cy={30} r={3} fill="var(--paper-ink)" />
+            <circle cx={xs[i]} cy={30} r={3} fill={dotColor(e)} />
             <title>{`${e.short} (${e.when}): ${e.text}`}</title>
           </g>
         ))}
