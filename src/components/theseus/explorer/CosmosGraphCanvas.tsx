@@ -114,6 +114,11 @@ export interface CosmosFocusDimmingSurface {
   setFocusedId(id: string | null): void;
   /** Read the current focused node id (null when no focus). */
   getFocusedId(): string | null;
+  /** Focus a node AND zoom the camera to a 1.2x close-up of it. The
+   *  cosmos.gl `zoomToNode(id, durationMs, distance)` API treats
+   *  `distance` as a multiplier on the bounding circle; passing
+   *  `1 / 1.2` (~0.833) yields a 1.2x zoom-in. */
+  focusNode(id: string): void;
 }
 
 export type CosmosGraphCanvasHandle = GraphAdapter & CosmosFocusDimmingSurface;
@@ -2259,24 +2264,70 @@ const CosmosGraphCanvas = forwardRef<CosmosGraphCanvasHandle, CosmosGraphCanvasP
           // neighbor set inline from the current focusedId + links to
           // avoid a one-frame lag where the alpha update sees the
           // previous neighbor set. The ref is then resynced from the
-          // memo on the next render.
+          // memo on the next render. Also rebuilds incidentLinksRef
+          // so edge tier coloring (Task 5.8) and incident-edge dashes
+          // (Task 5.9) reflect the new focus on the same frame.
           if (id) {
             const nbrs = new Set<string>();
+            const incident = new Set<string>();
             const { links: lks } = latestDataRef.current;
             for (const link of lks) {
               const s = String(link.source);
               const t = String(link.target);
-              if (s === id) nbrs.add(t);
-              if (t === id) nbrs.add(s);
+              if (s === id) {
+                nbrs.add(t);
+                incident.add(`${s}|${t}`);
+              }
+              if (t === id) {
+                nbrs.add(s);
+                incident.add(`${s}|${t}`);
+              }
             }
             neighborIdsRef.current = nbrs;
+            incidentLinksRef.current = incident;
           } else {
             neighborIdsRef.current = new Set<string>();
+            incidentLinksRef.current = new Set<string>();
           }
           applyFocusDimming();
         },
         getFocusedId() {
           return focusedIdRef.current;
+        },
+        focusNode(id: string) {
+          // Compose: set the dimming focus AND zoom in 1.2x. The
+          // distance factor `1 / 1.2` shrinks the camera-to-node
+          // distance by 1.2x, which reads as a 1.2x zoom-in.
+          const graph = graphRef.current;
+          const idx = idToIndexRef.current.get(id);
+          // Drive the dimming pipeline first so the visible state
+          // updates immediately, before the zoom animation starts.
+          focusedIdRef.current = id;
+          setFocusedIdState(id);
+          if (id) {
+            const nbrs = new Set<string>();
+            const incident = new Set<string>();
+            const { links: lks } = latestDataRef.current;
+            for (const link of lks) {
+              const s = String(link.source);
+              const t = String(link.target);
+              if (s === id) {
+                nbrs.add(t);
+                incident.add(`${s}|${t}`);
+              }
+              if (t === id) {
+                nbrs.add(s);
+                incident.add(`${s}|${t}`);
+              }
+            }
+            neighborIdsRef.current = nbrs;
+            incidentLinksRef.current = incident;
+          }
+          applyFocusDimming();
+          if (graph && typeof idx === 'number') {
+            graph.zoomToPointByIndex(idx, 600, 1 / 1.2);
+          }
+          noteInteraction();
         },
       }),
       [
