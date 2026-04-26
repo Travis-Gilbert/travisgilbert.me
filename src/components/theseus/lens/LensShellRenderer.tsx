@@ -189,6 +189,46 @@ export default function LensShellRenderer({
           </g>
         );
       })}
+
+      {/* Focused-node celestial pole. */}
+      <g className="lens-pole">
+        <circle
+          cx={LENS_CENTER.x}
+          cy={LENS_CENTER.y}
+          r={50}
+          fill="none"
+          stroke="var(--paper-pencil)"
+          strokeWidth={1}
+          strokeDasharray="3 3"
+          opacity={0.85}
+        />
+        <circle
+          cx={LENS_CENTER.x}
+          cy={LENS_CENTER.y}
+          r={32}
+          fill="none"
+          stroke="var(--paper-pencil)"
+          strokeWidth={0.5}
+          strokeDasharray="2 4"
+          opacity={0.55}
+        />
+        <circle
+          cx={LENS_CENTER.x}
+          cy={LENS_CENTER.y}
+          r={14}
+          fill="var(--paper-pencil)"
+          stroke="var(--paper-ink)"
+          strokeWidth={1.4}
+          opacity={0.85}
+        />
+        <circle
+          cx={LENS_CENTER.x}
+          cy={LENS_CENTER.y}
+          r={5}
+          fill="var(--paper)"
+          opacity={0.9}
+        />
+      </g>
     </g>
   );
 }
