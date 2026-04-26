@@ -16,7 +16,6 @@ import AtlasNodeDetail from './atlas/AtlasNodeDetail';
 import GraphLegend from './GraphLegend';
 import { useGraphData, type CosmoLink, type CosmoPoint } from './useGraphData';
 import type { InstantKgStreamHandlers } from '@/lib/theseus/instantKg';
-import { instantKgStream } from '@/lib/theseus/instantKg';
 import { useEvidenceTextResolver, useLabelResolver } from './useLabelResolver';
 import {
   applySceneDirective,
@@ -130,6 +129,7 @@ const ExplorerShell: FC = () => {
     links: CosmoLink[];
   }>({ points: [], links: [] });
   const [shellDragOver, setShellDragOver] = useState(false);
+  const [pendingFiles, setPendingFiles] = useState<File[]>([]);
   const points = useMemo(
     () => mergePointsById(basePoints, liveAdditions.points),
     [basePoints, liveAdditions.points],
@@ -382,39 +382,19 @@ const ExplorerShell: FC = () => {
   // combined). Directive label and selection take precedence when set.
   const plateTitle = directiveLabel ?? (selectedNode?.label ?? atlasFilters.scopeLabel);
 
-  // Drop zone: dropping files anywhere on the canvas surface dispatches
-  // a fresh instant-KG SSE stream per file. The composer is the visual
-  // entry point for paste-from-clipboard and explicit drag-onto-input;
-  // this wider zone exists because the empty-state copy promises
-  // "Drop files anywhere on this surface to ingest."
+  // Drop zone: dropping files anywhere on the canvas surface forwards
+  // them to the composer's pendingFiles state so the user can review or
+  // remove attachments before submitting. The composer owns the actual
+  // streamInstantKg dispatch via its existing routing fork.
   const handleShellDrop = useCallback(
     (event: DragEvent<HTMLDivElement>) => {
       if (!event.dataTransfer.files || event.dataTransfer.files.length === 0) return;
       event.preventDefault();
       setShellDragOver(false);
       const files = Array.from(event.dataTransfer.files);
-      // Phase 1 backend rejects file mode (multipart arrives in Phase 4).
-      // Until that lands, surface the first file's name as a "would
-      // ingest" placeholder via instantKgStream's own error handler.
-      for (const file of files) {
-        const controller = new AbortController();
-        instantKgStream(
-          { mode: 'file', file },
-          { signal: controller.signal },
-          {
-            onComplete: (e) => instantKgHandlers.onComplete(e),
-            onDocument: instantKgHandlers.onDocument,
-            onChunk: instantKgHandlers.onChunk,
-            onEntity: instantKgHandlers.onEntity,
-            onRelation: instantKgHandlers.onRelation,
-            onCrossDocEdge: instantKgHandlers.onCrossDocEdge,
-            onStage: instantKgHandlers.onStage,
-            onError: instantKgHandlers.onError ?? (() => {}),
-          },
-        );
-      }
+      setPendingFiles(files);
     },
-    [instantKgHandlers],
+    [],
   );
 
   return (
@@ -622,6 +602,8 @@ const ExplorerShell: FC = () => {
           resolveLabelText={resolveLabelText}
           resolveEvidenceText={resolveEvidenceText}
           onInstantKg={instantKgHandlers}
+          pendingFiles={pendingFiles}
+          onConsumePendingFiles={() => setPendingFiles([])}
         />
       </div>
 

@@ -26,6 +26,12 @@ interface ExplorerAskComposerProps {
    *  accumulate points / links on the canvas. Plain text continues to
    *  route through askTheseusAsyncStream and bypasses these handlers. */
   onInstantKg?: InstantKgStreamHandlers;
+  /** Files dropped onto the broader canvas surface (outside the chat
+   *  input). Merged with composer-local picker selection on submit. */
+  pendingFiles?: File[];
+  /** Called after the composer has consumed `pendingFiles` and started
+   *  a stream, so the parent can clear its drop-zone state. */
+  onConsumePendingFiles?: () => void;
 }
 
 function stageToLabel(event: StageEvent): string {
@@ -66,6 +72,8 @@ const ExplorerAskComposer: FC<ExplorerAskComposerProps> = ({
   resolveLabelText,
   resolveEvidenceText,
   onInstantKg,
+  pendingFiles: parentPendingFiles,
+  onConsumePendingFiles,
 }) => {
   const [query, setQuery] = useState('');
   const [isAsking, setIsAsking] = useState(false);
@@ -111,7 +119,11 @@ const ExplorerAskComposer: FC<ExplorerAskComposerProps> = ({
       e.preventDefault();
       if (isAsking) return;
 
-      const classified = classifyComposerInput(query, pendingFiles);
+      const mergedFiles =
+        parentPendingFiles && parentPendingFiles.length > 0
+          ? [...pendingFiles, ...parentPendingFiles]
+          : pendingFiles;
+      const classified = classifyComposerInput(query, mergedFiles);
       if (classified.kind === 'text' && !classified.text) return;
 
       abortRef.current?.abort();
@@ -137,6 +149,7 @@ const ExplorerAskComposer: FC<ExplorerAskComposerProps> = ({
           controller.signal,
         );
         setPendingFiles([]);
+        onConsumePendingFiles?.();
         setQuery('');
         return;
       }
@@ -198,7 +211,7 @@ const ExplorerAskComposer: FC<ExplorerAskComposerProps> = ({
         // onError has already fired
       });
     },
-    [query, isAsking, choreographer, tool, pendingFiles],
+    [query, isAsking, choreographer, tool, pendingFiles, parentPendingFiles, onConsumePendingFiles],
   );
 
   const runInstantKg = useCallback(
