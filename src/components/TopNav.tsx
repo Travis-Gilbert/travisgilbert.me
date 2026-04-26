@@ -51,6 +51,7 @@ const NAV_TAB_COLORS: Record<string, NavTabColor> = {
   '/projects':    { color: 'var(--nav-gold)',        muted: 'var(--nav-gold-muted)',        dim: 'var(--nav-gold-dim)',        r: 196, g: 154, b: 74 },
   '/toolkit':     { color: 'var(--nav-terracotta)',  muted: 'var(--nav-terracotta-muted)',  dim: 'var(--nav-terracotta-dim)',  r: 204, g: 126, b: 82 },
   '/shelf':       { color: 'var(--nav-gold)',        muted: 'var(--nav-gold-muted)',        dim: 'var(--nav-gold-dim)',        r: 196, g: 154, b: 74 },
+  '/experiments': { color: 'var(--nav-gold)',        muted: 'var(--nav-gold-muted)',        dim: 'var(--nav-gold-dim)',        r: 196, g: 154, b: 74 },
   '/connect':     { color: 'var(--nav-teal)',        muted: 'var(--nav-teal-muted)',        dim: 'var(--nav-teal-dim)',        r: 74,  g: 154, b: 170 },
   '/readme':      { color: 'var(--nav-cream)',       muted: 'var(--nav-cream-muted)',       dim: 'var(--nav-cream-dim)',       r: 240, g: 235, b: 228 },
 };
