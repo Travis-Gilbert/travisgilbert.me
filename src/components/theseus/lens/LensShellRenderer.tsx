@@ -24,9 +24,6 @@ export default function LensShellRenderer({
   showLabels,
   shellHover,
 }: Props) {
-  void layout;
-  void hoverId;
-  void onHoverId;
   void showLabels;
 
   return (
@@ -53,7 +50,7 @@ export default function LensShellRenderer({
         const rOuter = isMajor ? TICK_MAJOR_R : TICK_MINOR_R;
         return (
           <line
-            key={i}
+            key={`tick-${i}`}
             x1={LENS_CENTER.x + Math.cos(a) * TICK_BASE_R}
             y1={LENS_CENTER.y + Math.sin(a) * TICK_BASE_R * ASPECT_Y}
             x2={LENS_CENTER.x + Math.cos(a) * rOuter}
@@ -62,6 +59,50 @@ export default function LensShellRenderer({
             strokeOpacity={isMajor ? 0.55 : 0.30}
             strokeWidth={isMajor ? 0.7 : 0.4}
           />
+        );
+      })}
+
+      {/* Neighbor halos + nuclei with shell-conditional opacity tiers. */}
+      {layout.placed.map((nb) => {
+        const isHover = nb.id === hoverId;
+        const baseR = 5;
+        const haloR = baseR * (isHover ? 4.2 : nb.shell === 'inner' ? 3.2 : 2.6);
+        const haloOp = isHover ? 0.85 : nb.shell === 'inner' ? 0.55 : 0.40;
+        return (
+          <g
+            key={`node-${nb.id}`}
+            onMouseEnter={() => onHoverId(nb.id)}
+            onMouseLeave={() => onHoverId(null)}
+            style={{ cursor: 'pointer' }}
+          >
+            <circle
+              cx={nb.x}
+              cy={nb.y}
+              r={haloR}
+              fill="url(#lens-halo)"
+              opacity={haloOp}
+              pointerEvents="none"
+            />
+            <circle
+              cx={nb.x}
+              cy={nb.y}
+              r={baseR}
+              fill="var(--paper-ink)"
+              stroke="var(--paper-pencil)"
+              strokeWidth={isHover ? 1 : 0.5}
+              opacity={0.95}
+            />
+            {isHover && (
+              <circle
+                cx={nb.x}
+                cy={nb.y}
+                r={baseR * 0.35}
+                fill="var(--paper)"
+                opacity={0.9}
+                pointerEvents="none"
+              />
+            )}
+          </g>
         );
       })}
     </g>
