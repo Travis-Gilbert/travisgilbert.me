@@ -6,6 +6,10 @@ import { useSearchParams } from 'next/navigation';
 import { computeLensLayout } from './useLensLayout';
 import { loadEdgeTypeMeta, type EdgeTypeMeta } from './edgeTypeMeta';
 import LensShellRenderer from './LensShellRenderer';
+import {
+  lensFocusToLayoutInputs,
+  type LensFocusResponse,
+} from './lensFocusContract';
 
 /**
  * Tier 2 Lens close-read view (port of references/atlas-lens.jsx).
@@ -13,37 +17,21 @@ import LensShellRenderer from './LensShellRenderer';
  * Reads `?node=<id>` from the URL, fetches the lens-focus payload for
  * that node, runs `computeLensLayout` to assign neighbors to the
  * inner / middle / outer shells, and renders the SVG via
- * `LensShellRenderer`. The lens-focus endpoint is tracked as a
- * deferred Stage 6 follow-up in `docs/plans/instant-kg/cross-cutting.md`;
- * until it lands the LensView shows an honest loading state per
- * CLAUDE.md "Empty states are honest".
+ * `LensShellRenderer`. The lens-focus endpoint shipped at Index-API
+ * commit 9a3e02d with the canonical {focused, neighbors[].edge} shape;
+ * the response contract lives in `./lensFocusContract`.
  */
 
-interface NeighborPayload {
-  object_id: number;
-  title: string;
-  object_type_slug: string;
-  edge_type: string;
-  edge_label?: string;
-}
-
-interface LensFocusPayload {
-  object_id: number;
-  title: string;
-  object_type_slug: string;
-  neighbors: NeighborPayload[];
-}
-
-async function fetchLensData(nodeId: string): Promise<LensFocusPayload> {
+async function fetchLensData(nodeId: string): Promise<LensFocusResponse> {
   const response = await fetch(`/api/v1/notebook/objects/${nodeId}/lens-focus/`);
   if (!response.ok) throw new Error(`lens-focus HTTP ${response.status}`);
-  return (await response.json()) as LensFocusPayload;
+  return (await response.json()) as LensFocusResponse;
 }
 
 export default function LensView() {
   const params = useSearchParams();
   const node = params?.get('node');
-  const [data, setData] = useState<LensFocusPayload | null>(null);
+  const [data, setData] = useState<LensFocusResponse | null>(null);
   const [edgeTypeMeta, setEdgeTypeMeta] = useState<Map<string, EdgeTypeMeta> | null>(null);
   const [hoverId, setHoverId] = useState<string | null>(null);
   const [shellHover] = useState<'inner' | 'middle' | 'outer' | null>(null);
@@ -75,13 +63,10 @@ export default function LensView() {
 
   const layout = useMemo(() => {
     if (!data || !edgeTypeMeta) return null;
+    const inputs = lensFocusToLayoutInputs(data);
     return computeLensLayout({
-      focused: { id: String(data.object_id), kind: data.object_type_slug },
-      neighbors: data.neighbors.map((n) => ({
-        node: { id: String(n.object_id), kind: n.object_type_slug },
-        edgeType: n.edge_type,
-        edgeLabel: n.edge_label,
-      })),
+      focused: inputs.focused,
+      neighbors: inputs.neighbors,
       edgeTypeMeta,
     });
   }, [data, edgeTypeMeta]);
@@ -130,8 +115,8 @@ export default function LensView() {
           onHoverId={setHoverId}
           showLabels={true}
           shellHover={shellHover}
-          focusedTitle={data.title}
-          focusedDisplayId={String(data.object_id)}
+          focusedTitle={data.focused.title}
+          focusedDisplayId={String(data.focused.id)}
         />
       </svg>
     </div>
