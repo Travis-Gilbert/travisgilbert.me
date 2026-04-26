@@ -652,6 +652,69 @@ const CosmosGraphCanvas = forwardRef<CosmosGraphCanvasHandle, CosmosGraphCanvasP
         // atlas-explorer dashed halo rings.
         const pencilColor = readCssVar('--paper-pencil') || '#b48b53';
 
+        // Incident-edge dash overlay (Task 5.9). The cosmos.gl GL
+        // path renders solid lines; dash patterns require either an
+        // SVG overlay or a custom shader. We adopt the prototype
+        // pattern of overlaying ONLY incident links as canvas-2D
+        // strokes, which gives us setLineDash() with no shader
+        // changes. Bulk WebGL edges keep their tier-colored solid
+        // lines from applyFocusDimming. Curve points toward screen
+        // center via a Q-bezier with tCurve = 0.32 (see
+        // atlas-explorer.jsx lines 362-365).
+        const incidentForOverlay = incidentLinksRef.current;
+        if (fid && incidentForOverlay.size > 0) {
+          const overlayRect = overlay.getBoundingClientRect();
+          const screenCenterX = overlayRect.width / 2;
+          const screenCenterY = overlayRect.height / 2;
+          const tCurve = 0.32;
+          const indexMap = idToIndexRef.current;
+          const { links: lks } = latestDataRef.current;
+          ctx.save();
+          ctx.strokeStyle = pencilColor;
+          ctx.lineWidth = 0.95;
+          ctx.globalAlpha = 0.85;
+          for (const link of lks) {
+            const srcIdx = indexMap.get(link.source);
+            const tgtIdx = indexMap.get(link.target);
+            if (typeof srcIdx !== 'number' || typeof tgtIdx !== 'number') continue;
+            const isIncident =
+              incidentForOverlay.has(`${link.source}|${link.target}`)
+              || incidentForOverlay.has(`${link.target}|${link.source}`);
+            if (!isIncident) continue;
+            if (positionsForOverlay.length < (Math.max(srcIdx, tgtIdx) + 1) * 2) continue;
+            const pa = graph.spaceToScreenPosition([
+              positionsForOverlay[srcIdx * 2],
+              positionsForOverlay[srcIdx * 2 + 1],
+            ]);
+            const pb = graph.spaceToScreenPosition([
+              positionsForOverlay[tgtIdx * 2],
+              positionsForOverlay[tgtIdx * 2 + 1],
+            ]);
+            if (!pa || !pb) continue;
+            const mx = (pa[0] + pb[0]) / 2;
+            const my = (pa[1] + pb[1]) / 2;
+            const cx = mx + (screenCenterX - mx) * tCurve;
+            const cy = my + (screenCenterY - my) * tCurve;
+            // Edge-type-aware dash pattern. `pairs` = '3 3' (atlas
+            // SVG dasharray), `interacts` = '1 2'. Anything else
+            // renders solid. Reset between iterations so prior
+            // dashes don't bleed.
+            const edgeType = link.edge_type;
+            if (edgeType === 'pairs') {
+              ctx.setLineDash([3, 3]);
+            } else if (edgeType === 'interacts') {
+              ctx.setLineDash([1, 2]);
+            } else {
+              ctx.setLineDash([]);
+            }
+            ctx.beginPath();
+            ctx.moveTo(pa[0], pa[1]);
+            ctx.quadraticCurveTo(cx, cy, pb[0], pb[1]);
+            ctx.stroke();
+          }
+          ctx.restore();
+        }
+
         // Halo rings around the focused node only (Task 5.7). Outer
         // ring r=42 (3 3 dash, 0.75 op), inner ring r=68 (2 4 dash,
         // 0.40 op). Drawn in screen-space (no zoom scaling) to match
