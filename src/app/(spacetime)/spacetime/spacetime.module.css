@@ -656,6 +656,28 @@
   margin-left: 4px;
 }
 
+/* ─── Home link (top-left, mirror of footer credit) ─────────────
+   Pinned outside the top-left InfoCard so the mark is always
+   visible on hover without overlapping card chrome. Same monospace
+   instrument-label feel as the footer credit. The terracotta hover
+   color matches the footer's link styling. */
+.homeMark {
+  position: absolute;
+  top: 12px; left: 28px;
+  font-family: var(--font-mono);
+  font-size: 9px;
+  color: var(--color-ink-light);
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  text-decoration: none;
+  z-index: 11;
+  transition: color 160ms var(--ease-out, ease-out);
+}
+.homeMark:hover, .homeMark:focus-visible {
+  color: var(--color-terracotta);
+  outline: none;
+}
+
 /* ─── Narrow viewports ────────────────────────────────────────── */
 @media (max-width: 1100px) {
   .infoCard { width: 240px; padding: 14px 16px 12px; }

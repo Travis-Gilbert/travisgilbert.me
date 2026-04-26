@@ -15,6 +15,7 @@
  */
 
 import { useState, useEffect, useMemo } from 'react';
+import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import styles from '@/app/(spacetime)/spacetime/spacetime.module.css';
 import Globe, { type HoveredId } from './Globe';
@@ -146,6 +147,14 @@ export default function SpacetimeApp() {
     <div className={styles.page} data-mode={wrapperMode}>
       <PrwnBackdrop />
       <YearTicker year={year} era={era} prehistory={wrapperMode === 'prehistory'} />
+
+      {/* Home link. The (spacetime) layout intentionally drops TopNav for the
+          full-bleed parchment surface, so this small mark is the only way
+          back to the main site without using the browser back button. Mirrors
+          the footer credit visually so the page reads bracketed top + bottom. */}
+      <Link href="/" className={styles.homeMark} aria-label="Back to travisgilbert.me">
+        ← travisgilbert.me
+      </Link>
 
       {/* Upper-left: Topic A details */}
       <InfoCard side="left">
