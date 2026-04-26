@@ -84,6 +84,65 @@ const DRAG_REMOVE_THRESHOLD_PX = 120;
  *  single click instead. Matches browser default dblclick expectations. */
 const DOUBLE_CLICK_MS = 320;
 
+// --- Tier-1 focus dimming constants (Stage 5) --------------------------
+//
+// Ports the three-tier opacity scheme from
+// references/atlas-explorer.jsx lines 393-419. The constants are
+// module-level (per CLAUDE.md "Default array/object props cause
+// infinite loops") so the per-frame encoder can compare against a
+// stable reference; the helper functions are pure data and reused
+// from any path that needs to reapply focus dimming.
+
+/** Per-tier point alpha (RGBA channel 3) when a focus is active.
+ *  `defaultNoFocus` applies when no focusedId is set and no salience
+ *  encoding is in flight; the value is intentionally below 1.0 so the
+ *  ambient bloom reads as background context, not as the answer. */
+const TIER_OPACITIES = {
+  focused: 1.0,
+  neighbor: 0.75,
+  hover: 0.85,
+  dimmed: 0.25,
+  defaultNoFocus: 0.55,
+} as const;
+
+/** Per-tier size multiplier applied on top of the baseline degree-scaled
+ *  size. Halo radii intentionally exceed 1x: cosmos.gl renders points
+ *  as filled discs and the brass-halo look is achieved by the
+ *  oversized fill at low alpha. */
+const TIER_SIZE_MULT = {
+  focused: 4.6,
+  neighbor: 3.0,
+  hover: 3.6,
+  dimmed: 2.4,
+  defaultNoFocus: 2.4,
+} as const;
+
+function focusOpacityFor(
+  pointId: string,
+  focusedId: string | null,
+  hoverId: string | null,
+  neighborIds: Set<string>,
+): number {
+  if (!focusedId) return TIER_OPACITIES.defaultNoFocus;
+  if (pointId === focusedId) return TIER_OPACITIES.focused;
+  if (pointId === hoverId) return TIER_OPACITIES.hover;
+  if (neighborIds.has(pointId)) return TIER_OPACITIES.neighbor;
+  return TIER_OPACITIES.dimmed;
+}
+
+function focusSizeMultFor(
+  pointId: string,
+  focusedId: string | null,
+  hoverId: string | null,
+  neighborIds: Set<string>,
+): number {
+  if (!focusedId) return TIER_SIZE_MULT.defaultNoFocus;
+  if (pointId === focusedId) return TIER_SIZE_MULT.focused;
+  if (pointId === hoverId) return TIER_SIZE_MULT.hover;
+  if (neighborIds.has(pointId)) return TIER_SIZE_MULT.neighbor;
+  return TIER_SIZE_MULT.dimmed;
+}
+
 /** Tier-1 focus dimming surface added on top of the GraphAdapter base.
  *  Stage 5 ports the three-tier opacity / halo scheme from
  *  references/atlas-explorer.jsx onto the cosmos.gl canvas. The setters
@@ -926,6 +985,50 @@ const CosmosGraphCanvas = forwardRef<CosmosGraphCanvasHandle, CosmosGraphCanvasP
       graph.setLinkWidths(pool.linkWidths);
       graph.setLinkColors(pool.linkColors);
     }, []);
+
+    // -------- Tier-1 focus dimming pass (Stage 5) ----------------------
+    //
+    // Recomputes per-point alpha (and size, in Task 5.4) using the
+    // three-tier scheme keyed off `focusedIdRef.current` /
+    // `hoverIdRef.current`. Source values come from `encodedColors` /
+    // `encodedSizes` when a SceneDirective encoding is active, else
+    // from `baseColors` / `baseSizes` so dimming layers cleanly on top
+    // of either path. Respects cosmos.gl render order: writes new
+    // colors + sizes into the live buffers and uploads via the same
+    // setPointColors / setPointSizes helpers other paths use.
+    const applyFocusDimming = useCallback(() => {
+      const pool = poolRef.current;
+      const graph = graphRef.current;
+      if (!pool || !graph) return;
+      const fid = focusedIdRef.current;
+      const hid = hoverIdRef.current;
+      const nbrs = neighborIdsRef.current;
+      const { points: pts } = latestDataRef.current;
+      // Choose source buffer: encoded if a directive pass set them,
+      // baseline otherwise. The dimming pass overwrites the alpha
+      // channel only; rgb is preserved from the source.
+      const useEncoded = encodingActiveRef.current;
+      const srcColors = useEncoded ? pool.encodedColors : pool.baseColors;
+      const srcSizes = useEncoded ? pool.encodedSizes : pool.baseSizes;
+      for (let i = 0; i < pts.length; i++) {
+        const id = String(pts[i].id);
+        const off = i * 4;
+        // Preserve rgb from the source so type / community / salience
+        // colors remain visible; only the alpha channel encodes the
+        // dimming tier.
+        pool.colors[off] = srcColors[off];
+        pool.colors[off + 1] = srcColors[off + 1];
+        pool.colors[off + 2] = srcColors[off + 2];
+        pool.colors[off + 3] = focusOpacityFor(id, fid, hid, nbrs);
+        // Size multiplier (Task 5.4): scale the source size by the
+        // tier multiplier. Capped at 1px floor below.
+        const baseSize = srcSizes[i] || 1;
+        pool.sizes[i] = Math.max(1, baseSize * focusSizeMultFor(id, fid, hid, nbrs));
+      }
+      applyFilterMaskToLive();
+      graph.setPointColors(pool.colors);
+      graph.setPointSizes(pool.sizes);
+    }, [applyFilterMaskToLive]);
 
     // -------- Construction tween controller ------------------------------
     //
@@ -1990,6 +2093,27 @@ const CosmosGraphCanvas = forwardRef<CosmosGraphCanvasHandle, CosmosGraphCanvasP
         setFocusedId(id: string | null) {
           focusedIdRef.current = id;
           setFocusedIdState(id);
+          // Re-encode colors / sizes immediately so the dimming change
+          // is visible on the same frame as the click. The neighborIds
+          // memo updates in the next render, so we recompute the
+          // neighbor set inline from the current focusedId + links to
+          // avoid a one-frame lag where the alpha update sees the
+          // previous neighbor set. The ref is then resynced from the
+          // memo on the next render.
+          if (id) {
+            const nbrs = new Set<string>();
+            const { links: lks } = latestDataRef.current;
+            for (const link of lks) {
+              const s = String(link.source);
+              const t = String(link.target);
+              if (s === id) nbrs.add(t);
+              if (t === id) nbrs.add(s);
+            }
+            neighborIdsRef.current = nbrs;
+          } else {
+            neighborIdsRef.current = new Set<string>();
+          }
+          applyFocusDimming();
         },
         getFocusedId() {
           return focusedIdRef.current;
@@ -1998,6 +2122,7 @@ const CosmosGraphCanvas = forwardRef<CosmosGraphCanvasHandle, CosmosGraphCanvasP
       [
         applyEdgeStylesToPool,
         applyFilterMaskToLive,
+        applyFocusDimming,
         applyHypothesisMixToPool,
         applyNeighborhoodToPool,
         applySalienceToPool,
