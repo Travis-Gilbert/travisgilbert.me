@@ -22,7 +22,8 @@ export interface InstantKgStreamHandlers {
   onRelation?: (event: InstantKgRelationEvent) => void;
   onCrossDocEdge?: (event: InstantKgCrossDocEvent) => void;
   onComplete: (event: InstantKgCompleteEvent) => void;
-  onError: (error: { message: string; transient: boolean }) => void;
+  onTensionProposed?: (event: InstantKgTensionProposedEvent) => void;
+  onError: (error: { message: string; transient: boolean; stage?: string; fallback_used?: string | null }) => void;
 }
 
 export interface InstantKgDocumentEvent {
@@ -31,6 +32,11 @@ export interface InstantKgDocumentEvent {
   url: string | null;
   object_type: string;
   color: string;
+  fetch_provenance: {
+    tier: 'tavily' | 'trafilatura' | 'native_parser' | 'youtube_transcript_api' | 'pymupdf_fallback';
+    tavily_credits_used: number | null;
+    fallback_reason: string | null;
+  };
 }
 
 export interface InstantKgChunkEvent {
@@ -38,6 +44,25 @@ export interface InstantKgChunkEvent {
   parent_object_id: number | null;
   chunk_index: number;
   text_preview: string;
+  edge: {
+    source: number;
+    target: number;
+    edge_type: 'part_of';
+    engine: 'instant_kg';
+    reason: string;
+  };
+}
+
+export interface InstantKgTensionProposedEvent {
+  tension_id: number;
+  tension_type: 'spec_drift';
+  scope: {
+    proposing_model: string;
+    original_surface_form: string;
+    source_chunk_object_id: number;
+    glirel_confidence: number;
+    proposed_relation: { subject: string; predicate: string; object: string };
+  };
 }
 
 export interface InstantKgEntityEvent {
@@ -209,6 +234,15 @@ export async function instantKgStream(
   es.addEventListener('cross_doc_edge', (e) => {
     const data = safeParse<InstantKgCrossDocEvent>((e as MessageEvent).data, 'cross_doc_edge');
     if (data) handlers.onCrossDocEdge?.(data);
+  });
+
+  es.addEventListener('tension_proposed', (e) => {
+    if (!handlers.onTensionProposed) return;
+    const data = safeParse<InstantKgTensionProposedEvent>(
+      (e as MessageEvent).data,
+      'tension_proposed',
+    );
+    if (data) handlers.onTensionProposed(data);
   });
 
   es.addEventListener('complete', (e) => {
