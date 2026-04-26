@@ -51,4 +51,22 @@ describe('computeLensLayout', () => {
     expect(layout.placed[0].radius).toBeGreaterThanOrEqual(116);
     expect(layout.placed[0].radius).toBeLessThanOrEqual(144);
   });
+
+  it('shifts one neighbor from middle to inner if inner empty', () => {
+    const meta2 = new Map<string, EdgeTypeMeta>([
+      ['mentions', { slug: 'mentions', display_label: 'Mentions', epistemic_role: 'context' }],
+    ]);
+    const layout = computeLensLayout({
+      focused: { id: 'f', kind: 'concept' },
+      neighbors: [
+        { node: { id: 'p1', kind: 'person' }, edgeType: 'mentions' },
+        { node: { id: 'p2', kind: 'person' }, edgeType: 'mentions' },
+      ],
+      edgeTypeMeta: meta2,
+    });
+    expect(layout.emptyShells.has('inner')).toBe(false);
+    // First middle neighbor moved to inner; one remains middle.
+    expect(layout.placed.filter((p) => p.shell === 'inner').length).toBe(1);
+    expect(layout.placed.filter((p) => p.shell === 'middle').length).toBe(1);
+  });
 });
