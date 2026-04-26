@@ -85,26 +85,42 @@ interface TimelinePayload {
 
 // ── Fetch helpers ────────────────────────────────────────────────────────────
 
+// Strip the `object:` namespace prefix the backend's /graph/ endpoint
+// ships on every node id. The lens-* DRF actions live at
+// /api/v1/notebook/objects/{pk}/lens-* (where {pk} is an integer pk),
+// so the namespaced form must be stripped to a bare integer string
+// before the fetch. The Explorer canvas writes namespaced ids into
+// ?node= via the same selectedId / focusedId surface, so this
+// normalization happens at the lens fetch boundary rather than at
+// every URL push site.
+function objectPk(nodeId: string): string {
+  return nodeId.replace(/^object:/, '');
+}
+
 async function fetchLensData(nodeId: string): Promise<LensFocusResponse> {
-  const response = await fetch(`/api/v1/notebook/objects/${nodeId}/lens-focus/`);
+  const pk = objectPk(nodeId);
+  const response = await fetch(`/api/v1/notebook/objects/${pk}/lens-focus/`);
   if (!response.ok) throw new Error(`lens-focus HTTP ${response.status}`);
   return (await response.json()) as LensFocusResponse;
 }
 
 async function fetchProperties(nodeId: string): Promise<PropertiesPayload> {
-  const response = await fetch(`/api/v1/notebook/objects/${nodeId}/lens-properties/`);
+  const pk = objectPk(nodeId);
+  const response = await fetch(`/api/v1/notebook/objects/${pk}/lens-properties/`);
   if (!response.ok) throw new Error(`lens-properties HTTP ${response.status}`);
   return (await response.json()) as PropertiesPayload;
 }
 
 async function fetchDossier(nodeId: string): Promise<DossierPayload> {
-  const response = await fetch(`/api/v1/notebook/objects/${nodeId}/lens-dossier/`);
+  const pk = objectPk(nodeId);
+  const response = await fetch(`/api/v1/notebook/objects/${pk}/lens-dossier/`);
   if (!response.ok) throw new Error(`lens-dossier HTTP ${response.status}`);
   return (await response.json()) as DossierPayload;
 }
 
 async function fetchTimeline(nodeId: string): Promise<TimelinePayload> {
-  const response = await fetch(`/api/v1/notebook/objects/${nodeId}/lens-timeline/`);
+  const pk = objectPk(nodeId);
+  const response = await fetch(`/api/v1/notebook/objects/${pk}/lens-timeline/`);
   if (!response.ok) throw new Error(`lens-timeline HTTP ${response.status}`);
   return (await response.json()) as TimelinePayload;
 }
@@ -161,6 +177,7 @@ export default function LensView() {
 
   // Celestial chart data (lens-focus)
   const [data, setData] = useState<LensFocusResponse | null>(null);
+  const [focusError, setFocusError] = useState<string | null>(null);
   const [edgeTypeMeta, setEdgeTypeMeta] = useState<Map<string, EdgeTypeMeta> | null>(null);
   const [hoverId, setHoverId] = useState<string | null>(null);
   const [shellHover] = useState<'inner' | 'middle' | 'outer' | null>(null);
@@ -183,10 +200,20 @@ export default function LensView() {
   useEffect(() => {
     if (!node) return;
     let cancelled = false;
+    setFocusError(null);
 
     fetchLensData(node)
-      .then((d) => { if (!cancelled) setData(d); })
-      .catch(() => { if (!cancelled) setData(null); });
+      .then((d) => {
+        if (!cancelled) {
+          setData(d);
+          setFocusError(null);
+        }
+      })
+      .catch((err: Error) => {
+        if (cancelled) return;
+        setData(null);
+        setFocusError(err.message || 'Failed to load Lens data.');
+      });
 
     fetchProperties(node)
       .then((p) => { if (!cancelled) setProperties(p); })
@@ -229,6 +256,37 @@ export default function LensView() {
 
   if (!node) {
     return <div className="lens-empty">Pick a node to focus the Lens.</div>;
+  }
+  if (focusError) {
+    // Honest error state per CLAUDE.md "Empty states are honest, not
+    // cosmetic". An earlier version sat in "Loading..." forever when
+    // the namespaced `object:415` slug was passed straight into the
+    // /api/v1/notebook/objects/<int:pk>/lens-focus/ route. The fix
+    // strips the prefix at the fetch boundary; this banner surfaces
+    // the next class of failure (missing object, transient network
+    // error) rather than masking it.
+    return (
+      <div className="lens-empty" role="alert">
+        <p>Could not load Lens for node {node}.</p>
+        <p style={{ fontFamily: 'var(--font-mono)', fontSize: 12, opacity: 0.7 }}>
+          {focusError}
+        </p>
+        <button
+          type="button"
+          onClick={() => window.history.back()}
+          style={{
+            marginTop: 12,
+            padding: '6px 12px',
+            border: '1px solid var(--paper-rule)',
+            background: 'var(--paper)',
+            color: 'var(--paper-ink)',
+            cursor: 'pointer',
+          }}
+        >
+          Back
+        </button>
+      </div>
+    );
   }
   if (!data || !edgeTypeMeta || !layout) {
     return <div className="lens-empty">Loading Lens for node {node}.</div>;

@@ -723,7 +723,33 @@ const ExplorerShell: FC = () => {
       )}
 
       {canRenderCanvas && (
-        <AtlasLensSwitcher lens={lens} onChange={handleLensChange} />
+        <AtlasLensSwitcher
+          lens={lens}
+          onChange={handleLensChange}
+          lensReady={Boolean(
+            canvasRef.current?.getFocusedId?.() ?? selectedId,
+          )}
+          onOpenLens={() => {
+            // Resolve the focused node from the canvas first (covers
+            // programmatic focus from the post-ingest scene directive
+            // and the keyboard `L` handler), fall back to selectedId
+            // for the click-to-select path. Same logic as the keyboard
+            // handler at line ~399; centralizing it here keeps the
+            // lens-row tab and the keyboard shortcut in sync.
+            const focusedId =
+              canvasRef.current?.getFocusedId?.() ?? selectedId ?? null;
+            if (!focusedId) return;
+            const url = new URL(window.location.href);
+            url.searchParams.set('view', 'lens');
+            url.searchParams.set('node', focusedId);
+            window.history.pushState({}, '', url.toString());
+            window.dispatchEvent(
+              new CustomEvent('theseus:switch-panel', {
+                detail: { panel: 'lens' },
+              }),
+            );
+          }}
+        />
       )}
 
       {canRenderCanvas && points.length > 0 && (
@@ -742,43 +768,6 @@ const ExplorerShell: FC = () => {
 
       {selectedNode && (
         <AtlasNodeDetail node={selectedNode} onClose={() => setSelectedId(null)} />
-      )}
-
-      {/* Forward-to-Lens button surfaces only when a node is focused. */}
-      {selectedId && (
-        <button
-          type="button"
-          className="atlas-focus-to-lens"
-          onClick={() => {
-            const url = new URL(window.location.href);
-            url.searchParams.set('view', 'lens');
-            url.searchParams.set('node', selectedId);
-            window.history.pushState({}, '', url.toString());
-            window.dispatchEvent(
-              new CustomEvent('theseus:switch-panel', {
-                detail: { panel: 'lens' },
-              }),
-            );
-          }}
-          style={{
-            position: 'absolute',
-            top: 14,
-            right: 14,
-            zIndex: 5,
-            fontFamily: 'var(--font-mono)',
-            fontSize: 11,
-            letterSpacing: '0.18em',
-            textTransform: 'uppercase',
-            padding: '6px 12px',
-            background: 'var(--paper)',
-            border: '1px solid var(--paper-rule)',
-            color: 'var(--paper-ink)',
-            cursor: 'pointer',
-          }}
-          title="Press L to open the focused node in the Lens close-read view"
-        >
-          Open in Lens
-        </button>
       )}
 
       {/* Ask composer wraps in .atlas-chat for the paper floating card. */}
