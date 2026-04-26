@@ -4,27 +4,50 @@
  * LensPropertiesStrip: left-side parchment strip in the Tier 3 Lens
  * close-read view (ADR 0003 paragraph 47, ADR 0011).
  *
- * This file ships the presentational component (props in, JSX out)
- * so it can be unit-tested without a fetch shim. Task 7.2 layers in
- * claims and recent edits; Task 7.3 adds parchment-glass styling.
- * The matching live-data fetch wrapper that calls
- * `GET /api/v1/notebook/objects/<id>/lens-properties/` lives in a
- * sibling component once Stage 7 mounts the strip into LensView.
+ * Presentational only (props in, JSX out). The matching live-fetch
+ * wrapper that calls `GET /api/v1/notebook/objects/<id>/lens-properties/`
+ * derives `recentEdits` from the dossier endpoint's recent_activity
+ * once the strip is mounted into LensView; until then this component
+ * accepts those derived rows as props for unit-testability.
  *
  * Empty state is honest per CLAUDE.md "Empty states are honest, not
- * cosmetic": when the property bag is empty we say so plainly rather
- * than padding with placeholder rows.
+ * cosmetic": when the property bag, claim list, or edit list is
+ * empty, those sections collapse rather than padding with filler.
  */
+
+interface ClaimRow {
+  id: number;
+  text: string;
+  reviewed: boolean;
+}
+
+interface EditRow {
+  node_id: number;
+  kind: string;
+  created_at: string;
+}
 
 interface Props {
   objectId: string;
   title: string;
   properties: Record<string, string | number | boolean>;
+  claims: ClaimRow[];
+  recentEdits: EditRow[];
 }
 
-export default function LensPropertiesStrip({ objectId, title, properties }: Props) {
+export default function LensPropertiesStrip({
+  objectId,
+  title,
+  properties,
+  claims,
+  recentEdits,
+}: Props) {
   const entries = Object.entries(properties);
-  if (entries.length === 0) {
+  const hasProperties = entries.length > 0;
+  const hasClaims = claims.length > 0;
+  const hasEdits = recentEdits.length > 0;
+
+  if (!hasProperties && !hasClaims && !hasEdits) {
     return (
       <aside
         className="lens-properties-strip lens-properties-strip-empty"
@@ -35,17 +58,44 @@ export default function LensPropertiesStrip({ objectId, title, properties }: Pro
       </aside>
     );
   }
+
   return (
     <aside className="lens-properties-strip" data-object-id={objectId}>
       <header>{title}</header>
-      <dl>
-        {entries.map(([key, value]) => (
-          <div key={key}>
-            <dt>{key}</dt>
-            <dd>{String(value)}</dd>
-          </div>
-        ))}
-      </dl>
+      {hasProperties ? (
+        <dl>
+          {entries.map(([key, value]) => (
+            <div key={key}>
+              <dt>{key}</dt>
+              <dd>{String(value)}</dd>
+            </div>
+          ))}
+        </dl>
+      ) : null}
+      {hasClaims ? (
+        <section className="lens-claims">
+          <h3>Claims</h3>
+          <ul>
+            {claims.map((c) => (
+              <li key={c.id} data-reviewed={c.reviewed ? 'yes' : 'no'}>
+                {c.text}
+              </li>
+            ))}
+          </ul>
+        </section>
+      ) : null}
+      {hasEdits ? (
+        <section className="lens-edits">
+          <h3>Recent edits</h3>
+          <ul>
+            {recentEdits.map((e) => (
+              <li key={e.node_id}>
+                {e.kind} at {e.created_at}
+              </li>
+            ))}
+          </ul>
+        </section>
+      ) : null}
     </aside>
   );
 }
