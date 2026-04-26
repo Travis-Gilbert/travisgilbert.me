@@ -95,6 +95,23 @@ export default function LensView() {
 
   return (
     <div className="lens-canvas">
+      <button
+        type="button"
+        className="lens-back"
+        onClick={() => {
+          // window.history.back triggers PanelManager popstate listener
+          // and Explorer's ?live_additions= URL hydration on remount.
+          window.history.back();
+          window.dispatchEvent(
+            new CustomEvent('theseus:switch-panel', {
+              detail: { panel: 'explorer' },
+            }),
+          );
+        }}
+        aria-label="Back to corpus view"
+      >
+        Back
+      </button>
       <svg
         viewBox="0 0 1120 680"
         preserveAspectRatio="xMidYMid meet"
