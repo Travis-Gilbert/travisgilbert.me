@@ -33,7 +33,15 @@ const GraphLegend: FC<GraphLegendProps> = ({ points }) => {
   // round trip.
   const [activeTypes, setActiveTypes] = useState<Set<string> | null>(null);
 
-  const entries = useMemo(() => {
+  // Aggregate over the rendered points to produce both:
+  //   - visibleTypes: the distinct type set (Stage 5 Task 5.12 honest
+  //     dynamic legend; matches what is on the canvas right now, not
+  //     a hardcoded ontology).
+  //   - entries: type -> { color, count } pairs, sorted by count desc
+  //     so the most prevalent types render first. The two derive from
+  //     the same single pass; we just expose visibleTypes separately
+  //     for the empty-state gate (Task 5.15).
+  const { visibleTypes, entries } = useMemo(() => {
     const byType = new Map<string, { color: string; count: number }>();
     const list = Array.isArray(points) ? points : [];
     for (const p of list) {
@@ -41,7 +49,10 @@ const GraphLegend: FC<GraphLegendProps> = ({ points }) => {
       if (existing) existing.count += 1;
       else byType.set(p.type, { color: p.colorHex, count: 1 });
     }
-    return Array.from(byType.entries()).sort((a, b) => b[1].count - a[1].count);
+    const types = Array.from(byType.keys()).sort();
+    const sortedEntries = Array.from(byType.entries())
+      .sort((a, b) => b[1].count - a[1].count);
+    return { visibleTypes: types, entries: sortedEntries };
   }, [points]);
 
   // Publish the active set into Mosaic. When the set is null or empty we
@@ -87,7 +98,10 @@ const GraphLegend: FC<GraphLegendProps> = ({ points }) => {
     });
   }, [publishSelection]);
 
-  if (entries.length === 0) return null;
+  // Honest empty state (Task 5.15): when no types are visible we
+  // render nothing rather than a placeholder. visibleTypes derives
+  // from the rendered points; an empty graph yields an empty legend.
+  if (visibleTypes.length === 0) return null;
 
   const anyActive = activeTypes !== null && activeTypes.size > 0;
 
