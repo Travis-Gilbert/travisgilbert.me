@@ -6,6 +6,10 @@ import { useSearchParams } from 'next/navigation';
 import { computeLensLayout } from './useLensLayout';
 import { loadEdgeTypeMeta, type EdgeTypeMeta } from './edgeTypeMeta';
 import LensShellRenderer from './LensShellRenderer';
+import LensPropertiesStrip from './LensPropertiesStrip';
+import LensDossier from './LensDossier';
+import LensTimeline from './LensTimeline';
+import LensNodeSwitcher from './LensNodeSwitcher';
 import {
   lensFocusToLayoutInputs,
   type LensFocusResponse,
@@ -17,10 +21,55 @@ import {
  * Reads `?node=<id>` from the URL, fetches the lens-focus payload for
  * that node, runs `computeLensLayout` to assign neighbors to the
  * inner / middle / outer shells, and renders the SVG via
- * `LensShellRenderer`. The lens-focus endpoint shipped at Index-API
- * commit 9a3e02d with the canonical {focused, neighbors[].edge} shape;
- * the response contract lives in `./lensFocusContract`.
+ * `LensShellRenderer`.
+ *
+ * The 4 Tier 3 panel components sit around the SVG canvas:
+ *   top-right   : LensNodeSwitcher (derived from lens-focus, no extra fetch)
+ *   left strip  : LensPropertiesStrip (from lens-properties/)
+ *   right plate : LensDossier (from lens-dossier/)
+ *   bottom strip: LensTimeline (from lens-timeline/)
+ *
+ * Each panel is independently fetched: if one endpoint is slow the
+ * rest still render. All fetch helpers share the same cancelled-flag
+ * pattern to avoid state updates on unmounted components.
+ *
+ * The lens-focus endpoint shipped at Index-API commit 9a3e02d with the
+ * canonical {focused, neighbors[].edge} shape; the response contract
+ * lives in ./lensFocusContract.
  */
+
+// ── Wire types for panel endpoints ──────────────────────────────────────────
+
+interface PropertiesPayload {
+  title: string;
+  properties: Record<string, string | number | boolean>;
+  claims: Array<{ id: number; text: string; reviewed: boolean }>;
+  recent_edits: Array<{ node_id: number; kind: string; created_at: string }>;
+}
+
+interface DossierPayload {
+  title: string;
+  summary: string;
+  recent_activity: Array<{
+    days_ago: number;
+    when: string;
+    short: string;
+    text: string;
+    color: string;
+  }>;
+}
+
+interface TimelinePayload {
+  events: Array<{
+    days_ago: number;
+    when: string;
+    short: string;
+    text: string;
+    color: string;
+  }>;
+}
+
+// ── Fetch helpers ────────────────────────────────────────────────────────────
 
 async function fetchLensData(nodeId: string): Promise<LensFocusResponse> {
   const response = await fetch(`/api/v1/notebook/objects/${nodeId}/lens-focus/`);
@@ -28,13 +77,84 @@ async function fetchLensData(nodeId: string): Promise<LensFocusResponse> {
   return (await response.json()) as LensFocusResponse;
 }
 
+async function fetchProperties(nodeId: string): Promise<PropertiesPayload> {
+  const response = await fetch(`/api/v1/notebook/objects/${nodeId}/lens-properties/`);
+  if (!response.ok) throw new Error(`lens-properties HTTP ${response.status}`);
+  return (await response.json()) as PropertiesPayload;
+}
+
+async function fetchDossier(nodeId: string): Promise<DossierPayload> {
+  const response = await fetch(`/api/v1/notebook/objects/${nodeId}/lens-dossier/`);
+  if (!response.ok) throw new Error(`lens-dossier HTTP ${response.status}`);
+  return (await response.json()) as DossierPayload;
+}
+
+async function fetchTimeline(nodeId: string): Promise<TimelinePayload> {
+  const response = await fetch(`/api/v1/notebook/objects/${nodeId}/lens-timeline/`);
+  if (!response.ok) throw new Error(`lens-timeline HTTP ${response.status}`);
+  return (await response.json()) as TimelinePayload;
+}
+
+// ── Outer container layout constants ────────────────────────────────────────
+
+// Grid layout: left strip | SVG canvas | right dossier, timeline below.
+// At narrow viewports (<900px) the side panels collapse via CSS media query.
+const OUTER_STYLE: React.CSSProperties = {
+  position: 'relative',
+  display: 'grid',
+  gridTemplateColumns: '220px 1fr 340px',
+  gridTemplateRows: '1fr auto',
+  width: '100%',
+  height: '100%',
+  minHeight: 0,
+};
+
+const SVG_CELL_STYLE: React.CSSProperties = {
+  gridColumn: '2',
+  gridRow: '1',
+  position: 'relative',
+  minWidth: 0,
+  minHeight: 0,
+};
+
+const LEFT_CELL_STYLE: React.CSSProperties = {
+  gridColumn: '1',
+  gridRow: '1 / span 2',
+  overflowY: 'auto',
+};
+
+const RIGHT_CELL_STYLE: React.CSSProperties = {
+  gridColumn: '3',
+  gridRow: '1',
+  overflowY: 'auto',
+};
+
+const BOTTOM_CELL_STYLE: React.CSSProperties = {
+  gridColumn: '2',
+  gridRow: '2',
+};
+
+const SWITCHER_STYLE: React.CSSProperties = {
+  position: 'absolute',
+  top: 12,
+  right: 12,
+  zIndex: 10,
+};
+
 export default function LensView() {
   const params = useSearchParams();
   const node = params?.get('node');
+
+  // Celestial chart data (lens-focus)
   const [data, setData] = useState<LensFocusResponse | null>(null);
   const [edgeTypeMeta, setEdgeTypeMeta] = useState<Map<string, EdgeTypeMeta> | null>(null);
   const [hoverId, setHoverId] = useState<string | null>(null);
   const [shellHover] = useState<'inner' | 'middle' | 'outer' | null>(null);
+
+  // Panel data (independent fetches)
+  const [properties, setProperties] = useState<PropertiesPayload | null>(null);
+  const [dossier, setDossier] = useState<DossierPayload | null>(null);
+  const [timeline, setTimeline] = useState<TimelinePayload | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -49,13 +169,23 @@ export default function LensView() {
   useEffect(() => {
     if (!node) return;
     let cancelled = false;
+
     fetchLensData(node)
-      .then((d) => {
-        if (!cancelled) setData(d);
-      })
-      .catch(() => {
-        if (!cancelled) setData(null);
-      });
+      .then((d) => { if (!cancelled) setData(d); })
+      .catch(() => { if (!cancelled) setData(null); });
+
+    fetchProperties(node)
+      .then((p) => { if (!cancelled) setProperties(p); })
+      .catch(() => { if (!cancelled) setProperties(null); });
+
+    fetchDossier(node)
+      .then((d) => { if (!cancelled) setDossier(d); })
+      .catch(() => { if (!cancelled) setDossier(null); });
+
+    fetchTimeline(node)
+      .then((t) => { if (!cancelled) setTimeline(t); })
+      .catch(() => { if (!cancelled) setTimeline(null); });
+
     return () => {
       cancelled = true;
     };
@@ -71,6 +201,18 @@ export default function LensView() {
     });
   }, [data, edgeTypeMeta]);
 
+  // Derive the neighbor list for LensNodeSwitcher from the lens-focus payload.
+  // No extra fetch needed: the neighbors array already carries id + title + kind + edge.type.
+  const switcherRelated = useMemo(() => {
+    if (!data) return [];
+    return data.neighbors.map((n) => ({
+      id: String(n.id),
+      title: n.title,
+      kind: n.kind,
+      edgeType: n.edge.type,
+    }));
+  }, [data]);
+
   if (!node) {
     return <div className="lens-empty">Pick a node to focus the Lens.</div>;
   }
@@ -79,46 +221,98 @@ export default function LensView() {
   }
 
   return (
-    <div className="lens-canvas">
-      <button
-        type="button"
-        className="lens-back"
-        onClick={() => {
-          // window.history.back triggers PanelManager popstate listener
-          // and Explorer's ?live_additions= URL hydration on remount.
-          window.history.back();
-          window.dispatchEvent(
-            new CustomEvent('theseus:switch-panel', {
-              detail: { panel: 'explorer' },
-            }),
-          );
-        }}
-        aria-label="Back to corpus view"
-      >
-        Back
-      </button>
-      <svg
-        viewBox="0 0 1120 680"
-        preserveAspectRatio="xMidYMid meet"
-        width="100%"
-        height="100%"
-      >
-        <defs>
-          <radialGradient id="lens-halo" cx="0.5" cy="0.5" r="0.5">
-            <stop offset="0%" stopColor="var(--paper-pencil)" stopOpacity={0.6} />
-            <stop offset="100%" stopColor="var(--paper-pencil)" stopOpacity={0} />
-          </radialGradient>
-        </defs>
-        <LensShellRenderer
-          layout={layout}
-          hoverId={hoverId}
-          onHoverId={setHoverId}
-          showLabels={true}
-          shellHover={shellHover}
-          focusedTitle={data.focused.title}
-          focusedDisplayId={String(data.focused.id)}
-        />
-      </svg>
+    <div className="lens-root" style={OUTER_STYLE}>
+      {/* Left strip: properties, claims, recent edits */}
+      <div className="lens-left-panel" style={LEFT_CELL_STYLE}>
+        {properties ? (
+          <LensPropertiesStrip
+            objectId={node}
+            title={properties.title}
+            properties={properties.properties}
+            claims={properties.claims}
+            recentEdits={properties.recent_edits}
+          />
+        ) : (
+          <div className="lens-panel-loading" aria-label="Loading properties">
+            Loading properties.
+          </div>
+        )}
+      </div>
+
+      {/* Center: celestial chart SVG with back button and node switcher */}
+      <div className="lens-canvas" style={SVG_CELL_STYLE}>
+        <button
+          type="button"
+          className="lens-back"
+          onClick={() => {
+            // window.history.back triggers PanelManager popstate listener
+            // and Explorer's ?live_additions= URL hydration on remount.
+            window.history.back();
+            window.dispatchEvent(
+              new CustomEvent('theseus:switch-panel', {
+                detail: { panel: 'explorer' },
+              }),
+            );
+          }}
+          aria-label="Back to corpus view"
+        >
+          Back
+        </button>
+
+        {/* Node switcher: top-right of the canvas cell (not SVG-internal) */}
+        <div style={SWITCHER_STYLE}>
+          <LensNodeSwitcher
+            current={String(data.focused.id)}
+            related={switcherRelated}
+            edgeMeta={edgeTypeMeta ?? undefined}
+          />
+        </div>
+
+        <svg
+          viewBox="0 0 1120 680"
+          preserveAspectRatio="xMidYMid meet"
+          width="100%"
+          height="100%"
+        >
+          <defs>
+            <radialGradient id="lens-halo" cx="0.5" cy="0.5" r="0.5">
+              <stop offset="0%" stopColor="var(--paper-pencil)" stopOpacity={0.6} />
+              <stop offset="100%" stopColor="var(--paper-pencil)" stopOpacity={0} />
+            </radialGradient>
+          </defs>
+          <LensShellRenderer
+            layout={layout}
+            hoverId={hoverId}
+            onHoverId={setHoverId}
+            showLabels={true}
+            shellHover={shellHover}
+            focusedTitle={data.focused.title}
+            focusedDisplayId={String(data.focused.id)}
+          />
+        </svg>
+      </div>
+
+      {/* Right plate: dossier (summary, recent activity) */}
+      <div className="lens-right-panel" style={RIGHT_CELL_STYLE}>
+        {dossier ? (
+          <LensDossier
+            title={dossier.title}
+            summary={dossier.summary}
+            recentActivity={dossier.recent_activity}
+          />
+        ) : (
+          <div className="lens-panel-loading" aria-label="Loading dossier">
+            Loading dossier.
+          </div>
+        )}
+      </div>
+
+      {/* Bottom strip: provenance timeline */}
+      <div className="lens-bottom-panel" style={BOTTOM_CELL_STYLE}>
+        {timeline ? (
+          <LensTimeline events={timeline.events} />
+        ) : null}
+      </div>
     </div>
   );
 }
