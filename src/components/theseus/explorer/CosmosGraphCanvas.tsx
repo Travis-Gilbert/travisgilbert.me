@@ -97,8 +97,10 @@ export {
   linkTierFor,
 } from './focusDimming';
 import {
+  EDGE_TIER_COLORS,
   focusOpacityFor,
   focusSizeMultFor,
+  linkTierFor,
 } from './focusDimming';
 
 /** Tier-1 focus dimming surface added on top of the GraphAdapter base.
@@ -1061,7 +1063,8 @@ const CosmosGraphCanvas = forwardRef<CosmosGraphCanvasHandle, CosmosGraphCanvasP
       const fid = focusedIdRef.current;
       const hid = hoverIdRef.current;
       const nbrs = neighborIdsRef.current;
-      const { points: pts } = latestDataRef.current;
+      const incident = incidentLinksRef.current;
+      const { points: pts, links: lks } = latestDataRef.current;
       // Choose source buffer: encoded if a directive pass set them,
       // baseline otherwise. The dimming pass overwrites the alpha
       // channel only; rgb is preserved from the source.
@@ -1083,9 +1086,41 @@ const CosmosGraphCanvas = forwardRef<CosmosGraphCanvasHandle, CosmosGraphCanvasP
         const baseSize = srcSizes[i] || 1;
         pool.sizes[i] = Math.max(1, baseSize * focusSizeMultFor(id, fid, hid, nbrs));
       }
+
+      // Per-edge tier coloring (Task 5.8). When focus is set, the
+      // incident set is non-empty: links incident to focusedId render
+      // in `paper-pencil` at 0.85 alpha; hover-incident links at
+      // 0.55; everything else at 0.10. When no focus is set we still
+      // apply the `defaultNoFocus` tier so the at-rest ambient layer
+      // matches atlas-explorer's intent. The walk only covers valid
+      // links (same indexing as `linkEndpoints` / `linkColors`).
+      const indexMap = idToIndexRef.current;
+      let li = 0;
+      for (const link of lks) {
+        if (!indexMap.has(link.source) || !indexMap.has(link.target)) continue;
+        const tier = EDGE_TIER_COLORS[
+          linkTierFor(
+            String(link.source),
+            String(link.target),
+            fid,
+            hid,
+            incident,
+          )
+        ];
+        const off = li * 4;
+        pool.linkColors[off] = tier.r;
+        pool.linkColors[off + 1] = tier.g;
+        pool.linkColors[off + 2] = tier.b;
+        pool.linkColors[off + 3] = tier.a;
+        pool.linkWidths[li] = tier.width;
+        li++;
+      }
+
       applyFilterMaskToLive();
       graph.setPointColors(pool.colors);
       graph.setPointSizes(pool.sizes);
+      graph.setLinkColors(pool.linkColors);
+      graph.setLinkWidths(pool.linkWidths);
       // Trigger overlay redraw so nucleus / halo rings (Tasks 5.5,
       // 5.7) and incident-edge dashes (Task 5.9) reflect the new
       // focus state on the same frame.
