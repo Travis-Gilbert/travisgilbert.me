@@ -1,7 +1,6 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
-import { useSearchParams } from 'next/navigation';
 import type { PanelId } from './PanelManager';
 import AtlasEmblem from './atlas/AtlasEmblem';
 import ThreadsPlace, { type AtlasThread } from './atlas/ThreadsPlace';
@@ -35,9 +34,6 @@ const TRAILING_PLACES: TrailingPlace[] = [
 export default function TheseusSidebar() {
   const { atlasFilters } = useTheseus();
   const [activePanel, setActivePanel] = useState<PanelId>('ask');
-  const params = useSearchParams();
-  const lensNodeId = params?.get('node') ?? null;
-
   // Read active panel from the DOM attribute PanelManager writes.
   useEffect(() => {
     function update() {
@@ -116,18 +112,14 @@ export default function TheseusSidebar() {
             </button>
           ))}
 
-          {lensNodeId && (
-            <button
-              type="button"
-              className={`atlas-nav-item${activePanel === 'lens' ? ' active' : ''}`}
-              onClick={() => switchPanel('lens')}
-              aria-current={activePanel === 'lens' ? 'page' : undefined}
-            >
-              <span className="n">07</span>
-              <span>Lens: {lensNodeId}</span>
-              <span className="meta" />
-            </button>
-          )}
+          {/* Close-read Lens lives in the Explorer canvas's lens-row
+              tabs (see AtlasLensSwitcher); a sidebar entry would mix
+              a transient context-dependent view with permanent
+              destinations like Threads / Explorer / Notebook. The
+              `lensNodeId` URL param still drives the LensView fetch
+              and PanelManager swap, so deep links to ?view=lens&node=
+              keep working regardless of where the user landed there
+              from. */}
         </div>
 
         {/* Connected */}
