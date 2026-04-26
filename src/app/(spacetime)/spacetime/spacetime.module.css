@@ -117,7 +117,9 @@
    warm dark wash without losing the parchment-instrument feel. */
 .infoCard {
   position: absolute;
-  top: 28px;
+  /* Top edge sits below the home link (top: 16, ~26px tall with padding)
+     so the link has clear space and never overlaps the dark card. */
+  top: 52px;
   width: 332px;
   background: rgba(42, 36, 32, 0.62);
   backdrop-filter: blur(14px) saturate(1.05);
