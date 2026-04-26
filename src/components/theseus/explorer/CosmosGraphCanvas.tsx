@@ -1,6 +1,6 @@
 'use client';
 
-import { forwardRef, useCallback, useEffect, useImperativeHandle, useLayoutEffect, useMemo, useRef } from 'react';
+import { forwardRef, useCallback, useEffect, useImperativeHandle, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { Graph, defaultConfigValues } from '@cosmos.gl/graph';
 import type { GraphConfig } from '@cosmos.gl/graph';
 import {
@@ -84,7 +84,20 @@ const DRAG_REMOVE_THRESHOLD_PX = 120;
  *  single click instead. Matches browser default dblclick expectations. */
 const DOUBLE_CLICK_MS = 320;
 
-export type CosmosGraphCanvasHandle = GraphAdapter;
+/** Tier-1 focus dimming surface added on top of the GraphAdapter base.
+ *  Stage 5 ports the three-tier opacity / halo scheme from
+ *  references/atlas-explorer.jsx onto the cosmos.gl canvas. The setters
+ *  here are independent of the SceneDirective salience pipeline; they
+ *  drive a separate focus-dimming pass keyed off `focusedId` / `hoverId`. */
+export interface CosmosFocusDimmingSurface {
+  /** Set the focused node id, or null to clear focus. Triggers a
+   *  re-encoding of point colors / sizes via the focus dimming pass. */
+  setFocusedId(id: string | null): void;
+  /** Read the current focused node id (null when no focus). */
+  getFocusedId(): string | null;
+}
+
+export type CosmosGraphCanvasHandle = GraphAdapter & CosmosFocusDimmingSurface;
 
 // --- Buffer pools -------------------------------------------------------
 //
@@ -274,6 +287,20 @@ const CosmosGraphCanvas = forwardRef<CosmosGraphCanvasHandle, CosmosGraphCanvasP
     },
     ref,
   ) {
+    // Tier-1 focus dimming state (Stage 5). `focusedId` is the user's
+    // current point of attention; `hoverId` is the transient pointer
+    // target. Mirrored into refs so the imperative encoding path can
+    // read them without subscribing to React state. Setters update
+    // both the state (so the imperative handle reads it back via
+    // getFocusedId) and the ref (so the encoding pass sees the new
+    // value on the next render).
+    const [focusedId, setFocusedIdState] = useState<string | null>(null);
+    const [hoverId, setHoverIdState] = useState<string | null>(null);
+    const focusedIdRef = useRef<string | null>(null);
+    const hoverIdRef = useRef<string | null>(null);
+    focusedIdRef.current = focusedId;
+    hoverIdRef.current = hoverId;
+
     const containerRef = useRef<HTMLDivElement | null>(null);
     const overlayCanvasRef = useRef<HTMLCanvasElement | null>(null);
     const graphRef = useRef<Graph | null>(null);
@@ -1919,6 +1946,16 @@ const CosmosGraphCanvas = forwardRef<CosmosGraphCanvasHandle, CosmosGraphCanvasP
           // against the new lens state. Atlas positions are frozen, so
           // this single redraw is the truth until the next zoom / resize.
           drawOverlay();
+        },
+
+        // --- Tier-1 focus dimming surface (Stage 5) ------------------
+
+        setFocusedId(id: string | null) {
+          focusedIdRef.current = id;
+          setFocusedIdState(id);
+        },
+        getFocusedId() {
+          return focusedIdRef.current;
         },
       }),
       [
