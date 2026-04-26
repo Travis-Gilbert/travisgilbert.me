@@ -9,6 +9,8 @@ interface Props {
   onHoverId: (id: string | null) => void;
   showLabels: boolean;
   shellHover: 'inner' | 'middle' | 'outer' | null;
+  focusedTitle: string;
+  focusedDisplayId: string;
 }
 
 const ASPECT_Y = 0.92;
@@ -23,6 +25,8 @@ export default function LensShellRenderer({
   onHoverId,
   showLabels,
   shellHover,
+  focusedTitle,
+  focusedDisplayId,
 }: Props) {
   return (
     <g className="lens-shells">
@@ -229,6 +233,30 @@ export default function LensShellRenderer({
           opacity={0.9}
         />
       </g>
+
+      {/* Focal label and display id below the celestial pole. */}
+      <text
+        x={LENS_CENTER.x}
+        y={LENS_CENTER.y + 36}
+        textAnchor="middle"
+        fontFamily="var(--font-display)"
+        fontSize={15}
+        fill="var(--paper-ink)"
+      >
+        {focusedTitle}
+      </text>
+      <text
+        x={LENS_CENTER.x}
+        y={LENS_CENTER.y + 52}
+        textAnchor="middle"
+        fontFamily="var(--font-mono)"
+        fontSize={10}
+        letterSpacing="0.22em"
+        fill="var(--paper-pencil)"
+        opacity={0.6}
+      >
+        {focusedDisplayId}
+      </text>
     </g>
   );
 }
