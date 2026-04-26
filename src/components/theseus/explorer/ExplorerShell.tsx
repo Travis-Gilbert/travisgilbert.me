@@ -15,7 +15,10 @@ import AtlasScaleBar from './atlas/AtlasScaleBar';
 import AtlasNodeDetail from './atlas/AtlasNodeDetail';
 import GraphLegend from './GraphLegend';
 import { useGraphData, type CosmoLink, type CosmoPoint } from './useGraphData';
-import type { InstantKgStreamHandlers } from '@/lib/theseus/instantKg';
+import type {
+  InstantKgChunkEvent,
+  InstantKgStreamHandlers,
+} from '@/lib/theseus/instantKg';
 import { useEvidenceTextResolver, useLabelResolver } from './useLabelResolver';
 import {
   applySceneDirective,
@@ -111,6 +114,29 @@ function documentEventToPoint(event: {
     degree: 0,
   };
 }
+
+function chunkEventToPointAndLink(
+  event: InstantKgChunkEvent,
+): { point: CosmoPoint; link: CosmoLink } | null {
+  if (event.chunk_id == null || event.parent_object_id == null) return null;
+  return {
+    point: {
+      id: String(event.chunk_id),
+      label: `Chunk ${event.chunk_index}`,
+      type: 'chunk',
+      colorHex: '#9CA3AF',
+      degree: 1,
+    },
+    link: {
+      source: String(event.chunk_id),
+      target: String(event.parent_object_id),
+      weight: 1.0,
+      edge_type: 'part_of',
+      engine: 'instant_kg',
+    },
+  };
+}
+
 const ExplorerShell: FC = () => {
   const { atlasFilters } = useTheseus();
   const {
@@ -174,6 +200,14 @@ const ExplorerShell: FC = () => {
         setLiveAdditions((prev) => ({
           ...prev,
           points: mergePointsById(prev.points, [point]),
+        }));
+      },
+      onChunk(event) {
+        const wrapped = chunkEventToPointAndLink(event);
+        if (!wrapped) return;
+        setLiveAdditions((prev) => ({
+          points: mergePointsById(prev.points, [wrapped.point]),
+          links: [...prev.links, wrapped.link],
         }));
       },
       onEntity(event) {
