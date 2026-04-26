@@ -24,8 +24,6 @@ export default function LensShellRenderer({
   showLabels,
   shellHover,
 }: Props) {
-  void showLabels;
-
   return (
     <g className="lens-shells">
       {/* Concentric orbital rings with engraved meridian aesthetic. */}
@@ -65,6 +63,8 @@ export default function LensShellRenderer({
       {/* Neighbor halos + nuclei with shell-conditional opacity tiers. */}
       {layout.placed.map((nb) => {
         const isHover = nb.id === hoverId;
+        const isOuter = nb.shell === 'outer';
+        const showKindLabel = showLabels && (!isOuter || isHover);
         const baseR = 5;
         const haloR = baseR * (isHover ? 4.2 : nb.shell === 'inner' ? 3.2 : 2.6);
         const haloOp = isHover ? 0.85 : nb.shell === 'inner' ? 0.55 : 0.40;
@@ -101,6 +101,20 @@ export default function LensShellRenderer({
                 opacity={0.9}
                 pointerEvents="none"
               />
+            )}
+            {showKindLabel && (
+              <text
+                x={nb.x}
+                y={nb.y - 11}
+                textAnchor="middle"
+                fontFamily="var(--font-mono)"
+                fontSize={9}
+                fill="var(--paper-ink)"
+                opacity={0.85}
+                pointerEvents="none"
+              >
+                {nb.kind}
+              </text>
             )}
           </g>
         );
