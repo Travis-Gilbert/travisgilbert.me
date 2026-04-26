@@ -156,6 +156,17 @@ const ExplorerShell: FC = () => {
   }>({ points: [], links: [] });
   const [shellDragOver, setShellDragOver] = useState(false);
   const [pendingFiles, setPendingFiles] = useState<File[]>([]);
+  // Mirror liveAdditions into a ref so the instantKgHandlers useMemo can
+  // read the current set inside onComplete without taking liveAdditions
+  // as a dependency (which would re-build the handlers every event and
+  // restart the SSE subscription on the parent).
+  const liveAdditionsRef = useRef<{ points: CosmoPoint[]; links: CosmoLink[] }>({
+    points: [],
+    links: [],
+  });
+  useEffect(() => {
+    liveAdditionsRef.current = liveAdditions;
+  }, [liveAdditions]);
   const points = useMemo(
     () => mergePointsById(basePoints, liveAdditions.points),
     [basePoints, liveAdditions.points],
@@ -241,36 +252,54 @@ const ExplorerShell: FC = () => {
       },
       onComplete(event) {
         const adapter = canvasRef.current;
-        if (!adapter) return;
         const pivotPk = event.focus.pivot_object_id;
-        if (pivotPk == null) {
-          adapter.fitView();
-          return;
-        }
-        const pivotId = String(pivotPk);
+        const pivotId = pivotPk == null ? null : String(pivotPk);
         const neighborIds = event.focus.neighbors
           .map((n) => (n.object_id == null ? null : String(n.object_id)))
           .filter((s): s is string => Boolean(s));
 
-        applySceneDirectivePatch(adapter, {
-          focus: { ids: [pivotId, ...neighborIds] },
-          camera: {
-            kind: 'waypoints',
-            waypoints: [
-              { nodeId: pivotId, dwellMs: 1200, distanceFactor: 0.7, transitionMs: 600 },
-              ...neighborIds.map((nodeId) => ({
-                nodeId,
-                dwellMs: 800,
-                distanceFactor: 1.1,
-                transitionMs: 600,
-              })),
-            ],
-          },
-        });
+        if (adapter && pivotId) {
+          applySceneDirectivePatch(adapter, {
+            focus: { ids: [pivotId, ...neighborIds] },
+            camera: {
+              kind: 'waypoints',
+              waypoints: [
+                { nodeId: pivotId, dwellMs: 1200, distanceFactor: 0.7, transitionMs: 600 },
+                ...neighborIds.map((nodeId) => ({
+                  nodeId,
+                  dwellMs: 800,
+                  distanceFactor: 1.1,
+                  transitionMs: 600,
+                })),
+              ],
+            },
+          });
 
-        const newIds = [pivotId, ...neighborIds];
-        if (newIds.length > 0 && typeof adapter.revealEvidence === 'function') {
-          adapter.revealEvidence(newIds, { staggerMs: 80, durationMs: 600 });
+          const newIds = [pivotId, ...neighborIds];
+          if (newIds.length > 0 && typeof adapter.revealEvidence === 'function') {
+            adapter.revealEvidence(newIds, { staggerMs: 80, durationMs: 600 });
+          }
+        } else if (adapter && pivotId == null) {
+          adapter.fitView();
+        }
+
+        // Post-ingest hand-off: push ?view=lens&node=<pivot>&live_additions=...
+        // and emit theseus:switch-panel so the Stage 6 Lens panel mounts. The
+        // live_additions URL param lets a back-to-Explorer navigation
+        // re-hydrate the focus dimming over the just-ingested subgraph.
+        if (event.lens_target?.object_id != null && typeof window !== 'undefined') {
+          const lensId = String(event.lens_target.object_id);
+          const additions = liveAdditionsRef.current.points.map((p) => p.id).join(',');
+          const url = new URL(window.location.href);
+          url.searchParams.set('view', 'lens');
+          url.searchParams.set('node', lensId);
+          if (additions) {
+            url.searchParams.set('live_additions', additions);
+          }
+          window.history.pushState({}, '', url.toString());
+          window.dispatchEvent(
+            new CustomEvent('theseus:switch-panel', { detail: { panel: 'lens' } }),
+          );
         }
       },
       onError() {
