@@ -229,6 +229,23 @@ export async function instantKgStream(
     return () => {};
   }
 
+  const close = startInstantKgStream(streamUrl, handlers);
+  if (options.signal) {
+    options.signal.addEventListener('abort', close, { once: true });
+  }
+  return close;
+}
+
+/**
+ * Open an SSE EventSource against the instant-KG stream URL and route
+ * named events to the handler callbacks. Exposed as a named export so
+ * `captureApi.streamInstantKg` can reuse the same wiring without going
+ * through the multipart/JSON enqueue branch in `instantKgStream`.
+ */
+export function startInstantKgStream(
+  streamUrl: string,
+  handlers: InstantKgStreamHandlers,
+): () => void {
   const es = new EventSource(streamUrl);
 
   const safeParse = <T,>(raw: string, label: string): T | null => {
@@ -296,10 +313,6 @@ export async function instantKgStream(
     handlers.onError(parsed);
     es.close();
   });
-
-  if (options.signal) {
-    options.signal.addEventListener('abort', () => es.close(), { once: true });
-  }
 
   return () => es.close();
 }
