@@ -84,64 +84,22 @@ const DRAG_REMOVE_THRESHOLD_PX = 120;
  *  single click instead. Matches browser default dblclick expectations. */
 const DOUBLE_CLICK_MS = 320;
 
-// --- Tier-1 focus dimming constants (Stage 5) --------------------------
-//
-// Ports the three-tier opacity scheme from
-// references/atlas-explorer.jsx lines 393-419. The constants are
-// module-level (per CLAUDE.md "Default array/object props cause
-// infinite loops") so the per-frame encoder can compare against a
-// stable reference; the helper functions are pure data and reused
-// from any path that needs to reapply focus dimming.
-
-/** Per-tier point alpha (RGBA channel 3) when a focus is active.
- *  `defaultNoFocus` applies when no focusedId is set and no salience
- *  encoding is in flight; the value is intentionally below 1.0 so the
- *  ambient bloom reads as background context, not as the answer. */
-const TIER_OPACITIES = {
-  focused: 1.0,
-  neighbor: 0.75,
-  hover: 0.85,
-  dimmed: 0.25,
-  defaultNoFocus: 0.55,
-} as const;
-
-/** Per-tier size multiplier applied on top of the baseline degree-scaled
- *  size. Halo radii intentionally exceed 1x: cosmos.gl renders points
- *  as filled discs and the brass-halo look is achieved by the
- *  oversized fill at low alpha. */
-const TIER_SIZE_MULT = {
-  focused: 4.6,
-  neighbor: 3.0,
-  hover: 3.6,
-  dimmed: 2.4,
-  defaultNoFocus: 2.4,
-} as const;
-
-function focusOpacityFor(
-  pointId: string,
-  focusedId: string | null,
-  hoverId: string | null,
-  neighborIds: Set<string>,
-): number {
-  if (!focusedId) return TIER_OPACITIES.defaultNoFocus;
-  if (pointId === focusedId) return TIER_OPACITIES.focused;
-  if (pointId === hoverId) return TIER_OPACITIES.hover;
-  if (neighborIds.has(pointId)) return TIER_OPACITIES.neighbor;
-  return TIER_OPACITIES.dimmed;
-}
-
-function focusSizeMultFor(
-  pointId: string,
-  focusedId: string | null,
-  hoverId: string | null,
-  neighborIds: Set<string>,
-): number {
-  if (!focusedId) return TIER_SIZE_MULT.defaultNoFocus;
-  if (pointId === focusedId) return TIER_SIZE_MULT.focused;
-  if (pointId === hoverId) return TIER_SIZE_MULT.hover;
-  if (neighborIds.has(pointId)) return TIER_SIZE_MULT.neighbor;
-  return TIER_SIZE_MULT.dimmed;
-}
+// Tier-1 focus dimming constants and helpers live in focusDimming.ts so
+// they can be unit-tested in isolation (no cosmos.gl / theme imports).
+// Re-exported here so existing call sites that import from this module
+// keep working.
+export {
+  EDGE_TIER_COLORS,
+  TIER_OPACITIES,
+  TIER_SIZE_MULT,
+  focusOpacityFor,
+  focusSizeMultFor,
+  linkTierFor,
+} from './focusDimming';
+import {
+  focusOpacityFor,
+  focusSizeMultFor,
+} from './focusDimming';
 
 /** Tier-1 focus dimming surface added on top of the GraphAdapter base.
  *  Stage 5 ports the three-tier opacity / halo scheme from
