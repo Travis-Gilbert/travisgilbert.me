@@ -95,7 +95,7 @@ function relationEventToLink(event: {
     target: String(event.target_object_id),
     weight: event.weight,
     edge_type: event.edge_type,
-    engine: 'glirel',
+    engine: 'instant_kg',
   };
 }
 
