@@ -90,15 +90,11 @@ export const amarna = localFont({
   display: 'swap',
 });
 
-// Apple Gothic Latin subset — only used by the /spacetime page hover
-// marginalia. 22 KB; opentype.js re-serialized so Chrome's font sanitizer
-// accepts it (the original AppleGothic.ttf carries AAT-only `morx`/`feat`
-// tables that ship-blocked it).
-export const appleGothic = localFont({
-  src: '../../public/fonts/apple-gothic-subset.ttf',
-  variable: '--font-apple-gothic',
-  display: 'swap',
-});
+// Apple Gothic Latin subset previously declared here was used only by
+// the /spacetime page hover marginalia. The spacetime feature lives on
+// a separate branch (claude/spacetime-execution) and re-introduces the
+// font file plus this declaration; it stays out of the instant-kg
+// branch to keep the two PRs scope-isolated.
 
 export const fontVariableClasses = [
   vollkorn.variable,
@@ -113,5 +109,4 @@ export const fontVariableClasses = [
   literata.variable,
   lora.variable,
   amarna.variable,
-  appleGothic.variable,
 ].join(' ');

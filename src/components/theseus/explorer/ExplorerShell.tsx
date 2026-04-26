@@ -15,8 +15,10 @@ import AtlasScaleBar from './atlas/AtlasScaleBar';
 import AtlasNodeDetail from './atlas/AtlasNodeDetail';
 import GraphLegend from './GraphLegend';
 import { useGraphData, type CosmoLink, type CosmoPoint } from './useGraphData';
-import type { InstantKgStreamHandlers } from '@/lib/theseus/instantKg';
-import { instantKgStream } from '@/lib/theseus/instantKg';
+import type {
+  InstantKgChunkEvent,
+  InstantKgStreamHandlers,
+} from '@/lib/theseus/instantKg';
 import { useEvidenceTextResolver, useLabelResolver } from './useLabelResolver';
 import {
   applySceneDirective,
@@ -41,7 +43,7 @@ import type {
 } from '@/lib/theseus-viz/SceneDirective';
 
 /**
- * Atlas Explorer shell — warm-dark + paper-canvas blueprint surface.
+ * Atlas Explorer shell: warm-dark + paper-canvas blueprint surface.
  *
  * Layout model: the cosmos.gl canvas fills the main area; Atlas chrome
  * (plate label, ingest bar, node detail, graph controls, chat composer,
@@ -65,53 +67,109 @@ function mergePointsById(base: CosmoPoint[], additions: CosmoPoint[]): CosmoPoin
   return Array.from(seen.values());
 }
 
+// Default kind→color fallback used for instant-KG live additions. The
+// orchestrator does not ship `object_type_color` on its SSE events
+// (the base /objects/ endpoint does, see useGraphData.mapNode), so the
+// adapters below derive a defensible default that matches the site
+// design tokens for each kind family.
+const DEFAULT_LIVE_COLORS: Record<string, string> = {
+  source: '#C49A4A',
+  paper: '#C49A4A',
+  document: '#C49A4A',
+  person: '#2D5F6B',
+  concept: '#2D5F6B',
+  hunch: '#B45A2D',
+  note: '#B45A2D',
+  code: '#5A7A4A',
+  script: '#5A7A4A',
+  chunk: '#9CA3AF',
+};
+
+function colorForKind(kind: string | null | undefined): string {
+  const k = (kind || '').toLowerCase();
+  return DEFAULT_LIVE_COLORS[k] || '#9CA3AF';
+}
+
 function entityEventToPoint(event: {
   object_id: number | null;
-  label: string;
-  type: string;
-  color: string;
+  title: string;
+  object_type_slug: string;
 }): CosmoPoint | null {
   if (event.object_id == null) return null;
+  const kind = event.object_type_slug || TYPE_FALLBACK;
   return {
     id: String(event.object_id),
-    label: event.label,
-    type: event.type || TYPE_FALLBACK,
-    colorHex: event.color || '#2D5F6B',
+    label: event.title,
+    type: kind,
+    colorHex: colorForKind(kind),
     degree: 0,
   };
 }
 
 function relationEventToLink(event: {
-  source_object_id: number | null;
-  target_object_id: number | null;
-  edge_type: string;
-  weight: number;
+  edge: { source: number; target: number; edge_type: string; engine: string };
+  glirel_confidence?: number;
+  similarity?: number;
 }): CosmoLink | null {
-  if (event.source_object_id == null || event.target_object_id == null) return null;
+  if (event.edge?.source == null || event.edge?.target == null) return null;
+  // Confidence floor varies by event source: GLiREL ships glirel_confidence
+  // (relation_extracted) and the SBERT cross-doc path ships similarity
+  // (cross_doc_edge). Either lands on weight; the canvas treats it as
+  // the link's strength for force/render scaling.
+  const weight =
+    typeof event.glirel_confidence === 'number'
+      ? event.glirel_confidence
+      : typeof event.similarity === 'number'
+        ? event.similarity
+        : 0.5;
   return {
-    source: String(event.source_object_id),
-    target: String(event.target_object_id),
-    weight: event.weight,
-    edge_type: event.edge_type,
-    engine: 'glirel',
+    source: String(event.edge.source),
+    target: String(event.edge.target),
+    weight,
+    edge_type: event.edge.edge_type,
+    engine: event.edge.engine || 'instant_kg',
   };
 }
 
 function documentEventToPoint(event: {
   object_id: number | null;
   title: string;
-  object_type: string;
-  color: string;
+  object_type_slug: string;
 }): CosmoPoint | null {
   if (event.object_id == null) return null;
+  const kind = event.object_type_slug || 'source';
   return {
     id: String(event.object_id),
     label: event.title,
-    type: event.object_type || 'source',
-    colorHex: event.color || '#C49A4A',
+    type: kind,
+    colorHex: colorForKind(kind),
     degree: 0,
   };
 }
+
+function chunkEventToPointAndLink(
+  event: InstantKgChunkEvent,
+): { point: CosmoPoint; link: CosmoLink } | null {
+  if (event.object_id == null || event.parent_object_id == null) return null;
+  const label = event.title || `Chunk ${event.chunk_index}`;
+  return {
+    point: {
+      id: String(event.object_id),
+      label,
+      type: event.object_type_slug || 'chunk',
+      colorHex: colorForKind(event.object_type_slug || 'chunk'),
+      degree: 1,
+    },
+    link: {
+      source: String(event.object_id),
+      target: String(event.parent_object_id),
+      weight: 1.0,
+      edge_type: event.edge?.edge_type || 'part_of',
+      engine: event.edge?.engine || 'instant_kg',
+    },
+  };
+}
+
 const ExplorerShell: FC = () => {
   const { atlasFilters } = useTheseus();
   const {
@@ -130,6 +188,18 @@ const ExplorerShell: FC = () => {
     links: CosmoLink[];
   }>({ points: [], links: [] });
   const [shellDragOver, setShellDragOver] = useState(false);
+  const [pendingFiles, setPendingFiles] = useState<File[]>([]);
+  // Mirror liveAdditions into a ref so the instantKgHandlers useMemo can
+  // read the current set inside onComplete without taking liveAdditions
+  // as a dependency (which would re-build the handlers every event and
+  // restart the SSE subscription on the parent).
+  const liveAdditionsRef = useRef<{ points: CosmoPoint[]; links: CosmoLink[] }>({
+    points: [],
+    links: [],
+  });
+  useEffect(() => {
+    liveAdditionsRef.current = liveAdditions;
+  }, [liveAdditions]);
   const points = useMemo(
     () => mergePointsById(basePoints, liveAdditions.points),
     [basePoints, liveAdditions.points],
@@ -152,6 +222,36 @@ const ExplorerShell: FC = () => {
   const searchParams = useSearchParams();
   const focusPk = searchParams?.get('focus') ?? null;
   const focusAppliedRef = useRef<string | null>(null);
+  // Hydrate the dimming pass when the user navigates back from Lens.
+  // The Stage 4 onComplete handler appends `?live_additions=<id1,id2,...>`;
+  // re-seeding placeholder points lets the dimming layer keep them
+  // visible if the bulk graph load has not yet observed them. The
+  // hydratedRef gate keeps this a one-shot mount-time effect so it
+  // never cascades on subsequent param mutations.
+  const liveAdditionsParam = searchParams?.get('live_additions') ?? '';
+  const liveAdditionsHydratedRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (!liveAdditionsParam) return;
+    if (liveAdditionsHydratedRef.current === liveAdditionsParam) return;
+    const ids = liveAdditionsParam.split(',').filter(Boolean);
+    if (ids.length === 0) return;
+    liveAdditionsHydratedRef.current = liveAdditionsParam;
+    // Mount-time URL hydration; the hydratedRef gate prevents cascade.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setLiveAdditions((prev) => ({
+      points: mergePointsById(
+        prev.points,
+        ids.map((id) => ({
+          id,
+          label: '',
+          type: TYPE_FALLBACK,
+          colorHex: '#9CA3AF',
+          degree: 0,
+        })),
+      ),
+      links: prev.links,
+    }));
+  }, [liveAdditionsParam]);
 
   const resolveLabelText = useLabelResolver(points);
   const resolveEvidenceText = useEvidenceTextResolver(points);
@@ -176,6 +276,14 @@ const ExplorerShell: FC = () => {
           points: mergePointsById(prev.points, [point]),
         }));
       },
+      onChunk(event) {
+        const wrapped = chunkEventToPointAndLink(event);
+        if (!wrapped) return;
+        setLiveAdditions((prev) => ({
+          points: mergePointsById(prev.points, [wrapped.point]),
+          links: [...prev.links, wrapped.link],
+        }));
+      },
       onEntity(event) {
         const point = entityEventToPoint(event);
         if (!point) return;
@@ -194,10 +302,8 @@ const ExplorerShell: FC = () => {
       },
       onCrossDocEdge(event) {
         const link = relationEventToLink({
-          source_object_id: event.source_object_id,
-          target_object_id: event.target_object_id,
-          edge_type: event.edge_type,
-          weight: event.weight,
+          edge: event.edge,
+          similarity: event.similarity,
         });
         if (!link) return;
         setLiveAdditions((prev) => ({
@@ -207,36 +313,54 @@ const ExplorerShell: FC = () => {
       },
       onComplete(event) {
         const adapter = canvasRef.current;
-        if (!adapter) return;
         const pivotPk = event.focus.pivot_object_id;
-        if (pivotPk == null) {
-          adapter.fitView();
-          return;
-        }
-        const pivotId = String(pivotPk);
+        const pivotId = pivotPk == null ? null : String(pivotPk);
         const neighborIds = event.focus.neighbors
           .map((n) => (n.object_id == null ? null : String(n.object_id)))
           .filter((s): s is string => Boolean(s));
 
-        applySceneDirectivePatch(adapter, {
-          focus: { ids: [pivotId, ...neighborIds] },
-          camera: {
-            kind: 'waypoints',
-            waypoints: [
-              { nodeId: pivotId, dwellMs: 1200, distanceFactor: 0.7, transitionMs: 600 },
-              ...neighborIds.map((nodeId) => ({
-                nodeId,
-                dwellMs: 800,
-                distanceFactor: 1.1,
-                transitionMs: 600,
-              })),
-            ],
-          },
-        });
+        if (adapter && pivotId) {
+          applySceneDirectivePatch(adapter, {
+            focus: { ids: [pivotId, ...neighborIds] },
+            camera: {
+              kind: 'waypoints',
+              waypoints: [
+                { nodeId: pivotId, dwellMs: 1200, distanceFactor: 0.7, transitionMs: 600 },
+                ...neighborIds.map((nodeId) => ({
+                  nodeId,
+                  dwellMs: 800,
+                  distanceFactor: 1.1,
+                  transitionMs: 600,
+                })),
+              ],
+            },
+          });
 
-        const newIds = [pivotId, ...neighborIds];
-        if (newIds.length > 0 && typeof adapter.revealEvidence === 'function') {
-          adapter.revealEvidence(newIds, { staggerMs: 80, durationMs: 600 });
+          const newIds = [pivotId, ...neighborIds];
+          if (newIds.length > 0 && typeof adapter.revealEvidence === 'function') {
+            adapter.revealEvidence(newIds, { staggerMs: 80, durationMs: 600 });
+          }
+        } else if (adapter && pivotId == null) {
+          adapter.fitView();
+        }
+
+        // Post-ingest hand-off: push ?view=lens&node=<pivot>&live_additions=...
+        // and emit theseus:switch-panel so the Stage 6 Lens panel mounts. The
+        // live_additions URL param lets a back-to-Explorer navigation
+        // re-hydrate the focus dimming over the just-ingested subgraph.
+        if (event.lens_target?.object_id != null && typeof window !== 'undefined') {
+          const lensId = String(event.lens_target.object_id);
+          const additions = liveAdditionsRef.current.points.map((p) => p.id).join(',');
+          const url = new URL(window.location.href);
+          url.searchParams.set('view', 'lens');
+          url.searchParams.set('node', lensId);
+          if (additions) {
+            url.searchParams.set('live_additions', additions);
+          }
+          window.history.pushState({}, '', url.toString());
+          window.dispatchEvent(
+            new CustomEvent('theseus:switch-panel', { detail: { panel: 'lens' } }),
+          );
         }
       },
       onError() {
@@ -266,6 +390,38 @@ const ExplorerShell: FC = () => {
     container.addEventListener('dblclick', onDblClick);
     return () => container.removeEventListener('dblclick', onDblClick);
   }, [lens, handleLensChange]);
+
+  // Keyboard `L` opens the focused node in the Tier 2 Lens. The handler
+  // reads the canvas's `getFocusedId()` first (covers programmatic focus
+  // applied by ExplorerAskComposer) and falls back to `selectedId` (set
+  // by user click). Pushes `?view=lens&node=<id>` and dispatches the
+  // theseus:switch-panel event so PanelManager mounts the Lens panel.
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) {
+      if (e.key !== 'l' && e.key !== 'L') return;
+      // Skip when typing in an input / contentEditable so the chat
+      // composer doesn't lose its `l` keystroke.
+      const target = e.target as HTMLElement | null;
+      if (target) {
+        const tag = target.tagName;
+        if (tag === 'INPUT' || tag === 'TEXTAREA' || target.isContentEditable) {
+          return;
+        }
+      }
+      const focusedId =
+        canvasRef.current?.getFocusedId?.() ?? selectedId ?? null;
+      if (!focusedId) return;
+      const url = new URL(window.location.href);
+      url.searchParams.set('view', 'lens');
+      url.searchParams.set('node', focusedId);
+      window.history.pushState({}, '', url.toString());
+      window.dispatchEvent(
+        new CustomEvent('theseus:switch-panel', { detail: { panel: 'lens' } }),
+      );
+    }
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [selectedId]);
 
   // Honor ?focus=<pk> on mount so the Reflex page's "Back to Explorer"
   // link lands on a focused node. Runs once per (focus, points) pair so
@@ -382,39 +538,19 @@ const ExplorerShell: FC = () => {
   // combined). Directive label and selection take precedence when set.
   const plateTitle = directiveLabel ?? (selectedNode?.label ?? atlasFilters.scopeLabel);
 
-  // Drop zone: dropping files anywhere on the canvas surface dispatches
-  // a fresh instant-KG SSE stream per file. The composer is the visual
-  // entry point for paste-from-clipboard and explicit drag-onto-input;
-  // this wider zone exists because the empty-state copy promises
-  // "Drop files anywhere on this surface to ingest."
+  // Drop zone: dropping files anywhere on the canvas surface forwards
+  // them to the composer's pendingFiles state so the user can review or
+  // remove attachments before submitting. The composer owns the actual
+  // streamInstantKg dispatch via its existing routing fork.
   const handleShellDrop = useCallback(
     (event: DragEvent<HTMLDivElement>) => {
       if (!event.dataTransfer.files || event.dataTransfer.files.length === 0) return;
       event.preventDefault();
       setShellDragOver(false);
       const files = Array.from(event.dataTransfer.files);
-      // Phase 1 backend rejects file mode (multipart arrives in Phase 4).
-      // Until that lands, surface the first file's name as a "would
-      // ingest" placeholder via instantKgStream's own error handler.
-      for (const file of files) {
-        const controller = new AbortController();
-        instantKgStream(
-          { mode: 'file', file },
-          { signal: controller.signal },
-          {
-            onComplete: (e) => instantKgHandlers.onComplete(e),
-            onDocument: instantKgHandlers.onDocument,
-            onChunk: instantKgHandlers.onChunk,
-            onEntity: instantKgHandlers.onEntity,
-            onRelation: instantKgHandlers.onRelation,
-            onCrossDocEdge: instantKgHandlers.onCrossDocEdge,
-            onStage: instantKgHandlers.onStage,
-            onError: instantKgHandlers.onError ?? (() => {}),
-          },
-        );
-      }
+      setPendingFiles(files);
     },
-    [instantKgHandlers],
+    [],
   );
 
   return (
@@ -561,7 +697,7 @@ const ExplorerShell: FC = () => {
         </div>
       )}
 
-      {/* Atlas chrome — absolutely positioned over the canvas. */}
+      {/* Atlas chrome: absolutely positioned over the canvas. */}
       <AtlasPlateLabel
         title={plateTitle}
         nodes={points.length}
@@ -608,6 +744,43 @@ const ExplorerShell: FC = () => {
         <AtlasNodeDetail node={selectedNode} onClose={() => setSelectedId(null)} />
       )}
 
+      {/* Forward-to-Lens button surfaces only when a node is focused. */}
+      {selectedId && (
+        <button
+          type="button"
+          className="atlas-focus-to-lens"
+          onClick={() => {
+            const url = new URL(window.location.href);
+            url.searchParams.set('view', 'lens');
+            url.searchParams.set('node', selectedId);
+            window.history.pushState({}, '', url.toString());
+            window.dispatchEvent(
+              new CustomEvent('theseus:switch-panel', {
+                detail: { panel: 'lens' },
+              }),
+            );
+          }}
+          style={{
+            position: 'absolute',
+            top: 14,
+            right: 14,
+            zIndex: 5,
+            fontFamily: 'var(--font-mono)',
+            fontSize: 11,
+            letterSpacing: '0.18em',
+            textTransform: 'uppercase',
+            padding: '6px 12px',
+            background: 'var(--paper)',
+            border: '1px solid var(--paper-rule)',
+            color: 'var(--paper-ink)',
+            cursor: 'pointer',
+          }}
+          title="Press L to open the focused node in the Lens close-read view"
+        >
+          Open in Lens
+        </button>
+      )}
+
       {/* Ask composer wraps in .atlas-chat for the paper floating card. */}
       <div
         className="atlas-chat"
@@ -622,10 +795,12 @@ const ExplorerShell: FC = () => {
           resolveLabelText={resolveLabelText}
           resolveEvidenceText={resolveEvidenceText}
           onInstantKg={instantKgHandlers}
+          pendingFiles={pendingFiles}
+          onConsumePendingFiles={() => setPendingFiles([])}
         />
       </div>
 
-      {/* Measure strip — collapsible, hosts the three Mosaic widgets. */}
+      {/* Measure strip: collapsible, hosts the three Mosaic widgets. */}
       {canRenderCanvas && measureOpen && (
         <div
           style={{

@@ -80,7 +80,7 @@ export interface CaptureCompleteDetail {
    *  ingest bar filter on this so they only react to their own
    *  submissions, not every capture across the app. */
   source?: string;
-  /** Display label — for URL captures this is the URL, for file
+  /** Display label: for URL captures this is the URL, for file
    *  captures the filename. Optional. */
   label?: string;
   /** Error message when ``status === 'error'``. */

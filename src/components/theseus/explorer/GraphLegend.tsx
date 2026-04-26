@@ -4,6 +4,10 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { FC } from 'react';
 import { clausePoints } from '@uwdata/mosaic-core';
 import { typeSelection } from '@/lib/theseus/mosaic/coordinator';
+import {
+  loadEdgeTypeMeta,
+  type EdgeTypeMeta,
+} from '@/components/theseus/lens/edgeTypeMeta';
 import type { CosmoPoint } from './useGraphData';
 
 interface GraphLegendProps {
@@ -33,7 +37,32 @@ const GraphLegend: FC<GraphLegendProps> = ({ points }) => {
   // round trip.
   const [activeTypes, setActiveTypes] = useState<Set<string> | null>(null);
 
-  const entries = useMemo(() => {
+  // Edge type metadata cache (Stage 5 Task 5.13). The legend's chips
+  // are NODE types, not edge types, so this fetch primarily warms the
+  // shared cache used by the Lens classifyShell (Stage 6). When edge
+  // type metadata also covers a node type slug we fall through to the
+  // backend display_label for the chip's title attribute, which gives
+  // the legend honest labels without overriding the type identity.
+  const [edgeMeta, setEdgeMeta] = useState<Map<string, EdgeTypeMeta> | null>(null);
+  useEffect(() => {
+    let cancelled = false;
+    loadEdgeTypeMeta().then((m) => {
+      if (!cancelled) setEdgeMeta(m);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  // Aggregate over the rendered points to produce both:
+  //   - visibleTypes: the distinct type set (Stage 5 Task 5.12 honest
+  //     dynamic legend; matches what is on the canvas right now, not
+  //     a hardcoded ontology).
+  //   - entries: type -> { color, count } pairs, sorted by count desc
+  //     so the most prevalent types render first. The two derive from
+  //     the same single pass; we just expose visibleTypes separately
+  //     for the empty-state gate (Task 5.15).
+  const { visibleTypes, entries } = useMemo(() => {
     const byType = new Map<string, { color: string; count: number }>();
     const list = Array.isArray(points) ? points : [];
     for (const p of list) {
@@ -41,7 +70,10 @@ const GraphLegend: FC<GraphLegendProps> = ({ points }) => {
       if (existing) existing.count += 1;
       else byType.set(p.type, { color: p.colorHex, count: 1 });
     }
-    return Array.from(byType.entries()).sort((a, b) => b[1].count - a[1].count);
+    const types = Array.from(byType.keys()).sort();
+    const sortedEntries = Array.from(byType.entries())
+      .sort((a, b) => b[1].count - a[1].count);
+    return { visibleTypes: types, entries: sortedEntries };
   }, [points]);
 
   // Publish the active set into Mosaic. When the set is null or empty we
@@ -87,7 +119,13 @@ const GraphLegend: FC<GraphLegendProps> = ({ points }) => {
     });
   }, [publishSelection]);
 
-  if (entries.length === 0) return null;
+  // Per CLAUDE.md "Empty states are honest, not cosmetic": when no
+  // points are visible we render nothing. Do NOT add placeholder
+  // chips like "person", "concept", etc.; they imply the graph
+  // contains those types when it does not. visibleTypes derives
+  // from the rendered points (Task 5.12); an empty graph yields an
+  // empty legend, not a fake ontology preview.
+  if (visibleTypes.length === 0) return null;
 
   const anyActive = activeTypes !== null && activeTypes.size > 0;
 
@@ -116,12 +154,18 @@ const GraphLegend: FC<GraphLegendProps> = ({ points }) => {
       {entries.slice(0, 10).map(([type, { color, count }]) => {
         const isActive = anyActive && activeTypes!.has(type);
         const isDimmed = anyActive && !isActive;
+        // Prefer the backend display_label when the edge-types
+        // endpoint covers this slug; fall through to the slug
+        // otherwise. Stays in the title (tooltip) so the chip's
+        // visible text remains the canonical type slug for
+        // unambiguous filter targeting.
+        const label = edgeMeta?.get(type)?.display_label ?? type;
         return (
           <button
             key={type}
             type="button"
             aria-pressed={isActive}
-            title={`${type} (${count})`}
+            title={`${label} (${count})`}
             onClick={(e) => handleClick(type, e.shiftKey)}
             style={{
               display: 'inline-flex',

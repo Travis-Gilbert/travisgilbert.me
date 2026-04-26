@@ -22,77 +22,122 @@ export interface InstantKgStreamHandlers {
   onRelation?: (event: InstantKgRelationEvent) => void;
   onCrossDocEdge?: (event: InstantKgCrossDocEvent) => void;
   onComplete: (event: InstantKgCompleteEvent) => void;
-  onError: (error: { message: string; transient: boolean }) => void;
+  onTensionProposed?: (event: InstantKgTensionProposedEvent) => void;
+  onError: (error: { message: string; transient: boolean; stage?: string; fallback_used?: string | null }) => void;
+}
+
+// Wire shapes match the backend orchestrator at
+// apps/notebook/services/extraction/instant_kg.py exactly. Every field
+// name and nesting depth is what the SSE payload actually carries.
+// Earlier versions of these types invented friendlier names that the
+// backend never emitted, leaving the canvas blank on every ingestion.
+
+export interface InstantKgEdgePayload {
+  source: number;
+  target: number;
+  edge_type: string;
+  engine: string;
+  reason: string;
+}
+
+export interface InstantKgFetchProvenance {
+  tier:
+    | 'tavily'
+    | 'trafilatura'
+    | 'native_parser'
+    | 'youtube_transcript_api'
+    | 'pymupdf_fallback';
+  tavily_credits_used: number | null;
+  fallback_reason: string | null;
 }
 
 export interface InstantKgDocumentEvent {
   object_id: number | null;
   title: string;
   url: string | null;
-  object_type: string;
-  color: string;
+  object_type_slug: string;
+  source_system: string;
+  fetch_provenance: InstantKgFetchProvenance;
 }
 
 export interface InstantKgChunkEvent {
-  chunk_id: number | null;
+  object_id: number | null;
   parent_object_id: number | null;
   chunk_index: number;
-  text_preview: string;
+  title: string;
+  body_preview: string;
+  start_offset: number;
+  end_offset: number;
+  object_type_slug: string;
+  edge: InstantKgEdgePayload;
+}
+
+export interface InstantKgTensionProposedEvent {
+  tension_id: number;
+  tension_type: 'spec_drift';
+  scope: {
+    proposing_model: string;
+    original_surface_form: string;
+    source_chunk_object_id: number;
+    glirel_confidence: number;
+    proposed_relation: { subject: string; predicate: string; object: string };
+  };
 }
 
 export interface InstantKgEntityEvent {
   object_id: number | null;
+  source_chunk_object_id: number | null;
+  title: string;
+  // Char offsets and raw label preserved through the orchestrator so
+  // Modal extract_relations can reach token positions. See
+  // apps/notebook/services/extraction/instant_kg.py:_capture_entity.
+  text: string;
   label: string;
-  type: string;
-  color: string;
-  source_chunk_id: number | null;
-  score: number;
-  is_new_object: boolean;
+  start: number;
+  end: number;
+  object_type_slug: string;
+  resolved: boolean;
+  resolved_to_existing_object_id: number | null;
+  gliner_confidence: number;
 }
 
-export type InstantKgRelationRoute =
-  | 'glirel'
-  | 'open_extras'
-  | 'open_extras_pending';
-
 export interface InstantKgRelationEvent {
-  edge_id: number | null;
-  source_object_id: number | null;
-  target_object_id: number | null;
-  edge_type: string;
-  weight: number;
-  source_chunk_id: number | null;
-  score: number;
-  route: InstantKgRelationRoute;
+  edge: InstantKgEdgePayload;
+  source_chunk_object_id: number | null;
+  glirel_confidence: number;
+  is_open_extras_candidate: boolean;
 }
 
 export interface InstantKgCrossDocEvent {
-  edge_id: number | null;
-  source_object_id: number | null;
-  target_object_id: number | null;
-  edge_type: string;
-  weight: number;
-  sbert_score: number;
+  edge: InstantKgEdgePayload;
+  similarity: number;
 }
 
 export interface InstantKgFocusNeighbor {
   object_id: number | null;
-  ppr_score: number;
+  edge_type?: string;
+  reason?: string;
 }
 
 export interface InstantKgCompleteEvent {
-  document_object_id: number | null;
+  job_id: string;
+  summary: {
+    document_object_id: number | null;
+    chunk_count: number;
+    entity_count: number;
+    relation_count: number;
+    cross_doc_edge_count: number;
+    duration_ms: number;
+  };
   focus: {
     pivot_object_id: number | null;
     neighbors: InstantKgFocusNeighbor[];
   };
-  totals: {
-    chunks: number;
-    entities: number;
-    relations: number;
-    cross_doc_edges: number;
-    open_extras_proposals?: number;
+  camera: {
+    kind: 'waypoints';
+    waypoints: { object_id: number; duration_ms: number }[];
   };
+  lens_target: { object_id: number; view: 'lens' };
 }
 
 export type InstantKgMode = 'url' | 'file' | 'text';
@@ -108,6 +153,33 @@ export interface InstantKgRequest {
 
 export interface InstantKgStreamOptions {
   signal?: AbortSignal;
+}
+
+// Per CLAUDE.md gotcha "SSE error event carries a JSON payload": the
+// backend emits event: error\ndata: {"error": "...", "stage": "...",
+// "fallback_used": "..."}. We export the parser so unit tests can
+// validate parity without spinning up an EventSource.
+export function _parseErrorPayload(raw: string): {
+  message: string;
+  transient: boolean;
+  stage?: string;
+  fallback_used?: string | null;
+} {
+  try {
+    const obj = JSON.parse(raw) as {
+      error?: string;
+      stage?: string;
+      fallback_used?: string | null;
+    };
+    return {
+      message: obj.error ?? raw,
+      transient: false,
+      stage: obj.stage,
+      fallback_used: obj.fallback_used ?? null,
+    };
+  } catch {
+    return { message: raw, transient: false };
+  }
 }
 
 export async function instantKgStream(
@@ -170,6 +242,23 @@ export async function instantKgStream(
     return () => {};
   }
 
+  const close = startInstantKgStream(streamUrl, handlers);
+  if (options.signal) {
+    options.signal.addEventListener('abort', close, { once: true });
+  }
+  return close;
+}
+
+/**
+ * Open an SSE EventSource against the instant-KG stream URL and route
+ * named events to the handler callbacks. Exposed as a named export so
+ * `captureApi.streamInstantKg` can reuse the same wiring without going
+ * through the multipart/JSON enqueue branch in `instantKgStream`.
+ */
+export function startInstantKgStream(
+  streamUrl: string,
+  handlers: InstantKgStreamHandlers,
+): () => void {
   const es = new EventSource(streamUrl);
 
   const safeParse = <T,>(raw: string, label: string): T | null => {
@@ -211,6 +300,15 @@ export async function instantKgStream(
     if (data) handlers.onCrossDocEdge?.(data);
   });
 
+  es.addEventListener('tension_proposed', (e) => {
+    if (!handlers.onTensionProposed) return;
+    const data = safeParse<InstantKgTensionProposedEvent>(
+      (e as MessageEvent).data,
+      'tension_proposed',
+    );
+    if (data) handlers.onTensionProposed(data);
+  });
+
   es.addEventListener('complete', (e) => {
     const data = safeParse<InstantKgCompleteEvent>((e as MessageEvent).data, 'complete');
     if (data) handlers.onComplete(data);
@@ -221,19 +319,13 @@ export async function instantKgStream(
     // Named SSE 'error' frames carry a JSON payload; the built-in
     // EventSource 'error' (connection drop) does not.
     const raw = (e as MessageEvent).data;
-    let message = 'Stream error';
-    if (typeof raw === 'string' && raw.length > 0) {
-      const parsed = safeParse<{ error?: string; message?: string }>(raw, 'error');
-      if (parsed?.error) message = parsed.error;
-      else if (parsed?.message) message = parsed.message;
-    }
-    handlers.onError({ message, transient: true });
+    const parsed =
+      typeof raw === 'string' && raw.length > 0
+        ? _parseErrorPayload(raw)
+        : { message: 'Stream error', transient: true };
+    handlers.onError(parsed);
     es.close();
   });
-
-  if (options.signal) {
-    options.signal.addEventListener('abort', () => es.close(), { once: true });
-  }
 
   return () => es.close();
 }

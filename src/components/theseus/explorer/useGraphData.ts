@@ -69,7 +69,7 @@ export interface UseGraphDataOptions {
   /** Atlas surface overlay toggles. Codd Graph ON restricts the canvas
    *  to code-kind / code-sourced nodes so the user sees the code slice
    *  of the graph. Theseus / Theorem Web overlays are held as metadata
-   *  for the plate label for now — the data layer backing them will
+   *  for the plate label for now; the data layer backing them will
    *  arrive in a later pass. */
   surfaces?: AtlasSurfaces;
   /** Baseline scope. `combined` (default) renders the full corpus plus
@@ -78,7 +78,7 @@ export interface UseGraphDataOptions {
   scope?: GraphScope;
 }
 
-/** Atlas "code" taxonomy — kinds or object-types that count as code when
+/** Atlas "code" taxonomy: kinds or object-types that count as code when
  *  the Code Graph overlay is on. Matches the Atlas KINDS map. */
 const CODE_TYPE_HINTS = new Set(['code', 'github', 'repo', 'commit', 'symbol']);
 /** Kinds we know how to filter on; types outside this set are never

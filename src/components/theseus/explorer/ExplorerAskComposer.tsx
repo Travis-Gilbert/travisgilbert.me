@@ -9,8 +9,8 @@ import { Choreographer } from '@/lib/theseus-viz/Choreographer';
 import { type GraphAdapter } from '@/lib/theseus/cosmograph/adapter';
 import VisualRenderer from '@/components/theseus/visuals/VisualRenderer';
 import { classifyComposerInput } from '@/lib/theseus/composerInputDetect';
-import { instantKgStream } from '@/lib/theseus/instantKg';
 import type { InstantKgStreamHandlers } from '@/lib/theseus/instantKg';
+import { streamInstantKg } from '@/components/theseus/capture/captureApi';
 
 interface ExplorerAskComposerProps {
   /** Ref to the live canvas so the TF.js-derived SceneDirective can drive
@@ -26,6 +26,12 @@ interface ExplorerAskComposerProps {
    *  accumulate points / links on the canvas. Plain text continues to
    *  route through askTheseusAsyncStream and bypasses these handlers. */
   onInstantKg?: InstantKgStreamHandlers;
+  /** Files dropped onto the broader canvas surface (outside the chat
+   *  input). Merged with composer-local picker selection on submit. */
+  pendingFiles?: File[];
+  /** Called after the composer has consumed `pendingFiles` and started
+   *  a stream, so the parent can clear its drop-zone state. */
+  onConsumePendingFiles?: () => void;
 }
 
 function stageToLabel(event: StageEvent): string {
@@ -66,6 +72,8 @@ const ExplorerAskComposer: FC<ExplorerAskComposerProps> = ({
   resolveLabelText,
   resolveEvidenceText,
   onInstantKg,
+  pendingFiles: parentPendingFiles,
+  onConsumePendingFiles,
 }) => {
   const [query, setQuery] = useState('');
   const [isAsking, setIsAsking] = useState(false);
@@ -111,7 +119,11 @@ const ExplorerAskComposer: FC<ExplorerAskComposerProps> = ({
       e.preventDefault();
       if (isAsking) return;
 
-      const classified = classifyComposerInput(query, pendingFiles);
+      const mergedFiles =
+        parentPendingFiles && parentPendingFiles.length > 0
+          ? [...pendingFiles, ...parentPendingFiles]
+          : pendingFiles;
+      const classified = classifyComposerInput(query, mergedFiles);
       if (classified.kind === 'text' && !classified.text) return;
 
       abortRef.current?.abort();
@@ -127,12 +139,17 @@ const ExplorerAskComposer: FC<ExplorerAskComposerProps> = ({
       setExpanded(true);
       setStructuredVisual(null);
 
-      if (classified.kind === 'url' || classified.kind === 'file') {
+      if (
+        classified.kind === 'url' ||
+        classified.kind === 'youtube' ||
+        classified.kind === 'file'
+      ) {
         runInstantKg(
           { kind: classified.kind, text: classified.text, files: classified.files },
           controller.signal,
         );
         setPendingFiles([]);
+        onConsumePendingFiles?.();
         setQuery('');
         return;
       }
@@ -194,12 +211,12 @@ const ExplorerAskComposer: FC<ExplorerAskComposerProps> = ({
         // onError has already fired
       });
     },
-    [query, isAsking, choreographer, tool, pendingFiles],
+    [query, isAsking, choreographer, tool, pendingFiles, parentPendingFiles, onConsumePendingFiles],
   );
 
   const runInstantKg = useCallback(
     (
-      classified: { kind: 'url' | 'file'; text: string; files: File[] },
+      classified: { kind: 'url' | 'youtube' | 'file'; text: string; files: File[] },
       signal: AbortSignal,
     ) => {
       const parentHandlers = onInstantKgRef.current;
@@ -210,7 +227,13 @@ const ExplorerAskComposer: FC<ExplorerAskComposerProps> = ({
       const handlers: InstantKgStreamHandlers = {
         onStage(stage) {
           if (stage.name === 'pipeline_start') {
-            setStageLabel(classified.kind === 'url' ? 'Reading URL…' : 'Reading file…');
+            setStageLabel(
+              classified.kind === 'file'
+                ? 'Reading file…'
+                : classified.kind === 'youtube'
+                ? 'Reading YouTube transcript…'
+                : 'Reading URL…',
+            );
           }
           parentHandlers?.onStage?.(stage);
         },
@@ -246,15 +269,19 @@ const ExplorerAskComposer: FC<ExplorerAskComposerProps> = ({
         },
         onComplete(event) {
           completedRef.current = true;
-          const totals = event.totals;
+          // Backend nests totals under `summary` (per
+          // apps/notebook/services/extraction/instant_kg.py:summary). The
+          // older flat `totals` shape was a frontend-side fiction that
+          // crashed every successful ingestion before this fix.
+          const summary = event.summary;
           setStageLabel('');
           setAnswer(
-            `Captured ${totals.chunks} chunk${totals.chunks === 1 ? '' : 's'}, ` +
-              `${totals.entities} entit${totals.entities === 1 ? 'y' : 'ies'}, ` +
-              `${totals.relations} relation${totals.relations === 1 ? '' : 's'}` +
-              (totals.cross_doc_edges
-                ? `, ${totals.cross_doc_edges} cross-doc link${
-                    totals.cross_doc_edges === 1 ? '' : 's'
+            `Captured ${summary.chunk_count} chunk${summary.chunk_count === 1 ? '' : 's'}, ` +
+              `${summary.entity_count} entit${summary.entity_count === 1 ? 'y' : 'ies'}, ` +
+              `${summary.relation_count} relation${summary.relation_count === 1 ? '' : 's'}` +
+              (summary.cross_doc_edge_count
+                ? `, ${summary.cross_doc_edge_count} cross-doc link${
+                    summary.cross_doc_edge_count === 1 ? '' : 's'
                   }`
                 : ''),
           );
@@ -272,14 +299,32 @@ const ExplorerAskComposer: FC<ExplorerAskComposerProps> = ({
         },
       };
 
-      const request =
-        classified.kind === 'file'
-          ? { mode: 'file' as const, file: classified.files[0] ?? null }
-          : { mode: 'url' as const, text: classified.text };
-
-      instantKgStream(request, { signal }, handlers).catch(() => {
-        // onError already fired
-      });
+      streamInstantKg(
+        {
+          input: classified.text,
+          kind: classified.kind,
+          files: classified.kind === 'file' ? classified.files : undefined,
+        },
+        handlers,
+      )
+        .then(({ close }) => {
+          // Caller may abort the request while the SSE stream is open;
+          // wire AbortSignal.abort to close the EventSource cleanly.
+          if (signal.aborted) {
+            close();
+            return;
+          }
+          signal.addEventListener('abort', close, { once: true });
+        })
+        .catch((err: unknown) => {
+          if (completedRef.current) return;
+          const message = err instanceof Error ? err.message : 'Failed to start instant-kg';
+          setError(message);
+          setStageLabel('');
+          setIsAsking(false);
+          abortRef.current = null;
+          parentHandlers?.onError?.({ message, transient: true });
+        });
     },
     [],
   );

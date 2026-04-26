@@ -1,6 +1,6 @@
 'use client';
 
-import { forwardRef, useCallback, useEffect, useImperativeHandle, useLayoutEffect, useMemo, useRef } from 'react';
+import { forwardRef, useCallback, useEffect, useImperativeHandle, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { Graph, defaultConfigValues } from '@cosmos.gl/graph';
 import type { GraphConfig } from '@cosmos.gl/graph';
 import {
@@ -84,7 +84,44 @@ const DRAG_REMOVE_THRESHOLD_PX = 120;
  *  single click instead. Matches browser default dblclick expectations. */
 const DOUBLE_CLICK_MS = 320;
 
-export type CosmosGraphCanvasHandle = GraphAdapter;
+// Tier-1 focus dimming constants and helpers live in focusDimming.ts so
+// they can be unit-tested in isolation (no cosmos.gl / theme imports).
+// Re-exported here so existing call sites that import from this module
+// keep working.
+export {
+  EDGE_TIER_COLORS,
+  TIER_OPACITIES,
+  TIER_SIZE_MULT,
+  focusOpacityFor,
+  focusSizeMultFor,
+  linkTierFor,
+} from './focusDimming';
+import {
+  EDGE_TIER_COLORS,
+  focusOpacityFor,
+  focusSizeMultFor,
+  linkTierFor,
+} from './focusDimming';
+
+/** Tier-1 focus dimming surface added on top of the GraphAdapter base.
+ *  Stage 5 ports the three-tier opacity / halo scheme from
+ *  references/atlas-explorer.jsx onto the cosmos.gl canvas. The setters
+ *  here are independent of the SceneDirective salience pipeline; they
+ *  drive a separate focus-dimming pass keyed off `focusedId` / `hoverId`. */
+export interface CosmosFocusDimmingSurface {
+  /** Set the focused node id, or null to clear focus. Triggers a
+   *  re-encoding of point colors / sizes via the focus dimming pass. */
+  setFocusedId(id: string | null): void;
+  /** Read the current focused node id (null when no focus). */
+  getFocusedId(): string | null;
+  /** Focus a node AND zoom the camera to a 1.2x close-up of it. The
+   *  cosmos.gl `zoomToNode(id, durationMs, distance)` API treats
+   *  `distance` as a multiplier on the bounding circle; passing
+   *  `1 / 1.2` (~0.833) yields a 1.2x zoom-in. */
+  focusNode(id: string): void;
+}
+
+export type CosmosGraphCanvasHandle = GraphAdapter & CosmosFocusDimmingSurface;
 
 // --- Buffer pools -------------------------------------------------------
 //
@@ -274,6 +311,57 @@ const CosmosGraphCanvas = forwardRef<CosmosGraphCanvasHandle, CosmosGraphCanvasP
     },
     ref,
   ) {
+    // Tier-1 focus dimming state (Stage 5). `focusedId` is the user's
+    // current point of attention; `hoverId` is the transient pointer
+    // target. Mirrored into refs so the imperative encoding path can
+    // read them without subscribing to React state. Setters update
+    // both the state (so the imperative handle reads it back via
+    // getFocusedId) and the ref (so the encoding pass sees the new
+    // value on the next render).
+    const [focusedId, setFocusedIdState] = useState<string | null>(null);
+    const [hoverId, setHoverIdState] = useState<string | null>(null);
+    const focusedIdRef = useRef<string | null>(null);
+    const hoverIdRef = useRef<string | null>(null);
+    focusedIdRef.current = focusedId;
+    hoverIdRef.current = hoverId;
+
+    // Tier-1 dimming: 1-hop neighbor set and incident-link set, derived
+    // from `focusedId` + current links. Both empty when no focus is set,
+    // which the per-tier resolvers interpret as "no dimming". The
+    // string-keyed Sets allow O(1) lookup in the per-point and per-link
+    // encoding loops.
+    const neighborIds = useMemo(() => {
+      if (!focusedId) return new Set<string>();
+      const set = new Set<string>();
+      for (const link of links) {
+        const s = String(link.source);
+        const t = String(link.target);
+        if (s === focusedId) set.add(t);
+        if (t === focusedId) set.add(s);
+      }
+      return set;
+    }, [focusedId, links]);
+
+    const incidentLinks = useMemo(() => {
+      if (!focusedId) return new Set<string>();
+      const set = new Set<string>();
+      for (const link of links) {
+        const s = String(link.source);
+        const t = String(link.target);
+        if (s === focusedId || t === focusedId) {
+          set.add(`${s}|${t}`);
+        }
+      }
+      return set;
+    }, [focusedId, links]);
+
+    // Mirror into refs so the imperative encoding pass (which is not
+    // re-run on every render via React state) sees the latest sets.
+    const neighborIdsRef = useRef<Set<string>>(neighborIds);
+    const incidentLinksRef = useRef<Set<string>>(incidentLinks);
+    neighborIdsRef.current = neighborIds;
+    incidentLinksRef.current = incidentLinks;
+
     const containerRef = useRef<HTMLDivElement | null>(null);
     const overlayCanvasRef = useRef<HTMLCanvasElement | null>(null);
     const graphRef = useRef<Graph | null>(null);
@@ -549,6 +637,155 @@ const CosmosGraphCanvas = forwardRef<CosmosGraphCanvasHandle, CosmosGraphCanvasP
         ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
       }
 
+      // -------- Tier-1 focus dimming overlay (Stage 5) -----------------
+      //
+      // Bright nucleus + halo rings on focused / hover points. Drawn
+      // on the same overlay canvas as focal labels (rather than a
+      // separate SVG) so we get the existing per-frame redraw
+      // pipeline (zoom, simulation tick, resize). Ports
+      // atlas-explorer.jsx lines 376-389 (halo rings) and 421-426
+      // (bright nucleus). Always renders regardless of labelsOn so
+      // attention cues survive the label toggle.
+      const fid = focusedIdRef.current;
+      const hid = hoverIdRef.current;
+      const positionsForOverlay = graph.getPointPositions();
+      if ((fid || hid) && positionsForOverlay) {
+        const pool = poolRef.current;
+        // var(--paper) at 0.9 alpha matches the atlas-explorer nucleus.
+        const paperColor = readCssVar('--paper') || '#f3efe6';
+        // var(--paper-pencil) at 0.75 / 0.40 alpha matches the
+        // atlas-explorer dashed halo rings.
+        const pencilColor = readCssVar('--paper-pencil') || '#b48b53';
+
+        // Incident-edge dash overlay (Task 5.9). The cosmos.gl GL
+        // path renders solid lines; dash patterns require either an
+        // SVG overlay or a custom shader. We adopt the prototype
+        // pattern of overlaying ONLY incident links as canvas-2D
+        // strokes, which gives us setLineDash() with no shader
+        // changes. Bulk WebGL edges keep their tier-colored solid
+        // lines from applyFocusDimming. Curve points toward screen
+        // center via a Q-bezier with tCurve = 0.32 (see
+        // atlas-explorer.jsx lines 362-365).
+        const incidentForOverlay = incidentLinksRef.current;
+        if (fid && incidentForOverlay.size > 0) {
+          const overlayRect = overlay.getBoundingClientRect();
+          const screenCenterX = overlayRect.width / 2;
+          const screenCenterY = overlayRect.height / 2;
+          const tCurve = 0.32;
+          const indexMap = idToIndexRef.current;
+          const { links: lks } = latestDataRef.current;
+          ctx.save();
+          ctx.strokeStyle = pencilColor;
+          ctx.lineWidth = 0.95;
+          ctx.globalAlpha = 0.85;
+          for (const link of lks) {
+            const srcIdx = indexMap.get(link.source);
+            const tgtIdx = indexMap.get(link.target);
+            if (typeof srcIdx !== 'number' || typeof tgtIdx !== 'number') continue;
+            const isIncident =
+              incidentForOverlay.has(`${link.source}|${link.target}`)
+              || incidentForOverlay.has(`${link.target}|${link.source}`);
+            if (!isIncident) continue;
+            if (positionsForOverlay.length < (Math.max(srcIdx, tgtIdx) + 1) * 2) continue;
+            const pa = graph.spaceToScreenPosition([
+              positionsForOverlay[srcIdx * 2],
+              positionsForOverlay[srcIdx * 2 + 1],
+            ]);
+            const pb = graph.spaceToScreenPosition([
+              positionsForOverlay[tgtIdx * 2],
+              positionsForOverlay[tgtIdx * 2 + 1],
+            ]);
+            if (!pa || !pb) continue;
+            const mx = (pa[0] + pb[0]) / 2;
+            const my = (pa[1] + pb[1]) / 2;
+            const cx = mx + (screenCenterX - mx) * tCurve;
+            const cy = my + (screenCenterY - my) * tCurve;
+            // Edge-type-aware dash pattern. `pairs` = '3 3' (atlas
+            // SVG dasharray), `interacts` = '1 2'. Anything else
+            // renders solid. Reset between iterations so prior
+            // dashes don't bleed.
+            const edgeType = link.edge_type;
+            if (edgeType === 'pairs') {
+              ctx.setLineDash([3, 3]);
+            } else if (edgeType === 'interacts') {
+              ctx.setLineDash([1, 2]);
+            } else {
+              ctx.setLineDash([]);
+            }
+            ctx.beginPath();
+            ctx.moveTo(pa[0], pa[1]);
+            ctx.quadraticCurveTo(cx, cy, pb[0], pb[1]);
+            ctx.stroke();
+          }
+          ctx.restore();
+        }
+
+        // Halo rings around the focused node only (Task 5.7). Outer
+        // ring r=42 (3 3 dash, 0.75 op), inner ring r=68 (2 4 dash,
+        // 0.40 op). Drawn in screen-space (no zoom scaling) to match
+        // the SVG reference's intent of a stable framing element.
+        if (fid) {
+          const idx = idToIndexRef.current.get(fid);
+          if (typeof idx === 'number' && positionsForOverlay.length >= (idx + 1) * 2) {
+            const screen = graph.spaceToScreenPosition([
+              positionsForOverlay[idx * 2],
+              positionsForOverlay[idx * 2 + 1],
+            ]);
+            if (screen) {
+              ctx.save();
+              ctx.strokeStyle = pencilColor;
+              // Outer (smaller) dashed ring r=42.
+              ctx.setLineDash([3, 3]);
+              ctx.lineWidth = 1;
+              ctx.globalAlpha = 0.75;
+              ctx.beginPath();
+              ctx.arc(screen[0], screen[1], 42, 0, Math.PI * 2);
+              ctx.stroke();
+              // Inner faint dashed ring r=68 (further out from the
+              // focused node, but the atlas-explorer JSX names them
+              // outer/inner based on visual hierarchy: outer is
+              // bolder, inner is faint).
+              ctx.setLineDash([2, 4]);
+              ctx.lineWidth = 0.5;
+              ctx.globalAlpha = 0.40;
+              ctx.beginPath();
+              ctx.arc(screen[0], screen[1], 68, 0, Math.PI * 2);
+              ctx.stroke();
+              ctx.restore();
+            }
+          }
+        }
+
+        const drawNucleus = (id: string) => {
+          const idx = idToIndexRef.current.get(id);
+          if (typeof idx !== 'number') return;
+          if (positionsForOverlay.length < (idx + 1) * 2) return;
+          const screen = graph.spaceToScreenPosition([
+            positionsForOverlay[idx * 2],
+            positionsForOverlay[idx * 2 + 1],
+          ]);
+          if (!screen) return;
+          // pool.sizes is in cosmos.gl space-pixel units (post tier
+          // multiplier from applyFocusDimming). The atlas-explorer
+          // nucleus is 35% of the base ink radius; pool.sizes is the
+          // halo radius (which in atlas-explorer is 4.6x or 3.6x
+          // baseR), so divide back out to recover an approximate
+          // baseR for sizing the nucleus.
+          const haloR = pool?.sizes[idx] ?? 10;
+          const approxBaseR = id === fid ? haloR / 4.6 : haloR / 3.6;
+          const nucleusR = Math.max(1, approxBaseR * 0.35);
+          ctx.save();
+          ctx.fillStyle = paperColor;
+          ctx.globalAlpha = 0.9;
+          ctx.beginPath();
+          ctx.arc(screen[0], screen[1], nucleusR, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.restore();
+        };
+        if (fid) drawNucleus(fid);
+        if (hid && hid !== fid) drawNucleus(hid);
+      }
+
       // Labels toggle: clear the overlay every frame but skip label
       // rendering when the Atlas controls have hidden labels. Keeps
       // the overlay layer honest rather than caching stale text.
@@ -562,7 +799,21 @@ const CosmosGraphCanvas = forwardRef<CosmosGraphCanvasHandle, CosmosGraphCanvasP
       // Positions are stable for the whole frame; read once, not per label.
       const positions = graph.getPointPositions();
       if (!positions) return;
+      // Tier-1 dimming gate (Stage 5, Task 5.6): when a focus is set,
+      // only render labels for the focused node, the hover node, and
+      // the 1-hop neighbor frontier. Dimmed points stay unlabeled to
+      // keep the eye on the focus tier. Ports atlas-explorer.jsx
+      // line 427: `(showLabels && (isFocused || isHover || isNeighbor))`.
+      const focusedForLabels = focusedIdRef.current;
+      const hoverForLabels = hoverIdRef.current;
+      const neighborsForLabels = neighborIdsRef.current;
       for (const label of labels) {
+        if (focusedForLabels) {
+          const isFocused = label.nodeId === focusedForLabels;
+          const isHover = label.nodeId === hoverForLabels;
+          const isNeighbor = neighborsForLabels.has(label.nodeId);
+          if (!isFocused && !isHover && !isNeighbor) continue;
+        }
         const idx = idToIndexRef.current.get(label.nodeId);
         if (typeof idx !== 'number') continue;
         if (positions.length < (idx + 1) * 2) continue;
@@ -862,6 +1113,93 @@ const CosmosGraphCanvas = forwardRef<CosmosGraphCanvasHandle, CosmosGraphCanvasP
       graph.setLinkWidths(pool.linkWidths);
       graph.setLinkColors(pool.linkColors);
     }, []);
+
+    // -------- Tier-1 focus dimming pass (Stage 5) ----------------------
+    //
+    // Recomputes per-point alpha (and size, in Task 5.4) using the
+    // three-tier scheme keyed off `focusedIdRef.current` /
+    // `hoverIdRef.current`. Source values come from `encodedColors` /
+    // `encodedSizes` when a SceneDirective encoding is active, else
+    // from `baseColors` / `baseSizes` so dimming layers cleanly on top
+    // of either path. Respects cosmos.gl render order: writes new
+    // colors + sizes into the live buffers and uploads via the same
+    // setPointColors / setPointSizes helpers other paths use.
+    const applyFocusDimming = useCallback(() => {
+      const pool = poolRef.current;
+      const graph = graphRef.current;
+      if (!pool || !graph) return;
+      const fid = focusedIdRef.current;
+      const hid = hoverIdRef.current;
+      const nbrs = neighborIdsRef.current;
+      const incident = incidentLinksRef.current;
+      const { points: pts, links: lks } = latestDataRef.current;
+      // Choose source buffer: encoded if a directive pass set them,
+      // baseline otherwise. The dimming pass overwrites the alpha
+      // channel only; rgb is preserved from the source.
+      const useEncoded = encodingActiveRef.current;
+      const srcColors = useEncoded ? pool.encodedColors : pool.baseColors;
+      const srcSizes = useEncoded ? pool.encodedSizes : pool.baseSizes;
+      for (let i = 0; i < pts.length; i++) {
+        const id = String(pts[i].id);
+        const off = i * 4;
+        // Preserve rgb from the source so type / community / salience
+        // colors remain visible; only the alpha channel encodes the
+        // dimming tier.
+        pool.colors[off] = srcColors[off];
+        pool.colors[off + 1] = srcColors[off + 1];
+        pool.colors[off + 2] = srcColors[off + 2];
+        pool.colors[off + 3] = focusOpacityFor(id, fid, hid, nbrs);
+        // Size multiplier (Task 5.4): scale the source size by the
+        // tier multiplier. Capped at 1px floor below.
+        const baseSize = srcSizes[i] || 1;
+        pool.sizes[i] = Math.max(1, baseSize * focusSizeMultFor(id, fid, hid, nbrs));
+      }
+
+      // Per-edge tier coloring (Task 5.8). When focus is set, the
+      // incident set is non-empty: links incident to focusedId render
+      // in `paper-pencil` at 0.85 alpha; hover-incident links at
+      // 0.55; everything else at 0.10. When no focus is set we still
+      // apply the `defaultNoFocus` tier so the at-rest ambient layer
+      // matches atlas-explorer's intent. The walk only covers valid
+      // links (same indexing as `linkEndpoints` / `linkColors`).
+      const indexMap = idToIndexRef.current;
+      let li = 0;
+      for (const link of lks) {
+        if (!indexMap.has(link.source) || !indexMap.has(link.target)) continue;
+        const tier = EDGE_TIER_COLORS[
+          linkTierFor(
+            String(link.source),
+            String(link.target),
+            fid,
+            hid,
+            incident,
+          )
+        ];
+        const off = li * 4;
+        pool.linkColors[off] = tier.r;
+        pool.linkColors[off + 1] = tier.g;
+        pool.linkColors[off + 2] = tier.b;
+        pool.linkColors[off + 3] = tier.a;
+        pool.linkWidths[li] = tier.width;
+        li++;
+      }
+
+      applyFilterMaskToLive();
+      graph.setPointColors(pool.colors);
+      graph.setPointSizes(pool.sizes);
+      graph.setLinkColors(pool.linkColors);
+      graph.setLinkWidths(pool.linkWidths);
+      // Trigger overlay redraw so nucleus / halo rings (Tasks 5.5,
+      // 5.7) and incident-edge dashes (Task 5.9) reflect the new
+      // focus state on the same frame.
+      drawOverlay();
+    }, [applyFilterMaskToLive, drawOverlay]);
+
+    // Mirror applyFocusDimming into a ref so the cosmos.gl `onClick`
+    // closure (captured once in `useLayoutEffect`) can call the
+    // current implementation without becoming stale on theme flips.
+    const applyFocusDimmingRef = useRef(applyFocusDimming);
+    applyFocusDimmingRef.current = applyFocusDimming;
 
     // -------- Construction tween controller ------------------------------
     //
@@ -1732,7 +2070,7 @@ const CosmosGraphCanvas = forwardRef<CosmosGraphCanvasHandle, CosmosGraphCanvasP
 
           // Orbit lens: each Leiden community becomes its own little
           // solar system. Importance (PageRank, with degree fallback)
-          // determines orbital radius — the heaviest node sits near
+          // determines orbital radius: the heaviest node sits near
           // the centroid as the "sun", fringe nodes orbit far out.
           // Angular velocity drops with radius (Kepler-ish) so outer
           // orbits drift slowly while inner orbits whip around.
@@ -1920,10 +2258,88 @@ const CosmosGraphCanvas = forwardRef<CosmosGraphCanvasHandle, CosmosGraphCanvasP
           // this single redraw is the truth until the next zoom / resize.
           drawOverlay();
         },
+
+        // --- Tier-1 focus dimming surface (Stage 5) ------------------
+
+        setFocusedId(id: string | null) {
+          focusedIdRef.current = id;
+          setFocusedIdState(id);
+          // Re-encode colors / sizes immediately so the dimming change
+          // is visible on the same frame as the click. The neighborIds
+          // memo updates in the next render, so we recompute the
+          // neighbor set inline from the current focusedId + links to
+          // avoid a one-frame lag where the alpha update sees the
+          // previous neighbor set. The ref is then resynced from the
+          // memo on the next render. Also rebuilds incidentLinksRef
+          // so edge tier coloring (Task 5.8) and incident-edge dashes
+          // (Task 5.9) reflect the new focus on the same frame.
+          if (id) {
+            const nbrs = new Set<string>();
+            const incident = new Set<string>();
+            const { links: lks } = latestDataRef.current;
+            for (const link of lks) {
+              const s = String(link.source);
+              const t = String(link.target);
+              if (s === id) {
+                nbrs.add(t);
+                incident.add(`${s}|${t}`);
+              }
+              if (t === id) {
+                nbrs.add(s);
+                incident.add(`${s}|${t}`);
+              }
+            }
+            neighborIdsRef.current = nbrs;
+            incidentLinksRef.current = incident;
+          } else {
+            neighborIdsRef.current = new Set<string>();
+            incidentLinksRef.current = new Set<string>();
+          }
+          applyFocusDimming();
+        },
+        getFocusedId() {
+          return focusedIdRef.current;
+        },
+        focusNode(id: string) {
+          // Compose: set the dimming focus AND zoom in 1.2x. The
+          // distance factor `1 / 1.2` shrinks the camera-to-node
+          // distance by 1.2x, which reads as a 1.2x zoom-in.
+          const graph = graphRef.current;
+          const idx = idToIndexRef.current.get(id);
+          // Drive the dimming pipeline first so the visible state
+          // updates immediately, before the zoom animation starts.
+          focusedIdRef.current = id;
+          setFocusedIdState(id);
+          if (id) {
+            const nbrs = new Set<string>();
+            const incident = new Set<string>();
+            const { links: lks } = latestDataRef.current;
+            for (const link of lks) {
+              const s = String(link.source);
+              const t = String(link.target);
+              if (s === id) {
+                nbrs.add(t);
+                incident.add(`${s}|${t}`);
+              }
+              if (t === id) {
+                nbrs.add(s);
+                incident.add(`${s}|${t}`);
+              }
+            }
+            neighborIdsRef.current = nbrs;
+            incidentLinksRef.current = incident;
+          }
+          applyFocusDimming();
+          if (graph && typeof idx === 'number') {
+            graph.zoomToPointByIndex(idx, 600, 1 / 1.2);
+          }
+          noteInteraction();
+        },
       }),
       [
         applyEdgeStylesToPool,
         applyFilterMaskToLive,
+        applyFocusDimming,
         applyHypothesisMixToPool,
         applyNeighborhoodToPool,
         applySalienceToPool,
@@ -2315,6 +2731,16 @@ const CosmosGraphCanvas = forwardRef<CosmosGraphCanvasHandle, CosmosGraphCanvasP
               focalLabelsRef.current = [];
               drawOverlay();
             }
+            // Empty-canvas click clears Tier-1 focus dimming so the
+            // bloom releases back to the ambient layer. Per ADR 0003
+            // we never filter; we always restore the full bloom.
+            if (focusedIdRef.current !== null) {
+              focusedIdRef.current = null;
+              setFocusedIdState(null);
+              neighborIdsRef.current = new Set<string>();
+              incidentLinksRef.current = new Set<string>();
+              applyFocusDimmingRef.current?.();
+            }
             if (containerRef.current) {
               containerRef.current.title = '';
             }
@@ -2334,6 +2760,35 @@ const CosmosGraphCanvas = forwardRef<CosmosGraphCanvasHandle, CosmosGraphCanvasP
             return;
           }
           lastClickRef.current = { id: pointId, at: now };
+          // Tier-1 focus dimming on single click (Task 5.14): drive
+          // the dimming pipeline AND zoom the camera to 1.2x. Both
+          // happen on the same frame as the click. The parent's
+          // onPointClick callback still fires so existing surfaces
+          // (AtlasNodeDetail, etc.) keep working.
+          focusedIdRef.current = pointId;
+          setFocusedIdState(pointId);
+          const nbrs = new Set<string>();
+          const incident = new Set<string>();
+          const { links: lks } = latestDataRef.current;
+          for (const link of lks) {
+            const s = String(link.source);
+            const t = String(link.target);
+            if (s === pointId) {
+              nbrs.add(t);
+              incident.add(`${s}|${t}`);
+            }
+            if (t === pointId) {
+              nbrs.add(s);
+              incident.add(`${s}|${t}`);
+            }
+          }
+          neighborIdsRef.current = nbrs;
+          incidentLinksRef.current = incident;
+          applyFocusDimmingRef.current?.();
+          const graph = graphRef.current;
+          if (graph) {
+            graph.zoomToPointByIndex(index, 600, 1 / 1.2);
+          }
           cb?.(pointId);
         },
       };

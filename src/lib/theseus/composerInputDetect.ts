@@ -1,12 +1,8 @@
-// Classifies composer input as URL, file, or plain text. The classifier
-// is the routing fork between the existing /ask/ stream and the new
-// /api/v2/theseus/capture/instant-kg/ stream.
-//
-// File presence wins over text. URLs are detected with a permissive
-// regex that accepts http(s), bare domain (with TLD), and tolerates
-// trailing punctuation pasted from prose.
+// Classifies composer input as URL, YouTube URL, file, or plain text.
+// Per ADR 0002 the YouTube branch must be detected BEFORE the generic
+// URL branch so the dispatcher routes to youtube-transcript-api.
 
-export type ComposerInputKind = 'url' | 'file' | 'text';
+export type ComposerInputKind = 'url' | 'youtube' | 'file' | 'text';
 
 export interface ClassifiedComposerInput {
   kind: ComposerInputKind;
@@ -15,6 +11,7 @@ export interface ClassifiedComposerInput {
 }
 
 const URL_RE = /^(https?:\/\/[^\s]+|www\.[^\s]+|[a-zA-Z0-9-]+\.[a-zA-Z]{2,}(\/[^\s]*)?)$/i;
+const YOUTUBE_HOST_RE = /^(https?:\/\/)?(www\.|m\.)?(youtube\.com|youtu\.be)\b/i;
 
 export function classifyComposerInput(
   raw: string,
@@ -25,6 +22,10 @@ export function classifyComposerInput(
 
   if (files.length > 0) {
     return { kind: 'file', text, files };
+  }
+
+  if (text && YOUTUBE_HOST_RE.test(text)) {
+    return { kind: 'youtube', text: normalizeUrl(text), files: [] };
   }
 
   if (text && URL_RE.test(text)) {

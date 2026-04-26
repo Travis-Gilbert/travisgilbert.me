@@ -10,7 +10,8 @@ export type PanelId =
   | 'notebook'
   | 'connections'
   | 'plugins'
-  | 'code';
+  | 'code'
+  | 'lens';
 
 const PANEL_COMPONENTS: Record<PanelId, React.LazyExoticComponent<React.ComponentType>> = {
   ask: lazy(() => import('./panels/AskPanel')),
@@ -20,6 +21,7 @@ const PANEL_COMPONENTS: Record<PanelId, React.LazyExoticComponent<React.Componen
   connections: lazy(() => import('./panels/ConnectionsPanel')),
   plugins: lazy(() => import('./panels/PluginsPanel')),
   code: lazy(() => import('./panels/CodePanel')),
+  lens: lazy(() => import('./lens/LensPanel')),
 };
 
 const VALID_PANELS = new Set<string>([
@@ -30,6 +32,7 @@ const VALID_PANELS = new Set<string>([
   'connections',
   'plugins',
   'code',
+  'lens',
 ]);
 
 function isValidPanel(value: string | null): value is PanelId {
