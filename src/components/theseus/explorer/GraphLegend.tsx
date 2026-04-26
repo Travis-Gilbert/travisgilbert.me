@@ -119,9 +119,12 @@ const GraphLegend: FC<GraphLegendProps> = ({ points }) => {
     });
   }, [publishSelection]);
 
-  // Honest empty state (Task 5.15): when no types are visible we
-  // render nothing rather than a placeholder. visibleTypes derives
-  // from the rendered points; an empty graph yields an empty legend.
+  // Per CLAUDE.md "Empty states are honest, not cosmetic": when no
+  // points are visible we render nothing. Do NOT add placeholder
+  // chips like "person", "concept", etc.; they imply the graph
+  // contains those types when it does not. visibleTypes derives
+  // from the rendered points (Task 5.12); an empty graph yields an
+  // empty legend, not a fake ontology preview.
   if (visibleTypes.length === 0) return null;
 
   const anyActive = activeTypes !== null && activeTypes.size > 0;
