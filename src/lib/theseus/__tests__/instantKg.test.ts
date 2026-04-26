@@ -57,3 +57,19 @@ describe('InstantKg event shape parity with backend contract', () => {
     expect(evt.lens_target.view).toBe('lens');
   });
 });
+
+import { _parseErrorPayload } from '../instantKg';
+
+describe('SSE error JSON parser', () => {
+  it('parses {error, stage, fallback_used} payload', () => {
+    const parsed = _parseErrorPayload('{"error": "boom", "stage": "fetch", "fallback_used": "trafilatura"}');
+    expect(parsed.message).toBe('boom');
+    expect(parsed.stage).toBe('fetch');
+    expect(parsed.fallback_used).toBe('trafilatura');
+  });
+
+  it('falls back gracefully when payload is not JSON', () => {
+    const parsed = _parseErrorPayload('plain string');
+    expect(parsed.message).toContain('plain string');
+  });
+});

@@ -142,6 +142,33 @@ export interface InstantKgStreamOptions {
   signal?: AbortSignal;
 }
 
+// Per CLAUDE.md gotcha "SSE error event carries a JSON payload": the
+// backend emits event: error\ndata: {"error": "...", "stage": "...",
+// "fallback_used": "..."}. We export the parser so unit tests can
+// validate parity without spinning up an EventSource.
+export function _parseErrorPayload(raw: string): {
+  message: string;
+  transient: boolean;
+  stage?: string;
+  fallback_used?: string | null;
+} {
+  try {
+    const obj = JSON.parse(raw) as {
+      error?: string;
+      stage?: string;
+      fallback_used?: string | null;
+    };
+    return {
+      message: obj.error ?? raw,
+      transient: false,
+      stage: obj.stage,
+      fallback_used: obj.fallback_used ?? null,
+    };
+  } catch {
+    return { message: raw, transient: false };
+  }
+}
+
 export async function instantKgStream(
   request: InstantKgRequest,
   options: InstantKgStreamOptions,
@@ -262,13 +289,11 @@ export async function instantKgStream(
     // Named SSE 'error' frames carry a JSON payload; the built-in
     // EventSource 'error' (connection drop) does not.
     const raw = (e as MessageEvent).data;
-    let message = 'Stream error';
-    if (typeof raw === 'string' && raw.length > 0) {
-      const parsed = safeParse<{ error?: string; message?: string }>(raw, 'error');
-      if (parsed?.error) message = parsed.error;
-      else if (parsed?.message) message = parsed.message;
-    }
-    handlers.onError({ message, transient: true });
+    const parsed =
+      typeof raw === 'string' && raw.length > 0
+        ? _parseErrorPayload(raw)
+        : { message: 'Stream error', transient: true };
+    handlers.onError(parsed);
     es.close();
   });
 
