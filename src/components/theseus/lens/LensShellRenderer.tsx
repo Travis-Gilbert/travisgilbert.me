@@ -1,7 +1,28 @@
 'use client';
 
+import { useMemo } from 'react';
 import type { LensLayout } from './useLensLayout';
 import { LENS_CENTER, LENS_RADII } from './useLensLayout';
+
+// Deterministic collision avoidance for edge type labels: at >8
+// neighbors per shell, drop every other neighbor's edge label after
+// sorting by polar angle when adjacent labels would overlap.
+function suppressedEdgeLabelIds(layout: LensLayout): Set<string> {
+  const out = new Set<string>();
+  for (const shell of ['inner', 'middle', 'outer'] as const) {
+    const inShell = layout.placed.filter((p) => p.shell === shell);
+    if (inShell.length <= 8) continue;
+    inShell.sort((a, b) => a.angle - b.angle);
+    for (let i = 1; i < inShell.length; i += 1) {
+      const dx = inShell[i].x - inShell[i - 1].x;
+      const dy = inShell[i].y - inShell[i - 1].y;
+      if (Math.hypot(dx, dy) < 70 && i % 2 === 1) {
+        out.add(inShell[i].id);
+      }
+    }
+  }
+  return out;
+}
 
 interface Props {
   layout: LensLayout;
@@ -28,6 +49,7 @@ export default function LensShellRenderer({
   focusedTitle,
   focusedDisplayId,
 }: Props) {
+  const suppressed = useMemo(() => suppressedEdgeLabelIds(layout), [layout]);
   return (
     <g className="lens-shells">
       {/* Concentric orbital rings with engraved meridian aesthetic. */}
@@ -175,7 +197,7 @@ export default function LensShellRenderer({
                 {nb.kind}
               </text>
             )}
-            {showEdgeLabel && (
+            {showEdgeLabel && !suppressed.has(nb.id) && (
               <text
                 x={nb.x}
                 y={nb.y + 11}
