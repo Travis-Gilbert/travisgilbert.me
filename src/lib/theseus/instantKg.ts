@@ -102,7 +102,9 @@ export interface InstantKgCrossDocEvent {
 
 export interface InstantKgFocusNeighbor {
   object_id: number | null;
-  ppr_score: number;
+  ppr_score?: number;
+  edge_type?: string;
+  reason?: string;
 }
 
 export interface InstantKgCompleteEvent {
@@ -118,6 +120,11 @@ export interface InstantKgCompleteEvent {
     cross_doc_edges: number;
     open_extras_proposals?: number;
   };
+  camera: {
+    kind: 'waypoints';
+    waypoints: { object_id: number; duration_ms: number }[];
+  };
+  lens_target: { object_id: number; view: 'lens' };
 }
 
 export type InstantKgMode = 'url' | 'file' | 'text';

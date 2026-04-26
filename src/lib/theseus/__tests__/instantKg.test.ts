@@ -3,6 +3,7 @@ import type {
   InstantKgStreamHandlers,
   InstantKgDocumentEvent,
   InstantKgChunkEvent,
+  InstantKgCompleteEvent,
 } from '../instantKg';
 
 describe('InstantKg event shape parity with backend contract', () => {
@@ -34,5 +35,25 @@ describe('InstantKg event shape parity with backend contract', () => {
       onTensionProposed: () => undefined,
     };
     expect(typeof handlers.onTensionProposed).toBe('function');
+  });
+
+  it('complete event carries camera and lens_target', () => {
+    const evt: InstantKgCompleteEvent = {
+      document_object_id: 1,
+      focus: { pivot_object_id: 5, neighbors: [] },
+      totals: {
+        chunks: 2,
+        entities: 3,
+        relations: 1,
+        cross_doc_edges: 0,
+      },
+      camera: {
+        kind: 'waypoints',
+        waypoints: [{ object_id: 5, duration_ms: 800 }],
+      },
+      lens_target: { object_id: 5, view: 'lens' },
+    };
+    expect(evt.camera.waypoints[0].object_id).toBe(5);
+    expect(evt.lens_target.view).toBe('lens');
   });
 });
