@@ -3,24 +3,19 @@
 /**
  * Spacetime data seam.
  *
- * `useIsMockMode()` reads the `?mock=1` URL flag.
- * `useTopic(key)` returns a `SpacetimeTopic` by topic key. With `?mock=1`
- * it returns demo data; otherwise it posts to the new backend endpoint
- * at `/api/v2/theseus/spacetime/topic/`. On cache hit the full topic
- * arrives in the POST response. On cold-start the response is an
- * envelope with a stream URL; we open an EventSource and accumulate
- * `cluster` + `chrome` events until `complete`.
+ * `useTopic(key)` returns a `SpacetimeTopic` by topic key. It posts to
+ * the backend at `/api/v2/theseus/spacetime/topic/`. On cache hit the
+ * full topic arrives in the POST response (200). On cold-start the
+ * response is a 202 envelope with a stream URL; we open an EventSource
+ * and accumulate `cluster` + `chrome` events until `complete`.
+ *
+ * There is no mock mode and no demo allowlist: if the backend cannot
+ * answer, the hook returns null + an error and the page renders an
+ * honest empty state.
  */
 
 import { useEffect, useState } from 'react';
-import { useSearchParams } from 'next/navigation';
-import { DEMO_TOPICS } from './demo-data';
 import type { SpacetimeTopic } from './types';
-
-export function useIsMockMode(): boolean {
-  const params = useSearchParams();
-  return params.get('mock') === '1';
-}
 
 export interface UseTopicResult {
   topic: SpacetimeTopic | null;
@@ -58,7 +53,6 @@ const EMPTY_TOPIC = (key: string): SpacetimeTopic => ({
 });
 
 export function useTopic(key: string | null): UseTopicResult {
-  const isMock = useIsMockMode();
   const [topic, setTopic] = useState<SpacetimeTopic | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<Error | null>(null);
@@ -66,13 +60,6 @@ export function useTopic(key: string | null): UseTopicResult {
   useEffect(() => {
     if (!key) {
       setTopic(null);
-      setLoading(false);
-      setError(null);
-      return;
-    }
-
-    if (isMock) {
-      setTopic(DEMO_TOPICS[key] ?? null);
       setLoading(false);
       setError(null);
       return;
@@ -190,7 +177,7 @@ export function useTopic(key: string | null): UseTopicResult {
         eventSource = null;
       }
     };
-  }, [key, isMock]);
+  }, [key]);
 
   return { topic, loading, error };
 }

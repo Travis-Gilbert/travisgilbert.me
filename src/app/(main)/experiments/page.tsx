@@ -32,7 +32,7 @@ interface ExperimentEntry {
 const EXPERIMENTS: ExperimentEntry[] = [
   {
     slug: 'spacetime',
-    href: '/spacetime?mock=1',
+    href: '/spacetime',
     title: 'Spacetime Atlas',
     status: 'wip',
     blurb:
