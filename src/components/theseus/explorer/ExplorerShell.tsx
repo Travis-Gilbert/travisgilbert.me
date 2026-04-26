@@ -43,7 +43,7 @@ import type {
 } from '@/lib/theseus-viz/SceneDirective';
 
 /**
- * Atlas Explorer shell — warm-dark + paper-canvas blueprint surface.
+ * Atlas Explorer shell: warm-dark + paper-canvas blueprint surface.
  *
  * Layout model: the cosmos.gl canvas fills the main area; Atlas chrome
  * (plate label, ingest bar, node detail, graph controls, chat composer,
@@ -192,12 +192,19 @@ const ExplorerShell: FC = () => {
   // Hydrate the dimming pass when the user navigates back from Lens.
   // The Stage 4 onComplete handler appends `?live_additions=<id1,id2,...>`;
   // re-seeding placeholder points lets the dimming layer keep them
-  // visible if the bulk graph load has not yet observed them.
+  // visible if the bulk graph load has not yet observed them. The
+  // hydratedRef gate keeps this a one-shot mount-time effect so it
+  // never cascades on subsequent param mutations.
   const liveAdditionsParam = searchParams?.get('live_additions') ?? '';
+  const liveAdditionsHydratedRef = useRef<string | null>(null);
   useEffect(() => {
     if (!liveAdditionsParam) return;
+    if (liveAdditionsHydratedRef.current === liveAdditionsParam) return;
     const ids = liveAdditionsParam.split(',').filter(Boolean);
     if (ids.length === 0) return;
+    liveAdditionsHydratedRef.current = liveAdditionsParam;
+    // Mount-time URL hydration; the hydratedRef gate prevents cascade.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setLiveAdditions((prev) => ({
       points: mergePointsById(
         prev.points,
@@ -627,7 +634,7 @@ const ExplorerShell: FC = () => {
         </div>
       )}
 
-      {/* Atlas chrome — absolutely positioned over the canvas. */}
+      {/* Atlas chrome: absolutely positioned over the canvas. */}
       <AtlasPlateLabel
         title={plateTitle}
         nodes={points.length}
@@ -693,7 +700,7 @@ const ExplorerShell: FC = () => {
         />
       </div>
 
-      {/* Measure strip — collapsible, hosts the three Mosaic widgets. */}
+      {/* Measure strip: collapsible, hosts the three Mosaic widgets. */}
       {canRenderCanvas && measureOpen && (
         <div
           style={{

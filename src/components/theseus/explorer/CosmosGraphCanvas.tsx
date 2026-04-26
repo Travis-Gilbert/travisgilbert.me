@@ -1732,7 +1732,7 @@ const CosmosGraphCanvas = forwardRef<CosmosGraphCanvasHandle, CosmosGraphCanvasP
 
           // Orbit lens: each Leiden community becomes its own little
           // solar system. Importance (PageRank, with degree fallback)
-          // determines orbital radius — the heaviest node sits near
+          // determines orbital radius: the heaviest node sits near
           // the centroid as the "sun", fringe nodes orbit far out.
           // Angular velocity drops with radius (Kepler-ish) so outer
           // orbits drift slowly while inner orbits whip around.

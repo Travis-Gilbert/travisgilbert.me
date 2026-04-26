@@ -22,7 +22,7 @@ const TYPE_LABELS: Record<string, string> = {
 };
 
 /**
- * Atlas parchment-glass node detail popover — floats top-right over the
+ * Atlas parchment-glass node detail popover: floats top-right over the
  * canvas. Preserves the NodeDetailData shape from the original
  * NodeDetailPanel; only the surface treatment changes.
  */
