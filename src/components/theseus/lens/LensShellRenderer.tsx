@@ -60,6 +60,20 @@ export default function LensShellRenderer({
         );
       })}
 
+      {/* Faint radial spokes from focused pole to each neighbor. */}
+      {layout.placed.map((nb) => (
+        <line
+          key={`spoke-${nb.id}`}
+          x1={LENS_CENTER.x}
+          y1={LENS_CENTER.y}
+          x2={nb.x}
+          y2={nb.y}
+          stroke="var(--paper-pencil)"
+          strokeWidth={0.4}
+          opacity={shellHover ? 0.05 : 0.18}
+        />
+      ))}
+
       {/* Curved Bezier edges from focused pole to each neighbor. */}
       {layout.placed.map((nb) => {
         const isHover = nb.id === hoverId;
