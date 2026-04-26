@@ -690,7 +690,21 @@ const CosmosGraphCanvas = forwardRef<CosmosGraphCanvasHandle, CosmosGraphCanvasP
       // Positions are stable for the whole frame; read once, not per label.
       const positions = graph.getPointPositions();
       if (!positions) return;
+      // Tier-1 dimming gate (Stage 5, Task 5.6): when a focus is set,
+      // only render labels for the focused node, the hover node, and
+      // the 1-hop neighbor frontier. Dimmed points stay unlabeled to
+      // keep the eye on the focus tier. Ports atlas-explorer.jsx
+      // line 427: `(showLabels && (isFocused || isHover || isNeighbor))`.
+      const focusedForLabels = focusedIdRef.current;
+      const hoverForLabels = hoverIdRef.current;
+      const neighborsForLabels = neighborIdsRef.current;
       for (const label of labels) {
+        if (focusedForLabels) {
+          const isFocused = label.nodeId === focusedForLabels;
+          const isHover = label.nodeId === hoverForLabels;
+          const isNeighbor = neighborsForLabels.has(label.nodeId);
+          if (!isFocused && !isHover && !isNeighbor) continue;
+        }
         const idx = idToIndexRef.current.get(label.nodeId);
         if (typeof idx !== 'number') continue;
         if (positions.length < (idx + 1) * 2) continue;
