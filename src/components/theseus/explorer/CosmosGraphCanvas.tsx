@@ -301,6 +301,43 @@ const CosmosGraphCanvas = forwardRef<CosmosGraphCanvasHandle, CosmosGraphCanvasP
     focusedIdRef.current = focusedId;
     hoverIdRef.current = hoverId;
 
+    // Tier-1 dimming: 1-hop neighbor set and incident-link set, derived
+    // from `focusedId` + current links. Both empty when no focus is set,
+    // which the per-tier resolvers interpret as "no dimming". The
+    // string-keyed Sets allow O(1) lookup in the per-point and per-link
+    // encoding loops.
+    const neighborIds = useMemo(() => {
+      if (!focusedId) return new Set<string>();
+      const set = new Set<string>();
+      for (const link of links) {
+        const s = String(link.source);
+        const t = String(link.target);
+        if (s === focusedId) set.add(t);
+        if (t === focusedId) set.add(s);
+      }
+      return set;
+    }, [focusedId, links]);
+
+    const incidentLinks = useMemo(() => {
+      if (!focusedId) return new Set<string>();
+      const set = new Set<string>();
+      for (const link of links) {
+        const s = String(link.source);
+        const t = String(link.target);
+        if (s === focusedId || t === focusedId) {
+          set.add(`${s}|${t}`);
+        }
+      }
+      return set;
+    }, [focusedId, links]);
+
+    // Mirror into refs so the imperative encoding pass (which is not
+    // re-run on every render via React state) sees the latest sets.
+    const neighborIdsRef = useRef<Set<string>>(neighborIds);
+    const incidentLinksRef = useRef<Set<string>>(incidentLinks);
+    neighborIdsRef.current = neighborIds;
+    incidentLinksRef.current = incidentLinks;
+
     const containerRef = useRef<HTMLDivElement | null>(null);
     const overlayCanvasRef = useRef<HTMLCanvasElement | null>(null);
     const graphRef = useRef<Graph | null>(null);
