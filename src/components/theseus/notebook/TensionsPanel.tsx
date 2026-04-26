@@ -1,7 +1,8 @@
 'use client';
 
 import { useEffect, useState, useRef } from 'react';
-import { askTheseus } from '@/lib/theseus-api';
+import { askTheseusAsyncStream } from '@/lib/theseus-api';
+import type { TheseusResponse } from '@/lib/theseus-types';
 
 interface DetectedTension {
   noteText: string;
@@ -30,6 +31,8 @@ export default function TensionsPanel({ documentContent }: TensionsPanelProps) {
   const [tensions, setTensions] = useState<DetectedTension[]>([]);
   const [loading, setLoading] = useState(false);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const abortRef = useRef<AbortController | null>(null);
+  const cleanupRef = useRef<(() => void) | null>(null);
 
   useEffect(() => {
     if (debounceRef.current) clearTimeout(debounceRef.current);
@@ -42,33 +45,62 @@ export default function TensionsPanel({ documentContent }: TensionsPanelProps) {
       return;
     }
 
-    debounceRef.current = setTimeout(async () => {
+    debounceRef.current = setTimeout(() => {
+      abortRef.current?.abort();
+      cleanupRef.current?.();
+
+      const controller = new AbortController();
+      abortRef.current = controller;
       setLoading(true);
-      try {
-        const result = await askTheseus(`Tensions with: ${text.slice(0, 200)}`);
-        if (result.ok) {
-          const tensionSection = result.sections.find((s) => s.type === 'tension');
-          if (tensionSection && 'items' in tensionSection && Array.isArray((tensionSection as Record<string, unknown>).items)) {
-            setTensions(
-              ((tensionSection as Record<string, unknown>).items as Array<{ note_text?: string; graph_claim?: string; severity?: number }>).map((t) => ({
-                noteText: t.note_text ?? '',
-                graphClaim: t.graph_claim ?? '',
-                severity: t.severity ?? 0.5,
-              })),
-            );
-          } else {
-            setTensions([]);
-          }
+
+      const handleComplete = (result: TheseusResponse) => {
+        const sections = (result.sections ?? []) as unknown as Array<Record<string, unknown>>;
+        const tensionSection = sections.find((s) => s.type === 'tension');
+        if (
+          tensionSection
+          && Array.isArray(tensionSection.items)
+        ) {
+          setTensions(
+            (tensionSection.items as Array<{
+              note_text?: string;
+              graph_claim?: string;
+              severity?: number;
+            }>).map((t) => ({
+              noteText: t.note_text ?? '',
+              graphClaim: t.graph_claim ?? '',
+              severity: t.severity ?? 0.5,
+            })),
+          );
+        } else {
+          setTensions([]);
         }
-      } catch {
-        // API not available
-      } finally {
         setLoading(false);
-      }
+      };
+
+      askTheseusAsyncStream(
+        `Tensions with: ${text.slice(0, 200)}`,
+        { include_web: false, signal: controller.signal },
+        {
+          onStage: () => {},
+          onToken: () => {},
+          onComplete: handleComplete,
+          onError: () => {
+            setLoading(false);
+          },
+        },
+      )
+        .then((cleanup) => {
+          cleanupRef.current = cleanup;
+        })
+        .catch(() => {
+          setLoading(false);
+        });
     }, 500);
 
     return () => {
       if (debounceRef.current) clearTimeout(debounceRef.current);
+      abortRef.current?.abort();
+      cleanupRef.current?.();
     };
   }, [documentContent]);
 

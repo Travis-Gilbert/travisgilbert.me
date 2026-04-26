@@ -1,7 +1,8 @@
 'use client';
 
 import { useEffect, useState, useRef } from 'react';
-import { askTheseus } from '@/lib/theseus-api';
+import { askTheseusAsyncStream } from '@/lib/theseus-api';
+import type { TheseusResponse } from '@/lib/theseus-types';
 
 interface KnowledgeGap {
   description: string;
@@ -17,11 +18,18 @@ interface GapsPanelProps {
  *
  * "You mention X but the graph has no connections between X and Y."
  * Each gap has a "Learn more" button that fires an ask query.
+ *
+ * Routes through askTheseusAsyncStream so the 500ms-debounced query
+ * exercises the RQ-backed async pipeline (Modal 26B with container
+ * prewarm). include_web=false: the panel runs on every keystroke and
+ * does not need external research for gap detection.
  */
 export default function GapsPanel({ documentContent }: GapsPanelProps) {
   const [gaps, setGaps] = useState<KnowledgeGap[]>([]);
   const [loading, setLoading] = useState(false);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const abortRef = useRef<AbortController | null>(null);
+  const cleanupRef = useRef<(() => void) | null>(null);
 
   useEffect(() => {
     if (debounceRef.current) clearTimeout(debounceRef.current);
@@ -34,32 +42,60 @@ export default function GapsPanel({ documentContent }: GapsPanelProps) {
       return;
     }
 
-    debounceRef.current = setTimeout(async () => {
+    debounceRef.current = setTimeout(() => {
+      abortRef.current?.abort();
+      cleanupRef.current?.();
+
+      const controller = new AbortController();
+      abortRef.current = controller;
       setLoading(true);
-      try {
-        const result = await askTheseus(`Knowledge gaps about: ${text.slice(0, 200)}`);
-        if (result.ok) {
-          const gapSection = result.sections.find((s) => s.type === 'structural_gap');
-          if (gapSection && 'gaps' in gapSection && Array.isArray((gapSection as Record<string, unknown>).gaps)) {
-            setGaps(
-              ((gapSection as Record<string, unknown>).gaps as Array<{ description?: string; entities?: string[] }>).map((g) => ({
-                description: g.description ?? '',
-                entities: g.entities ?? [],
-              })),
-            );
-          } else {
-            setGaps([]);
-          }
+
+      const handleComplete = (result: TheseusResponse) => {
+        const sections = (result.sections ?? []) as unknown as Array<Record<string, unknown>>;
+        const gapSection = sections.find((s) => s.type === 'structural_gap');
+        if (
+          gapSection
+          && Array.isArray(gapSection.gaps)
+        ) {
+          setGaps(
+            (gapSection.gaps as Array<{
+              description?: string;
+              entities?: string[];
+            }>).map((g) => ({
+              description: g.description ?? '',
+              entities: g.entities ?? [],
+            })),
+          );
+        } else {
+          setGaps([]);
         }
-      } catch {
-        // API not available
-      } finally {
         setLoading(false);
-      }
+      };
+
+      askTheseusAsyncStream(
+        `Knowledge gaps about: ${text.slice(0, 200)}`,
+        { include_web: false, signal: controller.signal },
+        {
+          onStage: () => {},
+          onToken: () => {},
+          onComplete: handleComplete,
+          onError: () => {
+            setLoading(false);
+          },
+        },
+      )
+        .then((cleanup) => {
+          cleanupRef.current = cleanup;
+        })
+        .catch(() => {
+          setLoading(false);
+        });
     }, 500);
 
     return () => {
       if (debounceRef.current) clearTimeout(debounceRef.current);
+      abortRef.current?.abort();
+      cleanupRef.current?.();
     };
   }, [documentContent]);
 
