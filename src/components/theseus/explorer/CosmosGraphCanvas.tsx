@@ -632,14 +632,13 @@ const CosmosGraphCanvas = forwardRef<CosmosGraphCanvasHandle, CosmosGraphCanvasP
 
       // -------- Tier-1 focus dimming overlay (Stage 5) -----------------
       //
-      // Bright nucleus on focused / hover points. Drawn on the same
-      // overlay canvas as focal labels (rather than a separate SVG)
-      // so we get the existing per-frame redraw pipeline (zoom,
-      // simulation tick, resize). The nucleus is a small bright disc
-      // at the point center, sized as 35% of the rendered point
-      // radius. Ports atlas-explorer.jsx lines 421-426. Always
-      // renders regardless of labelsOn so attention cues survive
-      // the label toggle.
+      // Bright nucleus + halo rings on focused / hover points. Drawn
+      // on the same overlay canvas as focal labels (rather than a
+      // separate SVG) so we get the existing per-frame redraw
+      // pipeline (zoom, simulation tick, resize). Ports
+      // atlas-explorer.jsx lines 376-389 (halo rings) and 421-426
+      // (bright nucleus). Always renders regardless of labelsOn so
+      // attention cues survive the label toggle.
       const fid = focusedIdRef.current;
       const hid = hoverIdRef.current;
       const positionsForOverlay = graph.getPointPositions();
@@ -647,6 +646,46 @@ const CosmosGraphCanvas = forwardRef<CosmosGraphCanvasHandle, CosmosGraphCanvasP
         const pool = poolRef.current;
         // var(--paper) at 0.9 alpha matches the atlas-explorer nucleus.
         const paperColor = readCssVar('--paper') || '#f3efe6';
+        // var(--paper-pencil) at 0.75 / 0.40 alpha matches the
+        // atlas-explorer dashed halo rings.
+        const pencilColor = readCssVar('--paper-pencil') || '#b48b53';
+
+        // Halo rings around the focused node only (Task 5.7). Outer
+        // ring r=42 (3 3 dash, 0.75 op), inner ring r=68 (2 4 dash,
+        // 0.40 op). Drawn in screen-space (no zoom scaling) to match
+        // the SVG reference's intent of a stable framing element.
+        if (fid) {
+          const idx = idToIndexRef.current.get(fid);
+          if (typeof idx === 'number' && positionsForOverlay.length >= (idx + 1) * 2) {
+            const screen = graph.spaceToScreenPosition([
+              positionsForOverlay[idx * 2],
+              positionsForOverlay[idx * 2 + 1],
+            ]);
+            if (screen) {
+              ctx.save();
+              ctx.strokeStyle = pencilColor;
+              // Outer (smaller) dashed ring r=42.
+              ctx.setLineDash([3, 3]);
+              ctx.lineWidth = 1;
+              ctx.globalAlpha = 0.75;
+              ctx.beginPath();
+              ctx.arc(screen[0], screen[1], 42, 0, Math.PI * 2);
+              ctx.stroke();
+              // Inner faint dashed ring r=68 (further out from the
+              // focused node, but the atlas-explorer JSX names them
+              // outer/inner based on visual hierarchy: outer is
+              // bolder, inner is faint).
+              ctx.setLineDash([2, 4]);
+              ctx.lineWidth = 0.5;
+              ctx.globalAlpha = 0.40;
+              ctx.beginPath();
+              ctx.arc(screen[0], screen[1], 68, 0, Math.PI * 2);
+              ctx.stroke();
+              ctx.restore();
+            }
+          }
+        }
+
         const drawNucleus = (id: string) => {
           const idx = idToIndexRef.current.get(id);
           if (typeof idx !== 'number') return;
