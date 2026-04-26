@@ -2491,3 +2491,57 @@ html {
 @media (max-width: 480px) {
   .readme-name { font-size: 28px !important; }
 }
+
+/* Lens (Tier 3 close-read) parchment-glass surfaces.
+   These rules expect the --paper, --paper-ink, --paper-pencil tokens
+   declared on .theseus-root in src/styles/theseus.css. The Lens panel
+   always mounts inside a theseus-root subtree, so the variables
+   resolve via inheritance. */
+.lens-properties-strip {
+  position: absolute;
+  left: 16px;
+  top: 96px;
+  width: 280px;
+  padding: 16px;
+  background: color-mix(in oklab, var(--paper) 92%, transparent);
+  border: 1px solid color-mix(in oklab, var(--paper-pencil) 30%, transparent);
+  border-radius: 6px;
+  font-family: var(--font-body);
+  color: var(--paper-ink);
+  box-shadow: 0 4px 16px color-mix(in oklab, var(--paper-ink) 18%, transparent);
+}
+.lens-properties-strip header {
+  font-family: var(--font-display);
+  font-size: 14px;
+  margin-bottom: 8px;
+}
+.lens-properties-strip dl { margin: 0; padding: 0; }
+.lens-properties-strip dt {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  opacity: 0.6;
+}
+.lens-properties-strip dd {
+  margin: 0 0 8px 0;
+  font-size: 13px;
+}
+.lens-properties-strip-empty p {
+  font-style: italic;
+  opacity: 0.6;
+}
+.lens-properties-strip h3 {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  opacity: 0.7;
+  margin: 12px 0 6px 0;
+}
+.lens-properties-strip ul {
+  margin: 0;
+  padding-left: 16px;
+}
+.lens-properties-strip li {
+  font-size: 12px;
+  margin-bottom: 4px;
+}
