@@ -194,6 +194,32 @@ export default function LensShellRenderer({
         );
       })}
 
+      {/* Empty-shell placeholder copy per A.7.17 finalized rule. */}
+      {Array.from(layout.emptyShells).map((shell) => {
+        const r = LENS_RADII[shell];
+        const text =
+          shell === 'inner'
+            ? 'no kin'
+            : shell === 'middle'
+              ? 'no anchoring sources'
+              : 'no context yet';
+        return (
+          <text
+            key={`empty-${shell}`}
+            x={LENS_CENTER.x + r * 0.9}
+            y={LENS_CENTER.y}
+            fontFamily="var(--font-mono)"
+            fontSize={11}
+            fontStyle="italic"
+            fill="var(--paper-pencil)"
+            opacity={0.45}
+            pointerEvents="none"
+          >
+            {text}
+          </text>
+        );
+      })}
+
       {/* Focused-node celestial pole. */}
       <g className="lens-pole">
         <circle
