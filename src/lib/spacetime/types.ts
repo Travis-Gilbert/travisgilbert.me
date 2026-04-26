@@ -3,10 +3,8 @@
  *
  * The /spacetime page renders research clusters across time and space on a
  * sketched rotating globe. The data shape here is the contract between
- * (a) the demo dataset shipped with the page (`demo-data.ts`),
- * (b) the future backend endpoint that will replace it
- *     (`/api/v2/theseus/spacetime/topic/`), and
- * (c) every visual component in `src/components/spacetime/`.
+ * (a) the backend endpoint at `/api/v2/theseus/spacetime/topic/`, and
+ * (b) every visual component in `src/components/spacetime/`.
  *
  * Keep these names stable: renaming a field here means a coordinated edit
  * across the data layer and every component below.

@@ -7,8 +7,11 @@
  * Owns: which topics are active (A and optional B), current scrub year,
  * paused state, hovered cluster, search-feedback hint.
  *
- * Data flows through `useTopic(key)`. Without `?mock=1`, every topic
- * comes back null and the page renders an honest empty state.
+ * Data flows through `useTopic(key)`. Every topic key submitted via search
+ * is slugified and sent to the backend; the backend's resolver decides
+ * whether to return a cache hit or kick off cold-start. There is no mock
+ * mode and no demo allowlist: if the backend cannot answer, the page
+ * renders an honest empty state.
  */
 
 import { useState, useEffect, useMemo } from 'react';
@@ -25,19 +28,9 @@ import {
   COLOR_TOPIC_B,
   COLOR_TOPIC_A_TEXT,
   COLOR_TOPIC_B_TEXT,
-  type SpacetimeTopic,
   type SpacetimeMode,
 } from '@/lib/spacetime/types';
-import { useTopic, useIsMockMode } from '@/lib/spacetime/use-topic';
-import {
-  DEMO_TOPIC_KEYS_ALL,
-  DEMO_TOPICS,
-  findDemoTopicKey,
-} from '@/lib/spacetime/demo-data';
-
-/** Default keys per mode for the suggested-topic chips and the comparison
- *  fallback. Empty when no backend and no mock. */
-const DEFAULT_TOPIC_KEY_MOCK = 'sickle-cell-anemia';
+import { useTopic } from '@/lib/spacetime/use-topic';
 
 function eraFor(year: number, mode: SpacetimeMode): string {
   if (mode === 'prehistory') {
@@ -54,38 +47,33 @@ function eraFor(year: number, mode: SpacetimeMode): string {
   return 'Early 21st Century';
 }
 
+function slugifyQuery(query: string): string {
+  return query.trim().toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
+}
+
 export default function SpacetimeApp() {
-  const isMock = useIsMockMode();
   const searchParams = useSearchParams();
   const urlQuery = searchParams.get('q');
 
-  // Initial topicAKey selection ladder:
-  //   1. URL ?q=... wins (any environment) so a topic deep-link always works
-  //   2. ?mock=1 picks the seeded default
-  //   3. otherwise null (empty state until search submit)
-  const [topicAKey, setTopicAKey] = useState<string | null>(() => {
-    if (urlQuery) return urlQuery;
-    if (isMock) return DEFAULT_TOPIC_KEY_MOCK;
-    return null;
-  });
+  // Initial topicAKey: URL ?q=... wins so a topic deep-link always works;
+  // otherwise null (empty state until the user submits a search).
+  const [topicAKey, setTopicAKey] = useState<string | null>(() => urlQuery || null);
   const [topicBKey, setTopicBKey] = useState<string | null>(null);
+  // The compare slot's second search input renders whenever this is true
+  // OR a topicB has loaded. Lets the user open the second field before any
+  // network call resolves.
+  const [compareEnabled, setCompareEnabled] = useState(false);
   const [year, setYear] = useState(2026);
   const [paused, setPaused] = useState(false);
   const [hovered, setHovered] = useState<HoveredId | null>(null);
-  const [searchHint, setSearchHint] = useState<string | null>(null);
 
-  // React to URL or mock-flag flips after mount (e.g. client-side navigation).
+  // React to URL flips (e.g. client-side navigation to /spacetime?q=...).
   /* eslint-disable react-hooks/set-state-in-effect */
   useEffect(() => {
     if (urlQuery && urlQuery !== topicAKey) {
       setTopicAKey(urlQuery);
-      return;
     }
-    if (!urlQuery) {
-      if (isMock && !topicAKey) setTopicAKey(DEFAULT_TOPIC_KEY_MOCK);
-      if (!isMock && topicAKey === DEFAULT_TOPIC_KEY_MOCK) setTopicAKey(null);
-    }
-  }, [isMock, urlQuery]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [urlQuery]); // eslint-disable-line react-hooks/exhaustive-deps
   /* eslint-enable react-hooks/set-state-in-effect */
 
   const { topic: topicA } = useTopic(topicAKey);
@@ -130,71 +118,25 @@ export default function SpacetimeApp() {
     return n;
   }, [topicA, topicB, year]);
 
-  function setHintTransiently(message: string) {
-    setSearchHint(message);
-    if (typeof window !== 'undefined') {
-      window.setTimeout(() => {
-        setSearchHint(prev => (prev === message ? null : prev));
-      }, 4500);
-    }
-  }
-
-  // Search submit. In mock mode we resolve against the seeded dataset and
-  // show a hint on miss. Outside mock mode we slugify the query and let
-  // useTopic call the backend; the backend's own resolver decides whether
-  // to return a cache hit or kick off cold-start.
-  function slugifyQuery(query: string): string {
-    return query.trim().toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
-  }
-
   function handleSubmitA(query: string) {
-    const trimmed = query.trim();
-    if (!trimmed) return;
-    if (isMock) {
-      const match = findDemoTopicKey(trimmed);
-      if (match) {
-        setTopicAKey(match);
-      } else {
-        setHintTransiently(`No topic matches "${trimmed}". Try one of: ${DEMO_TOPIC_KEYS_ALL.map(k => DEMO_TOPICS[k].title).slice(0, 3).join(', ')}…`);
-      }
-      return;
-    }
-    const slug = slugifyQuery(trimmed);
+    const slug = slugifyQuery(query);
     if (!slug) return;
     setTopicAKey(slug);
   }
 
   function handleSubmitB(query: string) {
-    const trimmed = query.trim();
-    if (!trimmed) return;
-    if (isMock) {
-      const match = findDemoTopicKey(trimmed);
-      if (match) {
-        setTopicBKey(match);
-      } else {
-        setHintTransiently(`No second topic matches "${trimmed}".`);
-      }
-      return;
-    }
-    const slug = slugifyQuery(trimmed);
+    const slug = slugifyQuery(query);
     if (!slug) return;
     setTopicBKey(slug);
   }
 
   function handleAddCompare() {
-    if (!isMock) {
-      // Compare mode in production needs a second topic search input that
-      // hits the live backend. The current chip-based picker only works
-      // for the seeded mock dataset. Until the production resolver
-      // exposes a topic-list endpoint, keep compare mock-only.
-      setHintTransiently('Topic comparison is mock-only for now. Append ?mock=1 to compare topics.');
-      return;
-    }
-    // Prefer a different key from Topic A, in the same mode.
-    const sameMode = DEMO_TOPIC_KEYS_ALL
-      .filter(k => DEMO_TOPICS[k].mode === mode && k !== topicAKey);
-    const next = sameMode[0] ?? DEMO_TOPIC_KEYS_ALL.find(k => k !== topicAKey) ?? null;
-    if (next) setTopicBKey(next);
+    setCompareEnabled(true);
+  }
+
+  function handleRemoveB() {
+    setTopicBKey(null);
+    setCompareEnabled(false);
   }
 
   const wrapperMode: SpacetimeMode = mode;
@@ -281,20 +223,19 @@ export default function SpacetimeApp() {
           </>
         )}
 
-        {!isMock && !topicA && (
+        {!topicA && (
           <>
             <div className={styles.rule} />
             <div className={styles.caption}>
               Type a research topic in the search bar below. Cached topics
               return instantly; new ones run a cold-start that searches
               the graph + web and resolves clusters over a few seconds.
-              Append <code>?mock=1</code> to preview the seeded dataset.
             </div>
           </>
         )}
       </InfoCard>
 
-      {/* Upper-right: legend + suggested topics */}
+      {/* Upper-right: legend */}
       <InfoCard side="right">
         <div className={styles.eyebrow} style={{ textAlign: 'right' }}>
           Atlas · Fig. 14
@@ -327,53 +268,6 @@ export default function SpacetimeApp() {
           <span className={`${styles.dot} ${styles.dotLg}`} />
           <span>100+ records</span>
         </div>
-
-        <div className={styles.rule} />
-
-        <div className={styles.legendTitle}>Suggested topics</div>
-        <div className={styles.suggestionChips}>
-          {(isMock ? DEMO_TOPIC_KEYS_ALL : []).map(k => {
-            const isA = k === topicAKey;
-            const isB = k === topicBKey;
-            const t = DEMO_TOPICS[k];
-            const chipMode = t.mode;
-            const chipClass =
-              `${styles.chip} ` +
-              (isA ? styles.chipActiveA : isB ? styles.chipActiveB : '') +
-              (chipMode === 'prehistory' ? ` ${styles.chipPrehistory}` : '');
-            return (
-              <button
-                key={k}
-                type="button"
-                className={chipClass}
-                onClick={() => {
-                  if (isA) return;
-                  if (isB) {
-                    setTopicBKey(null);
-                    return;
-                  }
-                  if (compareMode) {
-                    setTopicBKey(k);
-                  } else {
-                    setTopicAKey(k);
-                  }
-                }}
-                onContextMenu={e => {
-                  e.preventDefault();
-                  setTopicBKey(k);
-                }}
-                title="click → Topic A · right-click → Topic B"
-              >
-                {t.title}
-              </button>
-            );
-          })}
-          {!isMock && (
-            <span className={styles.caption} style={{ marginTop: 0 }}>
-              No topics yet. Backend coming soon.
-            </span>
-          )}
-        </div>
       </InfoCard>
 
       {/* Globe */}
@@ -396,11 +290,11 @@ export default function SpacetimeApp() {
       <SearchRow
         topicA={topicA}
         topicB={topicB}
+        compareEnabled={compareEnabled}
         onSubmitA={handleSubmitA}
         onSubmitB={handleSubmitB}
         onAddCompare={handleAddCompare}
-        onRemoveB={() => setTopicBKey(null)}
-        hint={searchHint}
+        onRemoveB={handleRemoveB}
       />
 
       {/* Timeline */}

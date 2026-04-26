@@ -8,12 +8,14 @@ import type { SpacetimeTopic } from '@/lib/spacetime/types';
 interface SearchRowProps {
   topicA: SpacetimeTopic | null;
   topicB: SpacetimeTopic | null;
+  /** True once the user clicks "+ Compare another topic" but before the
+   *  second topic has loaded. Lets the second search input render
+   *  immediately rather than waiting on the network. */
+  compareEnabled?: boolean;
   onSubmitA: (query: string) => void;
   onSubmitB: (query: string) => void;
   onAddCompare: () => void;
   onRemoveB: () => void;
-  /** Hint to show when search has no result. Passed through unchanged. */
-  hint?: string | null;
 }
 
 interface SketchedSearchProps {
@@ -84,16 +86,18 @@ function SketchedSearch({ seed, stroke, className = '', children, onSubmit }: Sk
 export default function SearchRow({
   topicA,
   topicB,
+  compareEnabled = false,
   onSubmitA,
   onSubmitB,
   onAddCompare,
   onRemoveB,
-  hint,
 }: SearchRowProps) {
   const [queryA, setQueryA] = useState('');
   const [queryB, setQueryB] = useState('');
 
-  const compareMode = !!topicB;
+  // Render the second input as soon as the user clicks "+ Compare another
+  // topic" (compareEnabled), even before topicB resolves over the network.
+  const compareMode = !!topicB || compareEnabled;
 
   function handleA(e: FormEvent) {
     e.preventDefault();
@@ -146,7 +150,6 @@ export default function SearchRow({
           </SketchedSearch>
         )}
       </div>
-      {hint && <div className={styles.searchHint}>{hint}</div>}
     </>
   );
 }
