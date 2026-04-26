@@ -189,6 +189,29 @@ const ExplorerShell: FC = () => {
   const searchParams = useSearchParams();
   const focusPk = searchParams?.get('focus') ?? null;
   const focusAppliedRef = useRef<string | null>(null);
+  // Hydrate the dimming pass when the user navigates back from Lens.
+  // The Stage 4 onComplete handler appends `?live_additions=<id1,id2,...>`;
+  // re-seeding placeholder points lets the dimming layer keep them
+  // visible if the bulk graph load has not yet observed them.
+  const liveAdditionsParam = searchParams?.get('live_additions') ?? '';
+  useEffect(() => {
+    if (!liveAdditionsParam) return;
+    const ids = liveAdditionsParam.split(',').filter(Boolean);
+    if (ids.length === 0) return;
+    setLiveAdditions((prev) => ({
+      points: mergePointsById(
+        prev.points,
+        ids.map((id) => ({
+          id,
+          label: '',
+          type: TYPE_FALLBACK,
+          colorHex: '#9CA3AF',
+          degree: 0,
+        })),
+      ),
+      links: prev.links,
+    }));
+  }, [liveAdditionsParam]);
 
   const resolveLabelText = useLabelResolver(points);
   const resolveEvidenceText = useEvidenceTextResolver(points);
