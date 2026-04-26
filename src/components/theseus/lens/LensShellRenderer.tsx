@@ -65,6 +65,9 @@ export default function LensShellRenderer({
         const isHover = nb.id === hoverId;
         const isOuter = nb.shell === 'outer';
         const showKindLabel = showLabels && (!isOuter || isHover);
+        const showEdgeLabel = showLabels && (!isOuter || isHover);
+        const edgeLabelText =
+          nb.edgeLabel ?? nb.edgeType.replace(/[-_]/g, ' ').toUpperCase();
         const baseR = 5;
         const haloR = baseR * (isHover ? 4.2 : nb.shell === 'inner' ? 3.2 : 2.6);
         const haloOp = isHover ? 0.85 : nb.shell === 'inner' ? 0.55 : 0.40;
@@ -114,6 +117,21 @@ export default function LensShellRenderer({
                 pointerEvents="none"
               >
                 {nb.kind}
+              </text>
+            )}
+            {showEdgeLabel && (
+              <text
+                x={nb.x}
+                y={nb.y + 11}
+                textAnchor="middle"
+                fontFamily="var(--font-mono)"
+                fontSize={7.5}
+                letterSpacing="0.18em"
+                fill="var(--paper-pencil)"
+                opacity={0.75}
+                pointerEvents="none"
+              >
+                {edgeLabelText}
               </text>
             )}
           </g>
