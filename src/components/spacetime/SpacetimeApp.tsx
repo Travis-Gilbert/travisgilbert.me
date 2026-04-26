@@ -12,6 +12,7 @@
  */
 
 import { useState, useEffect, useMemo } from 'react';
+import { useSearchParams } from 'next/navigation';
 import styles from '@/app/(spacetime)/spacetime/spacetime.module.css';
 import Globe, { type HoveredId } from './Globe';
 import YearTicker from './YearTicker';
@@ -55,27 +56,36 @@ function eraFor(year: number, mode: SpacetimeMode): string {
 
 export default function SpacetimeApp() {
   const isMock = useIsMockMode();
+  const searchParams = useSearchParams();
+  const urlQuery = searchParams.get('q');
 
-  const [topicAKey, setTopicAKey] = useState<string | null>(
-    isMock ? DEFAULT_TOPIC_KEY_MOCK : null,
-  );
+  // Initial topicAKey selection ladder:
+  //   1. URL ?q=... wins (any environment) so a topic deep-link always works
+  //   2. ?mock=1 picks the seeded default
+  //   3. otherwise null (empty state until search submit)
+  const [topicAKey, setTopicAKey] = useState<string | null>(() => {
+    if (urlQuery) return urlQuery;
+    if (isMock) return DEFAULT_TOPIC_KEY_MOCK;
+    return null;
+  });
   const [topicBKey, setTopicBKey] = useState<string | null>(null);
   const [year, setYear] = useState(2026);
   const [paused, setPaused] = useState(false);
   const [hovered, setHovered] = useState<HoveredId | null>(null);
-  const [searchHint, setSearchHint] = useState<string | null>(
-    isMock ? null : 'No backend connected yet. Append ?mock=1 to the URL to preview the prototype with seeded data.',
-  );
+  const [searchHint, setSearchHint] = useState<string | null>(null);
 
-  // Hydrate the default once `?mock=1` resolves on the client. (When SSR
-  // is disabled, useIsMockMode is fine; this still handles edge cases
-  // where the URL param toggles via client-side navigation.)
+  // React to URL or mock-flag flips after mount (e.g. client-side navigation).
   /* eslint-disable react-hooks/set-state-in-effect */
   useEffect(() => {
-    if (isMock && !topicAKey) setTopicAKey(DEFAULT_TOPIC_KEY_MOCK);
-    if (!isMock && topicAKey) setTopicAKey(null);
-    if (!isMock && topicBKey) setTopicBKey(null);
-  }, [isMock]); // eslint-disable-line react-hooks/exhaustive-deps
+    if (urlQuery && urlQuery !== topicAKey) {
+      setTopicAKey(urlQuery);
+      return;
+    }
+    if (!urlQuery) {
+      if (isMock && !topicAKey) setTopicAKey(DEFAULT_TOPIC_KEY_MOCK);
+      if (!isMock && topicAKey === DEFAULT_TOPIC_KEY_MOCK) setTopicAKey(null);
+    }
+  }, [isMock, urlQuery]); // eslint-disable-line react-hooks/exhaustive-deps
   /* eslint-enable react-hooks/set-state-in-effect */
 
   const { topic: topicA } = useTopic(topicAKey);
@@ -129,32 +139,55 @@ export default function SpacetimeApp() {
     }
   }
 
+  // Search submit. In mock mode we resolve against the seeded dataset and
+  // show a hint on miss. Outside mock mode we slugify the query and let
+  // useTopic call the backend; the backend's own resolver decides whether
+  // to return a cache hit or kick off cold-start.
+  function slugifyQuery(query: string): string {
+    return query.trim().toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
+  }
+
   function handleSubmitA(query: string) {
-    if (!isMock) {
-      setHintTransiently('Spacetime backend not yet wired. Append ?mock=1 to preview seeded data.');
+    const trimmed = query.trim();
+    if (!trimmed) return;
+    if (isMock) {
+      const match = findDemoTopicKey(trimmed);
+      if (match) {
+        setTopicAKey(match);
+      } else {
+        setHintTransiently(`No topic matches "${trimmed}". Try one of: ${DEMO_TOPIC_KEYS_ALL.map(k => DEMO_TOPICS[k].title).slice(0, 3).join(', ')}…`);
+      }
       return;
     }
-    const match = findDemoTopicKey(query);
-    if (match) {
-      setTopicAKey(match);
-    } else {
-      setHintTransiently(`No topic matches "${query}". Try one of: ${DEMO_TOPIC_KEYS_ALL.map(k => DEMO_TOPICS[k].title).slice(0, 3).join(', ')}…`);
-    }
+    const slug = slugifyQuery(trimmed);
+    if (!slug) return;
+    setTopicAKey(slug);
   }
 
   function handleSubmitB(query: string) {
-    if (!isMock) return;
-    const match = findDemoTopicKey(query);
-    if (match) {
-      setTopicBKey(match);
-    } else {
-      setHintTransiently(`No second topic matches "${query}".`);
+    const trimmed = query.trim();
+    if (!trimmed) return;
+    if (isMock) {
+      const match = findDemoTopicKey(trimmed);
+      if (match) {
+        setTopicBKey(match);
+      } else {
+        setHintTransiently(`No second topic matches "${trimmed}".`);
+      }
+      return;
     }
+    const slug = slugifyQuery(trimmed);
+    if (!slug) return;
+    setTopicBKey(slug);
   }
 
   function handleAddCompare() {
     if (!isMock) {
-      setHintTransiently('Comparison needs at least one topic loaded. Append ?mock=1.');
+      // Compare mode in production needs a second topic search input that
+      // hits the live backend. The current chip-based picker only works
+      // for the seeded mock dataset. Until the production resolver
+      // exposes a topic-list endpoint, keep compare mock-only.
+      setHintTransiently('Topic comparison is mock-only for now. Append ?mock=1 to compare topics.');
       return;
     }
     // Prefer a different key from Topic A, in the same mode.
@@ -179,7 +212,7 @@ export default function SpacetimeApp() {
         </div>
         <h1 className={styles.topicTitle}>{topicA?.title ?? '- No topic loaded -'}</h1>
         <div className={styles.topicSub}>
-          {topicA?.sub ?? (isMock ? '' : 'Backend coming soon · search to begin')}
+          {topicA?.sub ?? 'Search a topic to begin'}
         </div>
 
         <div className={styles.rule} />
@@ -252,10 +285,10 @@ export default function SpacetimeApp() {
           <>
             <div className={styles.rule} />
             <div className={styles.caption}>
-              The /spacetime route is wired. The backend that turns a topic
-              into geo-temporal clusters is queued for the next session.
-              Append <code>?mock=1</code> to the URL to preview the
-              prototype with the seeded reference dataset.
+              Type a research topic in the search bar below. Cached topics
+              return instantly; new ones run a cold-start that searches
+              the graph + web and resolves clusters over a few seconds.
+              Append <code>?mock=1</code> to preview the seeded dataset.
             </div>
           </>
         )}
