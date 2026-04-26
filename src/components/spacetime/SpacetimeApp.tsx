@@ -258,7 +258,7 @@ export default function SpacetimeApp() {
           </>
         )}
 
-        {!topicA && (
+        {!topicA && !loadingA && !errorA && (
           <>
             <div className={styles.rule} />
             <div className={styles.caption}>
