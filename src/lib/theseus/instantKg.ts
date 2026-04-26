@@ -26,31 +26,50 @@ export interface InstantKgStreamHandlers {
   onError: (error: { message: string; transient: boolean; stage?: string; fallback_used?: string | null }) => void;
 }
 
+// Wire shapes match the backend orchestrator at
+// apps/notebook/services/extraction/instant_kg.py exactly. Every field
+// name and nesting depth is what the SSE payload actually carries.
+// Earlier versions of these types invented friendlier names that the
+// backend never emitted, leaving the canvas blank on every ingestion.
+
+export interface InstantKgEdgePayload {
+  source: number;
+  target: number;
+  edge_type: string;
+  engine: string;
+  reason: string;
+}
+
+export interface InstantKgFetchProvenance {
+  tier:
+    | 'tavily'
+    | 'trafilatura'
+    | 'native_parser'
+    | 'youtube_transcript_api'
+    | 'pymupdf_fallback';
+  tavily_credits_used: number | null;
+  fallback_reason: string | null;
+}
+
 export interface InstantKgDocumentEvent {
   object_id: number | null;
   title: string;
   url: string | null;
-  object_type: string;
-  color: string;
-  fetch_provenance: {
-    tier: 'tavily' | 'trafilatura' | 'native_parser' | 'youtube_transcript_api' | 'pymupdf_fallback';
-    tavily_credits_used: number | null;
-    fallback_reason: string | null;
-  };
+  object_type_slug: string;
+  source_system: string;
+  fetch_provenance: InstantKgFetchProvenance;
 }
 
 export interface InstantKgChunkEvent {
-  chunk_id: number | null;
+  object_id: number | null;
   parent_object_id: number | null;
   chunk_index: number;
-  text_preview: string;
-  edge: {
-    source: number;
-    target: number;
-    edge_type: 'part_of';
-    engine: 'instant_kg';
-    reason: string;
-  };
+  title: string;
+  body_preview: string;
+  start_offset: number;
+  end_offset: number;
+  object_type_slug: string;
+  edge: InstantKgEdgePayload;
 }
 
 export interface InstantKgTensionProposedEvent {
@@ -67,58 +86,52 @@ export interface InstantKgTensionProposedEvent {
 
 export interface InstantKgEntityEvent {
   object_id: number | null;
+  source_chunk_object_id: number | null;
+  title: string;
+  // Char offsets and raw label preserved through the orchestrator so
+  // Modal extract_relations can reach token positions. See
+  // apps/notebook/services/extraction/instant_kg.py:_capture_entity.
+  text: string;
   label: string;
-  type: string;
-  color: string;
-  source_chunk_id: number | null;
-  score: number;
-  is_new_object: boolean;
+  start: number;
+  end: number;
+  object_type_slug: string;
+  resolved: boolean;
+  resolved_to_existing_object_id: number | null;
+  gliner_confidence: number;
 }
 
-export type InstantKgRelationRoute =
-  | 'glirel'
-  | 'open_extras'
-  | 'open_extras_pending';
-
 export interface InstantKgRelationEvent {
-  edge_id: number | null;
-  source_object_id: number | null;
-  target_object_id: number | null;
-  edge_type: string;
-  weight: number;
-  source_chunk_id: number | null;
-  score: number;
-  route: InstantKgRelationRoute;
+  edge: InstantKgEdgePayload;
+  source_chunk_object_id: number | null;
+  glirel_confidence: number;
+  is_open_extras_candidate: boolean;
 }
 
 export interface InstantKgCrossDocEvent {
-  edge_id: number | null;
-  source_object_id: number | null;
-  target_object_id: number | null;
-  edge_type: string;
-  weight: number;
-  sbert_score: number;
+  edge: InstantKgEdgePayload;
+  similarity: number;
 }
 
 export interface InstantKgFocusNeighbor {
   object_id: number | null;
-  ppr_score?: number;
   edge_type?: string;
   reason?: string;
 }
 
 export interface InstantKgCompleteEvent {
-  document_object_id: number | null;
+  job_id: string;
+  summary: {
+    document_object_id: number | null;
+    chunk_count: number;
+    entity_count: number;
+    relation_count: number;
+    cross_doc_edge_count: number;
+    duration_ms: number;
+  };
   focus: {
     pivot_object_id: number | null;
     neighbors: InstantKgFocusNeighbor[];
-  };
-  totals: {
-    chunks: number;
-    entities: number;
-    relations: number;
-    cross_doc_edges: number;
-    open_extras_proposals?: number;
   };
   camera: {
     kind: 'waypoints';

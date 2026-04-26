@@ -269,15 +269,19 @@ const ExplorerAskComposer: FC<ExplorerAskComposerProps> = ({
         },
         onComplete(event) {
           completedRef.current = true;
-          const totals = event.totals;
+          // Backend nests totals under `summary` (per
+          // apps/notebook/services/extraction/instant_kg.py:summary). The
+          // older flat `totals` shape was a frontend-side fiction that
+          // crashed every successful ingestion before this fix.
+          const summary = event.summary;
           setStageLabel('');
           setAnswer(
-            `Captured ${totals.chunks} chunk${totals.chunks === 1 ? '' : 's'}, ` +
-              `${totals.entities} entit${totals.entities === 1 ? 'y' : 'ies'}, ` +
-              `${totals.relations} relation${totals.relations === 1 ? '' : 's'}` +
-              (totals.cross_doc_edges
-                ? `, ${totals.cross_doc_edges} cross-doc link${
-                    totals.cross_doc_edges === 1 ? '' : 's'
+            `Captured ${summary.chunk_count} chunk${summary.chunk_count === 1 ? '' : 's'}, ` +
+              `${summary.entity_count} entit${summary.entity_count === 1 ? 'y' : 'ies'}, ` +
+              `${summary.relation_count} relation${summary.relation_count === 1 ? '' : 's'}` +
+              (summary.cross_doc_edge_count
+                ? `, ${summary.cross_doc_edge_count} cross-doc link${
+                    summary.cross_doc_edge_count === 1 ? '' : 's'
                   }`
                 : ''),
           );

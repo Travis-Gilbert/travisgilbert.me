@@ -67,50 +67,82 @@ function mergePointsById(base: CosmoPoint[], additions: CosmoPoint[]): CosmoPoin
   return Array.from(seen.values());
 }
 
+// Default kind→color fallback used for instant-KG live additions. The
+// orchestrator does not ship `object_type_color` on its SSE events
+// (the base /objects/ endpoint does, see useGraphData.mapNode), so the
+// adapters below derive a defensible default that matches the site
+// design tokens for each kind family.
+const DEFAULT_LIVE_COLORS: Record<string, string> = {
+  source: '#C49A4A',
+  paper: '#C49A4A',
+  document: '#C49A4A',
+  person: '#2D5F6B',
+  concept: '#2D5F6B',
+  hunch: '#B45A2D',
+  note: '#B45A2D',
+  code: '#5A7A4A',
+  script: '#5A7A4A',
+  chunk: '#9CA3AF',
+};
+
+function colorForKind(kind: string | null | undefined): string {
+  const k = (kind || '').toLowerCase();
+  return DEFAULT_LIVE_COLORS[k] || '#9CA3AF';
+}
+
 function entityEventToPoint(event: {
   object_id: number | null;
-  label: string;
-  type: string;
-  color: string;
+  title: string;
+  object_type_slug: string;
 }): CosmoPoint | null {
   if (event.object_id == null) return null;
+  const kind = event.object_type_slug || TYPE_FALLBACK;
   return {
     id: String(event.object_id),
-    label: event.label,
-    type: event.type || TYPE_FALLBACK,
-    colorHex: event.color || '#2D5F6B',
+    label: event.title,
+    type: kind,
+    colorHex: colorForKind(kind),
     degree: 0,
   };
 }
 
 function relationEventToLink(event: {
-  source_object_id: number | null;
-  target_object_id: number | null;
-  edge_type: string;
-  weight: number;
+  edge: { source: number; target: number; edge_type: string; engine: string };
+  glirel_confidence?: number;
+  similarity?: number;
 }): CosmoLink | null {
-  if (event.source_object_id == null || event.target_object_id == null) return null;
+  if (event.edge?.source == null || event.edge?.target == null) return null;
+  // Confidence floor varies by event source: GLiREL ships glirel_confidence
+  // (relation_extracted) and the SBERT cross-doc path ships similarity
+  // (cross_doc_edge). Either lands on weight; the canvas treats it as
+  // the link's strength for force/render scaling.
+  const weight =
+    typeof event.glirel_confidence === 'number'
+      ? event.glirel_confidence
+      : typeof event.similarity === 'number'
+        ? event.similarity
+        : 0.5;
   return {
-    source: String(event.source_object_id),
-    target: String(event.target_object_id),
-    weight: event.weight,
-    edge_type: event.edge_type,
-    engine: 'instant_kg',
+    source: String(event.edge.source),
+    target: String(event.edge.target),
+    weight,
+    edge_type: event.edge.edge_type,
+    engine: event.edge.engine || 'instant_kg',
   };
 }
 
 function documentEventToPoint(event: {
   object_id: number | null;
   title: string;
-  object_type: string;
-  color: string;
+  object_type_slug: string;
 }): CosmoPoint | null {
   if (event.object_id == null) return null;
+  const kind = event.object_type_slug || 'source';
   return {
     id: String(event.object_id),
     label: event.title,
-    type: event.object_type || 'source',
-    colorHex: event.color || '#C49A4A',
+    type: kind,
+    colorHex: colorForKind(kind),
     degree: 0,
   };
 }
@@ -118,21 +150,22 @@ function documentEventToPoint(event: {
 function chunkEventToPointAndLink(
   event: InstantKgChunkEvent,
 ): { point: CosmoPoint; link: CosmoLink } | null {
-  if (event.chunk_id == null || event.parent_object_id == null) return null;
+  if (event.object_id == null || event.parent_object_id == null) return null;
+  const label = event.title || `Chunk ${event.chunk_index}`;
   return {
     point: {
-      id: String(event.chunk_id),
-      label: `Chunk ${event.chunk_index}`,
-      type: 'chunk',
-      colorHex: '#9CA3AF',
+      id: String(event.object_id),
+      label,
+      type: event.object_type_slug || 'chunk',
+      colorHex: colorForKind(event.object_type_slug || 'chunk'),
       degree: 1,
     },
     link: {
-      source: String(event.chunk_id),
+      source: String(event.object_id),
       target: String(event.parent_object_id),
       weight: 1.0,
-      edge_type: 'part_of',
-      engine: 'instant_kg',
+      edge_type: event.edge?.edge_type || 'part_of',
+      engine: event.edge?.engine || 'instant_kg',
     },
   };
 }
@@ -269,10 +302,8 @@ const ExplorerShell: FC = () => {
       },
       onCrossDocEdge(event) {
         const link = relationEventToLink({
-          source_object_id: event.source_object_id,
-          target_object_id: event.target_object_id,
-          edge_type: event.edge_type,
-          weight: event.weight,
+          edge: event.edge,
+          similarity: event.similarity,
         });
         if (!link) return;
         setLiveAdditions((prev) => ({
