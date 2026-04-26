@@ -630,6 +630,53 @@ const CosmosGraphCanvas = forwardRef<CosmosGraphCanvasHandle, CosmosGraphCanvasP
         ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
       }
 
+      // -------- Tier-1 focus dimming overlay (Stage 5) -----------------
+      //
+      // Bright nucleus on focused / hover points. Drawn on the same
+      // overlay canvas as focal labels (rather than a separate SVG)
+      // so we get the existing per-frame redraw pipeline (zoom,
+      // simulation tick, resize). The nucleus is a small bright disc
+      // at the point center, sized as 35% of the rendered point
+      // radius. Ports atlas-explorer.jsx lines 421-426. Always
+      // renders regardless of labelsOn so attention cues survive
+      // the label toggle.
+      const fid = focusedIdRef.current;
+      const hid = hoverIdRef.current;
+      const positionsForOverlay = graph.getPointPositions();
+      if ((fid || hid) && positionsForOverlay) {
+        const pool = poolRef.current;
+        // var(--paper) at 0.9 alpha matches the atlas-explorer nucleus.
+        const paperColor = readCssVar('--paper') || '#f3efe6';
+        const drawNucleus = (id: string) => {
+          const idx = idToIndexRef.current.get(id);
+          if (typeof idx !== 'number') return;
+          if (positionsForOverlay.length < (idx + 1) * 2) return;
+          const screen = graph.spaceToScreenPosition([
+            positionsForOverlay[idx * 2],
+            positionsForOverlay[idx * 2 + 1],
+          ]);
+          if (!screen) return;
+          // pool.sizes is in cosmos.gl space-pixel units (post tier
+          // multiplier from applyFocusDimming). The atlas-explorer
+          // nucleus is 35% of the base ink radius; pool.sizes is the
+          // halo radius (which in atlas-explorer is 4.6x or 3.6x
+          // baseR), so divide back out to recover an approximate
+          // baseR for sizing the nucleus.
+          const haloR = pool?.sizes[idx] ?? 10;
+          const approxBaseR = id === fid ? haloR / 4.6 : haloR / 3.6;
+          const nucleusR = Math.max(1, approxBaseR * 0.35);
+          ctx.save();
+          ctx.fillStyle = paperColor;
+          ctx.globalAlpha = 0.9;
+          ctx.beginPath();
+          ctx.arc(screen[0], screen[1], nucleusR, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.restore();
+        };
+        if (fid) drawNucleus(fid);
+        if (hid && hid !== fid) drawNucleus(hid);
+      }
+
       // Labels toggle: clear the overlay every frame but skip label
       // rendering when the Atlas controls have hidden labels. Keeps
       // the overlay layer honest rather than caching stale text.
@@ -986,7 +1033,11 @@ const CosmosGraphCanvas = forwardRef<CosmosGraphCanvasHandle, CosmosGraphCanvasP
       applyFilterMaskToLive();
       graph.setPointColors(pool.colors);
       graph.setPointSizes(pool.sizes);
-    }, [applyFilterMaskToLive]);
+      // Trigger overlay redraw so nucleus / halo rings (Tasks 5.5,
+      // 5.7) and incident-edge dashes (Task 5.9) reflect the new
+      // focus state on the same frame.
+      drawOverlay();
+    }, [applyFilterMaskToLive, drawOverlay]);
 
     // -------- Construction tween controller ------------------------------
     //
