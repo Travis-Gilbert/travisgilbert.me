@@ -117,7 +117,9 @@
    warm dark wash without losing the parchment-instrument feel. */
 .infoCard {
   position: absolute;
-  top: 28px;
+  /* Top edge sits below the home link (top: 16, ~26px tall with padding)
+     so the link has clear space and never overlaps the dark card. */
+  top: 52px;
   width: 332px;
   background: rgba(42, 36, 32, 0.62);
   backdrop-filter: blur(14px) saturate(1.05);
@@ -319,12 +321,15 @@
   position: relative;
   display: flex;
   align-items: stretch;
-  background: rgba(180, 90, 45, 0.22);
+  /* Stronger terracotta wash than the original 0.22 so cream input text
+     reads cleanly. Earlier wash was design-correct but too translucent
+     against the parchment ground; legibility wins. */
+  background: rgba(150, 70, 35, 0.42);
   backdrop-filter: blur(28px) saturate(1.1);
   -webkit-backdrop-filter: blur(28px) saturate(1.1);
   box-shadow:
-    0 4px 16px rgba(74, 36, 18, 0.18),
-    0 2px 6px rgba(74, 36, 18, 0.12);
+    0 4px 16px rgba(74, 36, 18, 0.20),
+    0 2px 6px rgba(74, 36, 18, 0.14);
   transition: background var(--dur-base) var(--ease-out);
 }
 
@@ -346,7 +351,8 @@
 }
 
 .compare {
-  background: rgba(45, 95, 107, 0.22) !important;
+  /* Match the .searchBox legibility bump for the teal Topic B variant. */
+  background: rgba(28, 78, 90, 0.42) !important;
 }
 .topicMarker {
   width: 9px; height: 9px;
@@ -420,13 +426,19 @@
   background: transparent;
   border: none;
   outline: none;
-  color: #FBF0E2;
+  /* Pure paper cream, slightly bumped weight + subtle shadow for clarity
+     against the terracotta/teal wash. */
+  color: #FFF6E6;
   font-family: var(--font-code);
-  font-size: 14px;
+  font-size: 15px;
+  font-weight: 500;
   letter-spacing: 0.01em;
+  text-shadow: 0 1px 1px rgba(50, 24, 12, 0.35);
 }
 .searchBox input::placeholder {
-  color: rgba(251, 240, 226, 0.65);
+  color: rgba(255, 246, 230, 0.78);
+  font-weight: 400;
+  text-shadow: 0 1px 1px rgba(50, 24, 12, 0.25);
 }
 .kbd {
   font-family: var(--font-code);
@@ -663,18 +675,24 @@
    color matches the footer's link styling. */
 .homeMark {
   position: absolute;
-  top: 12px; left: 28px;
+  top: 16px; left: 28px;
   font-family: var(--font-mono);
-  font-size: 9px;
-  color: var(--color-ink-light);
-  letter-spacing: 0.16em;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--color-ink);
+  letter-spacing: 0.14em;
   text-transform: uppercase;
   text-decoration: none;
   z-index: 11;
-  transition: color 160ms var(--ease-out, ease-out);
+  padding: 4px 8px 4px 0;
+  /* Subtle paper-cream halo so the link reads against either the parchment
+     ground or the InfoCard backdrop blur if they ever overlap. */
+  text-shadow: 0 1px 0 rgba(245, 230, 210, 0.55);
+  transition: color 160ms var(--ease-out, ease-out), transform 160ms var(--ease-out, ease-out);
 }
 .homeMark:hover, .homeMark:focus-visible {
   color: var(--color-terracotta);
+  transform: translateX(-3px);
   outline: none;
 }
 

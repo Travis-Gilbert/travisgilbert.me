@@ -17,9 +17,25 @@
 import { useEffect, useState } from 'react';
 import type { SpacetimeTopic } from './types';
 
+/** Pipeline stage names emitted by the backend cold-start in order:
+ *  graph_search (implicit before stream connects), web_acquisition,
+ *  engine_pass, cluster_bucket, gnn_inflection, llm_chrome, complete.
+ *  We surface these as a humanized progress hint while loading is true. */
+export type SpacetimeStage =
+  | 'starting'
+  | 'web_acquisition'
+  | 'engine_pass'
+  | 'cluster_bucket'
+  | 'gnn_inflection'
+  | 'llm_chrome'
+  | 'complete';
+
 export interface UseTopicResult {
   topic: SpacetimeTopic | null;
   loading: boolean;
+  /** Latest pipeline stage announced by the backend; null when no
+   *  request is in flight (i.e. cache hit or empty key). */
+  stage: SpacetimeStage | null;
   error: Error | null;
 }
 
@@ -55,12 +71,15 @@ const EMPTY_TOPIC = (key: string): SpacetimeTopic => ({
 export function useTopic(key: string | null): UseTopicResult {
   const [topic, setTopic] = useState<SpacetimeTopic | null>(null);
   const [loading, setLoading] = useState(false);
+  const [stage, setStage] = useState<SpacetimeStage | null>(null);
   const [error, setError] = useState<Error | null>(null);
 
+  /* eslint-disable react-hooks/set-state-in-effect */
   useEffect(() => {
     if (!key) {
       setTopic(null);
       setLoading(false);
+      setStage(null);
       setError(null);
       return;
     }
@@ -69,6 +88,7 @@ export function useTopic(key: string | null): UseTopicResult {
     let eventSource: EventSource | null = null;
 
     setLoading(true);
+    setStage('starting');
     setError(null);
     setTopic(null);
 
@@ -83,6 +103,7 @@ export function useTopic(key: string | null): UseTopicResult {
 
         if (resp.status === 200 && isTopic(data)) {
           setTopic(data);
+          setStage('complete');
           setLoading(false);
           return;
         }
@@ -92,6 +113,21 @@ export function useTopic(key: string | null): UseTopicResult {
 
           const es = new EventSource(data.stream_url);
           eventSource = es;
+
+          // Backend announces pipeline progress as `event: stage` lines.
+          // We surface the latest stage to the UI so the user sees that
+          // work is happening during the multi-second cold-start.
+          es.addEventListener('stage', (e) => {
+            if (cancelled) return;
+            try {
+              const s = JSON.parse((e as MessageEvent).data);
+              if (typeof s.name === 'string') {
+                setStage(s.name as SpacetimeStage);
+              }
+            } catch {
+              /* ignore malformed stage payloads */
+            }
+          });
 
           es.addEventListener('cluster', (e) => {
             if (cancelled) return;
@@ -130,6 +166,7 @@ export function useTopic(key: string | null): UseTopicResult {
             } catch (parseErr) {
               setError(new Error(`bad complete payload: ${String(parseErr)}`));
             }
+            setStage('complete');
             setLoading(false);
             es.close();
             eventSource = null;
@@ -178,6 +215,7 @@ export function useTopic(key: string | null): UseTopicResult {
       }
     };
   }, [key]);
+  /* eslint-enable react-hooks/set-state-in-effect */
 
-  return { topic, loading, error };
+  return { topic, loading, stage, error };
 }

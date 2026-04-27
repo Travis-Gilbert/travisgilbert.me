@@ -33,6 +33,22 @@ import {
 } from '@/lib/spacetime/types';
 import { useTopic } from '@/lib/spacetime/use-topic';
 
+/** Humanize the backend pipeline stage name into a status line the
+ *  user can read. The cold-start runs ~30s end-to-end; without this
+ *  the page would look frozen. */
+function stageLabel(stage: string | null): string {
+  switch (stage) {
+    case 'starting':       return 'Starting…';
+    case 'web_acquisition': return 'Searching the web for sources…';
+    case 'engine_pass':    return 'Running graph engine over new sources…';
+    case 'cluster_bucket': return 'Bucketing events by city + decade…';
+    case 'gnn_inflection': return 'Scoring inflection points with the GNN…';
+    case 'llm_chrome':     return 'Generating title and summary…';
+    case 'complete':       return 'Done';
+    default:               return 'Working…';
+  }
+}
+
 function eraFor(year: number, mode: SpacetimeMode): string {
   if (mode === 'prehistory') {
     if (year < -250) return 'Late Permian';
@@ -77,7 +93,7 @@ export default function SpacetimeApp() {
   }, [urlQuery]); // eslint-disable-line react-hooks/exhaustive-deps
   /* eslint-enable react-hooks/set-state-in-effect */
 
-  const { topic: topicA } = useTopic(topicAKey);
+  const { topic: topicA, loading: loadingA, stage: stageA, error: errorA } = useTopic(topicAKey);
   const { topic: topicB } = useTopic(topicBKey);
 
   const mode: SpacetimeMode = topicA?.mode ?? 'modern';
@@ -161,9 +177,19 @@ export default function SpacetimeApp() {
         <div className={styles.eyebrow} style={{ color: COLOR_TOPIC_A_TEXT }}>
           Topic A · DyGFormer GNN
         </div>
-        <h1 className={styles.topicTitle}>{topicA?.title ?? '- No topic loaded -'}</h1>
+        <h1 className={styles.topicTitle}>
+          {loadingA && !topicA?.title
+            ? 'Resolving topic…'
+            : topicA?.title ?? '- No topic loaded -'}
+        </h1>
         <div className={styles.topicSub}>
-          {topicA?.sub ?? 'Search a topic to begin'}
+          {errorA
+            ? `Backend error: ${errorA.message}`
+            : loadingA
+              ? stageLabel(stageA)
+              : topicA?.sub || (topicA && topicA.events.length === 0
+                  ? 'No clusters resolved for this query. Try a different topic, or one that maps to specific places (e.g. cities or regions).'
+                  : 'Search a topic to begin')}
         </div>
 
         <div className={styles.rule} />
@@ -232,7 +258,7 @@ export default function SpacetimeApp() {
           </>
         )}
 
-        {!topicA && (
+        {!topicA && !loadingA && !errorA && (
           <>
             <div className={styles.rule} />
             <div className={styles.caption}>

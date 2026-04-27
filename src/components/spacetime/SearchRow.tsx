@@ -121,9 +121,14 @@ export default function SearchRow({
             type="text"
             value={queryA}
             onChange={e => setQueryA(e.target.value)}
-            placeholder={topicA?.title || 'Search a topic'}
+            // Generic placeholder regardless of the resolved topic. The
+            // current topic title is already visible in the upper-left
+            // InfoCard, so echoing it here adds noise and confuses users
+            // who try to type a fresh query.
+            placeholder="Search a topic"
+            aria-label="Search Topic A"
           />
-          <span className={styles.kbd}>⏎</span>
+          <span className={styles.kbd} aria-hidden>⏎</span>
         </SketchedSearch>
 
         {!compareMode ? (
@@ -137,7 +142,8 @@ export default function SearchRow({
               type="text"
               value={queryB}
               onChange={e => setQueryB(e.target.value)}
-              placeholder={topicB?.title || 'Search a second topic'}
+              placeholder="Search a second topic"
+              aria-label="Search Topic B"
             />
             <button
               type="button"
