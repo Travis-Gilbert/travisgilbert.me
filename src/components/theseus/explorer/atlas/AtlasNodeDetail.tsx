@@ -81,31 +81,19 @@ export default function AtlasNodeDetail({ node, onClose }: AtlasNodeDetailProps)
           gap: 10,
         }}
       >
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-          <div
-            style={{
-              font: '500 10px/1 var(--font-mono)',
-              letterSpacing: '0.2em',
-              textTransform: 'uppercase',
-              color: 'var(--paper-pencil)',
-            }}
-          >
-            Selection · {kindLabel}
-          </div>
-          <h3
-            style={{
-              margin: 0,
-              fontFamily: 'var(--font-display)',
-              fontWeight: 500,
-              fontSize: 22,
-              letterSpacing: '-0.01em',
-              lineHeight: 1.15,
-              color: 'var(--paper-ink)',
-            }}
-          >
-            {node.label}
-          </h3>
-        </div>
+        <h3
+          style={{
+            margin: 0,
+            fontFamily: 'var(--font-display)',
+            fontWeight: 500,
+            fontSize: 22,
+            letterSpacing: '-0.01em',
+            lineHeight: 1.15,
+            color: 'var(--paper-ink)',
+          }}
+        >
+          {node.label}
+        </h3>
         <button
           type="button"
           onClick={onClose}

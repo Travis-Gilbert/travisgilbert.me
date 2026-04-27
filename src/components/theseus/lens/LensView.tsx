@@ -174,9 +174,19 @@ const SWITCHER_STYLE: React.CSSProperties = {
   zIndex: 10,
 };
 
-export default function LensView() {
+interface LensViewProps {
+  /** Override the URL ?node param. When provided, LensView renders inline
+   *  (e.g. mounted inside ExplorerShell) and ignores the search params. */
+  nodeId?: string;
+  /** Close handler. When provided a close button is rendered and clicking
+   *  the existing "Back" link calls this instead of window.history.back. */
+  onClose?: () => void;
+}
+
+export default function LensView({ nodeId, onClose }: LensViewProps = {}) {
   const params = useSearchParams();
-  const node = params?.get('node');
+  const node = nodeId ?? params?.get('node') ?? null;
+  const isInline = onClose != null;
 
   // Celestial chart data (lens-focus)
   const [data, setData] = useState<LensFocusResponse | null>(null);
@@ -296,16 +306,17 @@ export default function LensView() {
   }
 
   return (
-    <div className="lens-root" style={OUTER_STYLE}>
+    <div
+      className={isInline ? 'lens-root lens-root-inline' : 'lens-root'}
+      style={OUTER_STYLE}
+    >
       {/* Left strip: properties, claims, shell counts */}
       <div className="lens-left-panel" style={LEFT_CELL_STYLE}>
         {properties ? (
           <LensPropertiesStrip
             objectId={node}
             title={properties.title}
-            kind={properties.kind}
             summary={properties.summary}
-            sourceSystem={properties.source_system}
             evidenceCount={properties.evidence_count}
             confidence={properties.confidence}
             kinCount={properties.kin_count}
@@ -328,6 +339,10 @@ export default function LensView() {
           type="button"
           className="lens-back"
           onClick={() => {
+            if (onClose) {
+              onClose();
+              return;
+            }
             // window.history.back triggers PanelManager popstate listener
             // and Explorer's ?live_additions= URL hydration on remount.
             window.history.back();
@@ -337,9 +352,9 @@ export default function LensView() {
               }),
             );
           }}
-          aria-label="Back to corpus view"
+          aria-label={isInline ? 'Close Lens' : 'Back to corpus view'}
         >
-          Back
+          {isInline ? 'Close' : 'Back'}
         </button>
 
         {/* Node switcher: top-right of the canvas cell (not SVG-internal) */}

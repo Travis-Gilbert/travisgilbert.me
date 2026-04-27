@@ -2545,3 +2545,46 @@ html {
   font-size: 12px;
   margin-bottom: 4px;
 }
+
+/* Inline Lens overlay rendered inside ExplorerShell. The Atlas-Fork
+   base (--app-base) is dark warm-ink; this overlay forces a parchment
+   surface so the close-read view matches the rest of the parchment
+   site. Mounted as a sibling to the cosmos.gl canvas at zIndex 20 so
+   it covers the canvas + chrome but sits below modal toasts. */
+.lens-inline-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 20;
+  background: var(--paper);
+  color: var(--paper-ink);
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
+}
+.lens-root-inline {
+  background: var(--paper);
+  color: var(--paper-ink);
+}
+.lens-root-inline .lens-back {
+  position: absolute;
+  top: 12px;
+  left: 12px;
+  z-index: 12;
+  padding: 6px 12px;
+  border: 1px solid var(--paper-rule);
+  background: color-mix(in oklab, var(--paper) 92%, transparent);
+  color: var(--paper-ink);
+  font: 500 11px/1 var(--font-mono);
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  cursor: pointer;
+  border-radius: 4px;
+}
+.lens-root-inline .lens-back:hover {
+  background: var(--paper-2);
+}
+.lens-root-inline .lens-back:focus-visible {
+  outline: 2px solid var(--paper-pencil);
+  outline-offset: 2px;
+}

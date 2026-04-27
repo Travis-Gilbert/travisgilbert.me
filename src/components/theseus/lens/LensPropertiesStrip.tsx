@@ -27,9 +27,7 @@ interface ClaimRow {
 interface Props {
   objectId: string;
   title: string;
-  kind: string;
   summary: string;
-  sourceSystem: string | null;
   evidenceCount: number;
   confidence: number | null;
   kinCount: number;
@@ -60,9 +58,7 @@ function formatRelativeTime(iso: string | null): string {
 export default function LensPropertiesStrip({
   objectId,
   title,
-  kind,
   summary,
-  sourceSystem,
   evidenceCount,
   confidence,
   kinCount,
@@ -88,10 +84,6 @@ export default function LensPropertiesStrip({
     <aside className="lens-properties-strip" data-object-id={objectId}>
       <header>
         <div className="lens-properties-title">{title}</div>
-        <div className="lens-properties-kind" aria-label="Object kind">
-          {kind}
-          {sourceSystem ? <span> · {sourceSystem}</span> : null}
-        </div>
         <div className="lens-properties-touched" aria-label="Last touched">
           last touched {formatRelativeTime(lastTouched)}
         </div>

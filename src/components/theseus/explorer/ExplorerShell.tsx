@@ -1,8 +1,12 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { DragEvent, FC } from 'react';
 import { useSearchParams } from 'next/navigation';
+
+const LensViewInline = lazy(
+  () => import('@/components/theseus/lens/LensView'),
+);
 import CosmosGraphCanvas, {
   type CosmosGraphCanvasHandle,
 } from './CosmosGraphCanvas';
@@ -219,9 +223,42 @@ const ExplorerShell: FC = () => {
   const [labelsOn, setLabelsOn] = useState(true);
   const [zoomLevel, setZoomLevel] = useState<number | undefined>(undefined);
   const [lens, setLens] = useState<LensId>('flow');
+  // Inline Lens overlay (Tier 2 close-read view) lives on the same page
+  // as Explorer rather than a separate route. URL param ?lens=<pk> keeps
+  // deep links + back-button behavior; the legacy ?view=lens&node=<pk>
+  // path still works through PanelManager for backward compat.
+  const [lensInlineNodeId, setLensInlineNodeId] = useState<string | null>(null);
   const searchParams = useSearchParams();
   const focusPk = searchParams?.get('focus') ?? null;
+  const lensParam = searchParams?.get('lens') ?? null;
   const focusAppliedRef = useRef<string | null>(null);
+  const lensHydratedRef = useRef<string | null>(null);
+
+  const openLensInline = useCallback((nodeId: string) => {
+    setLensInlineNodeId(nodeId);
+    if (typeof window !== 'undefined') {
+      const url = new URL(window.location.href);
+      url.searchParams.set('lens', nodeId);
+      window.history.replaceState({}, '', url.toString());
+    }
+  }, []);
+
+  const closeLensInline = useCallback(() => {
+    setLensInlineNodeId(null);
+    if (typeof window !== 'undefined') {
+      const url = new URL(window.location.href);
+      url.searchParams.delete('lens');
+      window.history.replaceState({}, '', url.toString());
+    }
+  }, []);
+
+  // Hydrate inline Lens from the URL on mount and on direct navigation.
+  useEffect(() => {
+    if (!lensParam) return;
+    if (lensHydratedRef.current === lensParam) return;
+    lensHydratedRef.current = lensParam;
+    setLensInlineNodeId(lensParam);
+  }, [lensParam]);
   // Hydrate the dimming pass when the user navigates back from Lens.
   // The Stage 4 onComplete handler appends `?live_additions=<id1,id2,...>`;
   // re-seeding placeholder points lets the dimming layer keep them
@@ -344,30 +381,26 @@ const ExplorerShell: FC = () => {
           adapter.fitView();
         }
 
-        // Post-ingest hand-off: push ?view=lens&node=<pivot>&live_additions=...
-        // and emit theseus:switch-panel so the Stage 6 Lens panel mounts. The
-        // live_additions URL param lets a back-to-Explorer navigation
-        // re-hydrate the focus dimming over the just-ingested subgraph.
+        // Post-ingest hand-off: open Lens inline on the same page rather
+        // than navigating to the separate Lens panel. The live_additions
+        // URL param keeps the focus dimming hydrated when the user
+        // closes Lens and returns to the Explorer canvas.
         if (event.lens_target?.object_id != null && typeof window !== 'undefined') {
           const lensId = String(event.lens_target.object_id);
           const additions = liveAdditionsRef.current.points.map((p) => p.id).join(',');
-          const url = new URL(window.location.href);
-          url.searchParams.set('view', 'lens');
-          url.searchParams.set('node', lensId);
           if (additions) {
+            const url = new URL(window.location.href);
             url.searchParams.set('live_additions', additions);
+            window.history.replaceState({}, '', url.toString());
           }
-          window.history.pushState({}, '', url.toString());
-          window.dispatchEvent(
-            new CustomEvent('theseus:switch-panel', { detail: { panel: 'lens' } }),
-          );
+          openLensInline(lensId);
         }
       },
       onError() {
         // Composer surfaces the error in chat. Nothing extra to do here.
       },
     }),
-    [],
+    [openLensInline],
   );
 
   // Per-node double-click opens the Reflex node detail tab. Empty-canvas
@@ -391,16 +424,13 @@ const ExplorerShell: FC = () => {
     return () => container.removeEventListener('dblclick', onDblClick);
   }, [lens, handleLensChange]);
 
-  // Keyboard `L` opens the focused node in the Tier 2 Lens. The handler
-  // reads the canvas's `getFocusedId()` first (covers programmatic focus
-  // applied by ExplorerAskComposer) and falls back to `selectedId` (set
-  // by user click). Pushes `?view=lens&node=<id>` and dispatches the
-  // theseus:switch-panel event so PanelManager mounts the Lens panel.
+  // Keyboard `L` opens the focused node in the inline Lens overlay.
+  // Reads canvas's `getFocusedId()` first (covers programmatic focus
+  // applied by ExplorerAskComposer) and falls back to `selectedId`
+  // (set by user click).
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
       if (e.key !== 'l' && e.key !== 'L') return;
-      // Skip when typing in an input / contentEditable so the chat
-      // composer doesn't lose its `l` keystroke.
       const target = e.target as HTMLElement | null;
       if (target) {
         const tag = target.tagName;
@@ -411,17 +441,11 @@ const ExplorerShell: FC = () => {
       const focusedId =
         canvasRef.current?.getFocusedId?.() ?? selectedId ?? null;
       if (!focusedId) return;
-      const url = new URL(window.location.href);
-      url.searchParams.set('view', 'lens');
-      url.searchParams.set('node', focusedId);
-      window.history.pushState({}, '', url.toString());
-      window.dispatchEvent(
-        new CustomEvent('theseus:switch-panel', { detail: { panel: 'lens' } }),
-      );
+      openLensInline(focusedId);
     }
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [selectedId]);
+  }, [selectedId, openLensInline]);
 
   // Honor ?focus=<pk> on mount so the Reflex page's "Back to Explorer"
   // link lands on a focused node. Runs once per (focus, points) pair so
@@ -730,24 +754,14 @@ const ExplorerShell: FC = () => {
             canvasRef.current?.getFocusedId?.() ?? selectedId,
           )}
           onOpenLens={() => {
-            // Resolve the focused node from the canvas first (covers
-            // programmatic focus from the post-ingest scene directive
-            // and the keyboard `L` handler), fall back to selectedId
-            // for the click-to-select path. Same logic as the keyboard
-            // handler at line ~399; centralizing it here keeps the
-            // lens-row tab and the keyboard shortcut in sync.
+            // Resolve the focused node from the canvas (covers
+            // programmatic focus from the post-ingest directive +
+            // keyboard `L`) and fall back to selectedId for the
+            // click-to-select path. Inline overlay; no panel switch.
             const focusedId =
               canvasRef.current?.getFocusedId?.() ?? selectedId ?? null;
             if (!focusedId) return;
-            const url = new URL(window.location.href);
-            url.searchParams.set('view', 'lens');
-            url.searchParams.set('node', focusedId);
-            window.history.pushState({}, '', url.toString());
-            window.dispatchEvent(
-              new CustomEvent('theseus:switch-panel', {
-                detail: { panel: 'lens' },
-              }),
-            );
+            openLensInline(focusedId);
           }}
         />
       )}
@@ -815,6 +829,23 @@ const ExplorerShell: FC = () => {
           <div>
             <TimelineBrush />
           </div>
+        </div>
+      )}
+
+      {lensInlineNodeId && (
+        <div className="lens-inline-overlay" role="dialog" aria-label="Lens close-read">
+          <Suspense
+            fallback={
+              <div className="theseus-panel-loading">
+                <span className="theseus-panel-loading-text">LOADING LENS</span>
+              </div>
+            }
+          >
+            <LensViewInline
+              nodeId={lensInlineNodeId}
+              onClose={closeLensInline}
+            />
+          </Suspense>
         </div>
       )}
     </div>
