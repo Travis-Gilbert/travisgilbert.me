@@ -86,41 +86,44 @@ interface TimelinePayload {
 // ── Fetch helpers ────────────────────────────────────────────────────────────
 
 // Strip the `object:` namespace prefix the backend's /graph/ endpoint
-// ships on every node id. The lens-* DRF actions live at
-// /api/v1/notebook/objects/{pk}/lens-* (where {pk} is an integer pk),
-// so the namespaced form must be stripped to a bare integer string
-// before the fetch. The Explorer canvas writes namespaced ids into
-// ?node= via the same selectedId / focusedId surface, so this
-// normalization happens at the lens fetch boundary rather than at
-// every URL push site.
+// ships on every node id. The lens Ninja router lives at
+// /api/v2/theseus/lens/{pk}/* (where {pk} is an integer pk), so the
+// namespaced form must be stripped to a bare integer string before the
+// fetch. The Explorer canvas writes namespaced ids into ?node= via the
+// same selectedId / focusedId surface, so this normalization happens
+// at the lens fetch boundary rather than at every URL push site.
+//
+// 2026-04-26: migrated from /api/v1/notebook/objects/{pk}/lens-* DRF
+// actions to /api/v2/theseus/lens/{pk}/* Ninja routes per the
+// architecture review. Same wire shapes; only the path moved.
 function objectPk(nodeId: string): string {
   return nodeId.replace(/^object:/, '');
 }
 
 async function fetchLensData(nodeId: string): Promise<LensFocusResponse> {
   const pk = objectPk(nodeId);
-  const response = await fetch(`/api/v1/notebook/objects/${pk}/lens-focus/`);
+  const response = await fetch(`/api/v2/theseus/lens/${pk}/focus/`);
   if (!response.ok) throw new Error(`lens-focus HTTP ${response.status}`);
   return (await response.json()) as LensFocusResponse;
 }
 
 async function fetchProperties(nodeId: string): Promise<PropertiesPayload> {
   const pk = objectPk(nodeId);
-  const response = await fetch(`/api/v1/notebook/objects/${pk}/lens-properties/`);
+  const response = await fetch(`/api/v2/theseus/lens/${pk}/properties/`);
   if (!response.ok) throw new Error(`lens-properties HTTP ${response.status}`);
   return (await response.json()) as PropertiesPayload;
 }
 
 async function fetchDossier(nodeId: string): Promise<DossierPayload> {
   const pk = objectPk(nodeId);
-  const response = await fetch(`/api/v1/notebook/objects/${pk}/lens-dossier/`);
+  const response = await fetch(`/api/v2/theseus/lens/${pk}/dossier/`);
   if (!response.ok) throw new Error(`lens-dossier HTTP ${response.status}`);
   return (await response.json()) as DossierPayload;
 }
 
 async function fetchTimeline(nodeId: string): Promise<TimelinePayload> {
   const pk = objectPk(nodeId);
-  const response = await fetch(`/api/v1/notebook/objects/${pk}/lens-timeline/`);
+  const response = await fetch(`/api/v2/theseus/lens/${pk}/timeline/`);
   if (!response.ok) throw new Error(`lens-timeline HTTP ${response.status}`);
   return (await response.json()) as TimelinePayload;
 }
