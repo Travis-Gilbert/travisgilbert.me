@@ -1,0 +1,1393 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Theseus · Mobile App v2 (NOT a landing page — the actual app shell)</title>
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Vollkorn:ital,wght@0,400;0,500;0,600;0,700&family=IBM+Plex+Sans:wght@300;400;500;600&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+<style>
+  /*
+   * IMPORTANT: This file shows the THESEUS APP on mobile (Threads,
+   * Explorer, Plugins, Code panels). It is NOT a marketing/landing
+   * page. Screen F shows a *separate* unauth landing concept that
+   * lives at /theseus/about, NOT at /theseus. The /theseus route
+   * remains the PanelManager app, untouched.
+   */
+
+  :root {
+    --bg:           #16181C;
+    --bg-elevated:  #1B1E22;
+    --bg-sidebar:   #14171B;
+    --bg-soft:      #232730;
+    --bg-card:      #1E2128;
+    --bg-popover:   #24272F;
+
+    --fg:           #E4E6EA;
+    --fg-muted:     #B0B5BD;
+    --fg-dim:       #7A828D;
+    --fg-ghost:     #4D5460;
+
+    --border:       rgba(228, 230, 234, 0.10);
+    --border-mid:   rgba(228, 230, 234, 0.16);
+    --border-strong:rgba(228, 230, 234, 0.24);
+    --ring:         rgba(201, 162, 58, 0.45);
+
+    --brand-pcb:        #2a8b6c;
+    --brand-pcb-deep:   #0a2a20;
+    --brand-trace:      #c9a23a;
+    --brand-silkscreen: #d4c88a;
+
+    --paper:        #f5f5f7;
+    --paper-2:      #eaeaef;
+    --paper-3:      #dde0e6;
+    --paper-ink:    #15171B;
+    --paper-ink-2:  #2A2E36;
+    --paper-ink-3:  #525866;
+    --paper-rule:   #c4c8d0;
+
+    --teal:    #5fb3b3;
+    --indigo:  #8c9adb;
+    --rose:    #c47a86;
+    --plum:    #8a7aa8;
+    --sage:    #6fa580;
+    --amber:   #c9a23a;
+
+    --font-body:    'IBM Plex Sans', system-ui, sans-serif;
+    --font-display: 'Vollkorn', Georgia, serif;
+    --font-mono:    'IBM Plex Mono', ui-monospace, monospace;
+  }
+
+  *, *::before, *::after { box-sizing: border-box; }
+  * { scrollbar-width: none; -ms-overflow-style: none; }
+  *::-webkit-scrollbar { width: 0; height: 0; display: none; }
+
+  html, body { margin: 0; padding: 0; }
+  body {
+    font-family: var(--font-body);
+    background: #0c0d0f;
+    color: var(--fg);
+    -webkit-font-smoothing: antialiased;
+    min-height: 100vh;
+    padding: 32px 16px 80px;
+  }
+
+  .doc-head {
+    max-width: 1280px;
+    margin: 0 auto 28px;
+    text-align: center;
+  }
+  .doc-head h1 {
+    font-family: var(--font-display);
+    font-weight: 500;
+    font-size: 30px;
+    color: var(--brand-trace);
+    margin: 0 0 6px;
+    letter-spacing: -0.01em;
+  }
+  .doc-head p {
+    color: var(--fg-muted);
+    font-size: 13px;
+    margin: 0 auto;
+    max-width: 720px;
+    line-height: 1.55;
+  }
+  .doc-head code {
+    color: var(--brand-trace);
+    font-family: var(--font-mono);
+    font-size: 11px;
+  }
+  .doc-head .scope-warn {
+    display: inline-block;
+    margin-top: 12px;
+    padding: 8px 16px;
+    border: 1px solid #c4413f;
+    background: rgba(196, 65, 63, 0.08);
+    border-radius: 8px;
+    color: #f0a8a6;
+    font: 500 11px/1.4 var(--font-mono);
+    letter-spacing: 0.04em;
+    max-width: 720px;
+    text-align: left;
+  }
+
+  .screens {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, 410px);
+    gap: 44px 24px;
+    max-width: 1320px;
+    margin: 0 auto;
+    justify-content: center;
+  }
+  .phone { width: 410px; display: flex; flex-direction: column; align-items: center; }
+  .phone .label {
+    font: 500 10px/1 var(--font-mono);
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: var(--fg-dim);
+    margin-bottom: 12px;
+  }
+  .phone .label .num { color: var(--brand-trace); margin-right: 8px; }
+  .phone .frame {
+    width: 390px; height: 844px;
+    background: var(--bg);
+    border-radius: 44px;
+    border: 6px solid #050507;
+    box-shadow:
+      0 24px 60px -12px rgba(0,0,0,0.6),
+      inset 0 0 0 2px #14161a;
+    overflow: hidden;
+    position: relative;
+    isolation: isolate;
+  }
+  .phone .caption {
+    margin-top: 14px;
+    color: var(--fg-muted);
+    font-size: 12px;
+    line-height: 1.55;
+    max-width: 380px;
+    text-align: center;
+  }
+  .phone .caption strong { color: var(--fg); font-weight: 500; }
+  .phone .caption code {
+    color: var(--brand-trace);
+    font-family: var(--font-mono);
+    font-size: 11px;
+  }
+
+  .status-bar {
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 44px;
+    z-index: 30;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 28px;
+    font: 600 14px/1 var(--font-body);
+    color: var(--paper-ink);
+    pointer-events: none;
+  }
+  .status-bar.dark { color: var(--fg); }
+  .status-bar .icons { display: inline-flex; align-items: center; gap: 5px; }
+
+  .app {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    background: var(--bg);
+  }
+  .app.paper { background: var(--paper); }
+
+  .topbar {
+    position: relative;
+    z-index: 20;
+    flex: 0 0 auto;
+    height: 96px;
+    padding: 44px 14px 0;
+    display: grid;
+    grid-template-columns: 40px 1fr 40px;
+    align-items: center;
+    background: var(--bg-sidebar);
+    border-bottom: 1px solid var(--border);
+  }
+  .topbar.paper {
+    background: var(--paper);
+    border-bottom-color: var(--paper-rule);
+  }
+  .topbar .hamburger,
+  .topbar .action {
+    width: 40px; height: 40px;
+    display: grid; place-items: center;
+    border: 0; background: transparent;
+    color: var(--fg-muted);
+    border-radius: 10px;
+    cursor: pointer;
+  }
+  .topbar.paper .hamburger,
+  .topbar.paper .action { color: var(--paper-ink-2); }
+  .topbar .brand {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    justify-content: center;
+  }
+  .topbar .brand .mark { width: 26px; height: 26px; flex-shrink: 0; }
+  .topbar .brand .name {
+    font-family: var(--font-display);
+    font-weight: 500;
+    font-size: 18px;
+    color: var(--fg);
+    letter-spacing: -0.01em;
+  }
+  .topbar.paper .brand .name { color: var(--paper-ink); }
+
+  .main { flex: 1; overflow: hidden; position: relative; }
+  .main.paper { background: var(--paper); color: var(--paper-ink); }
+
+  .tabs {
+    position: relative;
+    z-index: 20;
+    flex: 0 0 auto;
+    height: 84px;
+    padding-bottom: 20px;
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    background: rgba(20, 23, 27, 0.92);
+    backdrop-filter: blur(20px);
+    border-top: 1px solid var(--border);
+  }
+  .tabs.paper {
+    background: rgba(245, 245, 247, 0.92);
+    border-top-color: var(--paper-rule);
+  }
+  .tabs .tab {
+    border: 0;
+    background: transparent;
+    cursor: pointer;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+    color: var(--fg-dim);
+    font: 500 10px/1 var(--font-mono);
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    padding: 8px 4px 6px;
+    position: relative;
+  }
+  .tabs.paper .tab { color: var(--paper-ink-3); }
+  .tabs .tab.is-active { color: var(--brand-trace); }
+  .tabs .tab.is-active::before {
+    content: "";
+    position: absolute;
+    top: 6px;
+    width: 4px;
+    height: 4px;
+    background: var(--brand-trace);
+    border-radius: 50%;
+    box-shadow: 0 0 6px var(--brand-trace);
+  }
+
+  /* SCREEN A: Threads welcome */
+  .threads-empty { height: 100%; display: flex; flex-direction: column; }
+  .welcome {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    padding: 0 24px 16px;
+  }
+  .welcome h1 {
+    font-family: var(--font-display);
+    font-weight: 500;
+    font-size: 26px;
+    line-height: 1.2;
+    margin: 0;
+    color: var(--paper-ink);
+    letter-spacing: -0.01em;
+    animation: fadeUp 360ms cubic-bezier(0.21, 1, 0.21, 1) both;
+  }
+  .welcome p.lede {
+    font-family: var(--font-display);
+    font-weight: 400;
+    font-size: 19px;
+    line-height: 1.35;
+    color: var(--paper-ink-3);
+    margin: 4px 0 0;
+    animation: fadeUp 360ms cubic-bezier(0.21, 1, 0.21, 1) 80ms both;
+  }
+  .welcome-suggestions {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+    margin-top: 28px;
+  }
+  .welcome-suggestions .sug {
+    grid-column: span 2;
+    background: rgba(255,255,255,0.65);
+    border: 1px solid var(--paper-rule);
+    border-radius: 18px;
+    padding: 12px 14px;
+    text-align: left;
+    cursor: pointer;
+    animation: fadeUp 360ms cubic-bezier(0.21, 1, 0.21, 1) 160ms both;
+  }
+  .welcome-suggestions .sug:nth-child(2) { animation-delay: 220ms; }
+  .welcome-suggestions .sug:nth-child(3) { animation-delay: 280ms; }
+  .welcome-suggestions .sug:nth-child(4) { animation-delay: 340ms; }
+  .welcome-suggestions .sug-title {
+    display: block;
+    font-weight: 500;
+    font-size: 13px;
+    color: var(--paper-ink);
+    margin-bottom: 2px;
+  }
+  .welcome-suggestions .sug-desc {
+    display: block;
+    font-size: 12px;
+    color: var(--paper-ink-3);
+  }
+  @keyframes fadeUp {
+    from { opacity: 0; transform: translateY(8px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  .composer-wrap {
+    flex: 0 0 auto;
+    padding: 12px 14px 16px;
+    background: var(--paper);
+  }
+  .composer {
+    background: var(--paper);
+    border: 1px solid var(--paper-rule);
+    border-radius: 24px;
+    padding: 10px;
+    transition: border-color 160ms ease, box-shadow 160ms ease;
+  }
+  .composer.focused {
+    border-color: rgba(201, 162, 58, 0.6);
+    box-shadow: 0 0 0 4px rgba(201, 162, 58, 0.18);
+  }
+  .composer textarea {
+    border: 0;
+    background: transparent;
+    resize: none;
+    outline: none;
+    color: var(--paper-ink);
+    font-family: var(--font-body);
+    font-size: 16px;
+    line-height: 1.4;
+    padding: 6px 8px 0;
+    min-height: 24px;
+    width: 100%;
+  }
+  .composer textarea::placeholder { color: var(--paper-ink-3); opacity: 0.7; }
+  .composer-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-top: 4px;
+    padding: 4px 4px 2px;
+  }
+  .composer-tools { display: inline-flex; align-items: center; gap: 4px; }
+  .icon-btn {
+    width: 32px; height: 32px;
+    border: 0;
+    background: transparent;
+    border-radius: 8px;
+    display: grid;
+    place-items: center;
+    color: var(--paper-ink-3);
+    cursor: pointer;
+  }
+  .send-btn {
+    width: 32px; height: 32px;
+    border: 0;
+    background: var(--paper-ink);
+    color: var(--paper);
+    border-radius: 50%;
+    display: grid;
+    place-items: center;
+    cursor: pointer;
+  }
+
+  /* SCREEN B: Threads conversation */
+  .thread { height: 100%; display: flex; flex-direction: column; }
+  .thread-scroll {
+    flex: 1;
+    overflow-y: auto;
+    padding: 18px 16px 8px;
+    display: flex;
+    flex-direction: column;
+    gap: 22px;
+    background: var(--paper);
+  }
+  .msg-user {
+    align-self: flex-end;
+    max-width: 85%;
+    background: var(--paper-2);
+    color: var(--paper-ink);
+    border-radius: 16px;
+    padding: 10px 14px;
+    font-size: 14px;
+    line-height: 1.45;
+  }
+  .msg-bot {
+    align-self: stretch;
+    color: var(--paper-ink);
+    font-family: var(--font-display);
+    font-size: 15px;
+    line-height: 1.6;
+    padding: 0 4px;
+  }
+  .msg-bot p { margin: 0 0 12px; }
+  .msg-bot p:last-child { margin-bottom: 0; }
+  .msg-bot .citation {
+    color: var(--brand-pcb);
+    text-decoration: none;
+    border-bottom: 1px solid rgba(42, 139, 108, 0.4);
+  }
+  .msg-bot .meta {
+    margin-top: 10px;
+    font: 500 10px/1.3 var(--font-mono);
+    letter-spacing: 0.06em;
+    color: var(--paper-ink-3);
+    display: flex;
+    gap: 12px;
+  }
+  .msg-bot .meta .num { color: var(--brand-trace); }
+  .msg-actions {
+    display: flex;
+    gap: 2px;
+    margin-top: 6px;
+    padding: 0 4px;
+    color: var(--paper-ink-3);
+  }
+  .msg-actions button {
+    border: 0;
+    background: transparent;
+    width: 28px; height: 28px;
+    border-radius: 6px;
+    display: grid;
+    place-items: center;
+    color: inherit;
+    cursor: pointer;
+  }
+  .reasoning {
+    background: rgba(20,22,26,0.04);
+    border: 1px solid var(--paper-rule);
+    border-radius: 10px;
+    padding: 10px 12px;
+    margin-bottom: 12px;
+    font-size: 12.5px;
+    line-height: 1.5;
+    color: var(--paper-ink-2);
+  }
+  .reasoning-head {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font: 500 10px/1 var(--font-mono);
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--paper-ink-3);
+    margin-bottom: 6px;
+  }
+  .reasoning-head .pulse {
+    width: 6px; height: 6px;
+    background: var(--brand-trace);
+    border-radius: 50%;
+    box-shadow: 0 0 8px var(--brand-trace);
+    animation: heartbeat 1.4s ease-in-out infinite;
+  }
+  @keyframes heartbeat {
+    0%, 100% { opacity: 0.5; transform: scale(0.9); }
+    50% { opacity: 1; transform: scale(1.1); }
+  }
+  .follow-ups { display: flex; flex-direction: column; gap: 6px; margin-top: 4px; }
+  .follow-up {
+    text-align: left;
+    background: transparent;
+    border: 1px solid var(--paper-rule);
+    border-radius: 10px;
+    padding: 9px 12px;
+    font-size: 13px;
+    color: var(--paper-ink-2);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .follow-up::before {
+    content: "↗";
+    color: var(--brand-trace);
+    font-family: var(--font-mono);
+    font-weight: 500;
+  }
+
+  /* SCREEN C: Explorer cosmos.gl */
+  .explorer {
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    background: var(--bg);
+  }
+  .explorer-meta {
+    flex: 0 0 auto;
+    padding: 10px 16px 4px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    color: var(--fg-dim);
+  }
+  .explorer-meta .title {
+    font-family: var(--font-display);
+    font-weight: 500;
+    font-size: 16px;
+    color: var(--fg);
+  }
+  .explorer-meta .stats {
+    font: 500 10px/1 var(--font-mono);
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+  }
+  .lens-row {
+    flex: 0 0 auto;
+    display: flex;
+    gap: 4px;
+    padding: 8px 14px 0;
+    overflow-x: auto;
+  }
+  .lens-btn {
+    border: 0;
+    background: transparent;
+    cursor: pointer;
+    flex: 0 0 auto;
+    padding: 8px 12px;
+    font: 500 10px/1 var(--font-mono);
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--fg-dim);
+    border-radius: 6px;
+    position: relative;
+  }
+  .lens-btn.is-active { color: var(--brand-trace); }
+  .lens-btn.is-active::after {
+    content: "";
+    position: absolute;
+    left: 12px; right: 26px; bottom: 0;
+    height: 2px;
+    background: var(--brand-trace);
+    border-radius: 2px;
+  }
+  .lens-btn .key { color: var(--fg-ghost); font-size: 9px; margin-left: 4px; }
+  .filter-strip {
+    flex: 0 0 auto;
+    display: flex;
+    gap: 6px;
+    padding: 6px 14px 8px;
+    overflow-x: auto;
+  }
+  .filter-chip {
+    flex: 0 0 auto;
+    border: 1px solid var(--border-mid);
+    background: transparent;
+    border-radius: 999px;
+    padding: 6px 11px;
+    font: 500 11px/1 var(--font-body);
+    color: var(--fg-muted);
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    white-space: nowrap;
+  }
+  .filter-chip.on {
+    color: var(--fg);
+    border-color: var(--border-strong);
+    background: rgba(255,255,255,0.03);
+  }
+  .filter-chip .sw {
+    width: 7px; height: 7px;
+    border-radius: 50%;
+    background: currentColor;
+    opacity: 0.5;
+  }
+  .filter-chip.on .sw { opacity: 1; }
+  .gl-canvas {
+    flex: 1;
+    position: relative;
+    overflow: hidden;
+    background: radial-gradient(ellipse at 50% 40%, #1d2128 0%, #0e1014 75%);
+  }
+  .gl-canvas svg { position: absolute; inset: 0; width: 100%; height: 100%; }
+  .gl-canvas .glow {
+    position: absolute;
+    inset: 0;
+    background: radial-gradient(ellipse at 50% 45%, rgba(201,162,58,0.06) 0%, transparent 60%);
+    pointer-events: none;
+  }
+  .gl-floating {
+    position: absolute;
+    bottom: 14px;
+    right: 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    z-index: 5;
+  }
+  .gl-floating-btn {
+    width: 36px; height: 36px;
+    background: rgba(20, 22, 26, 0.65);
+    backdrop-filter: blur(12px);
+    border: 1px solid var(--border-mid);
+    color: var(--fg-muted);
+    border-radius: 8px;
+    display: grid;
+    place-items: center;
+    font: 500 14px/1 var(--font-mono);
+  }
+  .gl-cos-sim {
+    position: absolute;
+    bottom: 16px;
+    left: 14px;
+    z-index: 5;
+    background: rgba(20, 22, 26, 0.7);
+    backdrop-filter: blur(12px);
+    border: 1px solid var(--border-mid);
+    border-radius: 999px;
+    padding: 6px 12px;
+    font: 500 10px/1 var(--font-mono);
+    letter-spacing: 0.1em;
+    color: var(--fg-muted);
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .gl-cos-sim .track {
+    width: 80px; height: 4px;
+    background: var(--border-mid);
+    border-radius: 2px;
+    position: relative;
+  }
+  .gl-cos-sim .track::after {
+    content: "";
+    position: absolute;
+    left: 18%;
+    width: 14px; height: 4px;
+    background: var(--brand-trace);
+    border-radius: 2px;
+    box-shadow: 0 0 6px var(--brand-trace);
+  }
+  .floating-pill {
+    position: absolute;
+    top: calc(96px + 12px);
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 10;
+    background: rgba(20, 22, 26, 0.7);
+    backdrop-filter: blur(12px);
+    border: 1px solid var(--border-mid);
+    border-radius: 999px;
+    padding: 5px 12px;
+    font: 500 10px/1 var(--font-mono);
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--fg-muted);
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .floating-pill .pulse {
+    width: 6px; height: 6px;
+    background: var(--brand-pcb);
+    border-radius: 50%;
+    box-shadow: 0 0 8px var(--brand-pcb);
+    animation: heartbeat 1.6s ease-in-out infinite;
+  }
+
+  /* SCREEN D: Plugins */
+  .plugins {
+    height: 100%;
+    overflow-y: auto;
+    background: var(--paper);
+    padding: 18px 16px 24px;
+  }
+  .plugins h2 {
+    font-family: var(--font-display);
+    font-weight: 500;
+    font-size: 24px;
+    margin: 0 0 4px;
+    color: var(--paper-ink);
+    letter-spacing: -0.01em;
+  }
+  .plugins .lede {
+    margin: 0 0 8px;
+    color: var(--paper-ink-3);
+    font-size: 13px;
+    line-height: 1.5;
+  }
+  .plugins-tabs {
+    display: inline-flex;
+    margin-top: 10px;
+    margin-bottom: 18px;
+    padding: 3px;
+    background: var(--paper-2);
+    border-radius: 10px;
+    font: 500 11px/1 var(--font-mono);
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+  }
+  .plugins-tab {
+    border: 0;
+    background: transparent;
+    color: var(--paper-ink-3);
+    padding: 7px 14px;
+    border-radius: 8px;
+    cursor: pointer;
+  }
+  .plugins-tab.is-active {
+    background: var(--paper);
+    color: var(--paper-ink);
+    box-shadow: 0 1px 2px rgba(20,22,26,0.06);
+  }
+  .plugin-card {
+    background: var(--paper);
+    border: 1px solid var(--paper-rule);
+    border-radius: 12px;
+    padding: 14px;
+    margin-bottom: 8px;
+    display: grid;
+    grid-template-columns: 36px 1fr auto;
+    gap: 12px;
+    align-items: center;
+  }
+  .plugin-icon {
+    width: 36px; height: 36px;
+    border-radius: 9px;
+    background: var(--paper-2);
+    color: var(--paper-ink-2);
+    display: grid;
+    place-items: center;
+    font-family: var(--font-mono);
+    font-size: 14px;
+    font-weight: 600;
+  }
+  .plugin-icon.green { background: rgba(42,139,108,0.12); color: var(--brand-pcb); }
+  .plugin-icon.brass { background: rgba(201,162,58,0.12); color: var(--brand-trace); }
+  .plugin-icon.indigo { background: rgba(140,154,219,0.16); color: #5e6cb0; }
+  .plugin-icon.rose { background: rgba(196,122,134,0.16); color: #9b5460; }
+  .plugin-meta {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    min-width: 0;
+  }
+  .plugin-name {
+    font-family: var(--font-display);
+    font-weight: 500;
+    font-size: 15px;
+    color: var(--paper-ink);
+  }
+  .plugin-detail {
+    color: var(--paper-ink-3);
+    font-size: 12px;
+    line-height: 1.4;
+  }
+  .plugin-status {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    margin-top: 4px;
+    font: 500 9.5px/1 var(--font-mono);
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--paper-ink-3);
+  }
+  .plugin-status .dot {
+    width: 6px; height: 6px;
+    border-radius: 50%;
+    background: var(--sage);
+  }
+  .plugin-status.warn .dot { background: var(--amber); }
+  .plugin-toggle {
+    border: 0;
+    background: var(--paper-2);
+    color: var(--paper-ink-2);
+    border-radius: 6px;
+    padding: 7px 11px;
+    font: 500 10px/1 var(--font-mono);
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    cursor: pointer;
+  }
+  .plugin-toggle.on {
+    background: var(--brand-pcb);
+    color: var(--paper);
+  }
+  .plugin-section-head {
+    font: 500 10px/1 var(--font-mono);
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: var(--paper-ink-3);
+    margin: 18px 0 8px;
+  }
+
+  /* SCREEN E: Code */
+  .code-screen {
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    background: var(--bg);
+  }
+  .code-meta { padding: 12px 16px 6px; }
+  .code-meta h2 {
+    margin: 0 0 4px;
+    font-family: var(--font-display);
+    font-weight: 500;
+    font-size: 20px;
+    color: var(--fg);
+  }
+  .code-meta .repo {
+    color: var(--fg-dim);
+    font: 500 11px/1.4 var(--font-mono);
+    letter-spacing: 0.04em;
+  }
+  .code-meta .repo .accent { color: var(--brand-trace); }
+  .code-stat-row {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 8px;
+    padding: 8px 16px 12px;
+  }
+  .code-stat {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 10px 12px;
+  }
+  .code-stat .label {
+    font: 500 9px/1 var(--font-mono);
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: var(--fg-dim);
+    margin-bottom: 4px;
+  }
+  .code-stat .v {
+    font-family: var(--font-display);
+    font-weight: 500;
+    font-size: 18px;
+    color: var(--fg);
+    line-height: 1;
+  }
+  .code-stat .v.brass { color: var(--brand-trace); }
+  .code-graph-preview {
+    margin: 6px 16px 14px;
+    height: 240px;
+    background: radial-gradient(ellipse at 50% 50%, #1d2128 0%, #0e1014 78%);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    overflow: hidden;
+    position: relative;
+  }
+  .code-graph-preview svg { position: absolute; inset: 0; width: 100%; height: 100%; }
+  .code-graph-preview .label {
+    position: absolute;
+    top: 12px; left: 14px;
+    font: 500 10px/1 var(--font-mono);
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--fg-dim);
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .code-graph-preview .label .dot {
+    width: 6px; height: 6px;
+    background: var(--brand-pcb);
+    border-radius: 50%;
+    box-shadow: 0 0 6px var(--brand-pcb);
+  }
+  .code-list { flex: 1; overflow-y: auto; padding: 0 16px 12px; }
+  .code-list-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin: 4px 0 8px;
+  }
+  .code-list-head h3 {
+    margin: 0;
+    font: 500 10px/1 var(--font-mono);
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: var(--fg-dim);
+  }
+  .code-row {
+    display: grid;
+    grid-template-columns: 14px 1fr auto;
+    gap: 10px;
+    align-items: center;
+    padding: 10px 4px;
+    border-bottom: 1px solid var(--border);
+    color: var(--fg-muted);
+    font-size: 13px;
+  }
+  .code-row .lang {
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    justify-self: center;
+  }
+  .code-row .path {
+    font-family: var(--font-mono);
+    font-size: 12px;
+    color: var(--fg);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .code-row .meta {
+    font: 500 10px/1 var(--font-mono);
+    color: var(--fg-dim);
+    letter-spacing: 0.06em;
+  }
+
+  /* Common emblem block */
+  .emblem-svg { width: 26px; height: 26px; }
+</style>
+</head>
+<body>
+
+<div class="doc-head">
+  <h1>Theseus &middot; Mobile App v2</h1>
+  <p>Six screens of the <strong style="color:var(--fg)">actual mobile app</strong> at <code>/theseus</code>: Threads welcome, Threads conversation, Explorer (cosmos.gl), Plugins (3 sub-tabs), Code, and an unauth concept that lives at <code>/theseus/about</code>, NOT at <code>/theseus</code>.</p>
+  <div class="scope-warn">
+    <strong>SCOPE NOTE:</strong> This file is reference material for the v2 mobile shell spec. The <code>/theseus</code> route currently mounts <code>PanelManager</code> (the workspace) and that does not change. Screen F is a separate landing concept for a separate URL. Do not let any spec cause <code>src/app/theseus/page.tsx</code> to be replaced with a landing page.
+  </div>
+</div>
+
+<div class="screens">
+
+  <!-- A. Threads welcome -->
+  <div class="phone">
+    <div class="label"><span class="num">A</span>Threads &middot; welcome</div>
+    <div class="frame">
+      <div class="status-bar">
+        <span>4:52</span>
+        <span class="icons">
+          <svg width="18" height="11" viewBox="0 0 18 11" fill="currentColor"><rect x="0" y="6" width="3" height="5" rx="0.5"/><rect x="5" y="4" width="3" height="7" rx="0.5"/><rect x="10" y="2" width="3" height="9" rx="0.5"/><rect x="15" y="0" width="3" height="11" rx="0.5"/></svg>
+          <svg width="14" height="10" viewBox="0 0 14 10" fill="none" stroke="currentColor" stroke-width="0.8"><path d="M1 4 a8 8 0 0 1 12 0"/><path d="M3 6 a5 5 0 0 1 8 0"/><path d="M5 8 a2 2 0 0 1 4 0"/></svg>
+          <svg width="26" height="12" viewBox="0 0 26 12" fill="none"><rect x="0.5" y="0.5" width="22" height="11" rx="3" stroke="currentColor"/><rect x="2" y="2" width="17" height="8" rx="1.5" fill="currentColor"/><rect x="23" y="4" width="2" height="4" rx="1" fill="currentColor"/></svg>
+        </span>
+      </div>
+      <div class="app paper">
+        <header class="topbar paper">
+          <button class="hamburger" aria-label="Open menu">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M4 7h16M4 12h16M4 17h16" stroke-linecap="round"/></svg>
+          </button>
+          <span class="brand">
+            <svg class="emblem-svg" viewBox="0 0 64 64"><rect width="64" height="64" rx="8" fill="#0a2a20"/><rect x="22" y="24" width="20" height="16" rx="0.8" fill="#162f26" stroke="#d4c88a" stroke-width="0.7"/><g stroke="#c9a23a" stroke-width="0.55" fill="none"><line x1="27" y1="29" x2="32" y2="32"/><line x1="32" y1="32" x2="37" y2="29"/><line x1="27" y1="29" x2="32" y2="36"/><line x1="37" y1="29" x2="32" y2="36"/></g><g fill="#d4c88a"><circle cx="27" cy="29" r="1.1"/><circle cx="37" cy="29" r="1.1"/><circle cx="32" cy="32" r="1.3"/><circle cx="32" cy="36" r="1.1"/></g></svg>
+            <span class="name">Theseus</span>
+          </span>
+          <button class="action" aria-label="New thread">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M12 5v14M5 12h14" stroke-linecap="round"/></svg>
+          </button>
+        </header>
+        <main class="main paper">
+          <div class="threads-empty">
+            <div class="welcome">
+              <h1>Hello, Travis.</h1>
+              <p class="lede">What does your graph want to tell you today?</p>
+              <div class="welcome-suggestions">
+                <button class="sug">
+                  <span class="sug-title">What contradicts my GL-Fusion thesis?</span>
+                  <span class="sug-desc">Surface tensions across my Theseus graph.</span>
+                </button>
+                <button class="sug">
+                  <span class="sug-title">Summarize unread arXiv this week</span>
+                  <span class="sug-desc">38 papers on the watchlist.</span>
+                </button>
+                <button class="sug">
+                  <span class="sug-title">Where is my graph weakest?</span>
+                  <span class="sug-desc">IQ axes that need more sources.</span>
+                </button>
+                <button class="sug">
+                  <span class="sug-title">Show me overnight engine output</span>
+                  <span class="sug-desc">7 hypotheses, 14 new edges, 2 tensions.</span>
+                </button>
+              </div>
+            </div>
+            <div class="composer-wrap">
+              <div class="composer focused">
+                <textarea placeholder="Send a message to Theseus..." rows="1"></textarea>
+                <div class="composer-row">
+                  <div class="composer-tools">
+                    <button class="icon-btn" aria-label="Attach"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M21.4 11l-9.5 9.5a5.5 5.5 0 11-7.8-7.8L13.6 4a3.7 3.7 0 015.2 5.2L9 19a1.8 1.8 0 11-2.6-2.6l8.5-8.5" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+                    <button class="icon-btn" aria-label="Cite"><span style="font:500 13px/1 var(--font-mono)">@</span></button>
+                    <button class="icon-btn" aria-label="Voice"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M12 2a3 3 0 00-3 3v6a3 3 0 006 0V5a3 3 0 00-3-3zM5 11a7 7 0 0014 0M12 18v3" stroke-linecap="round"/></svg></button>
+                  </div>
+                  <button class="send-btn" aria-label="Send">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M5 12l7-7 7 7M12 5v14" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </main>
+        <nav class="tabs paper">
+          <button class="tab is-active"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M12 21c4.97 0 9-4.03 9-9s-4.03-9-9-9-9 4.03-9 9c0 1.49.36 2.89 1 4.13L3 21l4.87-1c1.24.64 2.64 1 4.13 1z" stroke-linejoin="round"/></svg><span>Threads</span></button>
+          <button class="tab"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="5" cy="6" r="2"/><circle cx="12" cy="18" r="2"/><circle cx="19" cy="6" r="2"/><circle cx="12" cy="12" r="2"/><path d="M6.5 7.5l4 3.5M13.5 11l4-3.5M12 14v2" stroke-linecap="round"/></svg><span>Explorer</span></button>
+          <button class="tab"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="4" y="6" width="6" height="6" rx="1"/><rect x="14" y="6" width="6" height="6" rx="1"/><rect x="4" y="14" width="6" height="6" rx="1"/><rect x="14" y="14" width="6" height="6" rx="1"/><path d="M10 9h4M10 17h4M7 12v2M17 12v2" stroke-linecap="round"/></svg><span>Plugins</span></button>
+          <button class="tab"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M16 18l6-6-6-6M8 6l-6 6 6 6M14 4l-4 16" stroke-linecap="round" stroke-linejoin="round"/></svg><span>Code</span></button>
+        </nav>
+      </div>
+    </div>
+    <p class="caption"><strong>This is the THREADS panel of the actual app</strong>, the same one PanelManager mounts at <code>/theseus</code>. Welcome state mirrors assistant-ui patterns. Composer is <code>rounded-3xl</code> with brass focus ring at 18% alpha.</p>
+  </div>
+
+  <!-- B. Threads conversation -->
+  <div class="phone">
+    <div class="label"><span class="num">B</span>Threads &middot; conversation</div>
+    <div class="frame">
+      <div class="status-bar">
+        <span>4:52</span>
+        <span class="icons">
+          <svg width="18" height="11" viewBox="0 0 18 11" fill="currentColor"><rect x="0" y="6" width="3" height="5" rx="0.5"/><rect x="5" y="4" width="3" height="7" rx="0.5"/><rect x="10" y="2" width="3" height="9" rx="0.5"/><rect x="15" y="0" width="3" height="11" rx="0.5"/></svg>
+        </span>
+      </div>
+      <div class="app paper">
+        <header class="topbar paper">
+          <button class="hamburger"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M4 7h16M4 12h16M4 17h16" stroke-linecap="round"/></svg></button>
+          <span class="brand">
+            <svg class="emblem-svg" viewBox="0 0 64 64"><rect width="64" height="64" rx="8" fill="#0a2a20"/><rect x="22" y="24" width="20" height="16" rx="0.8" fill="#162f26" stroke="#d4c88a" stroke-width="0.7"/><g stroke="#c9a23a" stroke-width="0.55" fill="none"><line x1="27" y1="29" x2="32" y2="32"/><line x1="32" y1="32" x2="37" y2="29"/></g><g fill="#d4c88a"><circle cx="27" cy="29" r="1.1"/><circle cx="37" cy="29" r="1.1"/><circle cx="32" cy="32" r="1.3"/></g></svg>
+            <span class="name">Threads</span>
+          </span>
+          <button class="action"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M12 5v14M5 12h14" stroke-linecap="round"/></svg></button>
+        </header>
+        <main class="main paper">
+          <div class="thread">
+            <div class="thread-scroll">
+              <div class="msg-user">What contradicts my GL-Fusion thesis the most?</div>
+              <div>
+                <div class="msg-bot">
+                  <div class="reasoning">
+                    <div class="reasoning-head"><span class="pulse"></span>Reasoning &middot; 1.4s</div>
+                    Searched the graph for nodes adjacent to GL-Fusion with negative-edge sentiment and high source-independence. Found 3 strong tensions, 1 soft counter.
+                  </div>
+                  <p>The strongest pull comes from <a class="citation">@arxiv:2403.04132</a>: hard cross-attention pays a latency tax at 31B that you do not recover at inference time.</p>
+                  <p>A softer counter sits in <a class="citation">@obsidian:fusion-notes</a> arguing that soft prompting matches recall at lower cost when the LoRA is merged before quantization.</p>
+                  <div class="meta">
+                    <span><span class="num">0.74</span> confidence</span>
+                    <span>4 sources</span>
+                    <span>1 dissenting</span>
+                  </div>
+                </div>
+                <div class="msg-actions">
+                  <button><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><rect x="8" y="8" width="12" height="12" rx="2"/><path d="M16 8V6a2 2 0 00-2-2H6a2 2 0 00-2 2v8a2 2 0 002 2h2"/></svg></button>
+                  <button><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M21 12a9 9 0 11-3-6.7M21 4v5h-5" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+                  <button><svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><circle cx="6" cy="12" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="18" cy="12" r="1.5"/></svg></button>
+                </div>
+              </div>
+              <div class="follow-ups">
+                <button class="follow-up">Why this confidence score?</button>
+                <button class="follow-up">Show the dissent in Lens</button>
+                <button class="follow-up">Save as Hunch</button>
+              </div>
+            </div>
+            <div class="composer-wrap">
+              <div class="composer">
+                <textarea placeholder="Reply..." rows="1"></textarea>
+                <div class="composer-row">
+                  <div class="composer-tools"><button class="icon-btn"><span style="font:500 13px/1 var(--font-mono)">@</span></button></div>
+                  <button class="send-btn"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M5 12l7-7 7 7M12 5v14" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </main>
+        <nav class="tabs paper">
+          <button class="tab is-active"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M12 21c4.97 0 9-4.03 9-9s-4.03-9-9-9-9 4.03-9 9c0 1.49.36 2.89 1 4.13L3 21l4.87-1c1.24.64 2.64 1 4.13 1z" stroke-linejoin="round"/></svg><span>Threads</span></button>
+          <button class="tab"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="5" cy="6" r="2"/><circle cx="12" cy="18" r="2"/><circle cx="19" cy="6" r="2"/><circle cx="12" cy="12" r="2"/><path d="M6.5 7.5l4 3.5M13.5 11l4-3.5M12 14v2" stroke-linecap="round"/></svg><span>Explorer</span></button>
+          <button class="tab"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="4" y="6" width="6" height="6" rx="1"/><rect x="14" y="6" width="6" height="6" rx="1"/><rect x="4" y="14" width="6" height="6" rx="1"/><rect x="14" y="14" width="6" height="6" rx="1"/></svg><span>Plugins</span></button>
+          <button class="tab"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M16 18l6-6-6-6M8 6l-6 6 6 6M14 4l-4 16" stroke-linecap="round" stroke-linejoin="round"/></svg><span>Code</span></button>
+        </nav>
+      </div>
+    </div>
+    <p class="caption">User msg = right-aligned muted bubble. Assistant = plain prose, no bubble, with citation underlines and the action bar (copy/reload/more). Reasoning collapsible with heartbeat pulse. Follow-ups as bordered pills with brass arrow.</p>
+  </div>
+
+  <!-- C. Explorer cosmos.gl -->
+  <div class="phone">
+    <div class="label"><span class="num">C</span>Explorer &middot; cosmos.gl</div>
+    <div class="frame">
+      <div class="status-bar dark">
+        <span>4:52</span>
+      </div>
+      <div class="app">
+        <header class="topbar">
+          <button class="hamburger"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M4 7h16M4 12h16M4 17h16" stroke-linecap="round"/></svg></button>
+          <span class="brand">
+            <svg class="emblem-svg" viewBox="0 0 64 64"><rect width="64" height="64" rx="8" fill="#0a2a20"/><rect x="22" y="24" width="20" height="16" rx="0.8" fill="#162f26" stroke="#d4c88a" stroke-width="0.7"/><g stroke="#c9a23a" stroke-width="0.55" fill="none"><line x1="27" y1="29" x2="32" y2="32"/><line x1="32" y1="32" x2="37" y2="29"/></g><g fill="#d4c88a"><circle cx="27" cy="29" r="1.1"/><circle cx="37" cy="29" r="1.1"/><circle cx="32" cy="32" r="1.3"/></g></svg>
+            <span class="name">Explorer</span>
+          </span>
+          <button class="action"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="11" cy="11" r="6"/><path d="M21 21l-5-5" stroke-linecap="round"/></svg></button>
+        </header>
+        <span class="floating-pill"><span class="pulse"></span>Engine warm &middot; 2.1k nodes &middot; 5.5k edges</span>
+        <main class="main">
+          <div class="explorer">
+            <div class="explorer-meta">
+              <div>
+                <div class="title">Corpus + mine</div>
+              </div>
+              <div class="stats">WebGL2</div>
+            </div>
+            <div class="lens-row">
+              <button class="lens-btn is-active">Flow<span class="key">1</span></button>
+              <button class="lens-btn">Atlas<span class="key">2</span></button>
+              <button class="lens-btn">Clusters<span class="key">3</span></button>
+              <button class="lens-btn">Orbit<span class="key">4</span></button>
+              <button class="lens-btn">Lens<span class="key">5</span></button>
+            </div>
+            <div class="filter-strip">
+              <span class="filter-chip on" style="color:var(--teal)"><span class="sw"></span>Source</span>
+              <span class="filter-chip on" style="color:var(--rose)"><span class="sw"></span>Person</span>
+              <span class="filter-chip on" style="color:var(--brand-trace)"><span class="sw"></span>Concept</span>
+              <span class="filter-chip on" style="color:var(--indigo)"><span class="sw"></span>Hunch</span>
+              <span class="filter-chip" style="color:var(--plum)"><span class="sw"></span>Note</span>
+              <span class="filter-chip" style="color:var(--sage)"><span class="sw"></span>Code</span>
+            </div>
+            <div class="gl-canvas">
+              <div class="glow"></div>
+              <svg viewBox="0 0 390 540" preserveAspectRatio="xMidYMid meet">
+                <g stroke="rgba(196,200,210,0.18)" stroke-width="0.5" fill="none">
+                  <path d="M195 270 L120 200 M195 270 L260 190 M195 270 L130 340 M195 270 L270 350 M195 270 L80 280 M195 270 L320 290 M120 200 L80 150 M120 200 L60 240 M260 190 L320 150 M260 190 L340 220 M130 340 L95 390 M130 340 L170 420 M270 350 L320 410 M195 270 L195 130 M195 270 L195 410"/>
+                </g>
+                <g>
+                  <circle cx="195" cy="270" r="9" fill="#c9a23a"/>
+                  <circle cx="120" cy="200" r="5" fill="#8c9adb"/>
+                  <circle cx="260" cy="190" r="5" fill="#5fb3b3"/>
+                  <circle cx="130" cy="340" r="5" fill="#c9a23a"/>
+                  <circle cx="270" cy="350" r="5" fill="#8a7aa8"/>
+                  <circle cx="80" cy="280" r="4" fill="#6fa580"/>
+                  <circle cx="320" cy="290" r="4" fill="#c47a86"/>
+                  <circle cx="195" cy="130" r="4" fill="#5fb3b3"/>
+                  <circle cx="195" cy="410" r="4" fill="#8c9adb"/>
+                  <circle cx="80" cy="150" r="3" fill="#8c9adb"/>
+                  <circle cx="60" cy="240" r="3" fill="#8c9adb"/>
+                  <circle cx="320" cy="150" r="3" fill="#5fb3b3"/>
+                  <circle cx="340" cy="220" r="3" fill="#5fb3b3"/>
+                  <circle cx="95" cy="390" r="3" fill="#c9a23a"/>
+                  <circle cx="170" cy="420" r="3" fill="#c9a23a"/>
+                  <circle cx="320" cy="410" r="3" fill="#8a7aa8"/>
+                </g>
+                <circle cx="195" cy="270" r="22" fill="none" stroke="#c9a23a" stroke-width="0.8" opacity="0.5">
+                  <animate attributeName="r" from="14" to="28" dur="2s" repeatCount="indefinite"/>
+                  <animate attributeName="opacity" from="0.6" to="0" dur="2s" repeatCount="indefinite"/>
+                </circle>
+              </svg>
+              <div class="gl-cos-sim">
+                <span>cos sim</span>
+                <span class="track"></span>
+                <span style="color:var(--brand-trace);">0.18</span>
+              </div>
+              <div class="gl-floating">
+                <button class="gl-floating-btn">⊞</button>
+                <button class="gl-floating-btn">+</button>
+                <button class="gl-floating-btn">−</button>
+              </div>
+            </div>
+          </div>
+        </main>
+        <nav class="tabs">
+          <button class="tab"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M12 21c4.97 0 9-4.03 9-9s-4.03-9-9-9-9 4.03-9 9c0 1.49.36 2.89 1 4.13L3 21l4.87-1c1.24.64 2.64 1 4.13 1z" stroke-linejoin="round"/></svg><span>Threads</span></button>
+          <button class="tab is-active"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="5" cy="6" r="2"/><circle cx="12" cy="18" r="2"/><circle cx="19" cy="6" r="2"/><circle cx="12" cy="12" r="2"/><path d="M6.5 7.5l4 3.5M13.5 11l4-3.5M12 14v2" stroke-linecap="round"/></svg><span>Explorer</span></button>
+          <button class="tab"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="4" y="6" width="6" height="6" rx="1"/><rect x="14" y="6" width="6" height="6" rx="1"/><rect x="4" y="14" width="6" height="6" rx="1"/><rect x="14" y="14" width="6" height="6" rx="1"/></svg><span>Plugins</span></button>
+          <button class="tab"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M16 18l6-6-6-6M8 6l-6 6 6 6M14 4l-4 16" stroke-linecap="round" stroke-linejoin="round"/></svg><span>Code</span></button>
+        </nav>
+      </div>
+    </div>
+    <p class="caption">Explorer goes full-bleed dark on mobile because cosmos.gl is the page. Pinch-zoom, tap-to-Lens via <code>getNodeAt</code>, two-finger pan. cos sim readout bottom-left, zoom controls bottom-right.</p>
+  </div>
+
+  <!-- D. Plugins -->
+  <div class="phone">
+    <div class="label"><span class="num">D</span>Plugins (was Sources)</div>
+    <div class="frame">
+      <div class="status-bar"><span>4:52</span></div>
+      <div class="app paper">
+        <header class="topbar paper">
+          <button class="hamburger"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M4 7h16M4 12h16M4 17h16" stroke-linecap="round"/></svg></button>
+          <span class="brand">
+            <svg class="emblem-svg" viewBox="0 0 64 64"><rect width="64" height="64" rx="8" fill="#0a2a20"/><rect x="22" y="24" width="20" height="16" rx="0.8" fill="#162f26" stroke="#d4c88a" stroke-width="0.7"/><g stroke="#c9a23a" stroke-width="0.55" fill="none"><line x1="27" y1="29" x2="32" y2="32"/><line x1="32" y1="32" x2="37" y2="29"/></g><g fill="#d4c88a"><circle cx="27" cy="29" r="1.1"/><circle cx="37" cy="29" r="1.1"/><circle cx="32" cy="32" r="1.3"/></g></svg>
+            <span class="name">Plugins</span>
+          </span>
+          <button class="action"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M12 5v14M5 12h14" stroke-linecap="round"/></svg></button>
+        </header>
+        <main class="main paper">
+          <div class="plugins">
+            <h2>Plugins</h2>
+            <p class="lede">5 connected &middot; 2 MCP servers &middot; last sync 04:48</p>
+            <div class="plugins-tabs">
+              <button class="plugins-tab is-active">Connectors</button>
+              <button class="plugins-tab">MCP</button>
+              <button class="plugins-tab">Skills</button>
+            </div>
+            <div class="plugin-card">
+              <div class="plugin-icon">GH</div>
+              <div class="plugin-meta">
+                <div class="plugin-name">GitHub</div>
+                <div class="plugin-detail">126 repos &middot; ingesting commits and issues</div>
+                <div class="plugin-status"><span class="dot"></span>Synced 04:48</div>
+              </div>
+              <button class="plugin-toggle on">On</button>
+            </div>
+            <div class="plugin-card">
+              <div class="plugin-icon indigo">aX</div>
+              <div class="plugin-meta">
+                <div class="plugin-name">arXiv + Semantic</div>
+                <div class="plugin-detail">38 papers on the watchlist with citation traces.</div>
+                <div class="plugin-status"><span class="dot"></span>Synced 04:32</div>
+              </div>
+              <button class="plugin-toggle on">On</button>
+            </div>
+            <div class="plugin-card">
+              <div class="plugin-icon green">FM</div>
+              <div class="plugin-meta">
+                <div class="plugin-name">Fastmail</div>
+                <div class="plugin-detail">Inbox and threads, 3.4k threads.</div>
+                <div class="plugin-status"><span class="dot"></span>Synced 04:50</div>
+              </div>
+              <button class="plugin-toggle on">On</button>
+            </div>
+            <div class="plugin-card">
+              <div class="plugin-icon brass">Ob</div>
+              <div class="plugin-meta">
+                <div class="plugin-name">Obsidian</div>
+                <div class="plugin-detail">Vault notes &middot; 812 notes detected.</div>
+                <div class="plugin-status warn"><span class="dot"></span>Reauth needed</div>
+              </div>
+              <button class="plugin-toggle">Reauth</button>
+            </div>
+            <div class="plugin-section-head">MCP Servers</div>
+            <div class="plugin-card">
+              <div class="plugin-icon green">Th</div>
+              <div class="plugin-meta">
+                <div class="plugin-name">theseus-mcp</div>
+                <div class="plugin-detail">Production &middot; 26 tools</div>
+                <div class="plugin-status"><span class="dot"></span>Active</div>
+              </div>
+              <button class="plugin-toggle on">On</button>
+            </div>
+            <div class="plugin-card">
+              <div class="plugin-icon rose">R3</div>
+              <div class="plugin-meta">
+                <div class="plugin-name">r3f-mcp</div>
+                <div class="plugin-detail">3D scene authoring &middot; 7 tools</div>
+                <div class="plugin-status"><span class="dot"></span>Active</div>
+              </div>
+              <button class="plugin-toggle on">On</button>
+            </div>
+          </div>
+        </main>
+        <nav class="tabs paper">
+          <button class="tab"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M12 21c4.97 0 9-4.03 9-9s-4.03-9-9-9-9 4.03-9 9c0 1.49.36 2.89 1 4.13L3 21l4.87-1c1.24.64 2.64 1 4.13 1z" stroke-linejoin="round"/></svg><span>Threads</span></button>
+          <button class="tab"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="5" cy="6" r="2"/><circle cx="12" cy="18" r="2"/><circle cx="19" cy="6" r="2"/><circle cx="12" cy="12" r="2"/></svg><span>Explorer</span></button>
+          <button class="tab is-active"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="4" y="6" width="6" height="6" rx="1"/><rect x="14" y="6" width="6" height="6" rx="1"/><rect x="4" y="14" width="6" height="6" rx="1"/><rect x="14" y="14" width="6" height="6" rx="1"/></svg><span>Plugins</span></button>
+          <button class="tab"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M16 18l6-6-6-6M8 6l-6 6 6 6M14 4l-4 16" stroke-linecap="round" stroke-linejoin="round"/></svg><span>Code</span></button>
+        </nav>
+      </div>
+    </div>
+    <p class="caption">Sources + Plugins merged with 3 sub-tabs: Connectors / MCP / Skills. Each row: 36px monogram + name + status + on/off toggle. Forest-green toggle when active.</p>
+  </div>
+
+  <!-- E. Code -->
+  <div class="phone">
+    <div class="label"><span class="num">E</span>Code (replaces Intel)</div>
+    <div class="frame">
+      <div class="status-bar dark"><span>4:52</span></div>
+      <div class="app">
+        <header class="topbar">
+          <button class="hamburger"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M4 7h16M4 12h16M4 17h16" stroke-linecap="round"/></svg></button>
+          <span class="brand">
+            <svg class="emblem-svg" viewBox="0 0 64 64"><rect width="64" height="64" rx="8" fill="#0a2a20"/><rect x="22" y="24" width="20" height="16" rx="0.8" fill="#162f26" stroke="#d4c88a" stroke-width="0.7"/><g stroke="#c9a23a" stroke-width="0.55" fill="none"><line x1="27" y1="29" x2="32" y2="32"/></g><g fill="#d4c88a"><circle cx="27" cy="29" r="1.1"/><circle cx="37" cy="29" r="1.1"/><circle cx="32" cy="32" r="1.3"/></g></svg>
+            <span class="name">Code</span>
+          </span>
+          <button class="action"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="11" cy="11" r="6"/><path d="M21 21l-5-5" stroke-linecap="round"/></svg></button>
+        </header>
+        <main class="main">
+          <div class="code-screen">
+            <div class="code-meta">
+              <h2>Code Graph</h2>
+              <div class="repo"><span class="accent">●</span> Travis-Gilbert/index-api &middot; <span class="accent">main</span></div>
+            </div>
+            <div class="code-stat-row">
+              <div class="code-stat"><div class="label">Files</div><div class="v">2,148</div></div>
+              <div class="code-stat"><div class="label">Symbols</div><div class="v">38.4k</div></div>
+              <div class="code-stat"><div class="label">Drift</div><div class="v brass">3</div></div>
+            </div>
+            <div class="code-graph-preview">
+              <span class="label"><span class="dot"></span>apps/notebook &middot; subgraph</span>
+              <svg viewBox="0 0 360 240" preserveAspectRatio="xMidYMid meet">
+                <g stroke="rgba(196,200,210,0.18)" stroke-width="0.5" fill="none">
+                  <path d="M180 120 L100 70 M180 120 L260 70 M180 120 L100 170 M180 120 L260 170 M180 120 L60 120 M180 120 L300 120"/>
+                </g>
+                <g>
+                  <circle cx="180" cy="120" r="7" fill="#c9a23a"/>
+                  <circle cx="100" cy="70" r="4" fill="#5fb3b3"/>
+                  <circle cx="260" cy="70" r="4" fill="#6fa580"/>
+                  <circle cx="100" cy="170" r="4" fill="#8c9adb"/>
+                  <circle cx="260" cy="170" r="4" fill="#c47a86"/>
+                  <circle cx="60" cy="120" r="3" fill="#5fb3b3"/>
+                  <circle cx="300" cy="120" r="3" fill="#6fa580"/>
+                </g>
+              </svg>
+            </div>
+            <div class="code-list">
+              <div class="code-list-head">
+                <h3>Hot files &middot; last 24h</h3>
+              </div>
+              <div class="code-row"><span class="lang" style="background:var(--sage)"></span><span class="path">apps/notebook/compiler/tree_sitter_parser.py</span><span class="meta">+412</span></div>
+              <div class="code-row"><span class="lang" style="background:var(--brand-trace)"></span><span class="path">apps/notebook/schemas/protocol.py</span><span class="meta">+186</span></div>
+              <div class="code-row"><span class="lang" style="background:var(--indigo)"></span><span class="path">apps/notebook/compiler/drift_detector.py</span><span class="meta">+94</span></div>
+              <div class="code-row"><span class="lang" style="background:var(--sage)"></span><span class="path">config/api_v2.py</span><span class="meta">+71</span></div>
+            </div>
+          </div>
+        </main>
+        <nav class="tabs">
+          <button class="tab"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M12 21c4.97 0 9-4.03 9-9s-4.03-9-9-9-9 4.03-9 9c0 1.49.36 2.89 1 4.13L3 21l4.87-1c1.24.64 2.64 1 4.13 1z" stroke-linejoin="round"/></svg><span>Threads</span></button>
+          <button class="tab"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="5" cy="6" r="2"/><circle cx="12" cy="18" r="2"/><circle cx="19" cy="6" r="2"/><circle cx="12" cy="12" r="2"/></svg><span>Explorer</span></button>
+          <button class="tab"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="4" y="6" width="6" height="6" rx="1"/><rect x="14" y="6" width="6" height="6" rx="1"/><rect x="4" y="14" width="6" height="6" rx="1"/><rect x="14" y="14" width="6" height="6" rx="1"/></svg><span>Plugins</span></button>
+          <button class="tab is-active"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M16 18l6-6-6-6M8 6l-6 6 6 6M14 4l-4 16" stroke-linecap="round" stroke-linejoin="round"/></svg><span>Code</span></button>
+        </nav>
+      </div>
+    </div>
+    <p class="caption">Replaces the Intel slot. Stat row: files / symbols / drift. Mini code-graph reuses cosmos.gl at thumbnail scale. Hot-files ranked by churn. Tap a file → deep-link into Explorer with that subgraph loaded.</p>
+  </div>
+
+  <!-- F. Landing concept (NOT /theseus) -->
+  <div class="phone">
+    <div class="label"><span class="num">F</span>Landing concept &middot; <code style="color:var(--brand-trace);">/theseus/about</code></div>
+    <div class="frame">
+      <div class="status-bar dark"><span>4:52</span></div>
+      <div class="app">
+        <header class="topbar">
+          <button class="hamburger" style="visibility:hidden;"></button>
+          <span class="brand">
+            <svg class="emblem-svg" viewBox="0 0 64 64"><rect width="64" height="64" rx="8" fill="#0a2a20"/><rect x="22" y="24" width="20" height="16" rx="0.8" fill="#162f26" stroke="#d4c88a" stroke-width="0.7"/><g stroke="#c9a23a" stroke-width="0.55" fill="none"><line x1="27" y1="29" x2="32" y2="32"/></g><g fill="#d4c88a"><circle cx="27" cy="29" r="1.1"/><circle cx="37" cy="29" r="1.1"/><circle cx="32" cy="32" r="1.3"/></g></svg>
+            <span class="name">Theseus</span>
+          </span>
+          <button class="action" style="font:500 11px/1 var(--font-mono); letter-spacing: 0.1em; text-transform: uppercase; padding: 0 12px; width: auto; border-radius: 999px; border: 1px solid var(--border-mid);">Sign in</button>
+        </header>
+        <main class="main">
+          <div style="height:100%;overflow-y:auto;background:radial-gradient(ellipse at 50% 0%, rgba(42,139,108,0.10) 0%, transparent 50%), var(--bg);color:var(--fg);">
+            <div style="padding:40px 24px 32px;text-align:left;">
+              <span style="display:inline-flex;align-items:center;gap:6px;font:500 10px/1 var(--font-mono);letter-spacing:0.2em;text-transform:uppercase;color:var(--brand-trace);margin-bottom:14px;"><span style="width:8px;height:8px;background:var(--brand-pcb);border-radius:2px;box-shadow:0 0 10px var(--brand-pcb);"></span>Visual Intelligence Engine</span>
+              <h1 style="font-family:var(--font-display);font-weight:500;font-size:32px;line-height:1.12;color:var(--fg);margin:0 0 16px;letter-spacing:-0.02em;">An <em style="font-style:italic;color:var(--brand-trace);">epistemic engine</em> for the people who actually read the citations.</h1>
+              <p style="font-family:var(--font-display);font-size:17px;line-height:1.5;color:var(--fg-muted);margin:0 0 24px;">Theseus ingests your papers, code, and notes; runs a swarm of graph-aware models against them; and shows you what your graph actually thinks.</p>
+              <div style="display:flex;gap:8px;">
+                <button style="background:var(--brand-pcb);color:var(--bg);border:0;border-radius:999px;padding:11px 18px;font:500 12px/1 var(--font-mono);letter-spacing:0.08em;text-transform:uppercase;cursor:pointer;">Try the demo</button>
+                <button style="background:transparent;color:var(--fg-muted);border:1px solid var(--border-mid);border-radius:999px;padding:11px 18px;font:500 12px/1 var(--font-mono);letter-spacing:0.08em;text-transform:uppercase;cursor:pointer;">How it works</button>
+              </div>
+            </div>
+            <div style="padding:16px 24px 24px;">
+              <h3 style="font:500 10px/1 var(--font-mono);letter-spacing:0.2em;text-transform:uppercase;color:var(--fg-dim);margin:0 0 14px;">What the engine sees right now</h3>
+              <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:8px;">
+                <div style="background:var(--bg-card);border:1px solid var(--border);border-radius:12px;padding:14px;"><div style="font-family:var(--font-display);font-weight:500;font-size:22px;color:var(--fg);line-height:1;margin-bottom:4px;">118<span style="color:var(--brand-trace);">k</span></div><div style="font:500 9px/1.3 var(--font-mono);letter-spacing:0.14em;text-transform:uppercase;color:var(--fg-dim);">Objects</div></div>
+                <div style="background:var(--bg-card);border:1px solid var(--border);border-radius:12px;padding:14px;"><div style="font-family:var(--font-display);font-weight:500;font-size:22px;color:var(--fg);line-height:1;margin-bottom:4px;">157<span style="color:var(--brand-trace);">k</span></div><div style="font:500 9px/1.3 var(--font-mono);letter-spacing:0.14em;text-transform:uppercase;color:var(--fg-dim);">Edges</div></div>
+                <div style="background:var(--bg-card);border:1px solid var(--border);border-radius:12px;padding:14px;"><div style="font-family:var(--font-display);font-weight:500;font-size:22px;color:var(--fg);line-height:1;margin-bottom:4px;">62.2</div><div style="font:500 9px/1.3 var(--font-mono);letter-spacing:0.14em;text-transform:uppercase;color:var(--fg-dim);">Composite IQ</div></div>
+                <div style="background:var(--bg-card);border:1px solid var(--border);border-radius:12px;padding:14px;"><div style="font-family:var(--font-display);font-weight:500;font-size:22px;color:var(--fg);line-height:1;margin-bottom:4px;">+0<span style="color:var(--brand-trace);">.8</span></div><div style="font:500 9px/1.3 var(--font-mono);letter-spacing:0.14em;text-transform:uppercase;color:var(--fg-dim);">vs last week</div></div>
+              </div>
+            </div>
+          </div>
+        </main>
+      </div>
+    </div>
+    <p class="caption" style="border:1px solid #c4413f;background:rgba(196,65,63,0.08);color:#f0a8a6;padding:8px 12px;border-radius:8px;"><strong style="color:#f0a8a6;">SCREEN F IS A SEPARATE URL.</strong> This concept lives at <code>/theseus/about</code>, not at <code>/theseus</code>. The <code>/theseus</code> route stays as PanelManager (the actual app). Do not let any spec replace <code>src/app/theseus/page.tsx</code>.</p>
+  </div>
+
+</div>
+
+</body>
+</html>
