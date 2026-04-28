@@ -30,28 +30,26 @@ function GraphIcon() {
   );
 }
 
-function IntelligenceIcon() {
+function PluginsIcon() {
+  // 4-rect grid + center traces (board-style).
   return (
-    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" strokeWidth="1.5" aria-hidden="true">
-      <path d="M12 2C8.13 2 5 5.13 5 9C5 11.38 6.19 13.47 8 14.74V17C8 17.55 8.45 18 9 18H15C15.55 18 16 17.55 16 17V14.74C17.81 13.47 19 11.38 19 9C19 5.13 15.87 2 12 2Z" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" />
-      <path d="M9 21H15" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" />
-      <path d="M12 2V5" stroke="currentColor" strokeLinecap="round" />
-      <path d="M8.5 9H15.5" stroke="currentColor" strokeLinecap="round" />
-      <path d="M10 9V12.5" stroke="currentColor" strokeLinecap="round" />
-      <path d="M14 9V12.5" stroke="currentColor" strokeLinecap="round" />
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" strokeWidth="1.5" aria-hidden="true">
+      <rect x="3" y="3" width="7" height="7" rx="1" stroke="currentColor" />
+      <rect x="14" y="3" width="7" height="7" rx="1" stroke="currentColor" />
+      <rect x="3" y="14" width="7" height="7" rx="1" stroke="currentColor" />
+      <rect x="14" y="14" width="7" height="7" rx="1" stroke="currentColor" />
+      <path d="M10 6.5h4M10 17.5h4M6.5 10v4M17.5 10v4" stroke="currentColor" strokeLinecap="round" />
     </svg>
   );
 }
 
-function ConnectionsIcon() {
+function CodeIcon() {
+  // Chevron-pair + slash.
   return (
-    <svg width="20" height="20" viewBox="0 0 24 24" strokeWidth="1.5" fill="none" aria-hidden="true">
-      <circle cx="6" cy="6" r="2.2" stroke="currentColor" />
-      <circle cx="18" cy="6" r="2.2" stroke="currentColor" />
-      <circle cx="12" cy="18" r="2.4" stroke="currentColor" />
-      <path d="M7.6 7.5l3.2 8.8" stroke="currentColor" strokeLinecap="round" />
-      <path d="M16.4 7.5l-3.2 8.8" stroke="currentColor" strokeLinecap="round" />
-      <path d="M8.1 6h7.8" stroke="currentColor" strokeLinecap="round" />
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" strokeWidth="1.5" aria-hidden="true">
+      <path d="M16 18l6-6-6-6" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" />
+      <path d="M8 6l-6 6 6 6" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" />
+      <path d="M14 4l-4 16" stroke="currentColor" strokeLinecap="round" />
     </svg>
   );
 }
@@ -66,8 +64,8 @@ interface MobileNavItem {
 const MOBILE_NAV_ITEMS: MobileNavItem[] = [
   { id: 'ask',      label: 'Threads',  panelId: 'ask',      icon: ChatIcon },
   { id: 'explorer', label: 'Explorer', panelId: 'explorer', icon: GraphIcon },
-  { id: 'connections', label: 'Sources', panelId: 'connections', icon: ConnectionsIcon },
-  { id: 'intelligence', label: 'Intel', panelId: 'intelligence', icon: IntelligenceIcon },
+  { id: 'plugins',  label: 'Plugins',  panelId: 'plugins',  icon: PluginsIcon },
+  { id: 'code',     label: 'Code',     panelId: 'code',     icon: CodeIcon },
 ];
 
 /**

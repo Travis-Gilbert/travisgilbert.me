@@ -18,9 +18,8 @@ interface PaletteAction {
 const ACTIONS: PaletteAction[] = [
   { panel: 'ask', label: 'Open Threads', kind: 'go' },
   { panel: 'explorer', label: 'Open Explorer', kind: 'go' },
-  { panel: 'connections', label: 'Open Connections', kind: 'go' },
   { panel: 'plugins', label: 'Open Plugins', kind: 'go' },
-  { panel: 'intelligence', label: 'Open Intelligence', kind: 'go' },
+  { panel: 'code', label: 'Open Code', kind: 'go' },
   { panel: 'notebook', label: 'Open Notebook', kind: 'go' },
 ];
 

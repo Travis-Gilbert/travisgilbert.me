@@ -9,14 +9,15 @@ import { dispatchTheseusEvent, type TheseusView } from '@/lib/theseus/events';
  * a text-editing element (textarea, input, or contenteditable) unless
  * explicitly allow-listed.
  */
-// Atlas Places ordering. ⌘1-6 jump across the sidebar.
+// Atlas Places ordering (Mobile Shell 2.0). ⌘1-5 jump across the sidebar.
+// Connections and Intelligence were merged/repurposed: ⌘3 now opens the
+// merged Plugins panel; ⌘4 opens Code; Notebook moves up to ⌘5.
 const VIEW_BY_DIGIT: Record<string, TheseusView> = {
   '1': 'ask',
   '2': 'explorer',
-  '3': 'connections',
-  '4': 'plugins',
-  '5': 'intelligence',
-  '6': 'notebook',
+  '3': 'plugins',
+  '4': 'code',
+  '5': 'notebook',
 };
 
 function isEditingContext(target: EventTarget | null): boolean {

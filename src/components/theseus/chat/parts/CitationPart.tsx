@@ -76,7 +76,7 @@ const CitationPart: FC<CitationPartProps> = ({ source, year, confidence, anchor 
           aria-label={`Citation: ${source}, ${year}`}
           className="aui-citation"
           style={{
-            borderBottom: '1px dotted var(--color-terracotta)',
+            borderBottom: '1px solid rgba(42, 139, 108, 0.4)',
             cursor: 'help',
             color: 'inherit',
             textDecoration: 'none',
@@ -88,7 +88,7 @@ const CitationPart: FC<CitationPartProps> = ({ source, year, confidence, anchor 
               marginLeft: 2,
               fontFamily: 'var(--font-mono)',
               fontSize: '0.7em',
-              color: 'var(--color-terracotta)',
+              color: 'var(--pcb, #2a8b6c)',
             }}
           >
             {source}
@@ -100,10 +100,10 @@ const CitationPart: FC<CitationPartProps> = ({ source, year, confidence, anchor 
           sideOffset={6}
           className="aui-citation-card"
           style={{
-            background: 'var(--color-surface)',
-            color: 'var(--color-ink)',
-            border: '1px solid var(--color-border)',
-            boxShadow: 'var(--shadow-warm)',
+            background: 'var(--paper, #f5f5f7)',
+            color: 'var(--paper-ink, #15171B)',
+            border: '1px solid var(--paper-rule, #c4c8d0)',
+            boxShadow: '0 8px 28px -12px rgba(20, 22, 26, 0.18)',
             borderRadius: 6,
             padding: '10px 12px',
             fontFamily: 'var(--font-body)',
@@ -118,14 +118,14 @@ const CitationPart: FC<CitationPartProps> = ({ source, year, confidence, anchor 
               fontSize: 10,
               letterSpacing: '0.1em',
               textTransform: 'uppercase',
-              color: 'var(--color-ink-light)',
+              color: 'var(--paper-ink-3, #525866)',
               marginBottom: 4,
             }}
           >
             {source} · {year} · confidence {confidence.toFixed(2)}
           </div>
           <div>{anchor}</div>
-          <Popover.Arrow style={{ fill: 'var(--color-terracotta)' }} />
+          <Popover.Arrow style={{ fill: 'var(--pcb, #2a8b6c)' }} />
         </Popover.Content>
       </Popover.Portal>
     </Popover.Root>

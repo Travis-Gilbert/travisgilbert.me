@@ -9,58 +9,61 @@
    existing component CSS keeps rendering through the palette change. */
 
 .theseus-root {
-  /* Atlas surfaces — dark ink, close-to-black with a warm undertone.
-     Sidebar sits slightly inky-blue so the iridescent wash reads. */
-  --app-base:    #1A1817;
-  --top-chrome:  #1F1D1C;
-  --sidebar:     #171110;
-  --panel:       #2A2725;
-  --panel-2:     #322E2C;
-  --panel-3:     #3C3734;
+  /* Cool slate ink. */
+  --app-base:    #16181C;
+  --top-chrome:  #1B1E22;
+  --sidebar:     #14171B;
+  --panel:       #1E2128;
+  --panel-2:     #232730;
+  --panel-3:     #2C3036;
 
-  /* Iridescent tones — very low intensity washes for chrome only. */
-  --tone-brass:  rgba(176, 148, 104, 0.07);
-  --tone-rose:   rgba(162, 124, 116, 0.05);
-  --tone-plum:   rgba(108, 96, 122, 0.05);
-  --tone-blue:   rgba(72, 96, 138, 0.10);
-  --tone-ink:    rgba(40, 58, 92, 0.14);
-  --tone-bone:   rgba(232, 222, 208, 0.05);
+  /* Iridescent washes: cool, very subtle. */
+  --tone-brass:  rgba(201, 162, 58, 0.05);
+  --tone-rose:   rgba(196, 122, 134, 0.04);
+  --tone-plum:   rgba(138, 122, 168, 0.04);
+  --tone-blue:   rgba(140, 154, 219, 0.05);
+  --tone-ink:    rgba(228, 230, 234, 0.04);
+  --tone-bone:   rgba(228, 230, 234, 0.06);
 
-  /* Patina'd solids — slightly muted accents. */
-  --brass:       #B09468;
-  --rose:        #A27C74;
-  --plum:        #6C607A;
-  --blue:        #606E86;
-  --bone:        #E8DED0;
+  /* Brand-derived solids from theseus-emblem.svg. */
+  --brass:       #c9a23a;   /* trace gold */
+  --pcb:         #2a8b6c;   /* forest green at brand contrast */
+  --pcb-deep:    #0a2a20;   /* the icon background itself */
+  --silkscreen:  #d4c88a;
+  --rose:        #c47a86;
+  --plum:        #8a7aa8;
+  --blue:        #8c9adb;
+  --bone:        #E6E8EC;
 
-  /* Ink (type) — softer, less saturated warm. */
-  --ink:         #E6DDD0;
-  --ink-2:       #B8AC9E;
-  --ink-3:       #847869;
-  --ink-4:       #554B44;
-  --rule:        rgba(232, 222, 208, 0.06);
-  --rule-strong: rgba(232, 222, 208, 0.14);
+  /* Cool ink. */
+  --ink:         #E4E6EA;
+  --ink-2:       #B0B5BD;
+  --ink-3:       #7A828D;
+  --ink-4:       #4D5460;
+  --rule:        rgba(228, 230, 234, 0.06);
+  --rule-strong: rgba(228, 230, 234, 0.16);
 
-  /* Accent (the "pencil" role = brass glow). */
-  --pencil:      var(--brass);
-  --accent:      var(--brass);
+  /* Accent: brass primary, forest green secondary. */
+  --pencil:       var(--brass);
+  --accent:       var(--brass);
   --accent-color: var(--brass);
+  --accent-2:     var(--pcb);
 
-  /* Paper palette kept for Ask Correspondence surface. */
-  --paper:       #f3efe6;
-  --paper-2:     #ece7db;
-  --paper-3:     #e2dcc9;
-  --paper-ink:   #140E0C;
-  --paper-ink-2: #2E241F;
-  --paper-ink-3: #554A43;
-  --paper-rule:  #b8ae98;
-  --paper-pencil:#a8301e;
+  /* Cool paper. */
+  --paper:        #f5f5f7;
+  --paper-2:      #eaeaef;
+  --paper-3:      #dde0e6;
+  --paper-ink:    #15171B;
+  --paper-ink-2:  #2A2E36;
+  --paper-ink-3:  #525866;
+  --paper-rule:   #c4c8d0;
+  --paper-pencil: var(--pcb);   /* was terracotta; now forest green */
 
-  /* Kind colors — rebalanced for warm-dark backdrops. */
-  --sage:   #7FA37A;
-  --indigo: #9AA6D4;
+  /* Kind colours, cooled. */
+  --sage:   #6fa580;
+  --indigo: #8c9adb;
   --ochre:  var(--brass);
-  --teal:   #7DB8B4;
+  --teal:   #5fb3b3;
   --mauve:  var(--rose);
   --lilac:  var(--plum);
 
@@ -69,9 +72,7 @@
   --grid-size:     28px;
   --grid-opacity:  0.10;
 
-  /* Typography (Atlas uses IBM Plex Sans body, Vollkorn display,
-     IBM Plex Mono for labels/kbd/metadata). We keep alias names so the
-     legacy --vie-font-* classes keep resolving through the change. */
+  /* Typography unchanged. */
   --font-body:    var(--font-ibm-plex, 'IBM Plex Sans', system-ui, sans-serif);
   --font-display: var(--font-vollkorn, Georgia, serif);
   --font-ui:      var(--font-ibm-plex, 'IBM Plex Sans', system-ui, sans-serif);
@@ -6215,7 +6216,7 @@
   color: var(--paper-ink);
   /* Faint blueprint grid — single set of lines at low opacity so it
      sits behind the graph without competing for attention. */
-  --grid-line: rgba(120, 104, 82, 0.12);
+  --grid-line: rgba(120, 124, 130, 0.14);
   background-image:
     linear-gradient(var(--grid-line) 1px, transparent 1px),
     linear-gradient(90deg, var(--grid-line) 1px, transparent 1px);
@@ -6755,4 +6756,81 @@
   display: flex;
   flex-direction: column;
   position: relative;
+}
+
+/* ── Mobile Shell 2.0 (2026-04-28) ────────────────────────────
+   Hide every scrollbar inside .theseus-root. Native scroll continues
+   to work; only the visual indicator is gone. Wrapped in .theseus-root
+   so the rest of travisgilbert.me (CommonPlace, blog) keeps its
+   scrollbars. */
+.theseus-root *,
+.theseus-root *::before,
+.theseus-root *::after {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+.theseus-root *::-webkit-scrollbar {
+  width: 0;
+  height: 0;
+  display: none;
+}
+
+/* Mobile cosmos.gl Explorer treatment: full-bleed dark canvas with
+   a faint forest-green spotlight and safe-area-aware floating chrome. */
+@media (max-width: 767px) {
+  .atlas-canvas {
+    background: var(--app-base);
+    background-image: none;
+  }
+  .atlas-canvas::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background: radial-gradient(
+      ellipse at 50% 45%,
+      rgba(42, 139, 108, 0.08) 0%,
+      transparent 60%
+    );
+    pointer-events: none;
+    z-index: 0;
+  }
+  .atlas-canvas canvas { touch-action: none; }
+  .atlas-graph-controls {
+    flex-direction: column;
+    align-items: flex-end;
+    bottom: calc(14px + env(safe-area-inset-bottom));
+    right: 12px;
+  }
+  .atlas-cos-sim-readout {
+    position: absolute;
+    bottom: calc(16px + env(safe-area-inset-bottom));
+    left: 14px;
+    z-index: 5;
+  }
+}
+
+/* Mobile Shell 2.0 (2026-04-28): the public /theseus landing renders
+   inside the same Atlas shell layout but suppresses the workbench
+   chrome (sidebar + mobile nav) so it reads as a marketing page.
+   :has() is supported on all modern browsers (Safari 15.4+, Chrome
+   105+, Firefox 121+); on older browsers the chrome would still
+   render and the landing would simply have a sidebar — graceful
+   degradation. */
+.theseus-root:has([data-theseus-landing]) {
+  display: block !important;
+  grid-template-columns: none !important;
+  height: auto !important;
+  min-height: 100vh !important;
+}
+.theseus-root:has([data-theseus-landing]) .atlas-sidebar,
+.theseus-root:has([data-theseus-landing]) .theseus-mobile-nav {
+  display: none !important;
+}
+.theseus-root:has([data-theseus-landing]) .atlas-main {
+  grid-column: auto !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  max-width: none !important;
+  width: 100% !important;
+  overflow: visible !important;
 }

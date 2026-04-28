@@ -17,10 +17,9 @@ interface TrailingPlace {
 }
 
 const TRAILING_PLACES: TrailingPlace[] = [
-  { panel: 'connections', n: '03', label: 'Connections', meta: '⌘3' },
-  { panel: 'plugins', n: '04', label: 'Plugins', meta: '⌘4' },
-  { panel: 'intelligence', n: '05', label: 'Intelligence', meta: '⌘5' },
-  { panel: 'notebook', n: '06', label: 'Notebook', meta: '⌘6' },
+  { panel: 'plugins', n: '03', label: 'Plugins',  meta: '⌘3' },
+  { panel: 'code',    n: '04', label: 'Code',     meta: '⌘4' },
+  { panel: 'notebook',n: '05', label: 'Notebook', meta: '⌘5' },
 ];
 
 /**

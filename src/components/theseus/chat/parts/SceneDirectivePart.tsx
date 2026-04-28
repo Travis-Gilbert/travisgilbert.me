@@ -49,21 +49,21 @@ const SceneDirectivePart: FC<SceneDirectivePartProps> = ({
         fontSize: 11,
         letterSpacing: '0.08em',
         textTransform: 'uppercase',
-        color: 'var(--color-terracotta)',
+        color: 'var(--brass, #c9a23a)',
         background: 'transparent',
-        border: '1px solid color-mix(in srgb, var(--color-terracotta) 30%, transparent)',
+        border: '1px solid color-mix(in srgb, var(--brass, #c9a23a) 30%, transparent)',
         borderRadius: 4,
         padding: '6px 10px',
         cursor: 'pointer',
         transition: 'background 120ms ease, border-color 120ms ease',
       }}
       onMouseEnter={(e) => {
-        e.currentTarget.style.background = 'color-mix(in srgb, var(--color-terracotta) 8%, transparent)';
-        e.currentTarget.style.borderColor = 'var(--color-terracotta)';
+        e.currentTarget.style.background = 'color-mix(in srgb, var(--brass, #c9a23a) 8%, transparent)';
+        e.currentTarget.style.borderColor = 'var(--brass, #c9a23a)';
       }}
       onMouseLeave={(e) => {
         e.currentTarget.style.background = 'transparent';
-        e.currentTarget.style.borderColor = 'color-mix(in srgb, var(--color-terracotta) 30%, transparent)';
+        e.currentTarget.style.borderColor = 'color-mix(in srgb, var(--brass, #c9a23a) 30%, transparent)';
       }}
     >
       <ArrowUpRightIcon width={12} height={12} />

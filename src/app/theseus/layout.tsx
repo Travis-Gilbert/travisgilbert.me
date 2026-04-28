@@ -17,6 +17,11 @@ export const metadata = {
  * TheseusShell provides the Atlas filter context, the command palette,
  * the global drop-target, and the `atlas-main` wrapper that hosts the
  * active panel from PanelManager.
+ *
+ * Mobile Shell 2.0 (2026-04-28): the public /theseus landing renders
+ * inside the same shell to keep the layout tree simple, and uses
+ * `data-theseus-landing` (set by TheseusLanding) plus a :has()-based
+ * rule in theseus.css to hide the sidebar + mobile nav on that page.
  */
 export default function TheseusLayout({
   children,

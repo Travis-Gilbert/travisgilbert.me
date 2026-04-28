@@ -36,14 +36,14 @@ function StageLabel({ label }: { label: string }) {
         fontSize: 10,
         letterSpacing: '0.12em',
         textTransform: 'uppercase',
-        color: 'var(--color-ink-light)',
+        color: 'var(--paper-ink-3, #525866)',
       }}
     >
       <span
         aria-hidden="true"
         style={{
           marginRight: 8,
-          color: 'var(--color-terracotta)',
+          color: 'var(--brass, #c9a23a)',
           display: 'inline-block',
           animation: 'aui-braille-spin 900ms steps(8) infinite',
         }}

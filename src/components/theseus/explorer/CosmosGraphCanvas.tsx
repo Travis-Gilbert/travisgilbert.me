@@ -1749,6 +1749,93 @@ const CosmosGraphCanvas = forwardRef<CosmosGraphCanvasHandle, CosmosGraphCanvasP
       };
     }, [maybeStartAmbient]);
 
+    // Mobile Shell 2.0 (2026-04-28): iOS pinch-zoom + tap-to-Lens.
+    // The page-level container has touch-action:none (theseus.css mobile
+    // media query) so two-finger gestures don't scroll the page. iOS
+    // emits gesturestart/gesturechange/gestureend with `scale` relative
+    // to gesture start; Android and desktop touchscreens use pointer
+    // events with two pointers and need their own pinch math (deferred
+    // here — Cosmos's drag-to-pan already handles single-touch).
+    useEffect(() => {
+      const container = containerRef.current;
+      if (!container) return;
+
+      let startZoom = 1;
+      let rafId = 0;
+
+      const onGestureStart = (e: Event) => {
+        e.preventDefault();
+        const graph = graphRef.current;
+        startZoom = graph?.getZoomLevel?.() ?? 1;
+        noteInteraction();
+      };
+      const onGestureChange = (e: Event) => {
+        e.preventDefault();
+        const graph = graphRef.current;
+        const scale = (e as unknown as { scale?: number }).scale ?? 1;
+        if (!graph || !Number.isFinite(scale) || scale <= 0) return;
+        if (rafId) cancelAnimationFrame(rafId);
+        rafId = requestAnimationFrame(() => {
+          graph.setZoomLevel?.(startZoom * scale);
+        });
+      };
+      const onGestureEnd = (e: Event) => {
+        e.preventDefault();
+        const graph = graphRef.current;
+        const scale = (e as unknown as { scale?: number }).scale ?? 1;
+        if (graph && Number.isFinite(scale) && scale > 0) {
+          startZoom = startZoom * scale;
+        }
+        noteInteraction();
+      };
+
+      // Tap-to-Lens: pointerdown + pointerup within 300ms and < 8px
+      // movement counts as a tap. Cosmos's onClick already covers
+      // mouse + tap on most devices, but surfacing the explicit tap
+      // event lets us emit theseus:open-lens with a clean delta gate.
+      let pointerStart: { x: number; y: number; t: number; id: number } | null = null;
+      const TAP_DURATION_MS = 300;
+      const TAP_DELTA_PX = 8;
+
+      const onPointerDown = (e: PointerEvent) => {
+        if (e.pointerType !== 'touch') return;
+        pointerStart = { x: e.clientX, y: e.clientY, t: Date.now(), id: e.pointerId };
+      };
+      const onPointerUp = (e: PointerEvent) => {
+        if (e.pointerType !== 'touch' || !pointerStart || pointerStart.id !== e.pointerId) {
+          pointerStart = null;
+          return;
+        }
+        const dt = Date.now() - pointerStart.t;
+        const dx = e.clientX - pointerStart.x;
+        const dy = e.clientY - pointerStart.y;
+        const dist = Math.hypot(dx, dy);
+        pointerStart = null;
+        if (dt > TAP_DURATION_MS || dist > TAP_DELTA_PX) return;
+        // Cosmos's own onClick handler will run for the same gesture and
+        // resolve the hit via its internal hit-test; we only need to
+        // ensure interaction is noted so idle detection stays accurate.
+        noteInteraction();
+      };
+
+      // iOS-specific gesture events use non-standard names not in
+      // lib.dom.d.ts; cast to EventListener to avoid TS errors.
+      container.addEventListener('gesturestart', onGestureStart as EventListener, { passive: false });
+      container.addEventListener('gesturechange', onGestureChange as EventListener, { passive: false });
+      container.addEventListener('gestureend', onGestureEnd as EventListener, { passive: false });
+      container.addEventListener('pointerdown', onPointerDown);
+      container.addEventListener('pointerup', onPointerUp);
+
+      return () => {
+        container.removeEventListener('gesturestart', onGestureStart as EventListener);
+        container.removeEventListener('gesturechange', onGestureChange as EventListener);
+        container.removeEventListener('gestureend', onGestureEnd as EventListener);
+        container.removeEventListener('pointerdown', onPointerDown);
+        container.removeEventListener('pointerup', onPointerUp);
+        if (rafId) cancelAnimationFrame(rafId);
+      };
+    }, [noteInteraction]);
+
     // -------- Adapter implementation -------------------------------------
 
     useImperativeHandle(

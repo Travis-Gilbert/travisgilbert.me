@@ -32,14 +32,6 @@ import { PLUGIN_STATE_ACCENT } from '../atlas/stateAccent';
 
 const SDK_DOCS_PATH = '/theseus/plugins/sdk';
 
-const ALL_CATEGORIES: PluginCategory[] = [
-  'connector',
-  'scorer',
-  'verb',
-  'surface',
-  'theorem',
-];
-
 const CATEGORY_LABEL: Record<PluginCategory, string> = {
   connector: 'Connector',
   scorer: 'Scorer',
@@ -48,13 +40,34 @@ const CATEGORY_LABEL: Record<PluginCategory, string> = {
   theorem: 'Theorem',
 };
 
-export default function PluginsPanel() {
+// Mobile Shell 2.0 (2026-04-28): the merged Plugins panel exposes three
+// tabs at the surface: Connectors, MCP, Skills. They map onto the
+// underlying plugin runtime taxonomy as follows. No fake data: a tab
+// with zero matches renders an honest empty state and points at the
+// SDK docs.
+type PluginTab = 'connectors' | 'mcp' | 'skills';
+
+const TAB_LABEL: Record<PluginTab, string> = {
+  connectors: 'Connectors',
+  mcp: 'MCP',
+  skills: 'Skills',
+};
+
+const TAB_CATEGORIES: Record<PluginTab, ReadonlySet<PluginCategory>> = {
+  connectors: new Set<PluginCategory>(['connector']),
+  mcp: new Set<PluginCategory>(['verb', 'scorer']),
+  skills: new Set<PluginCategory>(['surface', 'theorem']),
+};
+
+interface PluginsPanelProps {
+  defaultTab?: PluginTab;
+}
+
+export default function PluginsPanel({ defaultTab = 'connectors' }: PluginsPanelProps = {}) {
   const [manifest, setManifest] = useState<PluginManifestEntry[] | null>(null);
   const [capabilities, setCapabilities] = useState<RunnerCapabilities | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
-  const [filters, setFilters] = useState<Set<PluginCategory>>(
-    () => new Set(ALL_CATEGORIES),
-  );
+  const [activeTab, setActiveTab] = useState<PluginTab>(defaultTab);
   const [pending, setPending] = useState<Record<string, boolean>>({});
 
   const load = useCallback(async () => {
@@ -86,19 +99,9 @@ export default function PluginsPanel() {
 
   const visible = useMemo(() => {
     if (!manifest) return [] as PluginManifestEntry[];
-    return manifest.filter((p) => filters.has(p.category));
-  }, [manifest, filters]);
-
-  const toggleFilter = useCallback((cat: PluginCategory) => {
-    setFilters((prev) => {
-      const next = new Set(prev);
-      if (next.has(cat)) next.delete(cat);
-      else next.add(cat);
-      // Disallow empty selection — users expect to always see something.
-      if (next.size === 0) return new Set(ALL_CATEGORIES);
-      return next;
-    });
-  }, []);
+    const allowed = TAB_CATEGORIES[activeTab];
+    return manifest.filter((p) => allowed.has(p.category));
+  }, [manifest, activeTab]);
 
   async function runTransition(
     slug: string,
@@ -171,38 +174,39 @@ export default function PluginsPanel() {
           style={{
             display: 'flex',
             alignItems: 'center',
-            gap: 8,
+            gap: 4,
             padding: '14px 28px',
             borderBottom: '1px solid var(--rule)',
             flexWrap: 'wrap',
           }}
+          role="tablist"
+          aria-label="Plugin sub-sections"
         >
-          <div className="eyebrow" style={{ marginRight: 12 }}>
-            Categories
-          </div>
-          {ALL_CATEGORIES.map((cat) => {
-            const active = filters.has(cat);
+          {(['connectors', 'mcp', 'skills'] as PluginTab[]).map((tab) => {
+            const active = activeTab === tab;
             return (
               <button
-                key={cat}
+                key={tab}
                 type="button"
-                onClick={() => toggleFilter(cat)}
+                onClick={() => setActiveTab(tab)}
                 aria-pressed={active}
+                role="tab"
+                aria-selected={active}
                 style={{
                   all: 'unset',
                   cursor: 'pointer',
-                  padding: '4px 10px',
-                  borderRadius: 3,
-                  border: '1px solid var(--rule)',
-                  background: active ? 'var(--paper-2)' : 'transparent',
-                  color: active ? 'var(--ink)' : 'var(--ink-3)',
+                  padding: '8px 14px',
                   fontFamily: 'var(--font-mono)',
                   fontSize: 11,
                   letterSpacing: '0.08em',
                   textTransform: 'uppercase',
+                  color: active ? 'var(--ink)' : 'var(--ink-3)',
+                  borderBottom: active
+                    ? '2px solid var(--brass, #c9a23a)'
+                    : '2px solid transparent',
                 }}
               >
-                {CATEGORY_LABEL[cat]}
+                {TAB_LABEL[tab]}
               </button>
             );
           })}
@@ -271,7 +275,7 @@ export default function PluginsPanel() {
           )}
 
           {manifest !== null && !loadError && visible.length === 0 && (
-            <EmptyState totalKnown={manifest.length} />
+            <EmptyState totalKnown={manifest.length} tab={activeTab} />
           )}
 
           {visible.length > 0 && (
@@ -482,13 +486,19 @@ function CardButton({
   );
 }
 
-function EmptyState({ totalKnown }: { totalKnown: number }) {
+function EmptyState({ totalKnown, tab }: { totalKnown: number; tab: PluginTab }) {
   const headline =
-    totalKnown === 0 ? 'Registry is empty.' : 'No plugins match this filter.';
+    totalKnown === 0
+      ? 'Registry is empty.'
+      : `No ${TAB_LABEL[tab].toLowerCase()} plugins yet.`;
   const body =
     totalKnown === 0
       ? 'The SPEC-C plugin runtime is running but no plugins are installed yet. See the SDK docs to build one.'
-      : 'Re-enable one of the categories above to see the plugins that ship with this deployment.';
+      : tab === 'mcp'
+        ? 'No MCP-style verb or scorer plugins are registered. Connect Theseus MCP to expose tool calls here.'
+        : tab === 'skills'
+          ? 'No surface or theorem plugins are registered. Skills appear here once they are loaded into the runtime.'
+          : 'No connector plugins are registered. Connect a source (GitHub, arXiv, Fastmail, Obsidian) to see it here.';
   return (
     <div
       style={{
