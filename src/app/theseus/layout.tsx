@@ -7,6 +7,7 @@ import TheseusShell from '@/components/theseus/TheseusShell';
 import TheseusSidebar from '@/components/theseus/TheseusSidebar';
 import TheseusMobileNav from '@/components/theseus/TheseusMobileNav';
 import TheseusServiceWorker from '@/components/theseus/TheseusServiceWorker';
+import TheseusMobileResponsive from '@/components/theseus/TheseusMobileResponsive';
 
 export const metadata: Metadata = {
   title: 'Theseus',
@@ -47,6 +48,7 @@ export default function TheseusLayout({
       </TheseusShell>
       <TheseusMobileNav />
       <TheseusServiceWorker />
+      <TheseusMobileResponsive />
     </div>
   );
 }
