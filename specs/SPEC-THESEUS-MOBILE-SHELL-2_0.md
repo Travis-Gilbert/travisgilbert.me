@@ -1,8 +1,16 @@
 # SPEC-THESEUS-MOBILE-SHELL-2_0
 
-Supersedes SPEC-THESEUS-MOBILE-SHELL-1_0 in two places (color tokens, nav structure) and extends it in four (assistant-ui chat patterns, cosmos.gl mobile touch, scrollbar policy, intelligence-as-landing repurpose). Read v1 first. This assumes v1 Batch 0 has shipped.
+> **CRITICAL SCOPE GUARD — read before any implementation.**
+>
+> The route `/theseus` currently mounts `<PanelManager />` from `src/components/theseus/PanelManager.tsx`. **That is the running app.** Threads, Explorer, Lens, Plugins, Code, Notebook all live inside PanelManager as panels switched by sidebar / bottom-nav events.
+>
+> **`src/app/theseus/page.tsx` MUST NOT be modified by this spec.** Earlier drafts of Batch 7 included a snippet that replaced the file with a `redirect` + `<TheseusLanding>` component. That was wrong. It would have torn the live workspace out from under the user. The corrected Batch 7 below leaves `page.tsx` alone.
+>
+> The unauth landing concept lives at a **separate URL**: `/theseus/about` (new file at `src/app/theseus/about/page.tsx`). Authenticated routing is unchanged.
 
-Reference visual: 6-screen mockup (cool slate dark + cool paper, assistant-ui chat patterns, Plugins / Code nav, dark-canvas Explorer, repurposed landing).
+Supersedes SPEC-THESEUS-MOBILE-SHELL-1_0 in two places (color tokens, nav structure) and extends it in four (assistant-ui chat patterns, cosmos.gl mobile touch, scrollbar policy, optional unauth landing at `/theseus/about`). Read v1 first. This assumes v1 Batch 0 has shipped.
+
+Reference visual: `specs/theseus-mobile-mockup-v2.html` (6 screens, with scope guards inline). Open in a browser.
 
 ---
 
@@ -12,9 +20,21 @@ Three structural calls came in while v1 was being prepped:
 
 1. Warm-brown palette was wrong. Switch to cool slate plus brand-derived (forest green + brass) accents pulled directly from `theseus/icon.svg`.
 2. Adopt assistant-ui patterns for the chat surface. The library (`@assistant-ui/react ^0.12.25`) is already in `package.json`.
-3. Restructure nav: Sources becomes Plugins (with three sub-tabs), Intel slot becomes Code, Intelligence content becomes a public `/theseus` landing.
+3. Restructure nav: Sources becomes Plugins (three sub-tabs), Intel slot in nav becomes Code. **Old version of this spec said "Intelligence content becomes a public `/theseus` landing." That was a category error.** The Intelligence *panel* is removed from nav as a top-level destination, but `/theseus` itself stays mounting PanelManager. Any landing-page work goes to `/theseus/about` and is optional, gated on Travis explicitly opting in.
 
 Plus: cosmos.gl on mobile gets promoted from "out of scope" to its own batch. And: hide every scrollbar inside `.theseus-root` globally.
+
+---
+
+## What this spec MUST NOT touch
+
+These files are out of scope for every batch in this spec:
+
+- `src/app/theseus/page.tsx` — the PanelManager mount point. Unchanged.
+- `src/app/theseus/layout.tsx` — only touch in v1 Batch 1 (mobile shell), not here.
+- `src/components/theseus/PanelManager.tsx` — internal logic only changes if Batch 7 needs to rename a panel ID, never to remove the workspace itself.
+
+Any time a Claude Code session opens this spec and finds itself about to edit `src/app/theseus/page.tsx`, **stop, re-read this section, and ask Travis before proceeding.**
 
 ---
 
@@ -48,9 +68,9 @@ Plus: cosmos.gl on mobile gets promoted from "out of scope" to its own batch. An
   --tone-bone:   rgba(228, 230, 234, 0.06);
 
   /* Brand-derived solids from theseus-emblem.svg. */
-  --brass:       #c9a23a;   /* trace gold */
-  --pcb:         #2a8b6c;   /* forest green at brand contrast */
-  --pcb-deep:    #0a2a20;   /* the icon background itself */
+  --brass:       #c9a23a;
+  --pcb:         #2a8b6c;
+  --pcb-deep:    #0a2a20;
   --silkscreen:  #d4c88a;
   --rose:        #c47a86;
   --plum:        #8a7aa8;
@@ -79,7 +99,7 @@ Plus: cosmos.gl on mobile gets promoted from "out of scope" to its own batch. An
   --paper-ink-2:  #2A2E36;
   --paper-ink-3:  #525866;
   --paper-rule:   #c4c8d0;
-  --paper-pencil: var(--pcb);   /* was terracotta; now forest green */
+  --paper-pencil: var(--pcb);
 
   /* Kind colours, cooled. */
   --sage:   #6fa580;
@@ -109,10 +129,10 @@ Plus: cosmos.gl on mobile gets promoted from "out of scope" to its own batch. An
 5. Engine-state `vie-amber-light` / `vie-teal-light`: verify `--brass` reads as warm enough for engine-warm. If conflicts with brand voice, swap `--vie-engine-active` to `var(--pcb)` so forest green = running.
 
 **Verify**
+- `/theseus` STILL mounts PanelManager (no route changes).
 - `/theseus` shows cool slate (`#16181C`), not warm brown.
 - Active nav row shows a brass left rule, no patina-rose gradient.
 - Atlas canvas: cool paper with forest-green pencil (was terracotta).
-- Brand mark visually rhymes with the chrome.
 - `npm run build` passes.
 
 ---
@@ -122,18 +142,18 @@ Plus: cosmos.gl on mobile gets promoted from "out of scope" to its own batch. An
 **Read first**
 - `src/components/theseus/panels/AskPanel.tsx`
 - `src/components/theseus/chat/` in full
-- https://github.com/assistant-ui/assistant-ui/blob/main/packages/ui/src/components/assistant-ui/thread.tsx (canonical reference; this spec derives from it)
-- `src/styles/assistant-ui-theme.css` (already exists, partial)
+- https://github.com/assistant-ui/assistant-ui/blob/main/packages/ui/src/components/assistant-ui/thread.tsx
+- `src/styles/assistant-ui-theme.css`
 
-**Goal:** adopt assistant-ui primitives for message rendering, composer, and welcome state. Don't replace panel-level architecture; replace the per-message and composer rendering. Tokens map via `assistant-ui-theme.css`.
+**Goal:** adopt assistant-ui primitives for message rendering, composer, and welcome state. Replace per-message and composer rendering only. **Do not touch panel-level architecture or PanelManager.** Tokens map via `assistant-ui-theme.css`.
 
 **Patterns, verbatim from the assistant-ui Thread reference**
 
 1. **Welcome state.** Display heading + muted lede + 2-col suggestion grid.
-   - `h1` in Vollkorn 26px mobile / 28px desktop, `font-weight: 500`
-   - `p` lede in Vollkorn 19px / 21px, color `var(--paper-ink-3)`
+   - `h1` Vollkorn 26px mobile / 28px desktop, weight 500
+   - `p` lede Vollkorn 19px / 21px, color `var(--paper-ink-3)`
    - Suggestions: `grid grid-cols-1 @md:grid-cols-2 gap-2` of `<Button variant="ghost" className="rounded-3xl border bg-background px-4 py-3 text-start">` with title in `font-medium` and description in `text-muted-foreground`
-   - Stagger: `fade-in slide-in-from-bottom-1 animate-in fill-mode-both duration-200` with 0 / 80 / 160 / 240 ms delays per suggestion
+   - Stagger: `fade-in slide-in-from-bottom-1 animate-in fill-mode-both duration-200` with 0 / 80 / 160 / 240 ms delays
 
 2. **User message.** Right-aligned bubble.
    - `align-self: flex-end; max-width: 85%; background: var(--paper-2); border-radius: 16px; padding: 10px 14px;`
@@ -142,17 +162,17 @@ Plus: cosmos.gl on mobile gets promoted from "out of scope" to its own batch. An
 
 3. **Assistant message.** No bubble. Plain prose.
    - `align-self: stretch; color: var(--paper-ink); padding: 0 4px;`
-   - Vollkorn 15px / 1.6 line-height (matches editorial voice).
+   - Vollkorn 15px / 1.6 line-height.
    - Markdown via assistant-ui's `MarkdownText` component.
    - Citations as inline links with `border-bottom: 1px solid rgba(42, 139, 108, 0.4)` (forest underline).
    - Footer meta row: `confidence | sources | dissent count`, mono 10px, numerals in brass.
-   - Action bar (Copy / Reload / More) below the message at `text-muted-foreground`, autohide on `not-last` via `<ActionBarPrimitive.Root autohide="not-last" />`.
+   - Action bar (Copy / Reload / More) at `text-muted-foreground`, autohide on `not-last` via `<ActionBarPrimitive.Root autohide="not-last" />`.
 
 4. **Reasoning panel.** Collapsible above the answer.
    - Border-card at `bg-paper-2` with brass heartbeat-pulse dot.
    - Mono 10px label "Reasoning · 1.4s".
    - Body 12.5px IBM Plex Sans, color `var(--paper-ink-2)`.
-   - Collapsed by default after reasoning completes; expanded while reasoning is in flight.
+   - Collapsed by default after reasoning completes.
    - Use assistant-ui's `<Reasoning>` primitive.
 
 5. **Composer.** Sticky bottom, `rounded-3xl`.
@@ -174,7 +194,7 @@ Plus: cosmos.gl on mobile gets promoted from "out of scope" to its own batch. An
 - `src/components/theseus/chat/Composer.tsx` — wraps `ComposerPrimitive.Root`
 - `src/components/theseus/chat/Message.tsx` — branches on role
 - `src/components/theseus/chat/Welcome.tsx` — suggestion grid
-- `src/components/theseus/chat/Thread.tsx` — top-level `ThreadPrimitive.Root`
+- `src/components/theseus/chat/Thread.tsx` — top-level `ThreadPrimitive.Root`, mounted INSIDE the existing AskPanel
 - `src/styles/assistant-ui-theme.css` — token map (below)
 
 **`assistant-ui-theme.css` token map**
@@ -202,8 +222,6 @@ Plus: cosmos.gl on mobile gets promoted from "out of scope" to its own batch. An
   --radius:               0.75rem;
 }
 
-/* Reverse-map for any panel that sits on the dark sidebar surface.
-   Wrap that subtree in className="theseus-dark". */
 .theseus-root .theseus-dark {
   --background:           var(--app-base);
   --foreground:           var(--ink);
@@ -226,33 +244,32 @@ Plus: cosmos.gl on mobile gets promoted from "out of scope" to its own batch. An
 ```
 
 **Verify**
+- `/theseus` STILL mounts PanelManager. AskPanel still wires up the way it did before; only its internals have shifted to the new chat components.
 - Empty state: 4-card 2x2 suggestion grid with stagger animation.
-- User msgs: right-aligned muted bubbles.
-- Assistant msgs: plain prose, no bubble.
+- User msgs: right-aligned muted bubbles. Assistant msgs: plain prose, no bubble.
 - Composer focus shows brass-glow ring at 18% alpha.
-- Action bar appears under the most-recent assistant message; auto-hides on older messages.
+- Action bar appears under the most-recent assistant message; auto-hides on older.
 - Reasoning panel collapses on completion; pulse respects `prefers-reduced-motion`.
 - Markdown citations render with forest-green underline.
 - `npm run build` passes.
 
 ---
 
-## BATCH 7 · Nav restructure: Plugins / Code / landing (~2 hr)
+## BATCH 7 · Nav restructure: Plugins / Code (~2 hr)
 
 **Read first**
 - `src/components/theseus/TheseusMobileNav.tsx` (`MOBILE_NAV_ITEMS`)
 - `src/components/theseus/TheseusSidebar.tsx` (`TRAILING_PLACES`)
-- `src/components/theseus/PanelManager.tsx` (`PANEL_COMPONENTS`)
+- `src/components/theseus/PanelManager.tsx` (`PANEL_COMPONENTS` map)
 - `src/components/theseus/panels/ConnectionsPanel.tsx`
 - `src/components/theseus/panels/PluginsPanel.tsx` (will absorb Connections)
 - `src/components/theseus/panels/IntelligencePanel.tsx`
 - `src/components/theseus/panels/CodePanel.tsx`
 
-**Goal:** three structural moves.
+**Goal:** two structural moves. **No new top-level routes. `/theseus/page.tsx` is not touched.**
 
 1. Merge `connections` + `plugins` into one Plugins panel with three sub-tabs: Connectors, MCP, Skills.
-2. Replace the Intel tab with Code in the bottom nav.
-3. Repurpose Intelligence content as a public `/theseus` landing. Authenticated users redirect to `/theseus/threads`.
+2. Replace the Intel tab with Code in the bottom nav. The Intelligence panel itself stays mounted in PanelManager (deep-linked from `?view=intelligence`) but is no longer a top-level Place in the sidebar or the bottom nav.
 
 **New mobile bottom nav:** `Threads | Explorer | Plugins | Code`
 
@@ -262,11 +279,11 @@ Plus: cosmos.gl on mobile gets promoted from "out of scope" to its own batch. An
 01 Threads
 02 Explorer
 03 Plugins   (was Connections + Plugins, merged)
-04 Code      (was Intelligence's slot)
+04 Code      (was Intelligence's slot in sidebar)
 05 Notebook
 ```
 
-`Cmd` shortcuts shift accordingly: `⌘1` Threads, `⌘2` Explorer, `⌘3` Plugins, `⌘4` Code, `⌘5` Notebook.
+`Cmd` shortcuts: `⌘1` Threads, `⌘2` Explorer, `⌘3` Plugins, `⌘4` Code, `⌘5` Notebook.
 
 **File changes**
 
@@ -283,7 +300,7 @@ const MOBILE_NAV_ITEMS: MobileNavItem[] = [
 
 `PluginsIcon`: 4-rect grid + center traces. 22x22, stroke-width 1.5.
 `CodeIcon`: chevron-pair + slash. Path: `M16 18l6-6-6-6 M8 6l-6 6 6 6 M14 4l-4 16`.
-Drop `ConnectionsIcon` and `IntelligenceIcon` imports. Keep components in version control if other surfaces still reference them.
+Drop `ConnectionsIcon` and `IntelligenceIcon` imports from this file ONLY. Keep components in version control because PanelManager still references them.
 
 2. **`TheseusSidebar.tsx`** — update `TRAILING_PLACES`:
 
@@ -295,56 +312,34 @@ const TRAILING_PLACES: TrailingPlace[] = [
 ];
 ```
 
-Drop `connections` and `intelligence` rows.
+Drop `connections` and `intelligence` rows from this list. The panels still exist in `PANEL_COMPONENTS`; this just removes them from the visible Places.
 
-3. **`PanelManager.tsx`** — keep all 8 `PanelId` values for backward compat on URL deep-links.
-   - `'connections'` renders `<PluginsPanel defaultTab="connectors" />`
-   - `'intelligence'` renders a deprecation card with two CTAs: "See Plugins" and "See Code"
-   - For new sessions, redirect `?view=connections` to `?view=plugins`.
+3. **`PanelManager.tsx`** — keep all 8 `PanelId` values for backward compat on URL deep-links. PANEL_COMPONENTS map gets two updates:
+   - `'connections'` renders `<PluginsPanel defaultTab="connectors" />` instead of `<ConnectionsPanel />`. (Soft alias — old `?view=connections` URLs still work.)
+   - `'intelligence'` keeps rendering `<IntelligencePanel />`. The panel stays viewable for anyone who deep-links to it; it just isn't on the menu.
 
 4. **`PluginsPanel.tsx`** — refactor for three tabs:
    - **Connectors** (default): GitHub, arXiv + Semantic, Fastmail, Obsidian, browser highlights. Source registry already lives at `src/components/theseus/atlas/sources.ts`; reuse it.
-   - **MCP**: enumerate from the MCP registry (`theseus-mcp`, `r3f-mcp`, `tpu-commander`, etc.). Render: connection state, tool count, toggle.
-   - **Skills**: enumerate user skills loaded via the Plugins MCP server. If MCP not connected yet, show empty state + "Connect Theseus MCP".
+   - **MCP**: enumerate from the MCP registry. Render: connection state, tool count, toggle.
+   - **Skills**: enumerate user skills loaded via the Plugins MCP server. Empty state + "Connect Theseus MCP" if not connected.
 
    Card pattern: 36px monogram (kind-tinted background) + name + detail line + status dot + toggle button.
 
-5. **`/theseus` route handler.** Expand `src/app/theseus/page.tsx`:
+5. **Migrations and shortcuts**
+   - `useKeyboardShortcuts.ts`: `⌘3` connections → plugins; `⌘5` intelligence → notebook.
+   - `AtlasCommandPalette.tsx` searchable items list: rename "Sources" → "Plugins", remove "Intelligence" as a top-level command (keep it as a deep-linkable result if relevant).
 
-```tsx
-import { redirect } from 'next/navigation';
-import { auth } from '@/lib/auth';
-import TheseusLanding from '@/components/theseus/landing/TheseusLanding';
-
-export default async function TheseusEntry() {
-  const session = await auth();
-  if (session?.user) redirect('/theseus/threads');
-  return <TheseusLanding />;
-}
-```
-
-`TheseusLanding` is a new component:
-- forest-green halo gradient at top
-- brass eyebrow ("Visual Intelligence Engine")
-- italicized brass headline accent
-- real engine stats from `/api/v2/theseus/graph-weather/`
-- six-layer architecture as a 2x3 grid
-
-6. **Sidebar drawer (mobile)** — already implemented in v1 Batch 1. Verify the Places list updates when `TRAILING_PLACES` changes; no extra work.
-
-**Migrations**
-- `?view=connections` → `?view=plugins` (with `tab=connectors`).
-- `?view=intelligence` → `/theseus/about` (or deprecation card).
-- `useKeyboardShortcuts.ts`: `⌘3` connections → plugins; `⌘5` intelligence → notebook.
-- `AtlasCommandPalette.tsx` searchable items list: same rename.
+**Out of scope for this batch (deferred to its own optional spec):**
+- Any unauth landing page. If Travis explicitly opts in, that work goes in `SPEC-THESEUS-LANDING-1_0` and creates a new file `src/app/theseus/about/page.tsx` plus a corresponding component. **It does NOT touch `src/app/theseus/page.tsx`.**
 
 **Verify**
+- `/theseus` STILL mounts PanelManager.
 - Bottom nav: Threads | Explorer | Plugins | Code. No Sources, no Intel.
+- Sidebar Places: 01 Threads / 02 Explorer / 03 Plugins / 04 Code / 05 Notebook.
 - Plugins tap opens merged panel with three sub-tabs (Connectors default).
 - Code tap opens existing CodePanel.
-- `/theseus` while logged-out shows landing.
-- `/theseus` while logged-in redirects to `/theseus/threads`.
-- Old deep links to `?view=connections` / `?view=intelligence` redirect cleanly.
+- Old deep links to `?view=connections` open the Plugins panel on Connectors tab.
+- Old deep links to `?view=intelligence` still render IntelligencePanel.
 - `npm run build` passes.
 
 ---
@@ -366,20 +361,18 @@ export default async function TheseusEntry() {
 4. **Two-finger pan vs scroll**: `touch-action: none` on the canvas so the page does not scroll.
 
 **Perf budget**
-- Default node count today: 2,148. cosmos.gl handles this trivially even on a 4-year-old Android.
+- Default node count today: 2,148. cosmos.gl handles this trivially.
 - At 10K+ nodes on mobile: drop simulation `decay` to 1000, pause the simulation entirely after 3 seconds idle via `requestIdleCallback`.
-- Flow lens (which keeps the simulation breathing): gate behind `prefers-reduced-motion` on mobile. If reduced motion is on, default to Atlas (static positions).
+- Flow lens: gate behind `prefers-reduced-motion` on mobile. If reduced motion is on, default to Atlas (static positions).
 
 **Mobile style passes** — append to `theseus.css`:
 
 ```css
 @media (max-width: 767px) {
-  /* Explorer goes full-bleed dark; graph is the page. */
   .atlas-canvas {
     background: var(--app-base);
     background-image: none;
   }
-  /* Faint forest-green spotlight under the graph. */
   .atlas-canvas::before {
     content: "";
     position: absolute;
@@ -413,7 +406,7 @@ export default async function TheseusEntry() {
 - Two-finger pan + one-finger pan move the camera.
 - Tap a node → Lens sheet opens with that node focused.
 - Page does not scroll while panning the canvas.
-- Battery: leave Explorer open with engine warm for 5 min. Simulation pauses when idle, device does not get warm.
+- Battery: 5 min open with engine warm, simulation pauses on idle, device does not get warm.
 - `prefers-reduced-motion` on → Atlas lens default.
 - `npm run build` passes.
 
@@ -451,17 +444,19 @@ export default async function TheseusEntry() {
 
 ## Deliberate exclusions
 
-- **Light/dark toggle.** Theseus is dark-first by intent. Paper is the only light surface. System-driven dark/light split is a separate exercise.
-- **assistant-ui voice/dictation primitive.** Existing `voice-controls-btn` CSS is partial. Wire it in its own batch.
-- **Branch picker UI.** assistant-ui's `BranchPickerPrimitive` is in the reference `thread.tsx` but Theseus has no message branching today.
-- **Dark composer surface.** Today composer only sits on paper. If a panel ever needs a dark composer, wrap it in `.theseus-dark` and the token map handles the rest.
+- **Light/dark toggle.** Theseus is dark-first by intent.
+- **assistant-ui voice/dictation primitive.** Wire it in its own batch.
+- **Branch picker UI.** Theseus has no message branching today.
+- **Dark composer surface.** Composer only sits on paper today.
+- **Unauth landing page at `/theseus`.** Removed from this spec entirely. If Travis wants one, it goes at `/theseus/about` in a separate spec.
 
 ---
 
-## Definition of done (incremental over v1)
+## Definition of done
 
 | #  | Check                                                                  | Batch |
 |----|------------------------------------------------------------------------|-------|
+| 0  | `/theseus` STILL mounts PanelManager (workspace intact)                | all   |
 | 1  | App background is cool slate, not warm brown                           | 5     |
 | 2  | Brand colors (PCB green + brass) are the only accents                  | 5     |
 | 3  | Welcome state = display heading + lede + 2x2 staggered grid            | 6     |
@@ -470,16 +465,17 @@ export default async function TheseusEntry() {
 | 6  | Reasoning collapsible with heartbeat pulse                             | 6     |
 | 7  | Bottom nav = Threads / Explorer / Plugins / Code                       | 7     |
 | 8  | Plugins panel has three sub-tabs, absorbs Connections                  | 7     |
-| 9  | `/theseus` shows landing when logged-out                               | 7     |
-| 10 | Pinch-zoom and tap-to-Lens work on iOS Safari                          | 8     |
-| 11 | No scrollbars visible anywhere in `/theseus`                           | 9     |
-| 12 | Desktop ≥768px: same color shift, no other regressions                 | 5+    |
+| 9  | Pinch-zoom and tap-to-Lens work on iOS Safari                          | 8     |
+| 10 | No scrollbars visible anywhere in `/theseus`                           | 9     |
+| 11 | Desktop ≥768px: same color shift, no other regressions                 | 5+    |
+
+Check 0 is the load-bearing one. If at any point during implementation the workspace at `/theseus` is replaced by a marketing surface, the spec was implemented wrong. Roll back.
 
 ---
 
 ## Suggested ship order
 
-1. **Batch 5 + Batch 9** in one PR. Cosmetic, quick, low risk.
-2. **Batch 6** in its own PR. Big diff, contained scope.
-3. **Batch 7** — depends on landing component existing. Plan to ship the route + a placeholder landing first, iterate the landing after.
-4. **Batch 8** last. Real-device QA needed; touches perf-sensitive Explorer.
+1. **Batch 5 + Batch 9** in one PR.
+2. **Batch 6** in its own PR.
+3. **Batch 7** alone.
+4. **Batch 8** last (real-device QA).
