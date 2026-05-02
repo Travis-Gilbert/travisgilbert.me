@@ -23,6 +23,10 @@ const backendUrl =
     ? 'http://localhost:8000'
     : 'https://index-api-production-a5f7.up.railway.app');
 
+const actMlcModelUrl = 'https://huggingface.co/mlc-ai/gemma-2-2b-it-q4f16_1-MLC';
+const actMlcModelLibUrl =
+  'https://raw.githubusercontent.com/mlc-ai/binary-mlc-llm-libs/main/web-llm-models/v0_2_80/gemma-2-2b-it-q4f16_1-ctx4k_cs1k-webgpu.wasm';
+
 const nextConfig: NextConfig = {
   experimental: {
     viewTransition: true,
@@ -46,12 +50,41 @@ const nextConfig: NextConfig = {
   async rewrites() {
     return [
       {
+        source: '/act/gemma-2-2b-it-q4f16_1-ctx4k_cs1k-webgpu.wasm',
+        destination: actMlcModelLibUrl,
+      },
+      {
+        source: '/act/:path*',
+        destination: `${actMlcModelUrl}/:path*`,
+      },
+      {
+        source: '/api/resolve-cache/:path*',
+        destination: 'https://huggingface.co/api/resolve-cache/:path*',
+      },
+      {
         source: '/api/v2/theseus/:path*',
         destination: `${backendUrl}/api/v2/theseus/:path*`,
       },
       {
         source: '/api/:path*',
         destination: `${backendUrl}/api/:path*`,
+      },
+    ];
+  },
+  async headers() {
+    return [
+      {
+        source: '/act/:path*',
+        headers: [
+          {
+            key: 'Access-Control-Allow-Origin',
+            value: '*',
+          },
+          {
+            key: 'Cross-Origin-Resource-Policy',
+            value: 'cross-origin',
+          },
+        ],
       },
     ];
   },
