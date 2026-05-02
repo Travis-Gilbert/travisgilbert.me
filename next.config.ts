@@ -54,8 +54,8 @@ const nextConfig: NextConfig = {
         destination: actMlcModelLibUrl,
       },
       {
-        source: '/act/:path*',
-        destination: `${actMlcModelUrl}/:path*`,
+        source: '/act/resolve/:path*',
+        destination: `${actMlcModelUrl}/resolve/:path*`,
       },
       {
         source: '/api/resolve-cache/:path*',
@@ -74,7 +74,20 @@ const nextConfig: NextConfig = {
   async headers() {
     return [
       {
-        source: '/act/:path*',
+        source: '/act/resolve/:path*',
+        headers: [
+          {
+            key: 'Access-Control-Allow-Origin',
+            value: '*',
+          },
+          {
+            key: 'Cross-Origin-Resource-Policy',
+            value: 'cross-origin',
+          },
+        ],
+      },
+      {
+        source: '/act/gemma-2-2b-it-q4f16_1-ctx4k_cs1k-webgpu.wasm',
         headers: [
           {
             key: 'Access-Control-Allow-Origin',
@@ -99,6 +112,11 @@ const nextConfig: NextConfig = {
         source: '/investigations/:slug',
         destination: '/essays/:slug',
         permanent: true,
+      },
+      {
+        source: '/anti-conspiracy-theorem',
+        destination: '/act',
+        permanent: false,
       },
       {
         source: '/working-ideas',
