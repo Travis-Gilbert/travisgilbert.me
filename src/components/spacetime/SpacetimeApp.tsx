@@ -14,7 +14,7 @@
  * renders an honest empty state.
  */
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, type WheelEvent } from 'react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import styles from '@/app/(spacetime)/spacetime/spacetime.module.css';
@@ -32,6 +32,16 @@ import {
   type SpacetimeMode,
 } from '@/lib/spacetime/types';
 import { useTopic } from '@/lib/spacetime/use-topic';
+import {
+  clampYear,
+  spinDirectionFromYears,
+  yearFromWheelDelta,
+} from '@/lib/spacetime/scroll-time';
+import {
+  comparePeriods,
+  type SpacetimeEvent as ComparisonEvent,
+  type TimeWindow,
+} from '@/lib/spacetime/compare-periods';
 
 /** Humanize the backend pipeline stage name into a status line the
  *  user can read. The cold-start runs ~30s end-to-end; without this
@@ -68,6 +78,19 @@ function slugifyQuery(query: string): string {
   return query.trim().toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
 }
 
+function orderedWindow(
+  startYear: number,
+  endYear: number,
+  minYear: number,
+  maxYear: number,
+): TimeWindow {
+  const start = clampYear(startYear, minYear, maxYear);
+  const end = clampYear(endYear, minYear, maxYear);
+  return start <= end
+    ? { startYear: start, endYear: end }
+    : { startYear: end, endYear: start };
+}
+
 export default function SpacetimeApp() {
   const searchParams = useSearchParams();
   const urlQuery = searchParams.get('q');
@@ -81,8 +104,17 @@ export default function SpacetimeApp() {
   // network call resolves.
   const [compareEnabled, setCompareEnabled] = useState(false);
   const [year, setYear] = useState(2026);
+  const [spinDirection, setSpinDirection] = useState<1 | -1>(1);
   const [paused, setPaused] = useState(false);
   const [hovered, setHovered] = useState<HoveredId | null>(null);
+  const [firstWindow, setFirstWindow] = useState<TimeWindow>({
+    startYear: 1900,
+    endYear: 1960,
+  });
+  const [secondWindow, setSecondWindow] = useState<TimeWindow>({
+    startYear: 1961,
+    endYear: 2026,
+  });
 
   // React to URL flips (e.g. client-side navigation to /spacetime?q=...).
   /* eslint-disable react-hooks/set-state-in-effect */
@@ -98,6 +130,7 @@ export default function SpacetimeApp() {
 
   const mode: SpacetimeMode = topicA?.mode ?? 'modern';
   const compareMode = !!topicB;
+  const wrapperMode: SpacetimeMode = mode;
 
   // Combined timeline span across both topics (or the active one alone).
   const [tlMin, tlMax] = useMemo<[number, number]>(() => {
@@ -115,11 +148,59 @@ export default function SpacetimeApp() {
   // Snap the playhead into range whenever the span changes.
   /* eslint-disable react-hooks/set-state-in-effect */
   useEffect(() => {
-    setYear(y => (y > tlMax || y < tlMin ? tlMax : y));
+    setYear(y => {
+      const next = y > tlMax || y < tlMin ? tlMax : y;
+      setSpinDirection(spinDirectionFromYears(y, next));
+      return next;
+    });
   }, [tlMin, tlMax]);
   /* eslint-enable react-hooks/set-state-in-effect */
 
+  /* eslint-disable react-hooks/set-state-in-effect */
+  useEffect(() => {
+    const midpoint = tlMin + (tlMax - tlMin) / 2;
+    const firstEnd = wrapperMode === 'prehistory'
+      ? Math.round(midpoint * 100) / 100
+      : Math.round(midpoint);
+    const secondStart = wrapperMode === 'prehistory' ? firstEnd : firstEnd + 1;
+
+    setFirstWindow(orderedWindow(tlMin, firstEnd, tlMin, tlMax));
+    setSecondWindow(orderedWindow(secondStart, tlMax, tlMin, tlMax));
+  }, [tlMin, tlMax, wrapperMode, topicAKey, topicBKey]);
+  /* eslint-enable react-hooks/set-state-in-effect */
+
   const era = useMemo(() => eraFor(year, mode), [year, mode]);
+
+  const comparisonEvents = useMemo<ComparisonEvent[]>(() => {
+    const topicEvents = [
+      ...(topicA?.events.map((event) => ({ topic: 'A' as const, event })) ?? []),
+      ...(topicB?.events.map((event) => ({ topic: 'B' as const, event })) ?? []),
+    ];
+
+    return topicEvents.map(({ topic, event }) => ({
+      id: `${topic}-${event.id}`,
+      label: event.city,
+      year: event.year,
+      latitude: Number.isFinite(event.lat) ? event.lat : null,
+      longitude: Number.isFinite(event.lon) ? event.lon : null,
+      weight: event.papers,
+    }));
+  }, [topicA, topicB]);
+
+  const periodComparison = useMemo(
+    () => comparePeriods(comparisonEvents, firstWindow, secondWindow),
+    [comparisonEvents, firstWindow, secondWindow],
+  );
+
+  const missingCoordinateCount = useMemo(() => {
+    const byId = new Map<string, ComparisonEvent>();
+    [...periodComparison.first, ...periodComparison.second].forEach((event) => {
+      byId.set(event.id, event);
+    });
+    return [...byId.values()].filter(
+      (event) => event.latitude == null || event.longitude == null,
+    ).length;
+  }, [periodComparison]);
 
   // Cross-topic linkage count (same city OR within 5 years).
   const linkageCount = useMemo(() => {
@@ -156,11 +237,53 @@ export default function SpacetimeApp() {
     setCompareEnabled(false);
   }
 
-  const wrapperMode: SpacetimeMode = mode;
+  function setScrubYear(nextYear: number) {
+    setYear((previousYear) => {
+      const next = clampYear(nextYear, tlMin, tlMax);
+      setSpinDirection(spinDirectionFromYears(previousYear, next));
+      return next;
+    });
+  }
+
+  function handleWheel(event: WheelEvent<HTMLDivElement>) {
+    if (!topicA?.events.length && !topicB?.events.length) return;
+    event.preventDefault();
+    const wheelStep = wrapperMode === 'prehistory' ? 1 : 5;
+    setYear((previousYear) => {
+      const next = yearFromWheelDelta(
+        previousYear,
+        event.deltaY,
+        tlMin,
+        tlMax,
+        wheelStep,
+      );
+      setSpinDirection(spinDirectionFromYears(previousYear, next));
+      return next;
+    });
+  }
+
+  function updateWindow(
+    which: 'first' | 'second',
+    field: keyof TimeWindow,
+    value: string,
+  ) {
+    const parsed = Number(value);
+    if (!Number.isFinite(parsed)) return;
+    const setter = which === 'first' ? setFirstWindow : setSecondWindow;
+    setter((current) => orderedWindow(
+      field === 'startYear' ? parsed : current.startYear,
+      field === 'endYear' ? parsed : current.endYear,
+      tlMin,
+      tlMax,
+    ));
+  }
+
   const yearLabelMode = wrapperMode === 'prehistory' ? `${Math.abs(year).toFixed(2)} Mya` : `≤ ${Math.round(year)}`;
+  const yearInputStep = wrapperMode === 'prehistory' ? 0.01 : 1;
+  const hasComparisonEvents = comparisonEvents.length > 0;
 
   return (
-    <div className={styles.page} data-mode={wrapperMode}>
+    <div className={styles.page} data-mode={wrapperMode} onWheel={handleWheel}>
       <PrwnBackdrop />
       <YearTicker year={year} era={era} prehistory={wrapperMode === 'prehistory'} />
 
@@ -303,6 +426,68 @@ export default function SpacetimeApp() {
           <span className={`${styles.dot} ${styles.dotLg}`} />
           <span>100+ records</span>
         </div>
+        {hasComparisonEvents && (
+          <>
+            <div className={styles.rule} />
+            <div className={styles.legendTitle}>Period Comparison</div>
+            <div className={styles.periodGrid}>
+              <label className={styles.periodField}>
+                A start
+                <input
+                  type="number"
+                  step={yearInputStep}
+                  value={firstWindow.startYear}
+                  onChange={(event) => updateWindow('first', 'startYear', event.target.value)}
+                />
+              </label>
+              <label className={styles.periodField}>
+                A end
+                <input
+                  type="number"
+                  step={yearInputStep}
+                  value={firstWindow.endYear}
+                  onChange={(event) => updateWindow('first', 'endYear', event.target.value)}
+                />
+              </label>
+              <label className={styles.periodField}>
+                B start
+                <input
+                  type="number"
+                  step={yearInputStep}
+                  value={secondWindow.startYear}
+                  onChange={(event) => updateWindow('second', 'startYear', event.target.value)}
+                />
+              </label>
+              <label className={styles.periodField}>
+                B end
+                <input
+                  type="number"
+                  step={yearInputStep}
+                  value={secondWindow.endYear}
+                  onChange={(event) => updateWindow('second', 'endYear', event.target.value)}
+                />
+              </label>
+            </div>
+            <div className={styles.comparisonStats}>
+              <span>A {periodComparison.first.length}</span>
+              <span>B {periodComparison.second.length}</span>
+              <span>Shared {periodComparison.sharedLabels.length}</span>
+            </div>
+            <div className={styles.comparisonList}>
+              <span>Shared</span>
+              <b>{periodComparison.sharedLabels.slice(0, 3).join(', ') || 'none'}</b>
+            </div>
+            <div className={styles.comparisonList}>
+              <span>New in B</span>
+              <b>{periodComparison.onlySecond.slice(0, 3).map((event) => event.label).join(', ') || 'none'}</b>
+            </div>
+            <div className={styles.caption}>
+              {missingCoordinateCount > 0
+                ? `${missingCoordinateCount} event${missingCoordinateCount === 1 ? '' : 's'} without coordinates stay in lists only.`
+                : 'All selected period events have coordinates for globe plotting.'}
+            </div>
+          </>
+        )}
       </InfoCard>
 
       {/* Globe */}
@@ -317,6 +502,8 @@ export default function SpacetimeApp() {
           hoveredId={hovered}
           onHover={setHovered}
           paused={paused}
+          spinDirection={spinDirection}
+          visibleWindows={hasComparisonEvents ? { first: firstWindow, second: secondWindow } : null}
           prehistory={wrapperMode === 'prehistory'}
         />
       </div>
@@ -343,7 +530,7 @@ export default function SpacetimeApp() {
         paused={paused}
         hovered={hovered}
         onHover={setHovered}
-        onScrub={setYear}
+        onScrub={setScrubYear}
         onTogglePause={() => setPaused(p => !p)}
         hint={
           compareMode

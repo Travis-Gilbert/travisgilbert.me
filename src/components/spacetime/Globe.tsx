@@ -38,6 +38,11 @@ interface GlobeProps {
   hoveredId: HoveredId | null;
   onHover: (h: HoveredId | null) => void;
   paused?: boolean;
+  spinDirection?: 1 | -1;
+  visibleWindows?: {
+    first: { startYear: number; endYear: number };
+    second: { startYear: number; endYear: number };
+  } | null;
   prehistory?: boolean;
 }
 
@@ -88,6 +93,8 @@ export default function Globe({
   hoveredId,
   onHover,
   paused = false,
+  spinDirection = 1,
+  visibleWindows = null,
   prehistory = false,
 }: GlobeProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -144,7 +151,7 @@ export default function Globe({
       const dt = (now - last) / 1000;
       last = now;
       if (!paused) {
-        setRotation(r => r + dt * ROTATION_SPEED);
+        setRotation(r => r + dt * ROTATION_SPEED * spinDirection);
         setEddyT(t => t + dt);
       }
       // drawT advances even when paused so trace draw-in completes if
@@ -154,7 +161,7 @@ export default function Globe({
     };
     raf = requestAnimationFrame(tick);
     return () => cancelAnimationFrame(raf);
-  }, [paused]);
+  }, [paused, spinDirection]);
 
   // ─── Earth canvas painter ──────────────────────────────────────
   useEffect(() => {
@@ -571,11 +578,21 @@ export default function Globe({
           ...evA.map(e => ({ e, t: 'A' as const })),
           ...evB.map(e => ({ e, t: 'B' as const })),
         ]
-          .filter(({ e }) => e.visible && e.x != null && e.year <= yearMax)
+          .filter(({ e }) => {
+            if (!e.visible || e.x == null || e.year > yearMax) return false;
+            if (!visibleWindows) return true;
+            return (
+              (e.year >= visibleWindows.first.startYear && e.year <= visibleWindows.first.endYear) ||
+              (e.year >= visibleWindows.second.startYear && e.year <= visibleWindows.second.endYear)
+            );
+          })
           .map(({ e, t }) => {
             const isHov = hoveredId && hoveredId.topic === t && hoveredId.id === e.id;
             const fill = t === 'A' ? topicAColor : topicBColor;
             const radius = 4 + Math.min(8, Math.log10(e.papers + 1) * 2.2);
+            const inSecondWindow = visibleWindows
+              ? e.year >= visibleWindows.second.startYear && e.year <= visibleWindows.second.endYear
+              : false;
             return (
               <g
                 key={`${t}-${e.id}`}
@@ -587,7 +604,14 @@ export default function Globe({
                   <animate attributeName="r" values={`${radius + 4};${radius + 10};${radius + 4}`} dur="3s" repeatCount="indefinite" />
                   <animate attributeName="opacity" values="0.18;0.04;0.18" dur="3s" repeatCount="indefinite" />
                 </circle>
-                <circle cx={e.x!} cy={e.y!} r={radius} fill={fill} stroke="#FBF0E2" strokeWidth="1" />
+                <circle
+                  cx={e.x!}
+                  cy={e.y!}
+                  r={radius}
+                  fill={fill}
+                  stroke={inSecondWindow ? '#1F4148' : '#FBF0E2'}
+                  strokeWidth={inSecondWindow ? 2 : 1}
+                />
                 {isHov && (
                   <circle cx={e.x!} cy={e.y!} r={radius + 3} fill="none" stroke={fill} strokeWidth="1.2" />
                 )}

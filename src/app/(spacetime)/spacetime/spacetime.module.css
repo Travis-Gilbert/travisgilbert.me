@@ -240,6 +240,69 @@
 .dotMd { width: 10px; height: 10px; }
 .dotLg { width: 14px; height: 14px; }
 
+.periodGrid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 7px;
+  margin: 8px 0;
+}
+.periodField {
+  display: grid;
+  gap: 3px;
+  font-family: var(--font-mono);
+  font-size: 9px;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: rgba(251, 240, 226, 0.72);
+}
+.periodField input {
+  width: 100%;
+  min-width: 0;
+  background: rgba(251, 240, 226, 0.08);
+  border: 1px solid rgba(251, 240, 226, 0.18);
+  color: #FBF0E2;
+  font: 12px var(--font-code);
+  padding: 5px 6px;
+  border-radius: 2px;
+}
+.periodField input:focus {
+  outline: 1px solid rgba(251, 240, 226, 0.36);
+}
+.comparisonStats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 7px 0;
+}
+.comparisonStats span {
+  border: 1px solid rgba(251, 240, 226, 0.16);
+  color: rgba(251, 240, 226, 0.84);
+  font-family: var(--font-mono);
+  font-size: 9px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  padding: 3px 5px;
+}
+.comparisonList {
+  display: grid;
+  gap: 2px;
+  margin-top: 5px;
+}
+.comparisonList span {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  color: rgba(251, 240, 226, 0.58);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+.comparisonList b {
+  color: rgba(251, 240, 226, 0.88);
+  font-family: var(--font-title);
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 1.2;
+}
+
 /* ─── Suggested topic chips ───────────────────────────────────── */
 .suggestionChips {
   display: flex;
