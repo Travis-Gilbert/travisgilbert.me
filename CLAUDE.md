@@ -246,6 +246,7 @@ Vercel with native Next.js builder. **Important:** Output Directory must be blan
 | Graph noise cleanup | Complete | `purge_noise_sources` command removed TVTropes/Wikidata |
 | Ask pipeline GPU inference | Complete | 26B on Modal A100 via llama-cpp-python CUDA, parallel retrieval, generalized visual pipeline (2e21991) |
 | Ask frontend visual pipeline | In progress | Backend returns structured_visual for 7 types; frontend types need wiring |
+| Atlas redesign (Spinebar + Dock + Lens) | In progress | Spinebar / Dock / Lens 1:1 port verified at `localhost:3001/theseus?view=lens&node=1`. Lives in `Index-API/Theseus-UI/`. Edge-type translator pending. See `Index-API/Theseus-UI/docs/plans/atlas-redesign-spinebar-dock-lens/HANDOFF.md` |
 
 **Next step:** Wire frontend visual pipeline: add `structured_visual`, `reference_image_url`, `geographic_regions` to `RawAskResponse`/`TheseusResponse` in `theseus-api.ts`/`theseus-types.ts`, then build renderers for the 7 answer types. Fix duplicate response bug in `AskExperience` SSE reconnection. Tune 26B stop tokens to eliminate repetition artifacts.
 
@@ -262,6 +263,8 @@ Vercel with native Next.js builder. **Important:** Output Directory must be blan
 - Hero artifact photography (composed still-life images for `public/hero/`)
 - Component integration: TopNav, layout.tsx, CollageHero, DotGrid could consume siteConfig
 - Begin 26B training data generation (Opus Batch API for preferred, Sonnet Batch API for rejected)
+- Atlas redesign: edge-type translator in `Index-API/Theseus-UI/src/components/theseus/lens/AtlasLensMount.tsx` so backend `structural` / `analogy` edges map to prototype `pairs` / `derived` / `cites` and populate the inner KIN shell. See `HANDOFF.md` in that subapp's docs/plans for full context.
+- Atlas redesign: Lens-5 button in Explorer is silently disabled when no node is focused (UX gap, not bug). Add fallback (navigate to `/theseus?view=lens` with empty state) so click is never a dead end.
 
 ## Recent Decisions
 
