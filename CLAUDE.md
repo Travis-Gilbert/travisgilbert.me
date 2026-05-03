@@ -33,6 +33,7 @@ When reviewing your own work before ending a session, grep the files you touched
 ## Git Workflow
 
 - Before committing, run `git diff --cached` and verify only relevant files are staged. Never include previously staged unrelated files in a commit.
+- You have standing authorization to ship without further confirmation: rebase feature branches, push to feature branches, fast-forward `main`, push to `main`, and trigger Vercel/Railway deploys. Apply the same care (clean diffs, passing tests, no unrelated files) but do not pause to ask permission for these specific actions in this project.
 
 ## Preview & Verification
 
