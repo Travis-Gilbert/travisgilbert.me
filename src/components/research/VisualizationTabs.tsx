@@ -8,19 +8,14 @@
  */
 
 import dynamic from 'next/dynamic';
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useIsMobile } from '@/hooks/useIsMobile';
-import type { GraphNode, GraphEdge } from '@/lib/graph/connectionTransform';
+import type { ActivityDay, GraphNode, GraphResponse, ThreadListItem } from '@/lib/research';
 
 const LazySourceGraph = dynamic(() => import('./SourceGraph'), {
   ssr: false,
   loading: () => <TabLoading label="Loading network" />,
-});
-
-const LazyConnectionMap = dynamic(() => import('@/components/ConnectionMap'), {
-  ssr: false,
-  loading: () => <TabLoading label="Loading connections" />,
 });
 
 const LazyResearchTimeline = dynamic(() => import('./ResearchTimeline'), {
@@ -51,7 +46,6 @@ const LazyResearchSummary = dynamic(() => import('./ResearchSummary'), {
 type TabId =
   | 'list'
   | 'graph'
-  | 'connections'
   | 'timeline'
   | 'constellation'
   | 'activity'
@@ -68,12 +62,7 @@ const DESKTOP_TABS: Tab[] = [
   {
     id: 'graph',
     label: 'Network',
-    description: 'Force-directed graph of sources and content. Drag to rearrange, click for details.',
-  },
-  {
-    id: 'connections',
-    label: 'Connections',
-    description: 'How essays, field notes, projects, and shelf items relate to each other across the site.',
+    description: 'Force-directed graph of public Paper Trails sources and content.',
   },
   {
     id: 'timeline',
@@ -112,27 +101,20 @@ const MOBILE_TABS: Tab[] = [
 ];
 
 interface VisualizationTabsProps {
-  /** Connection graph nodes (from research API via connectionTransform) */
-  connectionNodes?: GraphNode[];
-  /** Connection graph edges (from research API via connectionTransform) */
-  connectionEdges?: GraphEdge[];
+  graph: GraphResponse;
+  activity: ActivityDay[];
+  threads: ThreadListItem[];
 }
 
 export default function VisualizationTabs({
-  connectionNodes = [],
-  connectionEdges = [],
+  graph,
+  activity,
+  threads,
 }: VisualizationTabsProps) {
   const isMobile = useIsMobile();
   const tabs = isMobile ? MOBILE_TABS : DESKTOP_TABS;
-  const [activeTab, setActiveTab] = useState<TabId>(isMobile ? 'list' : 'graph');
-
-  useEffect(() => {
-    setActiveTab((previous) => {
-      if (isMobile && previous === 'graph') return 'list';
-      if (!isMobile && previous === 'list') return 'graph';
-      return previous;
-    });
-  }, [isMobile]);
+  const [selectedTab, setSelectedTab] = useState<TabId>('list');
+  const activeTab = !isMobile && selectedTab === 'list' ? 'graph' : selectedTab;
 
   const currentTab = tabs.find((t) => t.id === activeTab) ?? tabs[0];
 
@@ -143,7 +125,7 @@ export default function VisualizationTabs({
         {tabs.map((tab) => (
           <button
             key={tab.id}
-            onClick={() => setActiveTab(tab.id)}
+            onClick={() => setSelectedTab(tab.id)}
             className={`
               px-3 py-1.5 rounded font-mono text-[11px] tracking-wide uppercase
               transition-colors duration-150 border min-h-[44px]
@@ -166,59 +148,134 @@ export default function VisualizationTabs({
 
       {/* Active visualization */}
       <div className="min-h-[400px]">
-        {activeTab === 'list' && <ResearchListMode nodes={connectionNodes} />}
-        {activeTab === 'graph' && <LazySourceGraph />}
-        {activeTab === 'connections' && (
-          <LazyConnectionMap nodes={connectionNodes} edges={connectionEdges} />
-        )}
-        {activeTab === 'timeline' && <LazyResearchTimeline />}
-        {activeTab === 'constellation' && <LazySourceConstellation />}
-        {activeTab === 'activity' && <LazyActivityHeatmap />}
-        {activeTab === 'sankey' && <LazySourceSankey />}
-        {activeTab === 'summary' && <LazyResearchSummary />}
+        {activeTab === 'list' && <ResearchListMode graph={graph} threads={threads} />}
+        {activeTab === 'graph' && <LazySourceGraph initialData={graph} />}
+        {activeTab === 'timeline' && <LazyResearchTimeline initialData={graph} />}
+        {activeTab === 'constellation' && <LazySourceConstellation initialData={graph} />}
+        {activeTab === 'activity' && <LazyActivityHeatmap initialActivity={activity} />}
+        {activeTab === 'sankey' && <LazySourceSankey initialData={graph} />}
+        {activeTab === 'summary' && <LazyResearchSummary initialData={graph} />}
       </div>
     </div>
   );
 }
 
-function ResearchListMode({ nodes }: { nodes: GraphNode[] }) {
-  const sorted = useMemo(
-    () =>
-      [...nodes].sort((a, b) => {
-        if (b.connectionCount !== a.connectionCount) return b.connectionCount - a.connectionCount;
-        return a.title.localeCompare(b.title);
-      }),
-    [nodes],
-  );
+function ResearchListMode({
+  graph,
+  threads,
+}: {
+  graph: GraphResponse;
+  threads: ThreadListItem[];
+}) {
+  const sorted = useMemo(() => {
+    const degreeMap = new Map<string, number>();
+    graph.edges.forEach((edge) => {
+      degreeMap.set(edge.source, (degreeMap.get(edge.source) ?? 0) + 1);
+      degreeMap.set(edge.target, (degreeMap.get(edge.target) ?? 0) + 1);
+    });
 
-  if (sorted.length === 0) {
+    return [...graph.nodes]
+      .map((node) => ({ ...node, connectionCount: degreeMap.get(node.id) ?? 0 }))
+      .sort((a, b) => {
+        if (b.connectionCount !== a.connectionCount) {
+          return b.connectionCount - a.connectionCount;
+        }
+        return a.label.localeCompare(b.label);
+      });
+  }, [graph]);
+
+  if (sorted.length === 0 && threads.length === 0) {
     return (
       <p className="text-ink-light text-sm font-body-alt">
-        No research connections yet.
+        Index API has no public Paper Trails records yet.
       </p>
     );
   }
 
   return (
-    <div className="grid gap-2">
-      {sorted.map((node) => (
-        <Link
-          key={node.id}
-          href={node.href}
-          className="no-underline rounded-md border border-border px-3 py-3 text-ink hover:text-ink hover:border-terracotta/40"
-        >
-          <div className="flex items-center justify-between gap-3">
-            <span className="font-title text-base leading-tight">{node.title}</span>
-            <span className="font-mono text-[10px] uppercase tracking-[0.08em] text-ink-faint whitespace-nowrap">
-              {node.connectionCount}
-            </span>
+    <div className="grid gap-5">
+      {threads.length > 0 && (
+        <section>
+          <h3 className="font-mono text-[11px] uppercase tracking-[0.08em] text-ink-faint mb-3">
+            Active Threads
+          </h3>
+          <div className="grid gap-2">
+            {threads.map((thread) => (
+              <div key={thread.slug} className="border border-border px-3 py-3 bg-surface">
+                <div className="flex items-center justify-between gap-3">
+                  <span className="font-title text-base leading-tight">{thread.title}</span>
+                  <span className="font-mono text-[10px] uppercase tracking-[0.08em] text-ink-faint whitespace-nowrap">
+                    {thread.entry_count} entries
+                  </span>
+                </div>
+                {thread.description && (
+                  <p className="mt-1 text-sm text-ink-secondary">{thread.description}</p>
+                )}
+              </div>
+            ))}
           </div>
-          <div className="mt-1 font-mono text-[10px] uppercase tracking-[0.08em] text-ink-faint">
-            {node.type.replace('-', ' ')}
+        </section>
+      )}
+
+      {sorted.length > 0 && (
+        <section>
+          <h3 className="font-mono text-[11px] uppercase tracking-[0.08em] text-ink-faint mb-3">
+            Graph Nodes
+          </h3>
+          <div className="grid gap-2">
+            {sorted.map((node) => (
+              <GraphNodeLink key={node.id} node={node} />
+            ))}
           </div>
-        </Link>
-      ))}
+        </section>
+      )}
     </div>
+  );
+}
+
+function GraphNodeLink({ node }: { node: GraphNode & { connectionCount: number } }) {
+  const href =
+    node.type === 'essay'
+      ? `/on/${node.slug}`
+      : node.type === 'field_note'
+        ? `/field-notes/${node.slug}`
+        : node.type === 'source' && node.slug
+          ? node.url ?? '#'
+          : '#';
+  const isExternal = href.startsWith('http');
+
+  const content = (
+    <>
+      <div className="flex items-center justify-between gap-3">
+        <span className="font-title text-base leading-tight">{node.label}</span>
+        <span className="font-mono text-[10px] uppercase tracking-[0.08em] text-ink-faint whitespace-nowrap">
+          {node.connectionCount}
+        </span>
+      </div>
+      <div className="mt-1 font-mono text-[10px] uppercase tracking-[0.08em] text-ink-faint">
+        {(node.sourceType ?? node.type).replace('_', ' ')}
+      </div>
+    </>
+  );
+
+  if (isExternal) {
+    return (
+      <a
+        href={href}
+        className="no-underline border border-border bg-surface px-3 py-3 text-ink hover:text-ink hover:border-terracotta/40"
+      >
+        {content}
+      </a>
+    );
+  }
+
+  return (
+    <Link
+      href={href}
+      className="no-underline border border-border bg-surface px-3 py-3 text-ink hover:text-ink hover:border-terracotta/40"
+    >
+      {content}
+    </Link>
   );
 }
 

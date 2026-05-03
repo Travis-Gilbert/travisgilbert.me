@@ -6,9 +6,6 @@
  * Displays sources along a time axis based on their dateEncountered
  * or creation date, grouped by source type. Sources are positioned
  * by date on the X axis and stacked by type on the Y axis.
- *
- * Data comes from GET /api/v1/graph/ (reuses the graph endpoint
- * since it includes source metadata).
  */
 
 import { useRef, useEffect, useState } from 'react';
@@ -27,25 +24,36 @@ interface TimelineNode {
   connectionCount: number;
 }
 
-export default function ResearchTimeline() {
+interface ResearchTimelineProps {
+  initialData?: GraphResponse | null;
+}
+
+export default function ResearchTimeline({ initialData }: ResearchTimelineProps) {
   const svgRef = useRef<SVGSVGElement>(null);
-  const [data, setData] = useState<GraphResponse | null>(null);
-  const [loaded, setLoaded] = useState(false);
+  const [fetchedData, setFetchedData] = useState<GraphResponse | null>(null);
+  const [fetchedLoaded, setFetchedLoaded] = useState(false);
   const [tooltipData, setTooltipData] = useState<{
     title: string; subtitle: string; lines: string[];
     position: { x: number; y: number }; visible: boolean;
   }>({ title: '', subtitle: '', lines: [], position: { x: 0, y: 0 }, visible: false });
   const [dimensions, setDimensions] = useState({ width: 900, height: 400 });
 
+  const data = initialData !== undefined ? initialData : fetchedData;
+  const loaded = initialData !== undefined || fetchedLoaded;
+
   useEffect(() => {
+    if (initialData !== undefined) {
+      return;
+    }
+
     let cancelled = false;
     fetchSourceGraph().then((d) => {
       if (cancelled) return;
-      setData(d);
-      setLoaded(true);
+      setFetchedData(d);
+      setFetchedLoaded(true);
     });
     return () => { cancelled = true; };
-  }, []);
+  }, [initialData]);
 
   useEffect(() => {
     const updateSize = () => {

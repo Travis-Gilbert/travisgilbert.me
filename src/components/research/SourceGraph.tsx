@@ -6,8 +6,6 @@
  * Renders an interactive SVG network showing how sources connect
  * to essays and field notes. Click a node to see details, hover
  * to highlight connections, drag to rearrange.
- *
- * Data comes from GET /api/v1/graph/ which returns {nodes, edges}.
  */
 
 import { useRef, useEffect, useState, useCallback } from 'react';
@@ -32,10 +30,14 @@ interface DetailPanel {
 
 // ─── Component ───────────────────────────────────────────────────────────────
 
-export default function SourceGraph() {
+interface SourceGraphProps {
+  initialData?: GraphResponse | null;
+}
+
+export default function SourceGraph({ initialData }: SourceGraphProps) {
   const svgRef = useRef<SVGSVGElement>(null);
-  const [data, setData] = useState<GraphResponse | null>(null);
-  const [loaded, setLoaded] = useState(false);
+  const [fetchedData, setFetchedData] = useState<GraphResponse | null>(null);
+  const [fetchedLoaded, setFetchedLoaded] = useState(false);
   const [detail, setDetail] = useState<DetailPanel | null>(null);
   const [dimensions, setDimensions] = useState({ width: 900, height: 600 });
   const [tooltipData, setTooltipData] = useState<{
@@ -43,16 +45,23 @@ export default function SourceGraph() {
     position: { x: number; y: number }; visible: boolean;
   }>({ title: '', subtitle: '', lines: [], position: { x: 0, y: 0 }, visible: false });
 
+  const data = initialData !== undefined ? initialData : fetchedData;
+  const loaded = initialData !== undefined || fetchedLoaded;
+
   // Fetch graph data
   useEffect(() => {
+    if (initialData !== undefined) {
+      return;
+    }
+
     let cancelled = false;
     fetchSourceGraph().then((d) => {
       if (cancelled) return;
-      setData(d);
-      setLoaded(true);
+      setFetchedData(d);
+      setFetchedLoaded(true);
     });
     return () => { cancelled = true; };
-  }, []);
+  }, [initialData]);
 
   // Responsive sizing
   useEffect(() => {

@@ -10,8 +10,6 @@
  *
  * This is a simplified Sankey (no d3-sankey dependency) using
  * manual positioning with bezier curves.
- *
- * Data comes from GET /api/v1/graph/.
  */
 
 import { useRef, useEffect, useState } from 'react';
@@ -41,10 +39,14 @@ interface SankeyLink {
   thickness: number;
 }
 
-export default function SourceSankey() {
+interface SourceSankeyProps {
+  initialData?: GraphResponse | null;
+}
+
+export default function SourceSankey({ initialData }: SourceSankeyProps) {
   const svgRef = useRef<SVGSVGElement>(null);
-  const [data, setData] = useState<GraphResponse | null>(null);
-  const [loaded, setLoaded] = useState(false);
+  const [fetchedData, setFetchedData] = useState<GraphResponse | null>(null);
+  const [fetchedLoaded, setFetchedLoaded] = useState(false);
   const [hoveredNode, setHoveredNode] = useState<string | null>(null);
   const [dimensions, setDimensions] = useState({ width: 900, height: 500 });
   const [tooltipData, setTooltipData] = useState<{
@@ -52,15 +54,22 @@ export default function SourceSankey() {
     position: { x: number; y: number }; visible: boolean;
   }>({ title: '', subtitle: '', lines: [], position: { x: 0, y: 0 }, visible: false });
 
+  const data = initialData !== undefined ? initialData : fetchedData;
+  const loaded = initialData !== undefined || fetchedLoaded;
+
   useEffect(() => {
+    if (initialData !== undefined) {
+      return;
+    }
+
     let cancelled = false;
     fetchSourceGraph().then((d) => {
       if (cancelled) return;
-      setData(d);
-      setLoaded(true);
+      setFetchedData(d);
+      setFetchedLoaded(true);
     });
     return () => { cancelled = true; };
-  }, []);
+  }, [initialData]);
 
   useEffect(() => {
     const updateSize = () => {

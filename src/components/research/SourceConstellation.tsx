@@ -8,8 +8,6 @@
  * connections sit closer to the center. The result looks like a
  * constellation diagram showing the gravitational pull of sources
  * toward content.
- *
- * Data comes from GET /api/v1/graph/ (same as SourceGraph).
  */
 
 import { useRef, useEffect, useState } from 'react';
@@ -46,10 +44,14 @@ interface ConstellationNode {
   radius: number;
 }
 
-export default function SourceConstellation() {
+interface SourceConstellationProps {
+  initialData?: GraphResponse | null;
+}
+
+export default function SourceConstellation({ initialData }: SourceConstellationProps) {
   const svgRef = useRef<SVGSVGElement>(null);
-  const [data, setData] = useState<GraphResponse | null>(null);
-  const [loaded, setLoaded] = useState(false);
+  const [fetchedData, setFetchedData] = useState<GraphResponse | null>(null);
+  const [fetchedLoaded, setFetchedLoaded] = useState(false);
   const [selected, setSelected] = useState<ConstellationNode | null>(null);
   const [dimensions, setDimensions] = useState({ width: 700, height: 700 });
   const [tooltipData, setTooltipData] = useState<{
@@ -57,15 +59,22 @@ export default function SourceConstellation() {
     position: { x: number; y: number }; visible: boolean;
   }>({ title: '', subtitle: '', lines: [], position: { x: 0, y: 0 }, visible: false });
 
+  const data = initialData !== undefined ? initialData : fetchedData;
+  const loaded = initialData !== undefined || fetchedLoaded;
+
   useEffect(() => {
+    if (initialData !== undefined) {
+      return;
+    }
+
     let cancelled = false;
     fetchSourceGraph().then((d) => {
       if (cancelled) return;
-      setData(d);
-      setLoaded(true);
+      setFetchedData(d);
+      setFetchedLoaded(true);
     });
     return () => { cancelled = true; };
-  }, []);
+  }, [initialData]);
 
   useEffect(() => {
     const updateSize = () => {

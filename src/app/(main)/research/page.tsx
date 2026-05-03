@@ -2,12 +2,8 @@ import type { Metadata } from 'next';
 import SectionLabel from '@/components/SectionLabel';
 import DrawOnIcon from '@/components/rough/DrawOnIcon';
 import VisualizationTabs from '@/components/research/VisualizationTabs';
-import {
-  transformGraphResponse,
-  type APIGraphResponse,
-  type GraphNode,
-  type GraphEdge,
-} from '@/lib/graph/connectionTransform';
+import { fetchPublicIndexJson } from '@/lib/index-api';
+import type { ActivityDay, GraphResponse, ThreadListItem } from '@/lib/research';
 
 export const metadata: Metadata = {
   title: 'Paper Trails',
@@ -15,29 +11,46 @@ export const metadata: Metadata = {
     'An interactive graph of sources, essays, and field notes. See how research connects to writing.',
 };
 
-const INDEX_API =
-  process.env.NEXT_PUBLIC_INDEX_API_URL ?? 'https://index-api-production-a5f7.up.railway.app';
+type PaperTrailState =
+  | {
+      status: 'ready';
+      graph: GraphResponse;
+      activity: ActivityDay[];
+      threads: ThreadListItem[];
+    }
+  | {
+      status: 'empty';
+      graph: GraphResponse;
+      activity: ActivityDay[];
+      threads: ThreadListItem[];
+    }
+  | { status: 'unavailable' };
 
-async function fetchConnectionGraph(): Promise<{
-  nodes: GraphNode[];
-  edges: GraphEdge[];
-}> {
+async function fetchPaperTrailData(): Promise<PaperTrailState> {
   try {
-    const res = await fetch(
-      `${INDEX_API}/api/v1/connections/graph/?semantic=false`,
-      { next: { revalidate: 300 } },
-    );
-    if (!res.ok) return { nodes: [], edges: [] };
-    const data: APIGraphResponse = await res.json();
-    return transformGraphResponse(data);
+    const [graph, activity, threads] = await Promise.all([
+      fetchPublicIndexJson<GraphResponse>('/api/v2/paper-trail/graph/'),
+      fetchPublicIndexJson<ActivityDay[]>('/api/v2/paper-trail/activity/?days=365'),
+      fetchPublicIndexJson<ThreadListItem[]>('/api/v2/paper-trail/threads/?status=active'),
+    ]);
+
+    if (
+      graph.nodes.length === 0 &&
+      graph.edges.length === 0 &&
+      activity.length === 0 &&
+      threads.length === 0
+    ) {
+      return { status: 'empty', graph, activity, threads };
+    }
+
+    return { status: 'ready', graph, activity, threads };
   } catch {
-    return { nodes: [], edges: [] };
+    return { status: 'unavailable' };
   }
 }
 
 export default async function ResearchPage() {
-  const { nodes: connectionNodes, edges: connectionEdges } =
-    await fetchConnectionGraph();
+  const paperTrail = await fetchPaperTrailData();
 
   return (
     <>
@@ -48,15 +61,34 @@ export default async function ResearchPage() {
           Paper Trails
         </h1>
         <p className="text-ink-secondary mb-6 max-w-prose">
-          Six ways to explore how sources, essays, and field notes connect.
-          Each visualization highlights a different dimension of the research.
+          Source-backed views of the essays and field notes that have been
+          published into the public Paper Trails API.
         </p>
       </section>
 
-      <VisualizationTabs
-        connectionNodes={connectionNodes}
-        connectionEdges={connectionEdges}
-      />
+      {paperTrail.status === 'unavailable' && (
+        <PaperTrailStateNotice message="Index API is unavailable." />
+      )}
+
+      {paperTrail.status === 'empty' && (
+        <PaperTrailStateNotice message="Index API has no public Paper Trails records yet." />
+      )}
+
+      {paperTrail.status === 'ready' && (
+        <VisualizationTabs
+          graph={paperTrail.graph}
+          activity={paperTrail.activity}
+          threads={paperTrail.threads}
+        />
+      )}
     </>
+  );
+}
+
+function PaperTrailStateNotice({ message }: { message: string }) {
+  return (
+    <div className="border border-border bg-surface px-4 py-5">
+      <p className="font-body-alt text-sm text-ink-secondary">{message}</p>
+    </div>
   );
 }

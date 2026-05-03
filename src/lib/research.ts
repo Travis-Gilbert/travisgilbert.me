@@ -1,15 +1,17 @@
 /**
  * Research Trail API client and TypeScript types.
  *
- * Fetches from the Index-API Django service via the Next.js rewrite proxy.
+ * Fetches from the Index-API Django service.
  * All functions return null on failure for graceful degradation:
  * if the API is unreachable, the Research Trail section simply doesn't appear.
  */
 
+import { fetchPublicIndexJson, getPublicIndexApiBaseUrl } from '@/lib/index-api';
+
 // Browser: relative URL (rewrite proxy handles it). SSR: use env var if set.
 const INDEX_API = typeof window !== 'undefined'
   ? ''
-  : (process.env.NEXT_PUBLIC_INDEX_API_URL ?? '');
+  : getPublicIndexApiBaseUrl();
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 
@@ -98,6 +100,7 @@ export interface GraphNode {
   slug: string;
   sourceType?: string;
   creator?: string;
+  url?: string;
 }
 
 export interface GraphEdge {
@@ -184,11 +187,7 @@ export async function submitSourceSuggestion(data: SourceSuggestion): Promise<bo
 
 export async function fetchSourceGraph(): Promise<GraphResponse | null> {
   try {
-    const res = await fetch(`${INDEX_API}/api/v1/graph/`, {
-      next: { revalidate: 300 },
-    });
-    if (!res.ok) return null;
-    return await res.json();
+    return await fetchPublicIndexJson<GraphResponse>('/api/v2/paper-trail/graph/');
   } catch {
     return null;
   }
@@ -196,11 +195,9 @@ export async function fetchSourceGraph(): Promise<GraphResponse | null> {
 
 export async function fetchResearchActivity(days = 365): Promise<ActivityDay[]> {
   try {
-    const res = await fetch(`${INDEX_API}/api/v1/activity/?days=${days}`, {
-      next: { revalidate: 300 },
-    });
-    if (!res.ok) return [];
-    const data = await res.json();
+    const data = await fetchPublicIndexJson<unknown>(
+      `/api/v2/paper-trail/activity/?days=${days}`,
+    );
     return Array.isArray(data) ? data : [];
   } catch {
     return [];
@@ -209,14 +206,9 @@ export async function fetchResearchActivity(days = 365): Promise<ActivityDay[]> 
 
 export async function fetchActiveThreads(): Promise<ThreadListItem[]> {
   try {
-    const res = await fetch(`${INDEX_API}/api/v1/threads/?status=active`, {
-      next: { revalidate: 300 },
-    });
-    if (!res.ok) return [];
-    const text = await res.text();
-    if (!text) return [];
-    const data = JSON.parse(text);
-    // DRF ListAPIView returns array directly (not paginated here)
+    const data = await fetchPublicIndexJson<unknown>(
+      '/api/v2/paper-trail/threads/?status=active',
+    );
     return Array.isArray(data) ? data : [];
   } catch {
     return [];

@@ -5,7 +5,6 @@
  *
  * Horizontal bars break down sources by type and by role.
  * Content listing shows essays/field notes sorted by connection count.
- * Data from fetchSourceGraph() (same endpoint as SourceGraph, different view).
  */
 
 import { useEffect, useMemo, useState } from 'react';
@@ -15,16 +14,26 @@ import { fetchSourceGraph } from '@/lib/research';
 import type { GraphResponse } from '@/lib/research';
 import { SOURCE_COLORS, NODE_COLORS, ROLE_COLORS } from '@/lib/graph/colors';
 
-export default function ResearchSummary() {
-  const [data, setData] = useState<GraphResponse | null>(null);
-  const [loaded, setLoaded] = useState(false);
+interface ResearchSummaryProps {
+  initialData?: GraphResponse | null;
+}
+
+export default function ResearchSummary({ initialData }: ResearchSummaryProps) {
+  const [fetchedData, setFetchedData] = useState<GraphResponse | null>(null);
+  const [fetchedLoaded, setFetchedLoaded] = useState(false);
+  const data = initialData !== undefined ? initialData : fetchedData;
+  const loaded = initialData !== undefined || fetchedLoaded;
 
   useEffect(() => {
+    if (initialData !== undefined) {
+      return;
+    }
+
     fetchSourceGraph().then((res) => {
-      setData(res);
-      setLoaded(true);
+      setFetchedData(res);
+      setFetchedLoaded(true);
     });
-  }, []);
+  }, [initialData]);
 
   /* ── Aggregate: source counts by type ──────────────── */
 

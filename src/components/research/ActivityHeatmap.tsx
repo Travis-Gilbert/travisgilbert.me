@@ -7,8 +7,6 @@
  * activity (sources added, links created, thread entries) over the
  * past year. Each cell is one day; color intensity maps to total
  * activity count.
- *
- * Data comes from GET /api/v1/activity/?days=365.
  */
 
 import { useRef, useEffect, useState } from 'react';
@@ -36,24 +34,34 @@ interface HeatmapCell {
   dayIndex: number;
 }
 
-export default function ActivityHeatmap() {
+interface ActivityHeatmapProps {
+  initialActivity?: ActivityDay[];
+}
+
+export default function ActivityHeatmap({ initialActivity }: ActivityHeatmapProps) {
   const svgRef = useRef<SVGSVGElement>(null);
-  const [loaded, setLoaded] = useState(false);
+  const [fetchedLoaded, setFetchedLoaded] = useState(false);
   const [tooltipData, setTooltipData] = useState<{
     title: string; subtitle: string; lines: string[];
     position: { x: number; y: number }; visible: boolean;
   }>({ title: '', subtitle: '', lines: [], position: { x: 0, y: 0 }, visible: false });
-  const [activity, setActivity] = useState<ActivityDay[]>([]);
+  const [fetchedActivity, setFetchedActivity] = useState<ActivityDay[]>([]);
+  const activity = initialActivity ?? fetchedActivity;
+  const loaded = initialActivity !== undefined || fetchedLoaded;
 
   useEffect(() => {
+    if (initialActivity !== undefined) {
+      return;
+    }
+
     let cancelled = false;
     fetchResearchActivity(365).then((data) => {
       if (cancelled) return;
-      setActivity(data);
-      setLoaded(true);
+      setFetchedActivity(data);
+      setFetchedLoaded(true);
     });
     return () => { cancelled = true; };
-  }, []);
+  }, [initialActivity]);
 
   useEffect(() => {
     if (!svgRef.current) return;

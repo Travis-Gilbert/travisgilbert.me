@@ -3,7 +3,7 @@
 /**
  * ActiveThreads: Homepage section showing active research threads.
  *
- * Fetches from GET /api/v1/threads/?status=active and renders
+ * Fetches from GET /api/v2/paper-trail/threads/?status=active and renders
  * compact cards with thread title, description, entry count, and date.
  * Renders nothing if the API is unreachable or returns no threads.
  */
