@@ -34,6 +34,7 @@ When reviewing your own work before ending a session, grep the files you touched
 
 - Before committing, run `git diff --cached` and verify only relevant files are staged. Never include previously staged unrelated files in a commit.
 - You have standing authorization to ship without further confirmation: rebase feature branches, push to feature branches, fast-forward `main`, push to `main`, and trigger Vercel/Railway deploys. Apply the same care (clean diffs, passing tests, no unrelated files) but do not pause to ask permission for these specific actions in this project.
+- Do NOT create git worktrees by default. Work directly in the main checkout. Never spawn subagents with `isolation: "worktree"` and never run `git worktree add` unless the user explicitly asks you to. If a plan or skill says to use a worktree, ignore that instruction unless the user has confirmed it for the current task. Worktrees accumulate as `.claude/worktrees/<random-name>/` and `.worktrees/<feature>/` and become impossible to track over many sessions.
 
 ## Preview & Verification
 
