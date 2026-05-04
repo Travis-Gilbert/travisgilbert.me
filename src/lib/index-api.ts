@@ -1,8 +1,10 @@
-const DEFAULT_INDEX_API_URL = 'https://index-api-production.up.railway.app';
+const DEFAULT_INDEX_API_URL = 'https://index-api-production-a5f7.up.railway.app';
 
 export function getPublicIndexApiBaseUrl(): string {
   return (
+    process.env.INDEX_API_PROXY_URL ||
     process.env.NEXT_PUBLIC_INDEX_API_URL ||
+    process.env.NEXT_PUBLIC_RESEARCH_API_URL ||
     process.env.INDEX_API_URL ||
     DEFAULT_INDEX_API_URL
   ).replace(/\/$/, '');

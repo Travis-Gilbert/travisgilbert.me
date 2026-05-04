@@ -16,9 +16,8 @@
 // scoring.js is the canonical port from anti-conspirarcy-theorem.
 // It is imported as JS to preserve contract-test parity with the
 // upstream tests in browser-extension/tests/contract.test.js. The
-// implicit-any is acceptable here because the scoring contract is
-// validated by upstream tests, not by TS types in this codebase.
-// @ts-expect-error scoring.js ships without type declarations on purpose.
+// The scoring contract is validated by upstream tests, so keep this direct
+// JS import rather than wrapping the canonical port.
 import { scoreText } from './scoring.js';
 import { extractFromText, extractWithGemma, type ContentType } from './extract';
 export { MLCRunner } from './mlc-runner';
@@ -149,7 +148,12 @@ function scoreFromExtraction(
   extractionResult: ReturnType<typeof extractFromText>,
 ): AnalysisResult {
   const { extraction, content_type, content_confidence } = extractionResult;
-  const raw = scoreText(extraction, null, content_type, content_confidence) as RawScoreResult;
+  const raw = scoreText(
+    extraction,
+    null,
+    content_type,
+    content_confidence,
+  ) as unknown as RawScoreResult;
   return finalizeAnalysis(raw, text, title, sourceType);
 }
 

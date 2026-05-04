@@ -33,7 +33,7 @@ const STACK_CATEGORIES: StackCategory[] = [
     items: [
       { key: 'Styling', value: 'Tailwind CSS v4', note: 'CSS custom properties' },
       { key: 'Hand-drawn', value: 'rough.js + rough-notation' },
-      { key: 'Typography', value: '6 fonts via next/font', note: 'Vollkorn, IBM Plex Sans, Ysabeau, Courier Prime, JetBrains Mono, Amarna' },
+      { key: 'Typography', value: 'Core fonts via next/font', note: 'Vollkorn, IBM Plex Sans, Courier Prime, JetBrains Mono, Amarna' },
       { key: 'Primitives', value: 'Radix UI', note: 'Accordion, Collapsible, Tooltip' },
       { key: 'Icons', value: 'Phosphor + SketchIcon system' },
     ],
@@ -154,10 +154,9 @@ export default function ColophonPage() {
           </p>
           <p className="leading-relaxed">
             The toolkit pages use{' '}
-            <strong className="font-title-alt">Ysabeau</strong>, a glyphic
-            humanist sans that suggests letters chiseled into stone. It gives
-            those pages an architectural, structural feel distinct from the
-            editorial warmth elsewhere.
+            <strong className="font-title-alt">IBM Plex Sans</strong> through
+            the secondary title token, keeping those pages structural without
+            adding another font dependency.
           </p>
           <p className="leading-relaxed">
             The masthead uses{' '}

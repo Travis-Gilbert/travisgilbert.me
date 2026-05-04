@@ -116,7 +116,7 @@
   /* Typography:The Documentarian (Primary System)
      Variables set by next/font on <html> → aliased here for design tokens */
   --font-title: var(--font-vollkorn), Georgia, serif;
-  --font-title-alt: var(--font-ysabeau), sans-serif;
+  --font-title-alt: var(--font-ibm-plex), sans-serif;
   --font-body: var(--font-ibm-plex), sans-serif;
   --font-body-alt: var(--font-ibm-plex), sans-serif;
   /* Monospace: two faces, two roles

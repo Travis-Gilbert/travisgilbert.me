@@ -69,7 +69,7 @@ const DEFAULT_CONFIG: SiteConfig = {
       body: 'Cabin',
       mono: 'Courier Prime',
       annotation: 'Caveat',
-      tagline: 'Ysabeau',
+      tagline: 'IBM Plex Sans',
     },
     spacing: {
       contentMaxWidth: '896px',

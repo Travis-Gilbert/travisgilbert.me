@@ -28,11 +28,6 @@ export const READER_FONTS: ReaderFont[] = [
     family: "var(--font-vollkorn), 'Vollkorn', serif",
   },
   {
-    id: 'literata',
-    label: 'Literata',
-    family: "var(--font-literata), 'Literata', serif",
-  },
-  {
     id: 'lora',
     label: 'Lora',
     family: "var(--font-lora), 'Lora', serif",
