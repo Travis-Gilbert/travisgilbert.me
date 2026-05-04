@@ -1,5 +1,5 @@
 import type { Metadata } from 'next';
-import ActLab from './ActLab';
+import AntiConspiracyPage from '@/components/act/AntiConspiracyPage';
 
 export const metadata: Metadata = {
   title: 'Anti-Conspiracy Theorem | Travis Gilbert',
@@ -12,6 +12,10 @@ export const metadata: Metadata = {
   },
 };
 
+/**
+ * /act surface. Top-level route, no main-site chrome — the page paints
+ * its own breadcrumb topbar, masthead, and colophon.
+ */
 export default function ActPage() {
-  return <ActLab />;
+  return <AntiConspiracyPage />;
 }
