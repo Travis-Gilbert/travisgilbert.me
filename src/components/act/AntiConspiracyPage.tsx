@@ -13,19 +13,18 @@ import {
 } from 'react';
 import styles from './AntiConspiracyPage.module.css';
 import {
-  analyzeText,
+  analyzeDocument,
   formatScore,
   normalizeWhitespace,
   urlSafeLabel,
   FEATURE_LABELS,
-  FEATURE_KEYS,
   VERDICT_LABEL,
   MAX_TEXT_LENGTH,
   MAX_FILE_BYTES,
   type AnalysisResult,
-  type ClaimTrace,
+  type ScoredClaim,
   type Verdict,
-} from '@/lib/act-scorer';
+} from '@/lib/act';
 
 const REPO_URL = 'https://github.com/Travis-Gilbert/anti-conspirarcy-theorem';
 const EXTENSION_URL =
@@ -35,10 +34,25 @@ const MODEL_URL = '/act/model.json';
 type LabStatus = 'idle' | 'reading' | 'scoring' | 'ready' | 'error';
 
 const VERDICT_FILL: Record<Verdict, string> = {
-  strong: 'var(--color-teal)',
+  trustworthy: 'var(--color-teal)',
   mixed: 'var(--color-gold)',
-  suspect: 'var(--color-error)',
+  unreliable: 'var(--color-error)',
+  fiction: 'var(--color-ink-muted)',
 };
+
+const FEATURE_DISPLAY_ORDER = [
+  'claim_specificity',
+  'root_depth',
+  'source_independence',
+  'evidence_volume',
+  'external_support_ratio',
+  'temporal_spread',
+  'consensus_alignment',
+  'source_tier',
+  'rhetorical_red_flags',
+  'citation_chain_closure',
+  'claim_falsifiability',
+] as const;
 
 export default function AntiConspiracyPage() {
   const [urlValue, setUrlValue] = useState('');
@@ -46,7 +60,7 @@ export default function AntiConspiracyPage() {
   const [status, setStatus] = useState<LabStatus>('idle');
   const [message, setMessage] = useState('Drop a document, paste text, or analyze a URL.');
   const [analysis, setAnalysis] = useState<AnalysisResult | null>(null);
-  const [activeClaim, setActiveClaim] = useState<ClaimTrace | null>(null);
+  const [activeClaim, setActiveClaim] = useState<ScoredClaim | null>(null);
   const [isDragging, setIsDragging] = useState(false);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   // Counts dragenter/dragleave imbalance so the active state doesn't
@@ -59,7 +73,6 @@ export default function AntiConspiracyPage() {
   // sequence and Chrome opens the file as a new page on drop.
   useEffect(() => {
     const block = (event: globalThis.DragEvent) => {
-      // Only block file drags; let regular text/element drags pass.
       if (event.dataTransfer?.types?.includes('Files')) {
         event.preventDefault();
       }
@@ -73,7 +86,7 @@ export default function AntiConspiracyPage() {
   }, []);
 
   const runTextAnalysis = useCallback(
-    (text: string, title: string, sourceType: AnalysisResult['sourceType']) => {
+    (text: string, title: string, sourceType: AnalysisResult['source_type']) => {
       const cleaned = normalizeWhitespace(text).slice(0, MAX_TEXT_LENGTH);
       if (cleaned.split(/\s+/).filter(Boolean).length < 12) {
         setStatus('error');
@@ -82,11 +95,13 @@ export default function AntiConspiracyPage() {
       }
       setStatus('scoring');
       setMessage('Scoring claims and building the graph.');
-      const result = analyzeText(cleaned, title, sourceType);
+      const result = analyzeDocument(cleaned, title, sourceType);
       setAnalysis(result);
       setActiveClaim(result.claims[0] ?? null);
       setStatus('ready');
-      setMessage(`Scored ${result.claimCount} claims from ${result.sourceLabel}.`);
+      setMessage(
+        `Scored ${result.claims.length} claims from ${result.source_label} (ACC ${formatScore(result.overall_score)} · ${VERDICT_LABEL[result.verdict]}).`,
+      );
     },
     [],
   );
@@ -113,7 +128,8 @@ export default function AntiConspiracyPage() {
         setMessage(typeof payload?.error === 'string' ? payload.error : 'The URL could not be analyzed.');
         return;
       }
-      const title = typeof payload?.title === 'string' && payload.title ? payload.title : urlSafeLabel(target);
+      const title =
+        typeof payload?.title === 'string' && payload.title ? payload.title : urlSafeLabel(target);
       runTextAnalysis(String(payload.text ?? ''), title, 'url');
     } catch {
       setStatus('error');
@@ -157,8 +173,6 @@ export default function AntiConspiracyPage() {
   };
 
   const onDragOver = (event: DragEvent<HTMLDivElement>) => {
-    // dragover MUST preventDefault to register this element as a valid
-    // drop target. dropEffect tells the OS this is a copy operation.
     event.preventDefault();
     event.stopPropagation();
     if (event.dataTransfer) event.dataTransfer.dropEffect = 'copy';
@@ -198,13 +212,19 @@ export default function AntiConspiracyPage() {
 
   const stats = useMemo(() => {
     if (!analysis) {
-      return { avg: '— · No run', strong: 0, mixed: 0, suspect: 0, hasRun: false };
+      return {
+        avg: '— · No run',
+        trustworthy: 0,
+        mixed: 0,
+        unreliable: 0,
+        hasRun: false,
+      };
     }
     return {
-      avg: formatScore(analysis.averageScore),
-      strong: analysis.strongCount,
-      mixed: analysis.mixedCount,
-      suspect: analysis.suspectCount,
+      avg: formatScore(analysis.overall_score),
+      trustworthy: analysis.trustworthy_count,
+      mixed: analysis.mixed_count,
+      unreliable: analysis.unreliable_count,
       hasRun: true,
     };
   }, [analysis]);
@@ -287,8 +307,10 @@ export default function AntiConspiracyPage() {
               <span className={styles.specVal}>Live</span>
             </div>
             <div className={styles.specRow}>
-              <span className={styles.specKey}>Version</span>
-              <span className={styles.specVal}>1.3 : Apr 2026</span>
+              <span className={styles.specKey}>Algorithm</span>
+              <span className={styles.specVal}>
+                ACC v{analysis?.algorithm_version ?? '2.0.0'}
+              </span>
             </div>
             <div className={styles.specRow}>
               <span className={styles.specKey}>Inputs</span>
@@ -296,7 +318,7 @@ export default function AntiConspiracyPage() {
             </div>
             <div className={styles.specRow}>
               <span className={styles.specKey}>Method</span>
-              <span className={styles.specVal}>4-axis claim scoring</span>
+              <span className={styles.specVal}>11-axis claim scoring</span>
             </div>
             <div className={styles.specRow}>
               <span className={styles.specKey}>License</span>
@@ -354,10 +376,7 @@ export default function AntiConspiracyPage() {
               or analyze a URL
             </div>
 
-            <form
-              className={styles.field}
-              onSubmit={handleUrlSubmit}
-            >
+            <form className={styles.field} onSubmit={handleUrlSubmit}>
               <div className={styles.urlRow}>
                 <input
                   type="text"
@@ -407,7 +426,7 @@ export default function AntiConspiracyPage() {
               <div className={`${styles.panelHead} ${styles.panelHeadGraph}`}>
                 <h3>GRAPH BUILDER</h3>
                 <span className={styles.pill}>
-                  {analysis ? `${analysis.claimCount} claims` : 'No document loaded'}
+                  {analysis ? `${analysis.claims.length} claims` : 'No document loaded'}
                 </span>
               </div>
 
@@ -439,16 +458,25 @@ export default function AntiConspiracyPage() {
               <div className={styles.graphFoot}>
                 <div className={styles.legend}>
                   <span>
-                    <span className={styles.legendSwatch} style={{ background: 'var(--color-teal)' }} />
-                    Strong
+                    <span
+                      className={styles.legendSwatch}
+                      style={{ background: 'var(--color-teal)' }}
+                    />
+                    Trustworthy
                   </span>
                   <span>
-                    <span className={styles.legendSwatch} style={{ background: 'var(--color-gold)' }} />
+                    <span
+                      className={styles.legendSwatch}
+                      style={{ background: 'var(--color-gold)' }}
+                    />
                     Mixed
                   </span>
                   <span>
-                    <span className={styles.legendSwatch} style={{ background: 'var(--color-error)' }} />
-                    Suspect
+                    <span
+                      className={styles.legendSwatch}
+                      style={{ background: 'var(--color-error)' }}
+                    />
+                    Unreliable
                   </span>
                 </div>
                 <div>{analysis ? 'Click a claim to inspect' : 'Zoom · ⌘ + scroll'}</div>
@@ -466,8 +494,8 @@ export default function AntiConspiracyPage() {
               ) : (
                 <>
                   <p className={styles.traceEmpty}>
-                    The graph is empty until a URL, document, or pasted text is analyzed. Once a run
-                    completes, every node here links to the sentence it came from.
+                    The graph is empty until a URL, document, or pasted text is analyzed. Once a
+                    run completes, every node here links to the sentence it came from.
                   </p>
 
                   <div className={styles.traceStep}>What you&apos;ll see</div>
@@ -481,9 +509,9 @@ export default function AntiConspiracyPage() {
 
                   <div className={styles.traceStep}>After a run</div>
                   <ul className={styles.checklist}>
-                    <li>Export trace as Markdown</li>
-                    <li>Pin claims to a casefile</li>
-                    <li>Share a permalink (no document stored)</li>
+                    <li>Per-claim ACC score with linear + geometric breakdown</li>
+                    <li>Six symbolic rules: passed or penalty</li>
+                    <li>Suggested next moves drawn from the rule violations</li>
                   </ul>
                 </>
               )}
@@ -499,8 +527,8 @@ export default function AntiConspiracyPage() {
           </div>
           <div className={`${styles.stat} ${styles.statStrong}`}>
             <div className={styles.statTrend}>↑</div>
-            <div className={styles.statLabel}>Strong</div>
-            <div className={styles.statVal}>{stats.strong}</div>
+            <div className={styles.statLabel}>Trustworthy</div>
+            <div className={styles.statVal}>{stats.trustworthy}</div>
           </div>
           <div className={`${styles.stat} ${styles.statMixed}`}>
             <div className={styles.statTrend}>~</div>
@@ -509,8 +537,8 @@ export default function AntiConspiracyPage() {
           </div>
           <div className={`${styles.stat} ${styles.statSuspect}`}>
             <div className={styles.statTrend}>!</div>
-            <div className={styles.statLabel}>Suspect</div>
-            <div className={styles.statVal}>{stats.suspect}</div>
+            <div className={styles.statLabel}>Unreliable</div>
+            <div className={styles.statVal}>{stats.unreliable}</div>
           </div>
         </div>
 
@@ -519,7 +547,7 @@ export default function AntiConspiracyPage() {
           <h2>How Information is Scored</h2>
           <span className={styles.sectionHeadStatus}>
             <span className={styles.statusDot} aria-hidden="true" />
-            4 axes
+            11 axes
           </span>
         </div>
 
@@ -550,10 +578,10 @@ export default function AntiConspiracyPage() {
           </div>
           <div className={styles.step}>
             <div className={styles.stepNum}>04 · RHETORICAL PRESSURE</div>
-            <h4>Temporal Scoring</h4>
+            <h4>Tone vs. substance</h4>
             <p>
               Loaded language, urgency, in-group cues, and identity threats are weighed against
-              the substance underneath. High pressure plus thin evidence equals suspect.
+              the substance underneath. High pressure plus thin evidence triggers penalties.
             </p>
           </div>
         </div>
@@ -574,7 +602,7 @@ export default function AntiConspiracyPage() {
 }
 
 interface GraphPositioned {
-  claim: ClaimTrace;
+  claim: ScoredClaim;
   x: number;
   y: number;
 }
@@ -601,7 +629,7 @@ function ClaimGraph({
 }: {
   layout: GraphPositioned[];
   activeId: string | null;
-  onSelect: (claim: ClaimTrace) => void;
+  onSelect: (claim: ScoredClaim) => void;
 }) {
   const viewWidth = 600;
   const viewHeight = 360;
@@ -683,51 +711,105 @@ function ClaimGraph({
   );
 }
 
-function ClaimDetail({ claim }: { claim: ClaimTrace }) {
+function ClaimDetail({ claim }: { claim: ScoredClaim }) {
+  const featureBars = FEATURE_DISPLAY_ORDER.filter(
+    (key) => claim.feature_breakdown[key] != null,
+  );
+
   return (
     <div>
       <p className={styles.claimText}>&ldquo;{claim.text}&rdquo;</p>
       <div className={styles.claimMeta}>
         <span>ACC {formatScore(claim.score)}</span>
         <span>·</span>
-        <span>{VERDICT_LABEL[claim.verdict]}</span>
+        <span>L {formatScore(claim.linear_score)}</span>
+        <span>·</span>
+        <span>G {formatScore(claim.geometric_core)}</span>
+        {claim.penalty_total > 0 ? (
+          <>
+            <span>·</span>
+            <span style={{ color: 'var(--color-error)' }}>
+              − {formatScore(claim.penalty_total)}
+            </span>
+          </>
+        ) : null}
       </div>
+
+      <p className={styles.claimRationale}>{claim.rationale}</p>
 
       <div className={styles.traceStep}>Feature trace</div>
       <ul className={styles.featureList}>
-        {FEATURE_KEYS.map((key) => (
-          <li key={key} className={styles.featureRow}>
-            <span className={styles.featureLabel}>{FEATURE_LABELS[key]}</span>
-            <span className={styles.featureBarTrack} aria-hidden="true">
-              <span
-                className={styles.featureBarFill}
-                style={{
-                  width: `${Math.round(claim.features[key] * 100)}%`,
-                  background:
-                    key === 'rhetoricalPressure' && claim.features[key] > 0.45
-                      ? 'var(--color-error)'
-                      : VERDICT_FILL[claim.verdict],
-                }}
-              />
+        {featureBars.map((key) => {
+          const value = claim.feature_breakdown[key] ?? 0;
+          return (
+            <li key={key} className={styles.featureRow}>
+              <span className={styles.featureLabel}>
+                {FEATURE_LABELS[key] ?? key}
+              </span>
+              <span className={styles.featureBarTrack} aria-hidden="true">
+                <span
+                  className={styles.featureBarFill}
+                  style={{
+                    width: `${Math.round(value * 100)}%`,
+                    background:
+                      key === 'rhetorical_red_flags' && value < 0.5
+                        ? 'var(--color-error)'
+                        : VERDICT_FILL[claim.verdict],
+                  }}
+                />
+              </span>
+              <span className={styles.featureValue}>{formatScore(value)}</span>
+            </li>
+          );
+        })}
+      </ul>
+
+      <div className={styles.traceStep}>Symbolic rules</div>
+      <ul className={styles.ruleList}>
+        {claim.rules.map((rule) => (
+          <li
+            key={rule.id}
+            className={`${styles.ruleRow} ${rule.passed ? styles.rulePass : styles.ruleFail}`}
+          >
+            <span className={styles.ruleMark} aria-hidden="true">
+              {rule.passed ? '✓' : '✕'}
             </span>
-            <span className={styles.featureValue}>{formatScore(claim.features[key])}</span>
+            <span className={styles.ruleBody}>
+              <span className={styles.ruleId}>{rule.id.replace(/_/g, ' ')}</span>
+              <span className={styles.ruleReason}>{rule.reason}</span>
+            </span>
           </li>
         ))}
       </ul>
 
-      <div className={styles.traceStep}>Why this verdict</div>
-      <ul className={styles.checklist}>
-        {claim.reasons.map((reason, i) => (
-          <li key={i}>{reason}</li>
-        ))}
-      </ul>
+      {claim.penalties.length > 0 ? (
+        <>
+          <div className={styles.traceStep}>Penalties applied</div>
+          <ul className={styles.checklist}>
+            {claim.penalties.map((p) => (
+              <li key={p.id}>
+                <strong>{p.id.replace(/_/g, ' ')}</strong>
+                {' — '}
+                {p.reason}
+                <span className={styles.penaltyWeight}>
+                  {' '}(−{formatScore(p.weight)})
+                </span>
+              </li>
+            ))}
+          </ul>
+        </>
+      ) : null}
 
-      <div className={styles.traceStep}>Next moves</div>
-      <ul className={styles.checklist}>
-        {claim.actions.map((action, i) => (
-          <li key={i}>{action}</li>
-        ))}
-      </ul>
+      {claim.actions.length > 0 ? (
+        <>
+          <div className={styles.traceStep}>Next moves</div>
+          <ul className={styles.checklist}>
+            {claim.actions.map((a) => (
+              <li key={a.id}>{a.guidance}</li>
+            ))}
+          </ul>
+        </>
+      ) : null}
     </div>
   );
 }
@@ -750,7 +832,7 @@ function pillCopy(status: LabStatus, analysis: AnalysisResult | null): string {
   if (status === 'reading') return '● Reading…';
   if (status === 'scoring') return '● Scoring…';
   if (status === 'error') return '● Error';
-  if (status === 'ready' && analysis) return `● ${analysis.claimCount} scored`;
+  if (status === 'ready' && analysis) return `● ${analysis.claims.length} scored`;
   return '● Ready';
 }
 

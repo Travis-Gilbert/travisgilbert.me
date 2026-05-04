@@ -530,6 +530,76 @@
   font-weight: 700;
 }
 
+.claimRationale {
+  font-family: var(--font-body);
+  font-size: 13px;
+  color: var(--color-ink-muted);
+  line-height: 1.55;
+  margin: 0 0 14px;
+  padding: 8px 10px;
+  border-left: 2px solid var(--color-border);
+  background: rgba(220, 192, 138, 0.18);
+}
+
+.ruleList {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.ruleRow {
+  display: grid;
+  grid-template-columns: 18px 1fr;
+  gap: 8px;
+  align-items: flex-start;
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--color-ink-muted);
+}
+
+.ruleMark {
+  font-family: var(--font-code);
+  font-weight: 700;
+  text-align: center;
+  margin-top: 1px;
+}
+
+.rulePass .ruleMark {
+  color: var(--color-success);
+}
+
+.ruleFail .ruleMark {
+  color: var(--color-error);
+}
+
+.ruleBody {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.ruleId {
+  font-family: var(--font-code);
+  font-size: 10px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--color-ink);
+}
+
+.ruleReason {
+  font-size: 13px;
+  color: var(--color-ink-muted);
+}
+
+.penaltyWeight {
+  font-family: var(--font-code);
+  color: var(--color-error);
+  font-size: 11px;
+}
+
 /* Inputs */
 .fieldLabel {
   font-family: var(--font-code);

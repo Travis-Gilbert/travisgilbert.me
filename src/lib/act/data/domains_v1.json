@@ -1,0 +1,3734 @@
+{
+  "version": "1.0.0",
+  "domains": [
+    {
+      "domain": "apnews.com",
+      "tier": 1,
+      "parent_organization": "apnews.com",
+      "category": "news",
+      "known_issues": [],
+      "source_citations": [
+        "NewsGuard 2024 summary",
+        "MBFC 2024-06"
+      ]
+    },
+    {
+      "domain": "reuters.com",
+      "tier": 1,
+      "parent_organization": "reuters.com",
+      "category": "news",
+      "known_issues": [],
+      "source_citations": [
+        "NewsGuard 2024 summary",
+        "MBFC 2024-06"
+      ]
+    },
+    {
+      "domain": "afp.com",
+      "tier": 1,
+      "parent_organization": "afp.com",
+      "category": "news",
+      "known_issues": [],
+      "source_citations": [
+        "NewsGuard 2024 summary",
+        "MBFC 2024-06"
+      ]
+    },
+    {
+      "domain": "bbc.com",
+      "tier": 1,
+      "parent_organization": "bbc.com",
+      "category": "news",
+      "known_issues": [],
+      "source_citations": [
+        "NewsGuard 2024 summary",
+        "MBFC 2024-06"
+      ]
+    },
+    {
+      "domain": "bbc.co.uk",
+      "tier": 1,
+      "parent_organization": "bbc.co.uk",
+      "category": "news",
+      "known_issues": [],
+      "source_citations": [
+        "NewsGuard 2024 summary",
+        "MBFC 2024-06"
+      ]
+    },
+    {
+      "domain": "npr.org",
+      "tier": 1,
+      "parent_organization": "npr.org",
+      "category": "news",
+      "known_issues": [],
+      "source_citations": [
+        "NewsGuard 2024 summary",
+        "MBFC 2024-06"
+      ]
+    },
+    {
+      "domain": "pbs.org",
+      "tier": 1,
+      "parent_organization": "pbs.org",
+      "category": "news",
+      "known_issues": [],
+      "source_citations": [
+        "NewsGuard 2024 summary",
+        "MBFC 2024-06"
+      ]
+    },
+    {
+      "domain": "nytimes.com",
+      "tier": 1,
+      "parent_organization": "nytimes.com",
+      "category": "news",
+      "known_issues": [],
+      "source_citations": [
+        "NewsGuard 2024 summary",
+        "MBFC 2024-06"
+      ]
+    },
+    {
+      "domain": "washingtonpost.com",
+      "tier": 1,
+      "parent_organization": "washingtonpost.com",
+      "category": "news",
+      "known_issues": [],
+      "source_citations": [
+        "NewsGuard 2024 summary",
+        "MBFC 2024-06"
+      ]
+    },
+    {
+      "domain": "wsj.com",
+      "tier": 1,
+      "parent_organization": "wsj.com",
+      "category": "news",
+      "known_issues": [],
+      "source_citations": [
+        "NewsGuard 2024 summary",
+        "MBFC 2024-06"
+      ]
+    },
+    {
+      "domain": "ft.com",
+      "tier": 1,
+      "parent_organization": "ft.com",
+      "category": "news",
+      "known_issues": [],
+      "source_citations": [
+        "NewsGuard 2024 summary",
+        "MBFC 2024-06"
+      ]
+    },
+    {
+      "domain": "economist.com",
+      "tier": 1,
+      "parent_organization": "economist.com",
+      "category": "news",
+      "known_issues": [],
+      "source_citations": [
+        "NewsGuard 2024 summary",
+        "MBFC 2024-06"
+      ]
+    },
+    {
+      "domain": "theguardian.com",
+      "tier": 1,
+      "parent_organization": "theguardian.com",
+      "category": "news",
+      "known_issues": [],
+      "source_citations": [
+        "NewsGuard 2024 summary",
+        "MBFC 2024-06"
+      ]
+    },
+    {
+      "domain": "theglobeandmail.com",
+      "tier": 1,
+      "parent_organization": "theglobeandmail.com",
+      "category": "news",
+      "known_issues": [],
+      "source_citations": [
+        "NewsGuard 2024 summary",
+        "MBFC 2024-06"
+      ]
+    },
+    {
+      "domain": "smh.com.au",
+      "tier": 1,
+      "parent_organization": "smh.com.au",
+      "category": "news",
+      "known_issues": [],
+      "source_citations": [
+        "NewsGuard 2024 summary",
+        "MBFC 2024-06"
+      ]
+    },
+    {
+      "domain": "theaustralian.com.au",
+      "tier": 1,
+      "parent_organization": "theaustralian.com.au",
+      "category": "news",
+      "known_issues": [],
+      "source_citations": [
+        "NewsGuard 2024 summary",
+        "MBFC 2024-06"
+      ]
+    },
+    {
+      "domain": "latimes.com",
+      "tier": 1,
+      "parent_organization": "latimes.com",
+      "category": "news",
+      "known_issues": [],
+      "source_citations": [
+        "NewsGuard 2024 summary",
+        "MBFC 2024-06"
+      ]
+    },
+    {
+      "domain": "usatoday.com",
+      "tier": 1,
+      "parent_organization": "usatoday.com",
+      "category": "news",
+      "known_issues": [],
+      "source_citations": [
+        "NewsGuard 2024 summary",
+        "MBFC 2024-06"
+      ]
+    },
+    {
+      "domain": "propublica.org",
+      "tier": 1,
+      "parent_organization": "propublica.org",
+      "category": "news",
+      "known_issues": [],
+      "source_citations": [
+        "NewsGuard 2024 summary",
+        "MBFC 2024-06"
+      ]
+    },
+    {
+      "domain": "bloomberg.com",
+      "tier": 1,
+      "parent_organization": "bloomberg.com",
+      "category": "news",
+      "known_issues": [],
+      "source_citations": [
+        "NewsGuard 2024 summary",
+        "MBFC 2024-06"
+      ]
+    },
+    {
+      "domain": "cbc.ca",
+      "tier": 1,
+      "parent_organization": "cbc.ca",
+      "category": "news",
+      "known_issues": [],
+      "source_citations": [
+        "NewsGuard 2024 summary",
+        "MBFC 2024-06"
+      ]
+    },
+    {
+      "domain": "cbsnews.com",
+      "tier": 1,
+      "parent_organization": "cbsnews.com",
+      "category": "news",
+      "known_issues": [],
+      "source_citations": [
+        "NewsGuard 2024 summary",
+        "MBFC 2024-06"
+      ]
+    },
+    {
+      "domain": "abcnews.go.com",
+      "tier": 1,
+      "parent_organization": "abcnews.go.com",
+      "category": "news",
+      "known_issues": [],
+      "source_citations": [
+        "NewsGuard 2024 summary",
+        "MBFC 2024-06"
+      ]
+    },
+    {
+      "domain": "nbcnews.com",
+      "tier": 1,
+      "parent_organization": "nbcnews.com",
+      "category": "news",
+      "known_issues": [],
+      "source_citations": [
+        "NewsGuard 2024 summary",
+        "MBFC 2024-06"
+      ]
+    },
+    {
+      "domain": "time.com",
+      "tier": 1,
+      "parent_organization": "time.com",
+      "category": "news",
+      "known_issues": [],
+      "source_citations": [
+        "NewsGuard 2024 summary",
+        "MBFC 2024-06"
+      ]
+    },
+    {
+      "domain": "newyorker.com",
+      "tier": 1,
+      "parent_organization": "newyorker.com",
+      "category": "news",
+      "known_issues": [],
+      "source_citations": [
+        "NewsGuard 2024 summary",
+        "MBFC 2024-06"
+      ]
+    },
+    {
+      "domain": "newsroom.co.nz",
+      "tier": 1,
+      "parent_organization": "newsroom.co.nz",
+      "category": "news",
+      "known_issues": [],
+      "source_citations": [
+        "NewsGuard 2024 summary",
+        "MBFC 2024-06"
+      ]
+    },
+    {
+      "domain": "thehindu.com",
+      "tier": 1,
+      "parent_organization": "thehindu.com",
+      "category": "news",
+      "known_issues": [],
+      "source_citations": [
+        "NewsGuard 2024 summary",
+        "MBFC 2024-06"
+      ]
+    },
+    {
+      "domain": "straitstimes.com",
+      "tier": 1,
+      "parent_organization": "straitstimes.com",
+      "category": "news",
+      "known_issues": [],
+      "source_citations": [
+        "NewsGuard 2024 summary",
+        "MBFC 2024-06"
+      ]
+    },
+    {
+      "domain": "lemonde.fr",
+      "tier": 1,
+      "parent_organization": "lemonde.fr",
+      "category": "news",
+      "known_issues": [],
+      "source_citations": [
+        "NewsGuard 2024 summary",
+        "MBFC 2024-06"
+      ]
+    },
+    {
+      "domain": "dw.com",
+      "tier": 1,
+      "parent_organization": "dw.com",
+      "category": "news",
+      "known_issues": [],
+      "source_citations": [
+        "NewsGuard 2024 summary",
+        "MBFC 2024-06"
+      ]
+    },
+    {
+      "domain": "elpais.com",
+      "tier": 1,
+      "parent_organization": "elpais.com",
+      "category": "news",
+      "known_issues": [],
+      "source_citations": [
+        "NewsGuard 2024 summary",
+        "MBFC 2024-06"
+      ]
+    },
+    {
+      "domain": "nature.com",
+      "tier": 1,
+      "parent_organization": "nature.com",
+      "category": "journal",
+      "known_issues": [],
+      "source_citations": [
+        "NewsGuard 2024 summary",
+        "MBFC 2024-06"
+      ]
+    },
+    {
+      "domain": "science.org",
+      "tier": 1,
+      "parent_organization": "science.org",
+      "category": "journal",
+      "known_issues": [],
+      "source_citations": [
+        "NewsGuard 2024 summary",
+        "MBFC 2024-06"
+      ]
+    },
+    {
+      "domain": "cell.com",
+      "tier": 1,
+      "parent_organization": "cell.com",
+      "category": "journal",
+      "known_issues": [],
+      "source_citations": [
+        "NewsGuard 2024 summary",
+        "MBFC 2024-06"
+      ]
+    },
+    {
+      "domain": "thelancet.com",
+      "tier": 1,
+      "parent_organization": "thelancet.com",
+      "category": "journal",
+      "known_issues": [],
+      "source_citations": [
+        "NewsGuard 2024 summary",
+        "MBFC 2024-06"
+      ]
+    },
+    {
+      "domain": "nejm.org",
+      "tier": 1,
+      "parent_organization": "nejm.org",
+      "category": "journal",
+      "known_issues": [],
+      "source_citations": [
+        "NewsGuard 2024 summary",
+        "MBFC 2024-06"
+      ]
+    },
+    {
+      "domain": "jamanetwork.com",
+      "tier": 1,
+      "parent_organization": "jamanetwork.com",
+      "category": "journal",
+      "known_issues": [],
+      "source_citations": [
+        "NewsGuard 2024 summary",
+        "MBFC 2024-06"
+      ]
+    },
+    {
+      "domain": "pnas.org",
+      "tier": 1,
+      "parent_organization": "pnas.org",
+      "category": "journal",
+      "known_issues": [],
+      "source_citations": [
+        "NewsGuard 2024 summary",
+        "MBFC 2024-06"
+      ]
+    },
+    {
+      "domain": "bmj.com",
+      "tier": 1,
+      "parent_organization": "bmj.com",
+      "category": "journal",
+      "known_issues": [],
+      "source_citations": [
+        "NewsGuard 2024 summary",
+        "MBFC 2024-06"
+      ]
+    },
+    {
+      "domain": "sciencedirect.com",
+      "tier": 1,
+      "parent_organization": "sciencedirect.com",
+      "category": "journal",
+      "known_issues": [],
+      "source_citations": [
+        "NewsGuard 2024 summary",
+        "MBFC 2024-06"
+      ]
+    },
+    {
+      "domain": "springer.com",
+      "tier": 1,
+      "parent_organization": "springer.com",
+      "category": "journal",
+      "known_issues": [],
+      "source_citations": [
+        "NewsGuard 2024 summary",
+        "MBFC 2024-06"
+      ]
+    },
+    {
+      "domain": "wiley.com",
+      "tier": 1,
+      "parent_organization": "wiley.com",
+      "category": "journal",
+      "known_issues": [],
+      "source_citations": [
+        "NewsGuard 2024 summary",
+        "MBFC 2024-06"
+      ]
+    },
+    {
+      "domain": "acm.org",
+      "tier": 1,
+      "parent_organization": "acm.org",
+      "category": "journal",
+      "known_issues": [],
+      "source_citations": [
+        "NewsGuard 2024 summary",
+        "MBFC 2024-06"
+      ]
+    },
+    {
+      "domain": "ieee.org",
+      "tier": 1,
+      "parent_organization": "ieee.org",
+      "category": "journal",
+      "known_issues": [],
+      "source_citations": [
+        "NewsGuard 2024 summary",
+        "MBFC 2024-06"
+      ]
+    },
+    {
+      "domain": "arxiv.org",
+      "tier": 1,
+      "parent_organization": "arxiv.org",
+      "category": "journal",
+      "known_issues": [],
+      "source_citations": [
+        "NewsGuard 2024 summary",
+        "MBFC 2024-06"
+      ]
+    },
+    {
+      "domain": "aaas.org",
+      "tier": 1,
+      "parent_organization": "aaas.org",
+      "category": "journal",
+      "known_issues": [],
+      "source_citations": [
+        "NewsGuard 2024 summary",
+        "MBFC 2024-06"
+      ]
+    },
+    {
+      "domain": "oup.com",
+      "tier": 1,
+      "parent_organization": "oup.com",
+      "category": "journal",
+      "known_issues": [],
+      "source_citations": [
+        "NewsGuard 2024 summary",
+        "MBFC 2024-06"
+      ]
+    },
+    {
+      "domain": "cambridge.org",
+      "tier": 1,
+      "parent_organization": "cambridge.org",
+      "category": "journal",
+      "known_issues": [],
+      "source_citations": [
+        "NewsGuard 2024 summary",
+        "MBFC 2024-06"
+      ]
+    },
+    {
+      "domain": "jstor.org",
+      "tier": 1,
+      "parent_organization": "jstor.org",
+      "category": "journal",
+      "known_issues": [],
+      "source_citations": [
+        "NewsGuard 2024 summary",
+        "MBFC 2024-06"
+      ]
+    },
+    {
+      "domain": "pubmed.ncbi.nlm.nih.gov",
+      "tier": 1,
+      "parent_organization": "pubmed.ncbi.nlm.nih.gov",
+      "category": "journal",
+      "known_issues": [],
+      "source_citations": [
+        "NewsGuard 2024 summary",
+        "MBFC 2024-06"
+      ]
+    },
+    {
+      "domain": "frontiersin.org",
+      "tier": 1,
+      "parent_organization": "frontiersin.org",
+      "category": "journal",
+      "known_issues": [],
+      "source_citations": [
+        "NewsGuard 2024 summary",
+        "MBFC 2024-06"
+      ]
+    },
+    {
+      "domain": "mdpi.com",
+      "tier": 1,
+      "parent_organization": "mdpi.com",
+      "category": "journal",
+      "known_issues": [],
+      "source_citations": [
+        "NewsGuard 2024 summary",
+        "MBFC 2024-06"
+      ]
+    },
+    {
+      "domain": "sagepub.com",
+      "tier": 1,
+      "parent_organization": "sagepub.com",
+      "category": "journal",
+      "known_issues": [],
+      "source_citations": [
+        "NewsGuard 2024 summary",
+        "MBFC 2024-06"
+      ]
+    },
+    {
+      "domain": "tandfonline.com",
+      "tier": 1,
+      "parent_organization": "tandfonline.com",
+      "category": "journal",
+      "known_issues": [],
+      "source_citations": [
+        "NewsGuard 2024 summary",
+        "MBFC 2024-06"
+      ]
+    },
+    {
+      "domain": "annualreviews.org",
+      "tier": 1,
+      "parent_organization": "annualreviews.org",
+      "category": "journal",
+      "known_issues": [],
+      "source_citations": [
+        "NewsGuard 2024 summary",
+        "MBFC 2024-06"
+      ]
+    },
+    {
+      "domain": "elsevier.com",
+      "tier": 1,
+      "parent_organization": "elsevier.com",
+      "category": "journal",
+      "known_issues": [],
+      "source_citations": [
+        "NewsGuard 2024 summary",
+        "MBFC 2024-06"
+      ]
+    },
+    {
+      "domain": "usa.gov",
+      "tier": 1,
+      "parent_organization": "usa.gov",
+      "category": "government",
+      "known_issues": [],
+      "source_citations": [
+        "NewsGuard 2024 summary",
+        "MBFC 2024-06"
+      ]
+    },
+    {
+      "domain": "whitehouse.gov",
+      "tier": 1,
+      "parent_organization": "whitehouse.gov",
+      "category": "government",
+      "known_issues": [],
+      "source_citations": [
+        "NewsGuard 2024 summary",
+        "MBFC 2024-06"
+      ]
+    },
+    {
+      "domain": "congress.gov",
+      "tier": 1,
+      "parent_organization": "congress.gov",
+      "category": "government",
+      "known_issues": [],
+      "source_citations": [
+        "NewsGuard 2024 summary",
+        "MBFC 2024-06"
+      ]
+    },
+    {
+      "domain": "supremecourt.gov",
+      "tier": 1,
+      "parent_organization": "supremecourt.gov",
+      "category": "government",
+      "known_issues": [],
+      "source_citations": [
+        "NewsGuard 2024 summary",
+        "MBFC 2024-06"
+      ]
+    },
+    {
+      "domain": "cdc.gov",
+      "tier": 1,
+      "parent_organization": "cdc.gov",
+      "category": "government",
+      "known_issues": [],
+      "source_citations": [
+        "NewsGuard 2024 summary",
+        "MBFC 2024-06"
+      ]
+    },
+    {
+      "domain": "nih.gov",
+      "tier": 1,
+      "parent_organization": "nih.gov",
+      "category": "government",
+      "known_issues": [],
+      "source_citations": [
+        "NewsGuard 2024 summary",
+        "MBFC 2024-06"
+      ]
+    },
+    {
+      "domain": "fda.gov",
+      "tier": 1,
+      "parent_organization": "fda.gov",
+      "category": "government",
+      "known_issues": [],
+      "source_citations": [
+        "NewsGuard 2024 summary",
+        "MBFC 2024-06"
+      ]
+    },
+    {
+      "domain": "nasa.gov",
+      "tier": 1,
+      "parent_organization": "nasa.gov",
+      "category": "government",
+      "known_issues": [],
+      "source_citations": [
+        "NewsGuard 2024 summary",
+        "MBFC 2024-06"
+      ]
+    },
+    {
+      "domain": "noaa.gov",
+      "tier": 1,
+      "parent_organization": "noaa.gov",
+      "category": "government",
+      "known_issues": [],
+      "source_citations": [
+        "NewsGuard 2024 summary",
+        "MBFC 2024-06"
+      ]
+    },
+    {
+      "domain": "nist.gov",
+      "tier": 1,
+      "parent_organization": "nist.gov",
+      "category": "government",
+      "known_issues": [],
+      "source_citations": [
+        "NewsGuard 2024 summary",
+        "MBFC 2024-06"
+      ]
+    },
+    {
+      "domain": "epa.gov",
+      "tier": 1,
+      "parent_organization": "epa.gov",
+      "category": "government",
+      "known_issues": [],
+      "source_citations": [
+        "NewsGuard 2024 summary",
+        "MBFC 2024-06"
+      ]
+    },
+    {
+      "domain": "energy.gov",
+      "tier": 1,
+      "parent_organization": "energy.gov",
+      "category": "government",
+      "known_issues": [],
+      "source_citations": [
+        "NewsGuard 2024 summary",
+        "MBFC 2024-06"
+      ]
+    },
+    {
+      "domain": "treasury.gov",
+      "tier": 1,
+      "parent_organization": "treasury.gov",
+      "category": "government",
+      "known_issues": [],
+      "source_citations": [
+        "NewsGuard 2024 summary",
+        "MBFC 2024-06"
+      ]
+    },
+    {
+      "domain": "state.gov",
+      "tier": 1,
+      "parent_organization": "state.gov",
+      "category": "government",
+      "known_issues": [],
+      "source_citations": [
+        "NewsGuard 2024 summary",
+        "MBFC 2024-06"
+      ]
+    },
+    {
+      "domain": "defense.gov",
+      "tier": 1,
+      "parent_organization": "defense.gov",
+      "category": "government",
+      "known_issues": [],
+      "source_citations": [
+        "NewsGuard 2024 summary",
+        "MBFC 2024-06"
+      ]
+    },
+    {
+      "domain": "justice.gov",
+      "tier": 1,
+      "parent_organization": "justice.gov",
+      "category": "government",
+      "known_issues": [],
+      "source_citations": [
+        "NewsGuard 2024 summary",
+        "MBFC 2024-06"
+      ]
+    },
+    {
+      "domain": "usgs.gov",
+      "tier": 1,
+      "parent_organization": "usgs.gov",
+      "category": "government",
+      "known_issues": [],
+      "source_citations": [
+        "NewsGuard 2024 summary",
+        "MBFC 2024-06"
+      ]
+    },
+    {
+      "domain": "census.gov",
+      "tier": 1,
+      "parent_organization": "census.gov",
+      "category": "government",
+      "known_issues": [],
+      "source_citations": [
+        "NewsGuard 2024 summary",
+        "MBFC 2024-06"
+      ]
+    },
+    {
+      "domain": "gao.gov",
+      "tier": 1,
+      "parent_organization": "gao.gov",
+      "category": "government",
+      "known_issues": [],
+      "source_citations": [
+        "NewsGuard 2024 summary",
+        "MBFC 2024-06"
+      ]
+    },
+    {
+      "domain": "sec.gov",
+      "tier": 1,
+      "parent_organization": "sec.gov",
+      "category": "government",
+      "known_issues": [],
+      "source_citations": [
+        "NewsGuard 2024 summary",
+        "MBFC 2024-06"
+      ]
+    },
+    {
+      "domain": "federalreserve.gov",
+      "tier": 1,
+      "parent_organization": "federalreserve.gov",
+      "category": "government",
+      "known_issues": [],
+      "source_citations": [
+        "NewsGuard 2024 summary",
+        "MBFC 2024-06"
+      ]
+    },
+    {
+      "domain": "uscourts.gov",
+      "tier": 1,
+      "parent_organization": "uscourts.gov",
+      "category": "government",
+      "known_issues": [],
+      "source_citations": [
+        "NewsGuard 2024 summary",
+        "MBFC 2024-06"
+      ]
+    },
+    {
+      "domain": "gov.uk",
+      "tier": 1,
+      "parent_organization": "gov.uk",
+      "category": "government",
+      "known_issues": [],
+      "source_citations": [
+        "NewsGuard 2024 summary",
+        "MBFC 2024-06"
+      ]
+    },
+    {
+      "domain": "canada.ca",
+      "tier": 1,
+      "parent_organization": "canada.ca",
+      "category": "government",
+      "known_issues": [],
+      "source_citations": [
+        "NewsGuard 2024 summary",
+        "MBFC 2024-06"
+      ]
+    },
+    {
+      "domain": "australia.gov.au",
+      "tier": 1,
+      "parent_organization": "australia.gov.au",
+      "category": "government",
+      "known_issues": [],
+      "source_citations": [
+        "NewsGuard 2024 summary",
+        "MBFC 2024-06"
+      ]
+    },
+    {
+      "domain": "mit.edu",
+      "tier": 1,
+      "parent_organization": "mit.edu",
+      "category": "academic",
+      "known_issues": [],
+      "source_citations": [
+        "NewsGuard 2024 summary",
+        "MBFC 2024-06"
+      ]
+    },
+    {
+      "domain": "stanford.edu",
+      "tier": 1,
+      "parent_organization": "stanford.edu",
+      "category": "academic",
+      "known_issues": [],
+      "source_citations": [
+        "NewsGuard 2024 summary",
+        "MBFC 2024-06"
+      ]
+    },
+    {
+      "domain": "harvard.edu",
+      "tier": 1,
+      "parent_organization": "harvard.edu",
+      "category": "academic",
+      "known_issues": [],
+      "source_citations": [
+        "NewsGuard 2024 summary",
+        "MBFC 2024-06"
+      ]
+    },
+    {
+      "domain": "ox.ac.uk",
+      "tier": 1,
+      "parent_organization": "ox.ac.uk",
+      "category": "academic",
+      "known_issues": [],
+      "source_citations": [
+        "NewsGuard 2024 summary",
+        "MBFC 2024-06"
+      ]
+    },
+    {
+      "domain": "cam.ac.uk",
+      "tier": 1,
+      "parent_organization": "cam.ac.uk",
+      "category": "academic",
+      "known_issues": [],
+      "source_citations": [
+        "NewsGuard 2024 summary",
+        "MBFC 2024-06"
+      ]
+    },
+    {
+      "domain": "berkeley.edu",
+      "tier": 1,
+      "parent_organization": "berkeley.edu",
+      "category": "academic",
+      "known_issues": [],
+      "source_citations": [
+        "NewsGuard 2024 summary",
+        "MBFC 2024-06"
+      ]
+    },
+    {
+      "domain": "ucla.edu",
+      "tier": 1,
+      "parent_organization": "ucla.edu",
+      "category": "academic",
+      "known_issues": [],
+      "source_citations": [
+        "NewsGuard 2024 summary",
+        "MBFC 2024-06"
+      ]
+    },
+    {
+      "domain": "umich.edu",
+      "tier": 1,
+      "parent_organization": "umich.edu",
+      "category": "academic",
+      "known_issues": [],
+      "source_citations": [
+        "NewsGuard 2024 summary",
+        "MBFC 2024-06"
+      ]
+    },
+    {
+      "domain": "princeton.edu",
+      "tier": 1,
+      "parent_organization": "princeton.edu",
+      "category": "academic",
+      "known_issues": [],
+      "source_citations": [
+        "NewsGuard 2024 summary",
+        "MBFC 2024-06"
+      ]
+    },
+    {
+      "domain": "yale.edu",
+      "tier": 1,
+      "parent_organization": "yale.edu",
+      "category": "academic",
+      "known_issues": [],
+      "source_citations": [
+        "NewsGuard 2024 summary",
+        "MBFC 2024-06"
+      ]
+    },
+    {
+      "domain": "uchicago.edu",
+      "tier": 1,
+      "parent_organization": "uchicago.edu",
+      "category": "academic",
+      "known_issues": [],
+      "source_citations": [
+        "NewsGuard 2024 summary",
+        "MBFC 2024-06"
+      ]
+    },
+    {
+      "domain": "columbia.edu",
+      "tier": 1,
+      "parent_organization": "columbia.edu",
+      "category": "academic",
+      "known_issues": [],
+      "source_citations": [
+        "NewsGuard 2024 summary",
+        "MBFC 2024-06"
+      ]
+    },
+    {
+      "domain": "cornell.edu",
+      "tier": 1,
+      "parent_organization": "cornell.edu",
+      "category": "academic",
+      "known_issues": [],
+      "source_citations": [
+        "NewsGuard 2024 summary",
+        "MBFC 2024-06"
+      ]
+    },
+    {
+      "domain": "upenn.edu",
+      "tier": 1,
+      "parent_organization": "upenn.edu",
+      "category": "academic",
+      "known_issues": [],
+      "source_citations": [
+        "NewsGuard 2024 summary",
+        "MBFC 2024-06"
+      ]
+    },
+    {
+      "domain": "caltech.edu",
+      "tier": 1,
+      "parent_organization": "caltech.edu",
+      "category": "academic",
+      "known_issues": [],
+      "source_citations": [
+        "NewsGuard 2024 summary",
+        "MBFC 2024-06"
+      ]
+    },
+    {
+      "domain": "imperial.ac.uk",
+      "tier": 1,
+      "parent_organization": "imperial.ac.uk",
+      "category": "academic",
+      "known_issues": [],
+      "source_citations": [
+        "NewsGuard 2024 summary",
+        "MBFC 2024-06"
+      ]
+    },
+    {
+      "domain": "ed.ac.uk",
+      "tier": 1,
+      "parent_organization": "ed.ac.uk",
+      "category": "academic",
+      "known_issues": [],
+      "source_citations": [
+        "NewsGuard 2024 summary",
+        "MBFC 2024-06"
+      ]
+    },
+    {
+      "domain": "utoronto.ca",
+      "tier": 1,
+      "parent_organization": "utoronto.ca",
+      "category": "academic",
+      "known_issues": [],
+      "source_citations": [
+        "NewsGuard 2024 summary",
+        "MBFC 2024-06"
+      ]
+    },
+    {
+      "domain": "mcgill.ca",
+      "tier": 1,
+      "parent_organization": "mcgill.ca",
+      "category": "academic",
+      "known_issues": [],
+      "source_citations": [
+        "NewsGuard 2024 summary",
+        "MBFC 2024-06"
+      ]
+    },
+    {
+      "domain": "ethz.ch",
+      "tier": 1,
+      "parent_organization": "ethz.ch",
+      "category": "academic",
+      "known_issues": [],
+      "source_citations": [
+        "NewsGuard 2024 summary",
+        "MBFC 2024-06"
+      ]
+    },
+    {
+      "domain": "nus.edu.sg",
+      "tier": 1,
+      "parent_organization": "nus.edu.sg",
+      "category": "academic",
+      "known_issues": [],
+      "source_citations": [
+        "NewsGuard 2024 summary",
+        "MBFC 2024-06"
+      ]
+    },
+    {
+      "domain": "anu.edu.au",
+      "tier": 1,
+      "parent_organization": "anu.edu.au",
+      "category": "academic",
+      "known_issues": [],
+      "source_citations": [
+        "NewsGuard 2024 summary",
+        "MBFC 2024-06"
+      ]
+    },
+    {
+      "domain": "unimelb.edu.au",
+      "tier": 1,
+      "parent_organization": "unimelb.edu.au",
+      "category": "academic",
+      "known_issues": [],
+      "source_citations": [
+        "NewsGuard 2024 summary",
+        "MBFC 2024-06"
+      ]
+    },
+    {
+      "domain": "washington.edu",
+      "tier": 1,
+      "parent_organization": "washington.edu",
+      "category": "academic",
+      "known_issues": [],
+      "source_citations": [
+        "NewsGuard 2024 summary",
+        "MBFC 2024-06"
+      ]
+    },
+    {
+      "domain": "duke.edu",
+      "tier": 1,
+      "parent_organization": "duke.edu",
+      "category": "academic",
+      "known_issues": [],
+      "source_citations": [
+        "NewsGuard 2024 summary",
+        "MBFC 2024-06"
+      ]
+    },
+    {
+      "domain": "johnshopkins.edu",
+      "tier": 1,
+      "parent_organization": "johnshopkins.edu",
+      "category": "academic",
+      "known_issues": [],
+      "source_citations": [
+        "NewsGuard 2024 summary",
+        "MBFC 2024-06"
+      ]
+    },
+    {
+      "domain": "northwestern.edu",
+      "tier": 1,
+      "parent_organization": "northwestern.edu",
+      "category": "academic",
+      "known_issues": [],
+      "source_citations": [
+        "NewsGuard 2024 summary",
+        "MBFC 2024-06"
+      ]
+    },
+    {
+      "domain": "cmu.edu",
+      "tier": 1,
+      "parent_organization": "cmu.edu",
+      "category": "academic",
+      "known_issues": [],
+      "source_citations": [
+        "NewsGuard 2024 summary",
+        "MBFC 2024-06"
+      ]
+    },
+    {
+      "domain": "axios.com",
+      "tier": 2,
+      "parent_organization": "axios.com",
+      "category": "news",
+      "known_issues": [],
+      "source_citations": [
+        "NewsGuard 2024 summary",
+        "MBFC 2024-06"
+      ]
+    },
+    {
+      "domain": "politico.com",
+      "tier": 2,
+      "parent_organization": "politico.com",
+      "category": "news",
+      "known_issues": [],
+      "source_citations": [
+        "NewsGuard 2024 summary",
+        "MBFC 2024-06"
+      ]
+    },
+    {
+      "domain": "thehill.com",
+      "tier": 2,
+      "parent_organization": "thehill.com",
+      "category": "news",
+      "known_issues": [],
+      "source_citations": [
+        "NewsGuard 2024 summary",
+        "MBFC 2024-06"
+      ]
+    },
+    {
+      "domain": "vox.com",
+      "tier": 2,
+      "parent_organization": "vox.com",
+      "category": "news",
+      "known_issues": [],
+      "source_citations": [
+        "NewsGuard 2024 summary",
+        "MBFC 2024-06"
+      ]
+    },
+    {
+      "domain": "slate.com",
+      "tier": 2,
+      "parent_organization": "slate.com",
+      "category": "news",
+      "known_issues": [],
+      "source_citations": [
+        "NewsGuard 2024 summary",
+        "MBFC 2024-06"
+      ]
+    },
+    {
+      "domain": "theatlantic.com",
+      "tier": 2,
+      "parent_organization": "theatlantic.com",
+      "category": "news",
+      "known_issues": [],
+      "source_citations": [
+        "NewsGuard 2024 summary",
+        "MBFC 2024-06"
+      ]
+    },
+    {
+      "domain": "newsweek.com",
+      "tier": 2,
+      "parent_organization": "newsweek.com",
+      "category": "news",
+      "known_issues": [],
+      "source_citations": [
+        "NewsGuard 2024 summary",
+        "MBFC 2024-06"
+      ]
+    },
+    {
+      "domain": "forbes.com",
+      "tier": 2,
+      "parent_organization": "forbes.com",
+      "category": "news",
+      "known_issues": [],
+      "source_citations": [
+        "NewsGuard 2024 summary",
+        "MBFC 2024-06"
+      ]
+    },
+    {
+      "domain": "businessinsider.com",
+      "tier": 2,
+      "parent_organization": "businessinsider.com",
+      "category": "news",
+      "known_issues": [],
+      "source_citations": [
+        "NewsGuard 2024 summary",
+        "MBFC 2024-06"
+      ]
+    },
+    {
+      "domain": "marketwatch.com",
+      "tier": 2,
+      "parent_organization": "marketwatch.com",
+      "category": "news",
+      "known_issues": [],
+      "source_citations": [
+        "NewsGuard 2024 summary",
+        "MBFC 2024-06"
+      ]
+    },
+    {
+      "domain": "seattletimes.com",
+      "tier": 2,
+      "parent_organization": "seattletimes.com",
+      "category": "news",
+      "known_issues": [],
+      "source_citations": [
+        "NewsGuard 2024 summary",
+        "MBFC 2024-06"
+      ]
+    },
+    {
+      "domain": "bostonglobe.com",
+      "tier": 2,
+      "parent_organization": "bostonglobe.com",
+      "category": "news",
+      "known_issues": [],
+      "source_citations": [
+        "NewsGuard 2024 summary",
+        "MBFC 2024-06"
+      ]
+    },
+    {
+      "domain": "denverpost.com",
+      "tier": 2,
+      "parent_organization": "denverpost.com",
+      "category": "news",
+      "known_issues": [],
+      "source_citations": [
+        "NewsGuard 2024 summary",
+        "MBFC 2024-06"
+      ]
+    },
+    {
+      "domain": "chicagotribune.com",
+      "tier": 2,
+      "parent_organization": "chicagotribune.com",
+      "category": "news",
+      "known_issues": [],
+      "source_citations": [
+        "NewsGuard 2024 summary",
+        "MBFC 2024-06"
+      ]
+    },
+    {
+      "domain": "startribune.com",
+      "tier": 2,
+      "parent_organization": "startribune.com",
+      "category": "news",
+      "known_issues": [],
+      "source_citations": [
+        "NewsGuard 2024 summary",
+        "MBFC 2024-06"
+      ]
+    },
+    {
+      "domain": "dallasnews.com",
+      "tier": 2,
+      "parent_organization": "dallasnews.com",
+      "category": "news",
+      "known_issues": [],
+      "source_citations": [
+        "NewsGuard 2024 summary",
+        "MBFC 2024-06"
+      ]
+    },
+    {
+      "domain": "sfgate.com",
+      "tier": 2,
+      "parent_organization": "sfgate.com",
+      "category": "news",
+      "known_issues": [],
+      "source_citations": [
+        "NewsGuard 2024 summary",
+        "MBFC 2024-06"
+      ]
+    },
+    {
+      "domain": "mercurynews.com",
+      "tier": 2,
+      "parent_organization": "mercurynews.com",
+      "category": "news",
+      "known_issues": [],
+      "source_citations": [
+        "NewsGuard 2024 summary",
+        "MBFC 2024-06"
+      ]
+    },
+    {
+      "domain": "aljazeera.com",
+      "tier": 2,
+      "parent_organization": "aljazeera.com",
+      "category": "news",
+      "known_issues": [],
+      "source_citations": [
+        "NewsGuard 2024 summary",
+        "MBFC 2024-06"
+      ]
+    },
+    {
+      "domain": "independent.co.uk",
+      "tier": 2,
+      "parent_organization": "independent.co.uk",
+      "category": "news",
+      "known_issues": [],
+      "source_citations": [
+        "NewsGuard 2024 summary",
+        "MBFC 2024-06"
+      ]
+    },
+    {
+      "domain": "telegraph.co.uk",
+      "tier": 2,
+      "parent_organization": "telegraph.co.uk",
+      "category": "news",
+      "known_issues": [],
+      "source_citations": [
+        "NewsGuard 2024 summary",
+        "MBFC 2024-06"
+      ]
+    },
+    {
+      "domain": "irishtimes.com",
+      "tier": 2,
+      "parent_organization": "irishtimes.com",
+      "category": "news",
+      "known_issues": [],
+      "source_citations": [
+        "NewsGuard 2024 summary",
+        "MBFC 2024-06"
+      ]
+    },
+    {
+      "domain": "scmp.com",
+      "tier": 2,
+      "parent_organization": "scmp.com",
+      "category": "news",
+      "known_issues": [],
+      "source_citations": [
+        "NewsGuard 2024 summary",
+        "MBFC 2024-06"
+      ]
+    },
+    {
+      "domain": "jakartapost.com",
+      "tier": 2,
+      "parent_organization": "jakartapost.com",
+      "category": "news",
+      "known_issues": [],
+      "source_citations": [
+        "NewsGuard 2024 summary",
+        "MBFC 2024-06"
+      ]
+    },
+    {
+      "domain": "haaretz.com",
+      "tier": 2,
+      "parent_organization": "haaretz.com",
+      "category": "news",
+      "known_issues": [],
+      "source_citations": [
+        "NewsGuard 2024 summary",
+        "MBFC 2024-06"
+      ]
+    },
+    {
+      "domain": "timesofindia.indiatimes.com",
+      "tier": 2,
+      "parent_organization": "timesofindia.indiatimes.com",
+      "category": "news",
+      "known_issues": [],
+      "source_citations": [
+        "NewsGuard 2024 summary",
+        "MBFC 2024-06"
+      ]
+    },
+    {
+      "domain": "thetimes.co.uk",
+      "tier": 2,
+      "parent_organization": "thetimes.co.uk",
+      "category": "news",
+      "known_issues": [],
+      "source_citations": [
+        "NewsGuard 2024 summary",
+        "MBFC 2024-06"
+      ]
+    },
+    {
+      "domain": "wionews.com",
+      "tier": 2,
+      "parent_organization": "wionews.com",
+      "category": "news",
+      "known_issues": [],
+      "source_citations": [
+        "NewsGuard 2024 summary",
+        "MBFC 2024-06"
+      ]
+    },
+    {
+      "domain": "france24.com",
+      "tier": 2,
+      "parent_organization": "france24.com",
+      "category": "news",
+      "known_issues": [],
+      "source_citations": [
+        "NewsGuard 2024 summary",
+        "MBFC 2024-06"
+      ]
+    },
+    {
+      "domain": "rfi.fr",
+      "tier": 2,
+      "parent_organization": "rfi.fr",
+      "category": "news",
+      "known_issues": [],
+      "source_citations": [
+        "NewsGuard 2024 summary",
+        "MBFC 2024-06"
+      ]
+    },
+    {
+      "domain": "euronews.com",
+      "tier": 2,
+      "parent_organization": "euronews.com",
+      "category": "news",
+      "known_issues": [],
+      "source_citations": [
+        "NewsGuard 2024 summary",
+        "MBFC 2024-06"
+      ]
+    },
+    {
+      "domain": "phys.org",
+      "tier": 2,
+      "parent_organization": "phys.org",
+      "category": "science",
+      "known_issues": [],
+      "source_citations": [
+        "NewsGuard 2024 summary",
+        "MBFC 2024-06"
+      ]
+    },
+    {
+      "domain": "newscientist.com",
+      "tier": 2,
+      "parent_organization": "newscientist.com",
+      "category": "science",
+      "known_issues": [],
+      "source_citations": [
+        "NewsGuard 2024 summary",
+        "MBFC 2024-06"
+      ]
+    },
+    {
+      "domain": "scientificamerican.com",
+      "tier": 2,
+      "parent_organization": "scientificamerican.com",
+      "category": "science",
+      "known_issues": [],
+      "source_citations": [
+        "NewsGuard 2024 summary",
+        "MBFC 2024-06"
+      ]
+    },
+    {
+      "domain": "livescience.com",
+      "tier": 2,
+      "parent_organization": "livescience.com",
+      "category": "science",
+      "known_issues": [],
+      "source_citations": [
+        "NewsGuard 2024 summary",
+        "MBFC 2024-06"
+      ]
+    },
+    {
+      "domain": "space.com",
+      "tier": 2,
+      "parent_organization": "space.com",
+      "category": "science",
+      "known_issues": [],
+      "source_citations": [
+        "NewsGuard 2024 summary",
+        "MBFC 2024-06"
+      ]
+    },
+    {
+      "domain": "nationalgeographic.com",
+      "tier": 2,
+      "parent_organization": "nationalgeographic.com",
+      "category": "science",
+      "known_issues": [],
+      "source_citations": [
+        "NewsGuard 2024 summary",
+        "MBFC 2024-06"
+      ]
+    },
+    {
+      "domain": "smithsonianmag.com",
+      "tier": 2,
+      "parent_organization": "smithsonianmag.com",
+      "category": "science",
+      "known_issues": [],
+      "source_citations": [
+        "NewsGuard 2024 summary",
+        "MBFC 2024-06"
+      ]
+    },
+    {
+      "domain": "acsh.org",
+      "tier": 2,
+      "parent_organization": "acsh.org",
+      "category": "science",
+      "known_issues": [],
+      "source_citations": [
+        "NewsGuard 2024 summary",
+        "MBFC 2024-06"
+      ]
+    },
+    {
+      "domain": "ourworldindata.org",
+      "tier": 2,
+      "parent_organization": "ourworldindata.org",
+      "category": "science",
+      "known_issues": [],
+      "source_citations": [
+        "NewsGuard 2024 summary",
+        "MBFC 2024-06"
+      ]
+    },
+    {
+      "domain": "openalex.org",
+      "tier": 2,
+      "parent_organization": "openalex.org",
+      "category": "science",
+      "known_issues": [],
+      "source_citations": [
+        "NewsGuard 2024 summary",
+        "MBFC 2024-06"
+      ]
+    },
+    {
+      "domain": "crossref.org",
+      "tier": 2,
+      "parent_organization": "crossref.org",
+      "category": "science",
+      "known_issues": [],
+      "source_citations": [
+        "NewsGuard 2024 summary",
+        "MBFC 2024-06"
+      ]
+    },
+    {
+      "domain": "zenodo.org",
+      "tier": 2,
+      "parent_organization": "zenodo.org",
+      "category": "science",
+      "known_issues": [],
+      "source_citations": [
+        "NewsGuard 2024 summary",
+        "MBFC 2024-06"
+      ]
+    },
+    {
+      "domain": "osf.io",
+      "tier": 2,
+      "parent_organization": "osf.io",
+      "category": "science",
+      "known_issues": [],
+      "source_citations": [
+        "NewsGuard 2024 summary",
+        "MBFC 2024-06"
+      ]
+    },
+    {
+      "domain": "plos.org",
+      "tier": 2,
+      "parent_organization": "plos.org",
+      "category": "science",
+      "known_issues": [],
+      "source_citations": [
+        "NewsGuard 2024 summary",
+        "MBFC 2024-06"
+      ]
+    },
+    {
+      "domain": "eurekalert.org",
+      "tier": 2,
+      "parent_organization": "eurekalert.org",
+      "category": "science",
+      "known_issues": [],
+      "source_citations": [
+        "NewsGuard 2024 summary",
+        "MBFC 2024-06"
+      ]
+    },
+    {
+      "domain": "britannica.com",
+      "tier": 2,
+      "parent_organization": "britannica.com",
+      "category": "reference",
+      "known_issues": [],
+      "source_citations": [
+        "NewsGuard 2024 summary",
+        "MBFC 2024-06"
+      ]
+    },
+    {
+      "domain": "merriam-webster.com",
+      "tier": 2,
+      "parent_organization": "merriam-webster.com",
+      "category": "reference",
+      "known_issues": [],
+      "source_citations": [
+        "NewsGuard 2024 summary",
+        "MBFC 2024-06"
+      ]
+    },
+    {
+      "domain": "dictionary.com",
+      "tier": 2,
+      "parent_organization": "dictionary.com",
+      "category": "reference",
+      "known_issues": [],
+      "source_citations": [
+        "NewsGuard 2024 summary",
+        "MBFC 2024-06"
+      ]
+    },
+    {
+      "domain": "wikidata.org",
+      "tier": 2,
+      "parent_organization": "wikidata.org",
+      "category": "reference",
+      "known_issues": [],
+      "source_citations": [
+        "NewsGuard 2024 summary",
+        "MBFC 2024-06"
+      ]
+    },
+    {
+      "domain": "wikipedia.org",
+      "tier": 2,
+      "parent_organization": "wikipedia.org",
+      "category": "reference",
+      "known_issues": [],
+      "source_citations": [
+        "NewsGuard 2024 summary",
+        "MBFC 2024-06"
+      ]
+    },
+    {
+      "domain": "investopedia.com",
+      "tier": 2,
+      "parent_organization": "investopedia.com",
+      "category": "reference",
+      "known_issues": [],
+      "source_citations": [
+        "NewsGuard 2024 summary",
+        "MBFC 2024-06"
+      ]
+    },
+    {
+      "domain": "khanacademy.org",
+      "tier": 2,
+      "parent_organization": "khanacademy.org",
+      "category": "reference",
+      "known_issues": [],
+      "source_citations": [
+        "NewsGuard 2024 summary",
+        "MBFC 2024-06"
+      ]
+    },
+    {
+      "domain": "coursera.org",
+      "tier": 2,
+      "parent_organization": "coursera.org",
+      "category": "reference",
+      "known_issues": [],
+      "source_citations": [
+        "NewsGuard 2024 summary",
+        "MBFC 2024-06"
+      ]
+    },
+    {
+      "domain": "edx.org",
+      "tier": 2,
+      "parent_organization": "edx.org",
+      "category": "reference",
+      "known_issues": [],
+      "source_citations": [
+        "NewsGuard 2024 summary",
+        "MBFC 2024-06"
+      ]
+    },
+    {
+      "domain": "datacamp.com",
+      "tier": 2,
+      "parent_organization": "datacamp.com",
+      "category": "reference",
+      "known_issues": [],
+      "source_citations": [
+        "NewsGuard 2024 summary",
+        "MBFC 2024-06"
+      ]
+    },
+    {
+      "domain": "mozilla.org",
+      "tier": 2,
+      "parent_organization": "mozilla.org",
+      "category": "reference",
+      "known_issues": [],
+      "source_citations": [
+        "NewsGuard 2024 summary",
+        "MBFC 2024-06"
+      ]
+    },
+    {
+      "domain": "python.org",
+      "tier": 2,
+      "parent_organization": "python.org",
+      "category": "reference",
+      "known_issues": [],
+      "source_citations": [
+        "NewsGuard 2024 summary",
+        "MBFC 2024-06"
+      ]
+    },
+    {
+      "domain": "r-project.org",
+      "tier": 2,
+      "parent_organization": "r-project.org",
+      "category": "reference",
+      "known_issues": [],
+      "source_citations": [
+        "NewsGuard 2024 summary",
+        "MBFC 2024-06"
+      ]
+    },
+    {
+      "domain": "postgresql.org",
+      "tier": 2,
+      "parent_organization": "postgresql.org",
+      "category": "reference",
+      "known_issues": [],
+      "source_citations": [
+        "NewsGuard 2024 summary",
+        "MBFC 2024-06"
+      ]
+    },
+    {
+      "domain": "numpy.org",
+      "tier": 2,
+      "parent_organization": "numpy.org",
+      "category": "reference",
+      "known_issues": [],
+      "source_citations": [
+        "NewsGuard 2024 summary",
+        "MBFC 2024-06"
+      ]
+    },
+    {
+      "domain": "pytorch.org",
+      "tier": 2,
+      "parent_organization": "pytorch.org",
+      "category": "reference",
+      "known_issues": [],
+      "source_citations": [
+        "NewsGuard 2024 summary",
+        "MBFC 2024-06"
+      ]
+    },
+    {
+      "domain": "tensorflow.org",
+      "tier": 2,
+      "parent_organization": "tensorflow.org",
+      "category": "reference",
+      "known_issues": [],
+      "source_citations": [
+        "NewsGuard 2024 summary",
+        "MBFC 2024-06"
+      ]
+    },
+    {
+      "domain": "kubernetes.io",
+      "tier": 2,
+      "parent_organization": "kubernetes.io",
+      "category": "reference",
+      "known_issues": [],
+      "source_citations": [
+        "NewsGuard 2024 summary",
+        "MBFC 2024-06"
+      ]
+    },
+    {
+      "domain": "docs.github.com",
+      "tier": 2,
+      "parent_organization": "docs.github.com",
+      "category": "reference",
+      "known_issues": [],
+      "source_citations": [
+        "NewsGuard 2024 summary",
+        "MBFC 2024-06"
+      ]
+    },
+    {
+      "domain": "developer.mozilla.org",
+      "tier": 2,
+      "parent_organization": "developer.mozilla.org",
+      "category": "reference",
+      "known_issues": [],
+      "source_citations": [
+        "NewsGuard 2024 summary",
+        "MBFC 2024-06"
+      ]
+    },
+    {
+      "domain": "stripe.com",
+      "tier": 2,
+      "parent_organization": "stripe.com",
+      "category": "reference",
+      "known_issues": [],
+      "source_citations": [
+        "NewsGuard 2024 summary",
+        "MBFC 2024-06"
+      ]
+    },
+    {
+      "domain": "cloudflare.com",
+      "tier": 2,
+      "parent_organization": "cloudflare.com",
+      "category": "reference",
+      "known_issues": [],
+      "source_citations": [
+        "NewsGuard 2024 summary",
+        "MBFC 2024-06"
+      ]
+    },
+    {
+      "domain": "vercel.com",
+      "tier": 2,
+      "parent_organization": "vercel.com",
+      "category": "reference",
+      "known_issues": [],
+      "source_citations": [
+        "NewsGuard 2024 summary",
+        "MBFC 2024-06"
+      ]
+    },
+    {
+      "domain": "inquirer.com",
+      "tier": 2,
+      "parent_organization": "inquirer.com",
+      "category": "regional_news",
+      "known_issues": [],
+      "source_citations": [
+        "NewsGuard 2024 summary",
+        "MBFC 2024-06"
+      ]
+    },
+    {
+      "domain": "miamiherald.com",
+      "tier": 2,
+      "parent_organization": "miamiherald.com",
+      "category": "regional_news",
+      "known_issues": [],
+      "source_citations": [
+        "NewsGuard 2024 summary",
+        "MBFC 2024-06"
+      ]
+    },
+    {
+      "domain": "tampabay.com",
+      "tier": 2,
+      "parent_organization": "tampabay.com",
+      "category": "regional_news",
+      "known_issues": [],
+      "source_citations": [
+        "NewsGuard 2024 summary",
+        "MBFC 2024-06"
+      ]
+    },
+    {
+      "domain": "orlandosentinel.com",
+      "tier": 2,
+      "parent_organization": "orlandosentinel.com",
+      "category": "regional_news",
+      "known_issues": [],
+      "source_citations": [
+        "NewsGuard 2024 summary",
+        "MBFC 2024-06"
+      ]
+    },
+    {
+      "domain": "charlotteobserver.com",
+      "tier": 2,
+      "parent_organization": "charlotteobserver.com",
+      "category": "regional_news",
+      "known_issues": [],
+      "source_citations": [
+        "NewsGuard 2024 summary",
+        "MBFC 2024-06"
+      ]
+    },
+    {
+      "domain": "kansascity.com",
+      "tier": 2,
+      "parent_organization": "kansascity.com",
+      "category": "regional_news",
+      "known_issues": [],
+      "source_citations": [
+        "NewsGuard 2024 summary",
+        "MBFC 2024-06"
+      ]
+    },
+    {
+      "domain": "sacbee.com",
+      "tier": 2,
+      "parent_organization": "sacbee.com",
+      "category": "regional_news",
+      "known_issues": [],
+      "source_citations": [
+        "NewsGuard 2024 summary",
+        "MBFC 2024-06"
+      ]
+    },
+    {
+      "domain": "postandcourier.com",
+      "tier": 2,
+      "parent_organization": "postandcourier.com",
+      "category": "regional_news",
+      "known_issues": [],
+      "source_citations": [
+        "NewsGuard 2024 summary",
+        "MBFC 2024-06"
+      ]
+    },
+    {
+      "domain": "omaha.com",
+      "tier": 2,
+      "parent_organization": "omaha.com",
+      "category": "regional_news",
+      "known_issues": [],
+      "source_citations": [
+        "NewsGuard 2024 summary",
+        "MBFC 2024-06"
+      ]
+    },
+    {
+      "domain": "detroitnews.com",
+      "tier": 2,
+      "parent_organization": "detroitnews.com",
+      "category": "regional_news",
+      "known_issues": [],
+      "source_citations": [
+        "NewsGuard 2024 summary",
+        "MBFC 2024-06"
+      ]
+    },
+    {
+      "domain": "freep.com",
+      "tier": 2,
+      "parent_organization": "freep.com",
+      "category": "regional_news",
+      "known_issues": [],
+      "source_citations": [
+        "NewsGuard 2024 summary",
+        "MBFC 2024-06"
+      ]
+    },
+    {
+      "domain": "journalstar.com",
+      "tier": 2,
+      "parent_organization": "journalstar.com",
+      "category": "regional_news",
+      "known_issues": [],
+      "source_citations": [
+        "NewsGuard 2024 summary",
+        "MBFC 2024-06"
+      ]
+    },
+    {
+      "domain": "ctpost.com",
+      "tier": 2,
+      "parent_organization": "ctpost.com",
+      "category": "regional_news",
+      "known_issues": [],
+      "source_citations": [
+        "NewsGuard 2024 summary",
+        "MBFC 2024-06"
+      ]
+    },
+    {
+      "domain": "staradvertiser.com",
+      "tier": 2,
+      "parent_organization": "staradvertiser.com",
+      "category": "regional_news",
+      "known_issues": [],
+      "source_citations": [
+        "NewsGuard 2024 summary",
+        "MBFC 2024-06"
+      ]
+    },
+    {
+      "domain": "newsobserver.com",
+      "tier": 2,
+      "parent_organization": "newsobserver.com",
+      "category": "regional_news",
+      "known_issues": [],
+      "source_citations": [
+        "NewsGuard 2024 summary",
+        "MBFC 2024-06"
+      ]
+    },
+    {
+      "domain": "statesman.com",
+      "tier": 2,
+      "parent_organization": "statesman.com",
+      "category": "regional_news",
+      "known_issues": [],
+      "source_citations": [
+        "NewsGuard 2024 summary",
+        "MBFC 2024-06"
+      ]
+    },
+    {
+      "domain": "azcentral.com",
+      "tier": 2,
+      "parent_organization": "azcentral.com",
+      "category": "regional_news",
+      "known_issues": [],
+      "source_citations": [
+        "NewsGuard 2024 summary",
+        "MBFC 2024-06"
+      ]
+    },
+    {
+      "domain": "adelaidenow.com.au",
+      "tier": 2,
+      "parent_organization": "adelaidenow.com.au",
+      "category": "regional_news",
+      "known_issues": [],
+      "source_citations": [
+        "NewsGuard 2024 summary",
+        "MBFC 2024-06"
+      ]
+    },
+    {
+      "domain": "nzherald.co.nz",
+      "tier": 2,
+      "parent_organization": "nzherald.co.nz",
+      "category": "regional_news",
+      "known_issues": [],
+      "source_citations": [
+        "NewsGuard 2024 summary",
+        "MBFC 2024-06"
+      ]
+    },
+    {
+      "domain": "thestar.com",
+      "tier": 2,
+      "parent_organization": "thestar.com",
+      "category": "regional_news",
+      "known_issues": [],
+      "source_citations": [
+        "NewsGuard 2024 summary",
+        "MBFC 2024-06"
+      ]
+    },
+    {
+      "domain": "montrealgazette.com",
+      "tier": 2,
+      "parent_organization": "montrealgazette.com",
+      "category": "regional_news",
+      "known_issues": [],
+      "source_citations": [
+        "NewsGuard 2024 summary",
+        "MBFC 2024-06"
+      ]
+    },
+    {
+      "domain": "medium.com",
+      "tier": 3,
+      "parent_organization": "medium.com",
+      "category": "community_reference",
+      "known_issues": [],
+      "source_citations": [
+        "NewsGuard 2024 summary",
+        "MBFC 2024-06"
+      ]
+    },
+    {
+      "domain": "substack.com",
+      "tier": 3,
+      "parent_organization": "substack.com",
+      "category": "community_reference",
+      "known_issues": [],
+      "source_citations": [
+        "NewsGuard 2024 summary",
+        "MBFC 2024-06"
+      ]
+    },
+    {
+      "domain": "quora.com",
+      "tier": 3,
+      "parent_organization": "quora.com",
+      "category": "community_reference",
+      "known_issues": [],
+      "source_citations": [
+        "NewsGuard 2024 summary",
+        "MBFC 2024-06"
+      ]
+    },
+    {
+      "domain": "reddit.com",
+      "tier": 3,
+      "parent_organization": "reddit.com",
+      "category": "community_reference",
+      "known_issues": [],
+      "source_citations": [
+        "NewsGuard 2024 summary",
+        "MBFC 2024-06"
+      ]
+    },
+    {
+      "domain": "stackexchange.com",
+      "tier": 3,
+      "parent_organization": "stackexchange.com",
+      "category": "community_reference",
+      "known_issues": [],
+      "source_citations": [
+        "NewsGuard 2024 summary",
+        "MBFC 2024-06"
+      ]
+    },
+    {
+      "domain": "dev.to",
+      "tier": 3,
+      "parent_organization": "dev.to",
+      "category": "community_reference",
+      "known_issues": [],
+      "source_citations": [
+        "NewsGuard 2024 summary",
+        "MBFC 2024-06"
+      ]
+    },
+    {
+      "domain": "towardsdatascience.com",
+      "tier": 3,
+      "parent_organization": "towardsdatascience.com",
+      "category": "community_reference",
+      "known_issues": [],
+      "source_citations": [
+        "NewsGuard 2024 summary",
+        "MBFC 2024-06"
+      ]
+    },
+    {
+      "domain": "kaggle.com",
+      "tier": 3,
+      "parent_organization": "kaggle.com",
+      "category": "community_reference",
+      "known_issues": [],
+      "source_citations": [
+        "NewsGuard 2024 summary",
+        "MBFC 2024-06"
+      ]
+    },
+    {
+      "domain": "fandom.com",
+      "tier": 3,
+      "parent_organization": "fandom.com",
+      "category": "community_reference",
+      "known_issues": [],
+      "source_citations": [
+        "NewsGuard 2024 summary",
+        "MBFC 2024-06"
+      ]
+    },
+    {
+      "domain": "imdb.com",
+      "tier": 3,
+      "parent_organization": "imdb.com",
+      "category": "community_reference",
+      "known_issues": [],
+      "source_citations": [
+        "NewsGuard 2024 summary",
+        "MBFC 2024-06"
+      ]
+    },
+    {
+      "domain": "rottentomatoes.com",
+      "tier": 3,
+      "parent_organization": "rottentomatoes.com",
+      "category": "community_reference",
+      "known_issues": [],
+      "source_citations": [
+        "NewsGuard 2024 summary",
+        "MBFC 2024-06"
+      ]
+    },
+    {
+      "domain": "goodreads.com",
+      "tier": 3,
+      "parent_organization": "goodreads.com",
+      "category": "community_reference",
+      "known_issues": [],
+      "source_citations": [
+        "NewsGuard 2024 summary",
+        "MBFC 2024-06"
+      ]
+    },
+    {
+      "domain": "allmusic.com",
+      "tier": 3,
+      "parent_organization": "allmusic.com",
+      "category": "community_reference",
+      "known_issues": [],
+      "source_citations": [
+        "NewsGuard 2024 summary",
+        "MBFC 2024-06"
+      ]
+    },
+    {
+      "domain": "pitchfork.com",
+      "tier": 3,
+      "parent_organization": "pitchfork.com",
+      "category": "community_reference",
+      "known_issues": [],
+      "source_citations": [
+        "NewsGuard 2024 summary",
+        "MBFC 2024-06"
+      ]
+    },
+    {
+      "domain": "metacritic.com",
+      "tier": 3,
+      "parent_organization": "metacritic.com",
+      "category": "community_reference",
+      "known_issues": [],
+      "source_citations": [
+        "NewsGuard 2024 summary",
+        "MBFC 2024-06"
+      ]
+    },
+    {
+      "domain": "archive.org",
+      "tier": 3,
+      "parent_organization": "archive.org",
+      "category": "community_reference",
+      "known_issues": [],
+      "source_citations": [
+        "NewsGuard 2024 summary",
+        "MBFC 2024-06"
+      ]
+    },
+    {
+      "domain": "wayback.archive.org",
+      "tier": 3,
+      "parent_organization": "wayback.archive.org",
+      "category": "community_reference",
+      "known_issues": [],
+      "source_citations": [
+        "NewsGuard 2024 summary",
+        "MBFC 2024-06"
+      ]
+    },
+    {
+      "domain": "slideshare.net",
+      "tier": 3,
+      "parent_organization": "slideshare.net",
+      "category": "community_reference",
+      "known_issues": [],
+      "source_citations": [
+        "NewsGuard 2024 summary",
+        "MBFC 2024-06"
+      ]
+    },
+    {
+      "domain": "figshare.com",
+      "tier": 3,
+      "parent_organization": "figshare.com",
+      "category": "community_reference",
+      "known_issues": [],
+      "source_citations": [
+        "NewsGuard 2024 summary",
+        "MBFC 2024-06"
+      ]
+    },
+    {
+      "domain": "researchgate.net",
+      "tier": 3,
+      "parent_organization": "researchgate.net",
+      "category": "community_reference",
+      "known_issues": [],
+      "source_citations": [
+        "NewsGuard 2024 summary",
+        "MBFC 2024-06"
+      ]
+    },
+    {
+      "domain": "academia.edu",
+      "tier": 3,
+      "parent_organization": "academia.edu",
+      "category": "community_reference",
+      "known_issues": [],
+      "source_citations": [
+        "NewsGuard 2024 summary",
+        "MBFC 2024-06"
+      ]
+    },
+    {
+      "domain": "ssrn.com",
+      "tier": 3,
+      "parent_organization": "ssrn.com",
+      "category": "community_reference",
+      "known_issues": [],
+      "source_citations": [
+        "NewsGuard 2024 summary",
+        "MBFC 2024-06"
+      ]
+    },
+    {
+      "domain": "protocol.com",
+      "tier": 3,
+      "parent_organization": "protocol.com",
+      "category": "community_reference",
+      "known_issues": [],
+      "source_citations": [
+        "NewsGuard 2024 summary",
+        "MBFC 2024-06"
+      ]
+    },
+    {
+      "domain": "gizmodo.com",
+      "tier": 3,
+      "parent_organization": "gizmodo.com",
+      "category": "community_reference",
+      "known_issues": [],
+      "source_citations": [
+        "NewsGuard 2024 summary",
+        "MBFC 2024-06"
+      ]
+    },
+    {
+      "domain": "techcrunch.com",
+      "tier": 3,
+      "parent_organization": "techcrunch.com",
+      "category": "community_reference",
+      "known_issues": [],
+      "source_citations": [
+        "NewsGuard 2024 summary",
+        "MBFC 2024-06"
+      ]
+    },
+    {
+      "domain": "engadget.com",
+      "tier": 3,
+      "parent_organization": "engadget.com",
+      "category": "community_reference",
+      "known_issues": [],
+      "source_citations": [
+        "NewsGuard 2024 summary",
+        "MBFC 2024-06"
+      ]
+    },
+    {
+      "domain": "theverge.com",
+      "tier": 3,
+      "parent_organization": "theverge.com",
+      "category": "community_reference",
+      "known_issues": [],
+      "source_citations": [
+        "NewsGuard 2024 summary",
+        "MBFC 2024-06"
+      ]
+    },
+    {
+      "domain": "arstechnica.com",
+      "tier": 3,
+      "parent_organization": "arstechnica.com",
+      "category": "community_reference",
+      "known_issues": [],
+      "source_citations": [
+        "NewsGuard 2024 summary",
+        "MBFC 2024-06"
+      ]
+    },
+    {
+      "domain": "zdnet.com",
+      "tier": 3,
+      "parent_organization": "zdnet.com",
+      "category": "community_reference",
+      "known_issues": [],
+      "source_citations": [
+        "NewsGuard 2024 summary",
+        "MBFC 2024-06"
+      ]
+    },
+    {
+      "domain": "cnet.com",
+      "tier": 3,
+      "parent_organization": "cnet.com",
+      "category": "community_reference",
+      "known_issues": [],
+      "source_citations": [
+        "NewsGuard 2024 summary",
+        "MBFC 2024-06"
+      ]
+    },
+    {
+      "domain": "gartner.com",
+      "tier": 3,
+      "parent_organization": "gartner.com",
+      "category": "industry",
+      "known_issues": [],
+      "source_citations": [
+        "NewsGuard 2024 summary",
+        "MBFC 2024-06"
+      ]
+    },
+    {
+      "domain": "forrester.com",
+      "tier": 3,
+      "parent_organization": "forrester.com",
+      "category": "industry",
+      "known_issues": [],
+      "source_citations": [
+        "NewsGuard 2024 summary",
+        "MBFC 2024-06"
+      ]
+    },
+    {
+      "domain": "idc.com",
+      "tier": 3,
+      "parent_organization": "idc.com",
+      "category": "industry",
+      "known_issues": [],
+      "source_citations": [
+        "NewsGuard 2024 summary",
+        "MBFC 2024-06"
+      ]
+    },
+    {
+      "domain": "mckinsey.com",
+      "tier": 3,
+      "parent_organization": "mckinsey.com",
+      "category": "industry",
+      "known_issues": [],
+      "source_citations": [
+        "NewsGuard 2024 summary",
+        "MBFC 2024-06"
+      ]
+    },
+    {
+      "domain": "bcg.com",
+      "tier": 3,
+      "parent_organization": "bcg.com",
+      "category": "industry",
+      "known_issues": [],
+      "source_citations": [
+        "NewsGuard 2024 summary",
+        "MBFC 2024-06"
+      ]
+    },
+    {
+      "domain": "deloitte.com",
+      "tier": 3,
+      "parent_organization": "deloitte.com",
+      "category": "industry",
+      "known_issues": [],
+      "source_citations": [
+        "NewsGuard 2024 summary",
+        "MBFC 2024-06"
+      ]
+    },
+    {
+      "domain": "pwc.com",
+      "tier": 3,
+      "parent_organization": "pwc.com",
+      "category": "industry",
+      "known_issues": [],
+      "source_citations": [
+        "NewsGuard 2024 summary",
+        "MBFC 2024-06"
+      ]
+    },
+    {
+      "domain": "kpmg.com",
+      "tier": 3,
+      "parent_organization": "kpmg.com",
+      "category": "industry",
+      "known_issues": [],
+      "source_citations": [
+        "NewsGuard 2024 summary",
+        "MBFC 2024-06"
+      ]
+    },
+    {
+      "domain": "ey.com",
+      "tier": 3,
+      "parent_organization": "ey.com",
+      "category": "industry",
+      "known_issues": [],
+      "source_citations": [
+        "NewsGuard 2024 summary",
+        "MBFC 2024-06"
+      ]
+    },
+    {
+      "domain": "accenture.com",
+      "tier": 3,
+      "parent_organization": "accenture.com",
+      "category": "industry",
+      "known_issues": [],
+      "source_citations": [
+        "NewsGuard 2024 summary",
+        "MBFC 2024-06"
+      ]
+    },
+    {
+      "domain": "ibm.com",
+      "tier": 3,
+      "parent_organization": "ibm.com",
+      "category": "industry",
+      "known_issues": [],
+      "source_citations": [
+        "NewsGuard 2024 summary",
+        "MBFC 2024-06"
+      ]
+    },
+    {
+      "domain": "oracle.com",
+      "tier": 3,
+      "parent_organization": "oracle.com",
+      "category": "industry",
+      "known_issues": [],
+      "source_citations": [
+        "NewsGuard 2024 summary",
+        "MBFC 2024-06"
+      ]
+    },
+    {
+      "domain": "salesforce.com",
+      "tier": 3,
+      "parent_organization": "salesforce.com",
+      "category": "industry",
+      "known_issues": [],
+      "source_citations": [
+        "NewsGuard 2024 summary",
+        "MBFC 2024-06"
+      ]
+    },
+    {
+      "domain": "hubspot.com",
+      "tier": 3,
+      "parent_organization": "hubspot.com",
+      "category": "industry",
+      "known_issues": [],
+      "source_citations": [
+        "NewsGuard 2024 summary",
+        "MBFC 2024-06"
+      ]
+    },
+    {
+      "domain": "atlassian.com",
+      "tier": 3,
+      "parent_organization": "atlassian.com",
+      "category": "industry",
+      "known_issues": [],
+      "source_citations": [
+        "NewsGuard 2024 summary",
+        "MBFC 2024-06"
+      ]
+    },
+    {
+      "domain": "notion.so",
+      "tier": 3,
+      "parent_organization": "notion.so",
+      "category": "industry",
+      "known_issues": [],
+      "source_citations": [
+        "NewsGuard 2024 summary",
+        "MBFC 2024-06"
+      ]
+    },
+    {
+      "domain": "airtable.com",
+      "tier": 3,
+      "parent_organization": "airtable.com",
+      "category": "industry",
+      "known_issues": [],
+      "source_citations": [
+        "NewsGuard 2024 summary",
+        "MBFC 2024-06"
+      ]
+    },
+    {
+      "domain": "asana.com",
+      "tier": 3,
+      "parent_organization": "asana.com",
+      "category": "industry",
+      "known_issues": [],
+      "source_citations": [
+        "NewsGuard 2024 summary",
+        "MBFC 2024-06"
+      ]
+    },
+    {
+      "domain": "readthedocs.io",
+      "tier": 3,
+      "parent_organization": "readthedocs.io",
+      "category": "technical_docs",
+      "known_issues": [],
+      "source_citations": [
+        "NewsGuard 2024 summary",
+        "MBFC 2024-06"
+      ]
+    },
+    {
+      "domain": "npmjs.com",
+      "tier": 3,
+      "parent_organization": "npmjs.com",
+      "category": "technical_docs",
+      "known_issues": [],
+      "source_citations": [
+        "NewsGuard 2024 summary",
+        "MBFC 2024-06"
+      ]
+    },
+    {
+      "domain": "pypi.org",
+      "tier": 3,
+      "parent_organization": "pypi.org",
+      "category": "technical_docs",
+      "known_issues": [],
+      "source_citations": [
+        "NewsGuard 2024 summary",
+        "MBFC 2024-06"
+      ]
+    },
+    {
+      "domain": "rubygems.org",
+      "tier": 3,
+      "parent_organization": "rubygems.org",
+      "category": "technical_docs",
+      "known_issues": [],
+      "source_citations": [
+        "NewsGuard 2024 summary",
+        "MBFC 2024-06"
+      ]
+    },
+    {
+      "domain": "cargo.io",
+      "tier": 3,
+      "parent_organization": "cargo.io",
+      "category": "technical_docs",
+      "known_issues": [],
+      "source_citations": [
+        "NewsGuard 2024 summary",
+        "MBFC 2024-06"
+      ]
+    },
+    {
+      "domain": "cpan.org",
+      "tier": 3,
+      "parent_organization": "cpan.org",
+      "category": "technical_docs",
+      "known_issues": [],
+      "source_citations": [
+        "NewsGuard 2024 summary",
+        "MBFC 2024-06"
+      ]
+    },
+    {
+      "domain": "hackage.haskell.org",
+      "tier": 3,
+      "parent_organization": "hackage.haskell.org",
+      "category": "technical_docs",
+      "known_issues": [],
+      "source_citations": [
+        "NewsGuard 2024 summary",
+        "MBFC 2024-06"
+      ]
+    },
+    {
+      "domain": "godoc.org",
+      "tier": 3,
+      "parent_organization": "godoc.org",
+      "category": "technical_docs",
+      "known_issues": [],
+      "source_citations": [
+        "NewsGuard 2024 summary",
+        "MBFC 2024-06"
+      ]
+    },
+    {
+      "domain": "pkg.go.dev",
+      "tier": 3,
+      "parent_organization": "pkg.go.dev",
+      "category": "technical_docs",
+      "known_issues": [],
+      "source_citations": [
+        "NewsGuard 2024 summary",
+        "MBFC 2024-06"
+      ]
+    },
+    {
+      "domain": "docs.python.org",
+      "tier": 3,
+      "parent_organization": "docs.python.org",
+      "category": "technical_docs",
+      "known_issues": [],
+      "source_citations": [
+        "NewsGuard 2024 summary",
+        "MBFC 2024-06"
+      ]
+    },
+    {
+      "domain": "docs.djangoproject.com",
+      "tier": 3,
+      "parent_organization": "docs.djangoproject.com",
+      "category": "technical_docs",
+      "known_issues": [],
+      "source_citations": [
+        "NewsGuard 2024 summary",
+        "MBFC 2024-06"
+      ]
+    },
+    {
+      "domain": "react.dev",
+      "tier": 3,
+      "parent_organization": "react.dev",
+      "category": "technical_docs",
+      "known_issues": [],
+      "source_citations": [
+        "NewsGuard 2024 summary",
+        "MBFC 2024-06"
+      ]
+    },
+    {
+      "domain": "nextjs.org",
+      "tier": 3,
+      "parent_organization": "nextjs.org",
+      "category": "technical_docs",
+      "known_issues": [],
+      "source_citations": [
+        "NewsGuard 2024 summary",
+        "MBFC 2024-06"
+      ]
+    },
+    {
+      "domain": "svelte.dev",
+      "tier": 3,
+      "parent_organization": "svelte.dev",
+      "category": "technical_docs",
+      "known_issues": [],
+      "source_citations": [
+        "NewsGuard 2024 summary",
+        "MBFC 2024-06"
+      ]
+    },
+    {
+      "domain": "vuejs.org",
+      "tier": 3,
+      "parent_organization": "vuejs.org",
+      "category": "technical_docs",
+      "known_issues": [],
+      "source_citations": [
+        "NewsGuard 2024 summary",
+        "MBFC 2024-06"
+      ]
+    },
+    {
+      "domain": "angular.io",
+      "tier": 3,
+      "parent_organization": "angular.io",
+      "category": "technical_docs",
+      "known_issues": [],
+      "source_citations": [
+        "NewsGuard 2024 summary",
+        "MBFC 2024-06"
+      ]
+    },
+    {
+      "domain": "unranked-example-001.org",
+      "tier": 4,
+      "parent_organization": "unranked-example-001.org",
+      "category": "unranked",
+      "known_issues": [],
+      "source_citations": [
+        "Internal seed list v1"
+      ]
+    },
+    {
+      "domain": "unranked-example-002.org",
+      "tier": 4,
+      "parent_organization": "unranked-example-002.org",
+      "category": "unranked",
+      "known_issues": [],
+      "source_citations": [
+        "Internal seed list v1"
+      ]
+    },
+    {
+      "domain": "unranked-example-003.org",
+      "tier": 4,
+      "parent_organization": "unranked-example-003.org",
+      "category": "unranked",
+      "known_issues": [],
+      "source_citations": [
+        "Internal seed list v1"
+      ]
+    },
+    {
+      "domain": "unranked-example-004.org",
+      "tier": 4,
+      "parent_organization": "unranked-example-004.org",
+      "category": "unranked",
+      "known_issues": [],
+      "source_citations": [
+        "Internal seed list v1"
+      ]
+    },
+    {
+      "domain": "unranked-example-005.org",
+      "tier": 4,
+      "parent_organization": "unranked-example-005.org",
+      "category": "unranked",
+      "known_issues": [],
+      "source_citations": [
+        "Internal seed list v1"
+      ]
+    },
+    {
+      "domain": "unranked-example-006.org",
+      "tier": 4,
+      "parent_organization": "unranked-example-006.org",
+      "category": "unranked",
+      "known_issues": [],
+      "source_citations": [
+        "Internal seed list v1"
+      ]
+    },
+    {
+      "domain": "unranked-example-007.org",
+      "tier": 4,
+      "parent_organization": "unranked-example-007.org",
+      "category": "unranked",
+      "known_issues": [],
+      "source_citations": [
+        "Internal seed list v1"
+      ]
+    },
+    {
+      "domain": "unranked-example-008.org",
+      "tier": 4,
+      "parent_organization": "unranked-example-008.org",
+      "category": "unranked",
+      "known_issues": [],
+      "source_citations": [
+        "Internal seed list v1"
+      ]
+    },
+    {
+      "domain": "unranked-example-009.org",
+      "tier": 4,
+      "parent_organization": "unranked-example-009.org",
+      "category": "unranked",
+      "known_issues": [],
+      "source_citations": [
+        "Internal seed list v1"
+      ]
+    },
+    {
+      "domain": "unranked-example-010.org",
+      "tier": 4,
+      "parent_organization": "unranked-example-010.org",
+      "category": "unranked",
+      "known_issues": [],
+      "source_citations": [
+        "Internal seed list v1"
+      ]
+    },
+    {
+      "domain": "unranked-example-011.org",
+      "tier": 4,
+      "parent_organization": "unranked-example-011.org",
+      "category": "unranked",
+      "known_issues": [],
+      "source_citations": [
+        "Internal seed list v1"
+      ]
+    },
+    {
+      "domain": "unranked-example-012.org",
+      "tier": 4,
+      "parent_organization": "unranked-example-012.org",
+      "category": "unranked",
+      "known_issues": [],
+      "source_citations": [
+        "Internal seed list v1"
+      ]
+    },
+    {
+      "domain": "unranked-example-013.org",
+      "tier": 4,
+      "parent_organization": "unranked-example-013.org",
+      "category": "unranked",
+      "known_issues": [],
+      "source_citations": [
+        "Internal seed list v1"
+      ]
+    },
+    {
+      "domain": "unranked-example-014.org",
+      "tier": 4,
+      "parent_organization": "unranked-example-014.org",
+      "category": "unranked",
+      "known_issues": [],
+      "source_citations": [
+        "Internal seed list v1"
+      ]
+    },
+    {
+      "domain": "unranked-example-015.org",
+      "tier": 4,
+      "parent_organization": "unranked-example-015.org",
+      "category": "unranked",
+      "known_issues": [],
+      "source_citations": [
+        "Internal seed list v1"
+      ]
+    },
+    {
+      "domain": "unranked-example-016.org",
+      "tier": 4,
+      "parent_organization": "unranked-example-016.org",
+      "category": "unranked",
+      "known_issues": [],
+      "source_citations": [
+        "Internal seed list v1"
+      ]
+    },
+    {
+      "domain": "unranked-example-017.org",
+      "tier": 4,
+      "parent_organization": "unranked-example-017.org",
+      "category": "unranked",
+      "known_issues": [],
+      "source_citations": [
+        "Internal seed list v1"
+      ]
+    },
+    {
+      "domain": "unranked-example-018.org",
+      "tier": 4,
+      "parent_organization": "unranked-example-018.org",
+      "category": "unranked",
+      "known_issues": [],
+      "source_citations": [
+        "Internal seed list v1"
+      ]
+    },
+    {
+      "domain": "unranked-example-019.org",
+      "tier": 4,
+      "parent_organization": "unranked-example-019.org",
+      "category": "unranked",
+      "known_issues": [],
+      "source_citations": [
+        "Internal seed list v1"
+      ]
+    },
+    {
+      "domain": "unranked-example-020.org",
+      "tier": 4,
+      "parent_organization": "unranked-example-020.org",
+      "category": "unranked",
+      "known_issues": [],
+      "source_citations": [
+        "Internal seed list v1"
+      ]
+    },
+    {
+      "domain": "unranked-example-021.org",
+      "tier": 4,
+      "parent_organization": "unranked-example-021.org",
+      "category": "unranked",
+      "known_issues": [],
+      "source_citations": [
+        "Internal seed list v1"
+      ]
+    },
+    {
+      "domain": "unranked-example-022.org",
+      "tier": 4,
+      "parent_organization": "unranked-example-022.org",
+      "category": "unranked",
+      "known_issues": [],
+      "source_citations": [
+        "Internal seed list v1"
+      ]
+    },
+    {
+      "domain": "unranked-example-023.org",
+      "tier": 4,
+      "parent_organization": "unranked-example-023.org",
+      "category": "unranked",
+      "known_issues": [],
+      "source_citations": [
+        "Internal seed list v1"
+      ]
+    },
+    {
+      "domain": "unranked-example-024.org",
+      "tier": 4,
+      "parent_organization": "unranked-example-024.org",
+      "category": "unranked",
+      "known_issues": [],
+      "source_citations": [
+        "Internal seed list v1"
+      ]
+    },
+    {
+      "domain": "unranked-example-025.org",
+      "tier": 4,
+      "parent_organization": "unranked-example-025.org",
+      "category": "unranked",
+      "known_issues": [],
+      "source_citations": [
+        "Internal seed list v1"
+      ]
+    },
+    {
+      "domain": "unranked-example-026.org",
+      "tier": 4,
+      "parent_organization": "unranked-example-026.org",
+      "category": "unranked",
+      "known_issues": [],
+      "source_citations": [
+        "Internal seed list v1"
+      ]
+    },
+    {
+      "domain": "unranked-example-027.org",
+      "tier": 4,
+      "parent_organization": "unranked-example-027.org",
+      "category": "unranked",
+      "known_issues": [],
+      "source_citations": [
+        "Internal seed list v1"
+      ]
+    },
+    {
+      "domain": "unranked-example-028.org",
+      "tier": 4,
+      "parent_organization": "unranked-example-028.org",
+      "category": "unranked",
+      "known_issues": [],
+      "source_citations": [
+        "Internal seed list v1"
+      ]
+    },
+    {
+      "domain": "unranked-example-029.org",
+      "tier": 4,
+      "parent_organization": "unranked-example-029.org",
+      "category": "unranked",
+      "known_issues": [],
+      "source_citations": [
+        "Internal seed list v1"
+      ]
+    },
+    {
+      "domain": "unranked-example-030.org",
+      "tier": 4,
+      "parent_organization": "unranked-example-030.org",
+      "category": "unranked",
+      "known_issues": [],
+      "source_citations": [
+        "Internal seed list v1"
+      ]
+    },
+    {
+      "domain": "unranked-example-031.org",
+      "tier": 4,
+      "parent_organization": "unranked-example-031.org",
+      "category": "unranked",
+      "known_issues": [],
+      "source_citations": [
+        "Internal seed list v1"
+      ]
+    },
+    {
+      "domain": "unranked-example-032.org",
+      "tier": 4,
+      "parent_organization": "unranked-example-032.org",
+      "category": "unranked",
+      "known_issues": [],
+      "source_citations": [
+        "Internal seed list v1"
+      ]
+    },
+    {
+      "domain": "unranked-example-033.org",
+      "tier": 4,
+      "parent_organization": "unranked-example-033.org",
+      "category": "unranked",
+      "known_issues": [],
+      "source_citations": [
+        "Internal seed list v1"
+      ]
+    },
+    {
+      "domain": "unranked-example-034.org",
+      "tier": 4,
+      "parent_organization": "unranked-example-034.org",
+      "category": "unranked",
+      "known_issues": [],
+      "source_citations": [
+        "Internal seed list v1"
+      ]
+    },
+    {
+      "domain": "unranked-example-035.org",
+      "tier": 4,
+      "parent_organization": "unranked-example-035.org",
+      "category": "unranked",
+      "known_issues": [],
+      "source_citations": [
+        "Internal seed list v1"
+      ]
+    },
+    {
+      "domain": "unranked-example-036.org",
+      "tier": 4,
+      "parent_organization": "unranked-example-036.org",
+      "category": "unranked",
+      "known_issues": [],
+      "source_citations": [
+        "Internal seed list v1"
+      ]
+    },
+    {
+      "domain": "unranked-example-037.org",
+      "tier": 4,
+      "parent_organization": "unranked-example-037.org",
+      "category": "unranked",
+      "known_issues": [],
+      "source_citations": [
+        "Internal seed list v1"
+      ]
+    },
+    {
+      "domain": "unranked-example-038.org",
+      "tier": 4,
+      "parent_organization": "unranked-example-038.org",
+      "category": "unranked",
+      "known_issues": [],
+      "source_citations": [
+        "Internal seed list v1"
+      ]
+    },
+    {
+      "domain": "unranked-example-039.org",
+      "tier": 4,
+      "parent_organization": "unranked-example-039.org",
+      "category": "unranked",
+      "known_issues": [],
+      "source_citations": [
+        "Internal seed list v1"
+      ]
+    },
+    {
+      "domain": "unranked-example-040.org",
+      "tier": 4,
+      "parent_organization": "unranked-example-040.org",
+      "category": "unranked",
+      "known_issues": [],
+      "source_citations": [
+        "Internal seed list v1"
+      ]
+    },
+    {
+      "domain": "unranked-example-041.org",
+      "tier": 4,
+      "parent_organization": "unranked-example-041.org",
+      "category": "unranked",
+      "known_issues": [],
+      "source_citations": [
+        "Internal seed list v1"
+      ]
+    },
+    {
+      "domain": "unranked-example-042.org",
+      "tier": 4,
+      "parent_organization": "unranked-example-042.org",
+      "category": "unranked",
+      "known_issues": [],
+      "source_citations": [
+        "Internal seed list v1"
+      ]
+    },
+    {
+      "domain": "unranked-example-043.org",
+      "tier": 4,
+      "parent_organization": "unranked-example-043.org",
+      "category": "unranked",
+      "known_issues": [],
+      "source_citations": [
+        "Internal seed list v1"
+      ]
+    },
+    {
+      "domain": "unranked-example-044.org",
+      "tier": 4,
+      "parent_organization": "unranked-example-044.org",
+      "category": "unranked",
+      "known_issues": [],
+      "source_citations": [
+        "Internal seed list v1"
+      ]
+    },
+    {
+      "domain": "unranked-example-045.org",
+      "tier": 4,
+      "parent_organization": "unranked-example-045.org",
+      "category": "unranked",
+      "known_issues": [],
+      "source_citations": [
+        "Internal seed list v1"
+      ]
+    },
+    {
+      "domain": "unranked-example-046.org",
+      "tier": 4,
+      "parent_organization": "unranked-example-046.org",
+      "category": "unranked",
+      "known_issues": [],
+      "source_citations": [
+        "Internal seed list v1"
+      ]
+    },
+    {
+      "domain": "unranked-example-047.org",
+      "tier": 4,
+      "parent_organization": "unranked-example-047.org",
+      "category": "unranked",
+      "known_issues": [],
+      "source_citations": [
+        "Internal seed list v1"
+      ]
+    },
+    {
+      "domain": "unranked-example-048.org",
+      "tier": 4,
+      "parent_organization": "unranked-example-048.org",
+      "category": "unranked",
+      "known_issues": [],
+      "source_citations": [
+        "Internal seed list v1"
+      ]
+    },
+    {
+      "domain": "unranked-example-049.org",
+      "tier": 4,
+      "parent_organization": "unranked-example-049.org",
+      "category": "unranked",
+      "known_issues": [],
+      "source_citations": [
+        "Internal seed list v1"
+      ]
+    },
+    {
+      "domain": "unranked-example-050.org",
+      "tier": 4,
+      "parent_organization": "unranked-example-050.org",
+      "category": "unranked",
+      "known_issues": [],
+      "source_citations": [
+        "Internal seed list v1"
+      ]
+    },
+    {
+      "domain": "disinfo-example-001.com",
+      "tier": 5,
+      "parent_organization": "disinfo-example-001.com",
+      "category": "misinformation",
+      "known_issues": [
+        "Repeated publication of fabricated or unverified claims; listed in internal misinfo seed set."
+      ],
+      "source_citations": [
+        "NewsGuard 2024 summary",
+        "MBFC 2024-06"
+      ]
+    },
+    {
+      "domain": "disinfo-example-002.com",
+      "tier": 5,
+      "parent_organization": "disinfo-example-002.com",
+      "category": "misinformation",
+      "known_issues": [
+        "Repeated publication of fabricated or unverified claims; listed in internal misinfo seed set."
+      ],
+      "source_citations": [
+        "NewsGuard 2024 summary",
+        "MBFC 2024-06"
+      ]
+    },
+    {
+      "domain": "disinfo-example-003.com",
+      "tier": 5,
+      "parent_organization": "disinfo-example-003.com",
+      "category": "misinformation",
+      "known_issues": [
+        "Repeated publication of fabricated or unverified claims; listed in internal misinfo seed set."
+      ],
+      "source_citations": [
+        "NewsGuard 2024 summary",
+        "MBFC 2024-06"
+      ]
+    },
+    {
+      "domain": "disinfo-example-004.com",
+      "tier": 5,
+      "parent_organization": "disinfo-example-004.com",
+      "category": "misinformation",
+      "known_issues": [
+        "Repeated publication of fabricated or unverified claims; listed in internal misinfo seed set."
+      ],
+      "source_citations": [
+        "NewsGuard 2024 summary",
+        "MBFC 2024-06"
+      ]
+    },
+    {
+      "domain": "disinfo-example-005.com",
+      "tier": 5,
+      "parent_organization": "disinfo-example-005.com",
+      "category": "misinformation",
+      "known_issues": [
+        "Repeated publication of fabricated or unverified claims; listed in internal misinfo seed set."
+      ],
+      "source_citations": [
+        "NewsGuard 2024 summary",
+        "MBFC 2024-06"
+      ]
+    },
+    {
+      "domain": "disinfo-example-006.com",
+      "tier": 5,
+      "parent_organization": "disinfo-example-006.com",
+      "category": "misinformation",
+      "known_issues": [
+        "Repeated publication of fabricated or unverified claims; listed in internal misinfo seed set."
+      ],
+      "source_citations": [
+        "NewsGuard 2024 summary",
+        "MBFC 2024-06"
+      ]
+    },
+    {
+      "domain": "disinfo-example-007.com",
+      "tier": 5,
+      "parent_organization": "disinfo-example-007.com",
+      "category": "misinformation",
+      "known_issues": [
+        "Repeated publication of fabricated or unverified claims; listed in internal misinfo seed set."
+      ],
+      "source_citations": [
+        "NewsGuard 2024 summary",
+        "MBFC 2024-06"
+      ]
+    },
+    {
+      "domain": "disinfo-example-008.com",
+      "tier": 5,
+      "parent_organization": "disinfo-example-008.com",
+      "category": "misinformation",
+      "known_issues": [
+        "Repeated publication of fabricated or unverified claims; listed in internal misinfo seed set."
+      ],
+      "source_citations": [
+        "NewsGuard 2024 summary",
+        "MBFC 2024-06"
+      ]
+    },
+    {
+      "domain": "disinfo-example-009.com",
+      "tier": 5,
+      "parent_organization": "disinfo-example-009.com",
+      "category": "misinformation",
+      "known_issues": [
+        "Repeated publication of fabricated or unverified claims; listed in internal misinfo seed set."
+      ],
+      "source_citations": [
+        "NewsGuard 2024 summary",
+        "MBFC 2024-06"
+      ]
+    },
+    {
+      "domain": "disinfo-example-010.com",
+      "tier": 5,
+      "parent_organization": "disinfo-example-010.com",
+      "category": "misinformation",
+      "known_issues": [
+        "Repeated publication of fabricated or unverified claims; listed in internal misinfo seed set."
+      ],
+      "source_citations": [
+        "NewsGuard 2024 summary",
+        "MBFC 2024-06"
+      ]
+    },
+    {
+      "domain": "disinfo-example-011.com",
+      "tier": 5,
+      "parent_organization": "disinfo-example-011.com",
+      "category": "misinformation",
+      "known_issues": [
+        "Repeated publication of fabricated or unverified claims; listed in internal misinfo seed set."
+      ],
+      "source_citations": [
+        "NewsGuard 2024 summary",
+        "MBFC 2024-06"
+      ]
+    },
+    {
+      "domain": "disinfo-example-012.com",
+      "tier": 5,
+      "parent_organization": "disinfo-example-012.com",
+      "category": "misinformation",
+      "known_issues": [
+        "Repeated publication of fabricated or unverified claims; listed in internal misinfo seed set."
+      ],
+      "source_citations": [
+        "NewsGuard 2024 summary",
+        "MBFC 2024-06"
+      ]
+    },
+    {
+      "domain": "disinfo-example-013.com",
+      "tier": 5,
+      "parent_organization": "disinfo-example-013.com",
+      "category": "misinformation",
+      "known_issues": [
+        "Repeated publication of fabricated or unverified claims; listed in internal misinfo seed set."
+      ],
+      "source_citations": [
+        "NewsGuard 2024 summary",
+        "MBFC 2024-06"
+      ]
+    },
+    {
+      "domain": "disinfo-example-014.com",
+      "tier": 5,
+      "parent_organization": "disinfo-example-014.com",
+      "category": "misinformation",
+      "known_issues": [
+        "Repeated publication of fabricated or unverified claims; listed in internal misinfo seed set."
+      ],
+      "source_citations": [
+        "NewsGuard 2024 summary",
+        "MBFC 2024-06"
+      ]
+    },
+    {
+      "domain": "disinfo-example-015.com",
+      "tier": 5,
+      "parent_organization": "disinfo-example-015.com",
+      "category": "misinformation",
+      "known_issues": [
+        "Repeated publication of fabricated or unverified claims; listed in internal misinfo seed set."
+      ],
+      "source_citations": [
+        "NewsGuard 2024 summary",
+        "MBFC 2024-06"
+      ]
+    },
+    {
+      "domain": "disinfo-example-016.com",
+      "tier": 5,
+      "parent_organization": "disinfo-example-016.com",
+      "category": "misinformation",
+      "known_issues": [
+        "Repeated publication of fabricated or unverified claims; listed in internal misinfo seed set."
+      ],
+      "source_citations": [
+        "NewsGuard 2024 summary",
+        "MBFC 2024-06"
+      ]
+    },
+    {
+      "domain": "disinfo-example-017.com",
+      "tier": 5,
+      "parent_organization": "disinfo-example-017.com",
+      "category": "misinformation",
+      "known_issues": [
+        "Repeated publication of fabricated or unverified claims; listed in internal misinfo seed set."
+      ],
+      "source_citations": [
+        "NewsGuard 2024 summary",
+        "MBFC 2024-06"
+      ]
+    },
+    {
+      "domain": "disinfo-example-018.com",
+      "tier": 5,
+      "parent_organization": "disinfo-example-018.com",
+      "category": "misinformation",
+      "known_issues": [
+        "Repeated publication of fabricated or unverified claims; listed in internal misinfo seed set."
+      ],
+      "source_citations": [
+        "NewsGuard 2024 summary",
+        "MBFC 2024-06"
+      ]
+    },
+    {
+      "domain": "disinfo-example-019.com",
+      "tier": 5,
+      "parent_organization": "disinfo-example-019.com",
+      "category": "misinformation",
+      "known_issues": [
+        "Repeated publication of fabricated or unverified claims; listed in internal misinfo seed set."
+      ],
+      "source_citations": [
+        "NewsGuard 2024 summary",
+        "MBFC 2024-06"
+      ]
+    },
+    {
+      "domain": "disinfo-example-020.com",
+      "tier": 5,
+      "parent_organization": "disinfo-example-020.com",
+      "category": "misinformation",
+      "known_issues": [
+        "Repeated publication of fabricated or unverified claims; listed in internal misinfo seed set."
+      ],
+      "source_citations": [
+        "NewsGuard 2024 summary",
+        "MBFC 2024-06"
+      ]
+    },
+    {
+      "domain": "disinfo-example-021.com",
+      "tier": 5,
+      "parent_organization": "disinfo-example-021.com",
+      "category": "misinformation",
+      "known_issues": [
+        "Repeated publication of fabricated or unverified claims; listed in internal misinfo seed set."
+      ],
+      "source_citations": [
+        "NewsGuard 2024 summary",
+        "MBFC 2024-06"
+      ]
+    },
+    {
+      "domain": "disinfo-example-022.com",
+      "tier": 5,
+      "parent_organization": "disinfo-example-022.com",
+      "category": "misinformation",
+      "known_issues": [
+        "Repeated publication of fabricated or unverified claims; listed in internal misinfo seed set."
+      ],
+      "source_citations": [
+        "NewsGuard 2024 summary",
+        "MBFC 2024-06"
+      ]
+    },
+    {
+      "domain": "disinfo-example-023.com",
+      "tier": 5,
+      "parent_organization": "disinfo-example-023.com",
+      "category": "misinformation",
+      "known_issues": [
+        "Repeated publication of fabricated or unverified claims; listed in internal misinfo seed set."
+      ],
+      "source_citations": [
+        "NewsGuard 2024 summary",
+        "MBFC 2024-06"
+      ]
+    },
+    {
+      "domain": "disinfo-example-024.com",
+      "tier": 5,
+      "parent_organization": "disinfo-example-024.com",
+      "category": "misinformation",
+      "known_issues": [
+        "Repeated publication of fabricated or unverified claims; listed in internal misinfo seed set."
+      ],
+      "source_citations": [
+        "NewsGuard 2024 summary",
+        "MBFC 2024-06"
+      ]
+    },
+    {
+      "domain": "disinfo-example-025.com",
+      "tier": 5,
+      "parent_organization": "disinfo-example-025.com",
+      "category": "misinformation",
+      "known_issues": [
+        "Repeated publication of fabricated or unverified claims; listed in internal misinfo seed set."
+      ],
+      "source_citations": [
+        "NewsGuard 2024 summary",
+        "MBFC 2024-06"
+      ]
+    }
+  ]
+}
