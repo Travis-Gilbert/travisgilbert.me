@@ -14,14 +14,18 @@ import {
 import styles from './AntiConspiracyPage.module.css';
 import {
   analyzeDocument,
+  analyzeDocumentAsync,
   formatScore,
   normalizeWhitespace,
   urlSafeLabel,
+  MLCRunner,
   FEATURE_LABELS,
   VERDICT_LABEL,
   MAX_TEXT_LENGTH,
   MAX_FILE_BYTES,
   type AnalysisResult,
+  type LoadProgress,
+  type RunnerState,
   type ScoredClaim,
   type Verdict,
 } from '@/lib/act';
@@ -62,6 +66,14 @@ export default function AntiConspiracyPage() {
   const [analysis, setAnalysis] = useState<AnalysisResult | null>(null);
   const [activeClaim, setActiveClaim] = useState<ScoredClaim | null>(null);
   const [isDragging, setIsDragging] = useState(false);
+  const [modelState, setModelState] = useState<RunnerState>('uninitialized');
+  const [modelProgress, setModelProgress] = useState<LoadProgress>({
+    percent: 0,
+    mbLoaded: 0,
+    mbTotal: 0,
+    stage: 'idle',
+  });
+  const [usedModel, setUsedModel] = useState<boolean | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   // Counts dragenter/dragleave imbalance so the active state doesn't
   // flicker every time the cursor crosses a child of the dropzone.
@@ -86,7 +98,7 @@ export default function AntiConspiracyPage() {
   }, []);
 
   const runTextAnalysis = useCallback(
-    (text: string, title: string, sourceType: AnalysisResult['source_type']) => {
+    async (text: string, title: string, sourceType: AnalysisResult['source_type']) => {
       const cleaned = normalizeWhitespace(text).slice(0, MAX_TEXT_LENGTH);
       if (cleaned.split(/\s+/).filter(Boolean).length < 12) {
         setStatus('error');
@@ -94,17 +106,44 @@ export default function AntiConspiracyPage() {
         return;
       }
       setStatus('scoring');
-      setMessage('Scoring claims and building the graph.');
-      const result = analyzeDocument(cleaned, title, sourceType);
+      const ready = MLCRunner.get().getState() === 'ready';
+      setMessage(
+        ready
+          ? 'Asking Gemma 4B to extract the claim inventory…'
+          : 'Scoring claims and building the graph.',
+      );
+
+      let result: AnalysisResult;
+      let modelUsed: boolean;
+      if (ready) {
+        const out = await analyzeDocumentAsync(cleaned, title, sourceType, true);
+        result = out.result;
+        modelUsed = out.usedModel;
+      } else {
+        result = analyzeDocument(cleaned, title, sourceType);
+        modelUsed = false;
+      }
       setAnalysis(result);
       setActiveClaim(result.claims[0] ?? null);
+      setUsedModel(modelUsed);
       setStatus('ready');
       setMessage(
-        `Scored ${result.claims.length} claims from ${result.source_label} (ACC ${formatScore(result.overall_score)} · ${VERDICT_LABEL[result.verdict]}).`,
+        `Scored ${result.claims.length} claims from ${result.source_label} (ACC ${formatScore(result.overall_score)} · ${VERDICT_LABEL[result.verdict]}) — ${
+          modelUsed ? 'Gemma 4B extraction' : 'heuristic extraction'
+        }.`,
       );
     },
     [],
   );
+
+  const handleLoadModel = useCallback(() => {
+    if (modelState === 'loading' || modelState === 'ready') return;
+    void MLCRunner.get()
+      .initialize('/act/model.json', (p) => setModelProgress(p))
+      .then(() => setModelState(MLCRunner.get().getState()))
+      .catch(() => setModelState(MLCRunner.get().getState()));
+    setModelState('loading');
+  }, [modelState]);
 
   const handleUrlSubmit = async (event?: FormEvent) => {
     event?.preventDefault();
@@ -130,7 +169,7 @@ export default function AntiConspiracyPage() {
       }
       const title =
         typeof payload?.title === 'string' && payload.title ? payload.title : urlSafeLabel(target);
-      runTextAnalysis(String(payload.text ?? ''), title, 'url');
+      void runTextAnalysis(String(payload.text ?? ''), title, 'url');
     } catch {
       setStatus('error');
       setMessage('Network error while fetching the URL.');
@@ -144,7 +183,7 @@ export default function AntiConspiracyPage() {
       setMessage('Paste some prose before running the lab.');
       return;
     }
-    runTextAnalysis(trimmed, 'Pasted text', 'text');
+    void runTextAnalysis(trimmed, 'Pasted text', 'text');
   };
 
   const handleFile = async (file: File) => {
@@ -157,7 +196,7 @@ export default function AntiConspiracyPage() {
     setMessage(`Reading ${file.name}.`);
     try {
       const text = await file.text();
-      runTextAnalysis(text, file.name, 'document');
+      void runTextAnalysis(text, file.name, 'document');
     } catch {
       setStatus('error');
       setMessage('Could not read that file as text.');
@@ -313,6 +352,10 @@ export default function AntiConspiracyPage() {
               </span>
             </div>
             <div className={styles.specRow}>
+              <span className={styles.specKey}>Extractor</span>
+              <span className={styles.specVal}>{extractorLabel(modelState, usedModel)}</span>
+            </div>
+            <div className={styles.specRow}>
               <span className={styles.specKey}>Inputs</span>
               <span className={styles.specVal}>URL · TXT · MD · HTML</span>
             </div>
@@ -324,10 +367,11 @@ export default function AntiConspiracyPage() {
               <span className={styles.specKey}>License</span>
               <span className={styles.specVal}>MIT · weights open</span>
             </div>
-            <div className={styles.specRow}>
-              <span className={styles.specKey}>Built on</span>
-              <span className={styles.specVal}>Theorem · v1.1</span>
-            </div>
+            <ModelLoaderRow
+              state={modelState}
+              progress={modelProgress}
+              onLoad={handleLoadModel}
+            />
           </aside>
         </header>
 
@@ -840,4 +884,82 @@ function pillClassFor(status: LabStatus): string {
   if (status === 'error') return styles.pillError;
   if (status === 'reading' || status === 'scoring') return styles.pillBusy;
   return styles.pillReady;
+}
+
+function extractorLabel(state: RunnerState, usedModel: boolean | null): string {
+  if (state === 'ready') return usedModel === false ? 'Gemma 4B (idle)' : 'Gemma 4B';
+  if (state === 'loading') return 'Loading Gemma 4B…';
+  if (state === 'unavailable') return 'Heuristic (no WebGPU)';
+  if (state === 'error') return 'Heuristic (load failed)';
+  return 'Heuristic';
+}
+
+function ModelLoaderRow({
+  state,
+  progress,
+  onLoad,
+}: {
+  state: RunnerState;
+  progress: LoadProgress;
+  onLoad: () => void;
+}) {
+  if (state === 'ready') {
+    return (
+      <div className={styles.specRow}>
+        <span className={styles.specKey}>Model</span>
+        <span className={styles.specVal}>● Loaded · gemma-4-e4b</span>
+      </div>
+    );
+  }
+  if (state === 'loading') {
+    return (
+      <div className={styles.specRow}>
+        <span className={styles.specKey}>Model</span>
+        <span className={styles.specVal}>
+          <span className={styles.modelProgressTrack} aria-hidden="true">
+            <span
+              className={styles.modelProgressFill}
+              style={{ width: `${Math.max(2, progress.percent)}%` }}
+            />
+          </span>
+          <span className={styles.modelProgressText}>
+            {progress.percent || 0}% {progress.mbTotal ? `(${progress.mbLoaded.toFixed(0)}/${progress.mbTotal.toFixed(0)} MB)` : ''}
+          </span>
+        </span>
+      </div>
+    );
+  }
+  if (state === 'unavailable') {
+    return (
+      <div className={styles.specRow}>
+        <span className={styles.specKey}>Model</span>
+        <span className={styles.specVal} title={progress.stage}>
+          WebGPU unavailable
+        </span>
+      </div>
+    );
+  }
+  if (state === 'error') {
+    return (
+      <div className={styles.specRow}>
+        <span className={styles.specKey}>Model</span>
+        <span className={styles.specVal} title={progress.stage}>
+          Load failed
+          <button className={styles.modelLoadBtn} type="button" onClick={onLoad}>
+            Retry
+          </button>
+        </span>
+      </div>
+    );
+  }
+  return (
+    <div className={styles.specRow}>
+      <span className={styles.specKey}>Model</span>
+      <span className={styles.specVal}>
+        <button className={styles.modelLoadBtn} type="button" onClick={onLoad}>
+          Load Gemma 4B
+        </button>
+      </span>
+    </div>
+  );
 }

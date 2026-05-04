@@ -20,7 +20,9 @@
 // validated by upstream tests, not by TS types in this codebase.
 // @ts-expect-error scoring.js ships without type declarations on purpose.
 import { scoreText } from './scoring.js';
-import { extractFromText, type ContentType } from './extract';
+import { extractFromText, extractWithGemma, type ContentType } from './extract';
+export { MLCRunner } from './mlc-runner';
+export type { LoadProgress, ModelDescriptor, RunnerState } from './mlc-runner';
 
 export type { ContentType } from './extract';
 
@@ -140,19 +142,65 @@ function normalizeWhitespace(value: string): string {
   return value.replace(/\s+/g, ' ').trim();
 }
 
+function scoreFromExtraction(
+  text: string,
+  title: string,
+  sourceType: AnalysisResult['source_type'],
+  extractionResult: ReturnType<typeof extractFromText>,
+): AnalysisResult {
+  const { extraction, content_type, content_confidence } = extractionResult;
+  const raw = scoreText(extraction, null, content_type, content_confidence) as RawScoreResult;
+  return finalizeAnalysis(raw, text, title, sourceType);
+}
+
 export function analyzeDocument(
   rawText: string,
   title: string,
   sourceType: AnalysisResult['source_type'],
 ): AnalysisResult {
   const text = rawText.slice(0, MAX_TEXT_LENGTH);
-  const { extraction, content_type, content_confidence } = extractFromText(text);
-  const raw = scoreText(extraction, null, content_type, content_confidence) as RawScoreResult;
+  return scoreFromExtraction(text, title, sourceType, extractFromText(text));
+}
+
+/**
+ * LLM-preferred analysis. Calls Gemma 4B if loaded; falls back to the
+ * heuristic extractor otherwise. Caller passes a model-readiness flag
+ * to avoid awaiting an unavailable engine.
+ */
+export async function analyzeDocumentAsync(
+  rawText: string,
+  title: string,
+  sourceType: AnalysisResult['source_type'],
+  preferModel = true,
+): Promise<{ result: AnalysisResult; usedModel: boolean }> {
+  const text = rawText.slice(0, MAX_TEXT_LENGTH);
+  if (preferModel) {
+    try {
+      const extraction = await extractWithGemma(text);
+      const result = scoreFromExtraction(text, title, sourceType, extraction);
+      return { result, usedModel: true };
+    } catch {
+      // Fall through to heuristic.
+    }
+  }
+  return {
+    result: scoreFromExtraction(text, title, sourceType, extractFromText(text)),
+    usedModel: false,
+  };
+}
+
+function finalizeAnalysis(
+  raw: RawScoreResult,
+  text: string,
+  title: string,
+  sourceType: AnalysisResult['source_type'],
+): AnalysisResult {
 
   const claims: ScoredClaim[] = (raw.claims || []).map((c) => ({
     ...c,
     verdict: c.verdict as Verdict,
   }));
+  void text;
 
   const trustworthyCount = claims.filter((c) => c.verdict === 'trustworthy').length;
   const mixedCount = claims.filter((c) => c.verdict === 'mixed').length;

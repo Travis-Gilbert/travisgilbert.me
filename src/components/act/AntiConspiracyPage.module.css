@@ -600,6 +600,51 @@
   font-size: 11px;
 }
 
+.modelLoadBtn {
+  display: inline-block;
+  padding: 3px 10px;
+  font-family: var(--font-code);
+  font-size: 9px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: rgb(238, 224, 215);
+  background: transparent;
+  border: 1px solid rgba(238, 224, 215, 0.4);
+  border-radius: var(--radius-sharp);
+  cursor: pointer;
+  transition: border-color var(--dur-base) var(--ease-out),
+    color var(--dur-base) var(--ease-out);
+}
+
+.modelLoadBtn:hover {
+  border-color: var(--nav-terracotta);
+  color: var(--nav-terracotta);
+}
+
+.modelProgressTrack {
+  display: inline-block;
+  width: 80px;
+  height: 6px;
+  background: rgba(238, 224, 215, 0.18);
+  border-radius: 999px;
+  overflow: hidden;
+  margin-right: 8px;
+  vertical-align: middle;
+}
+
+.modelProgressFill {
+  display: block;
+  height: 100%;
+  background: var(--nav-terracotta);
+  border-radius: 999px;
+  transition: width var(--dur-base) var(--ease-out);
+}
+
+.modelProgressText {
+  font-family: var(--font-code);
+  font-size: 10px;
+}
+
 /* Inputs */
 .fieldLabel {
   font-family: var(--font-code);

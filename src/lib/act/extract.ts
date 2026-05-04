@@ -1,27 +1,25 @@
 /**
- * Heuristic extractor: raw text -> ACC `extraction` object.
+ * Extractor: raw text -> ACC `extraction` object.
  *
  * Produces the structured input shape that `scoring.js::scoreText`
  * expects (claims with char positions, source domains with tiers,
- * article-level rhetorical flag counts, etc.). This is a Phase 1
- * placeholder for the eventual Gemma 4B GL-Fusion v1 client-side
- * inference path. Once the MLC artifact ships, swap this module for
- * a Gemma-driven version that returns the same shape — the scorer
- * stays unchanged.
+ * article-level rhetorical flag counts, etc.).
  *
- * Heuristic accuracy is bounded by what regex can detect:
- *   - sentence boundaries (good)
- *   - source domain references (good)
- *   - rhetorical red flags (decent for the obvious markers)
- *   - falsifiability and consensus stance (rough)
- *   - specificity anchors (decent — proper nouns, numbers, dates)
+ * Two paths:
+ *   1. extractWithGemma() — preferred when the gemma-4b-gl-fusion-v1
+ *      MLC artifact has loaded in the browser. The model returns
+ *      structured JSON which we validate and normalize.
+ *   2. extractFromText() — fast, deterministic heuristic. Used as the
+ *      cold-start path (model not yet loaded) AND as the fallback
+ *      whenever the LLM returns malformed JSON or is unavailable.
  *
- * The Python theseus_acc reference and the JS scoring port are the
- * canonical algorithm. This file only builds the *input* to that
- * algorithm.
+ * The canonical ACC scoring lives in scoring.js; this module only
+ * builds the *input* to that algorithm. Quality of extraction is
+ * upstream — the algorithm itself is the source of truth.
  */
 
 import { getTier } from './domain-list.js';
+import { MLCRunner } from './mlc-runner';
 
 export type CitationKind =
   | 'direct_primary'
@@ -358,4 +356,184 @@ export function extractFromText(rawText: string): ExtractionResult {
     content_type: type,
     content_confidence: confidence,
   };
+}
+
+// ─────────────────────────────────────────────────────────────────────
+// Gemma 4B path
+// ─────────────────────────────────────────────────────────────────────
+
+interface GemmaExtractionPayload {
+  content_type?: string;
+  content_confidence?: number;
+  article_level?: ArticleLevel;
+  cited_sources?: ExtractedSource[];
+  claims?: ExtractedClaim[];
+}
+
+const VALID_CONTENT_TYPES: ContentType[] = ['factual', 'opinion', 'reference', 'fiction'];
+const VALID_CITATION_KINDS: CitationKind[] = [
+  'direct_primary',
+  'indirect_primary',
+  'secondary',
+  'unanchored',
+];
+const VALID_FALSIFIABILITY: Falsifiability[] = ['falsifiable', 'vague', 'unfalsifiable'];
+const VALID_SOURCE_TIERS: SourceTier[] = [
+  'primary',
+  'secondary',
+  'tertiary',
+  'self_referential',
+  'unknown',
+];
+
+/**
+ * Validate the model's extraction JSON. Anything missing or malformed
+ * falls through to a heuristic-extraction merge. We never crash; the
+ * algorithm gets *some* valid input no matter what the model emits.
+ */
+function normalizeGemmaExtraction(
+  raw: unknown,
+  fallback: ExtractionResult,
+): ExtractionResult {
+  if (!raw || typeof raw !== 'object') return fallback;
+  const payload = raw as GemmaExtractionPayload;
+
+  const claims = Array.isArray(payload.claims) ? payload.claims : null;
+  if (!claims || claims.length === 0) return fallback;
+
+  const fallbackTextLength = fallback.extraction.claims.reduce(
+    (max, c) => Math.max(max, c.char_end ?? 0),
+    0,
+  );
+
+  const safeClaims: ExtractedClaim[] = claims
+    .slice(0, 18)
+    .map((c, idx) => {
+      const text = typeof c.text === 'string' ? c.text : '';
+      if (!text) return null;
+      const charStart = Number.isFinite(c.char_start) ? Math.max(0, Number(c.char_start)) : 0;
+      const charEnd = Number.isFinite(c.char_end)
+        ? Math.min(fallbackTextLength || charStart + text.length, Number(c.char_end))
+        : charStart + text.length;
+      const refs = Array.isArray(c.cited_source_refs)
+        ? c.cited_source_refs.map((r) => String(r)).filter(Boolean)
+        : [];
+      const tierRefs = Array.isArray(c.source_tier_refs)
+        ? c.source_tier_refs.map((r) => String(r)).filter(Boolean)
+        : refs;
+      const anchors = Array.isArray(c.specificity_anchors)
+        ? c.specificity_anchors.map((a) => String(a)).filter(Boolean).slice(0, 8)
+        : [];
+      const citation: CitationKind = VALID_CITATION_KINDS.includes(c.citation_kind as CitationKind)
+        ? (c.citation_kind as CitationKind)
+        : 'unanchored';
+      const falsifiability: Falsifiability = VALID_FALSIFIABILITY.includes(
+        c.falsifiability as Falsifiability,
+      )
+        ? (c.falsifiability as Falsifiability)
+        : 'vague';
+      const chainMarkers = (c.citation_chain_markers ?? {}) as {
+        self_reinforcing_citations?: number;
+        total_citation_chains_described?: number;
+      };
+      return {
+        id: typeof c.id === 'string' && c.id ? c.id : `c${idx}`,
+        text,
+        char_start: charStart,
+        char_end: charEnd,
+        citation_chain_markers: {
+          self_reinforcing_citations: Number(chainMarkers.self_reinforcing_citations ?? 0) || 0,
+          total_citation_chains_described:
+            Number(chainMarkers.total_citation_chains_described ?? 0) || 0,
+        },
+        citation_kind: citation,
+        cited_source_refs: refs,
+        source_tier_refs: tierRefs,
+        specificity_anchors: anchors,
+        contradicts_consensus: Boolean(c.contradicts_consensus),
+        engages_consensus: Boolean(c.engages_consensus),
+        falsifiability,
+      };
+    })
+    .filter((c): c is ExtractedClaim => c !== null);
+
+  if (safeClaims.length === 0) return fallback;
+
+  const sources: ExtractedSource[] = Array.isArray(payload.cited_sources)
+    ? payload.cited_sources
+        .map((s, idx): ExtractedSource | null => {
+          const domain = typeof s.domain === 'string' ? s.domain.toLowerCase() : '';
+          if (!domain) return null;
+          const tierLabel: SourceTier = VALID_SOURCE_TIERS.includes(s.tier as SourceTier)
+            ? (s.tier as SourceTier)
+            : 'unknown';
+          // Reconcile against the local tier table when the model's tier
+          // disagrees with the canonical domain map.
+          const localTier = getTier(domain);
+          const finalTier = tierLabel === 'unknown' && localTier <= 2 ? 'primary' : tierLabel;
+          return {
+            id: typeof s.id === 'string' && s.id ? s.id : `s${idx}`,
+            domain,
+            name: typeof s.name === 'string' && s.name ? s.name : domain,
+            tier: finalTier,
+          };
+        })
+        .filter((s): s is ExtractedSource => s !== null)
+    : fallback.extraction.cited_sources;
+
+  const articleLevel: ArticleLevel = {
+    checkable_facts_per_paragraph: Array.isArray(
+      payload.article_level?.checkable_facts_per_paragraph,
+    )
+      ? payload.article_level.checkable_facts_per_paragraph.map(
+          (n) => Number(n) || 0,
+        )
+      : fallback.extraction.article_level.checkable_facts_per_paragraph,
+    rhetorical_red_flags: {
+      appeal_to_hidden_knowledge:
+        Number(payload.article_level?.rhetorical_red_flags?.appeal_to_hidden_knowledge ?? 0) || 0,
+      emotional_appeal_decoupled:
+        Number(payload.article_level?.rhetorical_red_flags?.emotional_appeal_decoupled ?? 0) || 0,
+      false_precision:
+        Number(payload.article_level?.rhetorical_red_flags?.false_precision ?? 0) || 0,
+      identity_based_dismissal:
+        Number(payload.article_level?.rhetorical_red_flags?.identity_based_dismissal ?? 0) || 0,
+      suppressed_truth_narrative:
+        Number(payload.article_level?.rhetorical_red_flags?.suppressed_truth_narrative ?? 0) || 0,
+      urgency_framing:
+        Number(payload.article_level?.rhetorical_red_flags?.urgency_framing ?? 0) || 0,
+    },
+  };
+
+  const contentType: ContentType = VALID_CONTENT_TYPES.includes(payload.content_type as ContentType)
+    ? (payload.content_type as ContentType)
+    : fallback.content_type;
+  const confidence = Number.isFinite(payload.content_confidence)
+    ? Math.max(0, Math.min(1, Number(payload.content_confidence)))
+    : 0.85;
+
+  return {
+    extraction: { article_level: articleLevel, cited_sources: sources, claims: safeClaims },
+    content_type: contentType,
+    content_confidence: confidence,
+  };
+}
+
+/**
+ * LLM-driven extraction with deterministic fallback. Returns the
+ * heuristic result if the model is not loaded, errors, or returns
+ * unusable JSON.
+ */
+export async function extractWithGemma(rawText: string): Promise<ExtractionResult> {
+  const fallback = extractFromText(rawText);
+  const runner = MLCRunner.get();
+  if (runner.getState() !== 'ready') {
+    return fallback;
+  }
+  try {
+    const payload = await runner.extractFeatures(rawText);
+    return normalizeGemmaExtraction(payload, fallback);
+  } catch {
+    return fallback;
+  }
 }
