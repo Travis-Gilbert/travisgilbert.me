@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import {
   useCallback,
+  useEffect,
   useMemo,
   useRef,
   useState,
@@ -48,6 +49,28 @@ export default function AntiConspiracyPage() {
   const [activeClaim, setActiveClaim] = useState<ClaimTrace | null>(null);
   const [isDragging, setIsDragging] = useState(false);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+  // Counts dragenter/dragleave imbalance so the active state doesn't
+  // flicker every time the cursor crosses a child of the dropzone.
+  const dragCounter = useRef(0);
+
+  // Prevent the browser from navigating away (default behavior) when a
+  // file is dropped anywhere outside the dropzone. Without these window
+  // listeners, a dragenter on the page body cancels the drag-into-target
+  // sequence and Chrome opens the file as a new page on drop.
+  useEffect(() => {
+    const block = (event: globalThis.DragEvent) => {
+      // Only block file drags; let regular text/element drags pass.
+      if (event.dataTransfer?.types?.includes('Files')) {
+        event.preventDefault();
+      }
+    };
+    window.addEventListener('dragover', block);
+    window.addEventListener('drop', block);
+    return () => {
+      window.removeEventListener('dragover', block);
+      window.removeEventListener('drop', block);
+    };
+  }, []);
 
   const runTextAnalysis = useCallback(
     (text: string, title: string, sourceType: AnalysisResult['sourceType']) => {
@@ -125,19 +148,37 @@ export default function AntiConspiracyPage() {
     }
   };
 
+  const onDragEnter = (event: DragEvent<HTMLDivElement>) => {
+    event.preventDefault();
+    event.stopPropagation();
+    if (!event.dataTransfer?.types?.includes('Files')) return;
+    dragCounter.current += 1;
+    setIsDragging(true);
+  };
+
+  const onDragOver = (event: DragEvent<HTMLDivElement>) => {
+    // dragover MUST preventDefault to register this element as a valid
+    // drop target. dropEffect tells the OS this is a copy operation.
+    event.preventDefault();
+    event.stopPropagation();
+    if (event.dataTransfer) event.dataTransfer.dropEffect = 'copy';
+  };
+
+  const onDragLeave = (event: DragEvent<HTMLDivElement>) => {
+    event.preventDefault();
+    event.stopPropagation();
+    dragCounter.current = Math.max(0, dragCounter.current - 1);
+    if (dragCounter.current === 0) setIsDragging(false);
+  };
+
   const onDrop = (event: DragEvent<HTMLDivElement>) => {
     event.preventDefault();
+    event.stopPropagation();
+    dragCounter.current = 0;
     setIsDragging(false);
     const file = event.dataTransfer?.files?.[0];
     if (file) void handleFile(file);
   };
-
-  const onDragOver = (event: DragEvent<HTMLDivElement>) => {
-    event.preventDefault();
-    setIsDragging(true);
-  };
-
-  const onDragLeave = () => setIsDragging(false);
 
   const onFileChange = (event: ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -285,6 +326,7 @@ export default function AntiConspiracyPage() {
                 }
               }}
               onDrop={onDrop}
+              onDragEnter={onDragEnter}
               onDragOver={onDragOver}
               onDragLeave={onDragLeave}
               role="button"
