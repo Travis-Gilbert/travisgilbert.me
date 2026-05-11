@@ -1,0 +1,54 @@
+/* ─────────────────────────────────────────────────
+   Blueprint tokens for the /act redesign.
+   Imported only inside the Blueprint component tree
+   so the rest of the site's parchment register is
+   untouched.
+   Source of truth: docs/plans/act-evidence-cockpit/
+   track-e-public-site-design/vision-delta.md
+   ───────────────────────────────────────────────── */
+
+.blueprintRoot {
+  /* Grounds (3 elevations + 1 sunken) */
+  --bp-ground: #0E2436;
+  --bp-surface: #102B3F;
+  --bp-raised: #15334B;
+  --bp-sunken: #0A1C2C;
+
+  /* Hairlines (drafting line cyan; opacity-graded) */
+  --bp-hairline: rgba(127, 182, 224, 0.20);
+  --bp-hairline-mid: rgba(127, 182, 224, 0.40);
+  --bp-hairline-hi: rgba(127, 182, 224, 0.65);
+
+  /* Ink (drawing cream on dark) */
+  --bp-ink: #F4ECDC;
+  --bp-ink-muted: #B8A98E;
+  --bp-ink-light: #6E7F95;
+
+  /* Data colors (preserved from brand for cross-surface consistency) */
+  --bp-green: #5AC890;
+  --bp-teal: #3A7A88;
+  --bp-teal-light: #4D9AA9;
+  --bp-gold: #C49A4A;
+  --bp-terracotta: #B45A2D;
+  --bp-red: #E25C5C;
+
+  /* Geometry */
+  --bp-radius-sharp: 2px;
+  --bp-radius-sm: 3px;
+  --bp-tracking-eyebrow: 0.18em;
+  --bp-tracking-label: 0.12em;
+  --bp-tracking-num: 0.16em;
+
+  /* Motion */
+  --bp-ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+  --bp-dur-fast: 140ms;
+  --bp-dur-base: 220ms;
+}
+
+/* Honor prefers-reduced-motion for any Blueprint motion. */
+@media (prefers-reduced-motion: reduce) {
+  .blueprintRoot {
+    --bp-dur-fast: 0ms;
+    --bp-dur-base: 0ms;
+  }
+}

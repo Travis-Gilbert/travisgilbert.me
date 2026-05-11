@@ -1,0 +1,423 @@
+/* ─────────────────────────────────────────────────
+   /act Blueprint shell.
+   Sibling of AntiConspiracyPage.module.css; only
+   active when ?bp=1 is on the URL.
+   Source of truth: ../../Index-API/docs/plans/
+   act-evidence-cockpit/track-e-public-site-design/
+   vision-delta.md
+   ───────────────────────────────────────────────── */
+
+.root {
+  composes: blueprintRoot from './blueprint.tokens.module.css';
+
+  background: var(--bp-ground);
+  color: var(--bp-ink);
+  min-height: 100vh;
+  position: relative;
+  font-family: var(--font-body, sans-serif);
+}
+
+/* Warm cross-hatch overlay: very subtle texture so the dark ground does
+   not read as a featureless monitor. Like an old blueprint print. */
+.crosshatch {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  opacity: 0.05;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='8' height='8'%3E%3Cpath d='M0 8L8 0' stroke='%23F4ECDC' stroke-width='0.4' fill='none'/%3E%3Cpath d='M-2 2L2 -2' stroke='%23F4ECDC' stroke-width='0.4' fill='none'/%3E%3Cpath d='M6 10L10 6' stroke='%23F4ECDC' stroke-width='0.4' fill='none'/%3E%3C/svg%3E");
+  background-repeat: repeat;
+}
+
+/* ─── Top bar ─── */
+.topbar {
+  position: relative;
+  z-index: 1;
+  background: var(--bp-sunken);
+  border-bottom: 1px solid var(--bp-hairline);
+  color: var(--bp-ink-muted);
+  font-family: var(--font-code, monospace);
+  font-size: 10.5px;
+  letter-spacing: var(--bp-tracking-label);
+  text-transform: uppercase;
+  padding: 9px 28px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.topbar a {
+  color: var(--bp-ink-muted);
+  text-decoration: none;
+  transition: color var(--bp-dur-fast) var(--bp-ease-out);
+}
+
+.topbar a:hover {
+  color: var(--bp-teal-light);
+}
+
+.crumbs {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+
+.crumbs .sep {
+  color: var(--bp-ink-light);
+}
+
+.crumbs .here {
+  color: var(--bp-teal-light);
+}
+
+.topbarRight {
+  display: flex;
+  gap: 16px;
+  align-items: center;
+}
+
+.led {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--bp-green);
+  box-shadow: 0 0 8px rgba(90, 200, 144, 0.65);
+  display: inline-block;
+  margin-right: 6px;
+}
+
+/* ─── Drafting page frame ───
+   Hairline corner marks at four corners of the page, like a CAD plate. */
+.page {
+  position: relative;
+  z-index: 1;
+  max-width: 1340px;
+  margin: 0 auto;
+  padding: 56px 48px 96px;
+}
+
+@media (max-width: 720px) {
+  .page {
+    padding: 40px 20px 80px;
+  }
+}
+
+.corner {
+  position: absolute;
+  width: 18px;
+  height: 18px;
+  border: 1px solid var(--bp-hairline-mid);
+  pointer-events: none;
+}
+
+.corner.tl { top: 24px; left: 24px; border-right: none; border-bottom: none; }
+.corner.tr { top: 24px; right: 24px; border-left: none; border-bottom: none; }
+.corner.bl { bottom: 64px; left: 24px; border-right: none; border-top: none; }
+.corner.br { bottom: 64px; right: 24px; border-left: none; border-top: none; }
+
+/* ─── Masthead ─── */
+.masthead {
+  display: grid;
+  grid-template-columns: 1.4fr 1fr;
+  gap: 56px;
+  align-items: end;
+  border-bottom: 1px solid var(--bp-hairline);
+  padding-bottom: 28px;
+  margin-bottom: 32px;
+}
+
+@media (max-width: 900px) {
+  .masthead {
+    grid-template-columns: 1fr;
+    gap: 28px;
+  }
+}
+
+.figRibbon {
+  font-family: var(--font-code, monospace);
+  font-size: 10px;
+  letter-spacing: var(--bp-tracking-eyebrow);
+  text-transform: uppercase;
+  color: var(--bp-teal-light);
+  margin-bottom: 16px;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.figRibbon::before {
+  content: '';
+  flex: 0 0 18px;
+  height: 1px;
+  background: var(--bp-hairline-hi);
+}
+
+.title {
+  font-family: var(--font-title, serif);
+  font-weight: 700;
+  font-size: clamp(2.4rem, 5vw, 3.6rem);
+  line-height: 1.04;
+  letter-spacing: -0.012em;
+  margin: 0;
+  color: var(--bp-ink);
+}
+
+.lede {
+  font-family: var(--font-body, sans-serif);
+  font-size: 1.05rem;
+  color: var(--bp-ink-muted);
+  line-height: 1.6;
+  max-width: 56ch;
+  margin: 18px 0 0;
+  text-wrap: pretty;
+}
+
+.builtOn {
+  font-family: var(--font-code, monospace);
+  font-size: 10px;
+  letter-spacing: var(--bp-tracking-eyebrow);
+  text-transform: uppercase;
+  color: var(--bp-ink-light);
+  margin-top: 20px;
+}
+
+.builtOnName {
+  color: var(--bp-teal-light);
+  font-weight: 700;
+  letter-spacing: var(--bp-tracking-eyebrow);
+}
+
+/* ─── Drafting title block (lower-right corner of page) ─── */
+.titleBlock {
+  border: 1px solid var(--bp-hairline-mid);
+  background: var(--bp-surface);
+  font-family: var(--font-code, monospace);
+  font-size: 10.5px;
+  color: var(--bp-ink-muted);
+  letter-spacing: var(--bp-tracking-label);
+  text-transform: uppercase;
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+}
+
+.titleBlockCell {
+  padding: 10px 14px;
+  border-right: 1px solid var(--bp-hairline);
+  border-bottom: 1px solid var(--bp-hairline);
+}
+
+.titleBlockCell:nth-child(2n) { border-right: none; }
+.titleBlockCell:nth-last-child(-n+2) { border-bottom: none; }
+
+.titleBlockKey {
+  color: var(--bp-ink-light);
+  font-size: 9px;
+  display: block;
+  margin-bottom: 4px;
+}
+
+.titleBlockVal {
+  color: var(--bp-ink);
+  letter-spacing: var(--bp-tracking-num);
+  font-weight: 600;
+}
+
+/* ─── Workbench (placeholder; real components ship in E7-E12) ─── */
+.workbench {
+  display: grid;
+  grid-template-columns: 1.4fr 1fr;
+  gap: 28px;
+  margin: 32px 0;
+}
+
+@media (max-width: 900px) {
+  .workbench {
+    grid-template-columns: 1fr;
+  }
+}
+
+.placeholder {
+  position: relative;
+  background: var(--bp-surface);
+  border: 1px solid var(--bp-hairline-mid);
+  border-radius: var(--bp-radius-sm);
+  padding: 28px 24px;
+  min-height: 280px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.placeholderLabel {
+  font-family: var(--font-code, monospace);
+  font-size: 10px;
+  letter-spacing: var(--bp-tracking-eyebrow);
+  text-transform: uppercase;
+  color: var(--bp-teal-light);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.placeholderLabel::before {
+  content: '◆';
+  color: var(--bp-gold);
+  font-size: 8px;
+}
+
+.placeholderTitle {
+  font-family: var(--font-title, serif);
+  font-size: 1.45rem;
+  color: var(--bp-ink);
+  margin: 4px 0 0;
+  font-weight: 700;
+}
+
+.placeholderHint {
+  font-family: var(--font-body, sans-serif);
+  font-size: 13px;
+  color: var(--bp-ink-muted);
+  line-height: 1.55;
+  max-width: 48ch;
+}
+
+.dimensionMark {
+  position: absolute;
+  top: 12px;
+  right: 14px;
+  font-family: var(--font-code, monospace);
+  font-size: 9px;
+  letter-spacing: var(--bp-tracking-num);
+  color: var(--bp-ink-light);
+}
+
+/* ─── Section heads ─── */
+.sectionHead {
+  display: flex;
+  align-items: baseline;
+  gap: 14px;
+  margin: 48px 0 18px;
+  padding-bottom: 8px;
+  border-bottom: 1px dashed var(--bp-hairline-mid);
+}
+
+.sectionHeadNum {
+  font-family: var(--font-code, monospace);
+  font-size: 10.5px;
+  letter-spacing: var(--bp-tracking-eyebrow);
+  text-transform: uppercase;
+  color: var(--bp-teal-light);
+}
+
+.sectionHead h2 {
+  font-family: var(--font-title, serif);
+  font-weight: 700;
+  margin: 0;
+  font-size: 1.45rem;
+  color: var(--bp-ink);
+  flex: 1;
+}
+
+.sectionHeadStatus {
+  font-family: var(--font-code, monospace);
+  font-size: 10px;
+  letter-spacing: var(--bp-tracking-eyebrow);
+  text-transform: uppercase;
+  color: var(--bp-gold);
+}
+
+/* ─── Method strip (kept from the parchment page; restyled) ─── */
+.method {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 28px;
+  margin-top: 16px;
+}
+
+@media (max-width: 900px) {
+  .method {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+.step {
+  border-top: 1px solid var(--bp-hairline-hi);
+  padding-top: 14px;
+}
+
+.stepNum {
+  font-family: var(--font-code, monospace);
+  font-size: 10px;
+  letter-spacing: var(--bp-tracking-eyebrow);
+  color: var(--bp-teal-light);
+  font-weight: 700;
+  margin-bottom: 6px;
+}
+
+.step h4 {
+  font-family: var(--font-title, serif);
+  font-weight: 700;
+  margin: 0 0 6px;
+  font-size: 1.05rem;
+  color: var(--bp-ink);
+}
+
+.step p {
+  font-size: 13px;
+  color: var(--bp-ink-muted);
+  line-height: 1.6;
+  margin: 0;
+  text-wrap: pretty;
+}
+
+/* ─── Colophon ─── */
+.colophon {
+  margin-top: 72px;
+  padding-top: 22px;
+  border-top: 1px solid var(--bp-hairline);
+  font-family: var(--font-body, sans-serif);
+  font-size: 11px;
+  color: var(--bp-ink-light);
+  letter-spacing: 0.06em;
+  display: flex;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px;
+  text-transform: uppercase;
+}
+
+.colophonName {
+  color: var(--bp-teal-light);
+  font-family: var(--font-code, monospace);
+  font-weight: 700;
+  letter-spacing: var(--bp-tracking-eyebrow);
+}
+
+/* ─── Variant badge bottom-right: "bp=1 flag is live" ─── */
+.variantBadge {
+  position: fixed;
+  bottom: 14px;
+  right: 14px;
+  z-index: 10;
+  font-family: var(--font-code, monospace);
+  font-size: 9px;
+  letter-spacing: var(--bp-tracking-eyebrow);
+  text-transform: uppercase;
+  color: var(--bp-ink-muted);
+  background: var(--bp-surface);
+  border: 1px solid var(--bp-hairline-mid);
+  border-radius: var(--bp-radius-sharp);
+  padding: 4px 8px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.variantBadge::before {
+  content: '';
+  width: 5px;
+  height: 5px;
+  background: var(--bp-green);
+  border-radius: 50%;
+  box-shadow: 0 0 5px rgba(90, 200, 144, 0.65);
+}
