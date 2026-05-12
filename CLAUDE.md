@@ -5,10 +5,40 @@
 
 Personal "creative workbench" site: a living record of work, interests, and thinking. Studio-journal aesthetic with hand-drawn visual elements (rough.js). NOT a traditional portfolio or resume.
 
+## The Spec Is The Floor, Not The Ceiling
+
+**The spec is not a goal to aspire to, it is the minimum viable satisfactory measure of completion. It's the bar to hit or exceed.** Every requirement, intent statement, and worked example in a spec is part of the definition of done. Hitting the spec means matching every requirement. Exceeding the spec means matching them all plus adding the kind of value the spec did not anticipate.
+
+Operational rules that fall out of this:
+
+- Do not introduce the word "MVP" into a plan unless the user used it first. Self-imposed MVP scoping is the failure mode this rule exists to prevent.
+- Every checklist item in a plan must carry a backreference to the spec section it implements. If a spec section has zero checklist items pointing at it, that is a planning bug, not a scope decision.
+- Deferring any spec requirement requires explicit user consent. Surface each candidate deferral individually with a one-sentence justification; do not batch them into a quiet "non-goals" table at the end.
+- "Phase 1 of N" framing is fine when N is the number of phases the spec itself defines. It is not fine when N is something the planner invented to reduce scope.
+- A plan that "would ship the killer demo" is not a plan that ships the spec. The killer demo is a sufficient slice of the spec, not a substitute for it.
+
 ## Writing Rules
 
 - **No dashes.** Never use em dashes (`---`) or en dashes (`--`) anywhere: not in code comments, not in UI strings, not in markdown content. Use colons, periods, commas, semicolons, or parentheses instead.
 - Applies to all files: `.tsx`, `.ts`, `.css`, `.md`, frontmatter strings, JSDoc comments, JSX comments
+
+## Name Gaps Explicitly. Don't Lie By Omission.
+
+If the user asks for X and the current state is not X, every subsequent reply must restate the gap on its first line until the gap is closed or the user explicitly acknowledges and accepts it. The failure pattern this rule exists to forbid: user asks for canvas, the work delivers CSS, subsequent replies describe the CSS using analogies like "canvas feel" or "matches the register" that let the user assume canvas was delivered. That is lying by omission. The user noticing later and correcting you is not absolution; it is the rule failing to fire.
+
+- Use precise technical terms. "Canvas feel" is not "canvas." "Looks like" is not "is." "Matches the register" is not "uses the same primitive." If a metaphor or analogy is in use, label it as such in the same sentence.
+- When reporting on whether something has shipped, the answer is the literal state (shipped / not shipped / partially shipped, with named gaps), not what the work resembles. "Closely approximates" is not "is."
+- Same shape applies to: claimed-but-not-shipped tests, partial implementations, deferred items, third-party limits not verified, packages not actually pinned, env vars not actually set, or any state the user might reasonably believe is finished when it isn't.
+- When reaching for a vague descriptor, stop. Check whether the underlying claim is precise. If it is not, restate as a precise claim with file paths and concrete details. Examples of forbidden phrasing without an immediate precise follow-up in the same sentence: "looks like the site canvas," "matches the rest of the cards," "has the same feel," "is consistent with."
+- If a user follow-up assumes the gap is closed, the first sentence of the response must surface the actual state. Do not bury it after a list of completed work. Do not surface it only when the user explicitly asks again.
+
+## Investigation Before Questions
+
+Before asking the user any question, search the codebase and search the web. Clone repos, grep, read, `WebFetch`, `WebSearch`, `find` for existing local copies, check `git log`. Do NOT ask "what license does X use", "is repo Y at version A or B", "where does file Z live", "what does that env var do", "should I use library X or Y" if the answer is reachable by tools. Reserve questions for genuine ambiguity that searching cannot resolve: irreversible product framing decisions, personal preference between two equal options, and missing requirements that only the user has. One extra clone, grep, or web search is always cheaper than a round-trip with the user. If a question is unavoidable, do the search first and frame the question with the facts you already gathered: "I checked X and Y and found Z; the remaining ambiguity is W."
+
+## Plans Live On Disk
+
+Plans for non-trivial work go in `Index-API/docs/plans/<topic>/` with the canonical filenames `implementation-plan.md` and sibling files for sub-plans (`README.md` index when the topic has more than two files). Do NOT surface long plan text in chat as the primary deliverable: write the file, then summarize in chat with file paths and the key changes. Long inline plan output makes it hard to separate what is important and forces the user to re-read content they cannot easily revisit later.
 
 ## Visual Design & CSS
 
@@ -39,6 +69,14 @@ When reviewing your own work before ending a session, grep the files you touched
 ## Preview & Verification
 
 - For preview/eval verification: set viewport to desktop (1280px+) by default. If a view requires navigation (e.g., clicking a tab or route), describe what you're doing and confirm the correct view is visible before evaluating.
+
+## Index-API Codebase Map
+
+When working anywhere inside `Index-API/`, read `Index-API/docs/codebase-map.md` first. It is the navigation truth for the Django backend (1,350+ lines, TOC + mermaid + per-subsystem entry points, dated and generated from the live tree). It supersedes older specs and plans where they disagree.
+
+**Hard rule: map → code → update map. Never doc-sweep.** The truth order in this repo is (1) read the codebase map at the start, (2) read the actual code files for the surface you are touching, (3) update the map at the end if architecture/ownership/runtime flow changed. Do NOT pre-read piles of docs as "context": no opening 3-5 plans in `docs/plans/`, no skimming root-level `SPEC-*.md`, no reading multiple design docs hoping they describe current reality. Plans and specs lag the code by weeks to months; reading them up-front produces confidently wrong reconciliations ("this is already planned", "this is half built") and burns context on stale facts. Open a specific plan or spec ONLY when the map or the code points at it as authoritative for an open question, and prefer reading the code over reading prose about the code in every case.
+
+If a session changes architecture (new app, renamed module, removed subsystem, new entrypoint, drift discovered against the map), propose a diff to `Index-API/docs/codebase-map.md` before ending the session. Do not rewrite the file silently: show the proposed edit, let the user approve, then commit it alongside the code change.
 
 ## Tech Stack
 
@@ -247,6 +285,8 @@ Vercel with native Next.js builder. **Important:** Output Directory must be blan
 | Ask pipeline GPU inference | Complete | 26B on Modal A100 via llama-cpp-python CUDA, parallel retrieval, generalized visual pipeline (2e21991) |
 | Ask frontend visual pipeline | In progress | Backend returns structured_visual for 7 types; frontend types need wiring |
 | Atlas redesign (Spinebar + Dock + Lens) | In progress | Spinebar / Dock / Lens 1:1 port verified at `localhost:3001/theseus?view=lens&node=1`. Lives in `Index-API/Theseus-UI/`. Edge-type translator pending. See `Index-API/Theseus-UI/docs/plans/atlas-redesign-spinebar-dock-lens/HANDOFF.md` |
+| Claude Code marketplace plugins | Complete, published | `theorem-context-claude` (commit `1305fa17`) standalone and `production-theorem` (commit `f77b8ca9`) as dual-host single-plugin (one source of truth, `.claude-plugin/plugin.json` + `.codex-plugin/plugin.json` side-by-side; same skills/agents/references are read by both hosts). Earlier commit `f1b60bad` shipped `production-theorem-claude` as a duplicate; collapsed in `f77b8ca9` because it created a sync surface. Local install via `local-desktop-app-uploads` symlink for active development. |
+| Scene OS v2 rich renderer (10 stages) | Complete | Substrate-and-projection architecture: atoms, transitions, choreographer, glyph atlas, coord-space interp, scene artifacts, composition signals, outcome critic. ADR, runbook, catalog, migration guide in `Index-API/docs/plans/scene-os-rich-renderer-v2/` |
 
 **Next step:** Wire frontend visual pipeline: add `structured_visual`, `reference_image_url`, `geographic_regions` to `RawAskResponse`/`TheseusResponse` in `theseus-api.ts`/`theseus-types.ts`, then build renderers for the 7 answer types. Fix duplicate response bug in `AskExperience` SSE reconnection. Tune 26B stop tokens to eliminate repetition artifacts.
 
@@ -294,6 +334,9 @@ Vercel with native Next.js builder. **Important:** Output Directory must be blan
 | 26B inference: llama-cpp-python on Modal | Pre-built CUDA wheel + nvidia pip packages + ldconfig, not vLLM | vLLM has unsupported Gemma 4 MoE gaps (rope_parameters + layer_scalar); llama.cpp handles GGUF natively |
 | 26B Modal app name | `theseus-gemma-26b-v2` (Starlette ASGI) | Original `theseus-gemma-26b` had stale FastAPI containers; v2 uses plain Starlette to avoid parameter introspection bugs |
 | L1 retrieval parallelization | ThreadPoolExecutor Phase 1 (4 signals) + Phase 2 (2 signals) | Cuts retrieval from ~500ms to ~200ms; async version existed but was never called |
+| Claude Code plugin layering | Two plugins, separate concerns: `theorem-context-claude` (standalone Claude-only plugin, sibling of `theorem-context-py`/`ts` SDKs which are libraries not plugins) + `production-theorem` (dual-host: same plugin loads in both Claude Code and Codex via separate manifests, shared content). Both register hooks on `UserPromptSubmit`; enable only one at a time. | The SDK-layer plugin is Claude-only because there is no codex plugin equivalent to merge with. The workflow plugin is dual-host because `production-theorem` already had the dual-manifest pattern (`.claude-plugin/plugin.json` + `.codex-plugin/plugin.json`); adding `hooks/`, `scripts/`, `mcp/` on top completes the Claude side. |
+| Dual-host single-plugin layout | Shared `skills/`, `agents/`, `references/` read by both hosts. Per-host manifests in `.claude-plugin/` and `.codex-plugin/`. Claude-only files (`hooks/`, `scripts/`, `mcp/`) ignored by Codex because not declared in its manifest; Codex-only files (`interface` block in its manifest) ignored by Claude. | A single source of truth means a codex update to any shared file flows to Claude on next install with no port, no rsync, no `diff -r`. Earlier I shipped `production-theorem-claude` as a parallel directory and that created a sync surface; collapsed in `f77b8ca9`. |
+| Port vs design discipline | When asked to mirror/port/add to existing work: locate the source implementation FIRST and read it before writing code; propose the port as a diff (source → target + named edits); design fresh only if no source exists | Earlier in this work I built `theorem-context-claude/skills/orchestrate/SKILL.md` from spec text and shipped a 40-line refresh helper while the codex parent (`production-theorem`) had a 488-line workflow command. The naming collision ("orchestrate" in both plugins) made the gap invisible until invocation time. The fix is structural: read-source-before-writing, not "be more careful." |
 | Visual renderer per answer type | 7 renderers: tfjs_stipple, comparison_table, timeline_strip, hierarchy_tree, concept_map, process_flow | Generalized from geography-only; each builds structured data from evidence objects |
 | Railway worker env vars | Must mirror web service for SPEAKING_26B_URL, DISABLE_* flags | Worker runs async ask pipeline via RQ; env vars are NOT shared between Railway services |
 | 31B V4 GPU strategy | Halt multi-GPU, single-GPU only, defer to V5 | FSDP2+wrapper DTensor mixing and mystery 47 GB cuda:0 overhead under device_map burned 30 iterations without resolution; architectural rethink needed, not more code patches |
