@@ -545,7 +545,9 @@ export default function AntiConspiracyPage() {
             <span className={styles.sep}>/</span>
             <span className={styles.here}>ANTI-CONSPIRACY THEOREM</span>
           </span>
-          <span className={styles.sheet}>SHEET 04 / N</span>
+          <span className={styles.sheet}>
+            <Link href="/act/notebook">SHEET 04 / N · TECHNICAL NOTEBOOK →</Link>
+          </span>
         </header>
 
         {/* ── Title block ─────────────────────────────────────── */}
