@@ -140,7 +140,12 @@ interface DrawStreamOptions {
 
 function drawStream({ canvas, rootEl, seedString, exclusionSelectors }: DrawStreamOptions) {
   const w = window.innerWidth;
-  const h = Math.max(document.documentElement.scrollHeight, window.innerHeight);
+  /* Viewport-bound (not scrollHeight-bound). The canvas is
+     `position: fixed; inset: 0`, so its visible region is exactly the
+     viewport: sizing the buffer to the full page height made the path
+     draw mostly below the fold and we only saw the corner that
+     happened to terminate on-screen. */
+  const h = window.innerHeight;
   const dpr = window.devicePixelRatio || 1;
 
   canvas.width = Math.floor(w * dpr);
@@ -156,14 +161,18 @@ function drawStream({ canvas, rootEl, seedString, exclusionSelectors }: DrawStre
   const seed = hashStr(seedString) >>> 0;
   const rng = new MT19937(seed);
 
+  /* Exclusion zones in viewport coords (canvas is fixed, so no scroll
+     offset). `getBoundingClientRect` already returns viewport coords;
+     adding scrollX/scrollY here would have pushed exclusions off the
+     visible canvas whenever the user scrolled. */
   const excl: Array<{ l: number; t: number; r: number; b: number }> = [];
   rootEl.querySelectorAll(exclusionSelectors.join(',')).forEach((el) => {
     const r = el.getBoundingClientRect();
     excl.push({
-      l: r.left - 24 + window.scrollX,
-      t: r.top - 24 + window.scrollY,
-      r: r.right + 24 + window.scrollX,
-      b: r.bottom + 24 + window.scrollY,
+      l: r.left - 18,
+      t: r.top - 18,
+      r: r.right + 18,
+      b: r.bottom + 18,
     });
   });
   const inExcl = (x: number, y: number) => {
@@ -174,16 +183,24 @@ function drawStream({ canvas, rootEl, seedString, exclusionSelectors }: DrawStre
     return false;
   };
 
-  const corner = 32;
-  const before: [number, number] = [-80, h + 80];
-  const start: [number, number] = [corner, h - corner];
-  const end: [number, number] = [w - corner, corner];
-  const after: [number, number] = [w + 80, -80];
+  /* Path geometry: enter upper-left, dip through the middle band, exit
+     upper-right. Multiple control points give the curvilinear, wave-like
+     character; Catmull-Rom interpolation smooths between them. Endpoints
+     anchor outside the canvas so the curve enters/exits cleanly without
+     terminal stubs. All coordinates are viewport-relative. */
+  const before: [number, number] = [-120, h * 0.08];
+  const start: [number, number] = [60, h * 0.18];
+  const end: [number, number] = [w - 60, h * 0.15];
+  const after: [number, number] = [w + 120, h * 0.08];
   const path: ReadonlyArray<readonly [number, number]> = [
     before,
     start,
-    [w * 0.3, h * 0.62],
-    [w * 0.7, h * 0.38],
+    [w * 0.14, h * 0.36], // dip 1 (left margin)
+    [w * 0.30, h * 0.28], // crest 1
+    [w * 0.46, h * 0.58], // dip 2 (deepest, behind workbench mid)
+    [w * 0.60, h * 0.46], // crest 2
+    [w * 0.76, h * 0.54], // dip 3
+    [w * 0.90, h * 0.26], // rise toward upper-right
     end,
     after,
   ];
@@ -196,8 +213,12 @@ function drawStream({ canvas, rootEl, seedString, exclusionSelectors }: DrawStre
   const offsetMax = 64;
   let placed = 0;
 
-  const CORE_ALPHA = 0.11;
-  const SIGNAL_ALPHA = 0.22;
+  /* Lower-than-original alpha so the stream reads as a backdrop rather
+     than competing with the workbench type. The curve passes through
+     mid-page (over specs/analyzer at the dip point), so it must be
+     readable as texture, not as foreground. */
+  const CORE_ALPHA = 0.055;
+  const SIGNAL_ALPHA = 0.12;
   const PER_STEP = 7;
 
   ctx.font = '11px "JetBrains Mono", ui-monospace, Menlo, monospace';
@@ -255,17 +276,16 @@ function drawStream({ canvas, rootEl, seedString, exclusionSelectors }: DrawStre
   ctx.globalAlpha = 1;
 }
 
+/* Only the two largest type-heavy surfaces are excluded. The reduced
+   stream alpha lets the curve pass behind the rest of the workbench
+   as texture without hurting readability. The title block has the
+   largest type and the most-read content; the analyzer well has the
+   drop target glyph that must stay crisp during a drag. Everything
+   else (specs, graph, axes, outcome, footer) lets the curve flow
+   through as backdrop. */
 const STREAM_EXCLUSIONS = [
-  `.${styles.strip}`,
   `.${styles.titleblock}`,
-  `.${styles.specs}`,
   `.${styles.analyzer}`,
-  `.${styles.graphBlock}`,
-  `.${styles.readouts}`,
-  `.${styles.axesHead}`,
-  `.${styles.axisCard}`,
-  `.${styles.outcome}`,
-  `.${styles.foot}`,
 ];
 
 /* ── Component ────────────────────────────────────────────────── */
