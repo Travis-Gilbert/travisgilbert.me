@@ -1,6 +1,5 @@
 import type { Metadata } from 'next';
 import AntiConspiracyPage from '@/components/act/AntiConspiracyPage';
-import AntiConspiracyPageBlueprint from '@/components/act/AntiConspiracyPageBlueprint';
 
 export const metadata: Metadata = {
   title: 'Anti-Conspiracy Theorem | Travis Gilbert',
@@ -13,24 +12,17 @@ export const metadata: Metadata = {
   },
 };
 
-type ActPageProps = {
-  searchParams: Promise<Record<string, string | string[] | undefined>>;
-};
-
 /**
  * /act surface.
  *
- * Default renders the parchment field-lab page (AntiConspiracyPage).
- * When `?bp=1` is on the URL, renders the Blueprint redesign instead.
- * The flag stays in place until the Do Not Downgrade gate passes (see
- * Index-API/docs/plans/act-evidence-cockpit/track-e-public-site-design/
- * implementation-plan.md E18). Once the flag is flipped, Blueprint
- * becomes the default and the legacy parchment module moves to legacy/.
+ * The `?bp=1` Blueprint flag has been retired. The Retro Lab port from
+ * claude.ai/design is now the default page; the prior Blueprint
+ * sibling component + every helper under `src/components/act/blueprint/`
+ * was deleted in the same commit that introduced this page.
+ *
+ * Source of truth for the visual port:
+ * `/tmp/retro-lab-extract/retro-lab-design-scheme/project/`.
  */
-export default async function ActPage({ searchParams }: ActPageProps) {
-  const params = await searchParams;
-  const bp = params?.bp;
-  const blueprintActive = bp === '1' || bp === 'true';
-
-  return blueprintActive ? <AntiConspiracyPageBlueprint /> : <AntiConspiracyPage />;
+export default function ActPage() {
+  return <AntiConspiracyPage />;
 }
