@@ -31,6 +31,8 @@ import {
   type FormEvent,
 } from 'react';
 import styles from './AntiConspiracyPage.module.css';
+import { DynamicIslandTOC } from './DynamicIslandTOC';
+import { CompressedFooter } from './CompressedFooter';
 import {
   analyzeDocument,
   analyzeDocumentAsync,
@@ -507,18 +509,8 @@ export default function AntiConspiracyPage() {
 
   /* ── Derived display data ───────────────────────────────────── */
 
-  const stats = useMemo(() => {
-    if (!analysis) {
-      return { avg: '—', trust: '—', mixed: '—', unrel: '—', hasRun: false as const };
-    }
-    return {
-      avg: formatScore(analysis.overall_score),
-      trust: String(analysis.trustworthy_count),
-      mixed: String(analysis.mixed_count),
-      unrel: String(analysis.unreliable_count),
-      hasRun: true as const,
-    };
-  }, [analysis]);
+  // Readout stats moved into <DynamicIslandTOC />; the island reads
+  // `analysis` directly so no derived `stats` memo is needed here.
 
   const graphLayout = useMemo(() => buildGraphLayout(analysis), [analysis]);
   const todayLabel = useMemo(() => {
@@ -535,6 +527,13 @@ export default function AntiConspiracyPage() {
   return (
     <div className={styles.root} ref={rootRef}>
       <canvas ref={streamCanvasRef} className={styles.streamBg} aria-hidden="true" />
+
+      <DynamicIslandTOC
+        analysis={analysis}
+        status={status}
+        message={message}
+        onDropFile={handleFile}
+      />
 
       <main className={styles.workbench}>
         {/* ── Breadcrumb strip ────────────────────────────────── */}
@@ -573,18 +572,9 @@ export default function AntiConspiracyPage() {
           In re: <em>&ldquo;A working public lab for inspecting claims by evidence shape, source diversity, falsifiability, and rhetorical pressure.&rdquo;</em>
         </p>
 
-        {/* ── Specifications ──────────────────────────────────── */}
-        <section className={styles.specs}>
-          <h4>Specifications</h4>
-          <div className={styles.row}><span className={styles.k}>Process</span><span className={styles.v}>Instrument · open lab</span></div>
-          <div className={styles.row}><span className={styles.k}>Algorithm</span><span className={styles.v}>ACC v{analysis?.algorithm_version ?? '2.1.0'} · structural + calibrated</span></div>
-          <div className={styles.row}><span className={styles.k}>Extractor</span><span className={styles.v}>{extractorLabel(modelState, usedModel)}</span></div>
-          <div className={styles.row}><span className={styles.k}>Inputs</span><span className={styles.v}>TXT · MD · HTML · ≤ {Math.round(MAX_FILE_BYTES / 1024)} KB</span></div>
-          <div className={styles.row}><span className={styles.k}>Method</span><span className={styles.v}>11 axes · weighted aggregate</span></div>
-          <div className={styles.row}><span className={styles.k}>Model</span><span className={styles.v}>{modelRowLabel(modelState, modelProgress, handleLoadModel)}</span></div>
-          <div className={styles.row}><span className={styles.k}>License</span><span className={styles.v}>MIT · weights open</span></div>
-          <div className={styles.row}><span className={styles.k}>Status</span><span className={styles.v}><span className={`${styles.dot} ${styles.live}`} />Live · accepting documents</span></div>
-        </section>
+        {/* Specifications section was absorbed into <CompressedFooter />
+            below; the body keeps focus on intake → graph → axes →
+            outcome. */}
 
         {/* ── Analyzer (the hero interaction) ─────────────────── */}
         <section className={styles.analyzer} aria-label="Document analyzer">
@@ -738,25 +728,11 @@ export default function AntiConspiracyPage() {
           </aside>
         </section>
 
-        {/* ── Readouts row ────────────────────────────────────── */}
-        <section className={`${styles.readouts} ${stats.hasRun ? '' : styles.empty}`} aria-label="Run readouts">
-          <div className={styles.cell}>
-            <div className={styles.label}><span className={styles.glyph}>Σ</span><span>Average ACC</span></div>
-            <div className={styles.value}>{stats.avg}</div>
-          </div>
-          <div className={styles.cell}>
-            <div className={styles.label}><span className={styles.glyph}>↑</span><span>Trustworthy</span></div>
-            <div className={styles.value}>{stats.trust}</div>
-          </div>
-          <div className={styles.cell}>
-            <div className={styles.label}><span className={styles.glyph}>~</span><span>Mixed</span></div>
-            <div className={styles.value}>{stats.mixed}</div>
-          </div>
-          <div className={`${styles.cell} ${styles.unreliable}`}>
-            <div className={styles.label}><span className={styles.glyph}>!</span><span>Unreliable</span></div>
-            <div className={styles.value}>{stats.unrel}</div>
-          </div>
-        </section>
+        {/* Readouts row (average ACC + verdict counts) was absorbed
+            into <DynamicIslandTOC /> at the top of the page. The
+            island shows the four cells in pill form when analysis is
+            loaded, and falls back to the drop-zone affordance
+            otherwise. */}
 
         {/* ── 11-axis section ─────────────────────────────────── */}
         <div className={styles.axesHead}>
@@ -826,12 +802,17 @@ export default function AntiConspiracyPage() {
           </div>
         </section>
 
-        {/* ── Footer ──────────────────────────────────────────── */}
-        <footer className={styles.foot}>
-          <div className={styles.left}>Travis Gilbert · Anti-Conspiracy Theorem · v0.4.2</div>
-          <div className={styles.center}>Built on Theorem</div>
-          <div className={styles.right}>Fig. 04 · {todayLabel}</div>
-        </footer>
+        {/* ── Compressed footer (absorbs Specifications + wave bars
+            from Footer.md + colophon) ─────────────────────────── */}
+        <CompressedFooter
+          algorithmVersion={analysis?.algorithm_version ?? '2.1.0'}
+          modelState={modelState}
+          modelProgress={modelProgress}
+          extractorLabel={extractorLabel(modelState, usedModel)}
+          modelRowLabel={modelRowLabel(modelState, modelProgress, handleLoadModel)}
+          inputsLabel={`TXT · MD · HTML · ≤ ${Math.round(MAX_FILE_BYTES / 1024)} KB`}
+          todayLabel={todayLabel}
+        />
       </main>
     </div>
   );

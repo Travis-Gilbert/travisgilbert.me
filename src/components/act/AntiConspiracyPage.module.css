@@ -44,15 +44,15 @@
   --r: 4px;                  /* chamfer */
   --r-pill: 9999px;
 
-  /* Type — bound to the brand fonts already loaded by the site
-     in src/app/fonts.ts. The Retro Lab spec named Berthold Block
-     for display; Vollkorn (the site's brand serif) is the
-     cohesive substitution per the user direction "make it look
-     cohesive to this current design." */
-  --f-display: var(--font-title, 'Vollkorn'), 'IBM Plex Sans Condensed', system-ui, sans-serif;
-  --f-header: 'IBM Plex Sans', var(--font-tagline, ''), system-ui, sans-serif;
-  --f-body: var(--font-body, 'Cabin'), 'IBM Plex Sans', system-ui, sans-serif;
-  --f-mono: var(--font-code, 'JetBrains Mono'), ui-monospace, Menlo, monospace;
+  /* Type — bound to fonts loaded by src/app/fonts.ts. Berthold Block
+     is the display face for the patent-instrument register (vendored
+     from the Retro Lab bundle, served from /public/fonts/). The
+     header + body fall back through IBM Plex variants; mono uses
+     JetBrains Mono. */
+  --f-display: var(--font-berthold-block), var(--font-ibm-plex), 'IBM Plex Sans Condensed', system-ui, sans-serif;
+  --f-header: var(--font-ibm-plex), 'IBM Plex Sans', system-ui, sans-serif;
+  --f-body: var(--font-ibm-plex), var(--font-body), 'IBM Plex Sans', system-ui, sans-serif;
+  --f-mono: var(--font-jetbrains-mono), var(--font-code), ui-monospace, Menlo, monospace;
 
   /* Motion */
   --d-fast: 150ms;

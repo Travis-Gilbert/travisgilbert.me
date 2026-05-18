@@ -1,0 +1,203 @@
+/* Dynamic Island TOC: sticky pill anchored to the top of the viewport.
+   Reads brand tokens (--field, --ink, --signal, --hairline, etc.) that
+   the .root of AntiConspiracyPage sets, plus its own state-specific
+   sizing so the pill expands/contracts based on the active state. */
+
+.island {
+  position: fixed;
+  top: 14px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 50;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 18px;
+  background: #1F1D19;
+  color: #F1EFE9;
+  border-radius: 9999px;
+  font-family: var(--f-mono, 'JetBrains Mono', monospace);
+  font-size: 11px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  box-shadow:
+    0 4px 14px rgba(20, 18, 14, 0.18),
+    0 1px 3px rgba(20, 18, 14, 0.12);
+  transition: transform 200ms cubic-bezier(0.22, 1, 0.36, 1),
+              padding 200ms cubic-bezier(0.22, 1, 0.36, 1),
+              background-color 200ms cubic-bezier(0.22, 1, 0.36, 1),
+              max-width 240ms cubic-bezier(0.22, 1, 0.36, 1);
+  white-space: nowrap;
+  overflow: hidden;
+  /* prefers-reduced-motion */
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .island { transition: none; }
+}
+
+/* ─ State variants ─ */
+
+.state_idle {
+  max-width: 360px;
+  padding: 8px 16px;
+}
+
+.state_dragOver {
+  max-width: 320px;
+  padding: 14px 22px;
+  background: var(--signal, #B8472D);
+  transform: translateX(-50%) scale(1.06);
+}
+
+.state_loading {
+  max-width: 480px;
+  padding: 8px 18px;
+}
+
+.state_loaded {
+  max-width: 540px;
+  padding: 8px 16px;
+}
+
+/* ─ Idle content ─ */
+
+.idle {
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+}
+
+.led {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: rgba(241, 239, 233, 0.6);
+  box-shadow: 0 0 0 0 rgba(241, 239, 233, 0.3);
+  animation: led-pulse 2.8s ease-in-out infinite;
+}
+
+@keyframes led-pulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(241, 239, 233, 0.3); }
+  50% { box-shadow: 0 0 0 4px rgba(241, 239, 233, 0); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .led { animation: none; }
+}
+
+.glyph {
+  font-weight: 700;
+  opacity: 0.85;
+}
+
+.glyphLarge {
+  font-size: 18px;
+  font-weight: 700;
+}
+
+/* ─ DragOver content ─ */
+
+.dragOver {
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+  color: #FFF;
+}
+
+.dropLabel {
+  font-weight: 600;
+  letter-spacing: 0.16em;
+}
+
+/* ─ Loading content ─ */
+
+.loading {
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.progressBar {
+  display: inline-block;
+  width: 70px;
+  height: 4px;
+  background: rgba(241, 239, 233, 0.18);
+  border-radius: 9999px;
+  overflow: hidden;
+  position: relative;
+}
+
+.progressFill {
+  position: absolute;
+  inset: 0;
+  width: 40%;
+  background: var(--signal, #B8472D);
+  border-radius: 9999px;
+  animation: progress-slide 1.2s ease-in-out infinite;
+}
+
+@keyframes progress-slide {
+  0% { transform: translateX(-100%); }
+  100% { transform: translateX(250%); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .progressFill {
+    animation: none;
+    width: 60%;
+    transform: translateX(20%);
+  }
+}
+
+.loadingLabel {
+  font-weight: 500;
+  letter-spacing: 0.08em;
+  text-transform: none;
+  font-size: 11.5px;
+  max-width: 320px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* ─ Loaded content (the absorbed readouts row) ─ */
+
+.loaded {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.cell {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 5px;
+}
+
+.cell .glyph {
+  font-size: 11px;
+  color: rgba(241, 239, 233, 0.55);
+}
+
+.cellUnreliable .glyph {
+  color: var(--signal, #B8472D);
+}
+
+.cell .value {
+  font-weight: 600;
+  font-size: 13.5px;
+  letter-spacing: -0.005em;
+  color: #F1EFE9;
+}
+
+.cell .label {
+  font-size: 10px;
+  letter-spacing: 0.12em;
+  color: rgba(241, 239, 233, 0.55);
+}
+
+.divider {
+  width: 1px;
+  height: 14px;
+  background: rgba(241, 239, 233, 0.18);
+}

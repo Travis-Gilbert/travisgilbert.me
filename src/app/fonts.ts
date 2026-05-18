@@ -76,6 +76,17 @@ export const amarna = localFont({
   display: 'swap',
 });
 
+// Berthold Block: display face for the /act Retro Lab patent-instrument
+// register. Shipped in the Retro Lab Design Scheme bundle from
+// claude.ai/design (project/fonts/BertholdBlock.ttf, 200 KB). Used as
+// the masthead display face on /act only; the rest of the site keeps
+// Vollkorn as its brand serif.
+export const bertholdBlock = localFont({
+  src: '../../public/fonts/BertholdBlock.ttf',
+  variable: '--font-berthold-block',
+  display: 'swap',
+});
+
 // Apple Gothic Latin subset previously declared here was used only by
 // the /spacetime page hover marginalia. The spacetime feature lives on
 // a separate branch (claude/spacetime-execution) and re-introduces the
@@ -93,4 +104,5 @@ export const fontVariableClasses = [
   caudex.variable,
   lora.variable,
   amarna.variable,
+  bertholdBlock.variable,
 ].join(' ');
