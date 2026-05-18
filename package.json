@@ -7,7 +7,7 @@
     "prebuild": "npx tsx scripts/fetch-changelog.ts",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint .",
+    "lint": "eslint src scripts next.config.ts",
     "export-icons": "node scripts/export-icons.mjs",
     "postbuild": "npx pagefind"
   },

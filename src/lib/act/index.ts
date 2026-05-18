@@ -9,7 +9,7 @@
  * Pipeline:
  *   raw text
  *     -> extractFromText() (heuristic; will be Gemma 4B GL-Fusion in Phase 2)
- *     -> scoreText()       (canonical ACC v2: linear + geometric - penalties)
+ *     -> scoreText()       (canonical ACC v2.1: linear + geometric - penalties)
  *     -> normalize()       (shape adjustments for the parchment UI)
  */
 
@@ -37,13 +37,17 @@ export interface AccRule {
 
 export interface AccPenalty {
   id: string;
+  severity: number;
   weight: number;
+  impact: number;
   reason: string;
 }
 
 export interface AccAction {
   id: string;
-  guidance: string;
+  priority?: 'high' | 'medium';
+  reason?: string;
+  guidance?: string;
 }
 
 export interface ScoredClaim {
@@ -59,6 +63,11 @@ export interface ScoredClaim {
   rules: AccRule[];
   penalties: AccPenalty[];
   actions: AccAction[];
+  support_strength: number;
+  epistemic_risk: number;
+  claim_state: string;
+  verification_gap: string;
+  diagnostics: Record<string, number | string | boolean>;
   feature_breakdown: Record<string, number>;
   rationale: string;
   mini_graph_svg: string;
@@ -78,6 +87,11 @@ export interface AnalysisResult {
   rules: AccRule[];
   penalties: AccPenalty[];
   actions: AccAction[];
+  support_strength: number;
+  epistemic_risk: number;
+  claim_state: string;
+  verification_gap: string;
+  diagnostics: Record<string, number | string | boolean>;
   features: Record<string, number> | null;
   claims: ScoredClaim[];
   trustworthy_count: number;
@@ -90,14 +104,20 @@ export const FEATURE_LABELS: Record<string, string> = {
   claim_specificity: 'Claim specificity',
   root_depth: 'Root depth',
   source_independence: 'Source independence',
+  support_ratio: 'Support ratio',
   evidence_volume: 'Evidence volume',
   external_support_ratio: 'External support ratio',
   temporal_spread: 'Temporal spread',
   consensus_alignment: 'Consensus alignment',
+  contradiction_load: 'Contradiction load',
   source_tier: 'Source tier',
+  source_quality: 'Source quality',
   rhetorical_red_flags: 'Rhetorical red flags',
+  rhetorical_pressure: 'Rhetorical pressure',
   citation_chain_closure: 'Citation chain closure',
+  citation_chain_collapse: 'Citation chain collapse',
   claim_falsifiability: 'Falsifiability',
+  falsifiability: 'Falsifiability',
 };
 
 export const VERDICT_LABEL: Record<Verdict, string> = {
@@ -119,6 +139,11 @@ interface RawScoreResult {
   rules: AccRule[];
   penalties: AccPenalty[];
   actions: AccAction[];
+  support_strength: number;
+  epistemic_risk: number;
+  claim_state: string;
+  verification_gap: string;
+  diagnostics: Record<string, number | string | boolean>;
   content_type: ContentType;
   features: Record<string, number> | null;
   claims: Array<ScoredClaim & { verdict: string }>;
@@ -218,12 +243,17 @@ function finalizeAnalysis(
     word_count: normalizeWhitespace(text).split(/\s+/).filter(Boolean).length,
     overall_score: raw.overall_score,
     verdict: raw.verdict as Verdict,
-    linear_score: raw.linear_score,
-    geometric_core: raw.geometric_core,
-    penalty_total: raw.penalty_total,
+    linear_score: raw.linear_score ?? 0,
+    geometric_core: raw.geometric_core ?? 0,
+    penalty_total: raw.penalty_total ?? 0,
     rules: raw.rules || [],
     penalties: raw.penalties || [],
     actions: raw.actions || [],
+    support_strength: raw.support_strength ?? 0,
+    epistemic_risk: raw.epistemic_risk ?? 0,
+    claim_state: raw.claim_state ?? 'unresolved',
+    verification_gap: raw.verification_gap ?? '',
+    diagnostics: raw.diagnostics ?? {},
     features: raw.features,
     claims,
     trustworthy_count: trustworthyCount,

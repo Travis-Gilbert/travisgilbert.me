@@ -45,7 +45,7 @@ export function GET() {
       lora_source: 's3://models/gemma-4b-gl-fusion-v1',
       training: '804 SFT examples + 375 DPO pairs (epistemic ranking)',
       quantization: 'q4f16_1',
-      algorithm_version: '2.0.0',
+      algorithm_version: '2.1.0',
     },
     { headers: ACT_HEADERS },
   );
