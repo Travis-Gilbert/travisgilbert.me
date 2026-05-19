@@ -33,6 +33,9 @@ import {
 import styles from './AntiConspiracyPage.module.css';
 import { DynamicIslandTOC } from './DynamicIslandTOC';
 import { CompressedFooter } from './CompressedFooter';
+import { CockpitRenderer } from './cockpit/CockpitRenderer';
+import { buildEvidenceScene, validateEvidenceScene } from '@/lib/act/scene-builder';
+import type { SceneDirective } from '@/lib/act/scene-schema';
 import {
   analyzeDocument,
   analyzeDocumentAsync,
@@ -533,6 +536,26 @@ export default function AntiConspiracyPage() {
   // `analysis` directly so no derived `stats` memo is needed here.
 
   const graphLayout = useMemo(() => buildGraphLayout(analysis), [analysis]);
+
+  /* Build the EvidenceCockpit A2UI scene from the analysis result. The
+     deterministic builder mirrors `theseus_acc.a2ui.build_evidence_scene`
+     on the standalone repo. We validate immediately after building so a
+     drift between the builder + validator surfaces as an in-page error
+     rather than a silent shape regression. */
+  const scene = useMemo<SceneDirective | null>(() => {
+    if (!analysis) return null;
+    try {
+      return buildEvidenceScene(analysis);
+    } catch {
+      return null;
+    }
+  }, [analysis]);
+
+  const sceneErrors = useMemo<string[]>(() => {
+    if (!scene) return [];
+    return validateEvidenceScene(scene);
+  }, [scene]);
+
   const todayLabel = useMemo(() => {
     const d = new Date();
     return d.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: '2-digit' }).toUpperCase();
@@ -712,6 +735,33 @@ export default function AntiConspiracyPage() {
             </p>
           )}
         </section>
+
+        {/* ── EvidenceCockpit (A2UI catalog) ──────────────────── */}
+        {scene && sceneErrors.length === 0 && (
+          <section aria-label="Evidence cockpit">
+            <CockpitRenderer scene={scene} />
+          </section>
+        )}
+        {scene && sceneErrors.length > 0 && (
+          <section
+            aria-label="Evidence cockpit error"
+            style={{
+              marginTop: 32,
+              padding: 16,
+              border: '1px solid var(--signal, #B8472D)',
+              background: 'var(--signal-soft, rgba(184, 71, 45, 0.10))',
+              fontFamily: 'var(--f-mono, monospace)',
+              fontSize: 12,
+            }}
+          >
+            <strong>Cockpit schema rejected the analysis:</strong>
+            <ul>
+              {sceneErrors.map((err) => (
+                <li key={err}>{err}</li>
+              ))}
+            </ul>
+          </section>
+        )}
 
         {/* ── Graph builder ───────────────────────────────────── */}
         <section className={styles.graphBlock} aria-label="Claim graph">
