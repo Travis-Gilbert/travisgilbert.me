@@ -78,7 +78,7 @@ export function CockpitRenderer({ scene }: CockpitRendererProps) {
   const claims = groupByClaim(scene.components);
 
   return (
-    <div className={styles.cockpit} aria-label="Evidence cockpit">
+    <div className={styles.cockpit}>
       {claims.map((group, claimIndex) => {
         const sorted = sortForReading(group.components);
         return (
