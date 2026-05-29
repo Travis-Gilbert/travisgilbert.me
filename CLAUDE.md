@@ -67,6 +67,38 @@ This project has repeatedly accumulated decorative-only buttons, mock data in pr
 
 When reviewing your own work before ending a session, grep the files you touched for `MOCK_`, `TODO`, `FIXME`, `placeholder`, `coming soon`, `not implemented`, `console.warn`, `console.log`, `onClick={() => {}}`. Any match in a user-reachable file needs a justification or a removal.
 
+## Service-Tier Auth Stays Server-Side. No Frontend-Held Tokens.
+
+This rule prevents a class of fast-but-wrong wiring that occurred in the 2026-05-22 session: a Next.js Route Handler in the Civic Atlas frontend deployment held a `THESEUS_API_TOKEN` env var and authenticated directly to the Theseus harness from the public app's process. That inverts the multi-tenancy invariant because every public visitor's request hits the upstream service under one shared frontend account, with no per-request `TenantContext` enforcement and no audit trail per tenant.
+
+Binding rules:
+
+- **The Civic Atlas frontend talks to one boundary only**: the project's GraphQL endpoint (`Mutation` and `Query` on the public contract at `Open-Flint-Atlas-main-release/docs/design/flint-graphql-schema-v1.graphql`).
+- **All service-tier auth lives in the server deployment that owns the resolver**, never in the frontend bundle, env file, or Route Handler. Theseus harness tokens, Rusty Red credentials, Modal/Ray service tokens, OpenAI keys, Firecrawl/Tavily keys, etc. all belong on the Axum / Django / Node sidecar service that resolves the GraphQL field.
+- **When a feature needs a service-tier capability the frontend doesn't have**, the answer is "add a GraphQL field whose resolver lives on the service that owns the capability", not "add a Next.js Route Handler that proxies with a token."
+- **`NEXT_PUBLIC_*` env vars carry the GraphQL endpoint URL and feature flags only.** They never carry service credentials. If a token has no `NEXT_PUBLIC_` prefix it is server-side-only by definition; if a token has one, that is a leak.
+- **Route Handlers under `src/app/api/` are reserved for** (a) local fixture shims that read from `src/data/` (already in use for `/api/v2/theseus/open-flint-atlas/*`), (b) trivially public endpoints with no upstream auth, and (c) work that genuinely cannot move to GraphQL. The bar for (c) is "explain why GraphQL doesn't work here", not "GraphQL would take longer to wire."
+
+The canonical Civic Atlas wiring contract:
+
+```
+Theseus harness (Index-API, Strawberry / future gRPC)
+  └─ gRPC client (our-civic-atlas-backend `theseus-client` crate)
+     └─ Axum civic-atlas-server resolver
+        └─ GraphQL response to the Civic Atlas frontend
+           └─ urql mutation/query in the relevant component
+```
+
+Resolvers attach `TenantContext` from Axum middleware to every outbound service call. The frontend stays auth-free for service tiers; browsers receive only what the GraphQL contract publishes.
+
+Worked example: the `civicResearch` mutation pattern lives at `Open-Flint-Atlas-main-release/docs/plans/lane-4-strategic-seams/civic-research-graphql-coordination.md` (acceptance criteria for the backend resolver) and is consumed by `src/components/atlas/CivicResearchPanel.tsx` via the urql client. No frontend-side credential.
+
+Smell tests to apply BEFORE writing a Next.js Route Handler that talks to an upstream service:
+
+1. Does the upstream require an auth token? If yes, the handler probably belongs as a GraphQL resolver on the relevant server, not a Next.js Route Handler.
+2. Does the handler need `TenantContext`? If yes, same answer: GraphQL.
+3. Could a future visitor's POST to this handler attribute work to the wrong tenant? If yes, the architecture is wrong.
+
 ## Git Workflow
 
 - Before committing, run `git diff --cached` and verify only relevant files are staged. Never include previously staged unrelated files in a commit.
@@ -304,8 +336,11 @@ Vercel with native Next.js builder. **Important:** Output Directory must be blan
 | Theseus redesign — Phase 0 (Language Atlas) | Complete this session, user-approved 2026-05-15 | `docs/plans/theseus-redesign/language-atlas.md` (185 lines). Binding mappings: Claim→Point, Tension→Conflict, Provenance→Source/Trace, Dossier→Details, Argument-graph kept, Evidence kept (case-by-case Reasoning/Logic swap), Epistemic-qualifier dropped, Inquiry→Question, Hypothesis→Idea/Hunch, Narrative→Story/Summary. Tier 1 user-visible sites + Tier 2 component renames + Tier 3 FE alias map documented. |
 | Theseus redesign — Phase 4 north star + Phase 1 reference inventory + cosmos.gl architectural decision | Complete this session, user-approved 2026-05-16 | `docs/plans/theseus-redesign/algorithm-scenes-north-star.md` (Algorithm Trace Mode + Brush-style node overlay, 4 layers ordered 4a→4d). `docs/plans/theseus-redesign/reference-inventory.md` (18 references mapped to surfaces). 18 designlang extracts (~450 artifacts) saved under `docs/plans/theseus-redesign/extracts/<n>-<name>/design-extract-output/`. Cosmos.gl decision RESOLVED: retain; problem is surface aesthetic + graph math, not the renderer. |
 | ACT Blueprint redesign — rejected, Retro Lab port queued | In progress, pivot 2026-05-18 | Blueprint sweep on `feat/act-blueprint-redesign` (palette swap, FileTreeSpecimenRack, BlueprintTabNav, BlueprintCanvasStrokes, hero drop zone, manilla envelope tabs) reviewed across several iterations and rejected. New direction: port the Retro Lab Design Scheme bundle from `claude.ai/design` (zip: `Downloads/Retro Lab Design Scheme-handoff (1).zip`, extracted to `/tmp/retro-lab-extract/`). Wire imported FileTree primitive + Dynamic Island TOC + Footer per `Index-API/docs/plans/act-evidence-cockpit/post-compaction-handoff-2026-05-18.md`. Algorithm side (ACT-01 to ACT-07) is owned by Codex on the public ACT repo. |
+| Compute-offload CO stack + Substrate Console (assistant-ui) | In progress 2026-05-28 | Closed the compute-offload negotiation with Codex; CO-0/CO-1 infra committed to Index-API (affordances, differential runner, benchmark ledger, report aggregator, gate0). Substrate Console build started: plan `Index-API/docs/plans/substrate-console/implementation-plan.md`, SC-1 backend committed (107f8b4e: POST `/api/v2/theseus/console/chat` raw arm to gl_fusion_31b + per-turn BenchmarkRecord). Also shipped: coordinate MCP write-receipt fix (08fb8273, 64KB to 341B) + `Index-API/docs/plans/coordination-rewrite/implementation-plan.md`. SC-2/SC-3 (assistant-ui adapter + /console UI) remain. |
 
-**Next step:** Two tracks in parallel; pick one or split.
+**Next step:** Active track is the Substrate Console (assistant-ui chat harness in `Index-API/Context-Theorem-UI`). Resume at SC-2 per `Index-API/docs/plans/substrate-console/implementation-plan.md`: build the assistant-ui `useLocalRuntime` + streaming `ChatModelAdapter` (the Substrate toggle picks raw `/api/v2/theseus/console/chat` vs substrate `/api/v2/theseus/ask/async` enqueue+SSE), then SC-3 (`/console` route, ConsoleThread themed to `--ctx-*`, lit/dim Substrate toggle, CostReadout, nav entry). SC-1 backend is committed (107f8b4e); the 31B is wired as `gl_fusion_31b` and Codex owns the Docker/infra deploy that populates `GL_FUSION_31B_URL`. Remaining SC-1 piece: the substrate-turn B1 BenchmarkRecord (a small `/console/record` endpoint or an `ask_async_task` hook). GIT: Index-API local main is ahead of origin by the plan + coordinate-fix + SC-1 commits (all pathspec, additive); re-sync with Codex's reconciliation before pushing.
+
+**Other open tracks (unchanged):** Two tracks in parallel; pick one or split.
 
 Track A (ACT — from prior session): Post-compaction, read `Index-API/docs/plans/act-evidence-cockpit/post-compaction-handoff-2026-05-18.md` first. Rip out Blueprint files listed there, port the Retro Lab design behind `?lab=1`, wire the FileTree + Dynamic Island TOC + Footer. Theseus redesign Phase 1 (Discovery) and Scene OS work both stay paused until that lands. The full Codex algorithm checklist (ACT-01 to ACT-08) is mirrored in the handoff doc.
 
@@ -341,6 +376,10 @@ Track B (Scene OS v2 cutover — from 2026-05-19 orchestration): Make the v2 pat
 
 | Decision | Choice | Why |
 |----------|--------|-----|
+| Design-gate rolled back from permission-gate to iterative default (2026-05-28) | Travis rolled back the visual design-gate's approval checkpoints. Keep the design THINKING (specialists, component-library scan, anti-slop, design-theory: that is what made the CoordinationRoomGraph come out well) but DROP the stop-and-ask-permission gates. Consult, decide, build, and pull Travis in on look/feel only when his eye genuinely helps, not gate-by-gate. Pre-waiver now applies to visual work generally, not just the Commonplace browser. | The gate conflated "do the design thinking" (keep) with "block on approval at every step" (the turnstile). Decouple them: specialists run by default, approval is the exception. The `visual-work-design-gate` skill + project `## Visual Design & CSS` still say "forbidden until approved"; reframe to "consult then build, iterate" when next editing them (deferred this session for disk/context reasons). |
+| Claim-before-build on a shared multi-agent tree | Before creating a new file or taking a seam on a tree another agent shares, post a one-line coordinate CLAIM first (observe-before-build is insufficient: the dir is cool when you look, hot when you write). Commit only via `git commit -- <explicit pathspec>`, never a bare `git commit` (a shared git index is a race; a bare commit sweeps the other agent's concurrently-staged files). | Four real collisions this session with Codex on the shared checkout (duplicate `summarize_records`, a bare-commit index sweep, a duplicate whole gate0 module, the gate0 re-collision). The deeper fix (intent-grain claimable work-state + event-driven wake-dispatch) is captured in `Index-API/docs/plans/coordination-rewrite/implementation-plan.md` as the post-build co-execution rewrite. |
+| Commonplace browser design-gate: approval pre-waived | Travis pre-signed the visual design-gate for the Commonplace browser surface (Phase 4 in `Index-API/docs/plans/commonplace/implementation-plan.md`) on 2026-05-27. The design PROCESS stays mandatory (`superpowers:brainstorming` + design specialists + `ui-design-pro:design-theory` + `Theseus/Design Components/` scan + impeccable anti-slop). Only the user-approval checkpoint is waived; Claude and Codex own the outcome and the quality bar. | Scoped to the Commonplace browser ONLY. Does NOT extend to other visual surfaces (main site, Atlas, Scene OS), which still require approval. With no human catch on a weak proposal, the anti-slop process matters more, not less. |
+| Civic Atlas frontend talks GraphQL only | All service-tier auth (Theseus harness, Rusty Red, Modal/Ray, OpenAI, Firecrawl, etc.) lives on the Axum service that resolves the GraphQL field, never in the frontend deployment. Frontend hits `Mutation`/`Query` fields; resolver attaches `TenantContext` + service credentials. Drove the 2026-05-22 deletion of `src/app/api/v2/theseus/civic-research/route.ts` and the rewrite to a `civicResearch` GraphQL mutation. | The fast-wiring path (frontend Route Handler with token) inverts multi-tenancy: one shared account for all public visitors, no per-request `TenantContext`. The canonical path (Theseus → gRPC → Axum → GraphQL → frontend) enforces tenant scope per request and keeps service credentials off the public bundle / env. See the new "Service-Tier Auth Stays Server-Side" section earlier in this file. |
 | Deterministic PRNG | djb2 hash + LCG (not Math.random()) | SSG builds must produce identical output across runs |
 | Notebook v4 architecture | Objects + Components, Nodes (immutable), explained Edges | Everything is an Object; changes are Nodes; edges carry `reason` field |
 | CommonPlace: scoped route group | Own layout.tsx, not sharing root shell | Different visual language (warm studio vs parchment site) |
