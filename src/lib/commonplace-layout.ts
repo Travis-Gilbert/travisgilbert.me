@@ -176,12 +176,13 @@ export function splitLeaf(
   tree: PaneNode,
   paneId: string,
   direction: SplitDirection,
-  newViewType: ViewType = 'empty'
+  newViewType: ViewType = 'empty',
+  newContext?: Record<string, unknown>,
 ): PaneNode {
   const target = findPane(tree, paneId);
   if (!target || target.type !== 'leaf') return tree;
 
-  const newLeaf = createLeaf(newViewType);
+  const newLeaf = createLeaf(newViewType, newContext);
   const split = createSplit(direction, target, newLeaf);
   return replacePane(tree, paneId, split);
 }

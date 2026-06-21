@@ -73,6 +73,7 @@ export type ViewType =
   | 'notebook'
   | 'project'
   | 'object-detail'
+  | 'lens'
   | 'calendar'
   | 'resurface'
   | 'loose-ends'
@@ -140,6 +141,7 @@ export const VIEW_REGISTRY: Record<ViewType, { label: string; icon: string }> = 
   notebook: { label: 'Notebook', icon: 'book' },
   project: { label: 'Project', icon: 'briefcase' },
   'object-detail': { label: 'Object', icon: 'note-pencil' },
+  lens: { label: 'Lens', icon: 'sparks' },
   calendar: { label: 'Calendar', icon: 'calendar' },
   resurface: { label: 'Resurface', icon: 'brain-research' },
   'loose-ends': { label: 'Loose Ends', icon: 'scatter' },

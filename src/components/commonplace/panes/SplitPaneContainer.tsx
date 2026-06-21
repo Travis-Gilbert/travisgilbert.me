@@ -57,6 +57,8 @@ import TemporalEvolutionView from '../views/TemporalEvolutionView';
 import BoardView from '../board/BoardView';
 import FilesView from '../views/FilesView';
 import ConnectionWorkshop from '../engine/ConnectionWorkshop';
+import LensPane from '../lenses/LensPane';
+import type { LensContext } from '@/lib/commonplace-lenses';
 
 /* =============================================
    Main container: consumes layout from context,
@@ -768,6 +770,11 @@ function PaneViewContent({
         }
       />
     );
+  }
+
+  /* Lens (engine or attachment lens applied to an object) */
+  if (viewType === 'lens' && context?.lensId && context?.objectRef) {
+    return <LensPane {...(context as unknown as LensContext)} />;
   }
 
   /* Resurface */

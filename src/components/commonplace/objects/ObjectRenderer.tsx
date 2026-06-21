@@ -21,6 +21,7 @@ import { useState, useCallback, useRef, useEffect, type ComponentType } from 're
 import { createPin } from '@/lib/commonplace-api';
 import { useWorkspace } from '@/lib/providers/workspace-provider';
 import RoughBorder from '../shared/RoughBorder';
+import LensAffordance from '../lenses/LensAffordance';
 
 /* ── Types ── */
 
@@ -203,8 +204,11 @@ export default function ObjectRenderer(props: ObjectCardProps) {
     <div
       ref={wrapperRef}
       className={wrapperClass}
-      style={justAttached ? { '--absorb-color': justAttached } as React.CSSProperties : undefined}
+      style={{ position: 'relative', ...(justAttached ? { '--absorb-color': justAttached } : {}) } as React.CSSProperties}
       data-object-id={props.object.id}
+      data-object-slug={props.object.slug}
+      data-object-type={props.object.object_type_slug}
+      data-object-title={props.object.display_title ?? props.object.title}
       draggable
       onDragStart={handleDragStart}
       onDragOver={handleDragOver}
@@ -216,6 +220,7 @@ export default function ObjectRenderer(props: ObjectCardProps) {
       <RoughBorder seed={props.object.slug} glow glowColor={getObjectTypeIdentity(props.object.object_type_slug).color}>
         {card}
       </RoughBorder>
+      <LensAffordance object={props.object} />
       {isDropTarget && pointerInside && (
         <div className="cp-drop-label">Drop to attach component</div>
       )}

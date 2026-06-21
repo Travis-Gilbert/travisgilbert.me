@@ -109,7 +109,7 @@ export function LayoutProvider({ children }: { children: ReactNode }) {
 
       setLayout((prev) => {
         if (forceNewPane && focusedPaneId) {
-          return splitLeaf(prev, focusedPaneId, 'vertical', viewId);
+          return splitLeaf(prev, focusedPaneId, 'vertical', viewId, context);
         }
 
         const existing = findLeafWithView(prev, viewId);
