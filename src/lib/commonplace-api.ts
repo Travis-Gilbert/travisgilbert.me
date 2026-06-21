@@ -2,13 +2,15 @@
  * CommonPlace API client: typed fetch wrapper, response mappers,
  * error handling, and the useApiData hook.
  *
- * Single source of truth for all communication with the Django
- * Index-API notebook endpoints. Maps API response shapes to
+ * Single source of truth for CommonPlace communication. The current public
+ * panes read from the Theorem/CommonPlace GraphQL consumer contract and map
+ * that shape to
  * existing frontend types (MockNode, GraphNode, GraphLink) so
  * components don't need to change their rendering logic.
  *
- * Auth: optional Bearer token via NEXT_PUBLIC_COMMONPLACE_API_TOKEN.
- * With AllowAny on Django, the header is simply omitted.
+ * Legacy helpers still use optional Bearer token auth via
+ * NEXT_PUBLIC_COMMONPLACE_API_TOKEN. GraphQL calls go through the server-side
+ * proxy route so API keys stay outside browser code.
  */
 
 import { useState, useEffect, useCallback, useRef } from 'react';
@@ -20,6 +22,7 @@ import type {
   ApiFeedResponse,
   ApiGraphResponse,
   ApiGraphObject,
+  ApiEdgeCompact,
   ApiObjectDetail,
   ApiCaptureResponse,
   ApiComposeResponse,
@@ -32,6 +35,7 @@ import type {
   ApiResurfaceResponse,
   ApiNotebookListItem,
   ApiNotebookDetail,
+  NotebookObjectCompact,
   ApiProjectListItem,
   ApiProjectDetail,
   ApiDailyLog,
@@ -46,8 +50,9 @@ import type {
   ApiNotebookHealth,
   ApiTemporalEvolution,
   EngineConfig,
+  NavigationTarget,
 } from '@/lib/commonplace';
-import { API_BASE, EPISTEMIC_BASE } from '@/lib/commonplace';
+import { API_BASE, EPISTEMIC_BASE, getObjectTypeIdentity } from '@/lib/commonplace';
 
 /* ─────────────────────────────────────────────────
    Error class
@@ -92,7 +97,7 @@ export async function apiFetch<T>(
   return _doFetch<T>(url, options);
 }
 
-/** Fetch from the top-level epistemic API (/api/v1/) instead of /api/v1/notebook/. */
+/** Legacy-only fetch for epistemic REST helpers that do not yet have a GraphQL contract. */
 export async function epistemicFetch<T>(
   path: string,
   options?: RequestInit,
@@ -127,6 +132,525 @@ async function _doFetch<T>(
       true,
     );
   }
+}
+
+/* ─────────────────────────────────────────────────
+   Theorem/CommonPlace GraphQL consumer contract
+   ───────────────────────────────────────────────── */
+
+const COMMONPLACE_GRAPHQL_ENDPOINT = '/api/commonplace/graphql';
+
+const COMMONPLACE_ITEM_FIELDS = `
+  id
+  kind
+  title
+  bodyText
+  blobHash
+  mime
+  source
+  residency
+  tags
+  collections
+  classification
+  path
+  createdAtMs
+  updatedAtMs
+`;
+
+const COLLECTION_COLORS = ['#2D5F6B', '#8B6FA0', '#B45A2D', '#5A7A4A', '#C49A4A'];
+
+interface CommonplaceGraphqlResponse<T> {
+  data?: T;
+  errors?: Array<{ message?: string }>;
+}
+
+interface CommonplaceItemGql {
+  id: string;
+  kind: string;
+  title: string;
+  bodyText?: string | null;
+  blobHash?: string | null;
+  mime?: string | null;
+  source?: string | null;
+  residency: string;
+  tags: string[];
+  collections: string[];
+  classification?: string | null;
+  path?: string | null;
+  createdAtMs: number;
+  updatedAtMs: number;
+}
+
+interface CommonplaceCollectionGql {
+  id: string;
+  name: string;
+  kind: string;
+  createdAtMs: number;
+}
+
+interface CommonplaceConnectedItemGql {
+  item: CommonplaceItemGql;
+  connections: number;
+  related: CommonplaceItemGql[];
+}
+
+interface CommonplaceBriefingGql {
+  recent: CommonplaceItemGql[];
+  newlyConnected: CommonplaceConnectedItemGql[];
+  openThreads: CommonplaceItemGql[];
+}
+
+interface CommonplaceCandidateLinkGql {
+  a: { id: string };
+  b: { id: string };
+  similarity: number;
+  reason: string;
+}
+
+type HomeActivityType = 'connection' | 'tension' | 'cluster' | 'enrichment';
+
+interface CommonplaceHomeData {
+  hero_question: {
+    text: string;
+    evidence: { entities: number; bridges: number; holes: number };
+    evidence_score: number;
+    tension_score: number;
+    target?: NavigationTarget;
+  };
+  activity: Array<{
+    id: number;
+    type: HomeActivityType;
+    time: string;
+    text: string;
+    strength: number | null;
+    is_new: boolean;
+    target?: NavigationTarget;
+  }>;
+  threads: Array<{
+    id: number;
+    object_type: string;
+    title: string;
+    heat: number;
+    objects: number;
+    metadata: Record<string, unknown>;
+    color?: string;
+    target?: NavigationTarget;
+  }>;
+  pending_reviews: number;
+  pending_reviews_target?: NavigationTarget;
+}
+
+const commonplaceIdByNumericRef = new Map<number, string>();
+const numericRefByCommonplaceId = new Map<string, number>();
+
+async function commonplaceGraphql<T>(
+  query: string,
+  variables?: Record<string, unknown>,
+): Promise<T> {
+  let res: Response;
+  try {
+    res = await fetch(COMMONPLACE_GRAPHQL_ENDPOINT, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ query, variables: variables ?? {} }),
+      cache: 'no-store',
+    });
+  } catch {
+    throw new ApiError(
+      0,
+      'Network error: could not reach Theorem CommonPlace GraphQL',
+      true,
+    );
+  }
+
+  let payload: CommonplaceGraphqlResponse<T>;
+  try {
+    payload = await res.json() as CommonplaceGraphqlResponse<T>;
+  } catch {
+    throw new ApiError(
+      res.status,
+      `Theorem CommonPlace GraphQL returned HTTP ${res.status}`,
+    );
+  }
+
+  if (!res.ok) {
+    const message = payload.errors?.map((err) => err.message).filter(Boolean).join('; ');
+    throw new ApiError(res.status, message || `Theorem CommonPlace GraphQL error ${res.status}`);
+  }
+
+  if (payload.errors?.length) {
+    const message = payload.errors.map((err) => err.message).filter(Boolean).join('; ');
+    throw new ApiError(res.status, message || 'Theorem CommonPlace GraphQL returned errors');
+  }
+
+  if (!payload.data) {
+    throw new ApiError(res.status, 'Theorem CommonPlace GraphQL returned no data');
+  }
+
+  return payload.data;
+}
+
+function clamp(value: number, min: number, max: number): number {
+  return Math.min(max, Math.max(min, value));
+}
+
+function stablePositiveId(value: string): number {
+  const numeric = extractNumericId(value);
+  if (numeric > 0) return numeric;
+
+  let hash = 2166136261;
+  for (let i = 0; i < value.length; i += 1) {
+    hash ^= value.charCodeAt(i);
+    hash = Math.imul(hash, 16777619);
+  }
+  return (hash >>> 0) % 2147483646 + 1;
+}
+
+function registerCommonplaceItem(item: CommonplaceItemGql): number {
+  const existing = numericRefByCommonplaceId.get(item.id);
+  if (existing) return existing;
+
+  let ref = stablePositiveId(item.id);
+  while (commonplaceIdByNumericRef.has(ref) && commonplaceIdByNumericRef.get(ref) !== item.id) {
+    ref += 1;
+  }
+
+  commonplaceIdByNumericRef.set(ref, item.id);
+  numericRefByCommonplaceId.set(item.id, ref);
+  return ref;
+}
+
+function toIso(ms?: number): string {
+  return new Date(ms || Date.now()).toISOString();
+}
+
+function previewText(text?: string | null, maxLength = 180): string {
+  const normalized = (text ?? '').replace(/\s+/g, ' ').trim();
+  if (normalized.length <= maxLength) return normalized;
+  return `${normalized.slice(0, Math.max(0, maxLength - 3))}...`;
+}
+
+function titleOrUntitled(item: CommonplaceItemGql): string {
+  return item.title?.trim() || 'Untitled';
+}
+
+function labelFromKind(kind: string): string {
+  return kind
+    .split(/[_-]+/)
+    .filter(Boolean)
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(' ') || 'Collection';
+}
+
+function relativeTimeFromMs(ms: number): string {
+  const diffMs = Date.now() - ms;
+  const minutes = Math.floor(diffMs / 60000);
+  if (minutes < 1) return 'now';
+  if (minutes < 60) return `${minutes}m ago`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `${hours}h ago`;
+  const days = Math.floor(hours / 24);
+  if (days < 30) return `${days}d ago`;
+  return toIso(ms).slice(0, 10);
+}
+
+function itemTarget(item: CommonplaceItemGql): NavigationTarget {
+  return {
+    kind: 'object',
+    object: { id: registerCommonplaceItem(item), slug: item.id },
+  };
+}
+
+function mapCommonplaceItemToMockNode(item: CommonplaceItemGql): MockNode {
+  const objectRef = registerCommonplaceItem(item);
+  return {
+    id: item.id,
+    objectRef,
+    objectSlug: item.id,
+    objectType: item.kind || 'note',
+    title: titleOrUntitled(item),
+    summary: previewText(item.bodyText, 240),
+    capturedAt: toIso(item.createdAtMs),
+    edgeCount: item.collections.length,
+    edges: [],
+  };
+}
+
+function mapCommonplaceItemToObjectDetail(
+  item: CommonplaceItemGql,
+  edges: ApiEdgeCompact[] = [],
+): ApiObjectDetail {
+  const objectRef = registerCommonplaceItem(item);
+  const identity = getObjectTypeIdentity(item.kind || 'note');
+  const title = titleOrUntitled(item);
+  return {
+    id: objectRef,
+    title,
+    display_title: title,
+    slug: item.id,
+    object_type: stablePositiveId(`type:${item.kind || 'note'}`),
+    object_type_data: {
+      slug: item.kind || 'note',
+      name: identity.label,
+      icon: identity.icon,
+      color: identity.color,
+    },
+    body: item.bodyText ?? '',
+    url: item.source ?? '',
+    og_title: null,
+    og_description: item.classification ?? null,
+    status: item.residency || 'active',
+    captured_at: toIso(item.createdAtMs),
+    capture_method: item.source ? 'url' : 'text',
+    edges,
+    components: item.tags.map((tag, index) => ({
+      id: stablePositiveId(`${item.id}:tag:${tag}`),
+      component_type: 0,
+      component_type_name: 'Tag',
+      data_type: 'tag',
+      key: `tag:${index}`,
+      value: tag,
+      sort_order: index,
+    })),
+    recent_nodes: [{
+      id: stablePositiveId(`${item.id}:node`),
+      sha_hash: item.blobHash ?? item.id,
+      node_type: 'capture',
+      occurred_at: toIso(item.updatedAtMs || item.createdAtMs),
+      title,
+      object_ref: objectRef,
+      object_title: title,
+      object_type: item.kind || 'note',
+      object_slug: item.id,
+    }],
+    object_claims: [],
+  };
+}
+
+function mapCommonplaceItemToNotebookObject(item: CommonplaceItemGql): NotebookObjectCompact {
+  return {
+    id: registerCommonplaceItem(item),
+    title: titleOrUntitled(item),
+    object_type: item.kind || 'note',
+    body_preview: previewText(item.bodyText, 180),
+    edge_count: item.collections.length,
+    captured_at: toIso(item.createdAtMs),
+    url: item.source ?? '',
+    is_starred: false,
+    is_pinned: false,
+    status: item.residency || 'active',
+  };
+}
+
+function mapCollectionToNotebook(
+  collection: CommonplaceCollectionGql,
+  objectCount: number,
+  index: number,
+): ApiNotebookListItem {
+  return {
+    id: stablePositiveId(`collection:${collection.id}`),
+    name: collection.name,
+    slug: collection.id,
+    description: `${labelFromKind(collection.kind)} collection`,
+    color: COLLECTION_COLORS[index % COLLECTION_COLORS.length],
+    icon: 'book',
+    is_active: true,
+    sort_order: index,
+    object_count: objectCount,
+  };
+}
+
+function mapCollectionToProject(
+  collection: CommonplaceCollectionGql,
+): ApiProjectListItem {
+  return {
+    id: stablePositiveId(`project:${collection.id}`),
+    name: collection.name,
+    slug: collection.id,
+    mode: collection.kind === 'manual' ? 'collect' : collection.kind,
+    status: 'active',
+    notebook: null,
+    notebook_name: null,
+    is_template: false,
+    reminder_at: null,
+  };
+}
+
+function mapItemToArtifact(item: CommonplaceItemGql): ApiArtifactListItem {
+  const hasUrl = Boolean(item.source?.startsWith('http://') || item.source?.startsWith('https://'));
+  const captureKind: ApiArtifactListItem['capture_kind'] = hasUrl
+    ? 'url'
+    : item.mime || item.blobHash
+      ? 'file'
+      : 'text';
+  const ingestionStatus: ApiArtifactListItem['ingestion_status'] = item.bodyText || item.classification
+    ? 'extracted'
+    : 'captured';
+
+  return {
+    id: registerCommonplaceItem(item),
+    sha_hash: item.id,
+    title: titleOrUntitled(item),
+    capture_kind: captureKind,
+    source_url: item.source ?? '',
+    parser_type: item.mime ?? item.kind ?? '',
+    ingestion_status: ingestionStatus,
+    epistemic_status: item.classification ?? item.residency ?? 'active',
+    notebook_slug: item.collections[0] ?? null,
+    project_slug: null,
+    projection_count: item.collections.length,
+    raw_text_preview: previewText(item.bodyText, 240),
+    extraction_summary: item.tags.length > 0
+      ? { claims: 0, entities: item.tags.length, questions: 0, rules: 0, methods: 0 }
+      : undefined,
+    created_at: toIso(item.createdAtMs),
+  };
+}
+
+async function fetchCommonplaceItems(kind?: string): Promise<CommonplaceItemGql[]> {
+  const data = await commonplaceGraphql<{ items: CommonplaceItemGql[] }>(
+    `query CommonplaceItems($kind: String) {
+      items(kind: $kind) { ${COMMONPLACE_ITEM_FIELDS} }
+    }`,
+    { kind: kind || null },
+  );
+  return data.items ?? [];
+}
+
+async function fetchCommonplaceItem(id: string): Promise<CommonplaceItemGql> {
+  const data = await commonplaceGraphql<{ item: CommonplaceItemGql | null }>(
+    `query CommonplaceItem($id: String!) {
+      item(id: $id) { ${COMMONPLACE_ITEM_FIELDS} }
+    }`,
+    { id },
+  );
+  if (!data.item) {
+    throw new ApiError(404, 'CommonPlace item not found');
+  }
+  registerCommonplaceItem(data.item);
+  return data.item;
+}
+
+async function fetchCommonplaceItemByNumericRef(id: number): Promise<CommonplaceItemGql> {
+  const knownId = commonplaceIdByNumericRef.get(id);
+  if (knownId) return fetchCommonplaceItem(knownId);
+
+  const items = await fetchCommonplaceItems();
+  const match = items.find((item) => registerCommonplaceItem(item) === id);
+  if (!match) {
+    throw new ApiError(404, 'CommonPlace item not found');
+  }
+  return match;
+}
+
+async function fetchCommonplaceCollectionsWithItems(): Promise<{
+  collections: CommonplaceCollectionGql[];
+  items: CommonplaceItemGql[];
+}> {
+  const data = await commonplaceGraphql<{
+    collections: CommonplaceCollectionGql[];
+    items: CommonplaceItemGql[];
+  }>(
+    `query CommonplaceCollections {
+      collections { id name kind createdAtMs }
+      items { id collections }
+    }`,
+  );
+  return {
+    collections: data.collections ?? [],
+    items: data.items ?? [],
+  };
+}
+
+function countItemsByCollection(items: Pick<CommonplaceItemGql, 'collections'>[]): Map<string, number> {
+  const counts = new Map<string, number>();
+  for (const item of items) {
+    for (const collectionId of item.collections) {
+      counts.set(collectionId, (counts.get(collectionId) ?? 0) + 1);
+    }
+  }
+  return counts;
+}
+
+function mapBriefingToHome(briefing: CommonplaceBriefingGql): CommonplaceHomeData {
+  const recent = briefing.recent ?? [];
+  const connected = briefing.newlyConnected ?? [];
+  const openThreads = briefing.openThreads ?? [];
+  const heroItem = openThreads[0] ?? connected[0]?.item ?? recent[0];
+  const bridgeCount = connected[0]?.connections ?? connected.length;
+  const evidenceEntities = heroItem ? new Set([...heroItem.tags, ...heroItem.collections]).size : 0;
+
+  const activity = [
+    ...connected.slice(0, 5).map((entry) => ({
+      id: registerCommonplaceItem(entry.item),
+      type: 'connection' as HomeActivityType,
+      time: relativeTimeFromMs(entry.item.updatedAtMs || entry.item.createdAtMs),
+      text: `${titleOrUntitled(entry.item)} has ${entry.connections} live connection${entry.connections === 1 ? '' : 's'}.`,
+      strength: clamp(Math.round(entry.connections * 14), 20, 100),
+      is_new: true,
+      target: itemTarget(entry.item),
+    })),
+    ...recent.slice(0, 5).map((item) => ({
+      id: registerCommonplaceItem(item),
+      type: 'enrichment' as HomeActivityType,
+      time: relativeTimeFromMs(item.updatedAtMs || item.createdAtMs),
+      text: `Captured ${titleOrUntitled(item)}.`,
+      strength: null,
+      is_new: false,
+      target: itemTarget(item),
+    })),
+  ].slice(0, 8);
+
+  const threads = (openThreads.length > 0 ? openThreads : recent).slice(0, 6).map((item) => {
+    const identity = getObjectTypeIdentity(item.kind || 'note');
+    const threadType = item.kind === 'task' || item.kind === 'event'
+      ? item.kind
+      : ['paper', 'source', 'doc', 'file', 'link'].includes(item.kind)
+        ? 'research'
+        : 'concept';
+    const created = new Date(toIso(item.createdAtMs));
+    return {
+      id: registerCommonplaceItem(item),
+      object_type: threadType,
+      title: titleOrUntitled(item),
+      heat: clamp(0.25 + item.tags.length * 0.08 + item.collections.length * 0.05, 0.25, 1),
+      objects: Math.max(1, item.tags.length + item.collections.length),
+      color: identity.color,
+      target: itemTarget(item),
+      metadata: {
+        snippet: previewText(item.bodyText, 120),
+        connections: item.collections.length,
+        clusters: item.tags.slice(0, 4),
+        project: item.collections[0],
+        month: created.toLocaleString('en-US', { month: 'short' }),
+        day: String(created.getDate()),
+        status: item.residency,
+      },
+    };
+  });
+
+  return {
+    hero_question: {
+      text: heroItem
+        ? `What should connect next around ${titleOrUntitled(heroItem)}?`
+        : '',
+      evidence: {
+        entities: evidenceEntities,
+        bridges: bridgeCount,
+        holes: openThreads.length,
+      },
+      evidence_score: clamp(bridgeCount * 12, 0, 100),
+      tension_score: clamp(openThreads.length * 10, 0, 100),
+      target: heroItem ? itemTarget(heroItem) : undefined,
+    },
+    activity,
+    threads,
+    pending_reviews: connected.length,
+    pending_reviews_target: {
+      kind: 'view',
+      view: { type: 'connection-review' },
+    },
+  };
 }
 
 /* ─────────────────────────────────────────────────
@@ -203,20 +727,20 @@ export async function fetchFeed(params?: {
   notebook?: string;
   project?: string;
 }): Promise<MockNode[]> {
-  const search = new URLSearchParams();
-  if (params?.page) search.set('page', String(params.page));
-  if (params?.per_page) search.set('per_page', String(params.per_page));
-  if (params?.object_type) search.set('object_type', params.object_type);
-  if (params?.notebook) search.set('notebook', params.notebook);
-  if (params?.project) search.set('project', params.project);
+  const page = Math.max(1, params?.page ?? 1);
+  const perPage = params?.per_page ?? 100;
+  const items = await fetchCommonplaceItems(params?.object_type);
+  const filtered = items
+    .filter((item) => {
+      if (params?.notebook && !item.collections.includes(params.notebook)) return false;
+      if (params?.project && !item.collections.includes(params.project)) return false;
+      return true;
+    })
+    .sort((a, b) => b.createdAtMs - a.createdAtMs);
 
-  const qs = search.toString();
-  const path = `/feed/${qs ? `?${qs}` : ''}`;
-
-  const data = await apiFetch<ApiFeedResponse>(path);
-  // Flatten day-grouped response into a flat node array
-  const items: ApiFeedNode[] = data.days.flatMap((day) => day.nodes);
-  return items.map(mapFeedNodeToMockNode);
+  return filtered
+    .slice((page - 1) * perPage, page * perPage)
+    .map(mapCommonplaceItemToMockNode);
 }
 
 /** Fetch graph data (objects + edges), mapped to D3 format */
@@ -224,29 +748,73 @@ export async function fetchGraph(params?: {
   object_type?: string;
   notebook?: string;
 }): Promise<{ nodes: GraphNode[]; links: GraphLink[] }> {
-  const search = new URLSearchParams();
-  if (params?.object_type) search.set('object_type', params.object_type);
-  if (params?.notebook) search.set('notebook', params.notebook);
+  const data = await commonplaceGraphql<{
+    items: CommonplaceItemGql[];
+    discover: CommonplaceCandidateLinkGql[];
+  }>(
+    `query CommonplaceGraph($kind: String, $maxResults: Int) {
+      items(kind: $kind) { ${COMMONPLACE_ITEM_FIELDS} }
+      discover(minSimilarity: 0.45, maxResults: $maxResults) {
+        a { id }
+        b { id }
+        similarity
+        reason
+      }
+    }`,
+    { kind: params?.object_type ?? null, maxResults: 80 },
+  );
 
-  const qs = search.toString();
-  const path = `/graph/${qs ? `?${qs}` : ''}`;
+  const items = (data.items ?? []).filter((item) => (
+    params?.notebook ? item.collections.includes(params.notebook) : true
+  ));
+  const itemIds = new Set(items.map((item) => item.id));
+  const links: GraphLink[] = (data.discover ?? [])
+    .filter((link) => itemIds.has(link.a.id) && itemIds.has(link.b.id))
+    .map((link) => ({
+      source: link.a.id,
+      target: link.b.id,
+      reason: link.reason,
+      edge_type: 'similar_to',
+      strength: link.similarity,
+      engine: 'theorem-commonplace-discover',
+    }));
 
-  const resp = await apiFetch<ApiGraphResponse>(path);
-  return mapGraphResponseToD3(resp);
+  const edgeCounts = new Map<string, number>();
+  for (const link of links) {
+    const source = typeof link.source === 'string' ? link.source : link.source.id;
+    const target = typeof link.target === 'string' ? link.target : link.target.id;
+    edgeCounts.set(source, (edgeCounts.get(source) ?? 0) + 1);
+    edgeCounts.set(target, (edgeCounts.get(target) ?? 0) + 1);
+  }
+
+  const nodes: GraphNode[] = items.map((item) => ({
+    id: item.id,
+    objectRef: registerCommonplaceItem(item),
+    objectSlug: item.id,
+    objectType: item.kind || 'note',
+    title: titleOrUntitled(item),
+    edgeCount: edgeCounts.get(item.id) ?? item.collections.length,
+    bodyPreview: previewText(item.bodyText, 160),
+    status: item.residency,
+  }));
+
+  return { nodes, links };
 }
 
 /** Fetch single object detail by slug */
 export async function fetchObjectDetail(
   slug: string,
 ): Promise<ApiObjectDetail> {
-  return apiFetch<ApiObjectDetail>(`/objects/${slug}/`);
+  const item = await fetchCommonplaceItem(slug);
+  return mapCommonplaceItemToObjectDetail(item);
 }
 
 /** Fetch single object detail by numeric ID */
 export async function fetchObjectById(
   id: number,
 ): Promise<ApiObjectDetail> {
-  return apiFetch<ApiObjectDetail>(`/objects/${id}/`);
+  const item = await fetchCommonplaceItemByNumericRef(id);
+  return mapCommonplaceItemToObjectDetail(item);
 }
 
 export async function postObjectConnection(
@@ -482,15 +1050,67 @@ export async function fetchResurface(params?: {
   project?: string;
   exclude?: number[];
 }): Promise<ApiResurfaceResponse> {
-  const search = new URLSearchParams();
-  if (params?.count) search.set('count', String(params.count));
-  if (params?.notebook) search.set('notebook', params.notebook);
-  if (params?.project) search.set('project', params.project);
-  if (params?.exclude?.length) search.set('exclude', params.exclude.join(','));
+  const count = params?.count ?? 5;
+  const excluded = new Set(params?.exclude ?? []);
+  const data = await commonplaceGraphql<{ briefing: CommonplaceBriefingGql }>(
+    `query CommonplaceResurface($limit: Int) {
+      briefing(recentLimit: $limit, connectedLimit: $limit, openLimit: $limit) {
+        recent { ${COMMONPLACE_ITEM_FIELDS} }
+        newlyConnected {
+          connections
+          item { ${COMMONPLACE_ITEM_FIELDS} }
+          related { id title kind createdAtMs updatedAtMs tags collections residency }
+        }
+        openThreads { ${COMMONPLACE_ITEM_FIELDS} }
+      }
+    }`,
+    { limit: count * 2 },
+  );
 
-  const qs = search.toString();
-  const path = `/resurface/${qs ? `?${qs}` : ''}`;
-  return apiFetch<ApiResurfaceResponse>(path);
+  const seen = new Set<string>();
+  const cards: ApiResurfaceResponse['cards'] = [];
+  const addCard = (
+    item: CommonplaceItemGql,
+    signal: string,
+    signalLabel: string,
+    explanation: string,
+    score: number,
+  ) => {
+    const objectRef = registerCommonplaceItem(item);
+    if (excluded.has(objectRef) || seen.has(item.id)) return;
+    if (params?.notebook && !item.collections.includes(params.notebook)) return;
+    if (params?.project && !item.collections.includes(params.project)) return;
+    seen.add(item.id);
+    cards.push({
+      object: mapCommonplaceItemToObjectDetail(item),
+      signal,
+      signal_label: signalLabel,
+      explanation,
+      score,
+      actions: ['Open'],
+    });
+  };
+
+  for (const connected of data.briefing.newlyConnected ?? []) {
+    addCard(
+      connected.item,
+      'connection',
+      'New connection',
+      `${connected.connections} related item${connected.connections === 1 ? '' : 's'} are active around this.`,
+      clamp(0.45 + connected.connections * 0.08, 0.45, 1),
+    );
+  }
+  for (const item of data.briefing.openThreads ?? []) {
+    addCard(item, 'open_thread', 'Open thread', 'Theorem flagged this as an active thread.', 0.68);
+  }
+  for (const item of data.briefing.recent ?? []) {
+    addCard(item, 'recent', 'Recently captured', 'Recent CommonPlace activity from the Theorem gateway.', 0.52);
+  }
+
+  return {
+    cards: cards.slice(0, count),
+    meta: { count: cards.length },
+  };
 }
 
 /* ─────────────────────────────────────────────────
@@ -499,10 +1119,11 @@ export async function fetchResurface(params?: {
 
 /** Fetch all notebooks. Handles both flat array and paginated envelope. */
 export async function fetchNotebooks(): Promise<ApiNotebookListItem[]> {
-  const data = await apiFetch<
-    { results: ApiNotebookListItem[] } | ApiNotebookListItem[]
-  >('/notebooks/');
-  return Array.isArray(data) ? data : data.results;
+  const { collections, items } = await fetchCommonplaceCollectionsWithItems();
+  const counts = countItemsByCollection(items);
+  return collections.map((collection, index) => (
+    mapCollectionToNotebook(collection, counts.get(collection.id) ?? 0, index)
+  ));
 }
 
 /** Create a new notebook */
@@ -511,24 +1132,68 @@ export async function createNotebook(data: {
   description?: string;
   color?: string;
 }): Promise<ApiNotebookListItem> {
-  return apiFetch<ApiNotebookListItem>('/notebooks/', {
-    method: 'POST',
-    body: JSON.stringify(data),
-  });
+  const result = await commonplaceGraphql<{ createCollection: CommonplaceCollectionGql }>(
+    `mutation CreateCommonplaceCollection($name: String!) {
+      createCollection(name: $name) { id name kind createdAtMs }
+    }`,
+    { name: data.name },
+  );
+  const notebook = mapCollectionToNotebook(result.createCollection, 0, 0);
+  return {
+    ...notebook,
+    color: data.color || notebook.color,
+    description: data.description || notebook.description,
+  };
 }
 
 /** Fetch a single notebook by slug */
 export async function fetchNotebookBySlug(
   slug: string,
 ): Promise<ApiNotebookDetail> {
-  return apiFetch<ApiNotebookDetail>(`/notebooks/${slug}/`);
+  const data = await commonplaceGraphql<{
+    collection: CommonplaceCollectionGql | null;
+    collectionItems: CommonplaceItemGql[];
+  }>(
+    `query CommonplaceCollectionDetail($id: String!) {
+      collection(id: $id) { id name kind createdAtMs }
+      collectionItems(id: $id) { ${COMMONPLACE_ITEM_FIELDS} }
+    }`,
+    { id: slug },
+  );
+  if (!data.collection) {
+    throw new ApiError(404, 'CommonPlace collection not found');
+  }
+  const notebook = mapCollectionToNotebook(data.collection, data.collectionItems.length, 0);
+  return {
+    ...notebook,
+    engine_config: {},
+    available_types: [],
+    default_layout: null,
+    theme: {},
+    objects: data.collectionItems.map(mapCommonplaceItemToNotebookObject),
+    visibility: 'private',
+  };
 }
 
 /** GET /notebooks/<slug>/health/ */
 export async function fetchNotebookHealth(
   slug: string,
 ): Promise<ApiNotebookHealth> {
-  return apiFetch<ApiNotebookHealth>(`/notebooks/${slug}/health/`);
+  const data = await commonplaceGraphql<{ collectionItems: CommonplaceItemGql[] }>(
+    `query CommonplaceCollectionHealth($id: String!) {
+      collectionItems(id: $id) { id collections tags }
+    }`,
+    { id: slug },
+  );
+  const objectCount = data.collectionItems.length;
+  const edgeCount = data.collectionItems.reduce((sum, item) => sum + item.collections.length, 0);
+  return {
+    object_count: objectCount,
+    edge_count: edgeCount,
+    density: objectCount > 1 ? edgeCount / (objectCount * (objectCount - 1)) : 0,
+    last_engine_run: null,
+    cluster_count: new Set(data.collectionItems.flatMap((item) => item.tags)).size,
+  };
 }
 
 /** PATCH /notebooks/<slug>/engine-config/ (granular passes/modules config) */
@@ -587,14 +1252,14 @@ export async function fetchProjects(params?: {
   notebook?: string;
   status?: string;
 }): Promise<ApiProjectListItem[]> {
-  const search = new URLSearchParams();
-  if (params?.notebook) search.set('notebook', params.notebook);
-  if (params?.status) search.set('status', params.status);
-  const qs = search.toString();
-  const data = await apiFetch<
-    { results: ApiProjectListItem[] } | ApiProjectListItem[]
-  >(`/projects/${qs ? `?${qs}` : ''}`);
-  return Array.isArray(data) ? data : data.results;
+  const { collections } = await fetchCommonplaceCollectionsWithItems();
+  return collections
+    .map(mapCollectionToProject)
+    .filter((project) => {
+      if (params?.status && project.status !== params.status) return false;
+      if (params?.notebook && project.notebook !== params.notebook) return false;
+      return true;
+    });
 }
 
 /** Create a new project */
@@ -604,17 +1269,66 @@ export async function createProject(data: {
   mode?: string;
   description?: string;
 }): Promise<ApiProjectListItem> {
-  return apiFetch<ApiProjectListItem>('/projects/', {
-    method: 'POST',
-    body: JSON.stringify(data),
-  });
+  const result = await commonplaceGraphql<{ createCollection: CommonplaceCollectionGql }>(
+    `mutation CreateCommonplaceProject($name: String!) {
+      createCollection(name: $name) { id name kind createdAtMs }
+    }`,
+    { name: data.name },
+  );
+  return {
+    ...mapCollectionToProject(result.createCollection),
+    mode: data.mode || 'collect',
+    notebook: data.notebook ?? null,
+  };
 }
 
 /** Fetch a single project by slug */
 export async function fetchProjectBySlug(
   slug: string,
 ): Promise<ApiProjectDetail> {
-  return apiFetch<ApiProjectDetail>(`/projects/${slug}/`);
+  const data = await commonplaceGraphql<{
+    collection: CommonplaceCollectionGql | null;
+    collectionItems: CommonplaceItemGql[];
+  }>(
+    `query CommonplaceProjectDetail($id: String!) {
+      collection(id: $id) { id name kind createdAtMs }
+      collectionItems(id: $id) { ${COMMONPLACE_ITEM_FIELDS} }
+    }`,
+    { id: slug },
+  );
+  if (!data.collection) {
+    throw new ApiError(404, 'CommonPlace project collection not found');
+  }
+  const project = mapCollectionToProject(data.collection);
+  return {
+    ...project,
+    sha_hash: data.collection.id,
+    description: `${labelFromKind(data.collection.kind)} collection from Theorem CommonPlace.`,
+    template_from: null,
+    settings_override: {},
+    objects: data.collectionItems.map((item) => ({
+      id: registerCommonplaceItem(item),
+      title: titleOrUntitled(item),
+      object_type: item.kind || 'note',
+    })),
+  };
+}
+
+export async function fetchHome(): Promise<CommonplaceHomeData> {
+  const data = await commonplaceGraphql<{ briefing: CommonplaceBriefingGql }>(
+    `query CommonplaceHome {
+      briefing(recentLimit: 8, connectedLimit: 8, openLimit: 8) {
+        recent { ${COMMONPLACE_ITEM_FIELDS} }
+        newlyConnected {
+          connections
+          item { ${COMMONPLACE_ITEM_FIELDS} }
+          related { id title kind createdAtMs updatedAtMs tags collections residency }
+        }
+        openThreads { ${COMMONPLACE_ITEM_FIELDS} }
+      }
+    }`,
+  );
+  return mapBriefingToHome(data.briefing);
 }
 
 /* ─────────────────────────────────────────────────
@@ -832,39 +1546,43 @@ export function useApiData<T>(
 
   /* Stable reference to the fetcher to avoid re-triggering on every render */
   const fetcherRef = useRef(fetcher);
-  fetcherRef.current = fetcher;
+  useEffect(() => {
+    fetcherRef.current = fetcher;
+  }, [fetcher]);
 
   const refetch = useCallback(() => setTick((t) => t + 1), []);
 
-  useEffect(() => {
-    let cancelled = false;
+  const runFetch = useCallback(async (isCancelled: () => boolean) => {
     setLoading(true);
     setError(null);
 
-    fetcherRef
-      .current()
-      .then((result) => {
-        if (!cancelled) {
-          setData(result);
-          setLoading(false);
-        }
-      })
-      .catch((err) => {
-        if (!cancelled) {
-          const apiErr =
-            err instanceof ApiError
-              ? err
-              : new ApiError(0, err?.message ?? 'Unknown error', true);
-          setError(apiErr);
-          setLoading(false);
-        }
-      });
+    try {
+      const result = await fetcherRef.current();
+      if (isCancelled()) return;
+      setData(result);
+      setLoading(false);
+    } catch (err) {
+      if (isCancelled()) return;
+      const apiErr =
+        err instanceof ApiError
+          ? err
+          : new ApiError(0, err instanceof Error ? err.message : 'Unknown error', true);
+      setError(apiErr);
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+    queueMicrotask(() => {
+      if (!cancelled) void runFetch(() => cancelled);
+    });
 
     return () => {
       cancelled = true;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [tick, ...deps]);
+  }, [runFetch, tick, ...deps]);
 
   return { data, loading, error, refetch };
 }
@@ -1137,15 +1855,15 @@ export async function fetchArtifacts(params?: {
   ingestion_status?: string;
   notebook?: string;
 }): Promise<ApiArtifactListItem[]> {
-  const search = new URLSearchParams();
-  if (params?.capture_kind) search.set('capture_kind', params.capture_kind);
-  if (params?.ingestion_status) search.set('ingestion_status', params.ingestion_status);
-  if (params?.notebook) search.set('notebook', params.notebook);
-
-  const qs = search.toString();
-  const path = `/artifacts/${qs ? `?${qs}` : ''}`;
-  const data = await epistemicFetch<{ results: ApiArtifactListItem[] } | ApiArtifactListItem[]>(path);
-  return Array.isArray(data) ? data : data.results;
+  const items = await fetchCommonplaceItems();
+  return items
+    .filter((item) => (params?.notebook ? item.collections.includes(params.notebook) : true))
+    .map(mapItemToArtifact)
+    .filter((artifact) => {
+      if (params?.capture_kind && artifact.capture_kind !== params.capture_kind) return false;
+      if (params?.ingestion_status && artifact.ingestion_status !== params.ingestion_status) return false;
+      return true;
+    });
 }
 
 /** Trigger extraction on an artifact */

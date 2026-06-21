@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { motion, useReducedMotion } from 'motion/react';
-import { apiFetch } from '@/lib/commonplace-api';
+import { fetchHome } from '@/lib/commonplace-api';
 import type { NavigationTarget, ScreenType, ViewType } from '@/lib/commonplace';
 import { useDrawer } from '@/lib/providers/drawer-provider';
 import { useLayout } from '@/lib/providers/layout-provider';
@@ -241,7 +241,7 @@ export default function HomeView() {
   useEffect(() => {
     let isMounted = true;
 
-    apiFetch<HomeData>('/home/')
+    fetchHome()
       .then((d) => {
         if (!isMounted) return;
         if (d?.hero_question) {
@@ -249,11 +249,11 @@ export default function HomeView() {
           setLoadError(null);
           return;
         }
-        setLoadError('Index API returned an incomplete CommonPlace home payload.');
+        setLoadError('Theorem gateway returned an incomplete CommonPlace home payload.');
       })
       .catch(() => {
         if (!isMounted) return;
-        setLoadError('Could not load live CommonPlace home data from Index API.');
+        setLoadError('Could not load live CommonPlace home data from Theorem gateway.');
       })
       .finally(() => {
         if (isMounted) setIsLoading(false);
@@ -314,7 +314,7 @@ export default function HomeView() {
   } = data;
   const heroTarget = hero.target ?? { kind: 'screen', screen: { type: 'models' } };
   const heroLabel = isLoading
-    ? 'Connecting to Index API'
+    ? 'Connecting to Theorem gateway'
     : loadError
       ? 'Live home data unavailable'
       : 'The engine has found a live question';
@@ -376,7 +376,7 @@ export default function HomeView() {
                   {sectionMessage || 'No engine activity yet'}
                 </div>
                 <p className={styles.reviewCtaText}>
-                  The CommonPlace home screen now reads directly from `Index-API`.
+                  The CommonPlace home screen now reads from the Theorem gateway contract.
                 </p>
               </div>
             )}

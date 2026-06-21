@@ -241,7 +241,7 @@ export default function ArtifactBrowserView() {
                   isExtracting={extractingIds.has(artifact.id)}
                   onToggle={() => handleToggleExpand(artifact.id)}
                   onExtract={() => handleExtract(artifact.id)}
-                  onOpenObject={artifact.notebook_slug ? () => openDrawer(artifact.notebook_slug!) : undefined}
+                  onOpenObject={() => openDrawer(artifact.sha_hash)}
                 />
               ))}
             </div>
