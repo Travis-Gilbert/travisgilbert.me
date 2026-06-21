@@ -48,6 +48,14 @@ import type {
   EngineConfig,
 } from '@/lib/commonplace';
 import { API_BASE, EPISTEMIC_BASE } from '@/lib/commonplace';
+import {
+  THEOREM_GRAPHQL,
+  gqlFetchFeed,
+  gqlSearchObjects,
+  gqlFetchObjectDetail,
+  gqlCapture,
+  gqlNotebooks,
+} from '@/lib/commonplace-graphql';
 
 /* ─────────────────────────────────────────────────
    Error class
@@ -203,6 +211,7 @@ export async function fetchFeed(params?: {
   notebook?: string;
   project?: string;
 }): Promise<MockNode[]> {
+  if (THEOREM_GRAPHQL) return gqlFetchFeed({ object_type: params?.object_type });
   const search = new URLSearchParams();
   if (params?.page) search.set('page', String(params.page));
   if (params?.per_page) search.set('per_page', String(params.per_page));
@@ -224,6 +233,7 @@ export async function fetchGraph(params?: {
   object_type?: string;
   notebook?: string;
 }): Promise<{ nodes: GraphNode[]; links: GraphLink[] }> {
+  if (THEOREM_GRAPHQL) return { nodes: [], links: [] };
   const search = new URLSearchParams();
   if (params?.object_type) search.set('object_type', params.object_type);
   if (params?.notebook) search.set('notebook', params.notebook);
@@ -239,6 +249,11 @@ export async function fetchGraph(params?: {
 export async function fetchObjectDetail(
   slug: string,
 ): Promise<ApiObjectDetail> {
+  if (THEOREM_GRAPHQL) {
+    const detail = await gqlFetchObjectDetail(slug);
+    if (detail) return detail;
+    throw new ApiError(404, `Object ${slug} not found`);
+  }
   return apiFetch<ApiObjectDetail>(`/objects/${slug}/`);
 }
 
@@ -280,6 +295,7 @@ export async function searchObjects(
   limit = 10,
 ): Promise<ObjectSearchResult[]> {
   if (!query.trim()) return [];
+  if (THEOREM_GRAPHQL) return gqlSearchObjects(query, limit);
   try {
     const qs = new URLSearchParams({
       q: query,
@@ -401,6 +417,13 @@ export async function captureToApi(data: {
   project_slug?: string;
   file?: File;
 }): Promise<ApiCaptureResponse> {
+  if (THEOREM_GRAPHQL && !data.file) {
+    return gqlCapture({
+      content: data.content,
+      hint_type: data.hint_type,
+      title: data.title,
+    });
+  }
   /* When a file is attached (PDF, binary), send as multipart/form-data
      so the server receives the actual bytes for extraction.
      The browser auto-sets the Content-Type boundary for FormData. */
@@ -482,6 +505,7 @@ export async function fetchResurface(params?: {
   project?: string;
   exclude?: number[];
 }): Promise<ApiResurfaceResponse> {
+  if (THEOREM_GRAPHQL) return { cards: [], meta: { count: 0 } };
   const search = new URLSearchParams();
   if (params?.count) search.set('count', String(params.count));
   if (params?.notebook) search.set('notebook', params.notebook);
@@ -499,6 +523,7 @@ export async function fetchResurface(params?: {
 
 /** Fetch all notebooks. Handles both flat array and paginated envelope. */
 export async function fetchNotebooks(): Promise<ApiNotebookListItem[]> {
+  if (THEOREM_GRAPHQL) return gqlNotebooks();
   const data = await apiFetch<
     { results: ApiNotebookListItem[] } | ApiNotebookListItem[]
   >('/notebooks/');
@@ -587,6 +612,7 @@ export async function fetchProjects(params?: {
   notebook?: string;
   status?: string;
 }): Promise<ApiProjectListItem[]> {
+  if (THEOREM_GRAPHQL) return [];
   const search = new URLSearchParams();
   if (params?.notebook) search.set('notebook', params.notebook);
   if (params?.status) search.set('status', params.status);
@@ -1137,6 +1163,7 @@ export async function fetchArtifacts(params?: {
   ingestion_status?: string;
   notebook?: string;
 }): Promise<ApiArtifactListItem[]> {
+  if (THEOREM_GRAPHQL) return [];
   const search = new URLSearchParams();
   if (params?.capture_kind) search.set('capture_kind', params.capture_kind);
   if (params?.ingestion_status) search.set('ingestion_status', params.ingestion_status);

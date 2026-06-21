@@ -55,6 +55,7 @@ import EmergentTypeSuggestionsView from '../engine/EmergentTypeSuggestionsView';
 import ArtifactBrowserView from '../ArtifactBrowserView';
 import TemporalEvolutionView from '../views/TemporalEvolutionView';
 import BoardView from '../board/BoardView';
+import FilesView from '../views/FilesView';
 import ConnectionWorkshop from '../engine/ConnectionWorkshop';
 
 /* =============================================
@@ -721,6 +722,11 @@ function PaneViewContent({
         }
       />
     );
+  }
+
+  /* Files (filesystem view derived from item paths) */
+  if (viewType === 'files') {
+    return <FilesView />;
   }
 
   /* Timeline (3D with 2D fallback) */

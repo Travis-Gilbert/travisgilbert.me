@@ -47,6 +47,7 @@ import SubstractIcon from '../icons/SubstractIcon';
 import CaptureButton from '../capture/CaptureButton';
 import ObjectPalette from '../shared/ObjectPalette';
 import RecentCaptures from '../capture/RecentCaptures';
+import SidebarTree from './SidebarTree';
 import DropZone from '../board/DropZone';
 import ComponentToolbox from '../shared/ComponentToolbox';
 
@@ -219,6 +220,9 @@ export default function CommonPlaceSidebar({ onCollapse }: { onCollapse?: () => 
 
       <nav style={{ flex: 1, overflow: 'auto', scrollbarWidth: 'none', padding: '8px 6px', position: 'relative', zIndex: 2 }}>
         {SIDEBAR_SECTIONS.map((section, sectionIdx) => {
+          /* The sidebar nav is now the category file tree (SidebarTree),
+             rendered inside the Capture block below; skip the old flat list. */
+          if (section.title !== 'Capture') return null;
           const sectionKey = (section.title || 'capture').toLowerCase() as 'capture' | 'views' | 'work' | 'system';
           const SECTION_GROUP_STYLES: Record<string, string> = {
             capture: styles.sidebarSectionCapture,
@@ -256,6 +260,9 @@ export default function CommonPlaceSidebar({ onCollapse }: { onCollapse?: () => 
                   onClose={() => setIsPaletteOpen(false)}
                   onCapture={handleCapture}
                 />
+                {/* The file auto-organizer IS the primary navigator (replaces
+                    Home / Library / Models / Artifacts). */}
+                <SidebarTree />
               </div>
             ) : (
               section.items.map((item) => {

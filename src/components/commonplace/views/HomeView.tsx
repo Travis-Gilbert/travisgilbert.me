@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { motion, useReducedMotion } from 'motion/react';
 import { apiFetch } from '@/lib/commonplace-api';
+import { THEOREM_GRAPHQL, gqlBriefing, type BriefingGqlShape } from '@/lib/commonplace-graphql';
 import type { NavigationTarget, ScreenType, ViewType } from '@/lib/commonplace';
 import { useDrawer } from '@/lib/providers/drawer-provider';
 import { useLayout } from '@/lib/providers/layout-provider';
@@ -87,6 +88,46 @@ const EMPTY_HOME_DATA: HomeData = {
     view: { type: 'connection-review' },
   },
 };
+
+/* Theorem briefing (recent / newly-connected / open-threads) -> the home ambient. */
+function relTime(ms: number): string {
+  const s = Math.max(0, Math.floor((Date.now() - ms) / 1000));
+  if (s < 60) return 'just now';
+  const m = Math.floor(s / 60);
+  if (m < 60) return `${m}m`;
+  const h = Math.floor(m / 60);
+  if (h < 24) return `${h}h`;
+  return `${Math.floor(h / 24)}d`;
+}
+
+function briefingToHomeData(b: BriefingGqlShape): HomeData {
+  const newIds = new Set(b.newlyConnected.map((c) => c.item.id));
+  return {
+    hero_question: {
+      text: '',
+      evidence: { entities: b.recent.length, bridges: b.newlyConnected.length, holes: 0 },
+      evidence_score: Math.min(100, b.recent.length * 12),
+      tension_score: 0,
+    },
+    activity: b.recent.slice(0, 12).map((it, i) => ({
+      id: i + 1,
+      type: 'connection' as const,
+      time: relTime(it.updatedAtMs),
+      text: it.title || 'Untitled',
+      strength: null,
+      is_new: newIds.has(it.id),
+    })),
+    threads: b.openThreads.slice(0, 8).map((it, i) => ({
+      id: i + 1,
+      object_type: 'note',
+      title: it.title || 'Untitled',
+      heat: 40,
+      objects: 1,
+      metadata: { snippet: (it.bodyText ?? '').slice(0, 120) },
+    })),
+    pending_reviews: b.newlyConnected.length,
+  };
+}
 
 /* ─────────────────────────────────────────────────
    Activity type map
@@ -241,7 +282,10 @@ export default function HomeView() {
   useEffect(() => {
     let isMounted = true;
 
-    apiFetch<HomeData>('/home/')
+    const load = THEOREM_GRAPHQL
+      ? gqlBriefing().then(briefingToHomeData)
+      : apiFetch<HomeData>('/home/');
+    load
       .then((d) => {
         if (!isMounted) return;
         if (d?.hero_question) {
@@ -253,7 +297,7 @@ export default function HomeView() {
       })
       .catch(() => {
         if (!isMounted) return;
-        setLoadError('Could not load live CommonPlace home data from Index API.');
+        setLoadError(THEOREM_GRAPHQL ? null : 'Could not load live CommonPlace home data from Index API.');
       })
       .finally(() => {
         if (isMounted) setIsLoading(false);

@@ -14,6 +14,14 @@ import type {
   MapRerunResult,
   MicroscopeInput,
 } from '@/lib/map-types';
+import {
+  THEOREM_GRAPHQL,
+  gqlAsk,
+  gqlIngest,
+  kindToTypeSlug,
+  stableNumId,
+} from '@/lib/commonplace-graphql';
+import { getObjectTypeIdentity } from '@/lib/commonplace';
 
 /* ─────────────────────────────────────────────────
    Types
@@ -212,7 +220,62 @@ function adaptV2ToAskRetrieval(raw: RawV2CompletePayload): AskRetrievalResponse 
  * not expose top-level claims, so retrieval.claims is always an empty
  * array; consumers that read claims.length will see 0.
  */
+/* ── v2: ask over the Theorem graph (commonplace-api). The agent reads the
+   graph for a grounded answer and WRITES that answer back as a durable item,
+   which appears live across surfaces -- the agent writing IS the model. ── */
+
+const ASK_AGENT_BY_KIND: Record<string, string> = {
+  MODEL: 'communicator',
+  EXTRACTIVE: 'compose_engine',
+  EMPTY: 'none',
+};
+
+function shortTitle(q: string): string {
+  const t = q.trim();
+  return t.length > 72 ? `${t.slice(0, 69)}...` : t;
+}
+
+async function askViaGraph(question: string): Promise<AskRetrievalResponse> {
+  const result = await gqlAsk(question, 8);
+  if (result.answerKind !== 'EMPTY' && result.answer.trim()) {
+    try {
+      await gqlIngest({
+        title: shortTitle(question),
+        text: result.answer,
+        kind: 'note',
+        tags: ['ask', 'agent'],
+      });
+    } catch {
+      /* the answer still renders even if persisting it fails */
+    }
+  }
+  const objects: AskRetrievalObject[] = result.provenance.map((p) => {
+    const ident = getObjectTypeIdentity(kindToTypeSlug(p.item.kind));
+    return {
+      id: stableNumId(p.item.id),
+      slug: p.item.id,
+      title: p.item.title || 'Untitled',
+      object_type_slug: ident.slug,
+      object_type_color: ident.color,
+      body_preview: (p.item.bodyText ?? '').slice(0, 240),
+      edge_count: 0,
+    };
+  });
+  const engines = [...new Set(result.provenance.flatMap((p) => p.arms))];
+  return {
+    question_id: `cp-${Date.now()}`,
+    retrieval: {
+      objects,
+      claims: [],
+      engines_used: engines.length ? engines : ['retrieval'],
+    },
+    answer: result.answer,
+    answer_agent: ASK_AGENT_BY_KIND[result.answerKind] ?? 'none',
+  };
+}
+
 export async function submitQuestion(question: string): Promise<AskRetrievalResponse> {
+  if (THEOREM_GRAPHQL) return askViaGraph(question);
   let enqueueRes: Response;
   try {
     enqueueRes = await fetch('/api/v2/theseus/ask/async', {
