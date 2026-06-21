@@ -1,31 +1,56 @@
-// Build a static export for the Tauri desktop wrap (SPEC-9 D3).
+// Build a SLIM static export for the Tauri desktop wrap (SPEC-9 D3).
 //
-// The API route handlers (src/app/api/*) are POST proxies the desktop bypasses
-// (it calls the local engine directly per D2), and POST route handlers cannot be
-// statically exported. So we move them aside for the export build and restore
-// them after (always, even on failure). The export lands in `out/`, which the
-// Tauri shell points `frontendDist` at.
+// travisgilbert.me is a full personal site; a whole-site `output: export` is
+// blocked by site routes the desktop never uses (opengraph-image, sitemap,
+// robots, manifest, rss, route handlers, force-dynamic studio pages, the other
+// route groups). The desktop only needs the CommonPlace surface, so for the
+// export build we PARK everything under src/app except the (commonplace) route
+// group and the shared root files (layout, globals, fonts, not-found), build the
+// static export into `out/`, then restore. The Tauri shell points frontendDist
+// at `out/`. Restoration always runs (incl. on interrupt).
 
 import { execFileSync } from 'node:child_process';
-import { existsSync, renameSync } from 'node:fs';
+import { existsSync, mkdirSync, readdirSync, renameSync, rmdirSync } from 'node:fs';
+import { join } from 'node:path';
 
-const API = 'src/app/api';
-const PARKED = 'src/app/_api_parked';
+const APP = 'src/app';
+const PARK = 'src/app/_parked';
 const NEXT_BIN = 'node_modules/.bin/next';
 
-function restore() {
-  if (existsSync(PARKED) && !existsSync(API)) renameSync(PARKED, API);
+// Kept in the export: the CommonPlace surface + the shared root scaffold.
+const KEEP = new Set([
+  '(commonplace)',
+  'layout.tsx',
+  'globals.css',
+  'fonts.ts',
+  'not-found.tsx',
+  '_parked',
+]);
+
+function park() {
+  if (!existsSync(PARK)) mkdirSync(PARK);
+  for (const entry of readdirSync(APP)) {
+    if (KEEP.has(entry)) continue;
+    renameSync(join(APP, entry), join(PARK, entry));
+  }
 }
 
-// Restore on an abrupt interrupt too.
+function restore() {
+  if (!existsSync(PARK)) return;
+  for (const entry of readdirSync(PARK)) {
+    renameSync(join(PARK, entry), join(APP, entry));
+  }
+  rmdirSync(PARK);
+}
+
 process.on('SIGINT', () => {
   restore();
   process.exit(1);
 });
 
 try {
-  if (existsSync(API) && !existsSync(PARKED)) renameSync(API, PARKED);
-  // No shell: the binary + args are passed directly (no injection surface).
+  park();
+  // No shell: binary + args passed directly (no injection surface).
   execFileSync(NEXT_BIN, ['build'], {
     stdio: 'inherit',
     env: { ...process.env, DESKTOP_EXPORT: '1' },

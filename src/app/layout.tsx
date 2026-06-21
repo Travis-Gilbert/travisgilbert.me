@@ -58,8 +58,11 @@ export default async function RootLayout({
 }: {
   children: React.ReactNode;
 }) {
-  const session = await auth();
-  const isOwner = session?.user?.isOwner === true;
+  // The desktop static export is local-first (no auth boundary), so skip the
+  // server-only auth() call there so the root layout renders statically, and
+  // treat the local user as owner. The web build keeps the real session check.
+  const isDesktopExport = process.env.DESKTOP_EXPORT === '1';
+  const isOwner = isDesktopExport ? true : (await auth())?.user?.isOwner === true;
   // Blocking script: reads localStorage / matchMedia, sets data-theme on <html>
   // before first paint. Hardcoded string (no user input), safe for inline use.
   const themeScript = [
