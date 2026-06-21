@@ -10,7 +10,14 @@
 // at `out/`. Restoration always runs (incl. on interrupt).
 
 import { execFileSync } from 'node:child_process';
-import { existsSync, mkdirSync, readdirSync, renameSync, rmdirSync } from 'node:fs';
+import {
+  existsSync,
+  mkdirSync,
+  readdirSync,
+  renameSync,
+  rmdirSync,
+  writeFileSync,
+} from 'node:fs';
 import { join } from 'node:path';
 
 const APP = 'src/app';
@@ -55,6 +62,15 @@ try {
     stdio: 'inherit',
     env: { ...process.env, DESKTOP_EXPORT: '1' },
   });
+  // The slim export has no root '/' (the homepage route group is parked), so the
+  // CommonPlace surface lands at /commonplace.html. Tauri loads index.html by
+  // default, so emit one that bounces to the CommonPlace entry.
+  writeFileSync(
+    'out/index.html',
+    '<!doctype html><html><head><meta charset="utf-8"><title>CommonPlace</title>' +
+      '<meta http-equiv="refresh" content="0; url=./commonplace.html"></head>' +
+      '<body><script>location.replace("./commonplace.html")</script></body></html>\n',
+  );
 } finally {
   restore();
 }
