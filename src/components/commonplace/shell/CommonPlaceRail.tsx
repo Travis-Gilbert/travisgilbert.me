@@ -1,6 +1,7 @@
 'use client';
 
 import type { ScreenType } from '@/lib/commonplace';
+import { isTauri } from '@/lib/desktop';
 import { useLayout } from '@/lib/providers/layout-provider';
 import styles from './CommonPlaceRail.module.css';
 
@@ -8,6 +9,7 @@ interface RailItem {
   icon: string;
   label: string;
   screenType: ScreenType;
+  desktopOnly?: boolean;
 }
 
 const RAIL_ITEMS: RailItem[] = [
@@ -16,6 +18,9 @@ const RAIL_ITEMS: RailItem[] = [
   { icon: 'graph', label: 'Map', screenType: 'models' },
   { icon: 'book', label: 'Notebooks', screenType: 'notebooks' },
   { icon: 'engine', label: 'Engine', screenType: 'engine' },
+  { icon: 'globe', label: 'Co-browser', screenType: 'cobrowser', desktopOnly: true },
+  { icon: 'chat', label: 'Coordination', screenType: 'coordination', desktopOnly: true },
+  { icon: 'inbox', label: 'Receiver', screenType: 'receiver', desktopOnly: true },
 ];
 
 /* SVG path data (subset of SidebarIcon paths) */
@@ -46,6 +51,19 @@ const PATHS: Record<string, string | string[]> = {
     'M3.528 7.294L11.709 11.838C11.89 11.939 12.11 11.939 12.291 11.838L20.5 7.278',
     'M12 3V12', 'M12 19.5V22',
   ],
+  globe: [
+    'M12 22C17.523 22 22 17.523 22 12C22 6.477 17.523 2 12 2C6.477 2 2 6.477 2 12C2 17.523 6.477 22 12 22Z',
+    'M2 12H22',
+    'M12 2C14.5 4.5 15.5 8 15.5 12C15.5 16 14.5 19.5 12 22C9.5 19.5 8.5 16 8.5 12C8.5 8 9.5 4.5 12 2Z',
+  ],
+  chat: [
+    'M21 11.5C21 15.09 17.866 18 14 18C13.06 18 12.16 17.83 11.34 17.52L7 19L8.13 15.66C7.42 14.66 7 13.63 7 12.5C7 8.91 10.134 6 14 6C17.866 6 21 8.91 21 11.5Z',
+  ],
+  inbox: [
+    'M3 15V19C3 20.105 3.895 21 5 21H19C20.105 21 21 20.105 21 19V15',
+    'M7 10L12 15L17 10',
+    'M12 15V3',
+  ],
 };
 
 interface CommonPlaceRailProps {
@@ -61,7 +79,7 @@ export default function CommonPlaceRail({ onExpand }: CommonPlaceRailProps) {
         C
       </button>
 
-      {RAIL_ITEMS.map((item) => {
+      {RAIL_ITEMS.filter((item) => !item.desktopOnly || isTauri()).map((item) => {
         const isActive = activeScreen === item.screenType;
         return (
           <button

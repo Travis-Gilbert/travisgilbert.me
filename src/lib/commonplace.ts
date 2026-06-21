@@ -101,7 +101,7 @@ export type ViewType =
 
 export type NavigationMode = 'screen' | 'view';
 
-export type ScreenType = 'daily' | 'library' | 'models' | 'notebooks' | 'projects' | 'engine' | 'settings';
+export type ScreenType = 'daily' | 'library' | 'models' | 'notebooks' | 'projects' | 'engine' | 'settings' | 'cobrowser' | 'coordination' | 'receiver';
 
 export interface NavigationTargetObject {
   id?: number;

@@ -50,6 +50,22 @@ const SERVER_GQL_URL = (
 ).replace(/\/+$/, '');
 const SERVER_API_KEY = process.env.THEOREM_API_KEY ?? 'dev-key';
 
+// Desktop (Tauri) mode: the app ships as a static export with no Next server, so
+// the same-origin proxy route does not exist. The client calls the local
+// commonplace-api the desktop shell spawns in-process, directly, with the local
+// dev key (the node is loopback-only, so the key is not a secret).
+// ponytail: this port must match COMMONPLACE_NODE_PORT in
+// apps/desktop/src-tauri/src/lib.rs (the Theorem repo).
+const DESKTOP_GQL_URL = (
+  process.env.NEXT_PUBLIC_COMMONPLACE_DESKTOP_URL ?? 'http://127.0.0.1:17890'
+).replace(/\/+$/, '');
+const DESKTOP_API_KEY = process.env.NEXT_PUBLIC_COMMONPLACE_DESKTOP_KEY ?? 'dev-key';
+
+/** True inside the Tauri desktop runtime (vs. a browser tab or SSR). */
+function isTauri(): boolean {
+  return typeof window !== 'undefined' && '__TAURI_INTERNALS__' in window;
+}
+
 /** Which backend the consumer surfaces read/write. Default GraphQL (the v2 spine). */
 const BACKEND = process.env.NEXT_PUBLIC_COMMONPLACE_BACKEND ?? 'graphql';
 export const THEOREM_GRAPHQL = BACKEND === 'graphql';
@@ -99,12 +115,18 @@ export async function gql<T>(
   variables: Record<string, unknown> = {},
 ): Promise<T> {
   const onServer = typeof window === 'undefined';
-  const url = onServer ? `${SERVER_GQL_URL}/graphql` : PROXY_PATH;
+  const desktop = !onServer && isTauri();
+  const url = onServer
+    ? `${SERVER_GQL_URL}/graphql`
+    : desktop
+      ? `${DESKTOP_GQL_URL}/graphql`
+      : PROXY_PATH;
   const res = await fetch(url, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
       ...(onServer ? { 'x-api-key': SERVER_API_KEY } : {}),
+      ...(desktop ? { 'x-api-key': DESKTOP_API_KEY } : {}),
     },
     body: JSON.stringify({ query, variables }),
     cache: 'no-store',

@@ -15,6 +15,9 @@ import NotebookListView from '../views/NotebookListView';
 import ProjectListView from '../views/ProjectListView';
 import EngineDashboard from '../engine/EngineDashboard';
 import DailyPage from '../views/DailyPage';
+import CoBrowserView from '../views/CoBrowserView';
+import CoordinationView from '../views/CoordinationView';
+import ReceiverView from '../views/ReceiverView';
 
 interface ScreenRouterProps {
   screen: ScreenType;
@@ -34,6 +37,12 @@ export default function ScreenRouter({ screen }: ScreenRouterProps) {
       return <ProjectListView />;
     case 'engine':
       return <EngineDashboard />;
+    case 'cobrowser':
+      return <CoBrowserView />;
+    case 'coordination':
+      return <CoordinationView />;
+    case 'receiver':
+      return <ReceiverView />;
     case 'settings':
       return <SettingsPlaceholder />;
     default:
