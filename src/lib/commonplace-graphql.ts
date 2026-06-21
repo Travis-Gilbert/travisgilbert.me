@@ -27,6 +27,10 @@ import {
   type ApiCaptureResponse,
   type ObjectListItem,
   type ApiNotebookListItem,
+  type GraphNode,
+  type GraphLink,
+  type ApiResurfaceResponse,
+  type ApiArtifactListItem,
 } from '@/lib/commonplace';
 import type { ObjectSearchResult } from '@/lib/commonplace-api';
 
@@ -506,4 +510,80 @@ export async function gqlBriefing(): Promise<BriefingGqlShape> {
     { briefing: { recent: [], newlyConnected: [], openThreads: [] } },
   );
   return data.briefing;
+}
+
+/* ─────────────────────────────────────────────────
+   Map / Resurface / Artifacts over existing commonplace-api fields
+   (discover for graph edges, briefing for resurface, items for artifacts).
+   Approach credited to Codex's adapter (8cfb8c4); wired through this client.
+   ───────────────────────────────────────────────── */
+
+async function gqlDiscoverLinks(): Promise<{ a: string; b: string; similarity: number; reason: string }[]> {
+  const data = await gqlRead<{ discover: { a: { id: string }; b: { id: string }; similarity: number; reason: string }[] }>(
+    `query($min:Float,$max:Int){ discover(minSimilarity:$min,maxResults:$max){ a{ id } b{ id } similarity reason } }`,
+    { min: 0.3, max: 80 },
+    { discover: [] },
+  );
+  return data.discover.map((d) => ({ a: d.a.id, b: d.b.id, similarity: d.similarity, reason: d.reason }));
+}
+
+/** Map / Network: items as nodes, discover (similar-but-unlinked pairs) as edges. */
+export async function gqlGraph(): Promise<{ nodes: GraphNode[]; links: GraphLink[] }> {
+  const [items, raw] = await Promise.all([gqlItems(), gqlDiscoverLinks()]);
+  const nodes: GraphNode[] = items.map((it) => ({
+    id: it.id,
+    objectRef: stableNumId(it.id),
+    objectSlug: it.id,
+    objectType: kindToTypeSlug(it.kind),
+    title: it.title || 'Untitled',
+    edgeCount: 0,
+    bodyPreview: preview(it.bodyText, 120),
+    status: 'active',
+  }));
+  const byId = new Map(nodes.map((n) => [n.id, n]));
+  const links: GraphLink[] = [];
+  for (const l of raw) {
+    const a = byId.get(l.a);
+    const b = byId.get(l.b);
+    if (a && b) {
+      links.push({ source: l.a, target: l.b, reason: l.reason, strength: l.similarity });
+      a.edgeCount += 1;
+      b.edgeCount += 1;
+    }
+  }
+  return { nodes, links };
+}
+
+/** Resurface: recent items surfaced from the briefing. */
+export async function gqlResurface(count = 6): Promise<ApiResurfaceResponse> {
+  const b = await gqlBriefing();
+  const cards = b.recent.slice(0, count).map((it) => ({
+    object: itemToObjectDetail(it),
+    signal: 'recent',
+    signal_label: 'Recent',
+    explanation: 'Recently active in your substrate.',
+    score: 0.5,
+    actions: [] as string[],
+  }));
+  return { cards, meta: { count: cards.length } };
+}
+
+/** Artifacts: the captured items, shaped as the artifact list. */
+export async function gqlArtifacts(): Promise<ApiArtifactListItem[]> {
+  const items = await gqlItems();
+  return items.map((it) => ({
+    id: stableNumId(it.id),
+    sha_hash: it.blobHash ?? '',
+    title: it.title || 'Untitled',
+    capture_kind: it.kind === 'link' ? 'url' : it.kind === 'file' || it.kind === 'image' ? 'file' : 'text',
+    source_url: it.source ?? '',
+    parser_type: it.kind,
+    ingestion_status: 'extracted',
+    epistemic_status: it.classification ?? '',
+    notebook_slug: it.collections[0] ?? null,
+    project_slug: null,
+    projection_count: 0,
+    raw_text_preview: preview(it.bodyText, 160),
+    created_at: new Date(it.createdAtMs).toISOString(),
+  }));
 }

@@ -55,6 +55,9 @@ import {
   gqlFetchObjectDetail,
   gqlCapture,
   gqlNotebooks,
+  gqlGraph,
+  gqlResurface,
+  gqlArtifacts,
 } from '@/lib/commonplace-graphql';
 
 /* ─────────────────────────────────────────────────
@@ -233,7 +236,7 @@ export async function fetchGraph(params?: {
   object_type?: string;
   notebook?: string;
 }): Promise<{ nodes: GraphNode[]; links: GraphLink[] }> {
-  if (THEOREM_GRAPHQL) return { nodes: [], links: [] };
+  if (THEOREM_GRAPHQL) return gqlGraph();
   const search = new URLSearchParams();
   if (params?.object_type) search.set('object_type', params.object_type);
   if (params?.notebook) search.set('notebook', params.notebook);
@@ -505,7 +508,7 @@ export async function fetchResurface(params?: {
   project?: string;
   exclude?: number[];
 }): Promise<ApiResurfaceResponse> {
-  if (THEOREM_GRAPHQL) return { cards: [], meta: { count: 0 } };
+  if (THEOREM_GRAPHQL) return gqlResurface(params?.count);
   const search = new URLSearchParams();
   if (params?.count) search.set('count', String(params.count));
   if (params?.notebook) search.set('notebook', params.notebook);
@@ -1163,7 +1166,7 @@ export async function fetchArtifacts(params?: {
   ingestion_status?: string;
   notebook?: string;
 }): Promise<ApiArtifactListItem[]> {
-  if (THEOREM_GRAPHQL) return [];
+  if (THEOREM_GRAPHQL) return gqlArtifacts();
   const search = new URLSearchParams();
   if (params?.capture_kind) search.set('capture_kind', params.capture_kind);
   if (params?.ingestion_status) search.set('ingestion_status', params.ingestion_status);
