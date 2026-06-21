@@ -27,7 +27,16 @@ const actMlcModelUrl = 'https://huggingface.co/mlc-ai/gemma-2-2b-it-q4f16_1-MLC'
 const actMlcModelLibUrl =
   'https://raw.githubusercontent.com/mlc-ai/binary-mlc-llm-libs/main/web-llm-models/v0_2_80/gemma-2-2b-it-q4f16_1-ctx4k_cs1k-webgpu.wasm';
 
+// Desktop (Tauri) packaged build: produce a static export. Gated by env so the
+// web/Vercel build is unaffected (it stays a server build with rewrites + route
+// handlers). In desktop mode the app talks to the local engine directly, so the
+// server-only rewrites/redirects/headers are dropped. NOTE: a full static export
+// also requires the API route handlers (src/app/api/*) to be excluded — see
+// scripts/desktop-export.mjs (the `build:desktop` script).
+const isDesktopExport = process.env.DESKTOP_EXPORT === '1';
+
 const nextConfig: NextConfig = {
+  output: isDesktopExport ? 'export' : undefined,
   experimental: {
     viewTransition: true,
   },
@@ -48,6 +57,7 @@ const nextConfig: NextConfig = {
     },
   },
   async rewrites() {
+    if (isDesktopExport) return [];
     return [
       {
         source: '/act/gemma-2-2b-it-q4f16_1-ctx4k_cs1k-webgpu.wasm',
@@ -72,6 +82,7 @@ const nextConfig: NextConfig = {
     ];
   },
   async headers() {
+    if (isDesktopExport) return [];
     return [
       {
         source: '/act/resolve/:path*',
@@ -102,6 +113,7 @@ const nextConfig: NextConfig = {
     ];
   },
   async redirects() {
+    if (isDesktopExport) return [];
     return [
       {
         source: '/investigations',

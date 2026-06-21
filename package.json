@@ -6,6 +6,7 @@
     "dev": "next dev",
     "prebuild": "npx tsx scripts/fetch-changelog.ts",
     "build": "next build",
+    "build:desktop": "node scripts/desktop-export.mjs",
     "start": "next start",
     "lint": "eslint src scripts next.config.ts",
     "export-icons": "node scripts/export-icons.mjs",

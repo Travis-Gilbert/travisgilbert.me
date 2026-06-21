@@ -131,3 +131,95 @@ export const agentTabIngest = (input: {
   title?: string;
   text: string;
 }) => invoke<AgentIngestionReceipt>('agent_tab_ingest', { input });
+
+/**
+ * Agent-collaborative browsing (SPEC-9 D5): the engine's pair co-browsing route
+ * on the local rustyred-thg node (:17888), control mode `pair`. This is an HTTP
+ * call (not invoke), so the node must allow the desktop origin (CORS) — see the
+ * note in CoBrowserView. Returns the raw perception/action bundle.
+ */
+export async function browseWithMe(input: {
+  url?: string;
+  nextAction?: string;
+  confirm?: boolean;
+  tenant?: string;
+}): Promise<unknown> {
+  const tenant = input.tenant ?? 'default';
+  const res = await fetch(
+    `${LOCAL_NODE_URL}/v1/tenants/${tenant}/browser/browse-with-me`,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        control_mode: 'pair',
+        url: input.url,
+        next_action: input.nextAction,
+        confirm: input.confirm ?? false,
+      }),
+    },
+  );
+  if (!res.ok) throw new Error(`browse-with-me ${res.status}`);
+  return res.json();
+}
+
+/* ── Native status / keychain / harness / sync (full D4 client) ─────────── */
+
+// ponytail: these ports must match the desktop shell consts (apps/desktop/src-tauri/src/lib.rs).
+const LOCAL_NODE_URL =
+  process.env.NEXT_PUBLIC_LOCAL_NODE_URL ?? 'http://127.0.0.1:17888';
+
+export type HarnessTarget = 'local' | 'hosted';
+
+export interface HarnessSettings {
+  endpoint: string;
+  localEndpoint: string;
+  activeTarget: HarnessTarget;
+  tenant: string;
+  bearerPresent: boolean;
+}
+
+export interface LocalNodeStatus {
+  nodeUp: boolean;
+  endpoint: string;
+  port: number;
+  storePath: string;
+  activeTarget: HarnessTarget;
+  toolsMatchHosted: boolean;
+}
+
+export interface CommonplaceStatusInfo {
+  nodeUp: boolean;
+  endpoint: string;
+  port: number;
+  storePath: string;
+}
+
+export interface SyncReceipt {
+  id: string;
+  status: string;
+  startedAt: string;
+  finishedAt?: string | null;
+  mergedNodes?: number | null;
+  mergedEdges?: number | null;
+  conflicts?: number | null;
+  message: string;
+}
+
+export const localNodeStatus = () => invoke<LocalNodeStatus>('local_node_status');
+export const commonplaceStatus = () => invoke<CommonplaceStatusInfo>('commonplace_status');
+
+export const harnessSettingsGet = () => invoke<HarnessSettings | null>('harness_settings_get');
+export const harnessSettingsSet = (settings: HarnessSettings) =>
+  invoke<void>('harness_settings_set', { settings });
+export const harnessBearerSet = (token: string) =>
+  invoke<void>('harness_bearer_set', { token });
+export const harnessBearerClear = () => invoke<void>('harness_bearer_clear');
+
+export const keychainSet = (provider: string, key: string) =>
+  invoke<void>('keychain_set', { provider, key });
+export const keychainHas = (provider: string) =>
+  invoke<boolean>('keychain_has', { provider });
+export const keychainDelete = (provider: string) =>
+  invoke<void>('keychain_delete', { provider });
+
+export const syncRun = () => invoke<SyncReceipt>('sync_run');

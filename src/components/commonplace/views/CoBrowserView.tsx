@@ -11,6 +11,7 @@
 import { useCallback, useState } from 'react';
 import {
   agentTabIngest,
+  browseWithMe,
   extractVisibleText,
   tabCreate,
   tabSetActive,
@@ -30,6 +31,8 @@ export default function CoBrowserView() {
   const [tabId, setTabId] = useState<string | null>(null);
   const [page, setPage] = useState<PageContext | null>(null);
   const [receipt, setReceipt] = useState<AgentIngestionReceipt | null>(null);
+  const [agentTask, setAgentTask] = useState('');
+  const [agentResult, setAgentResult] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   const open = useCallback(async () => {
@@ -70,6 +73,21 @@ export default function CoBrowserView() {
     }
   }, [tabId, page]);
 
+  // Agent-collaborative path (pair co-browsing). HTTP to the local node, so the
+  // node must allow the desktop origin (CORS) — see the file header note.
+  const browseAgent = useCallback(async () => {
+    try {
+      const result = await browseWithMe({
+        url: page?.url ?? url,
+        nextAction: agentTask.trim() || undefined,
+      });
+      setAgentResult(JSON.stringify(result, null, 2));
+      setError(null);
+    } catch (err) {
+      setError(String(err));
+    }
+  }, [page, url, agentTask]);
+
   return (
     <DesktopOnly>
       <div style={panel.wrap}>
@@ -98,7 +116,26 @@ export default function CoBrowserView() {
             Ingest
           </button>
         </div>
+        <div style={panel.row}>
+          <input
+            style={panel.input}
+            value={agentTask}
+            onChange={(e) => setAgentTask(e.target.value)}
+            placeholder="ask the agent to act on this page (pair mode)..."
+          />
+          <button style={panel.button} onClick={() => void browseAgent()}>
+            Browse with agent
+          </button>
+        </div>
         {error && <div style={{ ...panel.card, color: 'crimson' }}>{error}</div>}
+        {agentResult && (
+          <div style={panel.card}>
+            <div style={{ fontWeight: 600 }}>Agent perception</div>
+            <div style={{ marginTop: 8, whiteSpace: 'pre-wrap', maxHeight: 280, overflow: 'auto', fontSize: 12 }}>
+              {agentResult}
+            </div>
+          </div>
+        )}
         {receipt && (
           <div style={panel.card}>
             Ingested {receipt.url} → {receipt.status} ({receipt.message})

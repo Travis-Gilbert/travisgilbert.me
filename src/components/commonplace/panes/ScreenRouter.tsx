@@ -18,6 +18,7 @@ import DailyPage from '../views/DailyPage';
 import CoBrowserView from '../views/CoBrowserView';
 import CoordinationView from '../views/CoordinationView';
 import ReceiverView from '../views/ReceiverView';
+import DesktopSettingsView from '../views/DesktopSettingsView';
 
 interface ScreenRouterProps {
   screen: ScreenType;
@@ -43,6 +44,8 @@ export default function ScreenRouter({ screen }: ScreenRouterProps) {
       return <CoordinationView />;
     case 'receiver':
       return <ReceiverView />;
+    case 'desktop':
+      return <DesktopSettingsView />;
     case 'settings':
       return <SettingsPlaceholder />;
     default:
