@@ -34,7 +34,9 @@ export async function invoke<T>(
 ): Promise<T> {
   const bridge = internals();
   if (!bridge) {
-    throw new Error(`Tauri command "${cmd}" called outside the desktop runtime`);
+    throw new Error(
+      `Tauri command "${cmd}" called outside the desktop runtime`,
+    );
   }
   return bridge.invoke(cmd, args) as Promise<T>;
 }
@@ -56,7 +58,8 @@ export interface ReceiverSettings {
 }
 
 export const receiverStatus = () => invoke<ReceiverStatus>('receiver_status');
-export const receiverSettingsGet = () => invoke<ReceiverSettings>('receiver_settings_get');
+export const receiverSettingsGet = () =>
+  invoke<ReceiverSettings>('receiver_settings_get');
 export const receiverSettingsSet = (settings: ReceiverSettings) =>
   invoke<void>('receiver_settings_set', { settings });
 
@@ -144,7 +147,7 @@ export async function browseWithMe(input: {
   confirm?: boolean;
   tenant?: string;
 }): Promise<unknown> {
-  const tenant = input.tenant ?? 'default';
+  const tenant = input.tenant ?? 'Travis-Gilbert';
   const res = await fetch(
     `${LOCAL_NODE_URL}/v1/tenants/${tenant}/browser/browse-with-me`,
     {
@@ -194,6 +197,23 @@ export interface CommonplaceStatusInfo {
   storePath: string;
 }
 
+export interface HostedConnectionStatus {
+  endpoint: string;
+  tenant: string;
+  bearerPresent: boolean;
+  reachable: boolean;
+  documentCount?: number | null;
+  message: string;
+}
+
+export interface ModelStatus {
+  enabled: boolean;
+  endpoint: string;
+  model: string;
+  reachable: boolean;
+  message: string;
+}
+
 export interface SyncReceipt {
   id: string;
   status: string;
@@ -205,10 +225,16 @@ export interface SyncReceipt {
   message: string;
 }
 
-export const localNodeStatus = () => invoke<LocalNodeStatus>('local_node_status');
-export const commonplaceStatus = () => invoke<CommonplaceStatusInfo>('commonplace_status');
+export const localNodeStatus = () =>
+  invoke<LocalNodeStatus>('local_node_status');
+export const commonplaceStatus = () =>
+  invoke<CommonplaceStatusInfo>('commonplace_status');
+export const hostedConnectionStatus = () =>
+  invoke<HostedConnectionStatus>('hosted_connection_status');
+export const modelStatus = () => invoke<ModelStatus>('model_status');
 
-export const harnessSettingsGet = () => invoke<HarnessSettings | null>('harness_settings_get');
+export const harnessSettingsGet = () =>
+  invoke<HarnessSettings | null>('harness_settings_get');
 export const harnessSettingsSet = (settings: HarnessSettings) =>
   invoke<void>('harness_settings_set', { settings });
 export const harnessBearerSet = (token: string) =>
