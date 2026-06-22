@@ -8,9 +8,10 @@
 }
 
 .content {
-  max-width: 1100px;
-  margin: 0 auto;
-  padding: 28px 40px 120px;
+  /* Full-width, left-aligned: the collections sidebar hugs the icon rail
+     (shadcn mail layout) rather than floating in a centered 1100px column. */
+  width: 100%;
+  padding: 20px 36px 0 16px;
 }
 
 .briefingSummary {

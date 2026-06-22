@@ -85,6 +85,14 @@ html[data-theme="dark"] body::after {
   --cp-orange: #C47A3A;
   --cp-steel: #6B7A8A;
 
+  /* Auto-organize card type tints (rgb triples; composed with alpha for the
+     type-tinted card shadow). Extensible: add a triple + a .t* class to type a
+     new card kind. */
+  --cp-tint-email: 78, 110, 135;  /* blue */
+  --cp-tint-task: 45, 95, 107;    /* teal */
+  --cp-tint-note: 196, 154, 74;   /* gold */
+  --cp-tint-event: 123, 94, 167;  /* violet */
+
   /* Object type colors */
   --cp-type-note: #68666E;
   --cp-type-source: #2D5F6B;

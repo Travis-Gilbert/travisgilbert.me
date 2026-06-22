@@ -609,3 +609,98 @@ export async function gqlArtifacts(): Promise<ApiArtifactListItem[]> {
     created_at: new Date(it.createdAtMs).toISOString(),
   }));
 }
+
+/* ─────────────────────────────────────────────────
+   Organize: the auto-organize snapshot (the inbox-replacement).
+
+   The organizing engine (commonplace `ingest.rs` classification + the standing
+   pass) partitions arriving items by classification confidence against a single
+   ceiling: at/above it an item auto-files and appears only in `organizedToday`;
+   below it the item lands in `needsYou` with its alternative destinations so the
+   surface can ask rather than guess. Classification is computed by the engine
+   server-side (cosine of the item embedding to each collection's label
+   embedding) and surfaced here -- it is never computed in the client.
+   ───────────────────────────────────────────────── */
+
+export type OrganizeItemKind =
+  | 'task' | 'email' | 'note' | 'file' | 'event' | 'concept';
+
+export interface OrganizeClassificationGql {
+  targetCollectionId: string | null;
+  targetCollectionLabel: string | null;
+  confidence: number; // 0..1
+  alternatives: { collectionId: string; label: string }[];
+}
+
+export interface OrganizeSubtask {
+  text: string;
+  done: boolean;
+}
+
+export interface OrganizeItemGql {
+  id: string;
+  kind: string; // OrganizeItemKind, widened (engine may coin kinds)
+  title: string;
+  preview: string;
+  source: string;
+  arrivedAt: string; // ISO timestamp or epoch-ms string (parsed leniently)
+  classification: OrganizeClassificationGql;
+  timeSensitive: boolean;
+  expectedAction: 'reply' | 'open' | null;
+  subtasks: OrganizeSubtask[]; // checkbox subtasks (task cards); empty otherwise
+  tags: string[]; // surfaced on note cards
+}
+
+export interface OrganizeSnapshotGql {
+  needsYou: OrganizeItemGql[];
+  organizedToday: {
+    mostRecent: { item: OrganizeItemGql; filedAt: string } | null;
+    groups: { collectionId: string; label: string; count: number }[];
+    totalCount: number;
+  };
+  dailyProgress: { timeframe: 'day' | 'week' | 'month'; done: number; total: number };
+  needsYouCeiling: number;
+}
+
+export type OrganizeTimeframe = 'day' | 'week' | 'month';
+
+const ORGANIZE_ITEM_FIELDS = `
+  id kind title preview source arrivedAt timeSensitive expectedAction tags
+  subtasks { text done }
+  classification {
+    targetCollectionId targetCollectionLabel confidence
+    alternatives { collectionId label }
+  }
+`;
+
+const EMPTY_ORGANIZE: OrganizeSnapshotGql = {
+  needsYou: [],
+  organizedToday: { mostRecent: null, groups: [], totalCount: 0 },
+  dailyProgress: { timeframe: 'day', done: 0, total: 0 },
+  needsYouCeiling: 0.58,
+};
+
+/** The auto-organize snapshot for a timeframe. Graceful-empty on a down backend
+ *  (mirrors gqlBriefing) so the surface shows the calm cleared state, not a crash. */
+export async function gqlOrganize(
+  timeframe: OrganizeTimeframe = 'day',
+  needsYouCeiling?: number,
+): Promise<OrganizeSnapshotGql> {
+  const data = await gqlRead<{ organize: OrganizeSnapshotGql }>(
+    `query($tf:String,$c:Float){
+       organize(timeframe:$tf, needsYouCeiling:$c){
+         needsYou { ${ORGANIZE_ITEM_FIELDS} }
+         organizedToday {
+           mostRecent { item { ${ORGANIZE_ITEM_FIELDS} } filedAt }
+           groups { collectionId label count }
+           totalCount
+         }
+         dailyProgress { timeframe done total }
+         needsYouCeiling
+       }
+     }`,
+    { tf: timeframe, c: needsYouCeiling ?? null },
+    { organize: { ...EMPTY_ORGANIZE, dailyProgress: { ...EMPTY_ORGANIZE.dailyProgress, timeframe } } },
+  );
+  return data.organize;
+}

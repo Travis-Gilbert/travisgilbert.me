@@ -20,7 +20,7 @@ import { AiInputBar } from './AiInputBar';
 import { gqlAsk, gqlSearchObjects, gqlIngest, type AskResultGql } from '@/lib/commonplace-graphql';
 import type { ObjectSearchResult } from '@/lib/commonplace-api';
 
-export default function Omnibar() {
+export default function Omnibar({ bottomOffset = '20vh' }: { bottomOffset?: string } = {}) {
   const reduced = useReducedMotion();
   const [value, setValue] = React.useState('');
   const [searchOn, setSearchOn] = React.useState(false);
@@ -57,7 +57,7 @@ export default function Omnibar() {
        upward above the bar (chat-style). */
     <div
       className="pointer-events-none fixed left-0 right-0 z-40 flex justify-center px-4 md:left-[256px]"
-      style={{ bottom: '20vh' }}
+      style={{ bottom: bottomOffset }}
     >
       <div className="pointer-events-auto w-full max-w-2xl">
         <AnimatePresence>
