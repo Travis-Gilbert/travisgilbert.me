@@ -3,10 +3,9 @@
 /**
  * The omnibar input, ported from the 21st.dev reuno-ui/ai-input component and
  * re-tokenized to the CommonPlace --cp-* language: an auto-resizing textarea
- * with an attach affordance, a search/web toggle, and a send button. It reads
+ * with attach, web search, graph-guided expansion, and a send button. It reads
  * as a chat bar (Travis's ask) -- larger than a command pill. The omnibar wires
- * it to Theorem's agent (askAgent) on submit and to RustyRed search when the
- * toggle is on.
+ * it to Theorem's agent, RustyWeb search, and fractal expansion.
  *
  * Radius note: keeps the rounded chat-bar shape (a deliberate exception to the
  * otherwise-sharp design language, per request).
@@ -14,10 +13,12 @@
 
 import * as React from 'react';
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
-import { Globe, Paperclip, ArrowUp } from 'lucide-react';
+import { GitBranch, Globe, Paperclip, ArrowUp } from 'lucide-react';
 
 const MIN_HEIGHT = 52;
 const MAX_HEIGHT = 168;
+
+export type AiInputMode = 'ask' | 'web' | 'fractal';
 
 function useAutoResize(value: string) {
   const ref = React.useRef<HTMLTextAreaElement>(null);
@@ -38,11 +39,12 @@ export interface AiInputBarProps {
   value: string;
   onChange: (v: string) => void;
   onSubmit: () => void;
-  searchOn: boolean;
-  onToggleSearch: () => void;
+  mode: AiInputMode;
+  onModeChange: (mode: AiInputMode) => void;
   onAttach?: (file: File) => void;
   placeholder?: string;
-  searchPlaceholder?: string;
+  webPlaceholder?: string;
+  fractalPlaceholder?: string;
   busy?: boolean;
   autoFocus?: boolean;
 }
@@ -53,11 +55,12 @@ export const AiInputBar = React.forwardRef<HTMLTextAreaElement, AiInputBarProps>
       value,
       onChange,
       onSubmit,
-      searchOn,
-      onToggleSearch,
+      mode,
+      onModeChange,
       onAttach,
       placeholder = 'Ask the agent, or search',
-      searchPlaceholder = 'Search the substrate',
+      webPlaceholder = 'Search the web',
+      fractalPlaceholder = 'Search the web from your graph',
       busy,
       autoFocus,
     },
@@ -74,7 +77,18 @@ export const AiInputBar = React.forwardRef<HTMLTextAreaElement, AiInputBarProps>
       adjust(true);
     };
 
-    const shownPlaceholder = searchOn ? searchPlaceholder : placeholder;
+    const shownPlaceholder =
+      mode === 'web'
+        ? webPlaceholder
+        : mode === 'fractal'
+          ? fractalPlaceholder
+          : placeholder;
+    const textareaLabel =
+      mode === 'web'
+        ? 'Search the web'
+        : mode === 'fractal'
+          ? 'Search the web from your graph'
+          : 'Ask the agent or search';
 
     return (
       <div className="w-full font-sans">
@@ -97,7 +111,7 @@ export const AiInputBar = React.forwardRef<HTMLTextAreaElement, AiInputBarProps>
                     submit();
                   }
                 }}
-                aria-label={searchOn ? 'Search the substrate' : 'Ask the agent or search'}
+                aria-label={textareaLabel}
                 className="w-full resize-none rounded-xl rounded-b-none bg-transparent px-4 py-3 text-[15px] leading-[1.35] outline-none"
                 style={{ minHeight: MIN_HEIGHT, maxHeight: MAX_HEIGHT, color: 'var(--cp-text)' }}
               />
@@ -105,7 +119,7 @@ export const AiInputBar = React.forwardRef<HTMLTextAreaElement, AiInputBarProps>
                 <div className="pointer-events-none absolute left-4 top-3">
                   <AnimatePresence mode="wait">
                     <motion.span
-                      key={searchOn ? 'search' : 'ask'}
+                      key={mode}
                       initial={reduced ? false : { opacity: 0, y: 4 }}
                       animate={{ opacity: 1, y: 0 }}
                       exit={reduced ? undefined : { opacity: 0, y: -4 }}
@@ -147,18 +161,20 @@ export const AiInputBar = React.forwardRef<HTMLTextAreaElement, AiInputBarProps>
                 ) : null}
                 <button
                   type="button"
-                  onClick={onToggleSearch}
-                  aria-pressed={searchOn}
+                  onClick={() => onModeChange(mode === 'web' ? 'ask' : 'web')}
+                  aria-label="Search the web"
+                  aria-pressed={mode === 'web'}
+                  title="Search the web"
                   className="flex h-8 items-center gap-1.5 rounded-full border px-2 transition-colors"
                   style={
-                    searchOn
+                    mode === 'web'
                       ? { borderColor: 'var(--cp-red)', background: 'var(--cp-red-soft)', color: 'var(--cp-red)' }
                       : { borderColor: 'transparent', color: 'var(--cp-text-muted)' }
                   }
                 >
                   <Globe size={16} />
                   <AnimatePresence>
-                    {searchOn ? (
+                    {mode === 'web' ? (
                       <motion.span
                         initial={reduced ? false : { width: 0, opacity: 0 }}
                         animate={{ width: 'auto', opacity: 1 }}
@@ -171,12 +187,40 @@ export const AiInputBar = React.forwardRef<HTMLTextAreaElement, AiInputBarProps>
                     ) : null}
                   </AnimatePresence>
                 </button>
+                <button
+                  type="button"
+                  onClick={() => onModeChange(mode === 'fractal' ? 'ask' : 'fractal')}
+                  aria-label="Fractal expansion"
+                  aria-pressed={mode === 'fractal'}
+                  title="Search the web from your graph"
+                  className="flex h-8 items-center gap-1.5 rounded-full border px-2 transition-colors"
+                  style={
+                    mode === 'fractal'
+                      ? { borderColor: 'var(--cp-teal)', background: 'rgba(34, 105, 115, 0.12)', color: 'var(--cp-teal)' }
+                      : { borderColor: 'transparent', color: 'var(--cp-text-muted)' }
+                  }
+                >
+                  <GitBranch size={16} />
+                  <AnimatePresence>
+                    {mode === 'fractal' ? (
+                      <motion.span
+                        initial={reduced ? false : { width: 0, opacity: 0 }}
+                        animate={{ width: 'auto', opacity: 1 }}
+                        exit={reduced ? undefined : { width: 0, opacity: 0 }}
+                        transition={{ duration: 0.18 }}
+                        className="overflow-hidden whitespace-nowrap font-mono text-[11px] uppercase tracking-[0.08em]"
+                      >
+                        Fractal expansion
+                      </motion.span>
+                    ) : null}
+                  </AnimatePresence>
+                </button>
               </div>
               <button
                 type="button"
                 onClick={submit}
                 disabled={busy}
-                aria-label={searchOn ? 'Search' : 'Ask'}
+                aria-label={mode === 'ask' ? 'Ask' : 'Search'}
                 className="grid h-8 w-8 place-items-center rounded-full transition-colors"
                 style={
                   value && !busy

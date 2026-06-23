@@ -6,7 +6,8 @@
  *                    grounded retrieval over the substrate (vector + lexical +
  *                    graph, reciprocal-rank fused) with an honest answer and
  *                    per-item provenance. No model dependency.
- *   - search mode -> search : RustyRed retrieval over the substrate.
+ *   - web         -> search: RustyWeb external search acquisition.
+ *   - fractal     -> expand: graph frontier + RustyWeb fractal expansion.
  *   - attach      -> capture the file into CommonPlace.
  *
  * (The Theorem gateway -- src/lib/theorem-gateway.ts -- remains wired for the
@@ -16,32 +17,43 @@
 
 import * as React from 'react';
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
-import { AiInputBar } from './AiInputBar';
-import { gqlSearchObjects, gqlIngest, type AskResultGql } from '@/lib/commonplace-graphql';
+import { AiInputBar, type AiInputMode } from './AiInputBar';
+import { gqlIngest, type AskResultGql } from '@/lib/commonplace-graphql';
 import { askCommonPlaceAgent } from '@/lib/local-agent';
-import type { ObjectSearchResult } from '@/lib/commonplace-api';
+import {
+  searchRustyWeb,
+  type RustyWebSearchHit,
+  type RustyWebSearchResponse,
+} from '@/lib/rustyweb-search';
 
 export default function Omnibar({ bottomOffset = '20vh' }: { bottomOffset?: string } = {}) {
   const reduced = useReducedMotion();
   const [value, setValue] = React.useState('');
-  const [searchOn, setSearchOn] = React.useState(false);
+  const [mode, setMode] = React.useState<AiInputMode>('ask');
   const [busy, setBusy] = React.useState(false);
   const [answer, setAnswer] = React.useState<AskResultGql | null>(null);
-  const [hits, setHits] = React.useState<ObjectSearchResult[] | null>(null);
+  const [searchResult, setSearchResult] = React.useState<RustyWebSearchResponse | null>(null);
+  const [error, setError] = React.useState<string | null>(null);
 
   const submit = React.useCallback(async () => {
     const q = value.trim();
     if (!q || busy) return;
     setBusy(true);
     setAnswer(null);
-    setHits(null);
+    setSearchResult(null);
+    setError(null);
     try {
-      if (searchOn) setHits(await gqlSearchObjects(q, 12));
-      else setAnswer(await askCommonPlaceAgent(q, 8));
+      if (mode === 'ask') {
+        setAnswer(await askCommonPlaceAgent(q, 8));
+      } else {
+        setSearchResult(await searchRustyWeb(q, { mode, limit: mode === 'web' ? 12 : 8 }));
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
     } finally {
       setBusy(false);
     }
-  }, [value, busy, searchOn]);
+  }, [value, busy, mode]);
 
   async function attach(file: File) {
     try {
@@ -51,7 +63,13 @@ export default function Omnibar({ bottomOffset = '20vh' }: { bottomOffset?: stri
     }
   }
 
-  const showPanel = busy || answer !== null || hits !== null;
+  const showPanel = busy || answer !== null || searchResult !== null || error !== null;
+  const busyText =
+    mode === 'ask'
+      ? 'Asking the agent...'
+      : mode === 'fractal'
+        ? 'Expanding from graph to web...'
+        : 'Searching the web...';
 
   return (
     /* Fixed in the bottom third so it never shifts page content; results grow
@@ -73,12 +91,16 @@ export default function Omnibar({ bottomOffset = '20vh' }: { bottomOffset?: stri
             >
               {busy ? (
                 <p className="font-mono text-sm" style={{ color: 'var(--cp-text-muted)' }}>
-                  {searchOn ? 'Searching the substrate...' : 'Asking the agent...'}
+                  {busyText}
+                </p>
+              ) : error ? (
+                <p className="text-sm" style={{ color: 'var(--cp-red)' }}>
+                  {error}
                 </p>
               ) : answer ? (
                 <AnswerView answer={answer} />
-              ) : hits ? (
-                <HitsView hits={hits} />
+              ) : searchResult ? (
+                <SearchResultView result={searchResult} />
               ) : null}
             </motion.div>
           ) : null}
@@ -88,8 +110,8 @@ export default function Omnibar({ bottomOffset = '20vh' }: { bottomOffset?: stri
           value={value}
           onChange={setValue}
           onSubmit={submit}
-          searchOn={searchOn}
-          onToggleSearch={() => setSearchOn((v) => !v)}
+          mode={mode}
+          onModeChange={setMode}
           onAttach={attach}
           busy={busy}
         />
@@ -135,24 +157,77 @@ function AnswerView({ answer }: { answer: AskResultGql }) {
   );
 }
 
-function HitsView({ hits }: { hits: ObjectSearchResult[] }) {
+function SearchResultView({ result }: { result: RustyWebSearchResponse }) {
+  const hits = result.hits.slice(0, 12);
   if (!hits.length) {
     return (
       <p className="text-sm" style={{ color: 'var(--cp-text-muted)' }}>
-        Nothing in your substrate matches that yet.
+        {result.mode === 'fractal'
+          ? 'No graph-guided web results yet.'
+          : 'No web results yet.'}
       </p>
     );
   }
   return (
-    <ul className="space-y-2">
-      {hits.slice(0, 12).map((h) => (
-        <li key={h.slug} className="flex items-baseline gap-2">
-          <span className="text-[15px]" style={{ color: 'var(--cp-text)' }}>{h.display_title || h.title}</span>
-          <span className="font-mono text-[11px]" style={{ color: h.object_type_color || 'var(--cp-text-faint)' }}>
-            {h.object_type_name}
+    <div>
+      <div className="mb-3 flex flex-wrap items-center gap-2 font-mono text-[11px]" style={{ color: 'var(--cp-text-faint)' }}>
+        <span className="rounded px-1.5 py-0.5" style={{ background: 'var(--cp-red-soft)', color: 'var(--cp-red)' }}>
+          {result.mode === 'fractal' ? 'fractal expansion' : 'web search'}
+        </span>
+        <span>{hits.length} result{hits.length === 1 ? '' : 's'}</span>
+        {result.stats.frontier ? <span>{result.stats.frontier} graph seed{result.stats.frontier === 1 ? '' : 's'}</span> : null}
+        {result.stats.seedUrls ? <span>{result.stats.seedUrls} web seed{result.stats.seedUrls === 1 ? '' : 's'}</span> : null}
+      </div>
+      <ul className="space-y-3">
+        {hits.map((hit) => (
+          <SearchHitItem key={hit.id} hit={hit} />
+        ))}
+      </ul>
+    </div>
+  );
+}
+
+function SearchHitItem({ hit }: { hit: RustyWebSearchHit }) {
+  const content = (
+    <>
+      <div className="flex flex-wrap items-baseline gap-2">
+        <span className="text-[15px] leading-tight" style={{ color: 'var(--cp-text)' }}>{hit.title}</span>
+        <span
+          className="rounded px-1 py-0.5 font-mono text-[10px] uppercase tracking-[0.08em]"
+          style={{
+            background: hit.kind === 'graph' ? 'rgba(34, 105, 115, 0.12)' : 'var(--cp-surface-hover)',
+            color: hit.kind === 'graph' ? 'var(--cp-teal)' : 'var(--cp-text-muted)',
+          }}
+        >
+          {hit.kind}
+        </span>
+        {hit.sources.slice(0, 3).map((source) => (
+          <span key={source} className="font-mono text-[10px]" style={{ color: 'var(--cp-text-faint)' }}>
+            {source}
           </span>
-        </li>
-      ))}
-    </ul>
+        ))}
+      </div>
+      {hit.url ? (
+        <div className="mt-0.5 truncate font-mono text-[11px]" style={{ color: 'var(--cp-text-faint)' }}>
+          {hit.url}
+        </div>
+      ) : null}
+      {hit.snippet ? (
+        <p className="mt-1 line-clamp-2 text-sm leading-[1.45]" style={{ color: 'var(--cp-text-muted)' }}>
+          {hit.snippet}
+        </p>
+      ) : null}
+    </>
+  );
+  return (
+    <li>
+      {hit.url ? (
+        <a href={hit.url} target="_blank" rel="noreferrer" className="block rounded-md p-1.5 transition-colors hover:bg-black/5">
+          {content}
+        </a>
+      ) : (
+        <div className="rounded-md p-1.5">{content}</div>
+      )}
+    </li>
   );
 }
