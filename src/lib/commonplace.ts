@@ -190,118 +190,6 @@ export interface SidebarItem {
   viewContext?: Record<string, unknown>;
 }
 
-export const FILE_TREE_SECTIONS: SidebarSection[] = [
-  {
-    title: 'Capture',
-    items: [
-      { label: 'Capture', href: '#capture', icon: 'capture' },
-    ],
-  },
-  {
-    /* The category file tree (rendered by SidebarTree). Library is the
-       auto-organized top folder; Projects nests Notebooks > Notes; Map and
-       Timeline live together under Views; Engine lives inside Settings. */
-    title: '',
-    items: [
-      /* Auto Organize: the renamed homepage (still the 'daily' screen), now the
-         first folder. It contains Library; captured items auto-organize under
-         here once the organizing primitive (Travis's) lands. */
-      {
-        label: 'Auto Organize',
-        href: '#daily',
-        icon: 'cellar',
-        mode: 'screen',
-        screenType: 'daily',
-        expandable: true,
-        children: [
-          { label: 'Library', href: '#library', icon: 'grid', mode: 'screen', screenType: 'library', expandable: true, children: [] },
-        ],
-      },
-      {
-        label: 'Models',
-        href: '#models',
-        icon: 'cube-scan',
-        mode: 'screen',
-        screenType: 'models',
-        expandable: true,
-        children: [
-          { label: 'Structured', href: '#models', icon: 'keyframes-solid', mode: 'screen', screenType: 'models' },
-          { label: 'Free', href: '#boards', icon: 'substract', mode: 'view', viewType: 'board' },
-        ],
-      },
-      { label: 'Artifacts', href: '#artifacts', icon: 'lens-plus', mode: 'view', viewType: 'artifacts' },
-      {
-        label: 'Projects',
-        href: '/commonplace/projects',
-        icon: 'strategy',
-        mode: 'screen',
-        screenType: 'projects',
-        expandable: true,
-        children: [
-          {
-            label: 'Notebooks',
-            href: '/commonplace/notebooks',
-            icon: 'book',
-            mode: 'screen',
-            screenType: 'notebooks',
-            expandable: true,
-            children: [
-              { label: 'Notes', href: '#notes', icon: 'design-nib', mode: 'view', viewType: 'compose' },
-              { label: 'Formation', href: '#notebook-formation', icon: 'book', mode: 'view', viewType: 'notebook-formation' },
-            ],
-          },
-        ],
-      },
-      {
-        label: 'Views',
-        href: '#views',
-        icon: 'timeline',
-        expandable: true,
-        children: [
-          {
-            label: 'Timeline',
-            href: '#timeline',
-            icon: 'timeline',
-            mode: 'view',
-            viewType: 'timeline',
-            expandable: true,
-            children: [
-              { label: 'Temporal', href: '#temporal', icon: 'timeline', mode: 'view', viewType: 'temporal-evolution' },
-              { label: 'Calendar', href: '#calendar', icon: 'calendar', mode: 'view', viewType: 'calendar' },
-              { label: 'Loose Ends', href: '#loose-ends', icon: 'scatter', mode: 'view', viewType: 'loose-ends' },
-            ],
-          },
-          { label: 'Map', href: '#networks', icon: 'graph', mode: 'view', viewType: 'network' },
-        ],
-      },
-      {
-        label: 'Settings',
-        href: '#settings',
-        icon: 'gear',
-        mode: 'screen',
-        screenType: 'settings',
-        expandable: true,
-        children: [
-          {
-            label: 'Engine',
-            href: '#engine',
-            icon: 'engine',
-            mode: 'screen',
-            screenType: 'engine',
-            expandable: true,
-            children: [
-              { label: 'Emergent Types', href: '#emergent-types', icon: 'round-flask', mode: 'view', viewType: 'emergent-types' },
-              { label: 'Entity Promotions', href: '#entity-promotions', icon: 'user-star', mode: 'view', viewType: 'entity-promotions' },
-              { label: 'Review Queue', href: '#review', icon: 'check-list', mode: 'view', viewType: 'promotion-queue' },
-              { label: 'Connection Review', href: '#connection-review', icon: 'check-circle', mode: 'view', viewType: 'connection-review' },
-            ],
-          },
-        ],
-      },
-    ],
-  },
-];
-
 export const SIDEBAR_SECTIONS: SidebarSection[] = [
   {
     title: 'Capture',
@@ -314,15 +202,6 @@ export const SIDEBAR_SECTIONS: SidebarSection[] = [
     items: [
       { label: 'Home', href: '#daily', icon: 'cellar', mode: 'screen', screenType: 'daily' },
       { label: 'Library', href: '#library', icon: 'grid', mode: 'screen', screenType: 'library' },
-      {
-        label: 'Files',
-        href: '#files',
-        icon: 'archive',
-        mode: 'view',
-        viewType: 'files',
-        expandable: true,
-        children: [],
-      },
       {
         label: 'Models',
         href: '#models',
@@ -337,6 +216,15 @@ export const SIDEBAR_SECTIONS: SidebarSection[] = [
       },
       { label: 'Artifacts', href: '#artifacts', icon: 'lens-plus', mode: 'view', viewType: 'artifacts' },
       { label: 'Compose', href: '#compose', icon: 'design-nib', mode: 'view', viewType: 'compose' },
+      {
+        label: 'Files',
+        href: '#files',
+        icon: 'archive',
+        mode: 'view',
+        viewType: 'files',
+        expandable: true,
+        children: [],
+      },
     ],
   },
   {

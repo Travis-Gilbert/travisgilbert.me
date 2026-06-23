@@ -2,8 +2,8 @@
 
 /**
  * Files (full-pane): a filesystem view of the CommonPlace, derived from each
- * item's auto-structured `path`. The same tree also lives under the sidebar's
- * Files drawer; this card variant is the expanded pane view.
+ * item's auto-structured `path`. This is the expanded view of the same literal
+ * file tree shown in the sidebar's Files drawer.
  */
 
 import { useMemo } from 'react';

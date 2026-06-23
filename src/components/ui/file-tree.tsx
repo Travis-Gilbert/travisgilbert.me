@@ -5,10 +5,9 @@
  * CommonPlace v2:
  *   - colors tokenized to --cp-* (the original used custom classes);
  *   - nodes carry `id` and/or `data` and fire `onActivate` on click (a folder
- *     both toggles AND activates, so a category folder can navigate like the
- *     original bar; a leaf just activates);
+ *     both toggles AND activates, while a file leaf can open the object);
  *   - a `variant`: 'card' (parchment card, in a pane) or 'rail' (transparent,
- *     dark-sidebar colors) so the tree can BE the sidebar navigator.
+ *     dark-sidebar colors) for compact sidebar drawers.
  * The visual language (tree lines, folder/file glyphs, expand chevron) is kept.
  */
 
