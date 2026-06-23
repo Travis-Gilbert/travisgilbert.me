@@ -12,9 +12,9 @@ import styles from './DailyPage.module.css';
  * arriving items sort into place automatically and only the small set that needs
  * a decision is surfaced. The ambient HomeView remains in the tree for reuse.
  *
- * The omnibar is the 21st.dev ai-input wired to the Theorem gateway -- plain
- * text asks Theorem's agent (gateway askAgent, grounded in the substrate with
- * the context that fed it), the search toggle runs RustyRed/Theseus retrieval.
+ * The omnibar is the 21st.dev ai-input wired to CommonPlace ask. In the browser
+ * it uses the graph-backed ask path; in Tauri it can hand graph context to the
+ * configured desktop-local agent.
  */
 export default function DailyPage() {
   return (

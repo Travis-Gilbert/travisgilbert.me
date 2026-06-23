@@ -17,7 +17,8 @@
 import * as React from 'react';
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
 import { AiInputBar } from './AiInputBar';
-import { gqlAsk, gqlSearchObjects, gqlIngest, type AskResultGql } from '@/lib/commonplace-graphql';
+import { gqlSearchObjects, gqlIngest, type AskResultGql } from '@/lib/commonplace-graphql';
+import { askCommonPlaceAgent } from '@/lib/local-agent';
 import type { ObjectSearchResult } from '@/lib/commonplace-api';
 
 export default function Omnibar({ bottomOffset = '20vh' }: { bottomOffset?: string } = {}) {
@@ -36,7 +37,7 @@ export default function Omnibar({ bottomOffset = '20vh' }: { bottomOffset?: stri
     setHits(null);
     try {
       if (searchOn) setHits(await gqlSearchObjects(q, 12));
-      else setAnswer(await gqlAsk(q, 8));
+      else setAnswer(await askCommonPlaceAgent(q, 8));
     } finally {
       setBusy(false);
     }

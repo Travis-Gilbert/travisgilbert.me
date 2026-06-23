@@ -214,6 +214,32 @@ export interface ModelStatus {
   message: string;
 }
 
+export interface ModelMessage {
+  role: 'user' | 'assistant' | 'system';
+  content: string;
+}
+
+export interface ModelChatInput {
+  model: 'local' | 'ollama' | 'agent' | string;
+  messages: ModelMessage[];
+  ollamaEndpoint?: string;
+  ollamaModel?: string;
+  localEndpoint?: string;
+  localModel?: string;
+  localProtocol?: 'openai' | 'ollama';
+}
+
+export interface ModelChatResult {
+  content: string;
+  usage?: {
+    provider: string;
+    model: string;
+    tokensIn: number;
+    tokensOut: number;
+    estimatedUsd: number;
+  };
+}
+
 export interface SyncReceipt {
   id: string;
   status: string;
@@ -232,6 +258,8 @@ export const commonplaceStatus = () =>
 export const hostedConnectionStatus = () =>
   invoke<HostedConnectionStatus>('hosted_connection_status');
 export const modelStatus = () => invoke<ModelStatus>('model_status');
+export const modelChat = (input: ModelChatInput) =>
+  invoke<ModelChatResult>('model_chat', { input });
 
 export const harnessSettingsGet = () =>
   invoke<HarnessSettings | null>('harness_settings_get');

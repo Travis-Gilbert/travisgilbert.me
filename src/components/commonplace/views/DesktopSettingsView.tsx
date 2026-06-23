@@ -28,6 +28,11 @@ import {
   type ModelStatus,
   type SyncReceipt,
 } from '@/lib/desktop';
+import {
+  readLocalAgentSettings,
+  writeLocalAgentSettings,
+  type LocalAgentSettings,
+} from '@/lib/local-agent';
 import { DesktopOnly, panel } from './desktopPanel';
 
 const PROVIDERS = ['anthropic', 'openai', 'deepseek', 'gemini', 'ollama'];
@@ -46,6 +51,9 @@ export default function DesktopSettingsView() {
   const [settings, setSettings] = useState<HarnessSettings>(DEFAULT_SETTINGS);
   const [hosted, setHosted] = useState<HostedConnectionStatus | null>(null);
   const [model, setModel] = useState<ModelStatus | null>(null);
+  const [localAgent, setLocalAgent] = useState<LocalAgentSettings>(() =>
+    readLocalAgentSettings(),
+  );
   const [provider, setProvider] = useState(PROVIDERS[0]);
   const [key, setKey] = useState('');
   const [bearer, setBearer] = useState('');
@@ -77,7 +85,10 @@ export default function DesktopSettingsView() {
   }, []);
 
   useEffect(() => {
-    void refreshStatus();
+    const timer = window.setTimeout(() => {
+      void refreshStatus();
+    }, 0);
+    return () => window.clearTimeout(timer);
   }, [refreshStatus]);
 
   const checkKey = useCallback(async (p: string) => {
@@ -160,6 +171,11 @@ export default function DesktopSettingsView() {
     }
   }, [refreshStatus]);
 
+  const saveLocalAgent = useCallback(() => {
+    writeLocalAgentSettings(localAgent);
+    setError(null);
+  }, [localAgent]);
+
   return (
     <DesktopOnly>
       <div style={panel.wrap}>
@@ -189,7 +205,7 @@ export default function DesktopSettingsView() {
             text={hosted?.message ?? 'loading...'}
           />
           <StatusLine
-            label="Ask model"
+            label="Local agent"
             ok={model?.reachable ?? false}
             text={
               model
@@ -197,6 +213,73 @@ export default function DesktopSettingsView() {
                 : 'loading...'
             }
           />
+        </div>
+
+        <div style={panel.card}>
+          <SectionTitle title="Local Agent" />
+          <div style={panel.row}>
+            <label style={{ ...panel.dim, display: 'flex', gap: 6 }}>
+              <input
+                type="checkbox"
+                checked={localAgent.enabled}
+                onChange={(event) =>
+                  setLocalAgent((current) => ({
+                    ...current,
+                    enabled: event.target.checked,
+                  }))
+                }
+              />
+              Use in desktop ask
+            </label>
+            <select
+              style={{ ...panel.input, flex: '0 0 130px' }}
+              value={localAgent.protocol}
+              onChange={(event) =>
+                setLocalAgent((current) => ({
+                  ...current,
+                  protocol: event.target.value as LocalAgentSettings['protocol'],
+                  endpoint:
+                    event.target.value === 'ollama'
+                      ? 'http://127.0.0.1:11434'
+                      : 'http://127.0.0.1:8080/v1/chat/completions',
+                }))
+              }
+            >
+              <option value="openai">OpenAI API</option>
+              <option value="ollama">Ollama</option>
+            </select>
+            <input
+              style={panel.input}
+              value={localAgent.model}
+              onChange={(event) =>
+                setLocalAgent((current) => ({
+                  ...current,
+                  model: event.target.value,
+                }))
+              }
+              placeholder="Model"
+            />
+          </div>
+          <div style={panel.row}>
+            <input
+              style={panel.input}
+              value={localAgent.endpoint}
+              onChange={(event) =>
+                setLocalAgent((current) => ({
+                  ...current,
+                  endpoint: event.target.value,
+                }))
+              }
+              placeholder="Endpoint"
+            />
+            <button
+              style={panel.button}
+              disabled={busy}
+              onClick={saveLocalAgent}
+            >
+              Save
+            </button>
+          </div>
         </div>
 
         <div style={panel.card}>
