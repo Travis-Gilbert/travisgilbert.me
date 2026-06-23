@@ -57,16 +57,27 @@ function paletteFor(variant: Variant): Palette {
 }
 
 const FILE_ICONS: Record<string, { color: string; icon: string }> = {
+  css: { color: 'oklch(0.62 0.11 235)', icon: '◈' },
   note: { color: 'oklch(0.7 0.02 70)', icon: '◇' },
+  file: { color: 'oklch(0.68 0.03 90)', icon: '◇' },
   source: { color: 'oklch(0.62 0.07 220)', icon: '◈' },
+  js: { color: 'oklch(0.78 0.16 92)', icon: '◈' },
+  json: { color: 'oklch(0.7 0.09 150)', icon: '◌' },
+  jsx: { color: 'oklch(0.68 0.1 220)', icon: '◈' },
   link: { color: 'oklch(0.62 0.07 220)', icon: '◐' },
   image: { color: 'oklch(0.7 0.12 160)', icon: '◑' },
   doc: { color: 'oklch(0.66 0.1 280)', icon: '◉' },
+  docx: { color: 'oklch(0.66 0.1 280)', icon: '◉' },
   md: { color: 'var(--cp-sidebar-text-muted)', icon: '◊' },
+  markdown: { color: 'var(--cp-sidebar-text-muted)', icon: '◊' },
+  pdf: { color: 'oklch(0.65 0.16 25)', icon: '◍' },
+  ts: { color: 'oklch(0.62 0.11 250)', icon: '◈' },
+  tsx: { color: 'oklch(0.62 0.11 250)', icon: '◈' },
+  txt: { color: 'oklch(0.7 0.02 70)', icon: '◇' },
 };
 
 function fileIconFor(extension: string | undefined, fallback: string) {
-  return FILE_ICONS[extension || ''] || { color: fallback, icon: '◇' };
+  return FILE_ICONS[(extension || '').toLowerCase()] || { color: fallback, icon: '◇' };
 }
 
 interface FileItemProps {
@@ -203,7 +214,46 @@ export interface TreeItem {
   id: string;
   title: string;
   kind: string;
+  mime?: string | null;
   path?: string | null;
+}
+
+function extensionFromName(value: string | null | undefined): string | undefined {
+  const match = value?.trim().match(/\.([a-z0-9]+)$/i);
+  return match?.[1]?.toLowerCase();
+}
+
+function extensionFromMime(mime: string | null | undefined): string | undefined {
+  switch (mime) {
+    case 'application/javascript':
+    case 'text/javascript':
+      return 'js';
+    case 'application/json':
+      return 'json';
+    case 'application/pdf':
+      return 'pdf';
+    case 'application/vnd.openxmlformats-officedocument.wordprocessingml.document':
+      return 'docx';
+    case 'application/msword':
+      return 'doc';
+    case 'text/css':
+      return 'css';
+    case 'text/markdown':
+      return 'md';
+    case 'text/plain':
+      return 'txt';
+    default:
+      return undefined;
+  }
+}
+
+function itemExtension(item: TreeItem): string {
+  return (
+    extensionFromName(item.path) ??
+    extensionFromName(item.title) ??
+    extensionFromMime(item.mime) ??
+    item.kind
+  );
 }
 
 export function buildItemTree(items: TreeItem[]): FileNode[] {
@@ -220,7 +270,7 @@ export function buildItemTree(items: TreeItem[]): FileNode[] {
       }
       cursor = next;
     }
-    cursor.children!.push({ name: item.title || 'Untitled', type: 'file', extension: item.kind, id: item.id });
+    cursor.children!.push({ name: item.title || 'Untitled', type: 'file', extension: itemExtension(item), id: item.id });
   }
   const sortRec = (node: FileNode) => {
     if (!node.children) return;

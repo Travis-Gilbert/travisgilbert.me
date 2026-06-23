@@ -274,6 +274,22 @@ export default function CommonPlaceSidebar({ onCollapse }: { onCollapse?: () => 
                     (item.screenType ? activeScreen === item.screenType : false) ||
                     (item.viewType ? Boolean(findLeafWithView(layout, item.viewType)) : false);
 
+                  if (item.label === 'Files') {
+                    return (
+                      <SidebarTree
+                        key={item.href}
+                        isOpen={isExpanded}
+                        isActive={itemIsActive}
+                        onToggle={() => toggleGroup(item.label)}
+                        onOpenFiles={(event) => {
+                          if (item.viewType) {
+                            launchView(item.viewType, item.viewContext, event.shiftKey);
+                          }
+                        }}
+                      />
+                    );
+                  }
+
                   /* Map static children (viewType entries) from SIDEBAR_SECTIONS */
                   const staticChildren = (item.children ?? []).map((child) => ({
                     key: child.href,
@@ -346,7 +362,7 @@ export default function CommonPlaceSidebar({ onCollapse }: { onCollapse?: () => 
                       >
                         <SidebarIcon name={item.icon} color={itemIsActive ? LABEL_ACCENT[item.label] : undefined} />
                         <span style={{ flex: 1 }}>{item.label}</span>
-                        {item.label !== 'Models' && item.label !== 'Files' && (
+                        {item.label !== 'Models' && (
                           <span
                             style={{
                               fontSize: 10,
@@ -359,11 +375,6 @@ export default function CommonPlaceSidebar({ onCollapse }: { onCollapse?: () => 
                         )}
                         <ChevronIcon open={isExpanded} />
                       </button>
-                      {isExpanded && item.label === 'Files' && (
-                        <div style={{ padding: '4px 0 8px 14px' }}>
-                          <SidebarTree />
-                        </div>
-                      )}
                       {isExpanded && dynamicItems.length > 0 && (
                         <div style={{ paddingLeft: 20 }}>
                           {dynamicItems.map((child) => (
@@ -392,7 +403,7 @@ export default function CommonPlaceSidebar({ onCollapse }: { onCollapse?: () => 
                           ))}
                         </div>
                       )}
-                      {isExpanded && item.label !== 'Files' && dynamicItems.length === 0 && (
+                      {isExpanded && dynamicItems.length === 0 && (
                         <div
                           style={{
                             padding: '4px 12px 4px 32px',
