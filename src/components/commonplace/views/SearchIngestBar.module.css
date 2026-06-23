@@ -39,10 +39,10 @@
   align-items: center;
   gap: 5px;
   padding: 4px 10px;
-  background: rgba(184, 98, 61, 0.12);
-  border: 1px solid rgba(184, 98, 61, 0.25);
+  background: rgba(var(--cp-red-rgb), 0.12);
+  border: 1px solid rgba(var(--cp-red-rgb), 0.25);
   border-radius: 4px;
-  color: var(--cp-terracotta-light);
+  color: var(--cp-red);
   font-family: var(--cp-font-mono);
   font-size: 10px;
   letter-spacing: 0.04em;
@@ -51,7 +51,7 @@
 }
 
 .ingestButton:hover {
-  background: rgba(184, 98, 61, 0.2);
+  background: rgba(var(--cp-red-rgb), 0.2);
 }
 
 .kbd {

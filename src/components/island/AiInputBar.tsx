@@ -15,20 +15,23 @@ import * as React from 'react';
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
 import { GitBranch, Globe, Paperclip, ArrowUp } from 'lucide-react';
 
-const MIN_HEIGHT = 52;
-const MAX_HEIGHT = 168;
+const INPUT_HEIGHT = {
+  default: { min: 52, max: 168 },
+  tall: { min: 68, max: 190 },
+} as const;
 
 export type AiInputMode = 'ask' | 'web' | 'fractal';
+export type AiInputSize = keyof typeof INPUT_HEIGHT;
 
-function useAutoResize(value: string) {
+function useAutoResize(value: string, minHeight: number, maxHeight: number) {
   const ref = React.useRef<HTMLTextAreaElement>(null);
   const adjust = React.useCallback((reset?: boolean) => {
     const el = ref.current;
     if (!el) return;
-    el.style.height = `${MIN_HEIGHT}px`;
+    el.style.height = `${minHeight}px`;
     if (reset) return;
-    el.style.height = `${Math.max(MIN_HEIGHT, Math.min(el.scrollHeight, MAX_HEIGHT))}px`;
-  }, []);
+    el.style.height = `${Math.max(minHeight, Math.min(el.scrollHeight, maxHeight))}px`;
+  }, [maxHeight, minHeight]);
   React.useEffect(() => {
     adjust();
   }, [value, adjust]);
@@ -47,6 +50,7 @@ export interface AiInputBarProps {
   fractalPlaceholder?: string;
   busy?: boolean;
   autoFocus?: boolean;
+  size?: AiInputSize;
 }
 
 export const AiInputBar = React.forwardRef<HTMLTextAreaElement, AiInputBarProps>(
@@ -63,11 +67,14 @@ export const AiInputBar = React.forwardRef<HTMLTextAreaElement, AiInputBarProps>
       fractalPlaceholder = 'Search the web from your graph',
       busy,
       autoFocus,
+      size = 'default',
     },
     forwardedRef,
   ) {
     const reduced = useReducedMotion();
-    const { ref, adjust } = useAutoResize(value);
+    const inputHeight = INPUT_HEIGHT[size];
+    const isTall = size === 'tall';
+    const { ref, adjust } = useAutoResize(value, inputHeight.min, inputHeight.max);
     const fileRef = React.useRef<HTMLInputElement>(null);
 
     React.useImperativeHandle(forwardedRef, () => ref.current as HTMLTextAreaElement, [ref]);
@@ -112,11 +119,14 @@ export const AiInputBar = React.forwardRef<HTMLTextAreaElement, AiInputBarProps>
                   }
                 }}
                 aria-label={textareaLabel}
-                className="w-full resize-none rounded-xl rounded-b-none bg-transparent px-4 py-3 text-[15px] leading-[1.35] outline-none"
-                style={{ minHeight: MIN_HEIGHT, maxHeight: MAX_HEIGHT, color: 'var(--cp-text)' }}
+                className={[
+                  'w-full resize-none rounded-xl rounded-b-none bg-transparent outline-none',
+                  isTall ? 'px-5 py-4 text-[16px] leading-[1.4]' : 'px-4 py-3 text-[15px] leading-[1.35]',
+                ].join(' ')}
+                style={{ minHeight: inputHeight.min, maxHeight: inputHeight.max, color: 'var(--cp-text)' }}
               />
               {!value ? (
-                <div className="pointer-events-none absolute left-4 top-3">
+                <div className={isTall ? 'pointer-events-none absolute left-5 top-4' : 'pointer-events-none absolute left-4 top-3'}>
                   <AnimatePresence mode="wait">
                     <motion.span
                       key={mode}
@@ -124,7 +134,7 @@ export const AiInputBar = React.forwardRef<HTMLTextAreaElement, AiInputBarProps>
                       animate={{ opacity: 1, y: 0 }}
                       exit={reduced ? undefined : { opacity: 0, y: -4 }}
                       transition={{ duration: 0.12 }}
-                      className="text-[15px]"
+                      className={isTall ? 'text-[16px]' : 'text-[15px]'}
                       style={{ color: 'var(--cp-text-faint)' }}
                     >
                       {shownPlaceholder}
@@ -134,7 +144,7 @@ export const AiInputBar = React.forwardRef<HTMLTextAreaElement, AiInputBarProps>
               ) : null}
             </div>
 
-            <div className="flex h-12 items-center justify-between rounded-b-xl px-2">
+            <div className={isTall ? 'flex h-14 items-center justify-between rounded-b-xl px-3' : 'flex h-12 items-center justify-between rounded-b-xl px-2'}>
               <div className="flex items-center gap-1.5">
                 {onAttach ? (
                   <>
@@ -142,7 +152,7 @@ export const AiInputBar = React.forwardRef<HTMLTextAreaElement, AiInputBarProps>
                       type="button"
                       onClick={() => fileRef.current?.click()}
                       aria-label="Attach a file"
-                      className="grid h-8 w-8 place-items-center rounded-full transition-colors"
+                      className={isTall ? 'grid h-9 w-9 place-items-center rounded-full transition-colors' : 'grid h-8 w-8 place-items-center rounded-full transition-colors'}
                       style={{ color: 'var(--cp-text-muted)' }}
                     >
                       <Paperclip size={16} />
@@ -165,7 +175,7 @@ export const AiInputBar = React.forwardRef<HTMLTextAreaElement, AiInputBarProps>
                   aria-label="Search the web"
                   aria-pressed={mode === 'web'}
                   title="Search the web"
-                  className="flex h-8 items-center gap-1.5 rounded-full border px-2 transition-colors"
+                  className={isTall ? 'flex h-9 items-center gap-1.5 rounded-full border px-2.5 transition-colors' : 'flex h-8 items-center gap-1.5 rounded-full border px-2 transition-colors'}
                   style={
                     mode === 'web'
                       ? { borderColor: 'var(--cp-red)', background: 'var(--cp-red-soft)', color: 'var(--cp-red)' }
@@ -193,7 +203,7 @@ export const AiInputBar = React.forwardRef<HTMLTextAreaElement, AiInputBarProps>
                   aria-label="Fractal expansion"
                   aria-pressed={mode === 'fractal'}
                   title="Search the web from your graph"
-                  className="flex h-8 items-center gap-1.5 rounded-full border px-2 transition-colors"
+                  className={isTall ? 'flex h-9 items-center gap-1.5 rounded-full border px-2.5 transition-colors' : 'flex h-8 items-center gap-1.5 rounded-full border px-2 transition-colors'}
                   style={
                     mode === 'fractal'
                       ? { borderColor: 'var(--cp-teal)', background: 'rgba(34, 105, 115, 0.12)', color: 'var(--cp-teal)' }
@@ -221,7 +231,7 @@ export const AiInputBar = React.forwardRef<HTMLTextAreaElement, AiInputBarProps>
                 onClick={submit}
                 disabled={busy}
                 aria-label={mode === 'ask' ? 'Ask' : 'Search'}
-                className="grid h-8 w-8 place-items-center rounded-full transition-colors"
+                className={isTall ? 'grid h-9 w-9 place-items-center rounded-full transition-colors' : 'grid h-8 w-8 place-items-center rounded-full transition-colors'}
                 style={
                   value && !busy
                     ? { background: 'var(--cp-red)', color: '#fff' }

@@ -38,7 +38,7 @@
 /* Per-type color + tint via data attribute */
 .cp-obj[data-type="note"]    { --obj-color: var(--cp-type-note);    --obj-tint: rgba(138, 130, 121, 0.06); }
 .cp-obj[data-type="source"]  { --obj-color: var(--cp-type-source);  --obj-tint: rgba(45, 95, 107, 0.08); }
-.cp-obj[data-type="person"]  { --obj-color: var(--cp-type-person);  --obj-tint: rgba(180, 90, 45, 0.07); }
+.cp-obj[data-type="person"]  { --obj-color: var(--cp-type-person);  --obj-tint: rgba(var(--cp-red-rgb), 0.07); }
 .cp-obj[data-type="place"]   { --obj-color: var(--cp-type-place);   --obj-tint: rgba(196, 154, 74, 0.06); }
 .cp-obj[data-type="concept"] { --obj-color: var(--cp-type-concept); --obj-tint: rgba(139, 111, 160, 0.07); }
 .cp-obj[data-type="quote"]   { --obj-color: var(--cp-type-quote);   --obj-tint: rgba(196, 154, 74, 0.06); }

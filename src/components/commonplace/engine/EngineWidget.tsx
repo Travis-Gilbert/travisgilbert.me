@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { createPortal } from 'react-dom';
+import { PanelBottomClose, PanelBottomOpen } from 'lucide-react';
 import type {
   EngineLogEntry,
   EngineCandidate,
@@ -17,6 +18,7 @@ import TerminalCanvas from './TerminalCanvas';
 import EngineAskTab from './EngineAskTab';
 import EngineAnalyzeTab from './EngineAnalyzeTab';
 import { humanizeLogEntry, generateIdleThought } from './humanize';
+import styles from './EngineWidget.module.css';
 
 type WidgetTab = 'ask' | 'analyze' | 'log' | 'stress' | 'candidates';
 
@@ -24,7 +26,6 @@ interface EngineWidgetProps {
   activeModelId?: number;
 }
 
-const COLLAPSED_HEIGHT = 44;
 const DEFAULT_EXPANDED_HEIGHT = 360;
 const MIN_EXPANDED_HEIGHT = 200;
 const MAX_EXPANDED_HEIGHT = 650;
@@ -42,7 +43,6 @@ export default function EngineWidget({ activeModelId }: EngineWidgetProps) {
   const [logError, setLogError] = useState<string | null>(null);
   const [candidateError, setCandidateError] = useState<string | null>(null);
   const [thoughtTick, setThoughtTick] = useState(0);
-  const [thoughtOpacity, setThoughtOpacity] = useState(1);
 
   const [inputValue, setInputValue] = useState('');
   const resizeRef = useRef<{ startY: number; startHeight: number } | null>(null);
@@ -105,20 +105,14 @@ export default function EngineWidget({ activeModelId }: EngineWidgetProps) {
     return generateIdleThought({ objects: 52, edges: 847 });
   }, [logEntries, thoughtTick]);
 
-  // Thought text cycling (collapsed bar)
+  // Thought text cycling for the collapsed toggle's accessible label.
   useEffect(() => {
-    let timeout: ReturnType<typeof setTimeout> | null = null;
     const interval = setInterval(() => {
-      setThoughtOpacity(0);
-      timeout = setTimeout(() => {
-        setThoughtTick((current) => current + 1);
-        setThoughtOpacity(1);
-      }, 200);
+      setThoughtTick((current) => current + 1);
     }, 5000);
 
     return () => {
       clearInterval(interval);
-      if (timeout) clearTimeout(timeout);
     };
   }, []);
 
@@ -192,158 +186,51 @@ export default function EngineWidget({ activeModelId }: EngineWidgetProps) {
     { id: 'stress', label: 'Stress' },
     { id: 'candidates', label: `Candidates${pendingCount ? ` (${pendingCount})` : ''}` },
   ];
+  const toggleLabel = expanded
+    ? 'Close engine terminal'
+    : `Open engine terminal. ${logEntries.length} event${logEntries.length === 1 ? '' : 's'}. ${thoughtText}`;
 
   const content = (
-    <div
-      ref={widgetRef}
-      style={{
-        position: 'fixed',
-        bottom: 0,
-        left: 0,
-        right: 0,
-        height: expanded ? height : COLLAPSED_HEIGHT,
-        zIndex: 9000,
-        display: 'flex',
-        flexDirection: 'column',
-        overflow: 'hidden',
-        transition: 'height 0.3s cubic-bezier(0.16, 1, 0.3, 1)',
-      }}
-    >
-      {/* Canvas background */}
-      <TerminalCanvas seed={77} />
-
-      {/* Resize handle (only when expanded) */}
-      {expanded && (
-        <div
-          onMouseDown={handleResizeStart}
-          style={{
-            position: 'absolute',
-            top: -4,
-            left: 0,
-            right: 0,
-            height: 8,
-            cursor: 'ns-resize',
-            zIndex: 5,
-          }}
-        >
-          <div
-            style={{
-              position: 'absolute',
-              top: 3,
-              left: '50%',
-              transform: 'translateX(-50%)',
-              width: 32,
-              height: 3,
-              borderRadius: 2,
-              background: 'rgba(244,243,240,0.06)',
-              transition: 'background 0.15s',
-            }}
-            onMouseEnter={(e) => {
-              (e.currentTarget as HTMLElement).style.background = 'rgba(244,243,240,0.16)';
-            }}
-            onMouseLeave={(e) => {
-              (e.currentTarget as HTMLElement).style.background = 'rgba(244,243,240,0.06)';
-            }}
-          />
-        </div>
-      )}
-
-      {/* Collapsed bar */}
-      {!expanded && (
-        <div
-          onClick={() => setExpanded(true)}
-          style={{
-            position: 'relative',
-            zIndex: 2,
-            display: 'flex',
-            alignItems: 'center',
-            height: COLLAPSED_HEIGHT,
-            padding: '0 16px',
-            cursor: 'pointer',
-            userSelect: 'none',
-            gap: 10,
-          }}
-        >
-          {/* Search icon */}
-          <span style={{ color: '#3A7A88', fontSize: 15, flexShrink: 0 }}>
-            &#8981;
+    <div ref={widgetRef} className={styles.widgetRoot}>
+      <button
+        type="button"
+        className={styles.topToggle}
+        data-active={expanded}
+        onClick={() => setExpanded((current) => !current)}
+        aria-label={toggleLabel}
+        aria-expanded={expanded}
+        aria-controls="cp-engine-widget-panel"
+        title={toggleLabel}
+      >
+        {expanded ? <PanelBottomClose size={19} strokeWidth={1.8} /> : <PanelBottomOpen size={19} strokeWidth={1.8} />}
+        <span className={styles.topToggleStatus} aria-hidden="true" />
+        {pendingCount > 0 && (
+          <span className={styles.topToggleBadge} aria-label={`${pendingCount} pending candidates`}>
+            {pendingCount}
           </span>
-
-          {/* Green status dot with pulse */}
-          <span
-            style={{
-              width: 6,
-              height: 6,
-              borderRadius: '50%',
-              background: '#4ADE80',
-              flexShrink: 0,
-              animation: 'enginePulse 2s ease-in-out infinite',
-            }}
-          />
-
-          {/* Thought text */}
-          <span
-            style={{
-              fontFamily: 'var(--font-code)',
-              fontSize: 11,
-              color: '#7A756E',
-              flex: 1,
-              overflow: 'hidden',
-              textOverflow: 'ellipsis',
-              whiteSpace: 'nowrap',
-              opacity: thoughtOpacity,
-              transition: 'opacity 0.2s',
-            }}
-          >
-            {thoughtText}
-          </span>
-
-          {/* Meta: event count */}
-          <span
-            style={{
-              fontFamily: 'var(--font-code)',
-              fontSize: 10,
-              color: '#555048',
-              flexShrink: 0,
-            }}
-          >
-            {logEntries.length} events
-          </span>
-
-          {/* Pending badge */}
-          {pendingCount > 0 && (
-            <span
-              style={{
-                fontFamily: 'var(--font-code)',
-                fontSize: 9,
-                fontWeight: 600,
-                background: '#C49A4A',
-                color: '#1C1C20',
-                padding: '1px 6px',
-                borderRadius: 7,
-              }}
-            >
-              {pendingCount}
-            </span>
-          )}
-
-          {/* Expand chevron */}
-          <span style={{ fontSize: 8, color: '#555048' }}>&#x25B2;</span>
-        </div>
-      )}
+        )}
+      </button>
 
       {/* Expanded body */}
       {expanded && (
         <div
-          style={{
-            position: 'relative',
-            zIndex: 2,
-            flex: 1,
-            display: 'flex',
-            flexDirection: 'column',
-            overflow: 'hidden',
-          }}
+          id="cp-engine-widget-panel"
+          className={styles.panel}
+          style={{ height }}
         >
+          <TerminalCanvas seed={77} />
+
+          <div
+            className={styles.resizeHandle}
+            onMouseDown={handleResizeStart}
+            role="separator"
+            aria-orientation="horizontal"
+            aria-label="Resize engine terminal"
+          >
+            <div className={styles.resizeBar} />
+          </div>
+
+          <div className={styles.panelBody}>
           {/* Input area (top of expanded widget) */}
           <div
             style={{
@@ -554,15 +441,8 @@ export default function EngineWidget({ activeModelId }: EngineWidgetProps) {
             )}
           </div>
         </div>
+        </div>
       )}
-
-      {/* Pulse animation keyframes */}
-      <style>{`
-        @keyframes enginePulse {
-          0%, 100% { opacity: 1; }
-          50% { opacity: 0.3; }
-        }
-      `}</style>
     </div>
   );
 

@@ -33,7 +33,7 @@ const SIGNAL_COLORS: Record<string, string> = {
   tfidf: '#C49A4A',
   ner: '#2D5F6B',
   shared_entity: '#4A7A9A',
-  keyword: '#B45A2D',
+  keyword: '#8A2E29',
   supports: '#5A8A5A',
   contradicts: '#B3443B',
 };

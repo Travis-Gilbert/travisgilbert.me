@@ -97,7 +97,7 @@ type SignalType = 'mention' | 'support' | 'contradict' | 'similarity' | 'causal'
 const SIGNAL_TYPE_COLORS: Record<SignalType, string> = {
   mention: '#2D5F6B',     // teal
   support: '#5A7A4A',     // green
-  contradict: '#B8623D',  // terracotta
+  contradict: '#8A2E29',  // oxblood
   similarity: '#8B6FA0',  // purple
   causal: '#C49A4A',      // gold
   manual: '#9A9590',      // faint gray
@@ -728,7 +728,7 @@ export default function KnowledgeMap({
                       fontFamily: 'var(--cp-font-mono)',
                       fontSize: 9.5,
                       letterSpacing: '0.06em',
-                      color: 'rgba(180,90,45,0.8)',
+                      color: 'rgba(var(--cp-red-rgb), 0.8)',
                       cursor: 'pointer',
                       textDecoration: 'underline',
                       textDecorationStyle: 'dotted',
@@ -754,7 +754,7 @@ export default function KnowledgeMap({
                       fontFamily: 'var(--cp-font-mono)',
                       fontSize: 9.5,
                       letterSpacing: '0.06em',
-                      color: 'rgba(180,90,45,0.8)',
+                      color: 'rgba(var(--cp-red-rgb), 0.8)',
                       cursor: 'pointer',
                       textDecoration: 'underline',
                       textDecorationStyle: 'dotted',

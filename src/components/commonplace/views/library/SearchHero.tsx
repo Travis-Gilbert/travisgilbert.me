@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import InquiryBar from '../../capture/InquiryBar';
+import CommandBar from '../../capture/CommandBar';
 
 interface SearchHeroProps {
   onOpenObject?: (objectRef: number) => void;
@@ -28,7 +28,7 @@ export default function SearchHero({
           position: 'absolute',
           inset: '-20px -40px',
           background:
-            'radial-gradient(ellipse at center, rgba(180,90,45,0.04) 0%, transparent 70%)',
+            'radial-gradient(ellipse at center, rgba(var(--cp-red-rgb), 0.04) 0%, transparent 70%)',
           pointerEvents: 'none',
         }}
       />
@@ -36,7 +36,7 @@ export default function SearchHero({
         className="cp-search-hero-wrap"
         data-focused={focused || undefined}
       >
-        <InquiryBar
+        <CommandBar
           gapCount={0}
           onOpenObject={onOpenObject}
           externalQuery={inquiryQuery}

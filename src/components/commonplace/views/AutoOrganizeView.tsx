@@ -75,9 +75,10 @@ const SETTLED_LABEL: Record<string, string> = {
 };
 
 const SIDEBAR_KINDS: { key: string; label: string; color: string }[] = [
-  { key: 'email', label: 'Emails', color: 'rgb(78, 110, 135)' },
+  { key: 'email', label: 'Emails', color: 'rgb(var(--cp-tint-email))' },
   { key: 'note', label: 'Notes', color: 'var(--cp-gold)' },
   { key: 'file', label: 'Files', color: 'var(--cp-teal)' },
+  { key: 'task', label: 'Tasks', color: 'var(--cp-orange)' },
 ];
 
 /* ── client-side, per-day overrides (the "later" + manual-file local state).
@@ -170,7 +171,6 @@ export default function AutoOrganizeView() {
   /* Snapshot (re-requested on timeframe change). */
   useEffect(() => {
     let mounted = true;
-    setLoading(true);
     const load = THEOREM_GRAPHQL ? gqlOrganize(timeframe) : Promise.resolve(emptySnapshot(timeframe));
     load
       .then((s) => {
@@ -313,13 +313,15 @@ export default function AutoOrganizeView() {
   const n = displayedNeedsYou.length;
 
   return (
-    <div className={styles.autoOrganize}>
+    <section className={styles.autoOrganize} aria-labelledby="auto-organize-title">
+      <h1 id="auto-organize-title" className={styles.visuallyHidden}>Auto Organize</h1>
+
       {/* ── Collections sidebar (organized structure) ── */}
-      <aside className={styles.collectionsSidebar}>
+      <aside className={styles.collectionsSidebar} aria-label="Auto-organize sources and spaces">
         <div className={styles.collGroup}>
           <div className={styles.sectionLabel}>
             <span className={styles.sectionRule} />
-            Collections
+            Sources
           </div>
           {SIDEBAR_KINDS.map(({ key, label, color }) => (
             <button key={key} className={styles.collRow} onClick={goToCollection} title={`Open ${label}`}>
@@ -357,18 +359,31 @@ export default function AutoOrganizeView() {
 
       {/* ── Work area: center (hero + needs-you) | proof ── */}
       <div className={styles.workArea}>
-        <div className={styles.center}>
-          <div className={styles.hero}>
+        <main className={styles.center} aria-labelledby="auto-organize-title">
+          <header className={styles.hero}>
             <div className={styles.heroLabel}>
               <span className={styles.heroPulseDot} />
               {dateStr}
             </div>
-          </div>
+            <div className={styles.heroCopy}>
+              <p className={styles.heroText}>
+                {n === 0
+                  ? 'Nothing is waiting on a routing decision.'
+                  : `${n} item${n === 1 ? '' : 's'} need${n === 1 ? 's' : ''} your routing judgment today.`}
+              </p>
+            </div>
+          </header>
 
-          <div className={styles.needsYou}>
-            <div className={styles.sectionLabel}>
-              <span className={styles.sectionRule} />
-              Needs you
+          <section className={styles.needsYou} aria-labelledby="needs-you-heading">
+            <div className={styles.listToolbar}>
+              <div>
+                <div className={styles.sectionLabel}>
+                  <span className={styles.sectionRule} />
+                  <span id="needs-you-heading">Needs you</span>
+                </div>
+                <p className={styles.listSubhead}>Items below the confidence line, ready for one action.</p>
+              </div>
+              <span className={styles.countPill}>{n}</span>
             </div>
 
             {n === 0 ? (
@@ -392,14 +407,20 @@ export default function AutoOrganizeView() {
                 ))}
               </div>
             )}
-          </div>
-        </div>
+          </section>
+        </main>
 
         {/* ── Organized-today proof ── */}
-        <aside className={styles.proof}>
-          <div className={styles.sectionLabel}>
-            <span className={styles.sectionRule} />
-            Organized today
+        <aside className={styles.proof} aria-labelledby="organized-today-heading">
+          <div className={styles.detailHeader}>
+            <div>
+              <div className={styles.sectionLabel}>
+                <span className={styles.sectionRule} />
+                <span id="organized-today-heading">Organized today</span>
+              </div>
+              <p className={styles.detailSubhead}>Automatic filing, recent routes, and where the engine is putting things.</p>
+            </div>
+            <span className={styles.countPill}>{progress.done}/{progress.total}</span>
           </div>
 
           {recent && (
@@ -440,7 +461,7 @@ export default function AutoOrganizeView() {
           )}
         </aside>
       </div>
-    </div>
+    </section>
   );
 }
 

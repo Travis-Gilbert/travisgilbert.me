@@ -19,7 +19,7 @@ import type { TimelineEdge3D } from '@/lib/timeline-3d-layout';
    ───────────────────────────────────────────────── */
 
 const EDGE_COLOR = '#8C827A';
-const EDGE_HIGHLIGHT_COLOR = '#C4503C';
+const EDGE_HIGHLIGHT_COLOR = '#8A2E29';
 const BG_OPACITY = 0.08;
 const HIGHLIGHT_OPACITY = 0.4;
 /** Max distance (squared) from camera to render edges */

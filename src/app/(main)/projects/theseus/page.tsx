@@ -1,4 +1,6 @@
 import type { Metadata } from 'next';
+import Link from 'next/link';
+import { ArrowRight } from 'iconoir-react';
 import SectionLabel from '@/components/SectionLabel';
 import ScrollReveal from '@/components/ScrollReveal';
 import TheseusHero from './TheseusHero';
@@ -21,6 +23,25 @@ export default function TheseusPage() {
     <div className="theseus-page">
       {/* Hero: full-bleed 3D force tree */}
       <TheseusHero />
+
+      <ScrollReveal>
+        <section className="theseus-section">
+          <div className="flex flex-col gap-3 rounded-lg border border-border-light bg-[rgba(255,250,242,0.7)] p-4 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <SectionLabel color="gold">Install Paths</SectionLabel>
+              <p className="m-0 max-w-[560px] text-[15px] leading-relaxed text-ink-muted">
+                Connect the harness to your agent, install CommonPlace, or run a self-hosted Theorem stack.
+              </p>
+            </div>
+            <Link
+              href="/install"
+              className="inline-flex items-center gap-1 font-mono text-sm uppercase tracking-[0.08em] text-gold no-underline hover:text-gold/80"
+            >
+              Open install <ArrowRight width={14} height={14} strokeWidth={2.5} />
+            </Link>
+          </div>
+        </section>
+      </ScrollReveal>
 
       {/* GPT vs Theseus comparison */}
       <ScrollReveal>

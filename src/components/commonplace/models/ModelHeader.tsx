@@ -90,7 +90,7 @@ export default function ModelHeader({ model }: ModelHeaderProps): React.ReactEle
       <div
         style={{
           height: 3,
-          background: `linear-gradient(to right, ${typeMeta.color}66, ${typeMeta.color}CC, #B8623D4D)`,
+          background: `linear-gradient(to right, ${typeMeta.color}66, ${typeMeta.color}CC, #8A2E294D)`,
           marginLeft: -20,
           marginRight: -20,
           marginBottom: 10,
@@ -237,7 +237,7 @@ export default function ModelHeader({ model }: ModelHeaderProps): React.ReactEle
             style={{
               fontFamily: 'var(--cp-font-mono)',
               fontSize: 8,
-              color: '#B8623D',
+              color: '#8A2E29',
               letterSpacing: '0.02em',
             }}
           >
@@ -279,8 +279,8 @@ export default function ModelHeader({ model }: ModelHeaderProps): React.ReactEle
             gap: 5,
             padding: '2px 8px',
             borderRadius: 3,
-            background: '#B8623D0D',
-            border: '1px solid #B8623D20',
+            background: '#8A2E290D',
+            border: '1px solid #8A2E2920',
           }}
         >
           <span
@@ -288,7 +288,7 @@ export default function ModelHeader({ model }: ModelHeaderProps): React.ReactEle
               fontFamily: 'var(--cp-font-mono)',
               fontSize: 8,
               fontWeight: 700,
-              color: '#B8623D',
+              color: '#8A2E29',
               letterSpacing: '0.04em',
             }}
           >

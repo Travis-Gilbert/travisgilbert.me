@@ -134,7 +134,7 @@ function briefingToHomeData(b: BriefingGqlShape): HomeData {
    ───────────────────────────────────────────────── */
 
 const TYPE_MAP: Record<string, { accent: string; icon: string }> = {
-  connection: { accent: '#C4503C', icon: '\u27F7' },
+  connection: { accent: '#8A2E29', icon: '\u27F7' },
   tension: { accent: '#C49A4A', icon: '\u25B3' },
   cluster: { accent: '#2D5F6B', icon: '\u25C9' },
   enrichment: { accent: '#7B5EA7', icon: '\u25C6' },
@@ -146,7 +146,7 @@ const TYPE_MAP: Record<string, { accent: string; icon: string }> = {
 
 function ResearchThread({ thread }: { thread: Thread }) {
   const m = thread.metadata;
-  const color = thread.color || '#C4503C';
+  const color = thread.color || '#8A2E29';
   return (
     <div className={styles.researchCard} style={{ borderLeftColor: color }}>
       <div className={styles.researchFold} />
@@ -169,7 +169,7 @@ function TaskThread({ thread }: { thread: Thread }) {
   const subtasks = m.subtasks ?? [];
   const done = subtasks.filter((s) => s.done).length;
   const pct = subtasks.length > 0 ? Math.round((done / subtasks.length) * 100) : 0;
-  const priColor = m.priority === 'high' ? '#C4503C' : '#C49A4A';
+  const priColor = m.priority === 'high' ? '#8A2E29' : '#C49A4A';
   return (
     <div className={styles.taskCard} style={{ borderLeft: `3px solid ${priColor}` }}>
       <div className={styles.taskHeader}>

@@ -158,7 +158,7 @@ function Connector({ prevPosition }: { prevPosition: 'left' | 'right' }) {
       <div style={{
         width: 2,
         height: CONNECTOR_HEIGHT,
-        background: 'var(--cp-terracotta, #B45A2D)',
+        background: 'var(--cp-terracotta, #8A2E29)',
         opacity: 0.2,
         borderRadius: 1,
       }} />

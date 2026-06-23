@@ -44,7 +44,7 @@ import styles from './CommonPlaceSidebar.module.css';
 import CubeScanIcon from '../icons/CubeScanIcon';
 import KeyframesSolidIcon from '../icons/KeyframesSolidIcon';
 import SubstractIcon from '../icons/SubstractIcon';
-import CaptureButton from '../capture/CaptureButton';
+import CommandBar from '../capture/CommandBar';
 import ObjectPalette from '../shared/ObjectPalette';
 import RecentCaptures from '../capture/RecentCaptures';
 import SidebarTree from './SidebarTree';
@@ -250,7 +250,7 @@ export default function CommonPlaceSidebar({ onCollapse }: { onCollapse?: () => 
             {section.title === 'Capture' ? (
               <div style={{ padding: '0 4px' }}>
                 <div className={styles.captureGlow}>
-                  <CaptureButton onCapture={handleCapture} />
+                  <CommandBar onCapture={handleCapture} />
                 </div>
                 <ObjectPalette
                   isOpen={isPaletteOpen}
@@ -475,7 +475,7 @@ export default function CommonPlaceSidebar({ onCollapse }: { onCollapse?: () => 
                             width: 6,
                             height: 6,
                             borderRadius: '50%',
-                            backgroundColor: '#C67A4A',
+                            backgroundColor: 'var(--cp-red)',
                             flexShrink: 0,
                           }}
                         />
@@ -659,10 +659,11 @@ export default function CommonPlaceSidebar({ onCollapse }: { onCollapse?: () => 
           'radial-gradient(90% 120% at 100% 20%, rgba(86, 109, 150, 0.055) 0%, transparent 36%)',
           'linear-gradient(180deg, #1A1B1F 0%, #151619 100%)',
         ].join(', '),
-        borderRight: '1px solid rgba(255, 255, 255, 0.05)',
-        boxShadow: 'inset -1px 0 0 rgba(255, 255, 255, 0.02)',
+        borderRight: '1px solid var(--cp-shell-join-border)',
+        boxShadow: 'var(--cp-shell-sidebar-shadow)',
         display: 'flex',
         flexDirection: 'column',
+        overflowX: 'hidden',
         overflowY: 'auto',
         scrollbarWidth: 'none',
         height: '100vh',
@@ -700,14 +701,16 @@ const RAIL_ICON_COMPONENTS: Record<string, ComponentType<{ width?: number; heigh
 
 /* Per-section accent colors: shown on the icon when the item is active.
    Updated for the cool-slate sidebar palette per Spec F. */
+const CAPTURE_ACCENT = 'var(--cp-red)';
 const LABEL_ACCENT: Record<string, string> = {
-  /* Capture section: terracotta */
-  'Home':               '#C67A4A',
-  'Library':            '#C67A4A',
-  'Files':              '#C67A4A',
-  'Models':             '#C67A4A',
-  'Artifacts':          '#C67A4A',
-  'Compose':            '#C67A4A',
+  /* Capture section: oxblood */
+  'Auto Organize':      CAPTURE_ACCENT,
+  'Home':               CAPTURE_ACCENT,
+  'Library':            CAPTURE_ACCENT,
+  'Files':              CAPTURE_ACCENT,
+  'Models':             CAPTURE_ACCENT,
+  'Artifacts':          CAPTURE_ACCENT,
+  'Compose':            CAPTURE_ACCENT,
   /* Views section: green */
   'Timeline':           '#5D9B78',
   'Map':                '#5D9B78',

@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useMemo, useState, useRef, useEffect } from 'react';
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
 import {
   fetchClusters,
@@ -52,6 +52,8 @@ export default function LibraryView({ onOpenObject }: LibraryViewProps) {
   const { openContextMenu } = useDrawer();
   const [activeType, setActiveType] = useState<string | null>(null);
   const [inquiryQuery, setInquiryQuery] = useState('');
+  const [justLandedId, setJustLandedId] = useState<number | null>(null);
+  const prevCaptureVersion = useRef(captureVersion);
 
   /* ── Data fetching ── */
 
@@ -69,6 +71,20 @@ export default function LibraryView({ onOpenObject }: LibraryViewProps) {
     () => (firstSlug ? fetchLineage(firstSlug) : Promise.resolve(null)),
     [firstSlug],
   );
+
+  /* D3: mark first feed item as just-landed when captureVersion increments */
+  useEffect(() => {
+    if (captureVersion > prevCaptureVersion.current && nodes && nodes.length > 0) {
+      prevCaptureVersion.current = captureVersion;
+      const id = nodes[0].objectRef ?? nodes[0].objectSlug ?? null;
+      if (id !== null) {
+        setJustLandedId(id as number);
+        const timer = setTimeout(() => setJustLandedId(null), 2500);
+        return () => clearTimeout(timer);
+      }
+    }
+    prevCaptureVersion.current = captureVersion;
+  }, [captureVersion, nodes]);
 
   const handleObjectClick = useRenderableObjectAction(
     onOpenObject ? (obj) => onOpenObject(obj.id) : undefined,
@@ -185,6 +201,7 @@ export default function LibraryView({ onOpenObject }: LibraryViewProps) {
                     animate={{ opacity: 1, y: 0 }}
                     exit={{ opacity: 0, scale: 0.95 }}
                     transition={{ layout: { duration: 0.2, ease: 'easeOut' } }}
+                    data-just-landed={obj.id === justLandedId ? 'true' : undefined}
                   >
                     <ObjectRenderer
                       object={obj}

@@ -5,7 +5,7 @@
  *
  * Fetches all daily logs once, builds a date -> activity count
  * map, and renders a 7-column Monday-first grid. Each cell with
- * activity shows a terracotta dot at one of three opacity tiers.
+ * activity shows an oxblood dot at one of three opacity tiers.
  *
  * Clicking a day reveals the DailyLogPanel below the grid with
  * full activity detail. Clicking an object in the panel opens

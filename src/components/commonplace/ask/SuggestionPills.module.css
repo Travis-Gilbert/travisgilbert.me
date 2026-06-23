@@ -19,8 +19,8 @@
 
 .pill:hover {
   border-color: var(--cp-ask-glyph, var(--cp-red));
-  color: var(--cp-terracotta-light);
-  background: rgba(180, 90, 45, 0.08);
+  color: var(--cp-red);
+  background: rgba(var(--cp-red-rgb), 0.08);
 }
 
 .pill:active {

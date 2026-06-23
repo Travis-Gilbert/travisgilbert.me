@@ -30,7 +30,7 @@ const PIPELINE_STAGES = [
 /** Visual identity per capture_kind. */
 const CAPTURE_KIND_STYLES: Record<string, { color: string; label: string }> = {
   url: { color: '#2D5F6B', label: 'URL' },
-  file: { color: '#B45A2D', label: 'File' },
+  file: { color: '#8A2E29', label: 'File' },
   text: { color: '#8B6FA0', label: 'Text' },
 };
 
@@ -536,7 +536,7 @@ export function ExtractionSummary({
   methods: number;
 }) {
   const items = [
-    { label: 'claims', count: claims, color: '#B8623D' },
+    { label: 'claims', count: claims, color: '#8A2E29' },
     { label: 'entities', count: entities, color: '#1A7A8A' },
     { label: 'questions', count: questions, color: '#7050A0' },
     { label: 'rules', count: rules, color: '#A08020' },
@@ -664,7 +664,7 @@ function ArtifactRow({
         {artifact.extraction_summary && (
           <div style={{ flexShrink: 0, display: 'flex', gap: 4 }}>
             {artifact.extraction_summary.claims > 0 && (
-              <InlineBadge count={artifact.extraction_summary.claims} label="claims" color="#B8623D" />
+              <InlineBadge count={artifact.extraction_summary.claims} label="claims" color="#8A2E29" />
             )}
             {artifact.extraction_summary.entities > 0 && (
               <InlineBadge count={artifact.extraction_summary.entities} label="entities" color="#1A7A8A" />

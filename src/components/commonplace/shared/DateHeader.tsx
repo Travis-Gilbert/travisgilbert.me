@@ -5,7 +5,7 @@
  *
  * Shows relative date labels ("Today", "Yesterday") or full
  * formatted dates. Courier Prime monospace uppercase text with
- * a subtle terracotta rule underneath. Sticks to the top of
+ * a subtle oxblood rule underneath. Sticks to the top of
  * the scroll container within its date group.
  */
 

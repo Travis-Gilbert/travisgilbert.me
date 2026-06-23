@@ -266,7 +266,7 @@
   padding: 16px 18px;
   background-color: var(--cp-surface, #F0E4D4);
   border-radius: 1px;
-  border-left: 3px solid var(--cp-terracotta, #C4503C);
+  border-left: 3px solid var(--cp-terracotta, #8A2E29);
   box-shadow: 2px 2px 8px rgba(0, 0, 0, 0.06);
   position: relative;
 }

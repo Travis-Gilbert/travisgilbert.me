@@ -15,7 +15,7 @@ export default function ObjectRow({
   object,
   onOpenObject,
   statusText,
-  statusColor = 'rgba(180, 90, 45, 0.5)',
+  statusColor = 'rgba(var(--cp-red-rgb), 0.5)',
 }: ObjectRowProps) {
   const edgeCount = object.edge_count ?? 0;
   const dateStr = object.captured_at ? formatShortDate(object.captured_at) : '';
@@ -168,11 +168,11 @@ function TypeMark({ typeSlug, title }: { typeSlug: string; title: string }) {
     return (
       <div style={{
         width: 26, height: 26, borderRadius: '50%',
-        background: 'rgba(180, 90, 45, 0.1)',
+        background: 'rgba(var(--cp-red-rgb), 0.1)',
         display: 'flex', alignItems: 'center', justifyContent: 'center',
         fontFamily: 'var(--cp-font-body)',
         fontSize: 10, fontWeight: 600,
-        color: '#B45A2D',
+        color: '#8A2E29',
         flexShrink: 0,
       }}>
         {initial}
@@ -219,14 +219,14 @@ function TypeMark({ typeSlug, title }: { typeSlug: string; title: string }) {
       }}>
         <div style={{
           width: 3, height: 28, borderRadius: 1,
-          background: '#B45A2D',
+          background: '#8A2E29',
           flexShrink: 0,
         }} />
         <span style={{
           fontFamily: 'var(--cp-font-title)',
           fontStyle: 'italic',
           fontSize: 10,
-          color: 'rgba(180, 90, 45, 0.45)',
+          color: 'rgba(var(--cp-red-rgb), 0.45)',
           whiteSpace: 'nowrap',
           overflow: 'hidden',
           textOverflow: 'ellipsis',

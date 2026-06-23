@@ -91,9 +91,9 @@ function PlacedCard({
   const isHunch = item.object.object_type_slug === 'hunch';
   const isConcept = item.object.object_type_slug === 'concept';
 
-  /* Connect target: pulsing terracotta glow */
+  /* Connect target: pulsing oxblood glow */
   const connectShadow = isConnectTarget
-    ? '0 0 0 2px #B8623D, 0 0 12px 2px rgba(184, 98, 61, 0.35)'
+    ? '0 0 0 2px #8A2E29, 0 0 12px 2px rgba(var(--cp-red-rgb), 0.35)'
     : undefined;
 
   return (
@@ -129,11 +129,11 @@ function PlacedCard({
           padding: '10px 12px',
           borderRadius: isConcept ? 16 : isHunch ? 3 : 6,
           backgroundColor: isConnectTarget
-            ? `color-mix(in srgb, #B8623D 12%, transparent)`
+            ? `color-mix(in srgb, #8A2E29 12%, transparent)`
             : `color-mix(in srgb, ${typeIdentity.color} ${isSelected ? 10 : 6}%, transparent)`,
           border: `1px solid ${
             isConnectTarget
-              ? 'rgba(184, 98, 61, 0.5)'
+              ? 'rgba(var(--cp-red-rgb), 0.5)'
               : isSelected
                 ? `color-mix(in srgb, ${typeIdentity.color} 30%, transparent)`
                 : `color-mix(in srgb, ${typeIdentity.color} 8%, transparent)`
@@ -154,7 +154,7 @@ function PlacedCard({
               fontSize: 8,
               fontWeight: 600,
               letterSpacing: '0.06em',
-              color: '#B8623D',
+              color: '#8A2E29',
               textTransform: 'uppercase',
               whiteSpace: 'nowrap',
               pointerEvents: 'none',
@@ -261,7 +261,7 @@ function ConnectionLines({ connections, items, hoveredId, onHover }: ConnectionL
         const y2 = to.y + (to.height ?? 160) / 2;
 
         const isEngine = conn.source === 'engine';
-        const color = isEngine ? '#2D5F6B' : '#B8623D';
+        const color = isEngine ? '#2D5F6B' : '#8A2E29';
         const isHovered = hoveredId === conn.id;
         const opacity = isHovered ? 0.7 : conn.confirmed ? 0.4 : 0.25;
         const strokeDash = conn.confirmed ? undefined : '4 4';
@@ -365,7 +365,7 @@ function PendingConnectionLine({
     >
       <path
         d={`M ${x1} ${y1} Q ${cpx} ${cpy} ${x2} ${y2}`}
-        stroke="#B8623D"
+        stroke="#8A2E29"
         strokeWidth={1.5}
         strokeDasharray="6 4"
         strokeOpacity={0.55}
@@ -703,7 +703,7 @@ export default function BoardCanvas({
         }}
       />
 
-      {/* Terracotta ambient glow */}
+      {/* Oxblood ambient glow */}
       <div
         style={{
           position: 'absolute',
@@ -711,7 +711,7 @@ export default function BoardCanvas({
           right: 0,
           width: '40vw',
           height: '40vh',
-          background: 'radial-gradient(ellipse at 100% 0%, rgba(184, 98, 61, 0.025), transparent)',
+          background: 'radial-gradient(ellipse at 100% 0%, rgba(var(--cp-red-rgb), 0.025), transparent)',
           pointerEvents: 'none',
         }}
       />

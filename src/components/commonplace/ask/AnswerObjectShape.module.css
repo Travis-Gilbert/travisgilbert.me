@@ -305,6 +305,6 @@
 .edgeCount {
   font-family: var(--cp-font-mono);
   font-size: 10px;
-  color: var(--cp-terracotta-light);
+  color: var(--cp-red);
   margin-top: 6px;
 }

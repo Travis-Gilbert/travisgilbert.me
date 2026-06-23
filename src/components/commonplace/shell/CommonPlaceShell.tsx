@@ -59,6 +59,7 @@ export default function CommonPlaceShell() {
       }
       <main
         className="cp-main-surface cp-grain"
+        data-sidebar-mode={sidebarMode}
         style={{
           flex: 1,
           minWidth: 0,

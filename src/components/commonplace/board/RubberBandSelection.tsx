@@ -111,8 +111,8 @@ export default function RubberBandSelection({
             top: rect.y,
             width: rect.width,
             height: rect.height,
-            border: '1px dashed #B8623D',
-            backgroundColor: 'rgba(184, 98, 61, 0.03)',
+            border: '1px dashed #8A2E29',
+            backgroundColor: 'rgba(var(--cp-red-rgb), 0.03)',
             pointerEvents: 'none',
             zIndex: 50,
           }}

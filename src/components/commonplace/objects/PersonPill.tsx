@@ -4,7 +4,7 @@ import type { ObjectCardProps } from './ObjectRenderer';
 import { getObjectTypeIdentity } from '@/lib/commonplace';
 import { readString, readStringArray, formatDate } from './shared';
 
-const PERSON_COLOR = 'var(--cp-person-color, #B45A2D)';
+const PERSON_COLOR = 'var(--cp-person-color, #8A2E29)';
 
 export default function PersonPill({ object, compact, variant = 'default', onClick, onContextMenu }: ObjectCardProps) {
   const name = object.display_title ?? object.title;

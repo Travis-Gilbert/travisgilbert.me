@@ -121,7 +121,7 @@ function HeroListRow({
         transition: 'background 120ms ease',
       }}
       className="cp-hero-list-row"
-      onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = 'rgba(184,98,61,0.04)'; }}
+      onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = 'rgba(var(--cp-red-rgb), 0.04)'; }}
       onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = 'transparent'; }}
     >
       <TypeLeadElement type={object.object_type_slug} object={object} color={identity.color} />
@@ -137,7 +137,7 @@ function HeroListRow({
       <span style={{
         fontFamily: 'var(--cp-font-mono)',
         fontSize: 12,
-        color: 'var(--cp-terracotta, #B45A2D)',
+        color: 'var(--cp-terracotta, #8A2E29)',
       }}>{'\u2192'}</span>
       {edgeCount > 0 && (
         <span style={{
@@ -173,7 +173,7 @@ function TypeLeadElement({ type, object, color }: { type: string; object: Render
       return (
         <div style={{
           width: 20, height: 20, borderRadius: '50%',
-          background: 'var(--cp-person-color, #B45A2D)',
+          background: 'var(--cp-person-color, #8A2E29)',
           display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
         }}>
           <span style={{ fontFamily: 'var(--cp-font-mono)', fontSize: 9, fontWeight: 700, color: '#fff', lineHeight: 1 }}>{initial}</span>

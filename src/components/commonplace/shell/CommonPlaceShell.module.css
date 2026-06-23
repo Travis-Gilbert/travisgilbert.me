@@ -16,7 +16,7 @@
   display: none;
 }
 
-/* Terracotta upper-right glow: ambient desk lamp.
+/* Oxblood upper-right glow: ambient desk lamp.
    Large radius, very subtle. Not a spot; an atmosphere. */
 
 .ambientGlow {
@@ -26,8 +26,8 @@
   z-index: 0;
   background: radial-gradient(
     ellipse at 65% 0%,
-    rgba(184, 98, 61, 0.04) 0%,
-    rgba(184, 98, 61, 0.015) 20%,
+    rgba(var(--cp-red-rgb), 0.04) 0%,
+    rgba(var(--cp-red-rgb), 0.015) 20%,
     transparent 50%
   );
 }

@@ -1,12 +1,12 @@
 import type { Metadata } from 'next';
 
 export const metadata: Metadata = {
-  title: 'Daily',
-  description: 'CommonPlace daily page: engine discoveries, recent captures, and system status.',
+  title: 'Auto Organize',
+  description: 'CommonPlace auto-organize page: engine discoveries, recent captures, and system status.',
 };
 
 /**
- * CommonPlace home: Daily Page.
+ * CommonPlace Auto Organize.
  *
  * Renders nothing visible; the (commonplace) layout's ScreenRouter
  * handles the daily screen. Default activeScreen is 'daily'.

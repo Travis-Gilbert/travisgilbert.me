@@ -23,7 +23,7 @@
 }
 
 .dragHandle[data-dragging="true"] {
-  background: rgba(184, 98, 61, 0.22);
+  background: rgba(var(--cp-red-rgb), 0.22);
 }
 
 /* Invisible hit area so the 1px line is easy to grab */
@@ -53,7 +53,7 @@
   position: absolute;
   inset: 0;
   margin: auto;
-  background: rgba(184, 98, 61, 0.42);
+  background: rgba(var(--cp-red-rgb), 0.42);
   border-radius: 999px;
 }
 

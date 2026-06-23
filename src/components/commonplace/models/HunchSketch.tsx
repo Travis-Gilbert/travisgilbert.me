@@ -21,7 +21,7 @@ const THUMB_W = 120;
 const THUMB_H = 70;
 const MAX_HISTORY = 6;
 
-const SKETCH_COLORS = ['#3A3632', '#B45A2D', '#2D5F6B', '#C49A4A', '#B06080'];
+const SKETCH_COLORS = ['#3A3632', '#8A2E29', '#2D5F6B', '#C49A4A', '#B06080'];
 
 type Tool = 'pencil' | 'circle' | 'rect' | 'arrow' | 'text';
 

@@ -29,7 +29,7 @@
 .label {
   font-family: var(--cp-font-mono);
   font-size: 11px;
-  color: var(--cp-terracotta-light);
+  color: var(--cp-red);
 }
 
 .chips {

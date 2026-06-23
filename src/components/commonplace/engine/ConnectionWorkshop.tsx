@@ -647,7 +647,7 @@ export default function ConnectionWorkshop({ notebookSlug }: ConnectionWorkshopP
         }
         .cw-meta-badge--danger {
           background: rgba(184,90,45,0.14);
-          color: #B45A2D;
+          color: #8A2E29;
         }
         .cw-meta-badge--muted {
           background: rgba(138,130,121,0.12);
@@ -792,11 +792,11 @@ export default function ConnectionWorkshop({ notebookSlug }: ConnectionWorkshopP
           border-color: rgba(138,130,121,0.22);
         }
         .cw-action-btn--danger {
-          color: #B45A2D;
+          color: #8A2E29;
         }
         .cw-action-btn--danger:hover {
-          background: rgba(180,90,45,0.08);
-          border-color: rgba(180,90,45,0.22);
+          background: rgba(var(--cp-red-rgb), 0.08);
+          border-color: rgba(var(--cp-red-rgb), 0.22);
         }
         .cw-diagnostics {
           border-top: 1px dashed rgba(42,37,32,0.12);
@@ -834,8 +834,8 @@ export default function ConnectionWorkshop({ notebookSlug }: ConnectionWorkshopP
         .cw-error-panel {
           padding: 16px;
           border-radius: 8px;
-          background: rgba(180,90,45,0.06);
-          border: 1px dashed rgba(180,90,45,0.2);
+          background: rgba(var(--cp-red-rgb), 0.06);
+          border: 1px dashed rgba(var(--cp-red-rgb), 0.2);
         }
         .cw-error-label {
           font-family: var(--cp-font-mono);
@@ -943,7 +943,7 @@ export default function ConnectionWorkshop({ notebookSlug }: ConnectionWorkshopP
               {sessionStats.defer} deferred
             </span>
             <span className="cw-stat">
-              <span className="cw-stat-dot" style={{ background: '#B45A2D' }} />
+              <span className="cw-stat-dot" style={{ background: '#8A2E29' }} />
               {sessionStats.reject} rejected
             </span>
             {reviewedTotal === 0 && (

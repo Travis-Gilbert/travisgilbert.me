@@ -8,6 +8,7 @@ import ObjectContextMenu from '@/components/commonplace/shared/ObjectContextMenu
 import ConnectionComposer from '@/components/commonplace/compose/ConnectionComposer';
 import EngineWidget from '@/components/commonplace/engine/EngineWidget';
 import ReaderOverlay from '@/components/commonplace/reader/ReaderOverlay';
+import CommonPlacePwaInstall from '@/components/commonplace/install/CommonPlacePwaInstall';
 import { Toaster } from 'sonner';
 import shellStyles from '@/components/commonplace/shell/CommonPlaceShell.module.css';
 import '@/styles/commonplace-tokens.css';
@@ -32,6 +33,7 @@ export const metadata: Metadata = {
       { url: '/commonplace/apple-touch-icon.png', sizes: '180x180', type: 'image/png' },
     ],
   },
+  manifest: '/commonplace/manifest.webmanifest',
 };
 
 /**
@@ -46,7 +48,7 @@ export const metadata: Metadata = {
  *   2. Ambient red-pencil glow
  *   3. Navigation (top bar + rail or sidebar, via CommonPlaceShell)
  *   4. Split pane system
- *   5. Engine terminal (fixed bottom, portal to body)
+ *   5. Engine terminal toggle (top-right; bottom panel only while open)
  */
 export default function CommonPlaceLayout({
   children,
@@ -87,6 +89,7 @@ export default function CommonPlaceLayout({
         <ObjectContextMenu />
         <ConnectionComposer />
         <EngineWidget />
+        <CommonPlacePwaInstall surface="commonplace-shell" />
         <Toaster
           position="bottom-right"
           toastOptions={{

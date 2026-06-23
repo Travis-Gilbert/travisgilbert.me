@@ -51,7 +51,7 @@
   font-weight: 700;
 }
 
-.iq { color: var(--cp-terracotta-light); }
+.iq { color: var(--cp-red); }
 .obj { color: var(--cp-text-muted); }
 .edge { color: var(--cp-teal-light, #3A7A88); }
 

@@ -17,7 +17,7 @@
 
 import * as React from 'react';
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
-import { AiInputBar, type AiInputMode } from './AiInputBar';
+import { AiInputBar, type AiInputMode, type AiInputSize } from './AiInputBar';
 import { gqlIngest, type AskResultGql } from '@/lib/commonplace-graphql';
 import { askCommonPlaceAgent } from '@/lib/local-agent';
 import {
@@ -26,7 +26,19 @@ import {
   type RustyWebSearchResponse,
 } from '@/lib/rustyweb-search';
 
-export default function Omnibar({ bottomOffset = '20vh' }: { bottomOffset?: string } = {}) {
+interface OmnibarProps {
+  bottomOffset?: string;
+  frameClassName?: string;
+  shellClassName?: string;
+  inputSize?: AiInputSize;
+}
+
+export default function Omnibar({
+  bottomOffset = '20vh',
+  frameClassName,
+  shellClassName,
+  inputSize = 'default',
+}: OmnibarProps = {}) {
   const reduced = useReducedMotion();
   const [value, setValue] = React.useState('');
   const [mode, setMode] = React.useState<AiInputMode>('ask');
@@ -75,10 +87,10 @@ export default function Omnibar({ bottomOffset = '20vh' }: { bottomOffset?: stri
     /* Fixed in the bottom third so it never shifts page content; results grow
        upward above the bar (chat-style). */
     <div
-      className="pointer-events-none fixed left-0 right-0 z-40 flex justify-center px-4 md:left-[256px]"
+      className={frameClassName ?? 'pointer-events-none fixed left-0 right-0 z-40 flex justify-center px-4 md:left-[256px]'}
       style={{ bottom: bottomOffset }}
     >
-      <div className="pointer-events-auto w-full max-w-2xl">
+      <div className={shellClassName ?? 'pointer-events-auto w-full max-w-2xl'}>
         <AnimatePresence>
           {showPanel ? (
             <motion.div
@@ -114,6 +126,7 @@ export default function Omnibar({ bottomOffset = '20vh' }: { bottomOffset?: stri
           onModeChange={setMode}
           onAttach={attach}
           busy={busy}
+          size={inputSize}
         />
       </div>
     </div>

@@ -13,7 +13,7 @@ interface RailItem {
 }
 
 const RAIL_ITEMS: RailItem[] = [
-  { icon: 'cellar', label: 'Home', screenType: 'daily' },
+  { icon: 'cellar', label: 'Auto Organize', screenType: 'daily' },
   { icon: 'grid', label: 'Library', screenType: 'library' },
   { icon: 'graph', label: 'Map', screenType: 'models' },
   { icon: 'book', label: 'Notebooks', screenType: 'notebooks' },
@@ -83,7 +83,7 @@ export default function CommonPlaceRail({ onExpand }: CommonPlaceRailProps) {
   const { activeScreen, navigateToScreen } = useLayout();
 
   return (
-    <nav className={styles.rail}>
+    <nav className={styles.rail} data-commonplace-rail="true">
       <button className={styles.logo} onClick={onExpand} title="Expand sidebar">
         C
       </button>
@@ -121,7 +121,7 @@ function RailIcon({ name, active }: { name: string; active?: boolean }) {
       height={18}
       viewBox="0 0 24 24"
       fill="none"
-      stroke={active ? 'var(--cp-terracotta-light)' : '#656570'}
+      stroke={active ? 'var(--cp-red)' : '#656570'}
       strokeWidth={1.6}
       strokeLinecap="round"
       strokeLinejoin="round"

@@ -1,0 +1,29 @@
+{
+  "name": "CommonPlace",
+  "short_name": "CommonPlace",
+  "description": "A local-first knowledge workbench for capture, reading, and graph-native memory.",
+  "start_url": "/commonplace",
+  "scope": "/commonplace/",
+  "display": "standalone",
+  "background_color": "#FBF0E2",
+  "theme_color": "#C49A4A",
+  "icons": [
+    {
+      "src": "/commonplace/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/commonplace/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/commonplace/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml"
+    }
+  ]
+}

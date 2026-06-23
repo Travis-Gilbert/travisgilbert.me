@@ -100,7 +100,7 @@
 .strengthFill {
   height: 100%;
   border-radius: 2px;
-  background: linear-gradient(90deg, var(--cp-red), var(--cp-terracotta-light));
+  background: linear-gradient(90deg, var(--cp-red), var(--cp-red));
   transition: width 400ms ease;
 }
 

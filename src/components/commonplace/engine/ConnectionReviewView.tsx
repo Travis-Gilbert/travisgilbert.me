@@ -98,8 +98,8 @@ export default function ConnectionReviewView({ notebookSlug }: ConnectionReviewV
           --cp-border: rgba(42, 37, 32, 0.12);
           --cp-border-faint: rgba(42, 37, 32, 0.07);
           --cp-surface: rgba(237, 228, 214, 0.65);
-          --cp-red-soft: rgba(184, 98, 61, 0.08);
-          --cp-red-line: rgba(184, 98, 61, 0.20);
+          --cp-red-soft: rgba(var(--cp-red-rgb), 0.08);
+          --cp-red-line: rgba(var(--cp-red-rgb), 0.20);
           color: var(--cp-text);
         }
         .cr-header {

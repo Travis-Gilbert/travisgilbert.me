@@ -81,6 +81,29 @@ export default function HomePage() {
         } : null}
       />
 
+      <section className="py-3 sm:py-6" data-pagefind-ignore>
+        <ScrollReveal>
+          <RoughBox tint="gold" padding={18} hover>
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <span className="block font-mono text-[10px] font-bold uppercase tracking-[0.1em] text-gold">
+                  CommonPlace and Theorem
+                </span>
+                <h2 className="m-0 mt-1 font-title text-xl font-bold">
+                  Install the app, connect an agent, or self-host the engine.
+                </h2>
+              </div>
+              <Link
+                href="/install"
+                className="inline-flex items-center gap-1 font-mono text-sm text-gold no-underline hover:text-gold/80"
+              >
+                Open install paths <ArrowRight width={14} height={14} strokeWidth={2.5} />
+              </Link>
+            </div>
+          </RoughBox>
+        </ScrollReveal>
+      </section>
+
       {/* ═══════════════════════════════════════════════
           Field Notes: Asymmetric grid with compact tracker + callouts
           ═══════════════════════════════════════════════ */}

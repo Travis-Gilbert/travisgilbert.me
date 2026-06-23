@@ -5,10 +5,10 @@ import AutoOrganizeView from './AutoOrganizeView';
 import styles from './DailyPage.module.css';
 
 /**
- * Home / Auto Organize: the omnibar over the auto-organize surface.
+ * Auto Organize: the omnibar over the organizing surface.
  *
- * The 'daily' screen is the Auto Organize home (the nav model renamed it once
- * the organizing primitive landed). AutoOrganizeView is the inbox-replacement:
+ * The 'daily' screen is Auto Organize (the nav model predates the label, so the
+ * route key stays stable). AutoOrganizeView is the inbox-replacement:
  * arriving items sort into place automatically and only the small set that needs
  * a decision is surfaced. The ambient HomeView remains in the tree for reuse.
  *
@@ -24,7 +24,12 @@ export default function DailyPage() {
       </div>
       {/* Floating omnibar, lowered on this surface so it sits near the bottom
           edge and leaves the auto-organize content more room. */}
-      <Omnibar bottomOffset="5vh" />
+      <Omnibar
+        bottomOffset="0px"
+        frameClassName={styles.omnibarFrame}
+        shellClassName={styles.omnibarShell}
+        inputSize="tall"
+      />
     </div>
   );
 }

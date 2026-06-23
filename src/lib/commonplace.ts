@@ -35,7 +35,7 @@ export interface ObjectTypeIdentity {
 export const OBJECT_TYPES: ObjectTypeIdentity[] = [
   { slug: 'note', label: 'Note', plural: 'Notes', color: '#F5F0E8', icon: 'note-pencil' },
   { slug: 'source', label: 'Source', plural: 'Sources', color: '#2D5F6B', icon: 'book-open' },
-  { slug: 'person', label: 'Person', plural: 'People', color: '#B45A2D', icon: 'person' },
+  { slug: 'person', label: 'Person', plural: 'People', color: '#8A2E29', icon: 'person' },
   { slug: 'place', label: 'Place', plural: 'Places', color: '#C49A4A', icon: 'map-pin' },
   { slug: 'organization', label: 'Org', plural: 'Orgs', color: '#5A7A4A', icon: 'building' },
   { slug: 'concept', label: 'Concept', plural: 'Concepts', color: '#8B6FA0', icon: 'lightbulb' },
@@ -200,7 +200,7 @@ export const SIDEBAR_SECTIONS: SidebarSection[] = [
   {
     title: '',
     items: [
-      { label: 'Home', href: '#daily', icon: 'cellar', mode: 'screen', screenType: 'daily' },
+      { label: 'Auto Organize', href: '#daily', icon: 'cellar', mode: 'screen', screenType: 'daily' },
       { label: 'Library', href: '#library', icon: 'grid', mode: 'screen', screenType: 'library' },
       {
         label: 'Models',
@@ -296,9 +296,26 @@ export const SIDEBAR_SECTIONS: SidebarSection[] = [
 /* ─────────────────────────────────────────────────
    Captured object: local-first representation
    used by the capture system before API sync.
+
+   Capture contract (D4) — wire shape POSTed to the capture endpoint:
+   {
+     "id":            string   // "local-<uuid>" at creation; slug after sync
+     "title":         string   // first 60 chars or domain for URLs
+     "body":          string   // full text / markdown content
+     "objectType":    string   // note | source | quote | person | ...
+     "capturedAt":    string   // ISO 8601
+     "captureMethod": string   // typed | pasted | dropped | quick-create | clipped
+     "status":        string   // local | syncing | synced | error
+     "sourceUrl"?:    string   // original URL (set for 'source' captures and clips)
+   }
+
+   The browser extension (D1) POSTs the same shape to the configured endpoint.
+   The local Rust engine's IngestInput maps cleanly onto this shape so the
+   capture endpoint can move from Django to the local engine without the
+   extension or command bar changing.
    ───────────────────────────────────────────────── */
 
-export type CaptureMethod = 'typed' | 'pasted' | 'dropped' | 'quick-create';
+export type CaptureMethod = 'typed' | 'pasted' | 'dropped' | 'quick-create' | 'clipped';
 
 export type CaptureStatus = 'local' | 'syncing' | 'synced' | 'error';
 
@@ -310,7 +327,7 @@ export interface CapturedObject {
   capturedAt: string;
   captureMethod: CaptureMethod;
   status: CaptureStatus;
-  /** Original URL if the capture was a link */
+  /** Original URL if the capture was a link or page clip */
   sourceUrl?: string;
   /** Enriched OG title (populated after mock delay) */
   enrichedTitle?: string;

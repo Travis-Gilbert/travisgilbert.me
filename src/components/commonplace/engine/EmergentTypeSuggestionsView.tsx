@@ -23,7 +23,7 @@ import { SHRINK_EXIT, useSpring } from './engine-motion';
 
 /** 10 color swatches for the type customizer. */
 const COLOR_SWATCHES = [
-  '#B45A2D', // terracotta
+  '#8A2E29', // oxblood
   '#2D5F6B', // teal
   '#C49A4A', // gold
   '#8B6FA0', // purple

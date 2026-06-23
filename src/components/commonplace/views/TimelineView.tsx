@@ -4,7 +4,7 @@
  * TimelineView: chronological feed of captured objects.
  *
  * Layout: two-column grid (100px gutter + card body).
- * Left gutter: continuous 2px terracotta rail, type-colored dot markers,
+ * Left gutter: continuous 2px oxblood rail, type-colored dot markers,
  * short Courier Prime time label.
  * Right column: rich cards with type badge pill, full body text (not
  * truncated), connections 2-col grid, inline retrospective notes.

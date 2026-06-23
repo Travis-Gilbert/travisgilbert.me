@@ -49,7 +49,7 @@ export default function ResurfacedZone({ cards, onOpenObject }: ResurfacedZonePr
               object={obj}
               onOpenObject={onOpenObject}
               statusText={statusText}
-              statusColor={edgeCount > 0 ? 'rgba(45, 95, 107, 0.5)' : 'rgba(180, 90, 45, 0.5)'}
+              statusColor={edgeCount > 0 ? 'rgba(45, 95, 107, 0.5)' : 'rgba(var(--cp-red-rgb), 0.5)'}
             />
           );
         })}

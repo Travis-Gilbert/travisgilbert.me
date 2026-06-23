@@ -8,10 +8,44 @@
 }
 
 .content {
-  /* Full-width, left-aligned: the collections sidebar hugs the icon rail
-     (shadcn mail layout) rather than floating in a centered 1100px column. */
   width: 100%;
-  padding: 20px 36px 0 16px;
+  min-height: 100%;
+  padding: 0;
+}
+
+.omnibarFrame {
+  position: fixed;
+  left: var(--cp-daily-omnibar-left, calc(45vw + 258px));
+  right: 0;
+  z-index: 40;
+  display: flex;
+  justify-content: stretch;
+  padding: 0;
+  pointer-events: none;
+}
+
+.omnibarShell {
+  width: 100%;
+  max-width: none;
+  pointer-events: auto;
+}
+
+@media (max-width: 1180px) {
+  .omnibarFrame {
+    left: calc(var(--cp-shell-join-underlap) + 244px);
+    right: 0;
+  }
+}
+
+@media (max-width: 820px) {
+  .content {
+    padding: 0;
+  }
+
+  .omnibarFrame {
+    left: 16px;
+    right: 16px;
+  }
 }
 
 .briefingSummary {
@@ -43,7 +77,7 @@
 }
 
 .sectionCount {
-  color: var(--cp-terracotta-light);
+  color: var(--cp-red);
   font-weight: 600;
 }
 

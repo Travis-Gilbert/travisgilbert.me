@@ -58,17 +58,20 @@ html[data-theme="dark"] body::after {
   --cp-text-muted: #6A5E52;
   --cp-text-faint: #9A8E82;
 
-  /* Accent: Terracotta pencil (engine/machine signal) */
-  --cp-red: #B8623D;
-  --cp-red-rgb: 184, 98, 61;
-  --cp-red-soft: rgba(180,90,45,0.06);
-  --cp-red-line: rgba(184, 98, 61, 0.22);
-  --cp-red-glow: rgba(184, 98, 61, 0.12);
+  /* Accent: oxblood pencil (engine/machine signal) */
+  --cp-oxblood: #8A2E29;
+  --cp-oxblood-rgb: 138, 46, 41;
+  --cp-oxblood-light: #8A2E29;
+  --cp-red: var(--cp-oxblood);
+  --cp-red-rgb: var(--cp-oxblood-rgb);
+  --cp-red-soft: rgba(138, 46, 41, 0.07);
+  --cp-red-line: rgba(138, 46, 41, 0.24);
+  --cp-red-glow: rgba(138, 46, 41, 0.16);
   --cp-accent: var(--cp-red);
 
-  /* Legacy terracotta aliases map to the red-pencil system */
+  /* Legacy terracotta aliases map to the oxblood system */
   --cp-terracotta: var(--cp-red);
-  --cp-terracotta-light: #D4896A;
+  --cp-terracotta-light: var(--cp-oxblood);
   --cp-terracotta-glow: var(--cp-red-soft);
   --cp-cream: #F8F7F4;
 
@@ -96,7 +99,7 @@ html[data-theme="dark"] body::after {
   /* Object type colors */
   --cp-type-note: #68666E;
   --cp-type-source: #2D5F6B;
-  --cp-type-person: #B45A2D;
+  --cp-type-person: var(--cp-red);
   --cp-type-place: #C49A4A;
   --cp-type-organization: #5A7A4A;
   --cp-type-concept: #8B6FA0;
@@ -114,7 +117,7 @@ html[data-theme="dark"] body::after {
   --cp-term-elevated: #FBF0E2;
   --cp-term-hover: #EBD8C0;
   --cp-term-border: rgba(42,36,32,0.10);
-  --cp-term-border-hover: rgba(180,90,45,0.22);
+  --cp-term-border-hover: rgba(var(--cp-red-rgb), 0.22);
   --cp-term-text: #2A2420;
   --cp-term-text-secondary: #6A5E52;
   --cp-term-muted: #9A8E82;
@@ -167,6 +170,15 @@ html[data-theme="dark"] body::after {
 
   /* Layout constants */
   --cp-sidebar-width: 256px;
+  --cp-shell-join-radius: var(--cp-space-8);
+  --cp-shell-sidebar-underlay: 232px;
+  --cp-shell-rail-underlay: 52px;
+  --cp-shell-join-underlap: var(--cp-shell-sidebar-underlay);
+  --cp-shell-join-border: color-mix(in srgb, var(--cp-chrome) 12%, transparent);
+  --cp-shell-join-shadow:
+    12px 0 32px color-mix(in srgb, var(--cp-chrome) 12%, transparent),
+    2px 0 7px color-mix(in srgb, var(--cp-chrome) 7%, transparent);
+  --cp-shell-sidebar-shadow: inset -1px 0 0 rgba(255, 255, 255, 0.02), var(--cp-shell-join-shadow);
   --cp-grid-size: 40px;
   --cp-grid-opacity: 0.055;
   --cp-pane-gap: 1px;
@@ -188,7 +200,7 @@ html[data-theme="dark"] body::after {
   --cp-focus-ring: var(--cp-red);
   --cp-focus-ring-offset: 2px;
   --cp-focus-ring-width: 2px;
-  --cp-focus-ring-sidebar: rgba(184, 98, 61, 0.5);
+  --cp-focus-ring-sidebar: rgba(138, 46, 41, 0.55);
 
   /* Timing tokens */
   --cp-transition-fast: 100ms;
@@ -208,7 +220,7 @@ html[data-theme="dark"] body::after {
   /* Search bar */
   --cp-search-bg: rgba(42,36,32,0.03);
   --cp-search-border: rgba(42,36,32,0.10);
-  --cp-search-focus-border: rgba(184,98,61,0.3);
+  --cp-search-focus-border: rgba(138, 46, 41, 0.3);
   --cp-search-placeholder: var(--cp-text-faint);
 
   /* Ask Theseus */
@@ -220,7 +232,7 @@ html[data-theme="dark"] body::after {
   --cp-ask-negative: #C0504D;
   --cp-ask-negative-bg: rgba(192, 80, 77, 0.08);
   --cp-ask-save: var(--cp-terra, var(--cp-red));
-  --cp-ask-save-bg: rgba(180, 90, 45, 0.10);
+  --cp-ask-save-bg: rgba(138, 46, 41, 0.10);
 
   /* State tokens */
   --cp-disabled-opacity: 0.35;

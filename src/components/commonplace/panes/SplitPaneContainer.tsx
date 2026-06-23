@@ -242,7 +242,10 @@ export default function SplitPaneContainer() {
 
   if (activeScreen && !isMobile) {
     return (
-      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0, overflow: 'hidden', position: 'relative' }}>
+      <div
+        className={activeScreen === 'daily' ? 'cp-screen-underlay' : undefined}
+        style={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0, overflow: 'hidden', position: 'relative' }}
+      >
         <ScreenRouter screen={activeScreen} />
       </div>
     );

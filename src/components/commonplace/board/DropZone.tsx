@@ -81,7 +81,7 @@ function isInternalDrag(dataTransfer: DataTransfer | null): boolean {
    Particle scatter constants
    ----------------------------------------------- */
 
-const PALETTE = ['#B45A2D', '#2D5F6B', '#C49A4A', '#8C7B6E', '#5A7A4A'];
+const PALETTE = ['#8A2E29', '#2D5F6B', '#C49A4A', '#8C7B6E', '#5A7A4A'];
 const PARTICLE_SPRING = [0.34, 1.56, 0.64, 1] as const;
 
 interface Particle {

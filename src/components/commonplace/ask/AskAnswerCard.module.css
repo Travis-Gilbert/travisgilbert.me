@@ -67,6 +67,6 @@
 .objCount {
   font-family: var(--cp-font-mono);
   font-size: 9px;
-  color: var(--cp-terracotta-light);
+  color: var(--cp-red);
   margin-left: auto;
 }

@@ -33,6 +33,6 @@ export function getContextColor(activeScreen: string | null, viewType?: string):
     case 'compose':
     case 'library':
     default:
-      return '#B8623D';  // terracotta
+      return '#8A2E29';  // oxblood
   }
 }

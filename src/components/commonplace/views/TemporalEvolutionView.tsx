@@ -340,8 +340,8 @@ function GrowthChart({ snapshots }: { snapshots: ApiTemporalSnapshot[] }) {
 
     // Objects (teal)
     drawLine(objects, maxCount, '#2D5F6B');
-    // Edges (terracotta)
-    drawLine(edges, maxCount, '#B45A2D');
+    // Edges (oxblood)
+    drawLine(edges, maxCount, '#8A2E29');
     // Density x100 (purple, dashed, scaled to its own max)
     drawLine(densityScaled, maxDensity, '#8B6FA0', true);
 
@@ -349,7 +349,7 @@ function GrowthChart({ snapshots }: { snapshots: ApiTemporalSnapshot[] }) {
     const legendY = mt + ch + 28;
     const legends = [
       { label: 'Objects', color: '#2D5F6B' },
-      { label: 'Edges', color: '#B45A2D' },
+      { label: 'Edges', color: '#8A2E29' },
       { label: 'Density', color: '#8B6FA0' },
     ];
     ctx.font = '10px "JetBrains Mono", monospace';

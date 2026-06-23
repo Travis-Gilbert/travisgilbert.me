@@ -52,8 +52,8 @@
 }
 
 .save:hover:not(:disabled) {
-  border-color: rgba(180, 90, 45, 0.3);
-  color: var(--cp-terracotta-light);
+  border-color: rgba(var(--cp-red-rgb), 0.3);
+  color: var(--cp-red);
   background: var(--cp-ask-save-bg);
 }
 
@@ -62,7 +62,7 @@
   padding: 0 20px 14px;
   font-family: var(--cp-font-mono);
   font-size: 11px;
-  color: var(--cp-terracotta-light);
+  color: var(--cp-red);
   display: flex;
   align-items: center;
   gap: 6px;
