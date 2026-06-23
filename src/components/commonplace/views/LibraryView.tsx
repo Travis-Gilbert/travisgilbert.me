@@ -78,7 +78,8 @@ export default function LibraryView({ onOpenObject }: LibraryViewProps) {
 
   const feedNodes = nodes && nodes.length > 0 ? nodes : null;
   const clusterItems = clustersData && clustersData.length > 0 ? clustersData : null;
-  const isOffline = Boolean(error) || !nodes || nodes.length === 0;
+  const isOffline = Boolean(error);
+  const isEmpty = !error && (!nodes || nodes.length === 0);
 
   const allObjects = useMemo<RenderableObject[]>(
     () => (feedNodes ?? []).map(renderableFromMockNode),
@@ -137,9 +138,11 @@ export default function LibraryView({ onOpenObject }: LibraryViewProps) {
         />
         <InquirySuggestions onSelectQuery={setInquiryQuery} />
 
-        {isOffline && (
+        {(isOffline || isEmpty) && (
           <div className="cp-offline-banner">
-            Offline. Start the notebook API to see live data.
+            {isOffline
+              ? 'CommonPlace GraphQL is not reachable right now.'
+              : 'No CommonPlace objects yet. Capture something and it will appear here.'}
           </div>
         )}
 

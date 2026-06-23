@@ -293,11 +293,11 @@ export default function HomeView() {
           setLoadError(null);
           return;
         }
-        setLoadError('Index API returned an incomplete CommonPlace home payload.');
+        setLoadError('CommonPlace GraphQL returned an incomplete home payload.');
       })
       .catch(() => {
         if (!isMounted) return;
-        setLoadError(THEOREM_GRAPHQL ? null : 'Could not load live CommonPlace home data from Index API.');
+        setLoadError(THEOREM_GRAPHQL ? null : 'Could not load live CommonPlace home data.');
       })
       .finally(() => {
         if (isMounted) setIsLoading(false);
@@ -358,7 +358,7 @@ export default function HomeView() {
   } = data;
   const heroTarget = hero.target ?? { kind: 'screen', screen: { type: 'models' } };
   const heroLabel = isLoading
-    ? 'Connecting to Index API'
+    ? 'Connecting to CommonPlace GraphQL'
     : loadError
       ? 'Live home data unavailable'
       : 'The engine has found a live question';

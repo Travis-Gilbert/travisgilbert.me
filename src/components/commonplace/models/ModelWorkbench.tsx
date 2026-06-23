@@ -71,7 +71,7 @@ export default function ModelWorkbench({
       .catch(() => {
         if (!isActive) return;
         setModel(null);
-        setLoadError('Could not load this model from Index API.');
+        setLoadError('Could not load this model from CommonPlace data.');
       })
       .finally(() => {
         if (isActive) setLoading(false);

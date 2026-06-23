@@ -1,18 +1,14 @@
 'use client';
 
 /**
- * The sidebar's primary navigator: the category file tree. It renders the
- * original bar's categories (Home, Library, Models, Artifacts, Notebooks,
- * Projects, Timeline, Map, System) AS a file tree -- folders for expandable
- * categories, files for leaves -- and navigates exactly like the old bar did
- * (a folder both expands and navigates). The "auto-organizer" primitive that
- * files actual items under these categories is Travis's to define later; this
- * renders the taxonomy the categories declare.
+ * The sidebar's Files drawer: the category file tree. It renders the file-tree
+ * taxonomy as folders/leaves while the product sidebar remains the icon-first
+ * domain navigator.
  */
 
 import { useMemo } from 'react';
 import { FileTree, type FileNode } from '@/components/ui/file-tree';
-import { SIDEBAR_SECTIONS, type SidebarItem } from '@/lib/commonplace';
+import { FILE_TREE_SECTIONS, type SidebarItem } from '@/lib/commonplace';
 import { useLayout } from '@/lib/providers/layout-provider';
 
 function itemToNode(item: SidebarItem): FileNode {
@@ -29,7 +25,7 @@ function itemToNode(item: SidebarItem): FileNode {
 
 /** All non-Capture categories, flattened into one tree (matches the bar). */
 function categoryNodes(): FileNode[] {
-  return SIDEBAR_SECTIONS.filter((s) => s.title !== 'Capture').flatMap((s) =>
+  return FILE_TREE_SECTIONS.filter((s) => s.title !== 'Capture').flatMap((s) =>
     s.items.map(itemToNode),
   );
 }

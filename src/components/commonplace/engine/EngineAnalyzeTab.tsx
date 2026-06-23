@@ -57,7 +57,7 @@ export default function EngineAnalyzeTab() {
       })
       .catch(() => {
         if (!mounted) return;
-        setError('Live analysis is unavailable. Index API could not be reached.');
+        setError('Live analysis is unavailable. CommonPlace GraphQL could not be reached.');
         setHomeData(null);
       })
       .finally(() => {
@@ -79,7 +79,7 @@ export default function EngineAnalyzeTab() {
     const onScreen: AnalyzeCardData[] = [
       {
         title: weatherHeadline || 'Live graph status',
-        detail: weatherDetail || 'Live graph weather loaded from Index API.',
+        detail: weatherDetail || 'Live graph weather loaded from CommonPlace GraphQL.',
       },
     ];
 

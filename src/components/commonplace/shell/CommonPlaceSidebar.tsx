@@ -220,9 +220,6 @@ export default function CommonPlaceSidebar({ onCollapse }: { onCollapse?: () => 
 
       <nav style={{ flex: 1, overflow: 'auto', scrollbarWidth: 'none', padding: '8px 6px', position: 'relative', zIndex: 2 }}>
         {SIDEBAR_SECTIONS.map((section, sectionIdx) => {
-          /* The sidebar nav is now the category file tree (SidebarTree),
-             rendered inside the Capture block below; skip the old flat list. */
-          if (section.title !== 'Capture') return null;
           const sectionKey = (section.title || 'capture').toLowerCase() as 'capture' | 'views' | 'work' | 'system';
           const SECTION_GROUP_STYLES: Record<string, string> = {
             capture: styles.sidebarSectionCapture,
@@ -260,9 +257,6 @@ export default function CommonPlaceSidebar({ onCollapse }: { onCollapse?: () => 
                   onClose={() => setIsPaletteOpen(false)}
                   onCapture={handleCapture}
                 />
-                {/* The file auto-organizer IS the primary navigator (replaces
-                    Home / Library / Models / Artifacts). */}
-                <SidebarTree />
               </div>
             ) : (
               section.items.map((item) => {
@@ -275,6 +269,10 @@ export default function CommonPlaceSidebar({ onCollapse }: { onCollapse?: () => 
 
                 if (item.expandable) {
                   const isExpanded = expandedGroups.has(item.label);
+                  const itemIsActive =
+                    isActive ||
+                    (item.screenType ? activeScreen === item.screenType : false) ||
+                    (item.viewType ? Boolean(findLeafWithView(layout, item.viewType)) : false);
 
                   /* Map static children (viewType entries) from SIDEBAR_SECTIONS */
                   const staticChildren = (item.children ?? []).map((child) => ({
@@ -326,7 +324,7 @@ export default function CommonPlaceSidebar({ onCollapse }: { onCollapse?: () => 
                       <button
                         type="button"
                         className={styles.sidebarItem}
-                        data-active={isActive}
+                        data-active={itemIsActive}
                         data-section={sectionKey}
                         onClick={() => {
                           toggleGroup(item.label);
@@ -346,9 +344,9 @@ export default function CommonPlaceSidebar({ onCollapse }: { onCollapse?: () => 
                           textAlign: 'left',
                         }}
                       >
-                        <SidebarIcon name={item.icon} color={isActive ? LABEL_ACCENT[item.label] : undefined} />
+                        <SidebarIcon name={item.icon} color={itemIsActive ? LABEL_ACCENT[item.label] : undefined} />
                         <span style={{ flex: 1 }}>{item.label}</span>
-                        {item.label !== 'Models' && (
+                        {item.label !== 'Models' && item.label !== 'Files' && (
                           <span
                             style={{
                               fontSize: 10,
@@ -361,6 +359,11 @@ export default function CommonPlaceSidebar({ onCollapse }: { onCollapse?: () => 
                         )}
                         <ChevronIcon open={isExpanded} />
                       </button>
+                      {isExpanded && item.label === 'Files' && (
+                        <div style={{ padding: '4px 0 8px 14px' }}>
+                          <SidebarTree />
+                        </div>
+                      )}
                       {isExpanded && dynamicItems.length > 0 && (
                         <div style={{ paddingLeft: 20 }}>
                           {dynamicItems.map((child) => (
@@ -389,7 +392,7 @@ export default function CommonPlaceSidebar({ onCollapse }: { onCollapse?: () => 
                           ))}
                         </div>
                       )}
-                      {isExpanded && dynamicItems.length === 0 && (
+                      {isExpanded && item.label !== 'Files' && dynamicItems.length === 0 && (
                         <div
                           style={{
                             padding: '4px 12px 4px 32px',
@@ -688,7 +691,9 @@ const RAIL_ICON_COMPONENTS: Record<string, ComponentType<{ width?: number; heigh
    Updated for the cool-slate sidebar palette per Spec F. */
 const LABEL_ACCENT: Record<string, string> = {
   /* Capture section: terracotta */
+  'Home':               '#C67A4A',
   'Library':            '#C67A4A',
+  'Files':              '#C67A4A',
   'Models':             '#C67A4A',
   'Artifacts':          '#C67A4A',
   'Compose':            '#C67A4A',

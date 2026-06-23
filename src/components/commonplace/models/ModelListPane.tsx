@@ -85,12 +85,17 @@ export default function ModelListPane({
       .then(setModels)
       .catch(() => {
         setModels([]);
-        setLoadError('Could not load models from Index API.');
+        setLoadError('Could not load models from CommonPlace data.');
       })
       .finally(() => setLoading(false));
   }, []);
 
-  useEffect(() => { loadModels(); }, [loadModels]);
+  useEffect(() => {
+    const timer = window.setTimeout(() => {
+      loadModels();
+    }, 0);
+    return () => window.clearTimeout(timer);
+  }, [loadModels]);
 
   const handleCreateModel = useCallback(async () => {
     if (!newTitle.trim()) return;

@@ -55,9 +55,19 @@ import {
   gqlFetchObjectDetail,
   gqlCapture,
   gqlNotebooks,
+  gqlCreateCollection,
+  gqlNotebookBySlug,
+  gqlNotebookHealth,
+  gqlProjects,
+  gqlProjectBySlug,
+  gqlDailyLogs,
+  gqlDailyLogByDate,
   gqlGraph,
   gqlResurface,
   gqlArtifacts,
+  gqlFetchObjects,
+  gqlItems,
+  stableNumId,
 } from '@/lib/commonplace-graphql';
 
 /* ─────────────────────────────────────────────────
@@ -264,6 +274,14 @@ export async function fetchObjectDetail(
 export async function fetchObjectById(
   id: number,
 ): Promise<ApiObjectDetail> {
+  if (THEOREM_GRAPHQL) {
+    const items = await gqlItems();
+    const item = items.find((candidate) => stableNumId(candidate.id) === id);
+    if (!item) throw new ApiError(404, `Object ${id} not found`);
+    const detail = await gqlFetchObjectDetail(item.id);
+    if (detail) return detail;
+    throw new ApiError(404, `Object ${id} not found`);
+  }
   return apiFetch<ApiObjectDetail>(`/objects/${id}/`);
 }
 
@@ -539,6 +557,20 @@ export async function createNotebook(data: {
   description?: string;
   color?: string;
 }): Promise<ApiNotebookListItem> {
+  if (THEOREM_GRAPHQL) {
+    const collection = await gqlCreateCollection(data.name);
+    return {
+      id: stableNumId(collection.id),
+      name: collection.name,
+      slug: collection.id,
+      description: data.description ?? 'Manual collection',
+      color: data.color ?? '#2D5F6B',
+      icon: 'book',
+      is_active: true,
+      sort_order: 0,
+      object_count: 0,
+    };
+  }
   return apiFetch<ApiNotebookListItem>('/notebooks/', {
     method: 'POST',
     body: JSON.stringify(data),
@@ -549,6 +581,11 @@ export async function createNotebook(data: {
 export async function fetchNotebookBySlug(
   slug: string,
 ): Promise<ApiNotebookDetail> {
+  if (THEOREM_GRAPHQL) {
+    const notebook = await gqlNotebookBySlug(slug);
+    if (notebook) return notebook;
+    throw new ApiError(404, `Notebook ${slug} not found`);
+  }
   return apiFetch<ApiNotebookDetail>(`/notebooks/${slug}/`);
 }
 
@@ -556,6 +593,7 @@ export async function fetchNotebookBySlug(
 export async function fetchNotebookHealth(
   slug: string,
 ): Promise<ApiNotebookHealth> {
+  if (THEOREM_GRAPHQL) return gqlNotebookHealth(slug);
   return apiFetch<ApiNotebookHealth>(`/notebooks/${slug}/health/`);
 }
 
@@ -615,7 +653,7 @@ export async function fetchProjects(params?: {
   notebook?: string;
   status?: string;
 }): Promise<ApiProjectListItem[]> {
-  if (THEOREM_GRAPHQL) return [];
+  if (THEOREM_GRAPHQL) return gqlProjects(params);
   const search = new URLSearchParams();
   if (params?.notebook) search.set('notebook', params.notebook);
   if (params?.status) search.set('status', params.status);
@@ -633,6 +671,20 @@ export async function createProject(data: {
   mode?: string;
   description?: string;
 }): Promise<ApiProjectListItem> {
+  if (THEOREM_GRAPHQL) {
+    const collection = await gqlCreateCollection(data.name);
+    return {
+      id: stableNumId(collection.id),
+      name: collection.name,
+      slug: collection.id,
+      mode: data.mode ?? 'collect',
+      status: 'active',
+      notebook: data.notebook ?? collection.id,
+      notebook_name: data.notebook ?? collection.name,
+      is_template: false,
+      reminder_at: null,
+    };
+  }
   return apiFetch<ApiProjectListItem>('/projects/', {
     method: 'POST',
     body: JSON.stringify(data),
@@ -643,6 +695,11 @@ export async function createProject(data: {
 export async function fetchProjectBySlug(
   slug: string,
 ): Promise<ApiProjectDetail> {
+  if (THEOREM_GRAPHQL) {
+    const project = await gqlProjectBySlug(slug);
+    if (project) return project;
+    throw new ApiError(404, `Project ${slug} not found`);
+  }
   return apiFetch<ApiProjectDetail>(`/projects/${slug}/`);
 }
 
@@ -652,12 +709,18 @@ export async function fetchProjectBySlug(
 
 /** Fetch all daily logs (newest first). Handles both flat array and paginated envelope. */
 export async function fetchDailyLogs(): Promise<ApiDailyLog[]> {
+  if (THEOREM_GRAPHQL) return gqlDailyLogs();
   const data = await apiFetch<{ results: ApiDailyLog[] } | ApiDailyLog[]>('/daily-logs/');
   return Array.isArray(data) ? data : data.results;
 }
 
 /** Fetch a single daily log by date (YYYY-MM-DD) */
 export async function fetchDailyLogByDate(date: string): Promise<ApiDailyLog> {
+  if (THEOREM_GRAPHQL) {
+    const log = await gqlDailyLogByDate(date);
+    if (log) return log;
+    throw new ApiError(404, `Daily log ${date} not found`);
+  }
   return apiFetch<ApiDailyLog>(`/daily-logs/${date}/`);
 }
 
@@ -683,6 +746,17 @@ function normalizeObjectListResponse(
 
 /** Fetch up to 6 pinned/starred objects for the sidebar pinned grid. */
 export async function fetchPinnedObjects(): Promise<PinnedObject[]> {
+  if (THEOREM_GRAPHQL) {
+    const items = await gqlFetchObjects();
+    return items.slice(0, 6).map((item) => ({
+      id: item.id,
+      slug: item.slug,
+      title: item.display_title || item.title,
+      objectTypeName: item.object_type_name || '',
+      objectTypeColor: item.object_type_color || '',
+      edgeCount: item.edge_count || 0,
+    }));
+  }
   const [pinnedRaw, starredRaw] = await Promise.all([
     apiFetch<{ results: ObjectListItem[] } | ObjectListItem[]>('/objects/?pinned=true&page_size=6'),
     apiFetch<{ results: ObjectListItem[] } | ObjectListItem[]>('/objects/?starred=true&page_size=6'),
@@ -861,36 +935,43 @@ export function useApiData<T>(
 
   /* Stable reference to the fetcher to avoid re-triggering on every render */
   const fetcherRef = useRef(fetcher);
-  fetcherRef.current = fetcher;
+
+  useEffect(() => {
+    fetcherRef.current = fetcher;
+  }, [fetcher]);
 
   const refetch = useCallback(() => setTick((t) => t + 1), []);
 
   useEffect(() => {
     let cancelled = false;
-    setLoading(true);
-    setError(null);
+    const timer = window.setTimeout(() => {
+      if (cancelled) return;
+      setLoading(true);
+      setError(null);
 
-    fetcherRef
-      .current()
-      .then((result) => {
-        if (!cancelled) {
-          setData(result);
-          setLoading(false);
-        }
-      })
-      .catch((err) => {
-        if (!cancelled) {
-          const apiErr =
-            err instanceof ApiError
-              ? err
-              : new ApiError(0, err?.message ?? 'Unknown error', true);
-          setError(apiErr);
-          setLoading(false);
-        }
-      });
+      fetcherRef
+        .current()
+        .then((result) => {
+          if (!cancelled) {
+            setData(result);
+            setLoading(false);
+          }
+        })
+        .catch((err) => {
+          if (!cancelled) {
+            const apiErr =
+              err instanceof ApiError
+                ? err
+                : new ApiError(0, err?.message ?? 'Unknown error', true);
+            setError(apiErr);
+            setLoading(false);
+          }
+        });
+    }, 0);
 
     return () => {
       cancelled = true;
+      window.clearTimeout(timer);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tick, ...deps]);
@@ -933,6 +1014,31 @@ export async function deleteComponent(componentId: number): Promise<void> {
 export function fetchClusters(
   params?: { notebook?: string; project?: string },
 ): Promise<ClusterResponse[]> {
+  if (THEOREM_GRAPHQL) {
+    return gqlFetchObjects().then((items) => {
+      const groups = new Map<string, ObjectListItem[]>();
+      for (const item of items) {
+        const key = item.object_type_slug || 'note';
+        const existing = groups.get(key);
+        if (existing) existing.push(item);
+        else groups.set(key, [item]);
+      }
+      return Array.from(groups.entries()).map(([type, members]) => ({
+        type,
+        label: members[0]?.object_type_name ?? type,
+        color: members[0]?.object_type_color ?? '#9A8E82',
+        icon: members[0]?.object_type_icon ?? 'note-pencil',
+        count: members.length,
+        members: members.slice(0, 8).map((item) => ({
+          id: item.id,
+          title: item.display_title || item.title,
+          slug: item.slug,
+          body_preview: '',
+          edge_count: item.edge_count,
+        })),
+      }));
+    });
+  }
   const qs =
     params && Object.keys(params).length
       ? '?' + new URLSearchParams(params as Record<string, string>).toString()

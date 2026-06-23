@@ -115,8 +115,8 @@ export default function EngineAskTab({ logEntries, onSendReady }: EngineAskTabPr
         text: answer
           ? answer
           : objects.length > 0
-            ? `I found ${objects.length} connected object${objects.length === 1 ? '' : 's'} from live Index API retrieval.`
-            : 'No connected objects were returned by live Index API retrieval for this query yet.',
+            ? `I found ${objects.length} connected object${objects.length === 1 ? '' : 's'} from live CommonPlace retrieval.`
+            : 'No connected objects were returned by live CommonPlace retrieval for this query yet.',
         chips,
         steps: answer && answerAgent !== 'none'
           ? [{ icon: '\u25C6', color: '#3A7A88', text: `Synthesized by ${AGENT_DISPLAY_NAME[answerAgent] ?? 'Compose Engine'}` }, ...steps]
@@ -135,7 +135,7 @@ export default function EngineAskTab({ logEntries, onSendReady }: EngineAskTabPr
       const engineMsg: Message = {
         id: engineId,
         role: 'engine',
-        text: 'Live retrieval is unavailable right now. Index API could not be reached.',
+        text: 'Live retrieval is unavailable right now. CommonPlace GraphQL could not be reached.',
         timestamp: new Date().toISOString(),
       };
       setMessages((prev) => [...prev, engineMsg]);

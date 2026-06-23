@@ -27,6 +27,12 @@ import {
   type ApiCaptureResponse,
   type ObjectListItem,
   type ApiNotebookListItem,
+  type ApiNotebookDetail,
+  type ApiNotebookHealth,
+  type ApiProjectListItem,
+  type ApiProjectDetail,
+  type ApiDailyLog,
+  type NotebookObjectCompact,
   type GraphNode,
   type GraphLink,
   type ApiResurfaceResponse,
@@ -502,17 +508,143 @@ const NOTEBOOK_COLORS = ['#2D5F6B', '#C49A4A', '#5A7A4A', '#8B6FA0', '#4A7A9A', 
 
 export async function gqlNotebooks(): Promise<ApiNotebookListItem[]> {
   const cols = await gqlCollections();
+  const counts = await Promise.all(
+    cols.map(async (collection) => ({
+      id: collection.id,
+      count: (await gqlCollectionItems(collection.id)).length,
+    })),
+  );
+  const countById = new Map(counts.map(({ id, count }) => [id, count]));
   return cols.map((c, i) => ({
     id: stableNumId(c.id),
     name: c.name,
     slug: c.id,
-    description: '',
+    description: c.kind === 'auto' ? 'Auto collection' : 'Manual collection',
     color: NOTEBOOK_COLORS[i % NOTEBOOK_COLORS.length],
     icon: 'book',
     is_active: true,
     sort_order: i,
-    object_count: 0,
+    object_count: countById.get(c.id) ?? 0,
   }));
+}
+
+function itemToNotebookObject(item: ItemGql): NotebookObjectCompact {
+  const ident = getObjectTypeIdentity(kindToTypeSlug(item.kind));
+  return {
+    id: stableNumId(item.id),
+    title: item.title || 'Untitled',
+    object_type: ident.slug,
+    body_preview: preview(item.bodyText, 160),
+    edge_count: 0,
+    captured_at: iso(item.createdAtMs),
+    url: item.source ?? `#/object/${item.id}`,
+    is_starred: false,
+    is_pinned: false,
+    status: item.residency === 'archived' ? 'archived' : 'active',
+  };
+}
+
+export async function gqlNotebookBySlug(slug: string): Promise<ApiNotebookDetail | null> {
+  const [notebooks, items] = await Promise.all([
+    gqlNotebooks(),
+    gqlCollectionItems(slug),
+  ]);
+  const notebook = notebooks.find((nb) => nb.slug === slug);
+  if (!notebook) return null;
+  return {
+    ...notebook,
+    engine_config: {},
+    available_types: Array.from(new Set(items.map((item) => kindToTypeSlug(item.kind)))),
+    default_layout: null,
+    theme: {},
+    objects: items.map(itemToNotebookObject),
+    visibility: 'private',
+  };
+}
+
+export async function gqlNotebookHealth(slug: string): Promise<ApiNotebookHealth> {
+  const items = await gqlCollectionItems(slug);
+  return {
+    object_count: items.length,
+    edge_count: 0,
+    density: 0,
+    last_engine_run: null,
+    cluster_count: new Set(items.map((item) => item.kind)).size,
+  };
+}
+
+export async function gqlProjects(params?: {
+  notebook?: string;
+  status?: string;
+}): Promise<ApiProjectListItem[]> {
+  const notebooks = await gqlNotebooks();
+  return notebooks
+    .filter((nb) => !params?.notebook || nb.slug === params.notebook)
+    .map((nb) => ({
+      id: nb.id,
+      name: nb.name,
+      slug: nb.slug,
+      mode: nb.description.includes('Auto') ? 'collect' : 'review',
+      status: params?.status ?? 'active',
+      notebook: nb.slug,
+      notebook_name: nb.name,
+      is_template: false,
+      reminder_at: null,
+    }))
+    .filter((project) => !params?.status || project.status === params.status);
+}
+
+export async function gqlProjectBySlug(slug: string): Promise<ApiProjectDetail | null> {
+  const [projects, items] = await Promise.all([
+    gqlProjects(),
+    gqlCollectionItems(slug),
+  ]);
+  const project = projects.find((p) => p.slug === slug);
+  if (!project) return null;
+  return {
+    ...project,
+    sha_hash: '',
+    description: 'CommonPlace collection surfaced through the project workspace.',
+    template_from: null,
+    settings_override: {},
+    objects: items.map((item) => ({
+      id: stableNumId(item.id),
+      title: item.title || 'Untitled',
+      object_type: kindToTypeSlug(item.kind),
+    })),
+  };
+}
+
+export async function gqlDailyLogs(): Promise<ApiDailyLog[]> {
+  const items = await gqlItems();
+  const groups = new Map<string, ItemGql[]>();
+  for (const item of items) {
+    const date = iso(item.createdAtMs).slice(0, 10);
+    const existing = groups.get(date);
+    if (existing) existing.push(item);
+    else groups.set(date, [item]);
+  }
+
+  return Array.from(groups.entries())
+    .sort(([left], [right]) => right.localeCompare(left))
+    .map(([date, dayItems], index) => ({
+      id: index + 1,
+      date,
+      objects_created: dayItems.map((item) => ({
+        id: stableNumId(item.id),
+        title: item.title || 'Untitled',
+        object_type: kindToTypeSlug(item.kind),
+      })),
+      objects_updated: [],
+      edges_created: [],
+      entities_resolved: [],
+      summary: `${dayItems.length} object${dayItems.length === 1 ? '' : 's'} captured.`,
+    }));
+}
+
+export async function gqlDailyLogByDate(date: string): Promise<ApiDailyLog | null> {
+  const logs = await gqlDailyLogs();
+  return logs.find((log) => log.date === date) ?? null;
 }
 
 /* ─────────────────────────────────────────────────
