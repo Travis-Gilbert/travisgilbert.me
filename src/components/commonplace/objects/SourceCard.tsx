@@ -20,24 +20,42 @@ export default function SourceCard({ object, compact, variant = 'default', onCli
 
   if (variant === 'module' || variant === 'timeline') {
     return (
-      <button type="button" className="cp-obj cp-obj--module cp-obj-source" data-type="source" data-compact={compact || undefined} {...handler}>
-        <div className="cp-obj-source-gradient" />
-        {(domain || sourceFormat || score) && (
-          <div style={{ position: 'relative', display: 'flex', alignItems: 'center', gap: 6, marginBottom: 6, paddingTop: compact ? 0 : 24, flexWrap: 'wrap' }}>
-            {domain && <span className="cp-obj-source-domain">{domain}</span>}
-            {sourceFormat && <span className="cp-obj-source-format">{sourceFormat}</span>}
-            {score && <span className="cp-obj-edges" style={{ marginLeft: 'auto' }}>{score}</span>}
-          </div>
+      <div
+        className="cp-obj cp-obj--module cp-obj-source"
+        data-type="source"
+        data-compact={compact || undefined}
+        onContextMenu={handler.onContextMenu}
+      >
+        <button type="button" className="cp-obj-source-main" onClick={handler.onClick}>
+          <div className="cp-obj-source-gradient" />
+          {(domain || sourceFormat || score) && (
+            <div style={{ position: 'relative', display: 'flex', alignItems: 'center', gap: 6, marginBottom: 6, paddingTop: compact ? 0 : 24, flexWrap: 'wrap' }}>
+              {domain && <span className="cp-obj-source-domain">{domain}</span>}
+              {sourceFormat && <span className="cp-obj-source-format">{sourceFormat}</span>}
+              {score && <span className="cp-obj-edges" style={{ marginLeft: 'auto' }}>{score}</span>}
+            </div>
+          )}
+          <div className="cp-obj-title">{title}</div>
+          {summary && <div className="cp-obj-body" style={{ marginTop: 4 }}>{summary}</div>}
+          {(timestamp || edgeCount > 0) && (
+            <div className="cp-obj-meta" style={{ marginTop: 6 }}>
+              {timestamp && <span className="cp-obj-timestamp" style={{ color: 'var(--cp-text-faint)' }}>{timestamp}</span>}
+              {edgeCount > 0 && <span className="cp-obj-edges" style={{ marginLeft: 'auto', color: 'var(--cp-text-faint)' }}>{edgeCount} links</span>}
+            </div>
+          )}
+        </button>
+        {object.url && (
+          <a
+            href={object.url}
+            target="_blank"
+            rel="noreferrer"
+            className="cp-obj-source-link"
+            onClick={(event) => event.stopPropagation()}
+          >
+            Open source
+          </a>
         )}
-        <div className="cp-obj-title">{title}</div>
-        {summary && <div className="cp-obj-body" style={{ marginTop: 4 }}>{summary}</div>}
-        {(timestamp || edgeCount > 0) && (
-          <div className="cp-obj-meta" style={{ marginTop: 6 }}>
-            {timestamp && <span className="cp-obj-timestamp" style={{ color: 'var(--cp-text-faint)' }}>{timestamp}</span>}
-            {edgeCount > 0 && <span className="cp-obj-edges" style={{ marginLeft: 'auto', color: 'var(--cp-text-faint)' }}>{edgeCount} links</span>}
-          </div>
-        )}
-      </button>
+      </div>
     );
   }
 

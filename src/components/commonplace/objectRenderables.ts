@@ -25,6 +25,8 @@ export function renderableFromMockNode(node: MockNode): RenderableObject {
     object_type_slug: node.objectType,
     body: node.summary || undefined,
     captured_at: node.capturedAt || undefined,
+    url: node.url || undefined,
+    capture_method: node.captureMethod || undefined,
     edge_count: node.edgeCount,
   };
 }

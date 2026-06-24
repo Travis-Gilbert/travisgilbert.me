@@ -360,6 +360,10 @@ export interface MockNode {
   title: string;
   summary: string;
   capturedAt: string;
+  /** Original source URL when this object came from a page, link, or clip. */
+  url?: string;
+  /** Push capture discriminator preserved from the write contract. */
+  captureMethod?: CaptureMethod | string;
   edgeCount: number;
   edges: MockEdge[];
 }
@@ -433,6 +437,9 @@ export interface ApiFeedNode {
   object_type_color: string;
   title: string;
   body: string;
+  url?: string;
+  source_url?: string;
+  capture_method?: string;
   timestamp: string;      // ISO datetime
   has_retrospective: boolean;
   retrospective: { text: string; written_at: string } | null;

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useRef, useEffect, useCallback } from 'react';
+import { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import { getObjectTypeIdentity, OBJECT_TYPES } from '@/lib/commonplace';
 import type { CapturedObject } from '@/lib/commonplace';
 import {
@@ -20,6 +20,10 @@ import {
   syncCapture,
 } from '@/lib/commonplace-capture';
 import { useCapture } from '@/lib/providers/capture-provider';
+import { useLayout } from '@/lib/providers/layout-provider';
+import { useWorkspace } from '@/lib/providers/workspace-provider';
+import { toast } from 'sonner';
+import type { RenderableObject } from '../objects/ObjectRenderer';
 import TerminalBlock from '../engine/TerminalBlock';
 
 /* ─────────────────────────────────────────────────
@@ -42,6 +46,8 @@ const TYPE_COMMANDS = OBJECT_TYPES.slice(0, 6).map((t) => ({
 }));
 
 const ALL_COMMANDS = [...ORGANIZE_COMMANDS, ...TYPE_COMMANDS];
+type CommandEntry = (typeof ALL_COMMANDS)[number];
+type OrganizeCommandId = (typeof ORGANIZE_COMMANDS)[number]['id'];
 
 /* ─────────────────────────────────────────────────
    Inquiry phases (preserved from InquiryBar)
@@ -65,6 +71,38 @@ const INQUIRY_PHASES: InquiryPhase[] = [
   'linking',
   'synthesis',
 ];
+
+function resultToRenderable(result: ObjectSearchResult): RenderableObject {
+  const identity =
+    OBJECT_TYPES.find((type) => (
+      type.slug === result.object_type_name ||
+      type.label.toLowerCase() === result.object_type_name.toLowerCase()
+    )) ?? getObjectTypeIdentity(result.object_type_name);
+  return {
+    id: result.id,
+    slug: result.slug,
+    title: result.title,
+    display_title: result.display_title || result.title,
+    object_type_slug: identity.slug,
+    captured_at: result.captured_at,
+    status: result.status,
+  };
+}
+
+function commandText(command: OrganizeCommandId, target: ObjectSearchResult | null, fallback: string): string {
+  const title = target?.display_title || target?.title || fallback || 'the selected object';
+  switch (command) {
+    case 'delegate':
+      return `Plan the next concrete action for ${title}.`;
+    case 'draft':
+      return `Draft from this CommonPlace object:\n\n${title}`;
+    case 'develop':
+      return `Develop this into a fuller note:\n\n${title}`;
+    case 'file':
+    default:
+      return title;
+  }
+}
 
 /* ─────────────────────────────────────────────────
    Props
@@ -97,11 +135,14 @@ export default function CommandBar({
   onCapture,
 }: CommandBarProps) {
   const { notifyCaptured } = useCapture();
+  const { launchView } = useLayout();
+  const { stashObject } = useWorkspace();
 
   const [query, setQuery] = useState('');
   const [isFocused, setIsFocused] = useState(false);
   const [webEnabled, setWebEnabled] = useState(false);
   const [selectedIdx, setSelectedIdx] = useState(-1);
+  const [selectedTarget, setSelectedTarget] = useState<ObjectSearchResult | null>(null);
 
   const [graphResults, setGraphResults] = useState<ObjectSearchResult[]>([]);
   const [planResult, setPlanResult] = useState<InquiryPlanResult | null>(null);
@@ -123,9 +164,18 @@ export default function CommandBar({
   const isRunning = runningInquiry !== null && !inquiryResult;
 
   const commandFilter = isCommandMode ? trimmed.slice(1).toLowerCase() : '';
-  const filteredCommands = isCommandMode
-    ? ALL_COMMANDS.filter((c) => c.label.startsWith(commandFilter))
-    : [];
+  const commandName = commandFilter.split(/\s+/)[0] ?? '';
+  const commandRemainder = commandFilter.split(/\s+/).slice(1).join(' ').trim();
+  const filteredCommands = useMemo(
+    () => (isCommandMode
+      ? ALL_COMMANDS.filter((c) => c.label.startsWith(commandName))
+      : []),
+    [commandName, isCommandMode],
+  );
+  const commandTarget = useMemo(
+    () => selectedTarget ?? graphResults[0] ?? null,
+    [graphResults, selectedTarget],
+  );
 
   /* ─── Cmd+K / Ctrl+K global summon ─── */
   useEffect(() => {
@@ -142,34 +192,50 @@ export default function CommandBar({
 
   /* ─── External query ─── */
   useEffect(() => {
-    if (externalQuery) {
+    if (!externalQuery) return;
+    const timer = window.setTimeout(() => {
       setQuery(externalQuery);
       setIsFocused(true);
       inputRef.current?.focus();
       onExternalQueryConsumed?.();
-    }
+    }, 0);
+    return () => window.clearTimeout(timer);
   }, [externalQuery, onExternalQueryConsumed]);
 
   /* ─── Debounced graph search ─── */
   useEffect(() => {
     if (debounceRef.current) clearTimeout(debounceRef.current);
-    if (!trimmed || isCommandMode) {
-      setGraphResults([]);
-      setPlanResult(null);
-      setIsSearching(false);
-      return;
+    if (!trimmed) {
+      const timer = window.setTimeout(() => {
+        setGraphResults([]);
+        setSelectedTarget(null);
+        setPlanResult(null);
+        setIsSearching(false);
+      }, 0);
+      return () => window.clearTimeout(timer);
     }
-    setIsSearching(true);
+    if (isCommandMode) {
+      const timer = window.setTimeout(() => {
+        setPlanResult(null);
+        setIsSearching(false);
+      }, 0);
+      return () => window.clearTimeout(timer);
+    }
+    const startTimer = window.setTimeout(() => setIsSearching(true), 0);
     debounceRef.current = setTimeout(async () => {
       const [objects, plan] = await Promise.allSettled([
         searchObjects(trimmed, 5),
         fetchInquiryPlan(trimmed),
       ]);
-      if (objects.status === 'fulfilled') setGraphResults(objects.value);
+      if (objects.status === 'fulfilled') {
+        setGraphResults(objects.value);
+        setSelectedTarget((current) => current ?? objects.value[0] ?? null);
+      }
       if (plan.status === 'fulfilled') setPlanResult(plan.value);
       setIsSearching(false);
     }, 180);
     return () => {
+      window.clearTimeout(startTimer);
       if (debounceRef.current) clearTimeout(debounceRef.current);
     };
   }, [trimmed, isCommandMode]);
@@ -212,29 +278,39 @@ export default function CommandBar({
 
   /* ─── Capture ─── */
   const handleCapture = useCallback(
-    async (typeOverride?: string) => {
-      if (!trimmed) return;
+    async (typeOverride?: string, textOverride?: string) => {
+      const captureText = (textOverride ?? trimmed).trim();
+      if (!captureText) {
+        toast.message('Type something to capture');
+        return;
+      }
       const obj = createCapturedObject({
-        text: trimmed,
+        text: captureText,
         captureMethod: 'typed',
         objectType: typeOverride,
-        sourceUrl: isUrl(trimmed) ? trimmed : undefined,
+        sourceUrl: isUrl(captureText) ? captureText : undefined,
       });
       setQuery('');
       setIsFocused(false);
       setSelectedIdx(-1);
+      setSelectedTarget(null);
       if (onCapture) {
         onCapture(obj);
       } else {
-        syncCapture(obj).then(() => notifyCaptured());
+        const result = await syncCapture(obj);
+        if (result.ok) {
+          notifyCaptured();
+        } else {
+          toast.error(result.error ?? 'Capture failed');
+        }
       }
     },
     [trimmed, onCapture, notifyCaptured],
   );
 
   /* ─── Web inquiry ─── */
-  const handleSearchWeb = useCallback(async () => {
-    if (!trimmed || !webEnabled) return;
+  const handleSearchWeb = useCallback(async (force = false) => {
+    if (!trimmed || (!force && !webEnabled)) return;
     setIsFocused(false);
     try {
       const resp = await startInquiry({ query: trimmed, external_search: true });
@@ -246,9 +322,73 @@ export default function CommandBar({
       });
       setInquiryResult(null);
     } catch {
-      // Could show a toast here
+      toast.error('Inquiry could not start');
     }
   }, [trimmed, webEnabled]);
+
+  const closeBar = useCallback(() => {
+    setQuery('');
+    setIsFocused(false);
+    setSelectedIdx(-1);
+  }, []);
+
+  const handleCommand = useCallback(
+    async (cmd: CommandEntry) => {
+      if (cmd.id.startsWith('type-')) {
+        await handleCapture(cmd.label, commandRemainder);
+        return;
+      }
+
+      const action = cmd.id as OrganizeCommandId;
+      const target = commandTarget;
+      const targetObject = target ? resultToRenderable(target) : null;
+      const fallbackText = commandRemainder || trimmed.replace(/^\/\S+\s*/, '').trim();
+
+      if ((action === 'file' || action === 'delegate') && targetObject) {
+        stashObject(targetObject);
+      }
+
+      switch (action) {
+        case 'file':
+          launchView('files', target ? { objectSlug: target.slug, action: 'file' } : undefined);
+          toast.message(target ? `Ready to file "${target.display_title || target.title}"` : 'Open Files to choose a collection');
+          break;
+        case 'delegate':
+          launchView(
+            'connection-engine',
+            target ? { objectSlug: target.slug, action: 'delegate' } : { action: 'delegate' },
+            true,
+          );
+          toast.message(target ? `Delegating "${target.display_title || target.title}"` : 'Delegation queue opened');
+          break;
+        case 'draft':
+          launchView('compose', {
+            prefillText: commandText(action, target, fallbackText),
+            prefillType: 'note',
+          }, true);
+          break;
+        case 'develop':
+          launchView('compose', {
+            prefillText: commandText(action, target, fallbackText),
+            prefillType: 'hunch',
+          }, true);
+          break;
+        default:
+          break;
+      }
+
+      closeBar();
+    },
+    [
+      closeBar,
+      commandRemainder,
+      commandTarget,
+      handleCapture,
+      launchView,
+      stashObject,
+      trimmed,
+    ],
+  );
 
   /* ─── Keyboard navigation (APG combobox) ─── */
   const handleKeyDown = useCallback(
@@ -271,20 +411,23 @@ export default function CommandBar({
       }
       if (e.key === 'Enter') {
         e.preventDefault();
-        if (isCommandMode && selectedIdx >= 0) {
-          const cmd = filteredCommands[selectedIdx];
-          if (cmd.id.startsWith('type-')) {
-            handleCapture(cmd.label);
-          }
-          // Organize commands stub: close bar (future wiring via ActSeam)
+        if (isCommandMode) {
+          const cmd =
+            selectedIdx >= 0
+              ? filteredCommands[selectedIdx]
+              : filteredCommands.find((entry) => entry.label === commandName) ?? filteredCommands[0];
+          if (cmd) handleCommand(cmd);
+          return;
+        }
+        if (!isCommandMode && selectedIdx >= 0 && graphResults[selectedIdx]) {
+          setSelectedTarget(graphResults[selectedIdx]);
+          onOpenObject?.(graphResults[selectedIdx].id);
           setIsFocused(false);
           setSelectedIdx(-1);
           return;
         }
-        if (!isCommandMode && selectedIdx >= 0 && graphResults[selectedIdx]) {
-          onOpenObject?.(graphResults[selectedIdx].id);
-          setIsFocused(false);
-          setSelectedIdx(-1);
+        if (!isCommandMode && trimmed.endsWith('?')) {
+          handleSearchWeb(true);
           return;
         }
         if (isCaptureInput) {
@@ -299,7 +442,11 @@ export default function CommandBar({
       selectedIdx,
       isCaptureInput,
       handleCapture,
+      handleCommand,
+      handleSearchWeb,
       onOpenObject,
+      trimmed,
+      commandName,
     ],
   );
 
@@ -379,6 +526,9 @@ export default function CommandBar({
             const val = e.target.value;
             setQuery(val);
             setSelectedIdx(-1);
+            if (!val.trim().startsWith('/')) {
+              setSelectedTarget(null);
+            }
             if (val.trim().length > 0 && !val.startsWith('/') && !webEnabled) {
               setWebEnabled(true);
             }
@@ -438,6 +588,12 @@ export default function CommandBar({
           {isCommandMode && (
             <>
               <div className="cp-inquiry-group-label">Commands</div>
+              {commandTarget && (
+                <div className="cp-cmdbar-target-row">
+                  <span>Target</span>
+                  <strong>{commandTarget.display_title || commandTarget.title}</strong>
+                </div>
+              )}
               {filteredCommands.length === 0 && (
                 <div className="cp-inquiry-searching">No matching commands</div>
               )}
@@ -449,12 +605,7 @@ export default function CommandBar({
                   aria-selected={selectedIdx === i}
                   type="button"
                   onClick={() => {
-                    if (cmd.id.startsWith('type-')) {
-                      handleCapture(cmd.label);
-                    } else {
-                      // Organize commands: stub until ActSeam wiring
-                      setIsFocused(false);
-                    }
+                    handleCommand(cmd);
                   }}
                   className={`cp-cmdbar-command-row${selectedIdx === i ? ' cp-cmdbar-command-row--selected' : ''}`}
                 >
@@ -485,6 +636,7 @@ export default function CommandBar({
                     aria-selected={selectedIdx === i}
                     type="button"
                     onClick={() => {
+                      setSelectedTarget(result);
                       setIsFocused(false);
                       setSelectedIdx(-1);
                       onOpenObject?.(result.id);
@@ -589,7 +741,7 @@ export default function CommandBar({
               </button>
               <button
                 type="button"
-                onClick={handleSearchWeb}
+                onClick={() => handleSearchWeb()}
                 disabled={!webEnabled}
                 className={`cp-inquiry-action-btn${webEnabled ? ' cp-inquiry-action-btn--web' : ''}`}
               >

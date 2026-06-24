@@ -220,6 +220,20 @@ function preview(text: string | null, n = 200): string {
   return t.length > n ? `${t.slice(0, n - 1)}...` : t;
 }
 
+const CAPTURE_TAG_PREFIX = 'capture:';
+
+function captureMethodFromTags(tags: string[]): string {
+  return tags.find((tag) => tag.startsWith(CAPTURE_TAG_PREFIX))?.slice(CAPTURE_TAG_PREFIX.length) ?? 'typed';
+}
+
+function captureTags(method: string | undefined, tags: string[] = []): string[] {
+  const cleanMethod = method?.trim() || 'typed';
+  return Array.from(new Set([
+    ...tags.filter((tag) => !tag.startsWith(CAPTURE_TAG_PREFIX)),
+    `${CAPTURE_TAG_PREFIX}${cleanMethod}`,
+  ]));
+}
+
 /* ─────────────────────────────────────────────────
    Adapters: Item -> existing frontend shapes
    ───────────────────────────────────────────────── */
@@ -233,6 +247,8 @@ export function itemToMockNode(item: ItemGql): MockNode {
     title: item.title || 'Untitled',
     summary: preview(item.bodyText),
     capturedAt: iso(item.createdAtMs),
+    url: item.source ?? undefined,
+    captureMethod: captureMethodFromTags(item.tags),
     edgeCount: 0,
     edges: [],
   };
@@ -240,6 +256,7 @@ export function itemToMockNode(item: ItemGql): MockNode {
 
 export function itemToObjectListItem(item: ItemGql): ObjectListItem {
   const ident = getObjectTypeIdentity(kindToTypeSlug(item.kind));
+  const captureMethod = captureMethodFromTags(item.tags);
   return {
     id: stableNumId(item.id),
     title: item.title || 'Untitled',
@@ -255,13 +272,14 @@ export function itemToObjectListItem(item: ItemGql): ObjectListItem {
     is_pinned: false,
     is_starred: false,
     captured_at: iso(item.createdAtMs),
-    capture_method: 'typed',
+    capture_method: captureMethod,
     edge_count: 0,
   };
 }
 
 export function itemToObjectDetail(item: ItemGql): ApiObjectDetail {
   const ident = getObjectTypeIdentity(kindToTypeSlug(item.kind));
+  const captureMethod = captureMethodFromTags(item.tags);
   return {
     id: stableNumId(item.id),
     title: item.title || 'Untitled',
@@ -280,7 +298,7 @@ export function itemToObjectDetail(item: ItemGql): ApiObjectDetail {
     og_description: null,
     status: item.residency === 'archived' ? 'archived' : 'active',
     captured_at: iso(item.createdAtMs),
-    capture_method: 'typed',
+    capture_method: captureMethod,
     edges: [],
     components: [],
     recent_nodes: [],
@@ -346,6 +364,7 @@ export interface IngestArgs {
   text: string;
   kind?: string;
   tags?: string[];
+  captureMethod?: string;
   source?: string;
   residency?: string;
 }
@@ -358,7 +377,7 @@ export async function gqlIngest(input: IngestArgs): Promise<ItemGql> {
         title: input.title ?? '',
         text: input.text,
         kind: input.kind ?? 'note',
-        tags: input.tags ?? [],
+        tags: input.captureMethod ? captureTags(input.captureMethod, input.tags) : input.tags ?? [],
         source: input.source ?? null,
         residency: input.residency ?? null,
       },
@@ -457,13 +476,25 @@ export async function gqlSearchObjects(
 /** Capture write -> ingest -> ApiCaptureResponse (mirrors POST /capture/). */
 export async function gqlCapture(data: {
   content: string;
+  body?: string;
   hint_type?: string;
   title?: string;
+  capture_method?: string;
+  source_url?: string;
+  local_id?: string;
+  captured_at?: string;
+  status?: string;
+  properties?: Record<string, unknown>;
 }): Promise<ApiCaptureResponse> {
+  const captureMethod = data.capture_method ?? 'typed';
+  const propertyTags = data.properties ? ['has:properties'] : [];
   const item = await gqlIngest({
     title: data.title,
-    text: data.content,
+    text: data.body ?? data.content,
     kind: typeSlugToKind(data.hint_type),
+    source: data.source_url,
+    captureMethod,
+    tags: propertyTags,
   });
   return {
     object: itemToObjectDetail(item),

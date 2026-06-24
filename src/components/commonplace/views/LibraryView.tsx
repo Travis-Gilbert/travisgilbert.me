@@ -54,6 +54,7 @@ export default function LibraryView({ onOpenObject }: LibraryViewProps) {
   const [inquiryQuery, setInquiryQuery] = useState('');
   const [justLandedId, setJustLandedId] = useState<number | null>(null);
   const prevCaptureVersion = useRef(captureVersion);
+  const pendingJustLandedVersion = useRef<number | null>(null);
 
   /* ── Data fetching ── */
 
@@ -72,19 +73,25 @@ export default function LibraryView({ onOpenObject }: LibraryViewProps) {
     [firstSlug],
   );
 
-  /* D3: mark first feed item as just-landed when captureVersion increments */
+  /* Mark the next refetched feed head as just-landed after a push capture. */
   useEffect(() => {
-    if (captureVersion > prevCaptureVersion.current && nodes && nodes.length > 0) {
-      prevCaptureVersion.current = captureVersion;
-      const id = nodes[0].objectRef ?? nodes[0].objectSlug ?? null;
-      if (id !== null) {
-        setJustLandedId(id as number);
-        const timer = setTimeout(() => setJustLandedId(null), 2500);
-        return () => clearTimeout(timer);
-      }
+    if (captureVersion > prevCaptureVersion.current) {
+      pendingJustLandedVersion.current = captureVersion;
     }
     prevCaptureVersion.current = captureVersion;
-  }, [captureVersion, nodes]);
+  }, [captureVersion]);
+
+  useEffect(() => {
+    if (!pendingJustLandedVersion.current || !nodes || nodes.length === 0) return;
+    const id = nodes[0].objectRef;
+    pendingJustLandedVersion.current = null;
+    const markTimer = window.setTimeout(() => setJustLandedId(id), 0);
+    const clearTimer = window.setTimeout(() => setJustLandedId(null), 2500);
+    return () => {
+      window.clearTimeout(markTimer);
+      window.clearTimeout(clearTimer);
+    };
+  }, [nodes]);
 
   const handleObjectClick = useRenderableObjectAction(
     onOpenObject ? (obj) => onOpenObject(obj.id) : undefined,
@@ -115,6 +122,7 @@ export default function LibraryView({ onOpenObject }: LibraryViewProps) {
   const isFiltering = activeType !== null;
   const lastEdited = allObjects[0] ?? null;
   const recentActivity = allObjects.slice(1, 4);
+  const recentObjects = allObjects.slice(0, 12);
 
   // Build objectId -> type slug map from graph data for cluster type dots
   const objectTypeMap = useMemo(() => {
@@ -140,6 +148,32 @@ export default function LibraryView({ onOpenObject }: LibraryViewProps) {
         })
         .slice(0, 4),
     [projects],
+  );
+
+  const renderObjectList = (objects: RenderableObject[]) => (
+    <div className="cp-library-feed">
+      <AnimatePresence mode="popLayout">
+        {objects.map((obj) => (
+          <motion.div
+            key={obj.id}
+            layout="position"
+            initial={prefersReducedMotion ? false : { opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 0.95 }}
+            transition={{ layout: { duration: 0.2, ease: 'easeOut' } }}
+            data-just-landed={obj.id === justLandedId ? 'true' : undefined}
+            data-capture-method={obj.capture_method || undefined}
+          >
+            <ObjectRenderer
+              object={obj}
+              variant="module"
+              onClick={handleObjectClick}
+              onContextMenu={(e, object) => openContextMenu(e.clientX, e.clientY, object)}
+            />
+          </motion.div>
+        ))}
+      </AnimatePresence>
+    </div>
   );
 
   /* ── Render ── */
@@ -186,36 +220,24 @@ export default function LibraryView({ onOpenObject }: LibraryViewProps) {
         />
 
         {isFiltering ? (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+          <div>
             {filteredNodes.length === 0 ? (
               <div className="cp-empty-state">
                 No objects match the current filter.
               </div>
             ) : (
-              <AnimatePresence mode="popLayout">
-                {filteredNodes.map((obj) => (
-                  <motion.div
-                    key={obj.id}
-                    layout="position"
-                    initial={prefersReducedMotion ? false : { opacity: 0, y: 8 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0, scale: 0.95 }}
-                    transition={{ layout: { duration: 0.2, ease: 'easeOut' } }}
-                    data-just-landed={obj.id === justLandedId ? 'true' : undefined}
-                  >
-                    <ObjectRenderer
-                      object={obj}
-                      variant="module"
-                      onClick={handleObjectClick}
-                      onContextMenu={(e, object) => openContextMenu(e.clientX, e.clientY, object)}
-                    />
-                  </motion.div>
-                ))}
-              </AnimatePresence>
+              renderObjectList(filteredNodes)
             )}
           </div>
         ) : (
           <>
+            {recentObjects.length > 0 && (
+              <section className="cp-library-feed-section">
+                <div className="cp-library-section-label">Recent arrivals</div>
+                {renderObjectList(recentObjects)}
+              </section>
+            )}
+
             <ClusterSection
               clusters={clusterItems ?? undefined}
               graphData={graphData}

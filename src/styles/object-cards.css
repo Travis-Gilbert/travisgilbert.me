@@ -587,6 +587,35 @@
   border-radius: 6px;
   overflow: hidden;
 }
+
+.cp-obj-source-main {
+  display: block;
+  width: 100%;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.cp-obj-source-link {
+  position: relative;
+  display: inline-flex;
+  margin-top: 8px;
+  font-family: var(--cp-font-mono);
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--obj-color);
+  text-decoration: none;
+}
+
+.cp-obj-source-link:hover {
+  text-decoration: underline;
+}
+
 .cp-obj-source.cp-obj--module[data-compact] {
   padding: var(--cp-space-2) var(--cp-space-3);
 }

@@ -171,6 +171,8 @@ function mapFeedNodeToMockNode(node: ApiFeedNode): MockNode {
     title: node.title,
     summary: node.body ?? '',
     capturedAt: node.timestamp,
+    url: node.url ?? node.source_url ?? undefined,
+    captureMethod: node.capture_method ?? undefined,
     edgeCount: 0,
     edges: [],
   };
@@ -429,20 +431,44 @@ export async function fetchComposeRelated(data: {
   };
 }
 
-/** Capture a new object via POST /capture/ */
-export async function captureToApi(data: {
+export interface CaptureApiPayload {
   content: string;
+  body?: string;
   hint_type?: string;
+  objectType?: string;
   title?: string;
+  local_id?: string;
+  captured_at?: string;
+  capture_method?: string;
+  captureMethod?: string;
+  source_url?: string;
+  sourceUrl?: string;
+  status?: string;
+  properties?: Record<string, unknown>;
   notebook_slug?: string;
   project_slug?: string;
   file?: File;
-}): Promise<ApiCaptureResponse> {
+}
+
+function appendIfPresent(form: FormData, key: string, value: unknown) {
+  if (value === undefined || value === null || value === '') return;
+  form.append(key, typeof value === 'string' ? value : JSON.stringify(value));
+}
+
+/** Capture a new object via POST /capture/ */
+export async function captureToApi(data: CaptureApiPayload): Promise<ApiCaptureResponse> {
   if (THEOREM_GRAPHQL && !data.file) {
     return gqlCapture({
       content: data.content,
+      body: data.body,
       hint_type: data.hint_type,
       title: data.title,
+      capture_method: data.capture_method ?? data.captureMethod,
+      source_url: data.source_url ?? data.sourceUrl,
+      local_id: data.local_id,
+      captured_at: data.captured_at,
+      status: data.status,
+      properties: data.properties,
     });
   }
   /* When a file is attached (PDF, binary), send as multipart/form-data
@@ -451,11 +477,21 @@ export async function captureToApi(data: {
   if (data.file) {
     const form = new FormData();
     form.append('file', data.file);
-    if (data.content) form.append('content', data.content);
-    if (data.hint_type) form.append('hint_type', data.hint_type);
-    if (data.title) form.append('title', data.title);
-    if (data.notebook_slug) form.append('notebook_slug', data.notebook_slug);
-    if (data.project_slug) form.append('project_slug', data.project_slug);
+    appendIfPresent(form, 'content', data.content);
+    appendIfPresent(form, 'body', data.body);
+    appendIfPresent(form, 'hint_type', data.hint_type);
+    appendIfPresent(form, 'objectType', data.objectType);
+    appendIfPresent(form, 'title', data.title);
+    appendIfPresent(form, 'local_id', data.local_id);
+    appendIfPresent(form, 'captured_at', data.captured_at);
+    appendIfPresent(form, 'capture_method', data.capture_method ?? data.captureMethod);
+    appendIfPresent(form, 'captureMethod', data.captureMethod ?? data.capture_method);
+    appendIfPresent(form, 'source_url', data.source_url ?? data.sourceUrl);
+    appendIfPresent(form, 'sourceUrl', data.sourceUrl ?? data.source_url);
+    appendIfPresent(form, 'status', data.status);
+    appendIfPresent(form, 'properties', data.properties);
+    appendIfPresent(form, 'notebook_slug', data.notebook_slug);
+    appendIfPresent(form, 'project_slug', data.project_slug);
 
     const url = `${API_BASE}/capture/`;
     const headers: HeadersInit = {};
@@ -843,12 +879,20 @@ export async function updatePin(
 export async function syncCapturedObject(
   obj: CapturedObject,
 ): Promise<ApiCaptureResponse> {
-  // New capture endpoint accepts `content` (body or URL) + `hint_type`
-  const content = obj.sourceUrl || obj.body || '';
+  const content = obj.body || obj.sourceUrl || '';
   return captureToApi({
     content,
+    body: obj.body,
     hint_type: obj.objectType,
+    objectType: obj.objectType,
     title: obj.title,
+    local_id: obj.id,
+    captured_at: obj.capturedAt,
+    capture_method: obj.captureMethod,
+    captureMethod: obj.captureMethod,
+    source_url: obj.sourceUrl,
+    sourceUrl: obj.sourceUrl,
+    status: obj.status,
     file: obj.file,
   });
 }

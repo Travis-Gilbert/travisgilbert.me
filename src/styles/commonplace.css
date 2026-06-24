@@ -473,6 +473,16 @@ select.cp-input {
   margin-bottom: 10px;
 }
 
+.cp-library-feed-section {
+  margin-bottom: 24px;
+}
+
+.cp-library-feed {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
 /* ─────────────────────────────────────────────────
    Library hero: type dot with radial halo
    ───────────────────────────────────────────────── */
@@ -1391,6 +1401,27 @@ select.cp-input {
   letter-spacing: 0.05em;
   color: var(--cp-text-faint);
   text-transform: uppercase;
+}
+
+.cp-cmdbar-target-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 10px 8px;
+  border-bottom: 1px solid var(--cp-border-faint);
+  font-family: var(--cp-font-mono);
+  font-size: 10px;
+  color: var(--cp-text-muted);
+}
+
+.cp-cmdbar-target-row strong {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-family: var(--cp-font-body);
+  font-size: 12px;
+  color: var(--cp-text);
 }
 
 /* Capture section + row */
