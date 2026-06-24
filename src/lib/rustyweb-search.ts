@@ -36,6 +36,8 @@ interface RustyWebSearchOptions {
   tenant?: string;
   limit?: number;
   providerLimit?: number;
+  providerTimeoutMs?: number;
+  requestTimeoutMs?: number;
   endpoint?: string;
 }
 
@@ -45,11 +47,16 @@ interface McpToolRequestInput {
   tenant: string;
   limit: number;
   providerLimit: number;
+  providerTimeoutMs: number;
+  requestTimeoutMs: number;
 }
 
 const DEFAULT_TENANT = 'Travis-Gilbert';
 const DEFAULT_LIMIT = 10;
-const DEFAULT_PROVIDER_LIMIT = 10;
+const DEFAULT_WEB_PROVIDER_LIMIT = 4;
+const DEFAULT_FRACTAL_PROVIDER_LIMIT = 8;
+const DEFAULT_WEB_PROVIDER_TIMEOUT_MS = 4_000;
+const DEFAULT_FRACTAL_PROVIDER_TIMEOUT_MS = 8_000;
 const LOCAL_MCP_URL = `${
   process.env.NEXT_PUBLIC_LOCAL_NODE_URL ?? 'http://127.0.0.1:17888'
 }/mcp`;
@@ -61,6 +68,7 @@ export function buildRustyWebMcpRequest(input: McpToolRequestInput): unknown {
     query: input.query,
     tenant: input.tenant,
     provider_limit: input.providerLimit,
+    provider_timeout_ms: input.providerTimeoutMs,
     wait: true,
   };
   const argumentsForMode =
@@ -100,21 +108,28 @@ export async function searchRustyWeb(
     return callMcpEndpoint(options.endpoint ?? LOCAL_MCP_URL, input);
   }
 
+  const requestTimeout = timeoutController(input.requestTimeoutMs);
   try {
     const res = await fetch('/api/rustyweb/search', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(input),
       cache: 'no-store',
+      signal: requestTimeout.signal,
     });
     if (res.status === 404) throw new Error('rustyweb proxy missing');
     if (!res.ok) throw new Error(await responseErrorMessage(res));
     return (await res.json()) as RustyWebSearchResponse;
   } catch (err) {
+    if (isAbortError(err)) {
+      throw new Error(`RustyWeb search timed out after ${input.requestTimeoutMs}ms`);
+    }
     if (!(err instanceof TypeError) && String(err).includes('rustyweb proxy missing') === false) {
       throw err;
     }
     return callMcpEndpoint(options.endpoint ?? LOCAL_MCP_URL, input);
+  } finally {
+    requestTimeout.clear();
   }
 }
 
@@ -123,15 +138,26 @@ export async function callMcpEndpoint(
   input: McpToolRequestInput,
   headers: HeadersInit = {},
 ): Promise<RustyWebSearchResponse> {
-  const res = await fetch(endpoint, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', ...headers },
-    body: JSON.stringify(buildRustyWebMcpRequest(input)),
-    cache: 'no-store',
-  });
-  if (!res.ok) throw new Error(`rustyweb MCP ${res.status}`);
-  const raw = (await res.json()) as unknown;
-  return normalizeRustyWebMcpResponse(input.mode, raw);
+  const requestTimeout = timeoutController(input.requestTimeoutMs);
+  try {
+    const res = await fetch(endpoint, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...headers },
+      body: JSON.stringify(buildRustyWebMcpRequest(input)),
+      cache: 'no-store',
+      signal: requestTimeout.signal,
+    });
+    if (!res.ok) throw new Error(`rustyweb MCP ${res.status}`);
+    const raw = (await res.json()) as unknown;
+    return normalizeRustyWebMcpResponse(input.mode, raw);
+  } catch (err) {
+    if (isAbortError(err)) {
+      throw new Error(`RustyWeb search timed out after ${input.requestTimeoutMs}ms`);
+    }
+    throw err;
+  } finally {
+    requestTimeout.clear();
+  }
 }
 
 export function normalizeRustyWebMcpResponse(
@@ -157,16 +183,60 @@ function normalizedInput(
   query: string,
   options: RustyWebSearchOptions,
 ): McpToolRequestInput {
+  const mode = options.mode ?? 'web';
+  const defaultProviderLimit =
+    mode === 'web' ? DEFAULT_WEB_PROVIDER_LIMIT : DEFAULT_FRACTAL_PROVIDER_LIMIT;
+  const defaultProviderTimeoutMs =
+    mode === 'web' ? DEFAULT_WEB_PROVIDER_TIMEOUT_MS : DEFAULT_FRACTAL_PROVIDER_TIMEOUT_MS;
+  const providerTimeoutMs = clampNumber(
+    options.providerTimeoutMs,
+    defaultProviderTimeoutMs,
+    500,
+    30_000,
+  );
   return {
     query: query.trim(),
-    mode: options.mode ?? 'web',
+    mode,
     tenant: options.tenant ?? DEFAULT_TENANT,
     limit: Math.max(1, Math.min(options.limit ?? DEFAULT_LIMIT, 20)),
-    providerLimit: Math.max(
-      1,
-      Math.min(options.providerLimit ?? DEFAULT_PROVIDER_LIMIT, 50),
+    providerLimit: clampNumber(options.providerLimit, defaultProviderLimit, 1, 50),
+    providerTimeoutMs,
+    requestTimeoutMs: clampNumber(
+      options.requestTimeoutMs,
+      Math.max(providerTimeoutMs + 4_000, 8_000),
+      2_000,
+      60_000,
     ),
   };
+}
+
+function timeoutController(timeoutMs: number): {
+  signal: AbortSignal;
+  clear: () => void;
+} {
+  const controller = new AbortController();
+  const timeoutId: ReturnType<typeof setTimeout> = setTimeout(
+    () => controller.abort(),
+    timeoutMs,
+  );
+  return {
+    signal: controller.signal,
+    clear: () => clearTimeout(timeoutId),
+  };
+}
+
+function isAbortError(err: unknown): boolean {
+  return (
+    typeof err === 'object' &&
+    err !== null &&
+    'name' in err &&
+    (err as { name?: unknown }).name === 'AbortError'
+  );
+}
+
+function clampNumber(value: unknown, fallback: number, min: number, max: number): number {
+  const n = typeof value === 'number' && Number.isFinite(value) ? value : fallback;
+  return Math.max(min, Math.min(n, max));
 }
 
 function normalizeWebResponse(

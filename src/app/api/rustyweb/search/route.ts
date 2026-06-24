@@ -16,7 +16,14 @@ interface SearchBody {
   limit?: unknown;
   providerLimit?: unknown;
   provider_limit?: unknown;
+  providerTimeoutMs?: unknown;
+  provider_timeout_ms?: unknown;
+  requestTimeoutMs?: unknown;
+  request_timeout_ms?: unknown;
 }
+
+const DEFAULT_WEB_PROVIDER_TIMEOUT_MS = 4_000;
+const DEFAULT_FRACTAL_PROVIDER_TIMEOUT_MS = 8_000;
 
 export async function POST(req: Request) {
   let body: SearchBody;
@@ -39,9 +46,21 @@ export async function POST(req: Request) {
   const limit = clampNumber(body.limit, 10, 1, 20);
   const providerLimit = clampNumber(
     body.providerLimit ?? body.provider_limit,
-    10,
+    mode === 'web' ? 4 : 8,
     1,
     50,
+  );
+  const providerTimeoutMs = clampNumber(
+    body.providerTimeoutMs ?? body.provider_timeout_ms,
+    mode === 'web' ? DEFAULT_WEB_PROVIDER_TIMEOUT_MS : DEFAULT_FRACTAL_PROVIDER_TIMEOUT_MS,
+    500,
+    30_000,
+  );
+  const requestTimeoutMs = clampNumber(
+    body.requestTimeoutMs ?? body.request_timeout_ms,
+    Math.max(providerTimeoutMs + 4_000, 8_000),
+    2_000,
+    60_000,
   );
   const mcpBody = buildRustyWebMcpRequest({
     query,
@@ -49,16 +68,21 @@ export async function POST(req: Request) {
     tenant,
     limit,
     providerLimit,
+    providerTimeoutMs,
+    requestTimeoutMs,
   });
   const errors: string[] = [];
+  let timedOut = false;
 
   for (const upstream of upstreamCandidates()) {
+    const requestTimeout = timeoutController(requestTimeoutMs);
     try {
       const res = await fetch(upstream, {
         method: 'POST',
         headers: mcpHeaders(),
         body: JSON.stringify(mcpBody),
         cache: 'no-store',
+        signal: requestTimeout.signal,
       });
       if (!res.ok) {
         errors.push(`${upstream}: HTTP ${res.status}`);
@@ -77,17 +101,26 @@ export async function POST(req: Request) {
         );
       }
     } catch (err) {
-      errors.push(`${upstream}: ${err instanceof Error ? err.message : String(err)}`);
+      if (isAbortError(err)) {
+        timedOut = true;
+        errors.push(`${upstream}: timed out after ${requestTimeoutMs}ms`);
+      } else {
+        errors.push(`${upstream}: ${err instanceof Error ? err.message : String(err)}`);
+      }
+    } finally {
+      requestTimeout.clear();
     }
   }
 
   return json(
     {
-      error: 'rustyweb_unreachable',
-      message: 'RustyWeb search backend unreachable.',
+      error: timedOut ? 'rustyweb_timeout' : 'rustyweb_unreachable',
+      message: timedOut
+        ? 'RustyWeb search backend timed out.'
+        : 'RustyWeb search backend unreachable.',
       attempts: errors,
     },
-    502,
+    timedOut ? 504 : 502,
   );
 }
 
@@ -129,6 +162,30 @@ function text(value: unknown): string | undefined {
 
 function trimSlash(url: string): string {
   return url.replace(/\/+$/, '');
+}
+
+function timeoutController(timeoutMs: number): {
+  signal: AbortSignal;
+  clear: () => void;
+} {
+  const controller = new AbortController();
+  const timeoutId: ReturnType<typeof setTimeout> = setTimeout(
+    () => controller.abort(),
+    timeoutMs,
+  );
+  return {
+    signal: controller.signal,
+    clear: () => clearTimeout(timeoutId),
+  };
+}
+
+function isAbortError(err: unknown): boolean {
+  return (
+    typeof err === 'object' &&
+    err !== null &&
+    'name' in err &&
+    (err as { name?: unknown }).name === 'AbortError'
+  );
 }
 
 function clampNumber(

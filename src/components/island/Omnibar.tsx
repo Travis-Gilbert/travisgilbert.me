@@ -58,7 +58,14 @@ export default function Omnibar({
       if (mode === 'ask') {
         setAnswer(await askCommonPlaceAgent(q, 8));
       } else {
-        setSearchResult(await searchRustyWeb(q, { mode, limit: mode === 'web' ? 12 : 8 }));
+        setSearchResult(
+          await searchRustyWeb(q, {
+            mode,
+            limit: mode === 'web' ? 12 : 8,
+            providerLimit: mode === 'web' ? 4 : 8,
+            providerTimeoutMs: mode === 'web' ? 4_000 : 8_000,
+          }),
+        );
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
