@@ -1,13 +1,19 @@
 import {
   buildRustyWebMcpRequest,
+  buildRustyWebSearchRequest,
   normalizeRustyWebMcpResponse,
+  normalizeRustyWebProductResponse,
   type RustyWebSearchMode,
 } from '@/lib/rustyweb-search';
 
 export const dynamic = 'force-dynamic';
 
-const LOCAL_MCP_URL = 'http://127.0.0.1:17888/mcp';
-const HOSTED_MCP_URL = 'https://rustyredcore-theorem-production.up.railway.app/mcp';
+const LOCAL_NODE_URL = 'http://127.0.0.1:17888';
+const LOCAL_MCP_URL = `${LOCAL_NODE_URL}/mcp`;
+const LOCAL_RUSTYWEB_SEARCH_URL = `${LOCAL_NODE_URL}/v1/rustyweb/search`;
+const HOSTED_BASE_URL = 'https://rustyredcore-theorem-production.up.railway.app';
+const HOSTED_MCP_URL = `${HOSTED_BASE_URL}/mcp`;
+const HOSTED_RUSTYWEB_SEARCH_URL = `${HOSTED_BASE_URL}/v1/rustyweb/search`;
 
 interface SearchBody {
   query?: unknown;
@@ -62,7 +68,7 @@ export async function POST(req: Request) {
     2_000,
     60_000,
   );
-  const mcpBody = buildRustyWebMcpRequest({
+  const requestInput = {
     query,
     mode,
     tenant,
@@ -70,7 +76,64 @@ export async function POST(req: Request) {
     providerLimit,
     providerTimeoutMs,
     requestTimeoutMs,
-  });
+  };
+
+  if (mode === 'web') {
+    const searchBody = buildRustyWebSearchRequest(requestInput);
+    const errors: string[] = [];
+    let timedOut = false;
+
+    for (const upstream of rustyWebSearchCandidates()) {
+      const requestTimeout = timeoutController(requestTimeoutMs);
+      try {
+        const res = await fetch(upstream, {
+          method: 'POST',
+          headers: upstreamHeaders(),
+          body: JSON.stringify(searchBody),
+          cache: 'no-store',
+          signal: requestTimeout.signal,
+        });
+        if (!res.ok) {
+          errors.push(`${upstream}: HTTP ${res.status}`);
+          continue;
+        }
+        const raw = (await res.json()) as unknown;
+        try {
+          return json(normalizeRustyWebProductResponse(mode, raw), 200);
+        } catch (err) {
+          return json(
+            {
+              error: 'rustyweb_search_error',
+              message: err instanceof Error ? err.message : String(err),
+            },
+            424,
+          );
+        }
+      } catch (err) {
+        if (isAbortError(err)) {
+          timedOut = true;
+          errors.push(`${upstream}: timed out after ${requestTimeoutMs}ms`);
+        } else {
+          errors.push(`${upstream}: ${err instanceof Error ? err.message : String(err)}`);
+        }
+      } finally {
+        requestTimeout.clear();
+      }
+    }
+
+    return json(
+      {
+        error: timedOut ? 'rustyweb_timeout' : 'rustyweb_unreachable',
+        message: timedOut
+          ? 'RustyWeb search backend timed out.'
+          : 'RustyWeb search backend unreachable.',
+        attempts: errors,
+      },
+      timedOut ? 504 : 502,
+    );
+  }
+
+  const mcpBody = buildRustyWebMcpRequest(requestInput);
   const errors: string[] = [];
   let timedOut = false;
 
@@ -79,7 +142,7 @@ export async function POST(req: Request) {
     try {
       const res = await fetch(upstream, {
         method: 'POST',
-        headers: mcpHeaders(),
+        headers: upstreamHeaders(),
         body: JSON.stringify(mcpBody),
         cache: 'no-store',
         signal: requestTimeout.signal,
@@ -124,6 +187,18 @@ export async function POST(req: Request) {
   );
 }
 
+function rustyWebSearchCandidates(): string[] {
+  const explicit = text(
+    process.env.RUSTYWEB_SEARCH_URL ??
+      process.env.RUSTYRED_SEARCH_URL ??
+      process.env.THEOREM_RUSTYWEB_SEARCH_URL,
+  );
+  if (explicit) return [trimSlash(explicit)];
+  return process.env.NODE_ENV === 'development'
+    ? [LOCAL_RUSTYWEB_SEARCH_URL, HOSTED_RUSTYWEB_SEARCH_URL]
+    : [HOSTED_RUSTYWEB_SEARCH_URL];
+}
+
 function upstreamCandidates(): string[] {
   const explicit = text(
     process.env.RUSTYWEB_MCP_URL ??
@@ -137,7 +212,7 @@ function upstreamCandidates(): string[] {
     : [HOSTED_MCP_URL];
 }
 
-function mcpHeaders(): HeadersInit {
+function upstreamHeaders(): HeadersInit {
   const token = text(
     process.env.RUSTYWEB_MCP_BEARER ??
       process.env.RUSTYRED_MCP_BEARER ??

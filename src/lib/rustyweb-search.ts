@@ -57,9 +57,9 @@ const DEFAULT_WEB_PROVIDER_LIMIT = 4;
 const DEFAULT_FRACTAL_PROVIDER_LIMIT = 8;
 const DEFAULT_WEB_PROVIDER_TIMEOUT_MS = 4_000;
 const DEFAULT_FRACTAL_PROVIDER_TIMEOUT_MS = 8_000;
-const LOCAL_MCP_URL = `${
-  process.env.NEXT_PUBLIC_LOCAL_NODE_URL ?? 'http://127.0.0.1:17888'
-}/mcp`;
+const LOCAL_NODE_URL = process.env.NEXT_PUBLIC_LOCAL_NODE_URL ?? 'http://127.0.0.1:17888';
+const LOCAL_MCP_URL = `${LOCAL_NODE_URL}/mcp`;
+const LOCAL_RUSTYWEB_SEARCH_URL = `${LOCAL_NODE_URL}/v1/rustyweb/search`;
 
 export function buildRustyWebMcpRequest(input: McpToolRequestInput): unknown {
   const toolName =
@@ -105,6 +105,9 @@ export async function searchRustyWeb(
   const input = normalizedInput(query, options);
 
   if (isTauriRuntime()) {
+    if (input.mode === 'web') {
+      return callRustyWebSearchEndpoint(options.endpoint ?? LOCAL_RUSTYWEB_SEARCH_URL, input);
+    }
     return callMcpEndpoint(options.endpoint ?? LOCAL_MCP_URL, input);
   }
 
@@ -160,6 +163,44 @@ export async function callMcpEndpoint(
   }
 }
 
+export async function callRustyWebSearchEndpoint(
+  endpoint: string,
+  input: McpToolRequestInput,
+  headers: HeadersInit = {},
+): Promise<RustyWebSearchResponse> {
+  const requestTimeout = timeoutController(input.requestTimeoutMs);
+  try {
+    const res = await fetch(endpoint, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...headers },
+      body: JSON.stringify(buildRustyWebSearchRequest(input)),
+      cache: 'no-store',
+      signal: requestTimeout.signal,
+    });
+    if (!res.ok) throw new Error(`RustyWeb search ${res.status}`);
+    const raw = (await res.json()) as unknown;
+    return normalizeRustyWebProductResponse(input.mode, raw);
+  } catch (err) {
+    if (isAbortError(err)) {
+      throw new Error(`RustyWeb search timed out after ${input.requestTimeoutMs}ms`);
+    }
+    throw err;
+  } finally {
+    requestTimeout.clear();
+  }
+}
+
+export function buildRustyWebSearchRequest(input: McpToolRequestInput): Record<string, unknown> {
+  return {
+    query: input.query,
+    tenant: input.tenant,
+    provider_limit: input.providerLimit,
+    provider_timeout_ms: input.providerTimeoutMs,
+    limit: input.limit,
+    seed_limit: input.limit,
+  };
+}
+
 export function normalizeRustyWebMcpResponse(
   mode: RustyWebSearchMode,
   raw: unknown,
@@ -172,6 +213,21 @@ export function normalizeRustyWebMcpResponse(
         : typeof payload.error === 'string'
           ? payload.error
           : 'RustyWeb search failed';
+    throw new Error(message);
+  }
+  return mode === 'fractal'
+    ? normalizeFractalResponse(payload, raw)
+    : normalizeWebResponse(payload, raw);
+}
+
+export function normalizeRustyWebProductResponse(
+  mode: RustyWebSearchMode,
+  raw: unknown,
+): RustyWebSearchResponse {
+  const payload = asRecord(raw) ?? {};
+  if (typeof payload.error === 'string') {
+    const message =
+      typeof payload.message === 'string' ? payload.message : payload.error;
     throw new Error(message);
   }
   return mode === 'fractal'
