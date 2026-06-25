@@ -13,14 +13,14 @@
 
 import * as React from 'react';
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
-import { GitBranch, Globe, Paperclip, ArrowUp } from 'lucide-react';
+import { GitBranch, Globe, Paperclip, ArrowUp, Sparkles } from 'lucide-react';
 
 const INPUT_HEIGHT = {
   default: { min: 52, max: 168 },
   tall: { min: 68, max: 190 },
 } as const;
 
-export type AiInputMode = 'ask' | 'web' | 'fractal';
+export type AiInputMode = 'ask' | 'web' | 'research' | 'fractal';
 export type AiInputSize = keyof typeof INPUT_HEIGHT;
 
 function useAutoResize(value: string, minHeight: number, maxHeight: number) {
@@ -47,6 +47,7 @@ export interface AiInputBarProps {
   onAttach?: (file: File) => void;
   placeholder?: string;
   webPlaceholder?: string;
+  researchPlaceholder?: string;
   fractalPlaceholder?: string;
   busy?: boolean;
   autoFocus?: boolean;
@@ -62,8 +63,9 @@ export const AiInputBar = React.forwardRef<HTMLTextAreaElement, AiInputBarProps>
       mode,
       onModeChange,
       onAttach,
-      placeholder = 'Ask the agent, or search',
+      placeholder = 'Ask the Theorem agent',
       webPlaceholder = 'Search the web',
+      researchPlaceholder = 'Search, then ask Theorem',
       fractalPlaceholder = 'Search the web from your graph',
       busy,
       autoFocus,
@@ -87,15 +89,19 @@ export const AiInputBar = React.forwardRef<HTMLTextAreaElement, AiInputBarProps>
     const shownPlaceholder =
       mode === 'web'
         ? webPlaceholder
-        : mode === 'fractal'
-          ? fractalPlaceholder
-          : placeholder;
+        : mode === 'research'
+          ? researchPlaceholder
+          : mode === 'fractal'
+            ? fractalPlaceholder
+            : placeholder;
     const textareaLabel =
       mode === 'web'
         ? 'Search the web'
-        : mode === 'fractal'
-          ? 'Search the web from your graph'
-          : 'Ask the agent or search';
+        : mode === 'research'
+          ? 'Search, then ask Theorem'
+          : mode === 'fractal'
+            ? 'Search the web from your graph'
+            : 'Ask the Theorem agent';
 
     return (
       <div className="w-full font-sans">
@@ -199,6 +205,34 @@ export const AiInputBar = React.forwardRef<HTMLTextAreaElement, AiInputBarProps>
                 </button>
                 <button
                   type="button"
+                  onClick={() => onModeChange(mode === 'research' ? 'ask' : 'research')}
+                  aria-label="Search, then ask Theorem"
+                  aria-pressed={mode === 'research'}
+                  title="Search, then ask Theorem"
+                  className={isTall ? 'flex h-9 items-center gap-1.5 rounded-full border px-2.5 transition-colors' : 'flex h-8 items-center gap-1.5 rounded-full border px-2 transition-colors'}
+                  style={
+                    mode === 'research'
+                      ? { borderColor: 'var(--cp-red)', background: 'var(--cp-red-soft)', color: 'var(--cp-red)' }
+                      : { borderColor: 'transparent', color: 'var(--cp-text-muted)' }
+                  }
+                >
+                  <Sparkles size={16} />
+                  <AnimatePresence>
+                    {mode === 'research' ? (
+                      <motion.span
+                        initial={reduced ? false : { width: 0, opacity: 0 }}
+                        animate={{ width: 'auto', opacity: 1 }}
+                        exit={reduced ? undefined : { width: 0, opacity: 0 }}
+                        transition={{ duration: 0.18 }}
+                        className="overflow-hidden whitespace-nowrap font-mono text-[11px] uppercase tracking-[0.08em]"
+                      >
+                        Research
+                      </motion.span>
+                    ) : null}
+                  </AnimatePresence>
+                </button>
+                <button
+                  type="button"
                   onClick={() => onModeChange(mode === 'fractal' ? 'ask' : 'fractal')}
                   aria-label="Fractal expansion"
                   aria-pressed={mode === 'fractal'}
@@ -230,7 +264,7 @@ export const AiInputBar = React.forwardRef<HTMLTextAreaElement, AiInputBarProps>
                 type="button"
                 onClick={submit}
                 disabled={busy}
-                aria-label={mode === 'ask' ? 'Ask' : 'Search'}
+                aria-label={mode === 'ask' || mode === 'research' ? 'Ask' : 'Search'}
                 className={isTall ? 'grid h-9 w-9 place-items-center rounded-full transition-colors' : 'grid h-8 w-8 place-items-center rounded-full transition-colors'}
                 style={
                   value && !busy

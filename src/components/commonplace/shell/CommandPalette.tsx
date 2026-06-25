@@ -10,7 +10,7 @@ import { searchObjects } from '@/lib/commonplace-api';
 import type { ObjectSearchResult } from '@/lib/commonplace-api';
 import { OBJECT_TYPES } from '@/lib/commonplace';
 import type { ViewType } from '@/lib/commonplace';
-import { ACP_AGENTS, type AcpAgentId } from '@/lib/commonplace-acp';
+import { ACP_AGENTS } from '@/lib/commonplace-acp';
 
 /**
  * CommandPalette: Cmd+K interface for searching objects and navigating views.
@@ -25,6 +25,29 @@ const ACTION_ITEMS = [
   { key: 'network' as ViewType, label: 'Open Knowledge Map', hint: 'Force-directed graph of all edges' },
   { key: 'timeline' as ViewType, label: 'Open Timeline', hint: 'Chronological capture feed' },
   { key: 'connection-engine' as ViewType, label: 'Open Connection Engine', hint: 'Discover and manage edges' },
+];
+
+type AgentLaunchMode = 'api' | 'acp';
+type AgentLaunchItem = {
+  agentId: string;
+  command: string;
+  label: string;
+  hint: string;
+  mode: AgentLaunchMode;
+};
+
+const AGENT_LAUNCH_ITEMS: AgentLaunchItem[] = [
+  {
+    agentId: 'theorem',
+    command: '/agent',
+    label: 'Theorem Agent',
+    hint: 'Use configured API heads',
+    mode: 'api',
+  },
+  ...ACP_AGENTS.map((agent) => ({
+    ...agent,
+    mode: 'acp' as const,
+  })),
 ];
 
 const CORE_CREATE_SLUGS = new Set(['note', 'source', 'quote', 'hunch', 'person', 'concept']);
@@ -78,7 +101,7 @@ export default function CommandPalette() {
   const [recentItems, setRecentItems] = useState<ObjectSearchResult[]>(() => loadRecent());
   const [searching, setSearching] = useState(false);
   const [showMoreTypes, setShowMoreTypes] = useState(false);
-  const [morphingAgent, setMorphingAgent] = useState<AcpAgentId | null>(null);
+  const [morphingAgent, setMorphingAgent] = useState<string | null>(null);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const morphTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -165,9 +188,9 @@ export default function CommandPalette() {
   );
 
   const handleLaunchAgent = useCallback(
-    (agentId: AcpAgentId) => {
+    (agentId: string, agentMode: AgentLaunchMode) => {
       setMorphingAgent(agentId);
-      launchView('agent-thread', { agentId });
+      launchView('agent-thread', { agentId, agentMode });
       if (morphTimeoutRef.current) clearTimeout(morphTimeoutRef.current);
       morphTimeoutRef.current = setTimeout(() => {
         dismissPalette();
@@ -199,7 +222,7 @@ export default function CommandPalette() {
   const matchingAgents = useMemo(() => {
     if (!isAgentQuery) return [];
     const lowered = trimmedQuery.toLowerCase();
-    return ACP_AGENTS.filter((agent) =>
+    return AGENT_LAUNCH_ITEMS.filter((agent) =>
       agent.command.startsWith(lowered) ||
       agent.label.toLowerCase().includes(lowered.slice(1)),
     );
@@ -256,7 +279,7 @@ export default function CommandPalette() {
                   <Command.Item
                     key={agent.agentId}
                     value={`${agent.command} ${agent.label}`}
-                    onSelect={() => handleLaunchAgent(agent.agentId)}
+                    onSelect={() => handleLaunchAgent(agent.agentId, agent.mode)}
                     className="cp-palette-item cp-palette-item--action cp-palette-item--agent"
                   >
                     <span className="cp-palette-agent-command">{agent.command}</span>

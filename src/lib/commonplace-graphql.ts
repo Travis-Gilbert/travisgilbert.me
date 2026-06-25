@@ -119,6 +119,7 @@ class GraphqlError extends Error {}
 export async function gql<T>(
   query: string,
   variables: Record<string, unknown> = {},
+  options: { signal?: AbortSignal } = {},
 ): Promise<T> {
   const onServer = typeof window === 'undefined';
   const desktop = !onServer && isTauri();
@@ -136,6 +137,7 @@ export async function gql<T>(
     },
     body: JSON.stringify({ query, variables }),
     cache: 'no-store',
+    signal: options.signal,
   });
   if (!res.ok) throw new GraphqlError(`commonplace-api ${res.status}`);
   const json = (await res.json()) as {
@@ -529,6 +531,51 @@ export async function gqlAsk(question: string, k = 8): Promise<AskResultGql> {
     { ask: { answer: '', answerKind: 'EMPTY' as AskAnswerKind, provenance: [] } },
   );
   return data.ask;
+}
+
+export interface TheoremAgentClaimGql {
+  text: string;
+  provenance: string;
+}
+
+export interface TheoremAgentRunGql {
+  answer: string;
+  answerKind: AskAnswerKind;
+  bindingId: string;
+  runId?: string;
+  heads: string[];
+  claims: TheoremAgentClaimGql[];
+  alignmentVerdict?: unknown;
+  evidenceCount: number;
+}
+
+export async function gqlTheoremAgent(
+  input: {
+    task: string;
+    mode?: string;
+    bindingId?: string;
+    tenant?: string;
+    claims?: TheoremAgentClaimGql[];
+  },
+  signal?: AbortSignal,
+): Promise<TheoremAgentRunGql> {
+  const data = await gql<{ theoremAgent: TheoremAgentRunGql }>(
+    `query($task:String!,$mode:String,$bindingId:String,$tenant:String,$claims:[TheoremAgentClaimInput!]) {
+      theoremAgent(task:$task, mode:$mode, bindingId:$bindingId, tenant:$tenant, claims:$claims) {
+        answer
+        answerKind
+        bindingId
+        runId
+        heads
+        claims { text provenance }
+        alignmentVerdict
+        evidenceCount
+      }
+    }`,
+    input,
+    { signal },
+  );
+  return data.theoremAgent;
 }
 
 /* ─────────────────────────────────────────────────

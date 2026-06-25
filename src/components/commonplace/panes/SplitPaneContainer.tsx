@@ -923,9 +923,14 @@ function PaneViewContent({
     return <ConnectionWorkshop notebookSlug={context?.slug as string | undefined} />;
   }
 
-  /* Agent Thread (ACP-native external agent surface) */
+  /* Agent Thread (Theorem API agent or ACP-native external agent surface) */
   if (viewType === 'agent-thread') {
-    return <AgentThreadView agentId={context?.agentId as string | undefined} />;
+    return (
+      <AgentThreadView
+        agentId={context?.agentId as string | undefined}
+        agentMode={context?.agentMode as 'api' | 'acp' | undefined}
+      />
+    );
   }
 
   /* Placeholder for views not yet implemented */

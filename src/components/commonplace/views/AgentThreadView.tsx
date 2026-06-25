@@ -16,6 +16,7 @@ import {
   type AcpFileWriteReview,
   type AcpFrontendEvent,
 } from '@/lib/commonplace-acp';
+import { runTheoremAgent } from '@/lib/theorem-agent';
 
 type ThreadItem =
   | {
@@ -50,20 +51,33 @@ type ThreadItem =
 
 interface AgentThreadViewProps {
   agentId?: AcpAgentId | string;
+  agentMode?: 'api' | 'acp';
 }
 
-export default function AgentThreadView({ agentId = 'agent' }: AgentThreadViewProps) {
-  const agentLabel = useMemo(() => acpAgentLabel(agentId), [agentId]);
+export default function AgentThreadView({
+  agentId = 'theorem',
+  agentMode,
+}: AgentThreadViewProps) {
+  const resolvedMode = agentMode ?? (agentId === 'theorem' || agentId === 'agent' ? 'api' : 'acp');
+  const agentLabel = useMemo(
+    () => (resolvedMode === 'api' ? 'Theorem Agent' : acpAgentLabel(agentId)),
+    [agentId, resolvedMode],
+  );
   const wsRef = useRef<WebSocket | null>(null);
   const listRef = useRef<HTMLDivElement | null>(null);
-  const [status, setStatus] = useState<AcpConnectionStatus>('connecting');
+  const [status, setStatus] = useState<AcpConnectionStatus>(
+    resolvedMode === 'api' ? 'connected' : 'connecting',
+  );
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [items, setItems] = useState<ThreadItem[]>(() => [
     {
       id: 'system-ready',
       kind: 'message',
       role: 'system',
-      markdown: `${acpAgentLabel(agentId)} ready to dock.`,
+      markdown:
+        resolvedMode === 'api'
+          ? 'Theorem agent ready. It will use the configured API heads.'
+          : `${acpAgentLabel(agentId)} ready to dock.`,
     },
   ]);
   const [composer, setComposer] = useState('');
@@ -183,6 +197,11 @@ export default function AgentThreadView({ agentId = 'agent' }: AgentThreadViewPr
   );
 
   useEffect(() => {
+    if (resolvedMode === 'api') {
+      wsRef.current = null;
+      return;
+    }
+
     const socket = new WebSocket(buildAcpWebSocketUrl());
     wsRef.current = socket;
 
@@ -219,7 +238,7 @@ export default function AgentThreadView({ agentId = 'agent' }: AgentThreadViewPr
       wsRef.current = null;
       socket.close();
     };
-  }, [addItem, agentId, handleEvent]);
+  }, [addItem, agentId, handleEvent, resolvedMode]);
 
   useEffect(() => {
     listRef.current?.scrollTo({
@@ -228,7 +247,7 @@ export default function AgentThreadView({ agentId = 'agent' }: AgentThreadViewPr
     });
   }, [items]);
 
-  const sendPrompt = useCallback(() => {
+  const sendPrompt = useCallback(async () => {
     const text = composer.trim();
     if (!text) return;
     const activeSession = sessionId ?? 'pending';
@@ -239,6 +258,40 @@ export default function AgentThreadView({ agentId = 'agent' }: AgentThreadViewPr
       markdown: text,
     });
     setComposer('');
+    if (resolvedMode === 'api') {
+      setStatus('connecting');
+      try {
+        const result = await runTheoremAgent({ task: text, mode: 'ask' });
+        addItem({
+          id: `agent-${Date.now()}`,
+          kind: 'message',
+          role: 'agent',
+          markdown: result.answer || 'Theorem did not return a publishable answer.',
+        });
+        addItem({
+          id: `run-${result.runId ?? Date.now()}`,
+          kind: 'tool',
+          title: 'Theorem run',
+          payload: {
+            run_id: result.runId,
+            heads: result.heads,
+            claims: result.claims,
+            alignment_verdict: result.alignmentVerdict,
+          },
+        });
+      } catch (err) {
+        addItem({
+          id: `error-${Date.now()}`,
+          kind: 'message',
+          role: 'system',
+          markdown: err instanceof Error ? err.message : String(err),
+        });
+      } finally {
+        setStatus('connected');
+      }
+      return;
+    }
+
     const delivered = send({
       type: 'prompt',
       session_id: activeSession,
@@ -252,18 +305,21 @@ export default function AgentThreadView({ agentId = 'agent' }: AgentThreadViewPr
         markdown: 'ACP host is offline.',
       });
     }
-  }, [addItem, composer, send, sessionId]);
+  }, [addItem, composer, resolvedMode, send, sessionId]);
+
+  const displayStatus =
+    resolvedMode === 'api' && status !== 'connecting' ? 'connected' : status;
 
   return (
     <section className="cp-agent-thread" aria-label={`${agentLabel} agent thread`}>
       <header className="cp-agent-thread-header">
         <div>
           <h2>{agentLabel}</h2>
-          <span className={`cp-agent-thread-status cp-agent-thread-status--${status}`}>
-            {status}
+          <span className={`cp-agent-thread-status cp-agent-thread-status--${displayStatus}`}>
+            {displayStatus}
           </span>
         </div>
-        {sessionId && <code>{sessionId}</code>}
+        {resolvedMode === 'acp' && sessionId && <code>{sessionId}</code>}
       </header>
 
       <div ref={listRef} className="cp-agent-thread-list">

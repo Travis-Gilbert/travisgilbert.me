@@ -18,10 +18,16 @@ export const ACP_AGENTS = [
     hint: 'Dock DeepSeek through ACP',
   },
   {
-    agentId: 'agent',
-    command: '/agent',
-    label: 'Agent picker',
-    hint: 'Choose a configured ACP agent',
+    agentId: 'gemini',
+    command: '/gemini',
+    label: 'Gemini CLI',
+    hint: 'Dock Gemini through ACP',
+  },
+  {
+    agentId: 'opencode',
+    command: '/opencode',
+    label: 'OpenCode',
+    hint: 'Dock OpenCode through ACP',
   },
 ] as const;
 

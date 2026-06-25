@@ -2,29 +2,30 @@
 
 /**
  * The omnibar: the 21st.dev ai-input wired to Theorem's agent + RustyRed.
- *   - plain text  -> ask  : Theorem's GL-Fusion-free agent (commonplace-api),
- *                    grounded retrieval over the substrate (vector + lexical +
- *                    graph, reciprocal-rank fused) with an honest answer and
- *                    per-item provenance. No model dependency.
- *   - web         -> search: RustyWeb external search acquisition.
- *   - fractal     -> expand: graph frontier + RustyWeb fractal expansion.
+ *   - plain text  -> ask     : The composed Theorem API agent.
+ *   - web         -> search  : RustyWeb external search acquisition.
+ *   - research    -> search + composed Theorem API agent over the evidence bundle.
+ *   - fractal     -> expand  : graph frontier + RustyWeb fractal expansion.
  *   - attach      -> capture the file into CommonPlace.
  *
- * (The Theorem gateway -- src/lib/theorem-gateway.ts -- remains wired for the
- * federated full-Theseus surfaces Codex is growing; the omnibar uses the
- * GL-Fusion-free agent so it answers for real now.)
+ * The browser path uses a same-origin proxy so model-provider credentials stay
+ * server-side; the desktop path can use the local MCP loopback directly.
  */
 
 import * as React from 'react';
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
 import { AiInputBar, type AiInputMode, type AiInputSize } from './AiInputBar';
-import { gqlIngest, type AskResultGql } from '@/lib/commonplace-graphql';
-import { askCommonPlaceAgent } from '@/lib/local-agent';
+import { gqlIngest } from '@/lib/commonplace-graphql';
 import {
   searchRustyWeb,
   type RustyWebSearchHit,
   type RustyWebSearchResponse,
 } from '@/lib/rustyweb-search';
+import {
+  runTheoremAgent,
+  type TheoremAgentClaim,
+  type TheoremAgentRunResult,
+} from '@/lib/theorem-agent';
 
 interface OmnibarProps {
   bottomOffset?: string;
@@ -43,20 +44,41 @@ export default function Omnibar({
   const [value, setValue] = React.useState('');
   const [mode, setMode] = React.useState<AiInputMode>('ask');
   const [busy, setBusy] = React.useState(false);
-  const [answer, setAnswer] = React.useState<AskResultGql | null>(null);
+  const [agentResult, setAgentResult] = React.useState<TheoremAgentRunResult | null>(null);
   const [searchResult, setSearchResult] = React.useState<RustyWebSearchResponse | null>(null);
+  const [researchResult, setResearchResult] = React.useState<{
+    search: RustyWebSearchResponse;
+    agent: TheoremAgentRunResult;
+  } | null>(null);
   const [error, setError] = React.useState<string | null>(null);
 
   const submit = React.useCallback(async () => {
     const q = value.trim();
     if (!q || busy) return;
     setBusy(true);
-    setAnswer(null);
+    setAgentResult(null);
     setSearchResult(null);
+    setResearchResult(null);
     setError(null);
     try {
       if (mode === 'ask') {
-        setAnswer(await askCommonPlaceAgent(q, 8));
+        setAgentResult(await runTheoremAgent({ task: q, mode: 'ask' }));
+      } else if (mode === 'research') {
+        const search = await searchRustyWeb(q, {
+          mode: 'web',
+          limit: 8,
+          providerLimit: 4,
+          providerTimeoutMs: 4_000,
+          requestTimeoutMs: 12_000,
+        });
+        const claims = searchHitsToClaims(search.hits);
+        const agent = await runTheoremAgent({
+          mode: 'research',
+          task: `Answer this question using the attached search evidence where it is useful. Question: ${q}`,
+          claims,
+          requestTimeoutMs: 75_000,
+        });
+        setResearchResult({ search, agent });
       } else {
         setSearchResult(
           await searchRustyWeb(q, {
@@ -82,10 +104,13 @@ export default function Omnibar({
     }
   }
 
-  const showPanel = busy || answer !== null || searchResult !== null || error !== null;
+  const showPanel =
+    busy || agentResult !== null || searchResult !== null || researchResult !== null || error !== null;
   const busyText =
     mode === 'ask'
-      ? 'Asking the agent...'
+      ? 'Asking the Theorem agent...'
+      : mode === 'research'
+        ? 'Searching, then asking Theorem...'
       : mode === 'fractal'
         ? 'Expanding from graph to web...'
         : 'Searching the web...';
@@ -116,8 +141,10 @@ export default function Omnibar({
                 <p className="text-sm" style={{ color: 'var(--cp-red)' }}>
                   {error}
                 </p>
-              ) : answer ? (
-                <AnswerView answer={answer} />
+              ) : agentResult ? (
+                <AgentAnswerView result={agentResult} />
+              ) : researchResult ? (
+                <ResearchResultView result={researchResult} />
               ) : searchResult ? (
                 <SearchResultView result={searchResult} />
               ) : null}
@@ -140,35 +167,34 @@ export default function Omnibar({
   );
 }
 
-const ARM_LABEL: Record<string, string> = { vector: 'semantic', lexical: 'text', graph: 'graph' };
-
-function AnswerView({ answer }: { answer: AskResultGql }) {
-  const kind = answer.answerKind.toLowerCase();
+function AgentAnswerView({ result }: { result: TheoremAgentRunResult }) {
+  const allowed = verdictAllowed(result.alignmentVerdict);
   return (
     <div>
       <p className="whitespace-pre-wrap text-[15px] leading-[1.6]" style={{ color: 'var(--cp-text)' }}>
-        {answer.answer || 'No grounding found in your substrate yet.'}
+        {result.answer || 'Theorem did not return a publishable answer.'}
       </p>
       <div className="mt-3 flex flex-wrap items-center gap-2 font-mono text-[11px]" style={{ color: 'var(--cp-text-faint)' }}>
         <span className="rounded px-1.5 py-0.5" style={{ background: 'var(--cp-red-soft)', color: 'var(--cp-red)' }}>
-          {kind === 'model' ? 'agent' : kind === 'extractive' ? 'grounded (extractive)' : 'no match'}
+          Theorem agent
         </span>
-        <span>{answer.provenance.length} source{answer.provenance.length === 1 ? '' : 's'}</span>
+        <span>{result.heads.length || 1} head{result.heads.length === 1 ? '' : 's'}</span>
+        <span>{allowed ? 'alignment passed' : 'alignment pending'}</span>
+        {result.evidenceCount ? (
+          <span>{result.evidenceCount} evidence item{result.evidenceCount === 1 ? '' : 's'}</span>
+        ) : null}
       </div>
-      {answer.provenance.length ? (
+      {result.claims.length ? (
         <ul className="mt-3 space-y-1.5">
-          {answer.provenance.slice(0, 6).map((p) => (
-            <li key={p.item.id} className="flex flex-wrap items-baseline gap-2">
-              <span className="text-sm" style={{ color: 'var(--cp-text)' }}>{p.item.title}</span>
-              {p.arms.map((a) => (
-                <span
-                  key={a}
-                  className="rounded px-1 py-0.5 font-mono text-[10px]"
-                  style={{ background: 'var(--cp-surface-hover)', color: 'var(--cp-text-muted)' }}
-                >
-                  {ARM_LABEL[a] ?? a}
-                </span>
-              ))}
+          {result.claims.slice(0, 6).map((claim, index) => (
+            <li key={`${claim.provenance}-${index}`} className="flex flex-wrap items-baseline gap-2">
+              <span className="text-sm" style={{ color: 'var(--cp-text)' }}>{claim.text}</span>
+              <span
+                className="rounded px-1 py-0.5 font-mono text-[10px]"
+                style={{ background: 'var(--cp-surface-hover)', color: 'var(--cp-text-muted)' }}
+              >
+                {claim.provenance}
+              </span>
             </li>
           ))}
         </ul>
@@ -177,7 +203,28 @@ function AnswerView({ answer }: { answer: AskResultGql }) {
   );
 }
 
-function SearchResultView({ result }: { result: RustyWebSearchResponse }) {
+function ResearchResultView({
+  result,
+}: {
+  result: { search: RustyWebSearchResponse; agent: TheoremAgentRunResult };
+}) {
+  return (
+    <div className="space-y-4">
+      <AgentAnswerView result={result.agent} />
+      <div className="border-t pt-3" style={{ borderColor: 'var(--cp-border)' }}>
+        <SearchResultView result={result.search} label="Evidence bundle" />
+      </div>
+    </div>
+  );
+}
+
+function SearchResultView({
+  result,
+  label,
+}: {
+  result: RustyWebSearchResponse;
+  label?: string;
+}) {
   const hits = result.hits.slice(0, 12);
   if (!hits.length) {
     return (
@@ -192,7 +239,7 @@ function SearchResultView({ result }: { result: RustyWebSearchResponse }) {
     <div>
       <div className="mb-3 flex flex-wrap items-center gap-2 font-mono text-[11px]" style={{ color: 'var(--cp-text-faint)' }}>
         <span className="rounded px-1.5 py-0.5" style={{ background: 'var(--cp-red-soft)', color: 'var(--cp-red)' }}>
-          {result.mode === 'fractal' ? 'fractal expansion' : 'web search'}
+          {label ?? (result.mode === 'fractal' ? 'fractal expansion' : 'web search')}
         </span>
         <span>{hits.length} result{hits.length === 1 ? '' : 's'}</span>
         {result.stats.frontier ? <span>{result.stats.frontier} graph seed{result.stats.frontier === 1 ? '' : 's'}</span> : null}
@@ -204,6 +251,22 @@ function SearchResultView({ result }: { result: RustyWebSearchResponse }) {
         ))}
       </ul>
     </div>
+  );
+}
+
+function searchHitsToClaims(hits: RustyWebSearchHit[]): TheoremAgentClaim[] {
+  return hits.slice(0, 8).map((hit, index) => ({
+    text: [hit.title, hit.snippet].filter(Boolean).join(': '),
+    provenance: hit.url || hit.id || `search:${index + 1}`,
+  }));
+}
+
+function verdictAllowed(value: unknown): boolean {
+  return (
+    typeof value === 'object' &&
+    value !== null &&
+    'allowed' in value &&
+    (value as { allowed?: unknown }).allowed === true
   );
 }
 
