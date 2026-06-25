@@ -5,6 +5,7 @@ export const dynamic = 'force-dynamic';
 const LOCAL_NODE_URL = 'http://127.0.0.1:17888';
 const LOCAL_AGENT_URL = `${LOCAL_NODE_URL}/v1/theorem/agent/run`;
 const HOSTED_AGENT_URL = 'https://rustyredcore-theorem-production.up.railway.app/v1/theorem/agent/run';
+const AGENT_RUN_PATH = '/v1/theorem/agent/run';
 
 export async function POST(req: Request) {
   let body: TheoremAgentRunInput;
@@ -44,7 +45,9 @@ export async function POST(req: Request) {
   return json(
     {
       error: timedOut ? 'theorem_agent_timeout' : 'theorem_agent_unreachable',
-      message: timedOut ? 'Theorem agent timed out.' : 'Theorem agent backend unreachable.',
+      message: timedOut
+        ? `Theorem agent timed out. ${attemptSummary(errors)}`
+        : `Theorem agent backend unreachable. ${attemptSummary(errors)}`,
       attempts: errors,
     },
     timedOut ? 504 : 502,
@@ -52,9 +55,20 @@ export async function POST(req: Request) {
 }
 
 function upstreamCandidates(): string[] {
-  const explicit = text(process.env.THEOREM_AGENT_API_URL ?? process.env.THEOREM_AGENT_URL ?? process.env.THEOREM_PRODUCT_API_URL ?? process.env.RUSTYRED_AGENT_URL ?? process.env.NEXT_PUBLIC_THEOREM_AGENT_API_URL);
-  if (explicit) return [trimSlash(explicit)];
-  return process.env.NODE_ENV === 'development' ? [LOCAL_AGENT_URL, HOSTED_AGENT_URL] : [HOSTED_AGENT_URL];
+  const configured = [
+    process.env.THEOREM_AGENT_API_URL,
+    process.env.THEOREM_AGENT_URL,
+    process.env.THEOREM_PRODUCT_API_URL,
+    process.env.RUSTYRED_AGENT_URL,
+    process.env.NEXT_PUBLIC_THEOREM_AGENT_API_URL,
+  ]
+    .map(normalizeAgentEndpoint)
+    .filter(nonNullable);
+  const defaults =
+    process.env.NODE_ENV === 'development'
+      ? [LOCAL_AGENT_URL, HOSTED_AGENT_URL]
+      : [HOSTED_AGENT_URL];
+  return unique([...configured, ...defaults]);
 }
 
 function upstreamHeaders(): HeadersInit {
@@ -71,6 +85,37 @@ function json(value: unknown, status: number): Response {
 
 function text(value: unknown): string | undefined {
   return typeof value === 'string' && value.trim() ? value.trim() : undefined;
+}
+
+function normalizeAgentEndpoint(value: unknown): string | undefined {
+  const raw = text(value);
+  if (!raw) return undefined;
+  try {
+    const url = new URL(raw);
+    const pathname = trimSlash(url.pathname);
+    if (!pathname || pathname === '/graphql') {
+      url.pathname = AGENT_RUN_PATH;
+      url.search = '';
+      url.hash = '';
+      return url.toString();
+    }
+    return trimSlash(url.toString());
+  } catch {
+    return trimSlash(raw);
+  }
+}
+
+function attemptSummary(errors: string[]): string {
+  if (!errors.length) return 'No upstream attempts were made.';
+  return `First attempt: ${errors[0]}`;
+}
+
+function unique(values: string[]): string[] {
+  return Array.from(new Set(values));
+}
+
+function nonNullable<T>(value: T | null | undefined): value is T {
+  return value !== null && value !== undefined;
 }
 
 function trimSlash(url: string): string {
