@@ -7,11 +7,12 @@
  * THEOREM_API_KEY to its instance key (both server-only, never NEXT_PUBLIC).
  */
 
-const UPSTREAM = (process.env.THEOREM_GRAPHQL_URL ?? 'http://localhost:50090').replace(
-  /\/+$/,
-  '',
-);
+const configuredUpstream = process.env.THEOREM_GRAPHQL_URL?.trim();
+const hasConfiguredUpstream = Boolean(configuredUpstream);
+const UPSTREAM = (configuredUpstream || 'http://localhost:50090').replace(/\/+$/, '');
 const API_KEY = process.env.THEOREM_API_KEY ?? 'dev-key';
+const softFailLocalDefault =
+  process.env.NODE_ENV === 'development' && !hasConfiguredUpstream;
 
 export const dynamic = 'force-dynamic';
 
@@ -30,9 +31,10 @@ export async function POST(req: Request) {
       headers: { 'Content-Type': 'application/json' },
     });
   } catch {
+    const status = softFailLocalDefault ? 200 : 502;
     return new Response(
       JSON.stringify({ errors: [{ message: 'Theorem GraphQL backend unreachable' }] }),
-      { status: 502, headers: { 'Content-Type': 'application/json' } },
+      { status, headers: { 'Content-Type': 'application/json' } },
     );
   }
 }
