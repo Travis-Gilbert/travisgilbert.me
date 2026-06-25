@@ -91,6 +91,8 @@ export type ViewType =
   | 'board'
   | 'files'
   | 'connection-review'
+  | 'agent-thread'
+  | 'terminal'
   | 'empty';
 
 /* ─────────────────────────────────────────────────
@@ -159,6 +161,8 @@ export const VIEW_REGISTRY: Record<ViewType, { label: string; icon: string }> = 
   board: { label: 'Free', icon: 'substract' },
   files: { label: 'Files', icon: 'archive' },
   'connection-review': { label: 'Connection Review', icon: 'check-circle' },
+  'agent-thread': { label: 'Agent Thread', icon: 'sparks' },
+  terminal: { label: 'Terminal', icon: 'terminal' },
   empty: { label: 'Empty', icon: 'plus' },
 };
 

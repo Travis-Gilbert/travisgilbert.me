@@ -10,6 +10,7 @@ import { searchObjects } from '@/lib/commonplace-api';
 import type { ObjectSearchResult } from '@/lib/commonplace-api';
 import { OBJECT_TYPES } from '@/lib/commonplace';
 import type { ViewType } from '@/lib/commonplace';
+import { ACP_AGENTS, type AcpAgentId } from '@/lib/commonplace-acp';
 
 /**
  * CommandPalette: Cmd+K interface for searching objects and navigating views.
@@ -48,6 +49,7 @@ const RECENT_KEY = 'cp-command-recent';
 const MAX_RECENT = 8;
 
 function loadRecent(): ObjectSearchResult[] {
+  if (typeof window === 'undefined') return [];
   try {
     const raw = localStorage.getItem(RECENT_KEY);
     if (!raw) return [];
@@ -59,6 +61,7 @@ function loadRecent(): ObjectSearchResult[] {
 }
 
 function saveRecent(list: ObjectSearchResult[]) {
+  if (typeof window === 'undefined') return;
   try {
     localStorage.setItem(RECENT_KEY, JSON.stringify(list.slice(0, MAX_RECENT)));
   } catch {
@@ -72,43 +75,45 @@ export default function CommandPalette() {
 
   const [query, setQuery] = useState('');
   const [results, setResults] = useState<ObjectSearchResult[]>([]);
-  const [recentItems, setRecentItems] = useState<ObjectSearchResult[]>([]);
+  const [recentItems, setRecentItems] = useState<ObjectSearchResult[]>(() => loadRecent());
   const [searching, setSearching] = useState(false);
   const [showMoreTypes, setShowMoreTypes] = useState(false);
+  const [morphingAgent, setMorphingAgent] = useState<AcpAgentId | null>(null);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const morphTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Track paletteOpen in a ref so the hotkey handler never goes stale
   const paletteOpenRef = useRef(paletteOpen);
   useEffect(() => { paletteOpenRef.current = paletteOpen; }, [paletteOpen]);
 
+  const resetPalette = useCallback(() => {
+    setQuery('');
+    setResults([]);
+    setSearching(false);
+    setShowMoreTypes(false);
+    setMorphingAgent(null);
+  }, []);
+
+  const dismissPalette = useCallback(() => {
+    resetPalette();
+    closePalette();
+  }, [closePalette, resetPalette]);
+
   useHotkeys('mod+k', (e) => {
     e.preventDefault();
-    if (paletteOpenRef.current) closePalette();
+    if (paletteOpenRef.current) dismissPalette();
     else openPalette();
   });
 
   useHotkeys('mod+n', (e) => {
     e.preventDefault();
     launchView('compose');
-    closePalette();
+    dismissPalette();
   });
 
   useEffect(() => {
-    setRecentItems(loadRecent());
-  }, []);
-
-  useEffect(() => {
-    if (!paletteOpen) {
-      setQuery('');
-      setResults([]);
-      setShowMoreTypes(false);
-    }
-  }, [paletteOpen]);
-
-  useEffect(() => {
     if (debounceRef.current) clearTimeout(debounceRef.current);
-    if (!query.trim()) {
-      setResults([]);
+    if (!query.trim() || query.trim().startsWith('/')) {
       return;
     }
     debounceRef.current = setTimeout(async () => {
@@ -125,6 +130,10 @@ export default function CommandPalette() {
     };
   }, [query]);
 
+  useEffect(() => () => {
+    if (morphTimeoutRef.current) clearTimeout(morphTimeoutRef.current);
+  }, []);
+
   const handleOpenObject = useCallback(
     (result: ObjectSearchResult) => {
       launchView('object-detail', { objectSlug: result.slug });
@@ -133,33 +142,45 @@ export default function CommandPalette() {
         saveRecent(deduped);
         return deduped;
       });
-      closePalette();
+      dismissPalette();
       toast.success(`Opened: ${result.display_title || result.title}`);
     },
-    [launchView, closePalette],
+    [launchView, dismissPalette],
   );
 
   const handleAction = useCallback(
     (viewType: ViewType) => {
       launchView(viewType);
-      closePalette();
+      dismissPalette();
     },
-    [launchView, closePalette],
+    [launchView, dismissPalette],
   );
 
   const handleCreate = useCallback(
     (objectType: string) => {
       launchView('compose', { prefillType: objectType });
-      closePalette();
+      dismissPalette();
     },
-    [launchView, closePalette],
+    [launchView, dismissPalette],
+  );
+
+  const handleLaunchAgent = useCallback(
+    (agentId: AcpAgentId) => {
+      setMorphingAgent(agentId);
+      launchView('agent-thread', { agentId });
+      if (morphTimeoutRef.current) clearTimeout(morphTimeoutRef.current);
+      morphTimeoutRef.current = setTimeout(() => {
+        dismissPalette();
+      }, 220);
+    },
+    [launchView, dismissPalette],
   );
 
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent) => {
-      if (e.key === 'Escape') closePalette();
+      if (e.key === 'Escape') dismissPalette();
     },
-    [closePalette],
+    [dismissPalette],
   );
 
   const groupedResults = useMemo(() => {
@@ -173,23 +194,33 @@ export default function CommandPalette() {
     return Array.from(groups.entries()).sort((a, b) => a[0].localeCompare(b[0]));
   }, [results]);
 
-  const showRecent = !query.trim() && recentItems.length > 0;
-  const showTypedGroups = query.trim() && groupedResults.length > 0;
-  const showActions = !query.trim() || results.length === 0;
+  const trimmedQuery = query.trim();
+  const isAgentQuery = trimmedQuery.startsWith('/');
+  const matchingAgents = useMemo(() => {
+    if (!isAgentQuery) return [];
+    const lowered = trimmedQuery.toLowerCase();
+    return ACP_AGENTS.filter((agent) =>
+      agent.command.startsWith(lowered) ||
+      agent.label.toLowerCase().includes(lowered.slice(1)),
+    );
+  }, [isAgentQuery, trimmedQuery]);
+  const showRecent = !isAgentQuery && !trimmedQuery && recentItems.length > 0;
+  const showTypedGroups = !isAgentQuery && trimmedQuery && groupedResults.length > 0;
+  const showActions = !isAgentQuery && (!trimmedQuery || results.length === 0);
 
   if (!paletteOpen) return null;
 
   return (
     <div
-      className="cp-palette-overlay"
-      onClick={closePalette}
+      className={`cp-palette-overlay${morphingAgent ? ' cp-palette-overlay--morphing' : ''}`}
+      onClick={dismissPalette}
       role="dialog"
       aria-modal="true"
       aria-label="Command palette"
       onKeyDown={handleKeyDown}
     >
       <div
-        className="cp-palette-container"
+        className={`cp-palette-container${morphingAgent ? ' cp-palette-container--morphing' : ''}`}
         onClick={(e) => e.stopPropagation()}
       >
         <Command shouldFilter={false} label="Command palette">
@@ -209,7 +240,7 @@ export default function CommandPalette() {
               className="cp-palette-input"
               value={query}
               onValueChange={setQuery}
-              placeholder="Search objects or open a view..."
+              placeholder="Search objects or type / for agents..."
               autoFocus
             />
             {searching && (
@@ -219,7 +250,24 @@ export default function CommandPalette() {
           </div>
 
           <Command.List className="cp-palette-list">
-            {query.trim() && results.length === 0 && !searching && (
+            {isAgentQuery && (
+              <Command.Group heading="Agents" className="cp-palette-group">
+                {matchingAgents.map((agent) => (
+                  <Command.Item
+                    key={agent.agentId}
+                    value={`${agent.command} ${agent.label}`}
+                    onSelect={() => handleLaunchAgent(agent.agentId)}
+                    className="cp-palette-item cp-palette-item--action cp-palette-item--agent"
+                  >
+                    <span className="cp-palette-agent-command">{agent.command}</span>
+                    <span className="cp-palette-item-title">{agent.label}</span>
+                    <span className="cp-palette-item-meta">{agent.hint}</span>
+                  </Command.Item>
+                ))}
+              </Command.Group>
+            )}
+
+            {trimmedQuery && !isAgentQuery && results.length === 0 && !searching && (
               <Command.Empty className="cp-palette-empty">
                 No objects found for &ldquo;{query}&rdquo;
               </Command.Empty>

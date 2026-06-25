@@ -56,6 +56,7 @@ import ArtifactBrowserView from '../ArtifactBrowserView';
 import TemporalEvolutionView from '../views/TemporalEvolutionView';
 import BoardView from '../board/BoardView';
 import FilesView from '../views/FilesView';
+import AgentThreadView from '../views/AgentThreadView';
 import ConnectionWorkshop from '../engine/ConnectionWorkshop';
 import LensPane from '../lenses/LensPane';
 import type { LensContext } from '@/lib/commonplace-lenses';
@@ -922,6 +923,11 @@ function PaneViewContent({
     return <ConnectionWorkshop notebookSlug={context?.slug as string | undefined} />;
   }
 
+  /* Agent Thread (ACP-native external agent surface) */
+  if (viewType === 'agent-thread') {
+    return <AgentThreadView agentId={context?.agentId as string | undefined} />;
+  }
+
   /* Placeholder for views not yet implemented */
   return (
     <div
@@ -1277,6 +1283,39 @@ function ViewTypeIcon({
           <rect x={4} y={9} width={4} height={3} rx={0.5} />
           <line x1={7} y1={4.5} x2={9} y2={6.5} opacity={0.5} />
           <line x1={6} y1={9} x2={7} y2={8} opacity={0.5} />
+        </svg>
+      );
+    case 'agent-thread':
+      return (
+        <svg
+          width={s}
+          height={s}
+          viewBox="0 0 16 16"
+          fill="none"
+          stroke={color}
+          strokeWidth={sw}
+          style={{ display: 'block', margin: '0 auto' }}
+        >
+          <rect x={2} y={2} width={12} height={12} rx={2} />
+          <path d="M5 6 H11" />
+          <path d="M5 9 H9" />
+          <circle cx={12} cy={12} r={1.5} />
+        </svg>
+      );
+    case 'terminal':
+      return (
+        <svg
+          width={s}
+          height={s}
+          viewBox="0 0 16 16"
+          fill="none"
+          stroke={color}
+          strokeWidth={sw}
+          style={{ display: 'block', margin: '0 auto' }}
+        >
+          <rect x={2} y={3} width={12} height={10} rx={1.5} />
+          <path d="M5 6 L7 8 L5 10" />
+          <line x1={8.5} y1={10} x2={11} y2={10} />
         </svg>
       );
     default:
