@@ -269,10 +269,15 @@ export default function CommonPlaceSidebar({ onCollapse }: { onCollapse?: () => 
 
                 if (item.expandable) {
                   const isExpanded = expandedGroups.has(item.label);
+                  const childIsActive = item.children?.some((child) =>
+                    (child.screenType ? activeScreen === child.screenType : false) ||
+                    (child.viewType ? Boolean(findLeafWithView(layout, child.viewType)) : false),
+                  ) ?? false;
                   const itemIsActive =
                     isActive ||
                     (item.screenType ? activeScreen === item.screenType : false) ||
-                    (item.viewType ? Boolean(findLeafWithView(layout, item.viewType)) : false);
+                    (item.viewType ? Boolean(findLeafWithView(layout, item.viewType)) : false) ||
+                    childIsActive;
 
                   if (item.label === 'Files') {
                     return (
@@ -300,7 +305,7 @@ export default function CommonPlaceSidebar({ onCollapse }: { onCollapse?: () => 
                       if (child.screenType) {
                         navigateToScreen(child.screenType);
                       } else if (child.viewType) {
-                        launchView(child.viewType, undefined, e.shiftKey);
+                        launchView(child.viewType, child.viewContext, e.shiftKey);
                       }
                       closeDrawerIfMobile();
                     },
@@ -559,13 +564,14 @@ export default function CommonPlaceSidebar({ onCollapse }: { onCollapse?: () => 
             <RecentCaptures captures={captures} />
           </>
         )}
+
+        {/* Component toolbox: drag tiles onto objects */}
+        <div className={styles.sidebarDivider} />
+        <ComponentToolbox />
       </nav>
 
       {/* DropZone: fixed overlay, lives here to share capture state */}
       <DropZone onCapture={handleCapture} />
-
-      {/* Component toolbox: drag tiles onto objects */}
-      <ComponentToolbox />
 
       {/* Engine bar: anchored at bottom */}
       <button
@@ -722,6 +728,15 @@ const LABEL_ACCENT: Record<string, string> = {
   /* System section: neutral gray */
   'Connection Engine':  '#6E7078',
   'Engine':             '#6E7078',
+  'Agents':             '#6E7078',
+  'Theorem Agent':      '#6E7078',
+  'Claude Code':        '#6E7078',
+  'Codex':              '#6E7078',
+  'Gemini CLI':         '#6E7078',
+  'Desktop':            '#6E7078',
+  'Co-browser':         '#6E7078',
+  'Coordination':       '#6E7078',
+  'Receiver':           '#6E7078',
   'Review Queue':       '#6E7078',
   'Settings':           '#6E7078',
 };
@@ -820,6 +835,32 @@ function SidebarIcon({ name, color }: { name: string; color?: string }) {
     'sparkle': [
       'M8 15C12.8747 15 15 12.949 15 8C15 12.949 17.1104 15 22 15C17.1104 15 15 17.1104 15 22C15 17.1104 12.8747 15 8 15Z',
       'M2 6.5C5.13376 6.5 6.5 5.18153 6.5 2C6.5 5.18153 7.85669 6.5 11 6.5C7.85669 6.5 6.5 7.85669 6.5 11C6.5 7.85669 5.13376 6.5 2 6.5Z',
+    ],
+    'terminal': [
+      'M3 4.6C3 4.26863 3.26863 4 3.6 4H20.4C20.7314 4 21 4.26863 21 4.6V19.4C21 19.7314 20.7314 20 20.4 20H3.6C3.26863 20 3 19.7314 3 19.4V4.6Z',
+      'M7 9L10 12L7 15',
+      'M12 15H17',
+    ],
+    'globe': [
+      'M12 22C17.523 22 22 17.523 22 12C22 6.477 17.523 2 12 2C6.477 2 2 6.477 2 12C2 17.523 6.477 22 12 22Z',
+      'M2 12H22',
+      'M12 2C14.5 4.5 15.5 8 15.5 12C15.5 16 14.5 19.5 12 22C9.5 19.5 8.5 16 8.5 12C8.5 8 9.5 4.5 12 2Z',
+    ],
+    'chat': [
+      'M21 11.5C21 15.09 17.866 18 14 18C13.06 18 12.16 17.83 11.34 17.52L7 19L8.13 15.66C7.42 14.66 7 13.63 7 12.5C7 8.91 10.134 6 14 6C17.866 6 21 8.91 21 11.5Z',
+    ],
+    'inbox': [
+      'M3 15V19C3 20.105 3.895 21 5 21H19C20.105 21 21 20.105 21 19V15',
+      'M7 10L12 15L17 10',
+      'M12 15V3',
+    ],
+    'sliders': [
+      'M3 6H21',
+      'M3 12H21',
+      'M3 18H21',
+      'M8 6C8 6.828 7.328 7.5 6.5 7.5C5.672 7.5 5 6.828 5 6C5 5.172 5.672 4.5 6.5 4.5C7.328 4.5 8 5.172 8 6Z',
+      'M19 12C19 12.828 18.328 13.5 17.5 13.5C16.672 13.5 16 12.828 16 12C16 11.172 16.672 10.5 17.5 10.5C18.328 10.5 19 11.172 19 12Z',
+      'M11 18C11 18.828 10.328 19.5 9.5 19.5C8.672 19.5 8 18.828 8 18C8 17.172 8.672 16.5 9.5 16.5C10.328 16.5 11 17.172 11 18Z',
     ],
     'gear': [
       'M12 15C13.6569 15 15 13.6569 15 12C15 10.3431 13.6569 9 12 9C10.3431 9 9 10.3431 9 12C9 13.6569 10.3431 15 12 15Z',
@@ -934,7 +975,16 @@ function SidebarIcon({ name, color }: { name: string; color?: string }) {
     }
   }
 
-  const dValues = Array.isArray(pathData) ? pathData : [pathData ?? paths['note-pencil']];
+  const fallbackPathData = paths['note-pencil'];
+  const dValues = Array.isArray(pathData)
+    ? pathData
+    : pathData
+      ? [pathData]
+      : Array.isArray(fallbackPathData)
+        ? fallbackPathData
+        : fallbackPathData
+          ? [fallbackPathData]
+          : [];
 
   return (
     <svg

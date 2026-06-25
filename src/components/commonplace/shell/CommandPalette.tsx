@@ -9,7 +9,7 @@ import { useWorkspace } from '@/lib/providers/workspace-provider';
 import { searchObjects } from '@/lib/commonplace-api';
 import type { ObjectSearchResult } from '@/lib/commonplace-api';
 import { OBJECT_TYPES } from '@/lib/commonplace';
-import type { ViewType } from '@/lib/commonplace';
+import type { ScreenType, ViewType } from '@/lib/commonplace';
 import { ACP_AGENTS } from '@/lib/commonplace-acp';
 
 /**
@@ -25,6 +25,14 @@ const ACTION_ITEMS = [
   { key: 'network' as ViewType, label: 'Open Knowledge Map', hint: 'Force-directed graph of all edges' },
   { key: 'timeline' as ViewType, label: 'Open Timeline', hint: 'Chronological capture feed' },
   { key: 'connection-engine' as ViewType, label: 'Open Connection Engine', hint: 'Discover and manage edges' },
+  { key: 'agent-thread' as ViewType, label: 'Open Agent Thread', hint: 'Talk to Theorem or dock an ACP agent' },
+];
+
+const SCREEN_ACTION_ITEMS = [
+  { key: 'cobrowser' as ScreenType, label: 'Open Co-browser', hint: 'Desktop webview and page ingest controls' },
+  { key: 'coordination' as ScreenType, label: 'Open Coordination', hint: 'Human and agent room feed' },
+  { key: 'receiver' as ScreenType, label: 'Open Receiver', hint: 'Local agent execution status' },
+  { key: 'desktop' as ScreenType, label: 'Open Desktop Settings', hint: 'Local node, keys, sync, and model controls' },
 ];
 
 type AgentLaunchMode = 'api' | 'acp';
@@ -93,7 +101,7 @@ function saveRecent(list: ObjectSearchResult[]) {
 }
 
 export default function CommandPalette() {
-  const { launchView } = useLayout();
+  const { launchView, navigateToScreen } = useLayout();
   const { paletteOpen, openPalette, closePalette } = useWorkspace();
 
   const [query, setQuery] = useState('');
@@ -173,10 +181,22 @@ export default function CommandPalette() {
 
   const handleAction = useCallback(
     (viewType: ViewType) => {
-      launchView(viewType);
+      if (viewType === 'agent-thread') {
+        launchView(viewType, { agentId: 'theorem', agentMode: 'api' });
+      } else {
+        launchView(viewType);
+      }
       dismissPalette();
     },
     [launchView, dismissPalette],
+  );
+
+  const handleScreenAction = useCallback(
+    (screenType: ScreenType) => {
+      navigateToScreen(screenType);
+      dismissPalette();
+    },
+    [navigateToScreen, dismissPalette],
   );
 
   const handleCreate = useCallback(
@@ -383,6 +403,22 @@ export default function CommandPalette() {
                     key={key}
                     value={label}
                     onSelect={() => handleAction(key)}
+                    className="cp-palette-item cp-palette-item--action"
+                  >
+                    <span className="cp-palette-item-title">{label}</span>
+                    <span className="cp-palette-item-meta">{hint}</span>
+                  </Command.Item>
+                ))}
+              </Command.Group>
+            )}
+
+            {showActions && (
+              <Command.Group heading="Desktop" className="cp-palette-group">
+                {SCREEN_ACTION_ITEMS.map(({ key, label, hint }) => (
+                  <Command.Item
+                    key={key}
+                    value={label}
+                    onSelect={() => handleScreenAction(key)}
                     className="cp-palette-item cp-palette-item--action"
                   >
                     <span className="cp-palette-item-title">{label}</span>
