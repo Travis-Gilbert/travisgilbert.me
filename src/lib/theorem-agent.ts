@@ -42,9 +42,21 @@ export interface TheoremAgentNormalizedInput {
 const DEFAULT_TENANT = 'Travis-Gilbert';
 const DEFAULT_BINDING_PREFIX = 'agent:theorem';
 const DEFAULT_TIMEOUT_MS = 60_000;
+const THEOREM_AGENT_PROXY_PATH = '/api/theorem/agent';
 
 export async function runTheoremAgent(input: TheoremAgentRunInput): Promise<TheoremAgentRunResult> {
   const normalized = normalizeInput(input);
+  try {
+    return await runTheoremAgentGraphql(normalized);
+  } catch (err) {
+    if (!isGraphqlTransportError(err)) {
+      throw err;
+    }
+    return runTheoremAgentProductFallback(normalized);
+  }
+}
+
+async function runTheoremAgentGraphql(normalized: TheoremAgentNormalizedInput): Promise<TheoremAgentRunResult> {
   const timeout = timeoutController(normalized.requestTimeoutMs);
   try {
     const raw = await gqlTheoremAgent(
@@ -66,6 +78,11 @@ export async function runTheoremAgent(input: TheoremAgentRunInput): Promise<Theo
   } finally {
     timeout.clear();
   }
+}
+
+async function runTheoremAgentProductFallback(normalized: TheoremAgentNormalizedInput): Promise<TheoremAgentRunResult> {
+  const raw = await callTheoremAgentEndpoint(THEOREM_AGENT_PROXY_PATH, normalized);
+  return normalizeTheoremAgentProductResponse(raw, normalized);
 }
 
 export async function callTheoremAgentEndpoint(endpoint: string, input: TheoremAgentNormalizedInput, headers: HeadersInit = {}): Promise<unknown> {
@@ -244,6 +261,10 @@ function timeoutController(timeoutMs: number): {
 
 function isAbortError(err: unknown): boolean {
   return typeof err === 'object' && err !== null && 'name' in err && (err as { name?: unknown }).name === 'AbortError';
+}
+
+function isGraphqlTransportError(err: unknown): boolean {
+  return err instanceof Error && /^commonplace-api \d{3}$/.test(err.message);
 }
 
 function clampNumber(value: unknown, fallback: number, min: number, max: number): number {
