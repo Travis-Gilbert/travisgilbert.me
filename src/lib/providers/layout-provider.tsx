@@ -91,7 +91,7 @@ export function LayoutProvider({ children }: { children: ReactNode }) {
   );
   const [focusedPaneId, setFocusedPaneId] = useState<string | null>(null);
   const [fullscreenPaneId, setFullscreenPaneId] = useState<string | null>(null);
-  const [activeScreen, setActiveScreen] = useState<ScreenType | null>(() => screenFromHash() ?? 'daily');
+  const [activeScreen, setActiveScreen] = useState<ScreenType | null>('daily');
 
   const setLayout = useCallback(
     (updater: PaneNode | ((prev: PaneNode) => PaneNode)) => {
@@ -128,8 +128,10 @@ export function LayoutProvider({ children }: { children: ReactNode }) {
       }
     }
 
+    const initialHashTimer = window.setTimeout(handleHashChange, 0);
     window.addEventListener('hashchange', handleHashChange);
     return () => {
+      window.clearTimeout(initialHashTimer);
       window.removeEventListener('hashchange', handleHashChange);
     };
   }, []);

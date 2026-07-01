@@ -19,17 +19,12 @@ import {
 } from '@/lib/commonplace-chat';
 import { runTheoremAgent } from '@/lib/theorem-agent';
 
-const SUGGESTED_TASKS = [
-  'Summarize recent repository ingestion state for CommonPlace.',
-  'What should I inspect next in this workspace?',
-  'Turn the current CommonPlace thread into action items.',
-];
-
 export default function CommonPlaceChatView() {
   const [conversationId] = useState(() => newConversationId());
   const [messages, setMessages] = useState<CommonPlaceChatMessage[]>([]);
   const [isRunning, setIsRunning] = useState(false);
   const isRunningRef = useRef(false);
+  const activeRunTokenRef = useRef<string | null>(null);
 
   const bindingId = useMemo(() => buildCommonPlaceChatBindingId(conversationId), [conversationId]);
 
@@ -38,7 +33,9 @@ export default function CommonPlaceChatView() {
       const cleanTask = task.trim();
       if (!cleanTask || isRunningRef.current) return;
 
+      const runToken = `chat_run_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`;
       isRunningRef.current = true;
+      activeRunTokenRef.current = runToken;
       setIsRunning(true);
 
       const userMessage = createCommonPlaceChatMessage({
@@ -57,6 +54,7 @@ export default function CommonPlaceChatView() {
           bindingId,
           tenant: COMMONPLACE_CHAT_TENANT,
         });
+        if (activeRunTokenRef.current !== runToken) return;
         const assistantMessage = createCommonPlaceChatMessage({
           role: 'assistant',
           content: result.answer || 'Theorem completed the run without a model answer.',
@@ -70,6 +68,7 @@ export default function CommonPlaceChatView() {
         });
         setMessages((prev) => [...prev, assistantMessage]);
       } catch (err) {
+        if (activeRunTokenRef.current !== runToken) return;
         const message = err instanceof Error ? err.message : 'Theorem agent request failed.';
         setMessages((prev) => [
           ...prev,
@@ -83,8 +82,11 @@ export default function CommonPlaceChatView() {
           }),
         ]);
       } finally {
-        isRunningRef.current = false;
-        setIsRunning(false);
+        if (activeRunTokenRef.current === runToken) {
+          activeRunTokenRef.current = null;
+          isRunningRef.current = false;
+          setIsRunning(false);
+        }
       }
     },
     [bindingId, conversationId],
@@ -102,6 +104,7 @@ export default function CommonPlaceChatView() {
         await submitTask(textParts.map((part) => part.text).join(' ').trim());
       },
       onCancel: async () => {
+        activeRunTokenRef.current = null;
         isRunningRef.current = false;
         setIsRunning(false);
       },
@@ -180,21 +183,6 @@ export default function CommonPlaceChatView() {
             )}
           </div>
 
-          <div className="cp-chat-audit-section">
-            <div className="cp-chat-audit-title">Starts</div>
-            <div className="cp-chat-suggestion-list">
-              {SUGGESTED_TASKS.map((task) => (
-                <button
-                  key={task}
-                  type="button"
-                  onClick={() => void submitTask(task)}
-                  disabled={isRunning}
-                >
-                  {task}
-                </button>
-              ))}
-            </div>
-          </div>
         </aside>
       </div>
     </div>
