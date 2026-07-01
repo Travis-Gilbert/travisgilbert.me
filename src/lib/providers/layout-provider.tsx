@@ -26,6 +26,7 @@ const SCREEN_HASHES: Record<string, ScreenType> = {
   '#settings': 'settings',
   '#settings-github-app': 'settings',
   '#chat': 'chat',
+  '#code': 'code',
   '#accounts': 'accounts',
   '#cobrowser': 'cobrowser',
   '#coordination': 'coordination',

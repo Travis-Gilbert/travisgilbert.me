@@ -21,6 +21,7 @@ import ReceiverView from '../views/ReceiverView';
 import DesktopSettingsView from '../views/DesktopSettingsView';
 import SettingsView from '../views/SettingsView';
 import CommonPlaceChatView from '../views/CommonPlaceChatView';
+import CommonPlaceCodeView from '../views/CommonPlaceCodeView';
 import AccountSettingsView from '../views/AccountSettingsView';
 
 interface ScreenRouterProps {
@@ -51,6 +52,8 @@ export default function ScreenRouter({ screen }: ScreenRouterProps) {
       return <DesktopSettingsView />;
     case 'chat':
       return <CommonPlaceChatView />;
+    case 'code':
+      return <CommonPlaceCodeView />;
     case 'accounts':
       return <AccountSettingsView />;
     case 'settings':

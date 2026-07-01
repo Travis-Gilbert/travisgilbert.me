@@ -29,7 +29,8 @@ const ACTION_ITEMS = [
 ];
 
 const SCREEN_ACTION_ITEMS = [
-  { key: 'chat' as ScreenType, label: 'Open Chat', hint: 'Run a Theorem-backed CommonPlace thread' },
+  { key: 'chat' as ScreenType, label: 'Open Chat', hint: 'Run a Theorem backed CommonPlace thread' },
+  { key: 'code' as ScreenType, label: 'Open Code', hint: 'Workspace bound Theorem code thread' },
   { key: 'accounts' as ScreenType, label: 'Open Accounts', hint: 'Owner auth and connected ingestion channels' },
   { key: 'cobrowser' as ScreenType, label: 'Open Co-browser', hint: 'Desktop webview and page ingest controls' },
   { key: 'coordination' as ScreenType, label: 'Open Coordination', hint: 'Human and agent room feed' },

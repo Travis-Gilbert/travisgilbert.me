@@ -19,6 +19,7 @@ const RAIL_ITEMS: RailItem[] = [
   { icon: 'book', label: 'Notebooks', screenType: 'notebooks' },
   { icon: 'engine', label: 'Engine', screenType: 'engine' },
   { icon: 'chat', label: 'Chat', screenType: 'chat' },
+  { icon: 'code', label: 'Code', screenType: 'code' },
   { icon: 'globe', label: 'Co-browser', screenType: 'cobrowser', desktopOnly: true },
   { icon: 'chat', label: 'Coordination', screenType: 'coordination', desktopOnly: true },
   { icon: 'inbox', label: 'Receiver', screenType: 'receiver', desktopOnly: true },
@@ -61,6 +62,11 @@ const PATHS: Record<string, string | string[]> = {
   ],
   chat: [
     'M21 11.5C21 15.09 17.866 18 14 18C13.06 18 12.16 17.83 11.34 17.52L7 19L8.13 15.66C7.42 14.66 7 13.63 7 12.5C7 8.91 10.134 6 14 6C17.866 6 21 8.91 21 11.5Z',
+  ],
+  code: [
+    'M8 9L4 12L8 15',
+    'M16 9L20 12L16 15',
+    'M14 4L10 20',
   ],
   inbox: [
     'M3 15V19C3 20.105 3.895 21 5 21H19C20.105 21 21 20.105 21 19V15',

@@ -1,0 +1,125 @@
+{
+  "schema_version": "planning-theorem.checklist.v1",
+  "plan_title": "CommonPlace code surface",
+  "tenant_slug": "Travis-Gilbert",
+  "room_id": "commonplace-code-surface",
+  "working_directory": "/Users/travisgilbert/Tech Dev Local/Creative/Website/travisgilbert.me",
+  "source_documents": [
+    {
+      "path": "/Users/travisgilbert/Downloads/SPEC-COMMONPLACE-CODE-SURFACE.md",
+      "role": "primary_code_spec"
+    }
+  ],
+  "scope_note": "This deploy repo exposes the CommonPlace web shell. It does not contain the desktop RunRegistry, HeadAdapter CommandFactory, or PTY bridge named by the spec. The implementation surfaces the Code screen, real owner gated git status, and the existing Theorem agent plan path, while keeping runtime gaps explicit.",
+  "items": [
+    {
+      "id": "CS-001",
+      "title": "D1. Coding conversation bound to a workspace",
+      "spec_backreference": "SPEC-COMMONPLACE-CODE-SURFACE: D1",
+      "implementation_slice": "Add a Code screen with project, branch, worktree, conversation id, and binding id derived from the real git workspace.",
+      "grounding": [
+        "src/components/commonplace/views/CommonPlaceCodeView.tsx",
+        "src/lib/commonplace-code.ts",
+        "src/app/api/commonplace/code/status/route.ts"
+      ],
+      "status": "complete",
+      "verification_evidence": [
+        "The Code screen reads /api/commonplace/code/status after owner sign in.",
+        "The binding id includes a stable workspace hash and active branch."
+      ],
+      "gap": ""
+    },
+    {
+      "id": "CS-002",
+      "title": "D2. Run transcript",
+      "spec_backreference": "SPEC-COMMONPLACE-CODE-SURFACE: D2",
+      "implementation_slice": "Render a real run lifecycle transcript for the existing Theorem agent route and show elapsed time from actual timestamps.",
+      "grounding": [
+        "src/components/commonplace/views/CommonPlaceCodeView.tsx",
+        "src/lib/theorem-agent.ts"
+      ],
+      "status": "partial",
+      "verification_evidence": [
+        "Plan mode dispatches through runTheoremAgent and records queued, trace, done, and failed states.",
+        "Elapsed time is calculated from started and ended timestamps."
+      ],
+      "gap": "Trace, Diff, Status SSE from apps/commonplace-desktop-runtime is not present in this repo."
+    },
+    {
+      "id": "CS-003",
+      "title": "D3. Diff cards with review and undo",
+      "spec_backreference": "SPEC-COMMONPLACE-CODE-SURFACE: D3",
+      "implementation_slice": "Provide the diff card render path and keep it empty until real Diff events arrive.",
+      "grounding": [
+        "src/components/commonplace/views/CommonPlaceCodeView.tsx",
+        "src/lib/commonplace-code.ts"
+      ],
+      "status": "blocked",
+      "verification_evidence": [
+        "The UI does not render decorative Review or Undo buttons without a real file scoped mutation endpoint."
+      ],
+      "gap": "Run channel Diff events and file scoped undo actions live in the desktop runtime path, not in this web repo."
+    },
+    {
+      "id": "CS-004",
+      "title": "D4. Environment panel",
+      "spec_backreference": "SPEC-COMMONPLACE-CODE-SURFACE: D4",
+      "implementation_slice": "Expose branch, worktree, pending changes, last commit, checks state, review state, capability flags, and connector registry state from an owner gated route.",
+      "grounding": [
+        "src/lib/commonplace-code-server.ts",
+        "src/components/commonplace/views/CommonPlaceCodeView.tsx"
+      ],
+      "status": "partial",
+      "verification_evidence": [
+        "Git branch, pending files, and last commit are read from the working tree.",
+        "Checks, review comments, commit, push, and Sources show configured or unavailable states."
+      ],
+      "gap": "Commit and push mutations plus a real connector registry endpoint are not configured in this deployment repo."
+    },
+    {
+      "id": "CS-005",
+      "title": "D5. Real agent runs through the head seam",
+      "spec_backreference": "SPEC-COMMONPLACE-CODE-SURFACE: D5",
+      "implementation_slice": "Use the existing Theorem agent route for composed Harness plan mode and display the absent HeadAdapter capability.",
+      "grounding": [
+        "src/lib/theorem-agent.ts",
+        "src/components/commonplace/views/CommonPlaceCodeView.tsx"
+      ],
+      "status": "partial",
+      "verification_evidence": [
+        "The composer dispatches to runTheoremAgent with tenant Travis-Gilbert and a CommonPlace code binding id."
+      ],
+      "gap": "HeadAdapter backed CommandFactory wiring belongs to apps/commonplace-desktop-runtime and theorem-receiver."
+    },
+    {
+      "id": "CS-006",
+      "title": "D6. Access level and modes",
+      "spec_backreference": "SPEC-COMMONPLACE-CODE-SURFACE: D6",
+      "implementation_slice": "Carry plan mode, read access, and composed head in the Code composer and dispatched task context.",
+      "grounding": [
+        "src/components/commonplace/views/CommonPlaceCodeView.tsx"
+      ],
+      "status": "partial",
+      "verification_evidence": [
+        "Plan mode is enabled and agent mode is disabled until a run channel is available.",
+        "Read access and selected head are visible in the composer and run transcript."
+      ],
+      "gap": "Writable tiers and allowlist enforcement require the desktop run dispatch path."
+    },
+    {
+      "id": "CS-007",
+      "title": "D7. Integrated terminal",
+      "spec_backreference": "SPEC-COMMONPLACE-CODE-SURFACE: D7",
+      "implementation_slice": "Surface terminal capability state without mounting a fake shell.",
+      "grounding": [
+        "src/lib/commonplace-code-server.ts",
+        "src/components/commonplace/views/CommonPlaceCodeView.tsx"
+      ],
+      "status": "blocked",
+      "verification_evidence": [
+        "The terminal panel states that no interactive PTY bridge is exposed in this web deployment."
+      ],
+      "gap": "The PTY bridge and notify reingest loop are in the desktop runtime or code server path, not in this repo."
+    }
+  ]
+}

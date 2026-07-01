@@ -103,7 +103,7 @@ export type ViewType =
 
 export type NavigationMode = 'screen' | 'view';
 
-export type ScreenType = 'daily' | 'library' | 'models' | 'notebooks' | 'projects' | 'engine' | 'settings' | 'chat' | 'accounts' | 'cobrowser' | 'coordination' | 'receiver' | 'desktop';
+export type ScreenType = 'daily' | 'library' | 'models' | 'notebooks' | 'projects' | 'engine' | 'settings' | 'chat' | 'code' | 'accounts' | 'cobrowser' | 'coordination' | 'receiver' | 'desktop';
 
 export interface NavigationTargetObject {
   id?: number;
@@ -293,6 +293,13 @@ export const SIDEBAR_SECTIONS: SidebarSection[] = [
             icon: 'chat',
             mode: 'screen',
             screenType: 'chat',
+          },
+          {
+            label: 'Code',
+            href: '#code',
+            icon: 'code',
+            mode: 'screen',
+            screenType: 'code',
           },
           {
             label: 'Theorem Agent',
