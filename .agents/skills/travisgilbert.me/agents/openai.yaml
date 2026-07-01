@@ -1,0 +1,6 @@
+interface:
+  display_name: "Travisgilbert.me"
+  short_description: "Repo-specific patterns and workflows for travisgilbert.me"
+  default_prompt: "Use the travisgilbert.me repo skill to follow existing architecture, testing, and workflow conventions."
+policy:
+  allow_implicit_invocation: true
