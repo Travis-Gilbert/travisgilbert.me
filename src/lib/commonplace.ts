@@ -103,7 +103,7 @@ export type ViewType =
 
 export type NavigationMode = 'screen' | 'view';
 
-export type ScreenType = 'daily' | 'library' | 'models' | 'notebooks' | 'projects' | 'engine' | 'settings' | 'cobrowser' | 'coordination' | 'receiver' | 'desktop';
+export type ScreenType = 'daily' | 'library' | 'models' | 'notebooks' | 'projects' | 'engine' | 'settings' | 'chat' | 'accounts' | 'cobrowser' | 'coordination' | 'receiver' | 'desktop';
 
 export interface NavigationTargetObject {
   id?: number;
@@ -288,6 +288,13 @@ export const SIDEBAR_SECTIONS: SidebarSection[] = [
         expandable: true,
         children: [
           {
+            label: 'Chat',
+            href: '#chat',
+            icon: 'chat',
+            mode: 'screen',
+            screenType: 'chat',
+          },
+          {
             label: 'Theorem Agent',
             href: '#agent-theorem',
             icon: 'sparkle',
@@ -356,6 +363,7 @@ export const SIDEBAR_SECTIONS: SidebarSection[] = [
         screenType: 'settings',
         expandable: true,
         children: [
+          { label: 'Accounts', href: '#accounts', icon: 'person', mode: 'screen', screenType: 'accounts' },
           { label: 'GitHub App', href: '#settings-github-app', icon: 'globe', mode: 'screen', screenType: 'settings' },
         ],
       },

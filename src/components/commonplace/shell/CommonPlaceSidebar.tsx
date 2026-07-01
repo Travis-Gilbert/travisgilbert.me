@@ -730,6 +730,7 @@ const LABEL_ACCENT: Record<string, string> = {
   'Engine':             '#6E7078',
   'Agents':             '#6E7078',
   'Theorem Agent':      '#6E7078',
+  'Chat':               '#6E7078',
   'Claude Code':        '#6E7078',
   'Codex':              '#6E7078',
   'Gemini CLI':         '#6E7078',
@@ -739,6 +740,7 @@ const LABEL_ACCENT: Record<string, string> = {
   'Receiver':           '#6E7078',
   'Review Queue':       '#6E7078',
   'Settings':           '#6E7078',
+  'Accounts':           '#6E7078',
 };
 
 /* Sidebar icons: Iconoir 24x24 path data, rendered at 16px display size.

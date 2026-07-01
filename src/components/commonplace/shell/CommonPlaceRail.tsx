@@ -18,10 +18,12 @@ const RAIL_ITEMS: RailItem[] = [
   { icon: 'graph', label: 'Map', screenType: 'models' },
   { icon: 'book', label: 'Notebooks', screenType: 'notebooks' },
   { icon: 'engine', label: 'Engine', screenType: 'engine' },
+  { icon: 'chat', label: 'Chat', screenType: 'chat' },
   { icon: 'globe', label: 'Co-browser', screenType: 'cobrowser', desktopOnly: true },
   { icon: 'chat', label: 'Coordination', screenType: 'coordination', desktopOnly: true },
   { icon: 'inbox', label: 'Receiver', screenType: 'receiver', desktopOnly: true },
   { icon: 'sliders', label: 'Desktop', screenType: 'desktop', desktopOnly: true },
+  { icon: 'person', label: 'Accounts', screenType: 'accounts' },
 ];
 
 /* SVG path data (subset of SidebarIcon paths) */
@@ -72,6 +74,10 @@ const PATHS: Record<string, string | string[]> = {
     'M8 6C8 6.828 7.328 7.5 6.5 7.5C5.672 7.5 5 6.828 5 6C5 5.172 5.672 4.5 6.5 4.5C7.328 4.5 8 5.172 8 6Z',
     'M19 12C19 12.828 18.328 13.5 17.5 13.5C16.672 13.5 16 12.828 16 12C16 11.172 16.672 10.5 17.5 10.5C18.328 10.5 19 11.172 19 12Z',
     'M11 18C11 18.828 10.328 19.5 9.5 19.5C8.672 19.5 8 18.828 8 18C8 17.172 8.672 16.5 9.5 16.5C10.328 16.5 11 17.172 11 18Z',
+  ],
+  person: [
+    'M5 20V19C5 15.134 8.13401 12 12 12V12C15.866 12 19 15.134 19 19V20',
+    'M12 12C14.2091 12 16 10.2091 16 8C16 5.79086 14.2091 4 12 4C9.79086 4 8 5.79086 8 8C8 10.2091 9.79086 12 12 12Z',
   ],
 };
 
