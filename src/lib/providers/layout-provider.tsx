@@ -1,6 +1,6 @@
 'use client';
 
-import { createContext, useContext, useState, useCallback, useMemo } from 'react';
+import { createContext, useContext, useState, useCallback, useEffect, useMemo } from 'react';
 import type { ReactNode } from 'react';
 import type { ViewType, ScreenType } from '@/lib/commonplace';
 import type { PaneNode } from '@/lib/commonplace-layout';
@@ -16,6 +16,24 @@ import {
 
 const STORAGE_KEY = 'commonplace-layout-v7';
 
+const SCREEN_HASHES: Record<string, ScreenType> = {
+  '#daily': 'daily',
+  '#library': 'library',
+  '#models': 'models',
+  '#notebooks': 'notebooks',
+  '#projects': 'projects',
+  '#engine': 'engine',
+  '#settings': 'settings',
+  '#settings-github-app': 'settings',
+  '#chat': 'chat',
+  '#code': 'code',
+  '#accounts': 'accounts',
+  '#cobrowser': 'cobrowser',
+  '#coordination': 'coordination',
+  '#receiver': 'receiver',
+  '#desktop': 'desktop',
+};
+
 function loadPersistedLayout(): PaneNode | null {
   if (typeof window === 'undefined') return null;
   try {
@@ -28,6 +46,11 @@ function loadPersistedLayout(): PaneNode | null {
   } catch {
     return null;
   }
+}
+
+function screenFromHash(): ScreenType | null {
+  if (typeof window === 'undefined') return null;
+  return SCREEN_HASHES[window.location.hash] ?? null;
 }
 
 export interface LayoutContextValue {
@@ -68,7 +91,7 @@ export function LayoutProvider({ children }: { children: ReactNode }) {
   );
   const [focusedPaneId, setFocusedPaneId] = useState<string | null>(null);
   const [fullscreenPaneId, setFullscreenPaneId] = useState<string | null>(null);
-  const [activeScreen, setActiveScreen] = useState<ScreenType | null>('daily');
+  const [activeScreen, setActiveScreen] = useState<ScreenType | null>(() => screenFromHash() ?? 'daily');
 
   const setLayout = useCallback(
     (updater: PaneNode | ((prev: PaneNode) => PaneNode)) => {
@@ -88,6 +111,27 @@ export function LayoutProvider({ children }: { children: ReactNode }) {
   const navigateToScreen = useCallback((screen: ScreenType) => {
     setActiveScreen(screen);
     setFullscreenPaneId(null);
+    if (typeof window !== 'undefined') {
+      const hash = Object.entries(SCREEN_HASHES).find(([, target]) => target === screen)?.[0];
+      if (hash && window.location.hash !== hash) {
+        window.history.replaceState(null, '', hash);
+      }
+    }
+  }, []);
+
+  useEffect(() => {
+    function handleHashChange() {
+      const screen = screenFromHash();
+      if (screen) {
+        setActiveScreen(screen);
+        setFullscreenPaneId(null);
+      }
+    }
+
+    window.addEventListener('hashchange', handleHashChange);
+    return () => {
+      window.removeEventListener('hashchange', handleHashChange);
+    };
   }, []);
 
   const exitScreen = useCallback(() => {
