@@ -19,6 +19,7 @@ import CoBrowserView from '../views/CoBrowserView';
 import CoordinationView from '../views/CoordinationView';
 import ReceiverView from '../views/ReceiverView';
 import DesktopSettingsView from '../views/DesktopSettingsView';
+import SettingsView from '../views/SettingsView';
 
 interface ScreenRouterProps {
   screen: ScreenType;
@@ -47,26 +48,8 @@ export default function ScreenRouter({ screen }: ScreenRouterProps) {
     case 'desktop':
       return <DesktopSettingsView />;
     case 'settings':
-      return <SettingsPlaceholder />;
+      return <SettingsView />;
     default:
       return <LibraryScreen />;
   }
-}
-
-function SettingsPlaceholder() {
-  return (
-    <div
-      style={{
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        height: '100%',
-        color: 'var(--cp-text-dim)',
-        fontFamily: 'var(--font-metadata)',
-        fontSize: 13,
-      }}
-    >
-      Settings (coming soon)
-    </div>
-  );
 }

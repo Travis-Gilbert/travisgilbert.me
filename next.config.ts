@@ -1,14 +1,25 @@
 import path from 'node:path';
+import { createRequire } from 'node:module';
+import { fileURLToPath } from 'node:url';
 import type { NextConfig } from 'next';
 
-// Explicit Turbopack workspace root. Without this, Turbopack walks up
-// the filesystem looking for the nearest lockfile and picks the wrong
-// directory whenever a stray ~/package-lock.json exists, which mis-roots
-// the module graph and causes the PostCSS subprocess to deadlock when
-// compiling global.css. path.resolve('.') is process.cwd(), which is
-// always the project directory when next dev/build is invoked via
-// npm scripts.
-const projectRoot = path.resolve('.');
+// Explicit Turbopack workspace root. Local installs may hoist next one level up,
+// while Vercel installs it beside this config. Pick the smallest shared root.
+const configRoot = path.dirname(fileURLToPath(import.meta.url));
+const requireFromConfig = createRequire(import.meta.url);
+const nextRoot = path.dirname(path.dirname(requireFromConfig.resolve('next/package.json')));
+const projectRoot = commonAncestor(configRoot, nextRoot);
+
+function commonAncestor(a: string, b: string): string {
+  const aParts = path.resolve(a).split(path.sep);
+  const bParts = path.resolve(b).split(path.sep);
+  const parts: string[] = [];
+  for (let i = 0; i < Math.min(aParts.length, bParts.length); i += 1) {
+    if (aParts[i] !== bParts[i]) break;
+    parts.push(aParts[i]);
+  }
+  return parts.length === 1 && parts[0] === '' ? path.sep : parts.join(path.sep);
+}
 
 // INDEX_API_PROXY_URL: server-only var for the rewrite destination (not exposed to browser).
 // Falls back to local Index API in development, then Railway production.

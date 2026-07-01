@@ -348,7 +348,17 @@ export const SIDEBAR_SECTIONS: SidebarSection[] = [
           { label: 'Connection Review', href: '#connection-review', icon: 'check-circle', mode: 'view', viewType: 'connection-review' },
         ],
       },
-      { label: 'Settings', href: '#settings', icon: 'gear', mode: 'screen', screenType: 'settings' },
+      {
+        label: 'Settings',
+        href: '#settings',
+        icon: 'gear',
+        mode: 'screen',
+        screenType: 'settings',
+        expandable: true,
+        children: [
+          { label: 'GitHub App', href: '#settings-github-app', icon: 'globe', mode: 'screen', screenType: 'settings' },
+        ],
+      },
     ],
   },
 ];
