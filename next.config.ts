@@ -21,6 +21,12 @@ function commonAncestor(a: string, b: string): string {
   return parts.length === 1 && parts[0] === '' ? path.sep : parts.join(path.sep);
 }
 
+function positiveInteger(value: string | undefined): number | undefined {
+  if (!value) return undefined;
+  const parsed = Number.parseInt(value, 10);
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : undefined;
+}
+
 // INDEX_API_PROXY_URL: server-only var for the rewrite destination (not exposed to browser).
 // Falls back to local Index API in development, then Railway production.
 const explicitBackendUrl =
@@ -45,11 +51,15 @@ const actMlcModelLibUrl =
 // also requires the API route handlers (src/app/api/*) to be excluded — see
 // scripts/desktop-export.mjs (the `build:desktop` script).
 const isDesktopExport = process.env.DESKTOP_EXPORT === '1';
+const buildWorkerCount =
+  positiveInteger(process.env.NEXT_BUILD_CPUS) ??
+  (process.env.RAILWAY_ENVIRONMENT ? 9 : undefined);
 
 const nextConfig: NextConfig = {
   output: isDesktopExport ? 'export' : undefined,
   experimental: {
     viewTransition: true,
+    ...(buildWorkerCount ? { cpus: buildWorkerCount } : {}),
   },
   reactCompiler: true,
   images: {
