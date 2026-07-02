@@ -46,8 +46,8 @@ export default function EngineShell({
           /* Parchment-context token overrides */
           --cp-text: #2A2520;
           --cp-text-muted: #5C554D;
-          --cp-text-faint: #8A8279;
-          --cp-text-ghost: #AEA89F;
+          --cp-text-faint: #73665B;
+          --cp-text-ghost: #73665B;
           --cp-color-text: var(--cp-text);
           --cp-color-text-muted: var(--cp-text-muted);
           --cp-border: rgba(42, 37, 32, 0.12);
@@ -188,7 +188,7 @@ function TrainingPill({ stats }: { stats: FeedbackStats }) {
         }
         .es-pill-tier {
           font-family: var(--cp-font-mono);
-          font-size: 9px;
+          font-size: 10px;
           font-weight: 700;
           letter-spacing: 0.06em;
           padding: 1px 6px;

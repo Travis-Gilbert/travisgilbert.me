@@ -209,7 +209,7 @@ export default function EntityBubbles() {
         }
         .eb-bubble-ner {
           font-family: var(--cp-font-mono);
-          font-size: 9px;
+          font-size: 10px;
           letter-spacing: 0.04em;
           color: var(--cp-text-faint, #8A8279);
         }

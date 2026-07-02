@@ -137,7 +137,7 @@ function HeroListRow({
       <span style={{
         fontFamily: 'var(--cp-font-mono)',
         fontSize: 12,
-        color: 'var(--cp-terracotta, #8A2E29)',
+        color: 'var(--cp-terracotta, #A65324)',
       }}>{'\u2192'}</span>
       {edgeCount > 0 && (
         <span style={{
@@ -150,7 +150,7 @@ function HeroListRow({
       {provenance && (
         <span style={{
           fontFamily: 'var(--cp-font-mono)',
-          fontSize: 9,
+          fontSize: 10,
           color: 'var(--cp-text-dim)',
           background: 'rgba(255,255,255,0.04)',
           padding: '1px 5px',
@@ -173,10 +173,10 @@ function TypeLeadElement({ type, object, color }: { type: string; object: Render
       return (
         <div style={{
           width: 20, height: 20, borderRadius: '50%',
-          background: 'var(--cp-person-color, #8A2E29)',
+          background: 'var(--cp-person-color, #A65324)',
           display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
         }}>
-          <span style={{ fontFamily: 'var(--cp-font-mono)', fontSize: 9, fontWeight: 700, color: '#fff', lineHeight: 1 }}>{initial}</span>
+          <span style={{ fontFamily: 'var(--cp-font-mono)', fontSize: 10, fontWeight: 700, color: '#fff', lineHeight: 1.2 }}>{initial}</span>
         </div>
       );
     }
@@ -206,7 +206,7 @@ function TypeLeadElement({ type, object, color }: { type: string; object: Render
       const day = String(d.getDate());
       return (
         <div style={{ width: 26, borderRadius: 4, overflow: 'hidden', flexShrink: 0, border: '1px solid rgba(255,255,255,0.08)' }}>
-          <div style={{ background: 'var(--cp-event-color, #4A7A9A)', padding: '1px 0', textAlign: 'center', fontFamily: 'var(--cp-font-mono)', fontSize: 7, fontWeight: 700, color: '#fff', textTransform: 'uppercase', lineHeight: 1.4 }}>{month}</div>
+          <div style={{ background: 'var(--cp-event-color, #4A7A9A)', padding: '1px 0', textAlign: 'center', fontFamily: 'var(--cp-font-mono)', fontSize: 10, fontWeight: 700, color: '#fff', textTransform: 'uppercase', lineHeight: 1.4 }}>{month}</div>
           <div style={{ background: 'var(--cp-card)', textAlign: 'center', padding: '1px 0', fontFamily: 'var(--cp-font-mono)', fontSize: 12, fontWeight: 700, color: 'var(--cp-text)', lineHeight: 1.2 }}>{day}</div>
         </div>
       );

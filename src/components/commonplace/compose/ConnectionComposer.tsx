@@ -6,15 +6,20 @@ import { useSelection } from '@/lib/providers/selection-provider';
 
 export default function ConnectionComposer() {
   const { cancelConnection, connectionDraft, submitConnection } = useSelection();
-  const [edgeType, setEdgeType] = useState('related');
-  const [reason, setReason] = useState('');
+  const draftKey = connectionDraft
+    ? `${connectionDraft.source.id}:${connectionDraft.target?.id ?? 'pending'}`
+    : '';
+  const [form, setForm] = useState({
+    draftKey: '',
+    edgeType: 'related',
+    reason: '',
+  });
+  const edgeType = form.draftKey === draftKey ? form.edgeType : 'related';
+  const reason = form.draftKey === draftKey ? form.reason : '';
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
     if (!connectionDraft) return undefined;
-
-    setEdgeType('related');
-    setReason('');
 
     function handleKeyDown(event: KeyboardEvent) {
       if (event.key === 'Escape') cancelConnection();
@@ -119,7 +124,7 @@ export default function ConnectionComposer() {
                 fontFamily: 'var(--cp-font-title)',
                 fontSize: 22,
                 color: 'var(--cp-text)',
-                lineHeight: 1.15,
+                lineHeight: 1.2,
               }}
             >
               {sourceTitle}
@@ -168,7 +173,9 @@ export default function ConnectionComposer() {
           <input
             type="text"
             value={edgeType}
-            onChange={(event) => setEdgeType(event.target.value)}
+            onChange={(event) =>
+              setForm({ draftKey, edgeType: event.target.value, reason })
+            }
             style={{
               width: '100%',
               borderRadius: 8,
@@ -198,7 +205,9 @@ export default function ConnectionComposer() {
           </label>
           <textarea
             value={reason}
-            onChange={(event) => setReason(event.target.value)}
+            onChange={(event) =>
+              setForm({ draftKey, edgeType, reason: event.target.value })
+            }
             rows={4}
             placeholder="Optional explanation for why these objects connect."
             style={{

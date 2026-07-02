@@ -107,6 +107,16 @@ function DialogHeader({ className, ...props }: React.ComponentProps<"div">) {
   )
 }
 
+function DialogPanel({ className, ...props }: React.ComponentProps<"div">) {
+  return (
+    <div
+      data-slot="dialog-panel"
+      className={cn("min-h-0 flex-1", className)}
+      {...props}
+    />
+  )
+}
+
 function DialogFooter({
   className,
   showCloseButton = false,
@@ -171,6 +181,7 @@ export {
   DialogFooter,
   DialogHeader,
   DialogOverlay,
+  DialogPanel,
   DialogPortal,
   DialogTitle,
   DialogTrigger,

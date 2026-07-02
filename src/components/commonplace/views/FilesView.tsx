@@ -1,37 +1,121 @@
 'use client';
 
-/**
- * Files (full-pane): a filesystem view of the CommonPlace, derived from each
- * item's auto-structured `path`. This is the expanded view of the same literal
- * file tree shown in the sidebar's Files drawer.
- */
-
 import { useMemo } from 'react';
-import { FileTree, buildItemTree } from '@/components/ui/file-tree';
+import { FileSystem, type FileSystemItem } from '@/components/ui/file-system';
 import { useApiData } from '@/lib/commonplace-api';
-import { gqlItems } from '@/lib/commonplace-graphql';
+import { gqlItems, type ItemGql } from '@/lib/commonplace-graphql';
 import { useCapture } from '@/lib/providers/capture-provider';
 import { useDrawer } from '@/lib/providers/drawer-provider';
+import { useSelection } from '@/lib/providers/selection-provider';
+import FileItemViewer from './FileItemViewer';
+import styles from './FileItemViewer.module.css';
+
+function normalizeObjectPath(path: string | null | undefined): string | null {
+  const clean = path?.trim().replace(/^\/+/, '').replace(/\/+$/, '');
+  return clean || null;
+}
+
+function pathSegment(value: string): string {
+  return (
+    value
+      .trim()
+      .replace(/^\/+|\/+$/g, '')
+      .replace(/[/\\?#]+/g, '-')
+      .replace(/\s+/g, ' ')
+      .slice(0, 96) || 'untitled'
+  );
+}
+
+function pathName(path: string): string {
+  const index = path.lastIndexOf('/');
+  return index === -1 ? path : path.slice(index + 1);
+}
+
+function filePathFor(item: ItemGql): string {
+  const existingPath = normalizeObjectPath(item.path);
+  if (existingPath) return existingPath;
+
+  const folder = pathSegment(item.collections[0] ?? item.kind ?? 'items');
+  const name = pathSegment(item.title || item.id);
+  return `${folder}/${name}`;
+}
+
+function metadataFor(item: ItemGql): Record<string, string> {
+  return Object.fromEntries(
+    [
+      ['Kind', item.kind],
+      ['Residency', item.residency],
+      ['Source', item.source ?? ''],
+      ['Classification', item.classification ?? ''],
+      ['Tags', item.tags.join(', ')],
+    ].filter(([, value]) => value),
+  );
+}
+
+function isoFromMs(ms: number): string | undefined {
+  return ms ? new Date(ms).toISOString() : undefined;
+}
+
+function publicUrl(item: ItemGql): string | undefined {
+  if (item.source?.startsWith('http')) return item.source;
+  if (item.path?.startsWith('http')) return item.path;
+  return undefined;
+}
+
+function toFileSystemItem(item: ItemGql): FileSystemItem {
+  const path = filePathFor(item);
+  const url = publicUrl(item);
+  return {
+    kind: 'file',
+    id: item.id,
+    key: item.blobHash ?? item.id,
+    path,
+    name: item.title || pathName(path),
+    contentType: item.mime ?? undefined,
+    url,
+    previewImageUrl: item.mime?.startsWith('image/') ? url ?? null : null,
+    createdAt: isoFromMs(item.createdAtMs),
+    updatedAt: isoFromMs(item.updatedAtMs),
+    metadata: metadataFor(item),
+  };
+}
 
 export default function FilesView() {
-  const { captureVersion } = useCapture();
+  const { captureVersion, notifyCaptured } = useCapture();
   const { openDrawer } = useDrawer();
+  const { selectedItems, selectSingle } = useSelection();
   const { data: items } = useApiData(() => gqlItems(), [captureVersion]);
-  const tree = useMemo(() => buildItemTree(items ?? []), [items]);
+  const allItems = useMemo(() => items ?? [], [items]);
+  const itemById = useMemo(() => new Map(allItems.map((item) => [item.id, item])), [allItems]);
+  const selectedItem = useMemo(() => {
+    const selectedId = [...selectedItems].find((id) => itemById.has(id));
+    return selectedId ? itemById.get(selectedId) ?? null : allItems[0] ?? null;
+  }, [allItems, itemById, selectedItems]);
+  const fileItems = useMemo(() => allItems.map(toFileSystemItem), [allItems]);
 
   return (
-    <div className="h-full overflow-auto p-4">
-      <div className="mx-auto max-w-2xl">
-        <FileTree
-          data={tree}
-          label="commonplace"
-          variant="card"
-          emptyHint="No files yet. Capture something and it will be filed here."
-          onActivate={(node) => {
-            if (node.type === 'file' && node.id) openDrawer(node.id);
+    <div className={styles.filesSurface}>
+      <div className={styles.treePane}>
+        <FileSystem
+          items={fileItems}
+          title="Commonplace"
+          defaultView="columns"
+          className="h-full"
+          onSelectionChange={(entry) => {
+            if (entry?.kind === 'file' && entry.id) selectSingle(entry.id);
+          }}
+          onFileOpen={(file) => {
+            if (file.id) selectSingle(file.id);
           }}
         />
       </div>
+      <aside className={styles.previewPane} aria-label="Item preview">
+        <FileItemViewer
+          item={selectedItem}
+          onOpenObject={(id) => openDrawer(id)}
+          onSaved={notifyCaptured}
+        />
+      </aside>
     </div>
   );
 }

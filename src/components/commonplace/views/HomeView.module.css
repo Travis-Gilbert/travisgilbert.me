@@ -42,7 +42,7 @@
 
 @media (prefers-reduced-motion: no-preference) {
   .heroPulseDot {
-    animation: cpPulse 2s ease-in-out infinite;
+    animation: cpPulse 1000ms ease-in-out infinite;
   }
 }
 
@@ -155,7 +155,7 @@
 
 .activityType {
   font-family: var(--font-metadata, 'Courier Prime', monospace);
-  font-size: 9px;
+  font-size: 10px;
   text-transform: uppercase;
   letter-spacing: 0.06em;
 }
@@ -169,13 +169,13 @@
 
 @media (prefers-reduced-motion: no-preference) {
   .activityNewDot {
-    animation: cpPulse 2s ease-in-out infinite;
+    animation: cpPulse 1000ms ease-in-out infinite;
   }
 }
 
 .activityTime {
   font-family: var(--font-metadata, 'Courier Prime', monospace);
-  font-size: 9px;
+  font-size: 10px;
   color: var(--cp-text-faint);
   margin-left: auto;
 }
@@ -210,7 +210,7 @@
 
 .strengthValue {
   font-family: var(--font-metadata, 'Courier Prime', monospace);
-  font-size: 9px;
+  font-size: 10px;
   color: var(--cp-text-faint);
 }
 
@@ -236,7 +236,7 @@
 
 .reviewCtaTitle {
   font-family: var(--font-metadata, 'Courier Prime', monospace);
-  font-size: 9px;
+  font-size: 10px;
   text-transform: uppercase;
   letter-spacing: 0.06em;
   color: var(--cp-gold);
@@ -266,7 +266,7 @@
   padding: 16px 18px;
   background-color: var(--cp-surface, #F0E4D4);
   border-radius: 1px;
-  border-left: 3px solid var(--cp-terracotta, #8A2E29);
+  border-left: 3px solid var(--cp-terracotta, #A65324);
   box-shadow: 2px 2px 8px rgba(0, 0, 0, 0.06);
   position: relative;
 }
@@ -299,7 +299,7 @@
 
 .researchVenue {
   font-family: var(--font-metadata, 'Courier Prime', monospace);
-  font-size: 9px;
+  font-size: 10px;
   color: var(--cp-text-faint);
   margin: 0 0 8px;
 }
@@ -320,7 +320,7 @@
 
 .researchObjects {
   font-family: var(--font-metadata, 'Courier Prime', monospace);
-  font-size: 9px;
+  font-size: 10px;
   color: var(--cp-text-faint);
 }
 
@@ -358,7 +358,7 @@
 
 .taskProject {
   font-family: var(--font-metadata, 'Courier Prime', monospace);
-  font-size: 9px;
+  font-size: 10px;
   color: var(--cp-text-faint);
   background-color: rgba(42, 36, 32, 0.04);
   padding: 2px 6px;
@@ -385,7 +385,7 @@
 }
 
 .subtaskCheck {
-  font-size: 7px;
+  font-size: 10px;
 }
 
 .subtaskText {
@@ -415,7 +415,7 @@
 
 .progressPct {
   font-family: var(--font-metadata, 'Courier Prime', monospace);
-  font-size: 9px;
+  font-size: 10px;
   color: var(--cp-text-faint);
 }
 
@@ -469,7 +469,7 @@
 
 .conceptTag {
   font-family: var(--font-metadata, 'Courier Prime', monospace);
-  font-size: 9px;
+  font-size: 10px;
   padding: 2px 8px;
   border-radius: 10px;
 }
@@ -495,7 +495,7 @@
   padding: 3px 0;
   text-align: center;
   font-family: var(--font-metadata, 'Courier Prime', monospace);
-  font-size: 8px;
+  font-size: 10px;
   color: #fff;
   text-transform: uppercase;
   letter-spacing: 0.1em;
@@ -508,7 +508,7 @@
   font-size: 20px;
   font-weight: 700;
   color: var(--cp-text);
-  line-height: 1;
+  line-height: 1.2;
 }
 
 .eventTitle {
@@ -528,7 +528,7 @@
 .eventStatus {
   margin-top: 6px;
   font-family: var(--font-metadata, 'Courier Prime', monospace);
-  font-size: 9px;
+  font-size: 10px;
   padding: 2px 8px;
   border-radius: 3px;
   display: inline-block;

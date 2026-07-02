@@ -47,12 +47,12 @@ const THEOREM_AGENT_PROXY_PATH = '/api/theorem/agent';
 export async function runTheoremAgent(input: TheoremAgentRunInput): Promise<TheoremAgentRunResult> {
   const normalized = normalizeInput(input);
   try {
-    return await runTheoremAgentGraphql(normalized);
+    return await runTheoremAgentProductFallback(normalized);
   } catch (err) {
-    if (!isGraphqlTransportError(err)) {
+    if (!isProductRouteFallbackEligible(err)) {
       throw err;
     }
-    return runTheoremAgentProductFallback(normalized);
+    return runTheoremAgentGraphql(normalized);
   }
 }
 
@@ -156,11 +156,17 @@ export function normalizeTheoremAgentInput(input: TheoremAgentRunInput): Theorem
 }
 
 function normalizeInput(input: TheoremAgentRunInput): TheoremAgentNormalizedInput {
-  const task = input.task.trim();
+  const task = typeof input.task === 'string' ? input.task.trim() : '';
   if (!task) throw new Error('Theorem agent requires a task.');
+  if (input.tenant !== undefined && typeof input.tenant !== 'string') {
+    throw new Error('Theorem agent tenant must be a string.');
+  }
+  if (input.bindingId !== undefined && typeof input.bindingId !== 'string') {
+    throw new Error('Theorem agent bindingId must be a string.');
+  }
   return {
     task,
-    mode: input.mode ?? 'ask',
+    mode: input.mode === 'research' ? 'research' : 'ask',
     claims: normalizeClaims(input.claims ?? []),
     bindingId: input.bindingId?.trim() || uniqueBindingId(),
     tenant: input.tenant?.trim() || DEFAULT_TENANT,
@@ -263,8 +269,15 @@ function isAbortError(err: unknown): boolean {
   return typeof err === 'object' && err !== null && 'name' in err && (err as { name?: unknown }).name === 'AbortError';
 }
 
-function isGraphqlTransportError(err: unknown): boolean {
-  return err instanceof Error && /^commonplace-api \d{3}$/.test(err.message);
+function isProductRouteFallbackEligible(err: unknown): boolean {
+  if (!(err instanceof Error)) return false;
+  return [
+    'Failed to parse URL',
+    'Failed to fetch',
+    'Load failed',
+    'NetworkError',
+    'Theorem agent 404',
+  ].some((marker) => err.message.includes(marker));
 }
 
 function clampNumber(value: unknown, fallback: number, min: number, max: number): number {

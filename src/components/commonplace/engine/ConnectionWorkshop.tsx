@@ -647,7 +647,7 @@ export default function ConnectionWorkshop({ notebookSlug }: ConnectionWorkshopP
         }
         .cw-meta-badge--danger {
           background: rgba(184,90,45,0.14);
-          color: #8A2E29;
+          color: #A65324;
         }
         .cw-meta-badge--muted {
           background: rgba(138,130,121,0.12);
@@ -746,7 +746,7 @@ export default function ConnectionWorkshop({ notebookSlug }: ConnectionWorkshopP
         }
         .cw-shortcut {
           font-family: var(--cp-font-mono);
-          font-size: 9px;
+          font-size: 10px;
           padding: 1px 4px;
           border-radius: 4px;
           background: rgba(42,37,32,0.06);
@@ -792,7 +792,7 @@ export default function ConnectionWorkshop({ notebookSlug }: ConnectionWorkshopP
           border-color: rgba(138,130,121,0.22);
         }
         .cw-action-btn--danger {
-          color: #8A2E29;
+          color: #A65324;
         }
         .cw-action-btn--danger:hover {
           background: rgba(var(--cp-red-rgb), 0.08);
@@ -943,7 +943,7 @@ export default function ConnectionWorkshop({ notebookSlug }: ConnectionWorkshopP
               {sessionStats.defer} deferred
             </span>
             <span className="cw-stat">
-              <span className="cw-stat-dot" style={{ background: '#8A2E29' }} />
+              <span className="cw-stat-dot" style={{ background: '#A65324' }} />
               {sessionStats.reject} rejected
             </span>
             {reviewedTotal === 0 && (

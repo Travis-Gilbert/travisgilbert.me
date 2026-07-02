@@ -25,13 +25,12 @@ const ACTION_ITEMS = [
   { key: 'network' as ViewType, label: 'Open Knowledge Map', hint: 'Force-directed graph of all edges' },
   { key: 'timeline' as ViewType, label: 'Open Timeline', hint: 'Chronological capture feed' },
   { key: 'connection-engine' as ViewType, label: 'Open Connection Engine', hint: 'Discover and manage edges' },
-  { key: 'agent-thread' as ViewType, label: 'Open Agent Thread', hint: 'Talk to Theorem or dock an ACP agent' },
+  { key: 'code' as ViewType, label: 'Open Code', hint: 'Code workspace' },
+  { key: 'agent-thread' as ViewType, label: 'Open Chat', hint: 'Talk to CommonPlace' },
 ];
 
 const SCREEN_ACTION_ITEMS = [
-  { key: 'chat' as ScreenType, label: 'Open Chat', hint: 'Run a Theorem backed CommonPlace thread' },
-  { key: 'code' as ScreenType, label: 'Open Code', hint: 'Workspace bound Theorem code thread' },
-  { key: 'accounts' as ScreenType, label: 'Open Accounts', hint: 'Owner auth and connected ingestion channels' },
+  { key: 'accounts' as ScreenType, label: 'Open Accounts', hint: 'Agents, providers, keys, and usage' },
   { key: 'cobrowser' as ScreenType, label: 'Open Co-browser', hint: 'Desktop webview and page ingest controls' },
   { key: 'coordination' as ScreenType, label: 'Open Coordination', hint: 'Human and agent room feed' },
   { key: 'receiver' as ScreenType, label: 'Open Receiver', hint: 'Local agent execution status' },
@@ -51,8 +50,8 @@ const AGENT_LAUNCH_ITEMS: AgentLaunchItem[] = [
   {
     agentId: 'theorem',
     command: '/agent',
-    label: 'Theorem Agent',
-    hint: 'Use configured API heads',
+    label: 'CommonPlace Chat',
+    hint: 'Open the API-backed chat surface',
     mode: 'api',
   },
   ...ACP_AGENTS.map((agent) => ({
@@ -416,7 +415,7 @@ export default function CommandPalette() {
             )}
 
             {showActions && (
-              <Command.Group heading="System" className="cp-palette-group">
+              <Command.Group heading="Desktop" className="cp-palette-group">
                 {SCREEN_ACTION_ITEMS.map(({ key, label, hint }) => (
                   <Command.Item
                     key={key}

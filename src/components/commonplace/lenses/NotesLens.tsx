@@ -67,5 +67,5 @@ function Empty({ children }: { children: React.ReactNode }) {
   return <div style={{ fontFamily: 'var(--cp-font-body)', fontSize: 12, fontStyle: 'italic', color: 'var(--cp-text-muted)' }}>{children}</div>;
 }
 function RemoveButton({ onClick }: { onClick: () => void }) {
-  return <button type="button" onClick={onClick} aria-label="Remove" style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--cp-text-muted)', fontSize: 14, lineHeight: 1, padding: 2 }}>×</button>;
+  return <button type="button" onClick={onClick} aria-label="Remove" style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--cp-text-muted)', fontSize: 14, lineHeight: 1.2, padding: 2 }}>×</button>;
 }

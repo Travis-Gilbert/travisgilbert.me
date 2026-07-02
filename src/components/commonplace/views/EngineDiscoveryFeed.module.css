@@ -106,7 +106,7 @@
 
 .strengthLabel {
   font-family: var(--cp-font-mono);
-  font-size: 9px;
+  font-size: 10px;
   color: var(--cp-text-faint);
   flex-shrink: 0;
   min-width: 18px;
@@ -136,7 +136,7 @@
 
 .engineBadge {
   font-family: var(--cp-font-mono);
-  font-size: 9px;
+  font-size: 10px;
   color: var(--cp-text-faint);
   background: rgba(42, 36, 32, 0.04);
   border: 1px solid rgba(42, 36, 32, 0.06);

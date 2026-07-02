@@ -141,6 +141,14 @@ function relTime(s: string): string {
   return `${Math.floor(h / 24)}d ago`;
 }
 
+function confidencePct(confidence: number): number {
+  return Math.round(Math.max(0, Math.min(1, confidence)) * 100);
+}
+
+function destinationLabel(item: OrganizeItemGql): string {
+  return item.classification.targetCollectionLabel ?? 'No destination yet';
+}
+
 function deriveKind(kind: string, source: string | null): string {
   const s = (source ?? '').toLowerCase();
   if (s.includes('email') || s.includes('gmail') || s.includes('mail')) return 'email';
@@ -302,22 +310,13 @@ export default function AutoOrganizeView() {
 
   const goToCollection = useCallback(() => navigateToScreen('library'), [navigateToScreen]);
 
-  const dateStr = useMemo(
-    () =>
-      new Date()
-        .toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })
-        .toLowerCase(),
-    [],
-  );
-
   const n = displayedNeedsYou.length;
-
   return (
     <section className={styles.autoOrganize} aria-labelledby="auto-organize-title">
-      <h1 id="auto-organize-title" className={styles.visuallyHidden}>Auto Organize</h1>
+      <h1 id="auto-organize-title" className={styles.visuallyHidden}>Index</h1>
 
       {/* ── Collections sidebar (organized structure) ── */}
-      <aside className={styles.collectionsSidebar} aria-label="Auto-organize sources and spaces">
+      <aside className={styles.collectionsSidebar} aria-label="Index sources and spaces">
         <div className={styles.collGroup}>
           <div className={styles.sectionLabel}>
             <span className={styles.sectionRule} />
@@ -357,23 +356,9 @@ export default function AutoOrganizeView() {
         </div>
       </aside>
 
-      {/* ── Work area: center (hero + needs-you) | proof ── */}
+      {/* ── Work area: center (needs-you) | proof ── */}
       <div className={styles.workArea}>
         <main className={styles.center} aria-labelledby="auto-organize-title">
-          <header className={styles.hero}>
-            <div className={styles.heroLabel}>
-              <span className={styles.heroPulseDot} />
-              {dateStr}
-            </div>
-            <div className={styles.heroCopy}>
-              <p className={styles.heroText}>
-                {n === 0
-                  ? 'Nothing is waiting on a routing decision.'
-                  : `${n} item${n === 1 ? '' : 's'} need${n === 1 ? 's' : ''} your routing judgment today.`}
-              </p>
-            </div>
-          </header>
-
           <section className={styles.needsYou} aria-labelledby="needs-you-heading">
             <div className={styles.listToolbar}>
               <div>
@@ -381,7 +366,10 @@ export default function AutoOrganizeView() {
                   <span className={styles.sectionRule} />
                   <span id="needs-you-heading">Needs you</span>
                 </div>
-                <p className={styles.listSubhead}>Items below the confidence line, ready for one action.</p>
+                <p className={styles.listSubhead}>
+                  Items below the confidence line need you when the destination is missing, alternatives are too close,
+                  or the source/type pattern is still being learned.
+                </p>
               </div>
               <span className={styles.countPill}>{n}</span>
             </div>
@@ -394,10 +382,11 @@ export default function AutoOrganizeView() {
               </div>
             ) : (
               <div className={styles.cardList}>
-                {displayedNeedsYou.map((item) => (
+                {displayedNeedsYou.map((item, index) => (
                   <NeedsYouCard
                     key={item.id}
                     item={item}
+                    showFold={index === 0}
                     ceiling={snap.needsYouCeiling}
                     collections={collections}
                     onFile={fileInto}
@@ -410,7 +399,7 @@ export default function AutoOrganizeView() {
           </section>
         </main>
 
-        {/* ── Organized-today proof ── */}
+        {/* ── Organized proof ── */}
         <aside className={styles.proof} aria-labelledby="organized-today-heading">
           <div className={styles.detailHeader}>
             <div>
@@ -480,6 +469,7 @@ interface NeedsYouCardProps {
   onFile: (item: OrganizeItemGql, collectionId: string | null, label: string) => void;
   onLater: (item: OrganizeItemGql) => void;
   onOpen: () => void;
+  showFold: boolean;
 }
 
 type RunStatus = 'idle' | 'working' | 'settled';
@@ -488,13 +478,13 @@ function eventDay(iso: string): string {
   return String(new Date(parseMs(iso)).getDate());
 }
 
-function NeedsYouCard({ item, ceiling, collections, onFile, onLater, onOpen }: NeedsYouCardProps) {
+function NeedsYouCard({ item, ceiling, collections, onFile, onLater, onOpen, showFold }: NeedsYouCardProps) {
   const cfg = kindConfig(item.kind);
   const cls = item.classification;
   const filed = cls.confidence >= ceiling && Boolean(cls.targetCollectionLabel);
 
   const [showChoices, setShowChoices] = useState(false);
-  const [collapsed, setCollapsed] = useState(false);
+  const [collapsed, setCollapsed] = useState(true);
   const [run, setRun] = useState<{ status: RunStatus; result: string }>({ status: 'idle', result: '' });
 
   // Destination choices: target first, then alternatives. No preselect.
@@ -511,6 +501,13 @@ function NeedsYouCard({ item, ceiling, collections, onFile, onLater, onOpen }: N
 
   const allChoices = useMemo(() => collections.map((c) => ({ id: c.id, label: c.name })), [collections]);
 
+  const targetChoice = cls.targetCollectionId && cls.targetCollectionLabel
+    ? { id: cls.targetCollectionId, label: cls.targetCollectionLabel }
+    : null;
+  const visibleChoices = showChoices
+    ? allChoices
+    : choices.filter((choice) => choice.id !== targetChoice?.id).slice(0, 2);
+  const confidence = confidencePct(cls.confidence);
   const subtasks = item.subtasks ?? [];
   const doneCount = subtasks.filter((s) => s.done).length;
   const pct = subtasks.length ? Math.round((doneCount / subtasks.length) * 100) : 0;
@@ -534,145 +531,139 @@ function NeedsYouCard({ item, ceiling, collections, onFile, onLater, onOpen }: N
   const classes = [styles.card, cfg.tint, cfg.shape];
   if (run.status === 'working') classes.push(styles.working);
   if (!filed && run.status !== 'settled') classes.push(styles.unsure);
-
   return (
-    <div className={classes.join(' ')}>
-      {isNote && <span className={styles.fold} aria-hidden />}
+    <article className={classes.join(' ')} tabIndex={0}>
+      {isNote && showFold && <span className={styles.fold} aria-hidden />}
 
-      <div className={styles.cardHead}>
+      <div className={styles.routeRow}>
         <span className={styles.cardKind}>
           <span className={styles.cardGlyph} aria-hidden>
             {cfg.glyph}
           </span>
           {cfg.label}
         </span>
-        {item.source && <span className={styles.cardSource}>{item.source}</span>}
-      </div>
 
-      {/* ── type body ── */}
-      {isEvent ? (
-        <div className={styles.eventRow}>
-          <div className={styles.eventCal}>
-            <div className={styles.eventCalTop} />
-            <div className={styles.eventCalDay}>{eventDay(item.arrivedAt)}</div>
-          </div>
-          <div>
-            <h4 className={styles.cardTitle}>{item.title || 'Untitled'}</h4>
-            {item.preview && <p className={styles.cardPreviewOne}>{item.preview}</p>}
-          </div>
-        </div>
-      ) : (
-        <>
-          <h4 className={styles.cardTitle}>{item.title || 'Untitled'}</h4>
-          {item.preview && (
-            <p className={item.kind === 'email' ? styles.cardPreviewOne : styles.cardPreview}>{item.preview}</p>
-          )}
-        </>
-      )}
-
-      {/* task: collapsible subtasks + completion progress */}
-      {isTask && subtasks.length > 0 && (
-        <div className={styles.taskBlock}>
-          <button className={styles.subtaskToggle} onClick={() => setCollapsed((c) => !c)}>
-            <span>
-              {doneCount}/{subtasks.length} subtasks
-            </span>
-            <span className={styles.subtaskChev} aria-hidden>
-              {collapsed ? '▸' : '▾'}
-            </span>
-          </button>
-          {!collapsed &&
-            subtasks.map((s, i) => (
-              <div key={i} className={styles.subtask}>
-                <span className={`${styles.subtaskBox} ${s.done ? styles.subtaskBoxDone : ''}`} aria-hidden>
-                  {s.done ? '✓' : ''}
-                </span>
-                <span className={s.done ? styles.subtaskTextDone : styles.subtaskText}>{s.text}</span>
+        <div className={styles.decisionMain}>
+          {isEvent ? (
+            <div className={styles.eventRow}>
+              <div className={styles.eventCal}>
+                <div className={styles.eventCalTop} />
+                <div className={styles.eventCalDay}>{eventDay(item.arrivedAt)}</div>
               </div>
-            ))}
-          <div className={styles.progressTrack}>
-            <div className={styles.progressFill} style={{ width: `${pct}%` }} />
-          </div>
-        </div>
-      )}
+              <div>
+                <h4 className={styles.cardTitle}>{item.title || 'Untitled'}</h4>
+                {item.preview && <p className={styles.cardPreviewOne}>{item.preview}</p>}
+              </div>
+            </div>
+          ) : (
+            <>
+              <h4 className={styles.cardTitle}>{item.title || 'Untitled'}</h4>
+              {item.preview && (
+                <p className={styles.cardPreviewOne}>{item.preview}</p>
+              )}
+            </>
+          )}
 
-      {/* note: tags */}
-      {isNote && item.tags && item.tags.length > 0 && (
-        <div className={styles.tags}>
-          {item.tags.slice(0, 4).map((t) => (
-            <span key={t} className={styles.tag}>
-              {t}
-            </span>
-          ))}
-        </div>
-      )}
-
-      {/* ── settled, or the filing + action area ── */}
-      {run.status === 'settled' ? (
-        <div className={styles.settled}>
-          <span className={styles.settledLabel}>
-            <span className={styles.filedCheck} aria-hidden>
-              ✓
-            </span>
-            {SETTLED_LABEL[cfg.verb] ?? 'Done'}
-          </span>
-          <p className={styles.settledResult}>{run.result}</p>
-          <div className={styles.settledActions}>
-            <button className={styles.ghostAction} onClick={onOpen}>
-              Open
-            </button>
-            <button className={styles.later} onClick={() => onLater(item)}>
-              Later
-            </button>
+          <div className={styles.routeFacts}>
+            {item.source && <span className={styles.cardSource}>Source: {item.source}</span>}
+            <span>Destination: {destinationLabel(item)}</span>
+            <span className={styles.confidencePill}>{confidence}%</span>
           </div>
+
+          {isTask && subtasks.length > 0 && (
+            <div className={styles.taskBlock}>
+              <button className={styles.subtaskToggle} onClick={() => setCollapsed((c) => !c)}>
+                <span>
+                  {doneCount}/{subtasks.length} subtasks
+                </span>
+                <span className={styles.subtaskChev} aria-hidden>
+                  {collapsed ? '▸' : '▾'}
+                </span>
+              </button>
+              {!collapsed &&
+                subtasks.map((s, i) => (
+                  <div key={i} className={styles.subtask}>
+                    <span className={`${styles.subtaskBox} ${s.done ? styles.subtaskBoxDone : ''}`} aria-hidden>
+                      {s.done ? '✓' : ''}
+                    </span>
+                    <span className={s.done ? styles.subtaskTextDone : styles.subtaskText}>{s.text}</span>
+                  </div>
+                ))}
+              <div className={styles.progressTrack}>
+                <div className={styles.progressFill} style={{ width: `${pct}%` }} />
+              </div>
+            </div>
+          )}
+
+          {isNote && item.tags && item.tags.length > 0 && (
+            <div className={styles.tags}>
+              {item.tags.slice(0, 4).map((t) => (
+                <span key={t} className={styles.tag}>
+                  {t}
+                </span>
+              ))}
+            </div>
+          )}
         </div>
-      ) : (
-        <>
-          {filed && !showChoices ? (
-            <div className={styles.filedRow}>
+
+        {run.status === 'settled' ? (
+          <div className={styles.settled}>
+            <span className={styles.settledLabel}>
               <span className={styles.filedCheck} aria-hidden>
                 ✓
               </span>
-              <span>
-                Filed to <span className={styles.filedLabel}>{cls.targetCollectionLabel}</span>
-              </span>
-              <button className={styles.inlineChange} onClick={() => setShowChoices(true)}>
-                Change
-              </button>
-            </div>
-          ) : (
-            <div>
-              {!filed && !showChoices && <span className={styles.unsureLabel}>Not sure where this goes.</span>}
+              {SETTLED_LABEL[cfg.verb] ?? 'Done'}
+            </span>
+            <button className={styles.ghostAction} onClick={onOpen}>
+              Open
+            </button>
+          </div>
+        ) : (
+          <div className={styles.decisionActions}>
+            {filed && !showChoices ? (
+              <div className={styles.filedRow}>
+                <span className={styles.filedCheck} aria-hidden>
+                  ✓
+                </span>
+                <span>
+                  Filed to <span className={styles.filedLabel}>{cls.targetCollectionLabel}</span>
+                </span>
+                <button className={styles.inlineChange} onClick={() => setShowChoices(true)}>
+                  Change
+                </button>
+              </div>
+            ) : (
               <div className={styles.choices}>
-                {(showChoices ? allChoices : choices).map((c) => (
-                  <button key={c.id ?? c.label} className={styles.choice} onClick={() => onFile(item, c.id, c.label)}>
-                    {c.label}
-                  </button>
-                ))}
-                {!showChoices && allChoices.length > choices.length && (
-                  <button className={`${styles.choice} ${styles.choiceAlt}`} onClick={() => setShowChoices(true)}>
-                    Something else
+                {targetChoice && !showChoices && (
+                  <button className={styles.primaryRoute} onClick={() => onFile(item, targetChoice.id, targetChoice.label)}>
+                    File to {targetChoice.label}
                   </button>
                 )}
+                {visibleChoices.map((c) => (
+                  <button key={c.id ?? c.label} className={styles.choice} onClick={() => onFile(item, c.id, c.label)}>
+                    {showChoices ? c.label : `Or ${c.label}`}
+                  </button>
+                ))}
                 {showChoices && allChoices.length === 0 && (
                   <button className={`${styles.choice} ${styles.choiceAlt}`} onClick={onOpen}>
                     Open to file manually
                   </button>
                 )}
               </div>
-            </div>
-          )}
+            )}
 
-          <div className={styles.actionRow}>
-            <button className={styles.verb} onClick={runVerb} disabled={run.status === 'working'}>
-              {run.status === 'working' ? 'Working…' : cfg.verb}
-            </button>
-            <button className={styles.later} onClick={() => onLater(item)} title="Decide later">
-              Later
-            </button>
+            <div className={styles.actionRow}>
+              <button className={styles.agentAction} onClick={runVerb} disabled={run.status === 'working'}>
+                {run.status === 'working' ? 'Working…' : `${cfg.verb} with agent`}
+              </button>
+              <button className={styles.later} onClick={() => onLater(item)} title="Decide later">
+                Later
+              </button>
+            </div>
           </div>
-        </>
-      )}
-    </div>
+        )}
+      </div>
+      {run.status === 'settled' && <p className={styles.settledResult}>{run.result}</p>}
+    </article>
   );
 }

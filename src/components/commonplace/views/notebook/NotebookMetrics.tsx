@@ -56,7 +56,7 @@ function MetricCallout({
           fontSize: 20,
           fontWeight: 700,
           color: 'var(--cp-text)',
-          lineHeight: 1.1,
+          lineHeight: 1.2,
         }}
       >
         {value}
@@ -64,7 +64,7 @@ function MetricCallout({
       <div
         style={{
           fontFamily: 'var(--cp-font-mono)',
-          fontSize: 8.5,
+          fontSize: 10,
           fontWeight: 500,
           color: 'var(--cp-text-faint)',
           textTransform: 'uppercase' as const,

@@ -29,7 +29,7 @@ export default function CandidateActions({
       <span
         style={{
           fontFamily: 'var(--cp-font-mono)',
-          fontSize: 9,
+          fontSize: 10,
           fontWeight: 600,
           color: STATUS_COLOR.accepted,
           letterSpacing: '0.06em',
@@ -46,7 +46,7 @@ export default function CandidateActions({
       <span
         style={{
           fontFamily: 'var(--cp-font-mono)',
-          fontSize: 9,
+          fontSize: 10,
           fontWeight: 600,
           color: STATUS_COLOR.rejected,
           letterSpacing: '0.06em',
@@ -67,7 +67,7 @@ export default function CandidateActions({
     fontFamily: 'var(--cp-font-mono)',
     fontSize: inline ? 9 : 10,
     letterSpacing: '0.04em',
-    lineHeight: 1,
+    lineHeight: 1.2,
     borderRadius: 2,
     transition: 'opacity 0.1s ease',
   };

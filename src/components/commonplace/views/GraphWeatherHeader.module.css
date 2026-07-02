@@ -57,7 +57,7 @@
 
 .wsLabel {
   font-family: var(--cp-font-mono);
-  font-size: 8px;
+  font-size: 10px;
   color: var(--cp-text-faint);
   letter-spacing: 0.06em;
   text-transform: uppercase;

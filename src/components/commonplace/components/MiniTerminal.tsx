@@ -14,7 +14,7 @@ function CloseButton({ onClick }: { onClick?: () => void }) {
         border: 'none',
         cursor: 'pointer',
         padding: 2,
-        lineHeight: 1,
+        lineHeight: 1.2,
         color: '#606878',
         fontSize: 12,
       }}
@@ -64,7 +64,7 @@ export default function MiniTerminal({ component, onRemove }: InlineComponentPro
         }} />
         <span style={{
           fontFamily: 'var(--cp-font-mono)',
-          fontSize: 9,
+          fontSize: 10,
           textTransform: 'uppercase',
           color: '#808898',
           letterSpacing: '0.06em',
@@ -73,7 +73,7 @@ export default function MiniTerminal({ component, onRemove }: InlineComponentPro
         </span>
         <span style={{
           fontFamily: 'var(--cp-font-mono)',
-          fontSize: 8,
+          fontSize: 10,
           color: '#606878',
           marginLeft: 'auto',
         }}>

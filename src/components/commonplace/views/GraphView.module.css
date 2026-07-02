@@ -1,0 +1,165 @@
+.graphShell {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  height: 100%;
+  background: transparent;
+}
+
+.graphToolbar {
+  display: flex;
+  align-items: center;
+  gap: var(--cp-space-3);
+  padding: var(--cp-space-3);
+  border-bottom: 1px solid var(--cp-border-faint);
+  background: var(--cp-card);
+}
+
+.graphTitle {
+  min-width: 0;
+  margin-right: auto;
+}
+
+.graphTitle strong {
+  display: block;
+  color: var(--cp-text);
+  font-family: var(--cp-font-title);
+  font-size: 16px;
+  line-height: 1.2;
+}
+
+.graphTitle span,
+.graphMeta,
+.empty {
+  color: var(--cp-text-muted);
+  font-family: var(--cp-font-mono);
+  font-size: 11px;
+}
+
+.modeTabs {
+  flex: 1;
+  gap: 0;
+}
+
+.segmented {
+  gap: var(--cp-space-1);
+  height: var(--cp-space-8);
+  padding: var(--cp-space-1);
+  border: 1px solid var(--cp-border-faint);
+  border-radius: var(--cp-space-2);
+  background: var(--cp-surface);
+}
+
+.segment,
+.smallButton {
+  border: 0;
+  border-radius: calc(var(--cp-space-2) - var(--cp-space-px));
+  background: transparent;
+  color: var(--cp-text-muted);
+  font-family: var(--cp-font-mono);
+  font-size: 11px;
+  cursor: pointer;
+}
+
+.segment {
+  min-width: var(--cp-space-16);
+  padding: 0 var(--cp-space-2);
+}
+
+.segment[data-active] {
+  background: var(--cp-red-soft);
+  color: var(--cp-text);
+}
+
+.smallButton {
+  padding: var(--cp-space-2) var(--cp-space-3);
+  border: 1px solid var(--cp-border-faint);
+  background: var(--cp-surface);
+}
+
+.floatingClear {
+  position: absolute;
+  right: var(--cp-space-3);
+  bottom: var(--cp-space-3);
+  z-index: 4;
+}
+
+.canvasFrame {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+  background: color-mix(in srgb, var(--cp-surface) 72%, var(--cp-bg) 28%);
+}
+
+.cosmosHost,
+.flowHost {
+  position: absolute;
+  inset: 0;
+  min-width: 0;
+  min-height: 0;
+}
+
+.flowHost {
+  background: var(--cp-surface);
+}
+
+.flowNode {
+  display: grid;
+  gap: var(--cp-space-1);
+  min-width: 132px;
+  max-width: 210px;
+  padding: var(--cp-space-2) var(--cp-space-3);
+  border: 1px solid var(--node-color, var(--cp-border));
+  border-radius: var(--cp-space-2);
+  background: color-mix(in srgb, var(--cp-surface) 86%, var(--cp-bg) 14%);
+  box-shadow: var(--cp-shadow);
+  color: var(--cp-text);
+}
+
+.flowNode strong {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 12px;
+  line-height: 1.2;
+}
+
+.flowNode span {
+  color: var(--cp-text-muted);
+  font-family: var(--cp-font-mono);
+  font-size: 10px;
+}
+
+.flowNode[data-selected="true"] {
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--node-color, var(--cp-red)) 28%, transparent);
+}
+
+.empty {
+  display: grid;
+  place-items: center;
+  height: 100%;
+  padding: var(--cp-space-6);
+  line-height: 1.45;
+  text-align: center;
+}
+
+@media (max-width: 760px) {
+  .graphToolbar {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .graphTitle {
+    margin-right: 0;
+  }
+
+  .segmented {
+    width: 100%;
+  }
+
+  .segment {
+    flex: 1;
+  }
+}

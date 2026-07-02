@@ -8,7 +8,7 @@
 
 /* ─────────────────────────────────────────────────
    CommonPlace: Warm Parchment Instrument tokens
-   Dark chrome shell, parchment work surface, red-pencil accents.
+   Graphite sidebar, parchment work surface, burnt-orange pencil accents.
    Loaded only inside the (commonplace) route group.
    ───────────────────────────────────────────────── */
 
@@ -32,19 +32,19 @@ html[data-theme="dark"] body::after {
   --cp-chrome-raise: #2A2A30;
   --cp-chrome-line: #35353C;
   --cp-chrome-text: #D8D6DC;
-  --cp-chrome-muted: #88868E;
-  --cp-chrome-dim: #807E86;          /* AA 4.5:1 on #1C1C20 */
+  --cp-chrome-muted: #8C8992;
+  --cp-chrome-dim: #807E86;
 
-  /* Sidebar: cool control rail (charcoal with restrained indigo-teal undertone) */
-  --cp-sidebar: #16171A;
-  --cp-sidebar-surface: rgba(255, 255, 255, 0.025);
-  --cp-sidebar-surface-hover: rgba(255, 255, 255, 0.05);
-  --cp-sidebar-text: #EDE3D8;
-  --cp-sidebar-text-muted: #9C9892;
-  --cp-sidebar-text-faint: #7E7A75;
-  --cp-sidebar-border: rgba(255, 255, 255, 0.05);
-  --cp-sidebar-border-strong: rgba(255, 255, 255, 0.08);
-  --cp-sidebar-edge: rgba(255, 255, 255, 0.05);
+  /* Sidebar: selected graphite surface. The main canvas stays parchment. */
+  --cp-sidebar: #383532;
+  --cp-sidebar-surface: rgba(225, 224, 218, 0.045);
+  --cp-sidebar-surface-hover: rgba(225, 224, 218, 0.075);
+  --cp-sidebar-text: #E1E0DA;
+  --cp-sidebar-text-muted: #BDB7AF;
+  --cp-sidebar-text-faint: #B0A79E;
+  --cp-sidebar-border: rgba(225, 224, 218, 0.08);
+  --cp-sidebar-border-strong: rgba(225, 224, 218, 0.13);
+  --cp-sidebar-edge: rgba(225, 224, 218, 0.10);
 
   /* Content surfaces (warm parchment) */
   --cp-bg: #F5E6D2;
@@ -56,20 +56,24 @@ html[data-theme="dark"] body::after {
   /* Text (ink on parchment) */
   --cp-text: #2A2420;
   --cp-text-muted: #6A5E52;
-  --cp-text-faint: #9A8E82;
+  --cp-text-faint: #73665B;
+  --cp-text-ghost: #73665B;
 
-  /* Accent: oxblood pencil (engine/machine signal) */
-  --cp-oxblood: #8A2E29;
-  --cp-oxblood-rgb: 138, 46, 41;
-  --cp-oxblood-light: #8A2E29;
-  --cp-red: var(--cp-oxblood);
-  --cp-red-rgb: var(--cp-oxblood-rgb);
-  --cp-red-soft: rgba(138, 46, 41, 0.07);
-  --cp-red-line: rgba(138, 46, 41, 0.24);
-  --cp-red-glow: rgba(138, 46, 41, 0.16);
+  /* Accent: burnt-orange pencil (engine/machine signal) */
+  --cp-burnt-orange: #A65324;
+  --cp-burnt-orange-rgb: 166, 83, 36;
+  --cp-burnt-orange-light: #A75A2A;
+  --cp-oxblood: var(--cp-burnt-orange);
+  --cp-oxblood-rgb: var(--cp-burnt-orange-rgb);
+  --cp-oxblood-light: var(--cp-burnt-orange-light);
+  --cp-red: var(--cp-burnt-orange);
+  --cp-red-rgb: var(--cp-burnt-orange-rgb);
+  --cp-red-soft: rgba(166, 83, 36, 0.07);
+  --cp-red-line: rgba(166, 83, 36, 0.24);
+  --cp-red-glow: rgba(166, 83, 36, 0.16);
   --cp-accent: var(--cp-red);
 
-  /* Legacy terracotta aliases map to the oxblood system */
+  /* Legacy terracotta/oxblood aliases map to the burnt-orange system */
   --cp-terracotta: var(--cp-red);
   --cp-terracotta-light: var(--cp-oxblood);
   --cp-terracotta-glow: var(--cp-red-soft);
@@ -120,7 +124,7 @@ html[data-theme="dark"] body::after {
   --cp-term-border-hover: rgba(var(--cp-red-rgb), 0.22);
   --cp-term-text: #2A2420;
   --cp-term-text-secondary: #6A5E52;
-  --cp-term-muted: #9A8E82;
+  --cp-term-muted: #6A5E52;
   --cp-term-green: #6AAA6A;
   --cp-term-amber: #CCAA44;
   --cp-term-red: #CC6644;
@@ -143,11 +147,13 @@ html[data-theme="dark"] body::after {
   /* Construction grid */
   --cp-grid-color: rgba(42,36,32,0.04);
 
-  /* Typography: Dark Chrome Instrument stack */
+  /* Typography: IBM Plex Sans UI with JetBrains Mono for code/data marks. */
   --cp-font-title: var(--font-vollkorn), Georgia, serif;
   --cp-font-body: var(--font-ibm-plex), 'IBM Plex Sans', system-ui, sans-serif;
   --cp-font-mono: var(--font-jetbrains-mono), 'JetBrains Mono', monospace;
   --cp-font-code: var(--font-jetbrains-mono), 'JetBrains Mono', monospace;
+  --cp-ui-font-size: 14.5px;
+  --cp-ui-line-height: 1.45;
 
   /* Font feature settings */
   --cp-kern-title: 'kern' 1, 'liga' 1, 'calt' 1, 'onum' 1;
@@ -200,7 +206,7 @@ html[data-theme="dark"] body::after {
   --cp-focus-ring: var(--cp-red);
   --cp-focus-ring-offset: 2px;
   --cp-focus-ring-width: 2px;
-  --cp-focus-ring-sidebar: rgba(138, 46, 41, 0.55);
+  --cp-focus-ring-sidebar: rgba(225, 224, 218, 0.62);
 
   /* Timing tokens */
   --cp-transition-fast: 100ms;
@@ -220,7 +226,7 @@ html[data-theme="dark"] body::after {
   /* Search bar */
   --cp-search-bg: rgba(42,36,32,0.03);
   --cp-search-border: rgba(42,36,32,0.10);
-  --cp-search-focus-border: rgba(138, 46, 41, 0.3);
+  --cp-search-focus-border: rgba(166, 83, 36, 0.3);
   --cp-search-placeholder: var(--cp-text-faint);
 
   /* Ask Theseus */
@@ -232,11 +238,14 @@ html[data-theme="dark"] body::after {
   --cp-ask-negative: #C0504D;
   --cp-ask-negative-bg: rgba(192, 80, 77, 0.08);
   --cp-ask-save: var(--cp-terra, var(--cp-red));
-  --cp-ask-save-bg: rgba(138, 46, 41, 0.10);
+  --cp-ask-save-bg: rgba(166, 83, 36, 0.10);
 
   /* State tokens */
   --cp-disabled-opacity: 0.35;
 
+  font-family: var(--cp-font-body);
+  font-size: var(--cp-ui-font-size);
+  line-height: var(--cp-ui-line-height);
   font-feature-settings: var(--cp-kern-body);
   font-kerning: normal;
 }

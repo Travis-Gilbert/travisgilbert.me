@@ -179,7 +179,7 @@ export default function CommonPlaceSidebar({ onCollapse }: { onCollapse?: () => 
             fontSize: 22,
             fontWeight: 700,
             color: 'var(--cp-sidebar-text)',
-            lineHeight: 1.1,
+            lineHeight: 1.2,
             letterSpacing: '-0.02em',
           }}>Common</span>
           <span style={{
@@ -187,8 +187,8 @@ export default function CommonPlaceSidebar({ onCollapse }: { onCollapse?: () => 
             fontFamily: 'var(--cp-font-title)',
             fontSize: 22,
             fontWeight: 700,
-            color: 'rgba(55, 120, 130, 0.6)',
-            lineHeight: 1.1,
+            color: '#5FA3AF',
+            lineHeight: 1.2,
             letterSpacing: '-0.02em',
           }}>Place</span>
         </Link>
@@ -480,7 +480,7 @@ export default function CommonPlaceSidebar({ onCollapse }: { onCollapse?: () => 
                             width: 6,
                             height: 6,
                             borderRadius: '50%',
-                            backgroundColor: 'var(--cp-red)',
+                            backgroundColor: LABEL_ACCENT[item.label] ?? 'var(--cp-sidebar-text-faint)',
                             flexShrink: 0,
                           }}
                         />
@@ -661,9 +661,9 @@ export default function CommonPlaceSidebar({ onCollapse }: { onCollapse?: () => 
         width: 232,
         flexShrink: 0,
         background: [
-          'radial-gradient(120% 140% at 0% 0%, rgba(75, 141, 144, 0.035) 0%, transparent 28%)',
-          'radial-gradient(90% 120% at 100% 20%, rgba(86, 109, 150, 0.055) 0%, transparent 36%)',
-          'linear-gradient(180deg, #1A1B1F 0%, #151619 100%)',
+          'radial-gradient(120% 140% at 0% 0%, rgba(225, 224, 218, 0.035) 0%, transparent 30%)',
+          'radial-gradient(90% 120% at 100% 20%, rgba(225, 224, 218, 0.05) 0%, transparent 36%)',
+          'linear-gradient(180deg, color-mix(in srgb, var(--cp-sidebar) 92%, #5a554f) 0%, var(--cp-sidebar) 100%)',
         ].join(', '),
         borderRight: '1px solid var(--cp-shell-join-border)',
         boxShadow: 'var(--cp-shell-sidebar-shadow)',
@@ -705,12 +705,12 @@ const RAIL_ICON_COMPONENTS: Record<string, ComponentType<{ width?: number; heigh
   'substract': SubstractIcon,
 };
 
-/* Per-section accent colors: shown on the icon when the item is active.
-   Updated for the cool-slate sidebar palette per Spec F. */
-const CAPTURE_ACCENT = 'var(--cp-red)';
+/* Per-section accent colors: shown on the icon when the item is active. */
+const CAPTURE_ACCENT = 'var(--cp-sidebar-text)';
 const LABEL_ACCENT: Record<string, string> = {
-  /* Capture section: oxblood */
-  'Auto Organize':      CAPTURE_ACCENT,
+  /* Capture section: neutral graphite */
+  'Index':              CAPTURE_ACCENT,
+  'Chat':               CAPTURE_ACCENT,
   'Home':               CAPTURE_ACCENT,
   'Library':            CAPTURE_ACCENT,
   'Files':              CAPTURE_ACCENT,
@@ -729,8 +729,7 @@ const LABEL_ACCENT: Record<string, string> = {
   'Connection Engine':  '#6E7078',
   'Engine':             '#6E7078',
   'Agents':             '#6E7078',
-  'Theorem Agent':      '#6E7078',
-  'Chat':               '#6E7078',
+  'CommonPlace Chat':   '#6E7078',
   'Claude Code':        '#6E7078',
   'Codex':              '#6E7078',
   'Gemini CLI':         '#6E7078',
@@ -740,7 +739,6 @@ const LABEL_ACCENT: Record<string, string> = {
   'Receiver':           '#6E7078',
   'Review Queue':       '#6E7078',
   'Settings':           '#6E7078',
-  'Accounts':           '#6E7078',
 };
 
 /* Sidebar icons: Iconoir 24x24 path data, rendered at 16px display size.

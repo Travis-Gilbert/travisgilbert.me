@@ -1,7 +1,7 @@
 .rail {
   width: 52px;
   flex-shrink: 0;
-  background: linear-gradient(180deg, #18191C 0%, #141517 100%);
+  background: linear-gradient(180deg, color-mix(in srgb, var(--cp-sidebar) 92%, #5a554f) 0%, var(--cp-sidebar) 100%);
   border-right: 1px solid var(--cp-shell-join-border);
   box-shadow: var(--cp-shell-sidebar-shadow);
   display: flex;
@@ -17,17 +17,17 @@
   font-family: var(--cp-font-title);
   font-size: 20px;
   font-weight: 800;
-  color: var(--cp-red);
+  color: var(--cp-sidebar-text);
   margin-bottom: 20px;
   cursor: pointer;
   background: none;
   border: none;
   padding: 0;
-  line-height: 1;
+  line-height: 1.2;
 }
 
 .logo:hover {
-  color: var(--cp-red);
+  color: var(--cp-sidebar-text);
 }
 
 .btn {
@@ -48,7 +48,8 @@
 }
 
 .active {
-  background: rgba(var(--cp-red-rgb), 0.15);
+  background: var(--cp-sidebar-surface-hover);
+  box-shadow: inset 0 0 0 1px var(--cp-sidebar-border-strong);
 }
 
 .status {
@@ -71,7 +72,7 @@
 }
 
 .expandZone:hover {
-  background: rgba(var(--cp-red-rgb), 0.1);
+  background: var(--cp-sidebar-surface-hover);
 }
 
 /* Hide rail on mobile */

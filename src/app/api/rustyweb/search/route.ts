@@ -5,15 +5,13 @@ import {
   normalizeRustyWebProductResponse,
   type RustyWebSearchMode,
 } from '@/lib/rustyweb-search';
+import { THEOREM_HARNESS_MCP_URL, THEOREM_HARNESS_RUSTYWEB_SEARCH_URL } from '@/lib/theorem-hosted';
 
 export const dynamic = 'force-dynamic';
 
 const LOCAL_NODE_URL = 'http://127.0.0.1:17888';
 const LOCAL_MCP_URL = `${LOCAL_NODE_URL}/mcp`;
 const LOCAL_RUSTYWEB_SEARCH_URL = `${LOCAL_NODE_URL}/v1/rustyweb/search`;
-const HOSTED_BASE_URL = 'https://rustyredcore-theorem-production.up.railway.app';
-const HOSTED_MCP_URL = `${HOSTED_BASE_URL}/mcp`;
-const HOSTED_RUSTYWEB_SEARCH_URL = `${HOSTED_BASE_URL}/v1/rustyweb/search`;
 
 interface SearchBody {
   query?: unknown;
@@ -195,8 +193,8 @@ function rustyWebSearchCandidates(): string[] {
   );
   if (explicit) return [trimSlash(explicit)];
   return process.env.NODE_ENV === 'development'
-    ? [LOCAL_RUSTYWEB_SEARCH_URL, HOSTED_RUSTYWEB_SEARCH_URL]
-    : [HOSTED_RUSTYWEB_SEARCH_URL];
+    ? [LOCAL_RUSTYWEB_SEARCH_URL, THEOREM_HARNESS_RUSTYWEB_SEARCH_URL]
+    : [THEOREM_HARNESS_RUSTYWEB_SEARCH_URL];
 }
 
 function upstreamCandidates(): string[] {
@@ -208,8 +206,8 @@ function upstreamCandidates(): string[] {
   );
   if (explicit) return [trimSlash(explicit)];
   return process.env.NODE_ENV === 'development'
-    ? [LOCAL_MCP_URL, HOSTED_MCP_URL]
-    : [HOSTED_MCP_URL];
+    ? [LOCAL_MCP_URL, THEOREM_HARNESS_MCP_URL]
+    : [THEOREM_HARNESS_MCP_URL];
 }
 
 function upstreamHeaders(): HeadersInit {

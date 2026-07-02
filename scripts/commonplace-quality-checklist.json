@@ -1,0 +1,172 @@
+{
+  "version": 1,
+  "name": "commonplace-quality-audit",
+  "description": "Site-wide CommonPlace accessibility, readability, token, motion, and data-view sanity checklist.",
+  "thresholds": {
+    "contrastNormal": 4.5,
+    "contrastLarge": 3,
+    "minReadableFontPx": 12,
+    "minAbsoluteFontPx": 10,
+    "minLineHeightRatio": 1.35,
+    "minAbsoluteLineHeightRatio": 1.2,
+    "minTargetPx": 24,
+    "recommendedTargetPx": 32,
+    "motionMinMs": 100,
+    "motionMaxMs": 500,
+    "motionAbsoluteMaxMs": 1000,
+    "routeSmokeTimeoutMs": 10000
+  },
+  "tokens": {
+    "files": [
+      "src/styles/commonplace-tokens.css"
+    ],
+    "definitionFiles": [
+      "src/styles/commonplace-tokens.css",
+      "src/styles/commonplace-tokens-neutral.css",
+      "src/styles/commonplace.css",
+      "src/styles/object-cards.css"
+    ],
+    "textTokens": [
+      "--cp-text",
+      "--cp-text-muted",
+      "--cp-text-faint",
+      "--cp-text-ghost",
+      "--cp-sidebar-text",
+      "--cp-sidebar-text-muted",
+      "--cp-sidebar-text-faint",
+      "--cp-chrome-text",
+      "--cp-chrome-muted",
+      "--cp-term-text",
+      "--cp-term-text-secondary",
+      "--cp-term-muted"
+    ],
+    "contrastPairs": [
+      {
+        "name": "content",
+        "foregrounds": ["--cp-text", "--cp-text-muted", "--cp-text-faint", "--cp-text-ghost"],
+        "backgrounds": ["--cp-bg", "--cp-surface", "--cp-card", "white", "agent-thread-control"]
+      },
+      {
+        "name": "sidebar",
+        "foregrounds": ["--cp-sidebar-text", "--cp-sidebar-text-muted", "--cp-sidebar-text-faint"],
+        "backgrounds": ["--cp-sidebar", "--cp-sidebar-surface"],
+        "base": "--cp-sidebar"
+      },
+      {
+        "name": "chrome",
+        "foregrounds": ["--cp-chrome-text", "--cp-chrome-muted"],
+        "backgrounds": ["--cp-chrome", "--cp-chrome-mid"],
+        "base": "--cp-chrome"
+      },
+      {
+        "name": "terminal",
+        "foregrounds": ["--cp-term-text", "--cp-term-text-secondary", "--cp-term-muted"],
+        "backgrounds": ["--cp-term", "--cp-term-elevated"]
+      }
+    ],
+    "surfaceTokens": [
+      "--cp-bg",
+      "--cp-surface",
+      "--cp-card",
+      "--cp-sidebar",
+      "--cp-sidebar-surface",
+      "--cp-chrome",
+      "--cp-chrome-mid",
+      "--cp-term",
+      "--cp-term-elevated"
+    ],
+    "additionalSurfaces": [
+      { "name": "white", "value": "#FFFFFF" },
+      { "name": "agent-thread-control", "value": "#F4F3F0" }
+    ]
+  },
+  "staticSources": {
+    "includeDirs": [
+      "src/components/commonplace",
+      "src/app/(commonplace)"
+    ],
+    "includeFiles": [
+      "src/styles/commonplace.css",
+      "src/styles/commonplace-tokens.css",
+      "src/styles/commonplace-tokens-neutral.css",
+      "src/styles/object-cards.css"
+    ],
+    "ignoreFiles": []
+  },
+  "dataVizSources": {
+    "files": [
+      "src/components/commonplace/views/NetworkView.tsx",
+      "src/components/commonplace/views/GraphView.module.css",
+      "src/components/commonplace/views/CosmosGlobalGraph.tsx",
+      "src/components/commonplace/views/ReactFlowModelCanvas.tsx",
+      "src/components/commonplace/views/TimelineView.tsx",
+      "src/components/commonplace/views/Timeline3DWrapper.tsx",
+      "src/components/commonplace/views/VectorSpaceView.tsx",
+      "src/components/commonplace/views/VectorSpaceAtlasCanvas.tsx"
+    ]
+  },
+  "routes": [
+    {
+      "id": "commonplace-shell",
+      "path": "/commonplace",
+      "label": "CommonPlace shell",
+      "viewport": "desktop",
+      "renderChecks": ["http-ok", "axe-pending", "target-size-pending"]
+    },
+    {
+      "id": "commonplace-mobile",
+      "path": "/commonplace/mobile",
+      "label": "CommonPlace mobile shell",
+      "viewport": "mobile",
+      "renderChecks": ["http-ok", "axe-pending", "target-size-pending"]
+    },
+    {
+      "id": "accounts-view",
+      "path": "/commonplace",
+      "label": "Accounts view",
+      "navLabel": "Accounts",
+      "viewport": "desktop",
+      "renderChecks": ["axe-pending", "target-size-pending", "keyboard-pending"]
+    },
+    {
+      "id": "files-view",
+      "path": "/commonplace",
+      "label": "Files view",
+      "navLabel": "Files",
+      "viewport": "desktop",
+      "renderChecks": ["axe-pending", "target-size-pending", "data-viz-pending"]
+    },
+    {
+      "id": "table-view",
+      "path": "/commonplace",
+      "label": "Table view",
+      "navLabel": "Table",
+      "viewport": "desktop",
+      "renderChecks": ["axe-pending", "target-size-pending", "grid-math-pending"]
+    },
+    {
+      "id": "timeline-view",
+      "path": "/commonplace",
+      "label": "Timeline view",
+      "navLabel": "Timeline",
+      "viewport": "desktop",
+      "renderChecks": ["axe-pending", "target-size-pending", "data-domain-pending"]
+    },
+    {
+      "id": "map-view",
+      "path": "/commonplace",
+      "label": "Map view",
+      "navLabel": "Map",
+      "viewport": "desktop",
+      "renderChecks": ["axe-pending", "target-size-pending", "projection-math-pending"]
+    },
+    {
+      "id": "vector-space-view",
+      "path": "/commonplace",
+      "label": "Vector Space view",
+      "navLabel": "Vector Space",
+      "viewport": "desktop",
+      "renderChecks": ["axe-pending", "target-size-pending", "coordinate-finite-pending"]
+    }
+  ]
+}

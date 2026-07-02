@@ -1,7 +1,9 @@
+import { THEOREM_HARNESS_MCP_URL } from './theorem-hosted';
+
 export const HARNESS_MCP_NAME = 'theorems-harness';
 export const HARNESS_MCP_URL =
   process.env.NEXT_PUBLIC_THEOREM_HARNESS_MCP_URL ??
-  'https://rustyredcore-theorem-production.up.railway.app/mcp';
+  THEOREM_HARNESS_MCP_URL;
 export const HARNESS_KEYS_URL =
   process.env.NEXT_PUBLIC_THEOREM_HARNESS_KEYS_URL ??
   'https://harness.theoremsweb.com/keys';

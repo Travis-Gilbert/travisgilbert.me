@@ -1,0 +1,244 @@
+.root {
+  width: 100%;
+  padding: 0;
+}
+
+.frame {
+  width: 100%;
+  max-width: 640px;
+  margin: 0 auto;
+  border: 1px solid rgba(42, 36, 32, 0.08);
+  border-radius: 22px;
+  background: rgba(251, 240, 226, 0.72);
+  box-shadow:
+    0 20px 44px rgba(42, 36, 32, 0.13),
+    0 2px 8px rgba(42, 36, 32, 0.08);
+  padding: 4px;
+  backdrop-filter: blur(18px);
+}
+
+.shell {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  overflow: visible;
+  border: 1px solid rgba(42, 36, 32, 0.08);
+  border-radius: 18px;
+  background: color-mix(in srgb, var(--cp-surface) 78%, white);
+}
+
+.scrollArea {
+  overflow-y: auto;
+}
+
+.inputLayer {
+  position: relative;
+}
+
+.textarea {
+  display: block;
+  width: 100%;
+  min-height: 48px;
+  max-height: 164px;
+  resize: none;
+  border: 0;
+  border-radius: 18px 18px 0 0;
+  background: rgba(42, 36, 32, 0.035);
+  color: var(--cp-text);
+  font-family: var(--cp-font-body);
+  font-size: 15px;
+  line-height: 1.35;
+  outline: none;
+  padding: 13px 16px;
+}
+
+.textarea:disabled {
+  cursor: wait;
+}
+
+.placeholderWrap {
+  position: absolute;
+  top: 13px;
+  left: 16px;
+}
+
+.placeholder {
+  position: absolute;
+  width: 220px;
+  margin: 0;
+  color: var(--cp-text-faint);
+  font-size: 14px;
+  line-height: 1.35;
+  pointer-events: none;
+}
+
+.toolbar {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  min-height: 48px;
+  border-radius: 0 0 14px 14px;
+  background: rgba(42, 36, 32, 0.035);
+  padding: 8px 12px;
+}
+
+.leftTools {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 8px;
+}
+
+.iconTool,
+.searchTool,
+.sendButton {
+  border: 1px solid transparent;
+  border-radius: 999px;
+  color: color-mix(in srgb, var(--cp-text-muted) 72%, transparent);
+  transition:
+    background-color 160ms ease,
+    border-color 160ms ease,
+    color 160ms ease,
+    transform 160ms ease;
+}
+
+.iconTool,
+.sendButton {
+  display: inline-flex;
+  width: 32px;
+  height: 32px;
+  align-items: center;
+  justify-content: center;
+}
+
+.iconTool {
+  position: relative;
+  cursor: pointer;
+  background: rgba(42, 36, 32, 0.045);
+}
+
+.iconTool:hover,
+.searchTool:hover,
+.sendButton:hover:not(:disabled) {
+  color: var(--cp-text);
+  transform: translateY(-1px);
+}
+
+.iconToolActive {
+  width: auto;
+  max-width: 210px;
+  border-color: rgba(var(--cp-red-rgb), 0.38);
+  background: rgba(var(--cp-red-rgb), 0.12);
+  color: var(--cp-red);
+  gap: 6px;
+  padding: 0 10px;
+}
+
+.fileInput {
+  display: none;
+}
+
+.fileName {
+  overflow: hidden;
+  max-width: 140px;
+  font-family: var(--cp-font-mono);
+  font-size: 10px;
+  line-height: 1.2;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.preview {
+  position: absolute;
+  top: 44px;
+  left: -16px;
+  width: 100px;
+  height: 100px;
+  border: 1px solid rgba(42, 36, 32, 0.12);
+  border-radius: 16px;
+  background: var(--cp-card);
+  box-shadow: var(--cp-shadow-lg);
+  z-index: 4;
+}
+
+.previewImage {
+  border-radius: 16px;
+  object-fit: cover;
+}
+
+.previewClose {
+  position: absolute;
+  top: -6px;
+  left: -6px;
+  display: grid;
+  width: 24px;
+  height: 24px;
+  place-items: center;
+  border: 1px solid rgba(42, 36, 32, 0.12);
+  border-radius: 999px;
+  background: var(--cp-surface);
+  color: var(--cp-text-muted);
+  cursor: pointer;
+  transform: rotate(45deg);
+}
+
+.searchTool {
+  display: inline-flex;
+  height: 32px;
+  align-items: center;
+  gap: 6px;
+  background: rgba(42, 36, 32, 0.045);
+  cursor: pointer;
+  padding: 6px 8px;
+}
+
+.searchToolActive {
+  border-color: rgba(var(--cp-red-rgb), 0.38);
+  background: rgba(var(--cp-red-rgb), 0.12);
+  color: var(--cp-red);
+}
+
+.searchIcon,
+.searchLabel {
+  display: inline-flex;
+  align-items: center;
+  flex-shrink: 0;
+}
+
+.searchLabel {
+  overflow: hidden;
+  color: var(--cp-red);
+  font-size: 13px;
+  white-space: nowrap;
+}
+
+.sendButton {
+  appearance: none;
+  background: rgba(42, 36, 32, 0.045);
+  cursor: pointer;
+}
+
+.sendButtonActive {
+  background: rgba(var(--cp-red-rgb), 0.12);
+  color: var(--cp-red);
+}
+
+.sendButton:disabled {
+  cursor: default;
+  opacity: 0.55;
+}
+
+@media (max-width: 640px) {
+  .frame {
+    max-width: none;
+  }
+
+  .iconToolActive {
+    max-width: 150px;
+  }
+
+  .placeholder {
+    width: 180px;
+  }
+}

@@ -74,13 +74,13 @@
 
 .taskDue {
   font-family: var(--cp-font-mono);
-  font-size: 9px;
+  font-size: 10px;
   color: var(--cp-text-faint);
 }
 
 .taskProject {
   font-family: var(--cp-font-mono);
-  font-size: 9px;
+  font-size: 10px;
   padding: 1px 6px;
   border-radius: 3px;
   background: rgba(42, 36, 32, 0.04);
@@ -89,7 +89,7 @@
 
 .provBadge {
   font-family: var(--cp-font-mono);
-  font-size: 9px;
+  font-size: 10px;
   color: var(--cp-text-faint);
   background: rgba(42, 36, 32, 0.04);
   padding: 2px 6px;
@@ -153,7 +153,7 @@
 
 .calMo {
   font-family: var(--cp-font-mono);
-  font-size: 8px;
+  font-size: 10px;
   text-transform: uppercase;
   letter-spacing: 0.1em;
   color: #fff;
@@ -241,7 +241,7 @@
 
 .hunchLabel {
   font-family: var(--cp-font-mono);
-  font-size: 9px;
+  font-size: 10px;
   color: var(--cp-pink, #B06080);
   letter-spacing: 0.1em;
   text-transform: uppercase;
@@ -266,7 +266,7 @@
 
 .hunchConfidence {
   font-family: var(--cp-font-mono);
-  font-size: 9px;
+  font-size: 10px;
   color: var(--cp-text-faint);
   margin-top: 4px;
 }

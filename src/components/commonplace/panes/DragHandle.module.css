@@ -97,7 +97,7 @@
 .readout {
   position: absolute;
   font-family: var(--cp-font-mono);
-  font-size: 9px;
+  font-size: 10px;
   color: var(--cp-chrome-text);
   background: var(--cp-chrome-mid);
   padding: 2px 6px;

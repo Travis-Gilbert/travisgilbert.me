@@ -163,7 +163,7 @@ export default function SidebarTree({ isOpen, isActive, onToggle, onOpenFiles }:
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
-            color: rootHovered ? 'var(--cp-red)' : 'var(--cp-sidebar-text-muted)',
+            color: rootHovered ? 'var(--cp-sidebar-text)' : 'var(--cp-sidebar-text-muted)',
             transform: isOpen ? 'rotate(90deg)' : 'rotate(0deg)',
             transition: 'transform 180ms ease, color 180ms ease',
             flexShrink: 0,
@@ -192,7 +192,7 @@ export default function SidebarTree({ isOpen, isActive, onToggle, onOpenFiles }:
           style={{
             flex: 1,
             fontSize: 13,
-            lineHeight: 1.1,
+            lineHeight: 1.2,
             color: 'var(--cp-sidebar-text)',
             overflow: 'hidden',
             textOverflow: 'ellipsis',

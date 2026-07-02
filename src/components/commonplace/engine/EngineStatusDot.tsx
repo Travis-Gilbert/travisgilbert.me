@@ -32,7 +32,7 @@ export default function EngineStatusDot({ status }: EngineStatusDotProps) {
         height: 8,
         borderRadius: '50%',
         backgroundColor: color,
-        animation: isPulsing ? 'engine-pulse 1.2s ease-in-out infinite' : undefined,
+        animation: isPulsing ? 'engine-pulse 1000ms ease-in-out infinite' : undefined,
         flexShrink: 0,
       }}
     />

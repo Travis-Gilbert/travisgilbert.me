@@ -40,7 +40,7 @@ export default function PhotosLens({ lens, ctx }: LensViewProps) {
           <div key={it.id} style={{ position: 'relative', aspectRatio: '1', borderRadius: 6, overflow: 'hidden', border: '1px solid var(--cp-border-faint)', background: 'var(--cp-border-faint)' }}>
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img src={it.value} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} onError={(e) => { (e.currentTarget.style.display = 'none'); }} />
-            <button type="button" onClick={() => remove(it.id)} aria-label="Remove photo" style={{ position: 'absolute', top: 2, right: 2, width: 18, height: 18, borderRadius: '50%', border: 'none', background: 'rgba(0,0,0,0.55)', color: '#fff', cursor: 'pointer', fontSize: 12, lineHeight: 1 }}>×</button>
+            <button type="button" onClick={() => remove(it.id)} aria-label="Remove photo" style={{ position: 'absolute', top: 2, right: 2, width: 18, height: 18, borderRadius: '50%', border: 'none', background: 'rgba(0,0,0,0.55)', color: '#fff', cursor: 'pointer', fontSize: 12, lineHeight: 1.2 }}>×</button>
           </div>
         ))}
       </div>

@@ -14,7 +14,7 @@ function CloseButton({ onClick }: { onClick?: () => void }) {
         border: 'none',
         cursor: 'pointer',
         padding: 2,
-        lineHeight: 1,
+        lineHeight: 1.2,
         color: '#606878',
         fontSize: 12,
       }}
@@ -56,7 +56,7 @@ export default function MiniPhotos({ component, onRemove }: InlineComponentProps
         </span>
         <span style={{
           fontFamily: 'var(--cp-font-mono)',
-          fontSize: 9,
+          fontSize: 10,
           color: 'var(--cp-text-muted)',
           marginLeft: 'auto',
         }}>

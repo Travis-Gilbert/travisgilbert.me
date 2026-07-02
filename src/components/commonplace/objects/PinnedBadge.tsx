@@ -88,7 +88,7 @@ export default function PinnedBadge({
           ? 'italic'
           : 'normal',
         color: getBadgeTextColor(object.object_type, typeId.color),
-        lineHeight: 1,
+        lineHeight: 1.2,
         overflow: 'hidden',
         whiteSpace: 'nowrap',
         textOverflow: 'ellipsis',
@@ -211,7 +211,7 @@ function renderLeadingElement(
         <span style={{
           fontSize: compact ? 9 : 10,
           flexShrink: 0,
-          lineHeight: 1,
+          lineHeight: 1.2,
         }}>
           {'\u{1F4CD}'}
         </span>
@@ -235,7 +235,7 @@ function renderLeadingElement(
         <span style={{
           fontSize: compact ? 9 : 10,
           flexShrink: 0,
-          lineHeight: 1,
+          lineHeight: 1.2,
           opacity: 0.7,
         }}>
           ?

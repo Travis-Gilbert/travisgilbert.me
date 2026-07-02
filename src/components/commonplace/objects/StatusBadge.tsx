@@ -39,7 +39,7 @@ export default function StatusBadge({ status, confirmed }: StatusBadgeProps) {
         fontFamily: 'var(--cp-font-mono)',
         fontSize: 10,
         fontWeight: 500,
-        lineHeight: 1,
+        lineHeight: 1.2,
         textTransform: 'capitalize',
         whiteSpace: 'nowrap',
         letterSpacing: '0.04em',

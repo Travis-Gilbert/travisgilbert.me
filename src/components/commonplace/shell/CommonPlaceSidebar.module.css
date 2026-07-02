@@ -1,18 +1,17 @@
 /* ─────────────────────────────────────────────────
    CommonPlace Sidebar: CSS Module
    Scoped automatically by CSS Modules.
-   Cool-slate palette (Spec F).
+   Graphite palette with neutral sidebar selection.
    ───────────────────────────────────────────────── */
 
-/* Focus-visible: softer ring on dark chrome sidebar surfaces */
+/* Focus-visible: neutral ring on dark graphite sidebar surfaces */
 .sidebarItem:focus-visible,
 .pinnedItem:focus-visible {
   outline-color: var(--cp-focus-ring-sidebar);
 }
 
 /* ─────────────────────────────────────────────────
-   Sidebar glow: subtle warm wash from top,
-   hints at brand without fighting cool slate.
+   Sidebar glow: subtle graphite lift from top.
    ───────────────────────────────────────────────── */
 
 .sidebarGlow {
@@ -21,13 +20,13 @@
   pointer-events: none;
   background: radial-gradient(
     ellipse at 50% 0%,
-    color-mix(in srgb, var(--cp-red) 4%, transparent) 0%,
+    rgba(225, 224, 218, 0.035) 0%,
     transparent 25%
   );
 }
 
 /* ─────────────────────────────────────────────────
-   Capture button: oxblood glow wrapper
+   Capture button wrapper
    ───────────────────────────────────────────────── */
 
 .captureGlow {
@@ -69,24 +68,9 @@
   text-decoration: none;
 }
 
-/* Left-edge accent bar: appears on hover (50%) and active (100%) */
+/* Selection is a graphite field, not a colored rail. */
 .sidebarItem::before {
-  content: '';
-  position: absolute;
-  left: 0;
-  top: 4px;
-  bottom: 4px;
-  width: 2.5px;
-  border-radius: 0 2px 2px 0;
-  background: var(--sidebar-section-color, var(--cp-red));
-  opacity: 0;
-  transition: opacity 120ms ease;
-}
-.sidebarItem:hover::before {
-  opacity: 0.5;
-}
-.sidebarItem[data-active="true"]::before {
-  opacity: 1;
+  content: none;
 }
 
 .sidebarItem:hover {
@@ -106,8 +90,8 @@
 /* Section-colored sidebar icons: monochrome at rest, color on hover/active */
 .sidebarItem svg { color: var(--cp-sidebar-text-muted); opacity: 0.5; transition: color 200ms, opacity 200ms; }
 
-.sidebarItem[data-section="capture"]:hover svg { color: var(--cp-red); opacity: 1; }
-.sidebarItem[data-section="capture"][data-active="true"] svg { color: var(--cp-red); opacity: 1; }
+.sidebarItem[data-section="capture"]:hover svg { color: var(--cp-sidebar-text); opacity: 1; }
+.sidebarItem[data-section="capture"][data-active="true"] svg { color: var(--cp-sidebar-text); opacity: 1; }
 
 .sidebarItem[data-section="views"]:hover svg { color: #5D9B78; opacity: 1; }
 .sidebarItem[data-section="views"][data-active="true"] svg { color: #5D9B78; opacity: 1; }
@@ -124,22 +108,22 @@
 .sectionTitle[data-section="work"],
 .sectionTitle[data-section="system"] { color: var(--cp-sidebar-text-faint); opacity: 0.6; }
 
-/* Active section sidebar item: oxblood accent cue, not a wash */
+/* Active section sidebar item: graphite cue only. */
 .sidebarItem[data-section="capture"][data-active="true"] {
-  background-color: color-mix(in srgb, var(--cp-red) 14%, transparent);
-  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--cp-red) 20%, transparent);
+  background-color: var(--cp-sidebar-surface-hover);
+  box-shadow: inset 0 0 0 1px var(--cp-sidebar-border-strong);
 }
 .sidebarItem[data-section="views"][data-active="true"] {
-  background-color: rgba(93, 155, 120, 0.06);
-  box-shadow: inset 0 0 0 1px rgba(93, 155, 120, 0.12);
+  background-color: var(--cp-sidebar-surface-hover);
+  box-shadow: inset 0 0 0 1px var(--cp-sidebar-border-strong);
 }
 .sidebarItem[data-section="work"][data-active="true"] {
-  background-color: rgba(123, 143, 160, 0.06);
-  box-shadow: inset 0 0 0 1px rgba(123, 143, 160, 0.12);
+  background-color: var(--cp-sidebar-surface-hover);
+  box-shadow: inset 0 0 0 1px var(--cp-sidebar-border-strong);
 }
 .sidebarItem[data-section="system"][data-active="true"] {
-  background-color: rgba(110, 112, 120, 0.06);
-  box-shadow: inset 0 0 0 1px rgba(110, 112, 120, 0.12);
+  background-color: var(--cp-sidebar-surface-hover);
+  box-shadow: inset 0 0 0 1px var(--cp-sidebar-border-strong);
 }
 
 /* ─────────────────────────────────────────────────
@@ -147,7 +131,7 @@
    ───────────────────────────────────────────────── */
 
 .sidebarSectionCapture {
-  --sidebar-section-color: var(--cp-red);
+  --sidebar-section-color: var(--cp-sidebar-text-muted);
   border-radius: 4px;
   margin: 2px 0;
   padding: 2px 0 4px;
@@ -238,7 +222,7 @@
 .pinnedItemCount {
   font-family: var(--cp-font-mono);
   font-weight: 500;
-  font-size: 9px;
+  font-size: 10px;
   color: var(--cp-sidebar-text-faint);
   margin-top: 1px;
 }

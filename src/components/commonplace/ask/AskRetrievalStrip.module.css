@@ -18,7 +18,7 @@
   height: 8px;
   border-radius: 50%;
   background: var(--cp-ask-glyph, var(--cp-red));
-  animation: pulse 1.5s ease-in-out infinite;
+  animation: pulse 1000ms ease-in-out infinite;
 }
 
 @keyframes pulse {

@@ -359,7 +359,7 @@
 }
 
 .cp-bookshelf-flat-cover .cp-bookshelf-cover-count {
-  font-size: 9px;
+  font-size: 10px;
 }
 
 /* ═══ Tooltip ═══ */
@@ -437,7 +437,7 @@
   color: var(--cp-text-faint);
   opacity: 0.45;
   transition: color 0.3s ease, opacity 0.3s ease;
-  line-height: 1;
+  line-height: 1.2;
 }
 
 .cp-bookshelf-add:hover span {

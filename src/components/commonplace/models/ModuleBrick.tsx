@@ -46,8 +46,8 @@ export default function ModuleBrick({
         <span
           style={{
             color: 'var(--cp-text-faint, #68666E)',
-            fontSize: 7,
-            lineHeight: 1,
+            fontSize: 10,
+            lineHeight: 1.2,
             letterSpacing: '1px',
           }}
         >
@@ -58,11 +58,11 @@ export default function ModuleBrick({
         <span
           style={{
             fontFamily: 'var(--cp-font-mono)',
-            fontSize: 9,
+            fontSize: 10,
             fontWeight: 600,
             letterSpacing: '0.7px',
             textTransform: 'uppercase',
-            color: 'rgba(26, 24, 22, 0.28)',
+            color: 'var(--cp-text-faint)',
             flex: 1,
           }}
         >
@@ -80,8 +80,8 @@ export default function ModuleBrick({
               cursor: 'pointer',
               padding: '1px 3px',
               color: 'var(--cp-text-faint, #68666E)',
-              fontSize: 9,
-              lineHeight: 1,
+              fontSize: 10,
+              lineHeight: 1.2,
               borderRadius: 2,
             }}
           >

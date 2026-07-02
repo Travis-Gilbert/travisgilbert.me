@@ -12,13 +12,16 @@
 
 import dynamic from 'next/dynamic';
 import { useState, useCallback, useMemo } from 'react';
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import FrameManager from '../shared/FrameManager';
 import type { ViewFrame, GraphNode, GraphLink } from '@/lib/commonplace';
 import { fetchGraph, useApiData } from '@/lib/commonplace-api';
 import { useDrawer } from '@/lib/providers/drawer-provider';
+import { useSelection } from '@/lib/providers/selection-provider';
 import { useIsMobileViewport } from '@/hooks/useIsMobileViewport';
+import styles from './GraphView.module.css';
 
-type NetworkSubView = 'list' | 'map' | 'entities' | 'timeline';
+type NetworkSubView = 'list' | 'global' | 'ego' | 'model';
 
 interface NetworkViewProps {
   onOpenObject?: (objectId: string) => void;
@@ -26,16 +29,16 @@ interface NetworkViewProps {
 }
 
 const DESKTOP_SUB_VIEWS: { key: NetworkSubView; label: string }[] = [
-  { key: 'map', label: 'Map' },
-  { key: 'entities', label: 'Entities' },
-  { key: 'timeline', label: 'Timeline' },
+  { key: 'global', label: 'Global' },
+  { key: 'ego', label: 'Ego' },
+  { key: 'model', label: 'Model' },
 ];
 
 const MOBILE_SUB_VIEWS: { key: NetworkSubView; label: string }[] = [
   { key: 'list', label: 'List' },
-  { key: 'map', label: 'Map' },
-  { key: 'entities', label: 'Entities' },
-  { key: 'timeline', label: 'Timeline' },
+  { key: 'global', label: 'Global' },
+  { key: 'ego', label: 'Ego' },
+  { key: 'model', label: 'Model' },
 ];
 
 const LazyKnowledgeMap = dynamic(() => import('./KnowledgeMap'), {
@@ -43,24 +46,50 @@ const LazyKnowledgeMap = dynamic(() => import('./KnowledgeMap'), {
   loading: () => <GraphViewSkeleton />,
 });
 
-const LazyEntityNetwork = dynamic(() => import('../shared/EntityNetwork'), {
+const LazyCosmosGlobalGraph = dynamic(() => import('./CosmosGlobalGraph'), {
   ssr: false,
   loading: () => <GraphViewSkeleton />,
 });
 
-const LazyTimelineViz = dynamic(() => import('./TimelineViz'), {
+const LazyReactFlowModelCanvas = dynamic(() => import('./ReactFlowModelCanvas'), {
   ssr: false,
   loading: () => <GraphViewSkeleton />,
 });
+
+function graphNodeId(value: string | GraphNode): string {
+  return typeof value === 'string' ? value : value.id;
+}
+
+function selectedGraph(nodes: GraphNode[], links: GraphLink[], selectedItems: Set<string>) {
+  if (selectedItems.size === 0) return { nodes, links };
+  const directlySelected = new Set(
+    nodes
+      .filter((node) => selectedItems.has(node.id) || (node.objectRef != null && selectedItems.has(String(node.objectRef))))
+      .map((node) => node.id),
+  );
+  if (directlySelected.size === 0) return { nodes: [], links: [] };
+  const included = new Set(directlySelected);
+  for (const link of links) {
+    const source = graphNodeId(link.source);
+    const target = graphNodeId(link.target);
+    if (directlySelected.has(source)) included.add(target);
+    if (directlySelected.has(target)) included.add(source);
+  }
+  return {
+    nodes: nodes.filter((node) => included.has(node.id)),
+    links: links.filter((link) => included.has(graphNodeId(link.source)) && included.has(graphNodeId(link.target))),
+  };
+}
 
 export default function NetworkView({ onOpenObject, filterTypes }: NetworkViewProps) {
   const { openReader } = useDrawer();
+  const { selectedItems, selectSingle, clearSelection } = useSelection();
   const isMobile = useIsMobileViewport();
-  const [activeSubView, setActiveSubView] = useState<NetworkSubView>('map');
+  const [activeSubView, setActiveSubView] = useState<NetworkSubView>('global');
   const [hasChosenView, setHasChosenView] = useState(false);
   const [getCanvasSnapshot, setGetCanvasSnapshot] = useState<(() => string | null) | null>(null);
 
-  /* Track zoom state for FrameManager (only used with map sub-view) */
+  /* Track zoom state for FrameManager. */
   const [currentZoom, setCurrentZoom] = useState(1);
   const [currentCenter, setCurrentCenter] = useState({ x: 0, y: 0 });
   const handleRegisterSnapshotGetter = useCallback((getter: (() => string | null) | null) => {
@@ -77,14 +106,20 @@ export default function NetworkView({ onOpenObject, filterTypes }: NetworkViewPr
   );
 
   const effectiveSubView =
-    isMobile && !hasChosenView && activeSubView === 'map'
+    isMobile && !hasChosenView && activeSubView === 'global'
       ? 'list'
-      : (!isMobile && activeSubView === 'list' ? 'map' : activeSubView);
+      : (!isMobile && activeSubView === 'list' ? 'global' : activeSubView);
 
   /* ── Fetch graph data once, shared by all sub-views ── */
   const { data: graphData, loading, error, refetch } = useApiData(() => fetchGraph(), []);
-  const graphNodes: GraphNode[] = graphData?.nodes ?? [];
-  const graphLinks: GraphLink[] = graphData?.links ?? [];
+  const graphNodes: GraphNode[] = useMemo(() => graphData?.nodes ?? [], [graphData]);
+  const graphLinks: GraphLink[] = useMemo(() => graphData?.links ?? [], [graphData]);
+  const scopedGraph = useMemo(
+    () => selectedGraph(graphNodes, graphLinks, selectedItems),
+    [graphLinks, graphNodes, selectedItems],
+  );
+  const visibleGraphNodes = scopedGraph.nodes;
+  const visibleGraphLinks = scopedGraph.links;
 
   /* Frame restoration handler: resets zoom to identity for now */
   const handleRestoreFrame = useCallback((frame: ViewFrame) => {
@@ -100,13 +135,12 @@ export default function NetworkView({ onOpenObject, filterTypes }: NetworkViewPr
     return (
       <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
         <div className="cp-network-toolbar">
-          <div style={{ display: 'flex', gap: 4, flex: 1 }}>
-            {subViews.map((sv) => (
-              <button key={sv.key} className="cp-network-toggle" data-active={false} disabled>
-                {sv.label}
-              </button>
-            ))}
-          </div>
+          <NetworkSubViewTabs
+            subViews={subViews}
+            value={effectiveSubView}
+            disabled
+            onChange={() => undefined}
+          />
         </div>
         <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
           <div className="cp-loading-skeleton" style={{ width: '80%', height: '60%', borderRadius: 8 }} />
@@ -120,15 +154,14 @@ export default function NetworkView({ onOpenObject, filterTypes }: NetworkViewPr
     return (
       <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
         <div className="cp-network-toolbar">
-          <div style={{ display: 'flex', gap: 4, flex: 1 }}>
-            {subViews.map((sv) => (
-              <button key={sv.key} className="cp-network-toggle" data-active={false} disabled>
-                {sv.label}
-              </button>
-            ))}
-          </div>
+          <NetworkSubViewTabs
+            subViews={subViews}
+            value={effectiveSubView}
+            disabled
+            onChange={() => undefined}
+          />
         </div>
-        <div className="cp-error-banner" style={{ margin: 16 }}>
+        <div className="cp-error-banner" style={{ margin: 'var(--cp-space-4)' }}>
           <p>Could not load knowledge graph.</p>
           <button onClick={refetch}>Retry</button>
         </div>
@@ -141,13 +174,12 @@ export default function NetworkView({ onOpenObject, filterTypes }: NetworkViewPr
     return (
       <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
         <div className="cp-network-toolbar">
-          <div style={{ display: 'flex', gap: 4, flex: 1 }}>
-            {subViews.map((sv) => (
-              <button key={sv.key} className="cp-network-toggle" data-active={false} disabled>
-                {sv.label}
-              </button>
-            ))}
-          </div>
+          <NetworkSubViewTabs
+            subViews={subViews}
+            value={effectiveSubView}
+            disabled
+            onChange={() => undefined}
+          />
         </div>
         <div className="cp-empty-state">
           <p>No objects yet. Capture something to see the knowledge graph.</p>
@@ -160,22 +192,15 @@ export default function NetworkView({ onOpenObject, filterTypes }: NetworkViewPr
     <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
       {/* Toolbar: sub-view toggles + frame manager */}
       <div className="cp-network-toolbar">
-        <div style={{ display: 'flex', gap: 4, flex: 1 }}>
-          {subViews.map((sv) => (
-            <button
-              key={sv.key}
-              className="cp-network-toggle"
-              data-active={effectiveSubView === sv.key}
-              onClick={() => {
-                setHasChosenView(true);
-                setActiveSubView(sv.key);
-              }}
-            >
-              {sv.label}
-            </button>
-          ))}
-        </div>
-        {effectiveSubView === 'map' && (
+        <NetworkSubViewTabs
+          subViews={subViews}
+          value={effectiveSubView}
+          onChange={(nextView) => {
+            setHasChosenView(true);
+            setActiveSubView(nextView);
+          }}
+        />
+        {effectiveSubView === 'ego' && (
           <FrameManager
             currentZoom={currentZoom}
             currentCenterX={currentCenter.x}
@@ -187,28 +212,84 @@ export default function NetworkView({ onOpenObject, filterTypes }: NetworkViewPr
       </div>
 
       {/* Active sub-view */}
-      <div style={{ flex: 1, position: 'relative', minHeight: 0 }}>
+      <div className={styles.canvasFrame}>
         {effectiveSubView === 'list' && (
-          <NetworkListView graphNodes={graphNodes} onOpenObject={onOpenObject} />
+          <NetworkListView
+            graphNodes={visibleGraphNodes}
+            onOpenObject={onOpenObject}
+            onSelectObject={selectSingle}
+          />
         )}
-        {effectiveSubView === 'map' && (
+        {effectiveSubView === 'global' && (
+          <LazyCosmosGlobalGraph
+            graphNodes={visibleGraphNodes}
+            graphLinks={visibleGraphLinks}
+            selectedItems={selectedItems}
+            onSelectNode={selectSingle}
+          />
+        )}
+        {effectiveSubView === 'ego' && (
           <LazyKnowledgeMap
-            graphNodes={graphNodes}
-            graphLinks={graphLinks}
+            graphNodes={visibleGraphNodes}
+            graphLinks={visibleGraphLinks}
             onOpenObject={onOpenObject}
             onReadObject={openReader}
             filter={graphFilter}
-            registerSnapshotGetter={effectiveSubView === 'map' ? handleRegisterSnapshotGetter : undefined}
+            registerSnapshotGetter={effectiveSubView === 'ego' ? handleRegisterSnapshotGetter : undefined}
           />
         )}
-        {effectiveSubView === 'entities' && (
-          <LazyEntityNetwork graphNodes={graphNodes} graphLinks={graphLinks} onOpenObject={onOpenObject} />
+        {effectiveSubView === 'model' && (
+          <LazyReactFlowModelCanvas
+            graphNodes={visibleGraphNodes}
+            graphLinks={visibleGraphLinks}
+            selectedItems={selectedItems}
+            onSelectNode={selectSingle}
+          />
         )}
-        {effectiveSubView === 'timeline' && (
-          <LazyTimelineViz graphNodes={graphNodes} graphLinks={graphLinks} onOpenObject={onOpenObject} />
+        {selectedItems.size > 0 && (
+          <button
+            type="button"
+            className={`${styles.smallButton} ${styles.floatingClear}`}
+            onClick={clearSelection}
+          >
+            Clear selection
+          </button>
         )}
       </div>
     </div>
+  );
+}
+
+function NetworkSubViewTabs({
+  subViews,
+  value,
+  disabled,
+  onChange,
+}: {
+  subViews: { key: NetworkSubView; label: string }[];
+  value: NetworkSubView;
+  disabled?: boolean;
+  onChange: (value: NetworkSubView) => void;
+}) {
+  return (
+    <Tabs
+      value={value}
+      onValueChange={(nextValue) => onChange(nextValue as NetworkSubView)}
+      className={styles.modeTabs}
+    >
+      <TabsList className={styles.segmented} aria-label="Graph view">
+        {subViews.map((subView) => (
+          <TabsTrigger
+            key={subView.key}
+            value={subView.key}
+            disabled={disabled}
+            className={styles.segment}
+          >
+            {subView.label}
+          </TabsTrigger>
+        ))}
+      </TabsList>
+    </Tabs>
   );
 }
 
@@ -220,7 +301,7 @@ function GraphViewSkeleton() {
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        padding: 16,
+        padding: 'var(--cp-space-4)',
       }}
     >
       <div className="cp-loading-skeleton" style={{ width: '100%', height: '72%', borderRadius: 10 }} />
@@ -231,9 +312,11 @@ function GraphViewSkeleton() {
 function NetworkListView({
   graphNodes,
   onOpenObject,
+  onSelectObject,
 }: {
   graphNodes: GraphNode[];
   onOpenObject?: (objectId: string) => void;
+  onSelectObject?: (objectId: string) => void;
 }) {
   const sorted = useMemo(
     () =>
@@ -251,7 +334,10 @@ function NetworkListView({
           key={node.id}
           type="button"
           className="cp-network-list-item"
-          onClick={() => onOpenObject?.(node.id)}
+          onClick={() => {
+            onSelectObject?.(node.id);
+            onOpenObject?.(node.id);
+          }}
         >
           <span className="cp-network-list-title">{node.title}</span>
           <span className="cp-network-list-meta">

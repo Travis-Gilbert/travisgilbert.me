@@ -69,7 +69,7 @@ export default function EngineProvenance({
         }
         .ep-chevron {
           display: inline-block;
-          font-size: 8px;
+          font-size: 10px;
           transition: transform 120ms ease;
         }
         .ep-body {

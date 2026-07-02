@@ -28,8 +28,12 @@ import {
   fetchFeed,
   useApiData,
 } from '@/lib/commonplace-api';
+import { Button } from '@/components/ui/button';
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { gqlItemsAsOf, itemToMockNode } from '@/lib/commonplace-graphql';
 import { useDrawer } from '@/lib/providers/drawer-provider';
 import { useCapture } from '@/lib/providers/capture-provider';
+import { useSelection } from '@/lib/providers/selection-provider';
 import { useIsAppShellMobile } from '@/hooks/useIsAppShellMobile';
 import { computeTimeline3DLayout, type TimelineNode3D } from '@/lib/timeline-3d-layout';
 import { renderableFromMockNode } from '../objectRenderables';
@@ -37,6 +41,9 @@ import TimelineView from './TimelineView';
 import TimelineSearch from './TimelineSearch';
 import type { TimelineFilters } from './TimelineSearch';
 import type { MockNode } from '@/lib/commonplace';
+import axisStyles from './TimelineAxisControls.module.css';
+
+type TimelineAxis = 'transaction' | 'valid';
 
 /* ─────────────────────────────────────────────────
    Lazy-loaded 3D scene (separate chunk)
@@ -60,6 +67,29 @@ function hasWebGL2(): boolean {
 function prefersReducedMotion(): boolean {
   if (typeof window === 'undefined') return false;
   return window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+}
+
+function timeFromNode(node: MockNode): number {
+  const value = new Date(node.capturedAt).getTime();
+  return Number.isFinite(value) ? value : Date.now();
+}
+
+function nodeMatchesSelection(node: MockNode, selectedItems: Set<string>): boolean {
+  if (selectedItems.size === 0) return true;
+  return (
+    selectedItems.has(node.id) ||
+    selectedItems.has(node.objectSlug) ||
+    selectedItems.has(String(node.objectRef))
+  );
+}
+
+function shortDate(ms: number | null): string {
+  if (!ms) return 'No date';
+  return new Intl.DateTimeFormat('en', {
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+  }).format(new Date(ms));
 }
 
 /* ─────────────────────────────────────────────────
@@ -126,6 +156,10 @@ export default function Timeline3DWrapper() {
     query: '',
     activeTypes: new Set<string>(),
   });
+  const [timeAxis, setTimeAxis] = useState<TimelineAxis>('transaction');
+  const [asOfMs, setAsOfMs] = useState<number | null>(null);
+  const [asOfFeed, setAsOfFeed] = useState<MockNode[] | null>(null);
+  const [asOfPending, setAsOfPending] = useState(false);
 
   // Detect WebGL capability synchronously (no effect needed, these are sync checks)
   const canRender3D = useMemo(() => {
@@ -135,14 +169,52 @@ export default function Timeline3DWrapper() {
 
   const { openDrawer, openContextMenu } = useDrawer();
   const { captureVersion } = useCapture();
+  const { selectedItems, clearSelection } = useSelection();
 
   // Fetch feed data
   const { data: feed, loading, error } = useApiData(fetchFeed, [captureVersion]);
+  const feedNodes = useMemo(() => feed ?? [], [feed]);
+  const timeBounds = useMemo(() => {
+    if (feedNodes.length === 0) return null;
+    const values = feedNodes.map(timeFromNode);
+    return {
+      min: Math.min(...values),
+      max: Math.max(...values),
+    };
+  }, [feedNodes]);
+
+  const effectiveAsOfMs = asOfMs ?? timeBounds?.max ?? null;
+
+  useEffect(() => {
+    if (effectiveAsOfMs == null) {
+      return undefined;
+    }
+    let cancelled = false;
+    queueMicrotask(() => {
+      if (!cancelled) setAsOfPending(true);
+    });
+    gqlItemsAsOf({
+      validAtMs: timeAxis === 'valid' ? effectiveAsOfMs : null,
+      transactionAtMs: timeAxis === 'transaction' ? effectiveAsOfMs : null,
+    })
+      .then((items) => {
+        if (!cancelled) setAsOfFeed(items.map(itemToMockNode));
+      })
+      .catch(() => {
+        if (!cancelled) setAsOfFeed(feedNodes);
+      })
+      .finally(() => {
+        if (!cancelled) setAsOfPending(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [captureVersion, effectiveAsOfMs, feedNodes, timeAxis]);
 
   // Apply filters
   const filteredNodes = useMemo(() => {
-    const nodes = feed ?? [];
-    let result = nodes;
+    const nodes = asOfFeed ?? feedNodes;
+    let result = nodes.filter((node) => nodeMatchesSelection(node, selectedItems));
     if (filters.query) {
       const q = filters.query.toLowerCase();
       result = result.filter(
@@ -155,7 +227,7 @@ export default function Timeline3DWrapper() {
       result = result.filter((n) => filters.activeTypes.has(n.objectType));
     }
     return result;
-  }, [feed, filters]);
+  }, [asOfFeed, feedNodes, filters, selectedItems]);
 
   // Compute layout for scroll height
   const layout = useMemo(
@@ -215,9 +287,58 @@ export default function Timeline3DWrapper() {
     [openContextMenu],
   );
 
+  const axisToolbar = (
+    <div className={axisStyles.toolbar}>
+      <Tabs
+        value={timeAxis}
+        onValueChange={(value) => setTimeAxis(value as TimelineAxis)}
+        className={axisStyles.tabs}
+      >
+        <TabsList className={axisStyles.tabList} aria-label="Timeline axis">
+          {([
+            ['transaction', 'Known'],
+            ['valid', 'Valid'],
+          ] as const).map(([axis, label]) => (
+            <TabsTrigger
+              key={axis}
+              value={axis}
+              className={axisStyles.tab}
+            >
+              {label}
+            </TabsTrigger>
+          ))}
+        </TabsList>
+      </Tabs>
+      <input
+        className={axisStyles.range}
+        type="range"
+        min={timeBounds?.min ?? 0}
+        max={timeBounds?.max ?? 0}
+        value={effectiveAsOfMs ?? 0}
+        disabled={!timeBounds || timeBounds.min === timeBounds.max}
+        onChange={(event) => setAsOfMs(Number(event.currentTarget.value))}
+        aria-label="Timeline as of date"
+      />
+      <span className={axisStyles.dateLabel}>
+        {asOfPending ? 'Updating' : shortDate(effectiveAsOfMs)}
+      </span>
+      {selectedItems.size > 0 && (
+        <Button
+          type="button"
+          onClick={clearSelection}
+          variant="outline"
+          size="sm"
+          className={axisStyles.clearButton}
+        >
+          Clear
+        </Button>
+      )}
+    </div>
+  );
+
   // Fallback: mobile or no WebGL2 or prefers-reduced-motion
   if (isMobile || !canRender3D) {
-    return <TimelineView />;
+    return <TimelineView feedOverride={filteredNodes} toolbarExtra={axisToolbar} />;
   }
 
   return (
@@ -228,7 +349,7 @@ export default function Timeline3DWrapper() {
         display: 'flex',
         flexDirection: 'column',
         overflow: 'hidden',
-        background: '#F7F2EA',
+        background: 'var(--cp-bg)',
       }}
     >
       {/* Search/filter overlay (fixed DOM above canvas) */}
@@ -248,6 +369,7 @@ export default function Timeline3DWrapper() {
             onChange={setFilters}
             resultCount={filteredNodes.length}
           />
+          {axisToolbar}
         </div>
       </div>
 
@@ -279,8 +401,8 @@ export default function Timeline3DWrapper() {
           zIndex: 1,
         }}
       >
-        <Timeline3DErrorBoundary fallback={<TimelineView />}>
-          <Suspense fallback={<TimelineView />}>
+        <Timeline3DErrorBoundary fallback={<TimelineView feedOverride={filteredNodes} toolbarExtra={axisToolbar} />}>
+          <Suspense fallback={<TimelineView feedOverride={filteredNodes} toolbarExtra={axisToolbar} />}>
             {!loading && !error && (
               <Timeline3DScene
                 feedNodes={filteredNodes}
@@ -318,7 +440,7 @@ export default function Timeline3DWrapper() {
             zIndex: 20,
           }}
         >
-          <TimelineView />
+          <TimelineView feedOverride={filteredNodes} toolbarExtra={axisToolbar} />
         </div>
       )}
     </div>

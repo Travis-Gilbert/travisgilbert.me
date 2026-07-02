@@ -35,7 +35,7 @@ const TYPE_COLOR: Record<string, string> = {
   note: '#2A2420',
   source: '#2D5F6B',
   concept: '#7B5EA7',
-  person: '#8A2E29',
+  person: '#A65324',
   hunch: '#C49A4A',
   task: '#C49A4A',
   event: '#7B5EA7',
@@ -95,7 +95,6 @@ function getResponseForQuery(q: string): string {
 
 export default function TheseusBar() {
   const [expanded, setExpanded] = useState(false);
-  const [mounted, setMounted] = useState(false);
   const [inputValue, setInputValue] = useState('');
   const [logEntries, setLogEntries] = useState<EngineLogEntry[]>([]);
   const [thoughtIndex, setThoughtIndex] = useState(0);
@@ -106,8 +105,6 @@ export default function TheseusBar() {
   const inputRef = useRef<HTMLInputElement>(null);
   const typewriterRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const reduced = useReducedMotion();
-
-  useEffect(() => { setMounted(true); }, []);
 
   // Fetch engine log once on mount, then every 30s.
   // Ref-based to avoid re-triggering downstream effects.
@@ -153,29 +150,34 @@ export default function TheseusBar() {
     }
 
     if (reduced) {
-      setDisplayedText(targetThought);
-      setIsTyping(false);
-      return;
+      const timeout = setTimeout(() => {
+        setDisplayedText(targetThought);
+        setIsTyping(false);
+      }, 0);
+      return () => clearTimeout(timeout);
     }
 
-    setDisplayedText('');
-    setIsTyping(true);
     let charIndex = 0;
 
-    typewriterRef.current = setInterval(() => {
-      charIndex++;
-      if (charIndex <= targetThought.length) {
-        setDisplayedText(targetThought.slice(0, charIndex));
-      } else {
-        setIsTyping(false);
-        if (typewriterRef.current) {
-          clearInterval(typewriterRef.current);
-          typewriterRef.current = null;
+    const timeout = setTimeout(() => {
+      setDisplayedText('');
+      setIsTyping(true);
+      typewriterRef.current = setInterval(() => {
+        charIndex++;
+        if (charIndex <= targetThought.length) {
+          setDisplayedText(targetThought.slice(0, charIndex));
+        } else {
+          setIsTyping(false);
+          if (typewriterRef.current) {
+            clearInterval(typewriterRef.current);
+            typewriterRef.current = null;
+          }
         }
-      }
-    }, 18);
+      }, 18);
+    }, 0);
 
     return () => {
+      clearTimeout(timeout);
       if (typewriterRef.current) {
         clearInterval(typewriterRef.current);
         typewriterRef.current = null;
@@ -186,7 +188,6 @@ export default function TheseusBar() {
   // Search for object chips when user types 4+ characters (debounced)
   useEffect(() => {
     if (inputValue.length < 4) {
-      setObjectChips([]);
       return;
     }
     let stale = false;
@@ -235,9 +236,8 @@ export default function TheseusBar() {
     });
   }, []);
 
-  if (!mounted) return null;
-
   const collapsedThought = thoughts[thoughtIndex % thoughts.length] ?? '';
+  const visibleObjectChips = inputValue.length >= 4 ? objectChips : [];
 
   const content = (
     <div className="commonplace-theme">
@@ -279,7 +279,7 @@ export default function TheseusBar() {
                 borderRadius: '50%',
                 backgroundColor: '#4ADE80',
                 boxShadow: '0 0 6px rgba(74,222,128,0.4)',
-                animation: reduced ? 'none' : 'cpPulse 1.5s ease-in-out infinite',
+                animation: reduced ? 'none' : 'cpPulse 1000ms ease-in-out infinite',
                 flexShrink: 0,
               }}
             />
@@ -352,7 +352,7 @@ export default function TheseusBar() {
               </div>
 
               {/* Object chips (when 4+ characters typed) */}
-              {inputValue.length >= 4 && objectChips.length > 0 && (
+              {visibleObjectChips.length > 0 && (
                 <motion.div
                   initial={reduced ? false : { opacity: 0 }}
                   animate={{ opacity: 1 }}
@@ -364,7 +364,7 @@ export default function TheseusBar() {
                     flexWrap: 'wrap',
                   }}
                 >
-                  {objectChips.map((chip) => (
+                  {visibleObjectChips.map((chip) => (
                     <span
                       key={chip.id}
                       style={{

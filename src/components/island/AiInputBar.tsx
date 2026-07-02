@@ -5,7 +5,7 @@
  * re-tokenized to the CommonPlace --cp-* language: an auto-resizing textarea
  * with attach, web search, graph-guided expansion, and a send button. It reads
  * as a chat bar (Travis's ask) -- larger than a command pill. The omnibar wires
- * it to Theorem's agent, RustyWeb search, and fractal expansion.
+ * it to CommonPlace's agent, RustyWeb search, and fractal expansion.
  *
  * Radius note: keeps the rounded chat-bar shape (a deliberate exception to the
  * otherwise-sharp design language, per request).
@@ -63,9 +63,9 @@ export const AiInputBar = React.forwardRef<HTMLTextAreaElement, AiInputBarProps>
       mode,
       onModeChange,
       onAttach,
-      placeholder = 'Ask the Theorem agent',
+      placeholder = 'Ask CommonPlace',
       webPlaceholder = 'Search the web',
-      researchPlaceholder = 'Search, then ask Theorem',
+      researchPlaceholder = 'Search, then answer',
       fractalPlaceholder = 'Search the web from your graph',
       busy,
       autoFocus,
@@ -98,10 +98,10 @@ export const AiInputBar = React.forwardRef<HTMLTextAreaElement, AiInputBarProps>
       mode === 'web'
         ? 'Search the web'
         : mode === 'research'
-          ? 'Search, then ask Theorem'
+          ? 'Search, then answer'
           : mode === 'fractal'
             ? 'Search the web from your graph'
-            : 'Ask the Theorem agent';
+            : 'Ask CommonPlace';
 
     return (
       <div className="w-full font-sans">
@@ -206,9 +206,9 @@ export const AiInputBar = React.forwardRef<HTMLTextAreaElement, AiInputBarProps>
                 <button
                   type="button"
                   onClick={() => onModeChange(mode === 'research' ? 'ask' : 'research')}
-                  aria-label="Search, then ask Theorem"
+                  aria-label="Search, then answer"
                   aria-pressed={mode === 'research'}
-                  title="Search, then ask Theorem"
+                  title="Search, then answer"
                   className={isTall ? 'flex h-9 items-center gap-1.5 rounded-full border px-2.5 transition-colors' : 'flex h-8 items-center gap-1.5 rounded-full border px-2 transition-colors'}
                   style={
                     mode === 'research'

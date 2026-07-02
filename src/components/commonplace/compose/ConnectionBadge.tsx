@@ -18,9 +18,9 @@ export default function ConnectionBadge({ count, typeColor }: ConnectionBadgePro
         bottom: 6,
         right: 8,
         fontFamily: 'var(--font-code)',
-        fontSize: 8,
+        fontSize: 10,
         color: `rgba(${r}, ${g}, ${b}, 0.4)`,
-        lineHeight: 1,
+        lineHeight: 1.2,
         pointerEvents: 'none',
       }}
     >

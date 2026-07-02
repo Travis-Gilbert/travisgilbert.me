@@ -8,7 +8,7 @@
 
 .label {
   font-family: var(--cp-font-mono);
-  font-size: 9px;
+  font-size: 10px;
   color: var(--cp-text-faint);
   letter-spacing: 0.1em;
   text-transform: uppercase;

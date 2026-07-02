@@ -4,7 +4,7 @@
  * TimelineView: chronological feed of captured objects.
  *
  * Layout: two-column grid (100px gutter + card body).
- * Left gutter: continuous 2px oxblood rail, type-colored dot markers,
+ * Left gutter: continuous 2px burnt-orange rail, type-colored dot markers,
  * short Courier Prime time label.
  * Right column: rich cards with type badge pill, full body text (not
  * truncated), connections 2-col grid, inline retrospective notes.
@@ -21,7 +21,7 @@
  *   TimelineSearch, TimelineFilters, filter state, captureVersion refetch.
  */
 
-import { useState, useMemo, useEffect, useRef } from 'react';
+import { useState, useMemo, useEffect, useRef, type ReactNode } from 'react';
 import {
   fetchFeed,
   groupNodesByDate,
@@ -459,11 +459,12 @@ function TimelineCard({
   );
 }
 
-/* ─────────────────────────────────────────────────
-   TimelineView (main export)
-   ───────────────────────────────────────────────── */
+interface TimelineViewProps {
+  feedOverride?: MockNode[];
+  toolbarExtra?: ReactNode;
+}
 
-export default function TimelineView() {
+export default function TimelineView({ feedOverride, toolbarExtra }: TimelineViewProps = {}) {
   const [filters, setFilters] = useState<TimelineFilters>({
     query: '',
     activeTypes: new Set<string>(),
@@ -476,7 +477,10 @@ export default function TimelineView() {
   const { data: feed, loading, error, refetch } = useApiData(fetchFeed, [captureVersion]);
 
   // Full unfiltered node list kept for connection lookups within ConnectionPill
-  const allNodes: MockNode[] = feed ?? [];
+  const allNodes: MockNode[] = useMemo(
+    () => feedOverride ?? feed ?? [],
+    [feed, feedOverride],
+  );
 
   // Apply search text and type filters
   const filteredNodes = useMemo<MockNode[]>(() => {
@@ -546,7 +550,7 @@ export default function TimelineView() {
   }, [dateGroups]);
 
   /* Loading */
-  if (loading) {
+  if (!feedOverride && loading) {
     return (
       <div className="cp-timeline-root">
         <div className="cp-loading-state">
@@ -557,7 +561,7 @@ export default function TimelineView() {
   }
 
   /* Error */
-  if (error) {
+  if (!feedOverride && error) {
     return (
       <div className="cp-timeline-root">
         <div className="cp-error-banner">
@@ -577,6 +581,7 @@ export default function TimelineView() {
         onChange={setFilters}
         resultCount={filteredNodes.length}
       />
+      {toolbarExtra}
 
       <div ref={scrollRef} className="cp-timeline-scroll">
         {dateGroups.length === 0 ? (

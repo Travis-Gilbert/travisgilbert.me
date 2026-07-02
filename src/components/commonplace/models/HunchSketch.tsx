@@ -21,7 +21,7 @@ const THUMB_W = 120;
 const THUMB_H = 70;
 const MAX_HISTORY = 6;
 
-const SKETCH_COLORS = ['#3A3632', '#8A2E29', '#2D5F6B', '#C49A4A', '#B06080'];
+const SKETCH_COLORS = ['#3A3632', '#A65324', '#2D5F6B', '#C49A4A', '#B06080'];
 
 type Tool = 'pencil' | 'circle' | 'rect' | 'arrow' | 'text';
 
@@ -434,7 +434,7 @@ export default function HunchSketch({ objectId, components, mode = 'editor' }: H
             style={{
               padding: '3px 7px',
               fontFamily: 'var(--cp-font-mono)',
-              fontSize: 9,
+              fontSize: 10,
               letterSpacing: '0.05em',
               textTransform: 'uppercase',
               color: activeTool === tool ? 'var(--cp-bg)' : 'var(--cp-text-muted)',
@@ -489,7 +489,7 @@ export default function HunchSketch({ objectId, components, mode = 'editor' }: H
           style={{
             padding: '3px 10px',
             fontFamily: 'var(--cp-font-mono)',
-            fontSize: 9,
+            fontSize: 10,
             letterSpacing: '0.05em',
             color: saved ? '#2D5F6B' : 'var(--cp-text-muted)',
             background: 'transparent',
@@ -541,7 +541,7 @@ export default function HunchSketch({ objectId, components, mode = 'editor' }: H
               outline: 'none',
               minWidth: 80,
               padding: 0,
-              lineHeight: 1,
+              lineHeight: 1.2,
             }}
           />
         )}
@@ -554,7 +554,7 @@ function ghostBtnStyle(disabled: boolean): React.CSSProperties {
   return {
     padding: '3px 7px',
     fontFamily: 'var(--cp-font-mono)',
-    fontSize: 9,
+    fontSize: 10,
     letterSpacing: '0.05em',
     color: 'var(--cp-text-muted)',
     background: 'transparent',

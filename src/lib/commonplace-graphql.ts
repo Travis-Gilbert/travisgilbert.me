@@ -39,6 +39,7 @@ import {
   type ApiArtifactListItem,
 } from '@/lib/commonplace';
 import type { ObjectSearchResult } from '@/lib/commonplace-api';
+import { commonPlaceInstanceProxyHeaders } from '@/lib/commonplace-instance';
 
 /* ─────────────────────────────────────────────────
    Endpoint, auth, backend switch
@@ -92,21 +93,86 @@ export interface ItemGql {
   tags: string[];
   collections: string[];
   classification: string | null;
+  status: string | null;
+  priority: string | null;
+  dueAtMs: number | null;
   path: string | null;
+  extra: Record<string, unknown>;
   createdAtMs: number;
   updatedAtMs: number;
+  validFromMs?: number | null;
+  validToMs?: number | null;
+}
+
+export interface EdgeGql {
+  id: string;
+  fromId: string;
+  toId: string;
+  edgeType: string;
+  confidence: number;
+  status: 'asserted' | 'inferred' | 'contradicted' | string;
+  provenance: string | null;
+  properties: Record<string, unknown>;
 }
 
 export interface CollectionGql {
   id: string;
   name: string;
   kind: string;
+  identifier: string | null;
+  description: string | null;
+  startAtMs: number | null;
+  endAtMs: number | null;
+  color: string | null;
+  sortOrder: number | null;
+  featureFlags: Record<string, boolean>;
   createdAtMs: number;
+}
+
+export interface EmbeddingSpaceRowGql {
+  identifier: string;
+  x: number;
+  y: number;
+  category: number;
+  categoryLabel: string;
+  text: string;
+  createdMs: number;
+  communityId: string;
+  epistemicStatus: string;
+}
+
+export interface EmbeddingSpaceGql {
+  table: string;
+  projection: string;
+  total: number;
+  rows: EmbeddingSpaceRowGql[];
+}
+
+export interface VectorNeighborGql {
+  row: EmbeddingSpaceRowGql;
+  score: number;
 }
 
 const ITEM_FIELDS = `
   id kind title bodyText blobHash mime source residency
-  tags collections classification path createdAtMs updatedAtMs
+  tags collections classification status priority dueAtMs path extra createdAtMs updatedAtMs
+`;
+
+const EDGE_FIELDS = `
+  id fromId toId edgeType confidence status provenance properties
+`;
+
+const ITEM_FIELDS_WITH_VALID = `
+  ${ITEM_FIELDS}
+  validFromMs validToMs
+`;
+
+const COLLECTION_FIELDS = `
+  id name kind identifier description startAtMs endAtMs color sortOrder featureFlags createdAtMs
+`;
+
+const EMBEDDING_SPACE_ROW_FIELDS = `
+  identifier x y category categoryLabel text createdMs communityId epistemicStatus
 `;
 
 /* ─────────────────────────────────────────────────
@@ -128,12 +194,15 @@ export async function gql<T>(
     : desktop
       ? `${DESKTOP_GQL_URL}/graphql`
       : PROXY_PATH;
+  const clientInstanceHeaders =
+    !onServer && !desktop ? commonPlaceInstanceProxyHeaders() : {};
   const res = await fetch(url, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
       ...(onServer ? { 'x-api-key': SERVER_API_KEY } : {}),
       ...(desktop ? { 'x-api-key': DESKTOP_API_KEY } : {}),
+      ...clientInstanceHeaders,
     },
     body: JSON.stringify({ query, variables }),
     cache: 'no-store',
@@ -345,7 +414,7 @@ export async function gqlItem(id: string): Promise<ItemGql | null> {
 
 export async function gqlCollections(): Promise<CollectionGql[]> {
   const data = await gqlRead<{ collections: CollectionGql[] }>(
-    `{ collections { id name kind createdAtMs } }`,
+    `{ collections { ${COLLECTION_FIELDS} } }`,
     {},
     { collections: [] },
   );
@@ -369,23 +438,92 @@ export interface IngestArgs {
   captureMethod?: string;
   source?: string;
   residency?: string;
+  validFromMs?: number | null;
+  validToMs?: number | null;
 }
 
 export async function gqlIngest(input: IngestArgs): Promise<ItemGql> {
+  const payload: Record<string, unknown> = {
+    title: input.title ?? '',
+    text: input.text,
+    kind: input.kind ?? 'note',
+    tags: input.captureMethod ? captureTags(input.captureMethod, input.tags) : input.tags ?? [],
+    source: input.source ?? null,
+    residency: input.residency ?? null,
+  };
+  if (input.validFromMs != null) payload.validFromMs = input.validFromMs;
+  if (input.validToMs != null) payload.validToMs = input.validToMs;
   const data = await gql<{ ingest: ItemGql }>(
     `mutation($input:IngestInputGql!){ ingest(input:$input){ ${ITEM_FIELDS} } }`,
-    {
-      input: {
-        title: input.title ?? '',
-        text: input.text,
-        kind: input.kind ?? 'note',
-        tags: input.captureMethod ? captureTags(input.captureMethod, input.tags) : input.tags ?? [],
-        source: input.source ?? null,
-        residency: input.residency ?? null,
-      },
-    },
+    { input: payload },
   );
   return data.ingest;
+}
+
+export async function gqlItemsAsOf(input: {
+  validAtMs?: number | null;
+  transactionAtMs?: number | null;
+  kind?: string | null;
+}): Promise<ItemGql[]> {
+  const data = await gqlRead<{ itemsAsOf: ItemGql[] }>(
+    `query($validAtMs:Long,$transactionAtMs:Long,$kind:String){ itemsAsOf(validAtMs:$validAtMs,transactionAtMs:$transactionAtMs,kind:$kind){ ${ITEM_FIELDS_WITH_VALID} } }`,
+    {
+      validAtMs: input.validAtMs ?? null,
+      transactionAtMs: input.transactionAtMs ?? null,
+      kind: input.kind ?? null,
+    },
+    { itemsAsOf: [] },
+  );
+  return [...data.itemsAsOf].sort((a, b) => b.updatedAtMs - a.updatedAtMs);
+}
+
+export async function gqlItemEdges(
+  id: string,
+  input: { direction?: 'in' | 'out' | 'both'; edgeType?: string | null } = {},
+): Promise<EdgeGql[]> {
+  const data = await gqlRead<{ itemEdges: EdgeGql[] }>(
+    `query($id:String!,$direction:String,$edgeType:String){ itemEdges(id:$id,direction:$direction,edgeType:$edgeType){ ${EDGE_FIELDS} } }`,
+    {
+      id,
+      direction: input.direction ?? 'both',
+      edgeType: input.edgeType ?? null,
+    },
+    { itemEdges: [] },
+  );
+  return data.itemEdges;
+}
+
+export async function gqlEditItem(input: {
+  id: string;
+  title?: string | null;
+  tags?: string[] | null;
+  residency?: string | null;
+  validFromMs?: number | null;
+  validToMs?: number | null;
+}): Promise<ItemGql> {
+  const editsValidTime = input.validFromMs != null || input.validToMs != null;
+  const data = editsValidTime
+    ? await gql<{ editItem: ItemGql }>(
+      `mutation($id:String!,$title:String,$tags:[String!],$residency:String,$validFromMs:Long,$validToMs:Long){ editItem(id:$id,title:$title,tags:$tags,residency:$residency,validFromMs:$validFromMs,validToMs:$validToMs){ ${ITEM_FIELDS_WITH_VALID} } }`,
+      {
+        id: input.id,
+        title: input.title ?? null,
+        tags: input.tags ?? null,
+        residency: input.residency ?? null,
+        validFromMs: input.validFromMs ?? null,
+        validToMs: input.validToMs ?? null,
+      },
+    )
+    : await gql<{ editItem: ItemGql }>(
+      `mutation($id:String!,$title:String,$tags:[String!],$residency:String){ editItem(id:$id,title:$title,tags:$tags,residency:$residency){ ${ITEM_FIELDS} } }`,
+      {
+        id: input.id,
+        title: input.title ?? null,
+        tags: input.tags ?? null,
+        residency: input.residency ?? null,
+      },
+    );
+  return data.editItem;
 }
 
 export async function gqlPutNote(
@@ -402,7 +540,7 @@ export async function gqlPutNote(
 
 export async function gqlCreateCollection(name: string): Promise<CollectionGql> {
   const data = await gql<{ createCollection: CollectionGql }>(
-    `mutation($name:String!){ createCollection(name:$name){ id name kind createdAtMs } }`,
+    `mutation($name:String!){ createCollection(name:$name){ ${COLLECTION_FIELDS} } }`,
     { name },
   );
   return data.createCollection;
@@ -416,6 +554,258 @@ export async function gqlAddToCollection(
     `mutation($i:String!,$c:String!){ addToCollection(itemId:$i,collectionId:$c) }`,
     { i: itemId, c: collectionId },
   );
+}
+
+export interface PmLabelGql {
+  id: string;
+  name: string;
+  color: string | null;
+}
+
+export interface PmStateGql {
+  id: string;
+  name: string;
+  group: string;
+  sortOrder: number;
+}
+
+export interface PmWorkItemGql {
+  item: ItemGql;
+  sequenceId: string | null;
+  state: PmStateGql | null;
+  estimatePoint: number | null;
+  projectIds: string[];
+  cycleIds: string[];
+  moduleIds: string[];
+  aboutIds: string[];
+  commentCount: number;
+  worklogCount: number;
+  totalWorklogDurationMs: number;
+}
+
+export interface PmProjectGql {
+  collection: CollectionGql;
+  states: PmStateGql[];
+  cycles: CollectionGql[];
+  modules: CollectionGql[];
+  labels: PmLabelGql[];
+  workItemCount: number;
+  openItemCount: number;
+}
+
+export interface PmOverviewGql {
+  projects: PmProjectGql[];
+  workItems: PmWorkItemGql[];
+  stickies: ItemGql[];
+  pages: ItemGql[];
+}
+
+const PM_STATE_FIELDS = 'id name group sortOrder';
+const PM_LABEL_FIELDS = 'id name color';
+const PM_WORK_ITEM_FIELDS = `
+  item { ${ITEM_FIELDS} }
+  sequenceId
+  state { ${PM_STATE_FIELDS} }
+  estimatePoint
+  projectIds
+  cycleIds
+  moduleIds
+  aboutIds
+  commentCount
+  worklogCount
+  totalWorklogDurationMs
+`;
+const PM_PROJECT_FIELDS = `
+  collection { ${COLLECTION_FIELDS} }
+  states { ${PM_STATE_FIELDS} }
+  cycles { ${COLLECTION_FIELDS} }
+  modules { ${COLLECTION_FIELDS} }
+  labels { ${PM_LABEL_FIELDS} }
+  workItemCount
+  openItemCount
+`;
+const PM_OVERVIEW_FIELDS = `
+  projects { ${PM_PROJECT_FIELDS} }
+  workItems { ${PM_WORK_ITEM_FIELDS} }
+  stickies { ${ITEM_FIELDS} }
+  pages { ${ITEM_FIELDS} }
+`;
+
+export async function gqlPmOverview(projectId?: string): Promise<PmOverviewGql> {
+  const data = await gqlRead<{ pmOverview: PmOverviewGql }>(
+    `query($projectId:String){ pmOverview(projectId:$projectId){ ${PM_OVERVIEW_FIELDS} } }`,
+    { projectId: projectId ?? null },
+    { pmOverview: { projects: [], workItems: [], stickies: [], pages: [] } },
+  );
+  return data.pmOverview;
+}
+
+export async function gqlCreatePmProject(input: {
+  name: string;
+  identifier: string;
+  description?: string;
+  color?: string;
+  defaultStates?: boolean;
+}): Promise<PmProjectGql> {
+  const data = await gql<{ createPmProject: PmProjectGql }>(
+    `mutation($input:CreateProjectInputGql!){ createPmProject(input:$input){ ${PM_PROJECT_FIELDS} } }`,
+    { input },
+  );
+  return data.createPmProject;
+}
+
+export async function gqlCreateWorkItem(input: {
+  title: string;
+  description?: string;
+  projectId?: string;
+  stateId?: string;
+  priority?: string;
+  dueAtMs?: number;
+  estimatePoint?: number;
+  sequenceId?: string;
+  kind?: string;
+}): Promise<PmWorkItemGql> {
+  const data = await gql<{ createWorkItem: PmWorkItemGql }>(
+    `mutation($input:CreateWorkItemInputGql!){ createWorkItem(input:$input){ ${PM_WORK_ITEM_FIELDS} } }`,
+    { input },
+  );
+  return data.createWorkItem;
+}
+
+export async function gqlSetWorkItemState(
+  itemId: string,
+  stateId: string,
+): Promise<PmWorkItemGql> {
+  const data = await gql<{ setWorkItemState: PmWorkItemGql }>(
+    `mutation($itemId:String!,$stateId:String!){ setWorkItemState(itemId:$itemId,stateId:$stateId){ ${PM_WORK_ITEM_FIELDS} } }`,
+    { itemId, stateId },
+  );
+  return data.setWorkItemState;
+}
+
+export async function gqlCreatePmCycle(input: {
+  projectId: string;
+  name: string;
+  startAtMs: number;
+  endAtMs: number;
+}): Promise<CollectionGql> {
+  const data = await gql<{ createPmCycle: CollectionGql }>(
+    `mutation($input:CreateCycleInputGql!){ createPmCycle(input:$input){ ${COLLECTION_FIELDS} } }`,
+    { input },
+  );
+  return data.createPmCycle;
+}
+
+export async function gqlCreatePmModule(input: {
+  projectId: string;
+  name: string;
+}): Promise<CollectionGql> {
+  const data = await gql<{ createPmModule: CollectionGql }>(
+    `mutation($input:CreateModuleInputGql!){ createPmModule(input:$input){ ${COLLECTION_FIELDS} } }`,
+    { input },
+  );
+  return data.createPmModule;
+}
+
+export async function gqlScopeProjectLabel(input: {
+  projectId: string;
+  name: string;
+  color?: string;
+}): Promise<PmLabelGql> {
+  const data = await gql<{ scopeProjectLabel: PmLabelGql }>(
+    `mutation($projectId:String!,$name:String!,$color:String){ scopeProjectLabel(projectId:$projectId,name:$name,color:$color){ ${PM_LABEL_FIELDS} } }`,
+    { projectId: input.projectId, name: input.name, color: input.color ?? null },
+  );
+  return data.scopeProjectLabel;
+}
+
+export async function gqlAddWorkItemToCycle(
+  itemId: string,
+  cycleId: string,
+): Promise<PmWorkItemGql> {
+  const data = await gql<{ addWorkItemToCycle: PmWorkItemGql }>(
+    `mutation($itemId:String!,$cycleId:String!){ addWorkItemToCycle(itemId:$itemId,cycleId:$cycleId){ ${PM_WORK_ITEM_FIELDS} } }`,
+    { itemId, cycleId },
+  );
+  return data.addWorkItemToCycle;
+}
+
+export async function gqlAddWorkItemToModule(
+  itemId: string,
+  moduleId: string,
+): Promise<PmWorkItemGql> {
+  const data = await gql<{ addWorkItemToModule: PmWorkItemGql }>(
+    `mutation($itemId:String!,$moduleId:String!){ addWorkItemToModule(itemId:$itemId,moduleId:$moduleId){ ${PM_WORK_ITEM_FIELDS} } }`,
+    { itemId, moduleId },
+  );
+  return data.addWorkItemToModule;
+}
+
+export async function gqlCreateWorkItemComment(input: {
+  itemId: string;
+  body: string;
+  authorId?: string;
+}): Promise<ItemGql> {
+  const data = await gql<{ createWorkItemComment: ItemGql }>(
+    `mutation($input:CreateCommentInputGql!){ createWorkItemComment(input:$input){ ${ITEM_FIELDS} } }`,
+    { input },
+  );
+  return data.createWorkItemComment;
+}
+
+export async function gqlLogWork(input: {
+  taskId: string;
+  durationMs: number;
+  loggedBy?: string;
+  description?: string;
+}): Promise<ItemGql> {
+  const data = await gql<{ logWork: ItemGql }>(
+    `mutation($input:LogWorkInputGql!){ logWork(input:$input){ ${ITEM_FIELDS} } }`,
+    { input },
+  );
+  return data.logWork;
+}
+
+export async function gqlCreateSticky(input: {
+  ownerId?: string;
+  title: string;
+  description?: string;
+  color?: string;
+  backgroundColor?: string;
+  sortOrder?: number;
+}): Promise<ItemGql> {
+  const data = await gql<{ createSticky: ItemGql }>(
+    `mutation($input:CreateStickyInputGql!){ createSticky(input:$input){ ${ITEM_FIELDS} } }`,
+    { input },
+  );
+  return data.createSticky;
+}
+
+export async function gqlCreatePage(input: {
+  projectId?: string;
+  aboutItemId?: string;
+  title: string;
+  body?: string;
+  tags?: string[];
+}): Promise<ItemGql> {
+  const data = await gql<{ createPage: ItemGql }>(
+    `mutation($input:CreatePageInputGql!){ createPage(input:$input){ ${ITEM_FIELDS} } }`,
+    { input },
+  );
+  return data.createPage;
+}
+
+export async function gqlSavePage(input: {
+  id: string;
+  title?: string;
+  body?: string;
+  tags?: string[];
+}): Promise<ItemGql> {
+  const data = await gql<{ savePage: ItemGql }>(
+    `mutation($input:SavePageInputGql!){ savePage(input:$input){ ${ITEM_FIELDS} } }`,
+    { input },
+  );
+  return data.savePage;
 }
 
 /* ─────────────────────────────────────────────────
@@ -473,6 +863,53 @@ export async function gqlSearchObjects(
     { search: [] },
   );
   return data.search.map((h) => itemToSearchResult(h.item));
+}
+
+export async function gqlEmbeddingSpace(options: {
+  kind?: string;
+  limit?: number;
+} = {}): Promise<EmbeddingSpaceGql> {
+  const data = await gqlRead<{ embeddingSpace: EmbeddingSpaceGql }>(
+    `query($kind:String,$limit:Int){
+      embeddingSpace(kind:$kind,limit:$limit){
+        table
+        projection
+        total
+        rows { ${EMBEDDING_SPACE_ROW_FIELDS} }
+      }
+    }`,
+    {
+      kind: options.kind ?? null,
+      limit: options.limit ?? null,
+    },
+    {
+      embeddingSpace: {
+        table: 'embedding_space',
+        projection: 'unavailable',
+        total: 0,
+        rows: [],
+      },
+    },
+  );
+  return data.embeddingSpace;
+}
+
+export async function gqlVectorNeighbors(
+  itemId: string,
+  k = 12,
+): Promise<VectorNeighborGql[]> {
+  if (!itemId.trim()) return [];
+  const data = await gqlRead<{ vectorNeighbors: VectorNeighborGql[] }>(
+    `query($itemId:String!,$k:Int){
+      vectorNeighbors(itemId:$itemId,k:$k){
+        row { ${EMBEDDING_SPACE_ROW_FIELDS} }
+        score
+      }
+    }`,
+    { itemId, k },
+    { vectorNeighbors: [] },
+  );
+  return data.vectorNeighbors;
 }
 
 /** Capture write -> ingest -> ApiCaptureResponse (mirrors POST /capture/). */
@@ -585,7 +1022,9 @@ export async function gqlTheoremAgent(
 const NOTEBOOK_COLORS = ['#2D5F6B', '#C49A4A', '#5A7A4A', '#8B6FA0', '#4A7A9A', '#B06080', '#C47A3A'];
 
 export async function gqlNotebooks(): Promise<ApiNotebookListItem[]> {
-  const cols = await gqlCollections();
+  const cols = (await gqlCollections()).filter((collection) =>
+    collection.kind === 'manual' || collection.kind === 'auto',
+  );
   const counts = await Promise.all(
     cols.map(async (collection) => ({
       id: collection.id,
@@ -655,17 +1094,17 @@ export async function gqlProjects(params?: {
   notebook?: string;
   status?: string;
 }): Promise<ApiProjectListItem[]> {
-  const notebooks = await gqlNotebooks();
-  return notebooks
-    .filter((nb) => !params?.notebook || nb.slug === params.notebook)
-    .map((nb) => ({
-      id: nb.id,
-      name: nb.name,
-      slug: nb.slug,
-      mode: nb.description.includes('Auto') ? 'collect' : 'review',
-      status: params?.status ?? 'active',
-      notebook: nb.slug,
-      notebook_name: nb.name,
+  const overview = await gqlPmOverview();
+  return overview.projects
+    .filter((project) => !params?.notebook || project.collection.id === params.notebook)
+    .map((project) => ({
+      id: stableNumId(project.collection.id),
+      name: project.collection.name,
+      slug: project.collection.id,
+      mode: 'review',
+      status: project.openItemCount > 0 ? 'active' : 'paused',
+      notebook: null,
+      notebook_name: null,
       is_template: false,
       reminder_at: null,
     }))
@@ -673,22 +1112,19 @@ export async function gqlProjects(params?: {
 }
 
 export async function gqlProjectBySlug(slug: string): Promise<ApiProjectDetail | null> {
-  const [projects, items] = await Promise.all([
-    gqlProjects(),
-    gqlCollectionItems(slug),
-  ]);
+  const [projects, overview] = await Promise.all([gqlProjects(), gqlPmOverview(slug)]);
   const project = projects.find((p) => p.slug === slug);
   if (!project) return null;
   return {
     ...project,
     sha_hash: '',
-    description: 'CommonPlace collection surfaced through the project workspace.',
+    description: overview.projects[0]?.collection.description ?? '',
     template_from: null,
     settings_override: {},
-    objects: items.map((item) => ({
-      id: stableNumId(item.id),
-      title: item.title || 'Untitled',
-      object_type: kindToTypeSlug(item.kind),
+    objects: overview.workItems.map((workItem) => ({
+      id: stableNumId(workItem.item.id),
+      title: workItem.item.title || 'Untitled',
+      object_type: kindToTypeSlug(workItem.item.kind),
     })),
   };
 }
@@ -759,6 +1195,27 @@ async function gqlDiscoverLinks(): Promise<{ a: string; b: string; similarity: n
   return data.discover.map((d) => ({ a: d.a.id, b: d.b.id, similarity: d.similarity, reason: d.reason }));
 }
 
+function extraString(extra: Record<string, unknown>, keys: string[]): string | undefined {
+  for (const key of keys) {
+    const value = extra[key];
+    if (typeof value === 'string' && value.trim()) return value.trim();
+    if (typeof value === 'number' && Number.isFinite(value)) return String(value);
+  }
+  return undefined;
+}
+
+function extraNumber(extra: Record<string, unknown>, keys: string[]): number | undefined {
+  for (const key of keys) {
+    const value = extra[key];
+    if (typeof value === 'number' && Number.isFinite(value)) return value;
+    if (typeof value === 'string') {
+      const parsed = Number(value);
+      if (Number.isFinite(parsed)) return parsed;
+    }
+  }
+  return undefined;
+}
+
 /** Map / Network: items as nodes, discover (similar-but-unlinked pairs) as edges. */
 export async function gqlGraph(): Promise<{ nodes: GraphNode[]; links: GraphLink[] }> {
   const [items, raw] = await Promise.all([gqlItems(), gqlDiscoverLinks()]);
@@ -771,6 +1228,8 @@ export async function gqlGraph(): Promise<{ nodes: GraphNode[]; links: GraphLink
     edgeCount: 0,
     bodyPreview: preview(it.bodyText, 120),
     status: 'active',
+    communityId: extraString(it.extra, ['community_id', 'communityId', 'leiden_community']) ?? it.collections[0] ?? kindToTypeSlug(it.kind),
+    centrality: extraNumber(it.extra, ['centrality', 'pagerank', 'ppr', 'degree_centrality']),
   }));
   const byId = new Map(nodes.map((n) => [n.id, n]));
   const links: GraphLink[] = [];

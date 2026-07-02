@@ -195,6 +195,7 @@ function mapGraphResponseToD3(resp: ApiGraphResponse): {
     edgeCount: o.edge_count,
     bodyPreview: o.body_preview,
     status: o.status,
+    centrality: Number.isFinite(o.size) ? o.size : undefined,
   }));
 
   const nodeIds = new Set(nodes.map((n) => n.id));

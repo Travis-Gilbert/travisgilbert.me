@@ -55,7 +55,7 @@
   gap: var(--cp-space-2);
   font-family: var(--cp-font-mono);
   font-weight: 500;
-  font-size: 9px;
+  font-size: 10px;
   font-feature-settings: var(--cp-kern-mono);
   color: var(--cp-text-faint);
 }
@@ -83,7 +83,7 @@
 .cp-obj-edges {
   font-family: var(--cp-font-mono);
   font-weight: 500;
-  font-size: 9px;
+  font-size: 10px;
   color: var(--obj-color);
   font-feature-settings: var(--cp-kern-mono);
 }
@@ -99,7 +99,7 @@
 .cp-obj-timestamp {
   font-family: var(--cp-font-mono);
   font-weight: 500;
-  font-size: 9px;
+  font-size: 10px;
   color: var(--obj-color);
   font-feature-settings: var(--cp-kern-mono);
 }
@@ -172,7 +172,7 @@
 }
 
 .cp-obj--chain .cp-obj-timestamp {
-  font-size: 8px;
+  font-size: 10px;
   color: var(--cp-text-faint);
 }
 
@@ -189,7 +189,7 @@
   align-items: center;
   gap: 6px;
   font-family: var(--cp-font-mono);
-  font-size: 9px;
+  font-size: 10px;
   font-weight: 600;
   letter-spacing: 0.1em;
   text-transform: uppercase;
@@ -217,7 +217,7 @@
 
 .cp-obj--dock .cp-obj-signal {
   font-family: var(--cp-font-mono);
-  font-size: 9px;
+  font-size: 10px;
   letter-spacing: 0.1em;
   text-transform: uppercase;
   color: var(--cp-text-faint);
@@ -232,7 +232,7 @@
 
 .cp-obj--dock .cp-obj-supporting-signal {
   font-family: var(--cp-font-mono);
-  font-size: 9px;
+  font-size: 10px;
   letter-spacing: 0.08em;
   text-transform: uppercase;
   color: var(--cp-blue);
@@ -459,7 +459,7 @@
   font-family: var(--cp-font-body);
   font-size: 17px;
   font-weight: 700;
-  line-height: 1.1;
+  line-height: 1.2;
   color: var(--cp-text);
   font-feature-settings: var(--cp-kern-body);
 }
@@ -604,7 +604,7 @@
   display: inline-flex;
   margin-top: 8px;
   font-family: var(--cp-font-mono);
-  font-size: 9px;
+  font-size: 10px;
   font-weight: 700;
   letter-spacing: 0.08em;
   text-transform: uppercase;
@@ -637,7 +637,7 @@
 
 .cp-obj-source-domain {
   font-family: var(--cp-font-mono);
-  font-size: 9px;
+  font-size: 10px;
   font-weight: 600;
   letter-spacing: 0.08em;
   text-transform: uppercase;
@@ -647,7 +647,7 @@
 
 .cp-obj-source-format {
   font-family: var(--cp-font-mono);
-  font-size: 8.5px;
+  font-size: 10px;
   font-weight: 600;
   letter-spacing: 0.08em;
   text-transform: uppercase;

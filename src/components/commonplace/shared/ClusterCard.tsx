@@ -57,7 +57,7 @@ function NodeTooltip({
           alignItems: 'center',
           gap: 6,
           fontFamily: 'var(--cp-font-mono)',
-          fontSize: 9,
+          fontSize: 10,
           color: 'var(--cp-text-muted)',
         }}
       >
@@ -254,7 +254,7 @@ export default function ClusterCard({
               fontSize: 17,
               fontWeight: 700,
               color: 'var(--cp-text)',
-              lineHeight: 1.18,
+              lineHeight: 1.2,
               fontFeatureSettings: 'var(--cp-kern-title)',
             }}
           >
@@ -380,7 +380,7 @@ function AnnotationBar({
               alignItems: 'center',
               gap: 3,
               fontFamily: 'var(--cp-font-mono)',
-              fontSize: 9,
+              fontSize: 10,
               color: 'var(--cp-text-muted)',
               background: `${identity.color}15`,
               padding: '1px 5px',
@@ -406,7 +406,7 @@ function AnnotationBar({
         <div
           style={{
             fontFamily: 'var(--cp-font-mono)',
-            fontSize: 9,
+            fontSize: 10,
             color: 'var(--cp-chrome-muted)',
           }}
         >
@@ -425,7 +425,7 @@ function AnnotationBar({
 
 const TAB_STYLE: React.CSSProperties = {
   fontFamily: 'var(--cp-font-mono)',
-  fontSize: 9,
+  fontSize: 10,
   background: 'transparent',
   border: 'none',
   padding: '3px 6px',
@@ -520,7 +520,7 @@ function ClusterTerminal({
                   alignItems: 'center',
                   gap: 4,
                   fontFamily: 'var(--cp-font-mono)',
-                  fontSize: 9,
+                  fontSize: 10,
                   color: isHovered ? 'var(--cp-text)' : 'var(--cp-text-muted)',
                   background: isHovered ? `${identity.color}25` : 'transparent',
                   padding: '2px 6px',

@@ -4,7 +4,7 @@ import type { ObjectCardProps } from './ObjectRenderer';
 import { getObjectTypeIdentity } from '@/lib/commonplace';
 import { readString, readStringArray, formatDate } from './shared';
 
-const PERSON_COLOR = 'var(--cp-person-color, #8A2E29)';
+const PERSON_COLOR = 'var(--cp-person-color, #A65324)';
 
 export default function PersonPill({ object, compact, variant = 'default', onClick, onContextMenu }: ObjectCardProps) {
   const name = object.display_title ?? object.title;
@@ -115,7 +115,7 @@ function Avatar({ size, fontSize, initial }: { size: number; fontSize: number; i
       width: size, height: size, borderRadius: '50%', background: PERSON_COLOR,
       display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
     }}>
-      <span style={{ fontFamily: 'var(--cp-font-mono)', fontSize, fontWeight: 700, color: '#fff', lineHeight: 1 }}>{initial}</span>
+      <span style={{ fontFamily: 'var(--cp-font-mono)', fontSize, fontWeight: 700, color: '#fff', lineHeight: 1.2 }}>{initial}</span>
     </div>
   );
 }

@@ -28,6 +28,7 @@ import {
   type ModelStatus,
   type SyncReceipt,
 } from '@/lib/desktop';
+import { THEOREM_HARNESS_MCP_URL } from '@/lib/theorem-hosted';
 import {
   readLocalAgentSettings,
   writeLocalAgentSettings,
@@ -38,7 +39,7 @@ import { DesktopOnly, panel } from './desktopPanel';
 const PROVIDERS = ['anthropic', 'openai', 'deepseek', 'gemini', 'ollama'];
 
 const DEFAULT_SETTINGS: HarnessSettings = {
-  endpoint: 'https://rustyredcore-theorem-production.up.railway.app/mcp',
+  endpoint: THEOREM_HARNESS_MCP_URL,
   localEndpoint: 'http://127.0.0.1:17888/mcp',
   activeTarget: 'local',
   tenant: 'Travis-Gilbert',

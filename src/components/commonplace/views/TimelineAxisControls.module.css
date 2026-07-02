@@ -1,0 +1,78 @@
+.toolbar {
+  display: flex;
+  align-items: center;
+  gap: var(--cp-space-2);
+  padding: var(--cp-space-2) var(--cp-space-3);
+  border-bottom: 1px solid var(--cp-border-faint);
+  background: var(--cp-card);
+  pointer-events: auto;
+}
+
+.tabs {
+  flex: 0 0 auto;
+  gap: 0;
+}
+
+.tabList {
+  gap: var(--cp-space-1);
+  height: var(--cp-space-8);
+  padding: var(--cp-space-1);
+  border: 1px solid var(--cp-border-faint);
+  border-radius: var(--cp-space-2);
+  background: var(--cp-surface);
+}
+
+.tab {
+  min-width: var(--cp-space-16);
+  border-radius: calc(var(--cp-space-2) - var(--cp-space-px));
+  color: var(--cp-text-muted);
+  font-family: var(--cp-font-mono);
+  font-size: 0.75rem;
+}
+
+.tab[data-active] {
+  background: var(--cp-red-soft);
+  color: var(--cp-text);
+}
+
+.range {
+  flex: 1;
+  min-width: calc(var(--cp-space-10) * 3);
+  accent-color: var(--cp-red);
+}
+
+.dateLabel {
+  min-width: 12ch;
+  color: var(--cp-text-muted);
+  font-family: var(--cp-font-mono);
+  font-size: 0.75rem;
+  text-align: right;
+}
+
+.clearButton {
+  border-color: var(--cp-border-faint);
+  background: var(--cp-surface);
+  color: var(--cp-text-muted);
+  font-family: var(--cp-font-mono);
+  font-size: 0.75rem;
+}
+
+@media (max-width: 760px) {
+  .toolbar {
+    align-items: stretch;
+    flex-wrap: wrap;
+  }
+
+  .tabs,
+  .tabList {
+    width: 100%;
+  }
+
+  .tab {
+    flex: 1;
+  }
+
+  .dateLabel {
+    text-align: left;
+  }
+}

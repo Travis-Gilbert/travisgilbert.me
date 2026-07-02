@@ -97,7 +97,7 @@ type SignalType = 'mention' | 'support' | 'contradict' | 'similarity' | 'causal'
 const SIGNAL_TYPE_COLORS: Record<SignalType, string> = {
   mention: '#2D5F6B',     // teal
   support: '#5A7A4A',     // green
-  contradict: '#8A2E29',  // oxblood
+  contradict: '#A65324',  // burnt orange
   similarity: '#8B6FA0',  // purple
   causal: '#C49A4A',      // gold
   manual: '#9A9590',      // faint gray
@@ -601,7 +601,7 @@ export default function KnowledgeMap({
                     fill="var(--cp-text)"
                     style={{
                       fontFamily: 'var(--cp-font-mono)',
-                      fontSize: 9,
+                      fontSize: 10,
                       letterSpacing: '0.05em',
                       pointerEvents: 'none',
                     }}
@@ -619,7 +619,7 @@ export default function KnowledgeMap({
                     fill={typeInfo.color}
                     style={{
                       fontFamily: 'var(--cp-font-mono)',
-                      fontSize: 8,
+                      fontSize: 10,
                       letterSpacing: '0.04em',
                       pointerEvents: 'none',
                       opacity: 0.8,
@@ -678,7 +678,7 @@ export default function KnowledgeMap({
               {/* Edge type header */}
               <div
                 style={{
-                  fontSize: 9,
+                  fontSize: 10,
                   letterSpacing: '0.1em',
                   textTransform: 'uppercase',
                   color: 'var(--cp-text-faint)',
@@ -689,7 +689,7 @@ export default function KnowledgeMap({
               </div>
               <div
                 style={{
-                  fontSize: 9,
+                  fontSize: 10,
                   letterSpacing: '0.08em',
                   textTransform: 'uppercase',
                   color: 'var(--cp-text-faint)',
@@ -726,7 +726,7 @@ export default function KnowledgeMap({
                       border: 'none',
                       padding: 0,
                       fontFamily: 'var(--cp-font-mono)',
-                      fontSize: 9.5,
+                      fontSize: 10,
                       letterSpacing: '0.06em',
                       color: 'rgba(var(--cp-red-rgb), 0.8)',
                       cursor: 'pointer',
@@ -742,7 +742,7 @@ export default function KnowledgeMap({
                   </button>
                 )}
                 {edgeTooltipContent.srcNode && edgeTooltipContent.tgtNode && (
-                  <span style={{ color: 'var(--cp-text-faint)', fontSize: 9 }}>·</span>
+                  <span style={{ color: 'var(--cp-text-faint)', fontSize: 10 }}>·</span>
                 )}
                 {edgeTooltipContent.tgtNode && (
                   <button
@@ -752,7 +752,7 @@ export default function KnowledgeMap({
                       border: 'none',
                       padding: 0,
                       fontFamily: 'var(--cp-font-mono)',
-                      fontSize: 9.5,
+                      fontSize: 10,
                       letterSpacing: '0.06em',
                       color: 'rgba(var(--cp-red-rgb), 0.8)',
                       cursor: 'pointer',
@@ -781,7 +781,7 @@ export default function KnowledgeMap({
                   fontSize: 13,
                   color: 'var(--cp-text-faint)',
                   cursor: 'pointer',
-                  lineHeight: 1,
+                  lineHeight: 1.2,
                   padding: 0,
                 }}
                 onClick={() => setActiveEdge(null)}
@@ -814,7 +814,7 @@ export default function KnowledgeMap({
               alignItems: 'center',
               gap: 5,
               fontFamily: 'var(--cp-font-mono)',
-              fontSize: 9,
+              fontSize: 10,
               letterSpacing: '0.05em',
               color: 'var(--cp-text-muted)',
             }}

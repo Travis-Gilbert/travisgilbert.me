@@ -16,7 +16,18 @@ import {
   type AcpFileWriteReview,
   type AcpFrontendEvent,
 } from '@/lib/commonplace-acp';
-import { runTheoremAgent } from '@/lib/theorem-agent';
+import {
+  searchRustyWeb,
+  type RustyWebSearchHit,
+} from '@/lib/rustyweb-search';
+import {
+  runTheoremAgent,
+  type TheoremAgentClaim,
+  type TheoremAgentRunResult,
+} from '@/lib/theorem-agent';
+import AgentThreadOmnibar from './AgentThreadOmnibar';
+import styles from './AgentThreadView.module.css';
+import { WeaveSpinner } from './WeaveSpinner';
 
 type ThreadItem =
   | {
@@ -60,7 +71,7 @@ export default function AgentThreadView({
 }: AgentThreadViewProps) {
   const resolvedMode = agentMode ?? (agentId === 'theorem' || agentId === 'agent' ? 'api' : 'acp');
   const agentLabel = useMemo(
-    () => (resolvedMode === 'api' ? 'Theorem Agent' : acpAgentLabel(agentId)),
+    () => (resolvedMode === 'api' ? 'CommonPlace' : acpAgentLabel(agentId)),
     [agentId, resolvedMode],
   );
   const wsRef = useRef<WebSocket | null>(null);
@@ -69,18 +80,9 @@ export default function AgentThreadView({
     resolvedMode === 'api' ? 'connected' : 'connecting',
   );
   const [sessionId, setSessionId] = useState<string | null>(null);
-  const [items, setItems] = useState<ThreadItem[]>(() => [
-    {
-      id: 'system-ready',
-      kind: 'message',
-      role: 'system',
-      markdown:
-        resolvedMode === 'api'
-          ? 'Theorem agent ready. It will use the configured API heads.'
-          : `${acpAgentLabel(agentId)} ready to dock.`,
-    },
-  ]);
+  const [items, setItems] = useState<ThreadItem[]>([]);
   const [composer, setComposer] = useState('');
+  const [isSending, setIsSending] = useState(false);
 
   const addItem = useCallback((item: ThreadItem) => {
     setItems((prev) => [...prev, item]);
@@ -247,46 +249,46 @@ export default function AgentThreadView({
     });
   }, [items]);
 
-  const sendPrompt = useCallback(async () => {
+  const sendPrompt = useCallback(async (options: { webSearch?: boolean; file?: File } = {}) => {
+    if (isSending) return;
     const text = composer.trim();
     if (!text) return;
+    const promptText = options.file
+      ? `${text}\n\nAttached file: ${options.file.name}`
+      : text;
     const activeSession = sessionId ?? 'pending';
     addItem({
       id: `user-${Date.now()}`,
       kind: 'message',
       role: 'user',
-      markdown: text,
+      markdown: promptText,
     });
     setComposer('');
     if (resolvedMode === 'api') {
       setStatus('connecting');
+      setIsSending(true);
       try {
-        const result = await runTheoremAgent({ task: text, mode: 'ask' });
+        const result = options.webSearch
+          ? await runResearchPrompt(promptText)
+          : await runTheoremAgent({ task: promptText, mode: 'ask' });
         addItem({
           id: `agent-${Date.now()}`,
           kind: 'message',
           role: 'agent',
-          markdown: result.answer || 'Theorem did not return a publishable answer.',
-        });
-        addItem({
-          id: `run-${result.runId ?? Date.now()}`,
-          kind: 'tool',
-          title: 'Theorem run',
-          payload: {
-            run_id: result.runId,
-            heads: result.heads,
-            claims: result.claims,
-            alignment_verdict: result.alignmentVerdict,
-          },
+          markdown: result.answer || 'I did not get an answer back.',
         });
       } catch (err) {
         addItem({
           id: `error-${Date.now()}`,
           kind: 'message',
           role: 'system',
-          markdown: err instanceof Error ? err.message : String(err),
+          markdown:
+            resolvedMode === 'api'
+              ? 'I could not reach the agent right now. Check Accounts when you are ready to reconnect.'
+              : err instanceof Error ? err.message : String(err),
         });
       } finally {
+        setIsSending(false);
         setStatus('connected');
       }
       return;
@@ -295,7 +297,7 @@ export default function AgentThreadView({
     const delivered = send({
       type: 'prompt',
       session_id: activeSession,
-      text,
+      text: options.webSearch ? `Search the web if available, then answer:\n\n${promptText}` : promptText,
     });
     if (!delivered) {
       addItem({
@@ -305,24 +307,26 @@ export default function AgentThreadView({
         markdown: 'ACP host is offline.',
       });
     }
-  }, [addItem, composer, resolvedMode, send, sessionId]);
+  }, [addItem, composer, isSending, resolvedMode, send, sessionId]);
 
   const displayStatus =
     resolvedMode === 'api' && status !== 'connecting' ? 'connected' : status;
 
   return (
-    <section className="cp-agent-thread" aria-label={`${agentLabel} agent thread`}>
-      <header className="cp-agent-thread-header">
-        <div>
-          <h2>{agentLabel}</h2>
-          <span className={`cp-agent-thread-status cp-agent-thread-status--${displayStatus}`}>
-            {displayStatus}
-          </span>
-        </div>
-        {resolvedMode === 'acp' && sessionId && <code>{sessionId}</code>}
-      </header>
+    <section className={`cp-agent-thread ${styles.thread}`} aria-label={`${agentLabel} agent thread`}>
+      {resolvedMode === 'acp' ? (
+        <header className="cp-agent-thread-header">
+          <div>
+            <h2>{agentLabel}</h2>
+            <span className={`cp-agent-thread-status cp-agent-thread-status--${displayStatus}`}>
+              {displayStatus}
+            </span>
+          </div>
+          {sessionId && <code>{sessionId}</code>}
+        </header>
+      ) : null}
 
-      <div ref={listRef} className="cp-agent-thread-list">
+      <div ref={listRef} className={`cp-agent-thread-list ${styles.threadList}`}>
         {items.map((item) => (
           <ThreadCard
             key={item.id}
@@ -341,33 +345,46 @@ export default function AgentThreadView({
             }
           />
         ))}
+        {isSending ? (
+          <article className={`cp-agent-message cp-agent-message--agent ${styles.pendingMessage}`}>
+            <WeaveSpinner size="compact" />
+          </article>
+        ) : null}
       </div>
 
-      <form
-        className="cp-agent-thread-composer"
-        onSubmit={(event) => {
-          event.preventDefault();
-          sendPrompt();
-        }}
-      >
-        <textarea
+      <div className={styles.composerDock}>
+        <AgentThreadOmnibar
+          busy={isSending}
           value={composer}
-          onChange={(event) => setComposer(event.target.value)}
-          onKeyDown={(event) => {
-            if (event.key === 'Enter' && !event.shiftKey) {
-              event.preventDefault();
-              sendPrompt();
-            }
-          }}
-          placeholder={`Message ${agentLabel}...`}
-          rows={2}
+          onChange={setComposer}
+          onSubmit={(options) => sendPrompt(options)}
         />
-        <button type="submit" disabled={!composer.trim()}>
-          Send
-        </button>
-      </form>
+      </div>
     </section>
   );
+}
+
+async function runResearchPrompt(task: string): Promise<TheoremAgentRunResult> {
+  const search = await searchRustyWeb(task, {
+    mode: 'web',
+    limit: 8,
+    providerLimit: 4,
+    providerTimeoutMs: 4_000,
+    requestTimeoutMs: 12_000,
+  });
+  return runTheoremAgent({
+    mode: 'research',
+    task: `Answer this question using the attached search evidence where it is useful. Question: ${task}`,
+    claims: searchHitsToClaims(search.hits),
+    requestTimeoutMs: 75_000,
+  });
+}
+
+function searchHitsToClaims(hits: RustyWebSearchHit[]): TheoremAgentClaim[] {
+  return hits.slice(0, 8).map((hit, index) => ({
+    text: [hit.title, hit.snippet].filter(Boolean).join(': '),
+    provenance: hit.url || hit.id || `search:${index + 1}`,
+  }));
 }
 
 function ThreadCard({

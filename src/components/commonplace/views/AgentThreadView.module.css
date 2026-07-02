@@ -1,0 +1,35 @@
+.thread {
+  position: relative;
+  overflow: hidden;
+  isolation: isolate;
+}
+
+.threadList {
+  padding-bottom: clamp(190px, 29vh, 286px);
+}
+
+.pendingMessage {
+  width: fit-content;
+  min-width: 68px;
+  padding: 10px 12px;
+}
+
+.composerDock {
+  position: absolute;
+  left: 50%;
+  bottom: clamp(24px, 9vh, 86px);
+  z-index: 8;
+  width: min(640px, calc(100% - 48px));
+  transform: translateX(-50%);
+}
+
+@media (max-width: 720px) {
+  .threadList {
+    padding-bottom: 172px;
+  }
+
+  .composerDock {
+    bottom: 18px;
+    width: calc(100% - 24px);
+  }
+}

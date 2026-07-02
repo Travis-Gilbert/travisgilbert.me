@@ -40,7 +40,7 @@ export default function LensAffordance({ object }: { object: RenderableObject })
         style={{
           width: 18, height: 18, display: 'grid', placeItems: 'center', borderRadius: 4,
           border: '1px solid var(--cp-border-faint)', background: 'var(--cp-surface, rgba(255,255,255,0.8))',
-          color: 'var(--cp-text-muted)', cursor: 'pointer', fontSize: 11, lineHeight: 1, opacity: 0.7,
+          color: 'var(--cp-text-muted)', cursor: 'pointer', fontSize: 11, lineHeight: 1.2, opacity: 0.7,
         }}
       >
         ⊹
@@ -72,7 +72,7 @@ export default function LensAffordance({ object }: { object: RenderableObject })
 function MenuGroup({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div style={{ padding: '2px 0' }}>
-      <div style={{ fontFamily: 'var(--cp-font-mono)', fontSize: 8, textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--cp-text-muted)', padding: '2px 8px' }}>{label}</div>
+      <div style={{ fontFamily: 'var(--cp-font-mono)', fontSize: 10, textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--cp-text-muted)', padding: '2px 8px' }}>{label}</div>
       {children}
     </div>
   );

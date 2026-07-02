@@ -1,10 +1,10 @@
 'use client';
 
 /**
- * The omnibar: the 21st.dev ai-input wired to Theorem's agent + RustyRed.
- *   - plain text  -> ask     : The composed Theorem API agent.
+ * The omnibar: the 21st.dev ai-input wired to CommonPlace's agent + RustyRed.
+ *   - plain text  -> ask     : The composed CommonPlace API agent.
  *   - web         -> search  : RustyWeb external search acquisition.
- *   - research    -> search + composed Theorem API agent over the evidence bundle.
+ *   - research    -> search + composed CommonPlace API agent over the evidence bundle.
  *   - fractal     -> expand  : graph frontier + RustyWeb fractal expansion.
  *   - attach      -> capture the file into CommonPlace.
  *
@@ -108,9 +108,9 @@ export default function Omnibar({
     busy || agentResult !== null || searchResult !== null || researchResult !== null || error !== null;
   const busyText =
     mode === 'ask'
-      ? 'Asking the Theorem agent...'
+      ? 'Thinking...'
       : mode === 'research'
-        ? 'Searching, then asking Theorem...'
+        ? 'Searching, then thinking...'
       : mode === 'fractal'
         ? 'Expanding from graph to web...'
         : 'Searching the web...';
@@ -172,11 +172,11 @@ function AgentAnswerView({ result }: { result: TheoremAgentRunResult }) {
   return (
     <div>
       <p className="whitespace-pre-wrap text-[15px] leading-[1.6]" style={{ color: 'var(--cp-text)' }}>
-        {result.answer || 'Theorem did not return a publishable answer.'}
+        {result.answer || 'I did not get an answer back.'}
       </p>
       <div className="mt-3 flex flex-wrap items-center gap-2 font-mono text-[11px]" style={{ color: 'var(--cp-text-faint)' }}>
         <span className="rounded px-1.5 py-0.5" style={{ background: 'var(--cp-red-soft)', color: 'var(--cp-red)' }}>
-          Theorem agent
+          CommonPlace
         </span>
         <span>{result.heads.length || 1} head{result.heads.length === 1 ? '' : 's'}</span>
         <span>{allowed ? 'alignment passed' : 'alignment pending'}</span>

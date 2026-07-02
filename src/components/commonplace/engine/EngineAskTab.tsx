@@ -346,7 +346,7 @@ function MessageBubble({
                         }}
                       />
                     </span>
-                    <span style={{ fontFamily: 'var(--font-code)', fontSize: 9, color: '#555048' }}>
+                    <span style={{ fontFamily: 'var(--font-code)', fontSize: 10, color: '#555048' }}>
                       {Math.round(step.strength * 100)}
                     </span>
                   </span>
@@ -361,7 +361,7 @@ function MessageBubble({
       <div
         style={{
           fontFamily: 'var(--font-code)',
-          fontSize: 9,
+          fontSize: 10,
           color: '#555048',
           marginTop: 4,
           padding: '0 4px',
@@ -393,7 +393,7 @@ function TypingIndicator() {
             borderRadius: '50%',
             background: '#3A7A88',
             opacity: 0.3,
-            animation: `engineBounce 1.4s ease-in-out infinite ${i * 0.2}s`,
+            animation: `engineBounce 1000ms ease-in-out infinite ${i * 0.2}s`,
           }}
         />
       ))}

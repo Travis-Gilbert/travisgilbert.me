@@ -13,38 +13,9 @@
   padding: 0;
 }
 
-.omnibarFrame {
-  position: fixed;
-  left: var(--cp-daily-omnibar-left, calc(45vw + 258px));
-  right: 0;
-  z-index: 40;
-  display: flex;
-  justify-content: stretch;
-  padding: 0;
-  pointer-events: none;
-}
-
-.omnibarShell {
-  width: 100%;
-  max-width: none;
-  pointer-events: auto;
-}
-
-@media (max-width: 1180px) {
-  .omnibarFrame {
-    left: calc(var(--cp-shell-join-underlap) + 244px);
-    right: 0;
-  }
-}
-
 @media (max-width: 820px) {
   .content {
     padding: 0;
-  }
-
-  .omnibarFrame {
-    left: 16px;
-    right: 16px;
   }
 }
 
@@ -115,7 +86,7 @@
 
 .tensionBadge {
   font-family: var(--cp-font-mono);
-  font-size: 9px;
+  font-size: 10px;
   color: var(--cp-gold);
 }
 
@@ -191,14 +162,14 @@
 
 .searchResultType {
   font-family: var(--font-metadata, 'Courier Prime', monospace);
-  font-size: 9px;
+  font-size: 10px;
   text-transform: uppercase;
   letter-spacing: 0.06em;
 }
 
 .searchResultStrength {
   font-family: var(--font-metadata, 'Courier Prime', monospace);
-  font-size: 9px;
+  font-size: 10px;
   color: var(--cp-text-faint);
   margin-left: auto;
 }
@@ -231,7 +202,7 @@
 
 .heroAnswerLabel {
   font-family: var(--font-metadata, 'Courier Prime', monospace);
-  font-size: 9px;
+  font-size: 10px;
   text-transform: uppercase;
   letter-spacing: 0.08em;
   color: var(--cp-teal);
@@ -250,7 +221,7 @@
 
 @media (prefers-reduced-motion: no-preference) {
   .heroAnswerDot {
-    animation: cpPulse 2s ease infinite;
+    animation: cpPulse 1000ms ease infinite;
   }
 }
 
