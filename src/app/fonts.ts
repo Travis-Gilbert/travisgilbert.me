@@ -1,74 +1,38 @@
-import { Vollkorn, Vollkorn_SC, IBM_Plex_Sans, IBM_Plex_Mono, Courier_Prime, JetBrains_Mono, Caveat, Caudex, Lora } from 'next/font/google';
+import { Bricolage_Grotesque, IBM_Plex_Sans_Condensed, IBM_Plex_Mono } from 'next/font/google';
 import localFont from 'next/font/local';
 
-export const vollkorn = Vollkorn({
+// The three product faces (SPEC-PARAMETRIC-DESIGN-SYSTEM D3).
+// Display is a variable font whose opsz/wdth axes the token generator drives:
+// tokens.gen.css maps opsz to the type-scale step and wdth to the seed density.
+// The generated --font-display/--font-body/--font-mono tokens resolve through
+// the *-src variables set here, so components never name a family directly.
+
+export const bricolage = Bricolage_Grotesque({
   subsets: ['latin'],
-  variable: '--font-vollkorn',
+  variable: '--font-display-src',
   display: 'swap',
-  weight: ['400', '500', '600', '700'],
-  style: ['normal', 'italic'],
+  axes: ['opsz', 'wdth'],
 });
 
-export const vollkornSC = Vollkorn_SC({
+export const plexSansCondensed = IBM_Plex_Sans_Condensed({
   subsets: ['latin'],
-  variable: '--font-vollkorn-sc',
-  display: 'swap',
-  weight: ['400', '600', '700'],
-});
-
-export const ibmPlexSans = IBM_Plex_Sans({
-  subsets: ['latin'],
-  variable: '--font-ibm-plex',
+  variable: '--font-body-src',
   display: 'swap',
   weight: ['300', '400', '500', '600', '700'],
   style: ['normal', 'italic'],
 });
 
-export const ibmPlexMono = IBM_Plex_Mono({
+export const plexMono = IBM_Plex_Mono({
   subsets: ['latin'],
-  variable: '--font-ibm-plex-mono',
+  variable: '--font-mono-src',
   display: 'swap',
   weight: ['400', '500', '600'],
   style: ['normal', 'italic'],
 });
 
-export const courierPrime = Courier_Prime({
-  subsets: ['latin'],
-  variable: '--font-courier-prime',
-  display: 'swap',
-  weight: ['400', '700'],
-  style: ['normal', 'italic'],
-});
-
-export const jetBrainsMono = JetBrains_Mono({
-  subsets: ['latin'],
-  variable: '--font-jetbrains-mono',
-  display: 'swap',
-  weight: ['400', '500', '600', '700', '800'],
-});
-
-export const caveat = Caveat({
-  subsets: ['latin'],
-  variable: '--font-caveat',
-  display: 'swap',
-  weight: ['400'],
-});
-
-export const caudex = Caudex({
-  subsets: ['latin'],
-  variable: '--font-caudex',
-  display: 'swap',
-  weight: ['400', '700'],
-  style: ['normal', 'italic'],
-});
-
-export const lora = Lora({
-  subsets: ['latin'],
-  variable: '--font-lora',
-  display: 'swap',
-  weight: ['400', '500', '600', '700'],
-  style: ['normal', 'italic'],
-});
+// Self-hosted niche faces scoped to non-product surfaces. They stay declared
+// at the root because they are consumed through CSS variables alone; browsers
+// only fetch a face when a rendered rule uses it.
 
 export const amarna = localFont({
   src: '../../public/fonts/Amarna-Variable.ttf',
@@ -76,33 +40,17 @@ export const amarna = localFont({
   display: 'swap',
 });
 
-// Berthold Block: display face for the /act Retro Lab patent-instrument
-// register. Shipped in the Retro Lab Design Scheme bundle from
-// claude.ai/design (project/fonts/BertholdBlock.ttf, 200 KB). Used as
-// the masthead display face on /act only; the rest of the site keeps
-// Vollkorn as its brand serif.
+// Berthold Block: masthead display face on /act only (Retro Lab bundle).
 export const bertholdBlock = localFont({
   src: '../../public/fonts/BertholdBlock.ttf',
   variable: '--font-berthold-block',
   display: 'swap',
 });
 
-// Apple Gothic Latin subset previously declared here was used only by
-// the /spacetime page hover marginalia. The spacetime feature lives on
-// a separate branch (claude/spacetime-execution) and re-introduces the
-// font file plus this declaration; it stays out of the instant-kg
-// branch to keep the two PRs scope-isolated.
-
 export const fontVariableClasses = [
-  vollkorn.variable,
-  vollkornSC.variable,
-  ibmPlexSans.variable,
-  ibmPlexMono.variable,
-  courierPrime.variable,
-  jetBrainsMono.variable,
-  caveat.variable,
-  caudex.variable,
-  lora.variable,
+  bricolage.variable,
+  plexSansCondensed.variable,
+  plexMono.variable,
   amarna.variable,
   bertholdBlock.variable,
 ].join(' ');

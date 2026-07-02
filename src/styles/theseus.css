@@ -9,73 +9,27 @@
    existing component CSS keeps rendering through the palette change. */
 
 .theseus-root {
+  /* Token definitions moved to the generated layer: src/styles/tokens.gen.css (theseus alias group). Edit design/seeds/commonplace.seed.json and regenerate; do not re-add values here. */
   /* Atlas surfaces — dark ink, close-to-black with a warm undertone.
      Sidebar sits slightly inky-blue so the iridescent wash reads. */
-  --app-base:    #1A1817;
-  --top-chrome:  #1F1D1C;
-  --sidebar:     #171110;
-  --panel:       #2A2725;
-  --panel-2:     #322E2C;
-  --panel-3:     #3C3734;
 
   /* Iridescent tones — very low intensity washes for chrome only. */
-  --tone-brass:  rgba(176, 148, 104, 0.07);
-  --tone-rose:   rgba(162, 124, 116, 0.05);
-  --tone-plum:   rgba(108, 96, 122, 0.05);
-  --tone-blue:   rgba(72, 96, 138, 0.10);
-  --tone-ink:    rgba(40, 58, 92, 0.14);
-  --tone-bone:   rgba(232, 222, 208, 0.05);
 
   /* Patina'd solids — slightly muted accents. */
-  --brass:       #B09468;
-  --rose:        #A27C74;
-  --plum:        #6C607A;
-  --blue:        #606E86;
-  --bone:        #E8DED0;
 
   /* Ink (type) — softer, less saturated warm. */
-  --ink:         #E6DDD0;
-  --ink-2:       #B8AC9E;
-  --ink-3:       #847869;
-  --ink-4:       #554B44;
-  --rule:        rgba(232, 222, 208, 0.06);
-  --rule-strong: rgba(232, 222, 208, 0.14);
 
   /* Accent (the "pencil" role = brass glow). */
-  --pencil:      var(--brass);
-  --accent:      var(--brass);
-  --accent-color: var(--brass);
 
   /* Paper palette kept for Ask Correspondence surface. */
-  --paper:       #f3efe6;
-  --paper-2:     #ece7db;
-  --paper-3:     #e2dcc9;
-  --paper-ink:   #140E0C;
-  --paper-ink-2: #2E241F;
-  --paper-ink-3: #554A43;
-  --paper-rule:  #b8ae98;
-  --paper-pencil:#a8301e;
 
   /* Kind colors — rebalanced for warm-dark backdrops. */
-  --sage:   #7FA37A;
-  --indigo: #9AA6D4;
-  --ochre:  var(--brass);
-  --teal:   #7DB8B4;
-  --mauve:  var(--rose);
-  --lilac:  var(--plum);
 
   /* Tweakables. */
-  --sidebar-w:     220px;
-  --grid-size:     28px;
-  --grid-opacity:  0.10;
 
   /* Typography (Atlas uses IBM Plex Sans body, Vollkorn display,
      IBM Plex Mono for labels/kbd/metadata). We keep alias names so the
      legacy --vie-font-* classes keep resolving through the change. */
-  --font-body:    var(--font-ibm-plex, 'IBM Plex Sans', system-ui, sans-serif);
-  --font-display: var(--font-vollkorn, Georgia, serif);
-  --font-ui:      var(--font-ibm-plex, 'IBM Plex Sans', system-ui, sans-serif);
-  --font-mono:    var(--font-ibm-plex-mono, var(--font-jetbrains-mono), ui-monospace, monospace);
 
   /* ── Legacy --vie-* aliases (re-pointed at Atlas tokens) ────────────
      Existing component CSS still references --vie-*; we map every one to
@@ -83,82 +37,26 @@
      refactor. New Atlas components should consume the raw tokens above. */
 
   /* Surfaces */
-  --vie-bg:            var(--app-base);
-  --vie-bg-subtle:     var(--panel);
-  --vie-card:          var(--panel);
-  --vie-code:          var(--panel-3);
-  --vie-chrome-bg:     var(--sidebar);
-  --vie-panel-bg:      var(--panel);
-  --vie-hero-ground:   var(--app-base);
-  --vie-hero-text:     var(--ink);
 
   /* Text */
-  --vie-text:          var(--ink);
-  --vie-text-muted:    var(--ink-2);
-  --vie-text-dim:      var(--ink-3);
-  --vie-text-ghost:    var(--ink-4);
 
   /* Borders */
-  --vie-border:        var(--rule-strong);
-  --vie-border-light:  var(--rule);
-  --vie-border-active: color-mix(in srgb, var(--brass) 40%, transparent);
-  --vie-border-focus:  var(--brass);
 
   /* Shadows (warm ink-brown tinted) */
-  --vie-shadow-sm:     0 2px 6px rgba(0, 0, 0, 0.25);
-  --vie-shadow:        0 8px 20px -6px rgba(0, 0, 0, 0.38);
-  --vie-shadow-lg:     0 24px 48px -14px rgba(0, 0, 0, 0.55);
 
   /* Brand aliases — terracotta → rose, gold → brass (kept legacy hues
      for anything truly committed to a specific colour, but default to
      Atlas patina solids). */
-  --vie-terra:         var(--rose);
-  --vie-terra-hover:   #B58478;
-  --vie-terra-light:   color-mix(in srgb, var(--rose) 65%, transparent);
-  --vie-teal:          var(--teal);
-  --vie-teal-light:    color-mix(in srgb, var(--teal) 80%, transparent);
-  --vie-amber:         var(--brass);
-  --vie-amber-light:   color-mix(in srgb, var(--brass) 80%, transparent);
-  --vie-purple:        var(--plum);
 
   /* Semantic */
-  --vie-success:       var(--sage);
-  --vie-error:         #C97373;
 
   /* Object type colours (Cosmograph nodes) */
-  --vie-type-source:   var(--teal);
-  --vie-type-person:   var(--rose);
-  --vie-type-concept:  var(--indigo);
-  --vie-type-hunch:    var(--brass);
-  --vie-type-note:     var(--lilac);
-  --vie-type-claim:    var(--plum);
-  --vie-type-tension:  var(--vie-error);
 
   /* Engine live state */
-  --vie-engine-idle:   color-mix(in srgb, var(--teal) 70%, transparent);
-  --vie-engine-active: var(--teal);
 
   /* Reading-panel legacy aliases */
-  --vie-panel-card:    var(--panel);
-  --vie-panel-hover:   var(--panel-2);
-  --vie-panel-border:  var(--rule-strong);
-  --vie-panel-shadow:  rgba(0, 0, 0, 0.28);
-  --vie-ink-1:         var(--ink);
-  --vie-ink-2:         var(--ink-2);
-  --vie-ink-3:         var(--ink-3);
-  --vie-ink-4:         var(--ink-4);
-  --vie-teal-ink:      var(--teal);
-  --vie-amber-ink:     var(--brass);
-  --vie-terra-ink:     var(--rose);
-  --vie-surface-panel: var(--panel);
-  --vie-surface-panel-border: var(--rule-strong);
-  --vie-surface-panel-glow: var(--vie-shadow-lg);
 
   /* Typography aliases */
-  --vie-font-title:    var(--font-display);
-  --vie-font-body:     var(--font-body);
-  --vie-font-mono:     var(--font-mono);
-  --vie-font-code:     var(--font-mono);
 
   background: var(--app-base);
   color: var(--ink);

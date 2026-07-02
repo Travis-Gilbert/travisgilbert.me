@@ -6,135 +6,151 @@
    IPC, causing "evaluate_webpack_loader failed" panics on every cold
    compile of global.css. Scoping to src/ keeps the scan under a second. */
 @import "tailwindcss" source(none);
+/* The parametric token layer (SPEC-PARAMETRIC-DESIGN-SYSTEM). Generated from
+   design/seeds/commonplace.seed.json; regenerate with `npm run tokens`.
+   Must stay in the leading @import block: CSS ignores any @import that
+   follows a non-import rule. */
+@import "./tokens.gen.css";
 @source "../**/*.{ts,tsx,js,jsx,md,mdx}";
 
+/* Retired font loaders resolve to the three product faces. These are
+   var-to-var compat mappings, not values; components migrate to the
+   semantic names over time. */
+:root {
+  --font-vollkorn: var(--font-display);
+  --font-vollkorn-sc: var(--font-display);
+  --font-ibm-plex: var(--font-body);
+  --font-ibm-plex-mono: var(--font-mono);
+  --font-courier-prime: var(--font-mono);
+  --font-jetbrains-mono: var(--font-mono);
+  --font-caveat: var(--font-body);
+  --font-caudex: var(--font-display);
+  --font-lora: var(--font-display);
+}
+
 /* ─────────────────────────────────────────────────
-   Design Tokens:Patent Parchment Palette
-   Brand System v1.0 · Feb 2026
+   Design Tokens: Patent Parchment Palette
+   All values below are references into the generated
+   token layer (ramp steps and semantics). Raw literals
+   live only in tokens.gen.css.
    ───────────────────────────────────────────────── */
 
-@theme inline {
-  /* Backgrounds (amber parchment: hue ~35°, sat ~53%) */
-  --color-paper: #F5E6D2;
-  --color-surface: #FBF0E2;
-  --color-bg-alt: #EBD8C0;
-  --color-card: #FBF0E2;           /* alias → surface */
-  --color-code: #EBD8C0;           /* alias → bg-alt */
-  --color-theseus-panel: rgba(251, 240, 226, 0.80); /* transparent parchment for light */
-  --color-nav-bg: #1C1C20;         /* nav: dark slate instrument panel */
+@theme {
+  /* Plain @theme (NOT inline): every value below is a var() reference into
+     the generated layer, and `inline` would freeze the light resolution into
+     utilities at build time, breaking the html[data-theme="dark"] swap. */
+  /* Backgrounds: generated surfaces (theme-swapping) and pinned ramp steps
+     (constant-dark instrument panels) */
+  --color-paper: var(--surface-0);
+  --color-surface: var(--surface-1);
+  --color-bg-alt: var(--surface-3);
+  --color-card: var(--surface-1);           /* alias → surface */
+  --color-code: var(--surface-3);           /* alias → bg-alt */
+  --color-theseus-panel: var(--surface-translucent);
+  --color-nav-bg: var(--neutral-13);        /* nav: dark instrument panel, both themes */
 
   /* Text */
-  --color-ink: #2A2420;
-  --color-ink-muted: #6A5E52;
-  --color-ink-light: #9A8E82;
-  --color-ink-secondary: #6A5E52;  /* alias: prefer --color-ink-muted */
-  --color-ink-faint: #9A8E82;      /* alias: prefer --color-ink-light */
+  --color-ink: var(--text);
+  --color-ink-muted: var(--text-dim);
+  --color-ink-light: var(--text-faint);
+  --color-ink-secondary: var(--text-dim);   /* alias: prefer --color-ink-muted */
+  --color-ink-faint: var(--text-faint);     /* alias: prefer --color-ink-light */
 
-  /* Accent:Terracotta (brand constant across all modes) */
-  --color-terracotta: #B45A2D;
-  --color-terracotta-hover: #9A4A22;
-  --color-terracotta-light: #D4875A;
+  /* Accent: Terracotta (brand ramp) */
+  --color-terracotta: var(--brand-8);
+  --color-terracotta-hover: var(--brand-9);
+  --color-terracotta-light: var(--brand-6);
 
-  /* Secondary:Teal */
-  --color-teal: #2D5F6B;
-  --color-teal-light: #3A7A88;
+  /* Secondary: Teal */
+  --color-teal: var(--teal-9);
+  --color-teal-light: var(--teal-8);
 
-  /* Highlight:Gold */
-  --color-gold: #C49A4A;
-  --color-gold-light: #D4AA5A;
+  /* Highlight: Gold (the agent/brass ramp) */
+  --color-gold: var(--agent-6);
+  --color-gold-light: var(--agent-5);
 
   /* Nav link colors (legacy, kept for any remaining references) */
-  --color-nav-terracotta: #CC6A4E;
-  --color-nav-teal: #5AA89F;
-  --color-nav-gold: #C89C52;
+  --color-nav-terracotta: var(--brand-7);
+  --color-nav-teal: var(--teal-7);
+  --color-nav-gold: var(--agent-6);
 
-  /* Nav tab colors: full (active), muted (dormant text), dim (dormant LED)
-     Muted stops tuned for 4.5:1+ contrast on #1C1C20 (WCAG AA small text) */
-  --nav-terracotta:       #CC7E52;
-  --nav-terracotta-muted: #B47A54;
-  --nav-terracotta-dim:   #5C3D28;
+  /* Nav tab colors: full (active), muted (dormant text), dim (dormant LED).
+     Muted = accent pulled toward the panel neutral; dim = deep ramp step. */
+  --nav-terracotta:       var(--brand-7);
+  --nav-terracotta-muted: color-mix(in oklch, var(--brand-7) 75%, var(--neutral-8));
+  --nav-terracotta-dim:   var(--brand-10);
 
-  --nav-teal:       #4A9AAA;
-  --nav-teal-muted: #4A8E98;
-  --nav-teal-dim:   #1F4148;
+  --nav-teal:       var(--teal-7);
+  --nav-teal-muted: color-mix(in oklch, var(--teal-7) 75%, var(--neutral-8));
+  --nav-teal-dim:   var(--teal-11);
 
-  --nav-gold:       #C49A4A;
-  --nav-gold-muted: #A08548;
-  --nav-gold-dim:   #5C4B26;
+  --nav-gold:       var(--agent-6);
+  --nav-gold-muted: color-mix(in oklch, var(--agent-6) 70%, var(--neutral-8));
+  --nav-gold-dim:   var(--agent-11);
 
-  --nav-cream:       #F0EBE4;
-  --nav-cream-muted: #8A8580;
-  --nav-cream-dim:   #3A3835;
+  --nav-cream:       var(--neutral-2);
+  --nav-cream-muted: var(--neutral-7);
+  --nav-cream-dim:   var(--neutral-11);
 
   /* Ink (rough.js strokes) */
-  --color-rough: #3A3632;
-  --color-rough-light: #A29B8E;
+  --color-rough: var(--neutral-11);
+  --color-rough-light: var(--neutral-7);
 
   /* Borders */
-  --color-border: #D7CBC1;
-  --color-border-light: #ECE0D2;
+  --color-border: var(--border);
+  --color-border-light: var(--neutral-3);
 
   /* Paper at zero alpha (for gradient fades; avoids OKLAB green shift) */
-  --color-paper-0: rgba(245, 237, 226, 0);
+  --color-paper-0: color-mix(in srgb, var(--surface-0) 0%, transparent);
 
   /* Utility */
-  --color-shadow: rgba(42, 36, 32, 0.08);
+  --color-shadow: color-mix(in srgb, var(--text) 8%, transparent);
 
-  /* Warm Shadows:brown-tinted, not gray */
-  --shadow-warm-sm:  0 1px 2px rgba(42, 36, 32, 0.05);
-  --shadow-warm:     0 2px 8px rgba(42, 36, 32, 0.07), 0 1px 3px rgba(42, 36, 32, 0.04);
-  --shadow-warm-lg:  0 4px 16px rgba(42, 36, 32, 0.10), 0 2px 6px rgba(42, 36, 32, 0.05);
+  /* Warm Shadows: ink-tinted, never gray */
+  --shadow-warm-sm:  0 1px 2px color-mix(in srgb, var(--text) 5%, transparent);
+  --shadow-warm:     0 2px 8px color-mix(in srgb, var(--text) 7%, transparent), 0 1px 3px color-mix(in srgb, var(--text) 4%, transparent);
+  --shadow-warm-lg:  0 4px 16px color-mix(in srgb, var(--text) 10%, transparent), 0 2px 6px color-mix(in srgb, var(--text) 5%, transparent);
 
   /* Semantic */
-  --color-success: #5A7A4A;
-  --color-success-light: #7A9A6A;
-  --color-error: #A44A3A;
+  --color-success: var(--memory-8);
+  --color-success-light: var(--memory-6);
+  --color-error: var(--danger, var(--brand-9));
 
-  /* Motion (eases + durations)
-     Used by /spacetime and any other surface that wants the project's
-     standard hand-drawn easing curve. Keep in sync with the design
-     system tokens.css. */
-  --ease-out:  cubic-bezier(0.22, 1, 0.36, 1);
-  --ease-snap: cubic-bezier(0.34, 1.56, 0.64, 1);
-  --dur-fast:  120ms;
-  --dur-base:  200ms;
-  --dur-slow:  320ms;
+  /* Motion: the generated trio and ease (zeroed under reduced motion). */
+  --ease-out:  var(--ease);
+  --dur-fast:  var(--motion-fast);
+  --dur-base:  var(--motion);
+  --dur-slow:  var(--motion-slow);
 
   /* Hero: Dark Collage Ground
      Used by CollageHero (homepage) and EssayHero (essay detail pages).
      Dark warm charcoal ground with cream text for editorial magazine feel. */
-  --color-hero-ground: #2A2824;
-  --color-hero-text: #F0EBE4;
-  --color-hero-text-muted: rgba(240, 235, 228, 0.7);
-  --color-hero-overlay: rgba(42, 40, 36, 0.70);
+  --color-hero-ground: var(--neutral-12);
+  --color-hero-text: var(--neutral-2);
+  --color-hero-text-muted: color-mix(in srgb, var(--neutral-2) 70%, transparent);
+  --color-hero-overlay: color-mix(in srgb, var(--neutral-12) 70%, transparent);
 
   /* Dark Mode */
-  --color-dark: #1A1816;
-  --color-dark-surface: #2A2622;
-  --color-dark-border: #3A3632;
+  --color-dark: var(--neutral-13);
+  --color-dark-surface: var(--neutral-12);
+  --color-dark-border: var(--neutral-11);
 
-  /* Typography:The Documentarian (Primary System)
-     Variables set by next/font on <html> → aliased here for design tokens */
-  --font-title: var(--font-vollkorn), Georgia, serif;
-  --font-title-alt: var(--font-ibm-plex), sans-serif;
-  --font-body: var(--font-ibm-plex), sans-serif;
-  --font-body-alt: var(--font-ibm-plex), sans-serif;
-  /* Monospace: two faces, two roles
-     --font-mono  (Courier Prime):   labels, metadata, nav, tags, DateStamp
-     --font-code  (JetBrains Mono):  CodeComment annotations, inline code */
-  --font-mono: var(--font-courier-prime), 'Courier New', monospace;
-  --font-mono-alt: var(--font-jetbrains-mono), monospace;
-  --font-code: var(--font-jetbrains-mono), var(--font-courier-prime), monospace;
-  --font-metadata: var(--font-courier-prime), 'Courier New', monospace;
+  /* Typography: three product faces (SPEC-PARAMETRIC-DESIGN-SYSTEM D3).
+     --font-display / --font-body / --font-mono come from tokens.gen.css and
+     resolve through the next/font loader vars. Every historical role maps
+     onto the three faces; Vollkorn, Courier Prime, JetBrains Mono, Caveat,
+     and Caudex no longer load. */
+  --font-title: var(--font-display);
+  --font-title-alt: var(--font-body);
+  --font-body-alt: var(--font-body);
+  --font-mono-alt: var(--font-mono);
+  --font-code: var(--font-mono);
+  --font-metadata: var(--font-mono);
   --font-name: var(--font-amarna), serif;
-  --font-archivist: var(--font-caudex), 'Palatino Linotype', 'Book Antiqua', serif;
-  /* Caveat: only used for margin annotations, candidate for font-display:swap deferred loading */
-  --font-handwritten: var(--font-caveat), 'Comic Sans MS', cursive;
-  --font-annotation: var(--font-caveat), cursive;
-
-  /* Legacy aliases (prevent breaking existing Tailwind classes) */
-  --font-heading: var(--font-vollkorn), Georgia, serif;
-  --font-display: var(--font-vollkorn), Georgia, serif;
+  --font-archivist: var(--font-display);
+  --font-handwritten: var(--font-body);
+  --font-annotation: var(--font-body);
+  --font-heading: var(--font-display);
 
   /* README page surfaces */
   --color-readme-bg: #1C1C20;
@@ -190,64 +206,40 @@
    ───────────────────────────────────────────────── */
 
 html[data-theme="dark"] {
-  /* Backgrounds: warm charcoal, not blue-gray */
-  --color-paper: #1B1815;
-  --color-nav-bg: #1C1C20;
-  --color-surface: #252016;
-  --color-bg-alt: #302A24;
-  --color-card: #252016;
-  --color-code: #302A24;
-  --color-theseus-panel: rgba(37, 32, 22, 0.82); /* transparent dark for DotGrid bleed */
+  /* Most site tokens follow the generated semantic swap automatically
+     (tokens.gen.css redefines --surface-*, --text*, --accent* under this
+     selector). Only names pinned to ramp steps in the light pass, or whose
+     dark mapping is not the parallel semantic, are re-pointed here. */
 
-  /* Text: cream tones, not pure white */
-  --color-ink: #E8E0D6;
-  --color-ink-muted: #A89E92;
-  --color-ink-light: #7A7268;
-  --color-ink-secondary: #A89E92;  /* alias: prefer --color-ink-muted */
-  --color-ink-faint: #7A7268;      /* alias: prefer --color-ink-light */
-
-  /* Accent: Terracotta (warmed for dark backgrounds, retaining brown-red richness) */
-  --color-terracotta: #C0623A;
-  --color-terracotta-hover: #D07245;
-  --color-terracotta-light: #D8885E;
-
-  /* Secondary: Teal (lifted) */
-  --color-teal: #358090;
-  --color-teal-light: #4898A8;
-
-  /* Highlight: Gold (lifted) */
-  --color-gold: #CCA050;
-  --color-gold-light: #DCB060;
+  /* Accents lift one to two ramp steps for dark grounds */
+  --color-terracotta: var(--brand-7);
+  --color-terracotta-hover: var(--brand-6);
+  --color-terracotta-light: var(--brand-5);
+  --color-teal: var(--teal-7);
+  --color-teal-light: var(--teal-6);
+  --color-gold: var(--agent-5);
+  --color-gold-light: var(--agent-4);
 
   /* Rough.js strokes: lighter for visibility */
-  --color-rough: #8A8480;
-  --color-rough-light: #B2AAA2;
+  --color-rough: var(--neutral-6);
+  --color-rough-light: var(--neutral-4);
 
-  /* Borders: darker but still visible */
-  --color-border: #3C3630;
-  --color-border-light: #4C4640;
+  --color-border-light: var(--neutral-10);
 
-  /* Paper at zero alpha (for gradient fades; avoids OKLAB green shift) */
-  --color-paper-0: rgba(27, 24, 21, 0);
-
-  /* Utility */
-  --color-shadow: rgba(0, 0, 0, 0.25);
-
-  /* Warm shadows: higher alpha for dark surfaces */
-  --shadow-warm-sm:  0 1px 3px rgba(0, 0, 0, 0.20);
-  --shadow-warm:     0 2px 8px rgba(0, 0, 0, 0.25), 0 1px 3px rgba(0, 0, 0, 0.15);
-  --shadow-warm-lg:  0 4px 16px rgba(0, 0, 0, 0.30), 0 2px 6px rgba(0, 0, 0, 0.18);
+  /* Utility: deeper shadow alphas on dark surfaces */
+  --color-shadow: color-mix(in srgb, var(--neutral-14) 25%, transparent);
+  --shadow-warm-sm:  0 1px 3px color-mix(in srgb, var(--neutral-14) 20%, transparent);
+  --shadow-warm:     0 2px 8px color-mix(in srgb, var(--neutral-14) 25%, transparent), 0 1px 3px color-mix(in srgb, var(--neutral-14) 15%, transparent);
+  --shadow-warm-lg:  0 4px 16px color-mix(in srgb, var(--neutral-14) 30%, transparent), 0 2px 6px color-mix(in srgb, var(--neutral-14) 18%, transparent);
 
   /* Semantic */
-  --color-success: #7A9A6A;
-  --color-success-light: #8AAA7A;
-  --color-error: #D46A5A;
+  --color-success: var(--memory-6);
+  --color-success-light: var(--memory-5);
+  --color-error: var(--danger, var(--brand-7));
 
-  /* Hero: slightly darker ground (differentiate from page bg) */
-  --color-hero-ground: #141210;
-  --color-hero-text: #F0EBE4;
-  --color-hero-text-muted: rgba(240, 235, 228, 0.65);
-  --color-hero-overlay: rgba(20, 18, 16, 0.75);
+  /* Hero: one step deeper than the page ground */
+  --color-hero-ground: var(--neutral-14);
+  --color-hero-overlay: color-mix(in srgb, var(--neutral-14) 75%, transparent);
 }
 
 /* ─────────────────────────────────────────────────
