@@ -11,7 +11,6 @@ import ReaderOverlay from '@/components/commonplace/reader/ReaderOverlay';
 import CommonPlacePwaInstall from '@/components/commonplace/install/CommonPlacePwaInstall';
 import { Toaster } from 'sonner';
 import shellStyles from '@/components/commonplace/shell/CommonPlaceShell.module.css';
-import '@/styles/commonplace-tokens.css';
 import '@/styles/commonplace.css';
 import '@/styles/assistant-ui-theme.css';
 import '@/styles/object-cards.css';

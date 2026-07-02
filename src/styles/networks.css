@@ -6,57 +6,22 @@
    ───────────────────────────────────────────────── */
 
 .networks-theme {
+  /* Token definitions moved to the generated layer: src/styles/tokens.gen.css (networks alias group). Edit design/seeds/commonplace.seed.json and regenerate; do not re-add values here. */
   /* Backgrounds */
-  --nw-bg: #1E1620;
-  --nw-sidebar: #15111A;
-  --nw-surface: #261E2A;
-  --nw-surface-hover: #2E2532;
-  --nw-card: #2A2230;
-  --nw-card-hover: #322838;
 
   /* Text */
-  --nw-text: #F5F0E8;
-  --nw-text-muted: #9B8FA0;
-  --nw-text-faint: #6B5F70;
 
   /* Accent: Terracotta (gradient edge, active states) */
-  --nw-terracotta: #C45D3E;
-  --nw-terracotta-light: #D4875A;
-  --nw-terracotta-glow: rgba(196, 93, 62, 0.15);
 
   /* Secondary palette */
-  --nw-teal: #2D5F6B;
-  --nw-teal-light: #3A7A88;
-  --nw-gold: #D4A843;
-  --nw-gold-light: #E0BC60;
-  --nw-green: #5A7A4A;
-  --nw-purple: #8B6FA0;
-  --nw-blue: #4A7A9A;
-  --nw-pink: #B06080;
-  --nw-amber: #C49A4A;
-  --nw-orange: #C47A3A;
-  --nw-yellow: #C4A83A;
 
   /* Borders */
-  --nw-border: rgba(245, 240, 232, 0.08);
-  --nw-border-strong: rgba(245, 240, 232, 0.15);
 
   /* Shadows */
-  --nw-shadow: rgba(0, 0, 0, 0.3);
-  --nw-shadow-lg: rgba(0, 0, 0, 0.5);
 
   /* Typography */
-  --nw-font-title: var(--font-vollkorn), Georgia, serif;
-  --nw-font-body: var(--font-ibm-plex), sans-serif;
-  --nw-font-mono: var(--font-courier-prime), 'Courier New', monospace;
-  --nw-font-code: var(--font-jetbrains-mono), monospace;
 
   /* Shared mobile shell overrides */
-  --mobile-shell-surface: rgba(21, 17, 26, 0.95);
-  --mobile-shell-surface-solid: #15111A;
-  --mobile-shell-border: var(--nw-border);
-  --mobile-shell-text: var(--nw-text);
-  --mobile-shell-text-muted: var(--nw-text-muted);
 }
 
 /* ─────────────────────────────────────────────────

@@ -1,7 +1,7 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
-@import "./studio-tokens.css";
+@import "./tokens.gen.css";
 
 /* Alpine.js: hide elements with x-cloak until Alpine initializes */
 [x-cloak] { display: none !important; }

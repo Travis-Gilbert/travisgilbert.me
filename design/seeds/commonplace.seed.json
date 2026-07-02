@@ -1,0 +1,33 @@
+{
+  "product": "commonplace",
+  "type": {
+    "base_size_px": 16,
+    "ratio_min": 1.125,
+    "ratio_max": 1.2,
+    "viewport_min_px": 360,
+    "viewport_max_px": 1440,
+    "steps": 6
+  },
+  "space": { "unit_px": 4 },
+  "color": {
+    "anchors": [
+      { "name": "brand", "hue": 46, "chroma": 0.135 },
+      { "name": "teal", "hue": 215.5, "chroma": 0.09 },
+      { "name": "memory", "hue": 136, "chroma": 0.09 },
+      { "name": "agent", "hue": 80, "chroma": 0.11 },
+      { "name": "danger", "hue": 22, "chroma": 0.13 }
+    ],
+    "neutral_hue": 75,
+    "neutral_chroma": 0.03,
+    "lightness_steps": [0.985, 0.955, 0.925, 0.88, 0.81, 0.73, 0.64, 0.55, 0.46, 0.37, 0.3, 0.255, 0.225, 0.19]
+  },
+  "shape": { "radius_base_px": 8, "hairline_px": 1 },
+  "motion": { "fast_ms": 120, "base_ms": 200, "slow_ms": 320, "ease": "cubic-bezier(0.22, 1, 0.36, 1)" },
+  "font": {
+    "display_family": "Bricolage Grotesque",
+    "body_family": "IBM Plex Sans Condensed",
+    "mono_family": "IBM Plex Mono",
+    "density": 0.2
+  },
+  "strata": { "contrast": 0.012 }
+}

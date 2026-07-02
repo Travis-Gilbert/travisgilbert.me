@@ -1,19 +1,21 @@
 .wrapper {
-  --weave-spinner-color: #ffaa00;
-  --weave-spinner-size: 160px;
-  --weave-spinner-node: 12px;
-  --weave-spinner-thread: 2px;
-  --weave-spinner-travel: 40px;
+  /* Parametric chrome (SPEC-PARAMETRIC-DESIGN-SYSTEM D5): every value below
+     derives from the seed tokens; agent activity wears the agent accent. */
+  --weave-spinner-color: var(--accent-agent);
+  --weave-spinner-size: calc(var(--space-unit) * 40);
+  --weave-spinner-node: calc(var(--space-unit) * 3);
+  --weave-spinner-thread: calc(var(--hairline-w) * 2);
+  --weave-spinner-travel: calc(var(--space-unit) * 10);
   display: flex;
   align-items: center;
   justify-content: center;
 }
 
 .compact {
-  --weave-spinner-size: 42px;
-  --weave-spinner-node: 5px;
-  --weave-spinner-thread: 1px;
-  --weave-spinner-travel: 10px;
+  --weave-spinner-size: calc(var(--space-unit) * 10);
+  --weave-spinner-node: var(--space-unit);
+  --weave-spinner-thread: var(--hairline-w);
+  --weave-spinner-travel: calc(var(--space-unit) * 2.5);
 }
 
 .container {
@@ -79,24 +81,26 @@
 }
 
 @media (prefers-reduced-motion: no-preference) {
+  /* Durations derive from the motion trio; the slight desync between the
+     four threads (x2.5 .. x3.125 of --motion-slow) is what reads as weaving. */
   .node {
-    animation: cpWeaveNodePulse 800ms cubic-bezier(0.68, -0.55, 0.27, 1.55) infinite;
+    animation: cpWeaveNodePulse calc(var(--motion-slow) * 2.5) var(--ease-snap, var(--ease)) infinite;
   }
 
   .t1 {
-    animation: cpWeave1 900ms cubic-bezier(0.45, 0, 0.55, 1) infinite;
+    animation: cpWeave1 calc(var(--motion-slow) * 2.8) var(--ease) infinite;
   }
 
   .t2 {
-    animation: cpWeave2 940ms cubic-bezier(0.68, -0.55, 0.27, 1.55) infinite;
+    animation: cpWeave2 calc(var(--motion-slow) * 2.95) var(--ease-snap, var(--ease)) infinite;
   }
 
   .t3 {
-    animation: cpWeave3 980ms cubic-bezier(0.23, 1, 0.32, 1) infinite;
+    animation: cpWeave3 calc(var(--motion-slow) * 3.05) var(--ease) infinite;
   }
 
   .t4 {
-    animation: cpWeave4 1000ms cubic-bezier(0.36, 0, 0.66, -0.56) infinite;
+    animation: cpWeave4 calc(var(--motion-slow) * 3.125) var(--ease-snap, var(--ease)) infinite;
   }
 }
 

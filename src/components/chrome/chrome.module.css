@@ -1,0 +1,140 @@
+/* Parametric chrome layer (SPEC-PARAMETRIC-DESIGN-SYSTEM D5).
+   The patent-drawing identity as seed arithmetic: every length is a
+   multiple of --space-unit, every stroke is --hairline-w, every color a
+   semantic token. No literal geometry constants beyond this mapping. */
+
+/* ── Hairline rule: a rule with optional end ticks ─────────────────── */
+
+.rule {
+  --rule-color: var(--border);
+  --rule-tick: calc(var(--space-unit) * 1.5);
+  position: relative;
+  display: block;
+  border: 0;
+  height: var(--hairline-w);
+  background: var(--rule-color);
+  margin-block: calc(var(--space-unit) * 4);
+}
+
+.ruleTicked::before,
+.ruleTicked::after {
+  content: "";
+  position: absolute;
+  top: calc(var(--rule-tick) / -2 + var(--hairline-w) / 2);
+  width: var(--hairline-w);
+  height: var(--rule-tick);
+  background: var(--rule-color);
+}
+
+.ruleTicked::before {
+  left: 0;
+}
+
+.ruleTicked::after {
+  right: 0;
+}
+
+.ruleAccent {
+  --rule-color: var(--accent);
+}
+
+/* ── Registration mark: circled crosshair, print-registration style ── */
+
+.reg {
+  --reg-size: calc(var(--space-unit) * 4);
+  --reg-color: var(--text-faint);
+  position: relative;
+  display: inline-block;
+  width: var(--reg-size);
+  height: var(--reg-size);
+  flex: none;
+}
+
+.reg::before,
+.reg::after {
+  content: "";
+  position: absolute;
+  background: var(--reg-color);
+}
+
+/* horizontal stroke: full width, centered */
+.reg::before {
+  top: calc(50% - var(--hairline-w) / 2);
+  left: 0;
+  width: 100%;
+  height: var(--hairline-w);
+}
+
+/* vertical stroke: full height, centered */
+.reg::after {
+  left: calc(50% - var(--hairline-w) / 2);
+  top: 0;
+  height: 100%;
+  width: var(--hairline-w);
+}
+
+.regRing {
+  position: absolute;
+  /* ring diameter is half the mark, centered: inset by a quarter */
+  inset: 25%;
+  border: var(--hairline-w) solid var(--reg-color);
+  border-radius: 50%;
+}
+
+.regAccent {
+  --reg-color: var(--accent);
+}
+
+/* ── Dimension ticks: engineering dimension line with a label ────────
+   |◄───────  label  ───────►|  built from hairlines and end ticks.  */
+
+.dim {
+  --dim-color: var(--text-faint);
+  display: flex;
+  align-items: center;
+  gap: calc(var(--space-unit) * 2);
+  color: var(--dim-color);
+  font-family: var(--font-mono);
+  font-size: var(--text--2);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.dimLine {
+  position: relative;
+  flex: 1;
+  height: var(--hairline-w);
+  background: var(--dim-color);
+  min-inline-size: calc(var(--space-unit) * 6);
+}
+
+.dimLine::before {
+  content: "";
+  position: absolute;
+  top: calc(var(--space-unit) * -1 + var(--hairline-w) / 2);
+  width: var(--hairline-w);
+  height: calc(var(--space-unit) * 2);
+  background: var(--dim-color);
+}
+
+.dimStart::before {
+  left: 0;
+}
+
+.dimEnd::before {
+  right: 0;
+}
+
+/* Angled leader: native CSS trigonometry turns a rise/run pair from the
+   layout into the leader angle; the values are grid multiples, the math
+   is the browser's. */
+.dimLeader {
+  --leader-rise: calc(var(--space-unit) * 3);
+  --leader-run: calc(var(--space-unit) * 8);
+  position: relative;
+  width: var(--leader-run);
+  height: var(--hairline-w);
+  background: var(--dim-color);
+  transform-origin: left center;
+  transform: rotate(atan2(var(--leader-rise), var(--leader-run)));
+}
