@@ -596,9 +596,9 @@ html[data-theme="dark"] {
   --text-step-4: var(--text-4);
   --text-step-5: var(--text-5);
   --text-step-6: var(--text-6);
-  --font-display: var(--font-display);
-  --font-body: var(--font-body);
-  --font-mono: var(--font-mono);
+  --font-cp-display: var(--font-display);
+  --font-cp-body: var(--font-body);
+  --font-cp-mono: var(--font-mono);
   --radius-token: var(--radius);
   --ease-token: var(--ease);
 }

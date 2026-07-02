@@ -74,17 +74,35 @@ export function confineToWorkspace(root: string, requested: unknown): ConfinedPa
   const relPosix = rel.split(path.sep).join('/');
   if (relPosix === '.git' || relPosix.startsWith('.git/')) return null;
 
-  if (existsSync(abs)) {
-    try {
-      const realRoot = realpathSync(root);
-      const realAbs = realpathSync(abs);
-      if (realAbs !== realRoot && !realAbs.startsWith(realRoot + path.sep)) return null;
-    } catch {
-      return null;
-    }
+  let realRoot: string;
+  try {
+    realRoot = realpathSync(root);
+  } catch {
+    return null;
+  }
+
+  const existing = nearestExistingPath(root, abs);
+  if (!existing) return null;
+
+  try {
+    const realExisting = realpathSync(existing);
+    if (realExisting !== realRoot && !realExisting.startsWith(realRoot + path.sep)) return null;
+  } catch {
+    return null;
   }
 
   return { abs, rel: relPosix };
+}
+
+function nearestExistingPath(root: string, abs: string): string | null {
+  let cursor = abs;
+  while (cursor !== root) {
+    if (existsSync(cursor)) return cursor;
+    const parent = path.dirname(cursor);
+    if (parent === cursor) return null;
+    cursor = parent;
+  }
+  return existsSync(root) ? root : null;
 }
 
 const BINARY_SNIFF_BYTES = 8_192;

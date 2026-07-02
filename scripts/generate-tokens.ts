@@ -1118,9 +1118,9 @@ function emitTailwindTheme(seed: Seed): string {
     const varLabel = s.n < 0 ? `-${Math.abs(s.n)}` : `${s.n}`;
     lines.push(`  --text-step-${label}: var(--text-${varLabel});`);
   }
-  lines.push(`  --font-display: var(--font-display);`);
-  lines.push(`  --font-body: var(--font-body);`);
-  lines.push(`  --font-mono: var(--font-mono);`);
+  lines.push(`  --font-cp-display: var(--font-display);`);
+  lines.push(`  --font-cp-body: var(--font-body);`);
+  lines.push(`  --font-cp-mono: var(--font-mono);`);
   lines.push(`  --radius-token: var(--radius);`);
   lines.push(`  --ease-token: var(--ease);`);
   lines.push(`}`);

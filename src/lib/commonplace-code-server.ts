@@ -36,10 +36,10 @@ export async function buildCommonPlaceCodeStatus(
   const now = options.now ?? new Date();
   const workspaceRoot = resolveWorkspaceRoot(env, options.cwd ?? process.cwd());
   const git = options.git ?? runGit;
-  const capabilities = buildCodeCapabilities(env);
   const sources = parseConnectorSourcesJson(env.COMMONPLACE_CODE_SOURCES_JSON);
 
   const gitState = await readGitState(workspaceRoot, git);
+  const capabilities = buildCodeCapabilities(env, gitState.available);
   const rootForWorkspace = gitState.available
     ? await git(workspaceRoot, ['rev-parse', '--show-toplevel']).catch(() => workspaceRoot)
     : workspaceRoot;
@@ -56,7 +56,10 @@ export async function buildCommonPlaceCodeStatus(
   };
 }
 
-export function buildCodeCapabilities(env: EnvLike = process.env): CommonPlaceCodeCapabilities {
+export function buildCodeCapabilities(
+  env: EnvLike = process.env,
+  gitAvailable = false,
+): CommonPlaceCodeCapabilities {
   const runChannelUrl = firstEnv(env, [
     'COMMONPLACE_RUN_CHANNEL_SSE_URL',
     'COMMONPLACE_DESKTOP_RUNTIME_URL',
@@ -89,9 +92,11 @@ export function buildCodeCapabilities(env: EnvLike = process.env): CommonPlaceCo
       detail: terminalUrl ? 'A PTY websocket is configured for this deployment.' : 'No interactive PTY bridge is exposed here.',
     },
     commitPush: {
-      available: false,
-      label: 'Git write actions absent',
-      detail: 'Commit and push need an owner only mutation endpoint for this workspace.',
+      available: gitAvailable,
+      label: gitAvailable ? 'Git write actions available' : 'Git write actions absent',
+      detail: gitAvailable
+        ? 'Owner only commit and push mutations can run in this workspace.'
+        : 'Commit and push require an owner only git workspace.',
     },
     diffReviewUndo: {
       available: false,

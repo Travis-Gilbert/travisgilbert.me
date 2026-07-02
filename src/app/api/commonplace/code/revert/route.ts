@@ -1,6 +1,6 @@
 /**
  * Undo a working tree change for one file (D5). Owner gated, path confined
- * to the workspace root. Tracked files revert via `git checkout -- <path>`;
+ * to the workspace root. Tracked files revert via a HEAD based git restore;
  * untracked added files are deleted (only plain files, and only when git
  * itself reports the path as untracked). The working tree change is what
  * re-triggers notify ingestion, so no extra call is made here.
@@ -51,6 +51,7 @@ export async function POST(request: Request) {
     }
 
     const untracked = statusLine.startsWith('??');
+    const stagedAddition = statusLine[0] === 'A';
     if (untracked) {
       const info = await stat(confined.abs).catch(() => null);
       if (!info || !info.isFile()) {
@@ -63,8 +64,21 @@ export async function POST(request: Request) {
       return Response.json({ ok: true, path: confined.rel, action: 'deleted' }, { headers: NO_STORE });
     }
 
-    await runWorkspaceGit(root, ['checkout', '--', confined.rel]);
-    return Response.json({ ok: true, path: confined.rel, action: 'checkout' }, { headers: NO_STORE });
+    if (stagedAddition) {
+      await runWorkspaceGit(root, ['restore', '--staged', '--', confined.rel]);
+      const info = await stat(confined.abs).catch(() => null);
+      if (info && !info.isFile()) {
+        return Response.json(
+          { ok: false, path: confined.rel, error: 'Only plain added files can be deleted by revert.' },
+          { status: 400, headers: NO_STORE },
+        );
+      }
+      if (info) await unlink(confined.abs);
+      return Response.json({ ok: true, path: confined.rel, action: 'deleted' }, { headers: NO_STORE });
+    }
+
+    await runWorkspaceGit(root, ['restore', '--source=HEAD', '--staged', '--worktree', '--', confined.rel]);
+    return Response.json({ ok: true, path: confined.rel, action: 'restore' }, { headers: NO_STORE });
   } catch (error) {
     return Response.json(
       { ok: false, error: error instanceof Error ? error.message : String(error) },

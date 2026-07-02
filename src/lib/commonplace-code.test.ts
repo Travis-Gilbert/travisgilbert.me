@@ -1,4 +1,7 @@
 import { describe, expect, it } from 'vitest';
+import { mkdtempSync, mkdirSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import path from 'node:path';
 import {
   buildCommonPlaceCodeBindingId,
   commonPlaceCodeRunElapsedMs,
@@ -8,6 +11,7 @@ import {
   parseLastCommit,
   type CommonPlaceCodeRunRecord,
 } from './commonplace-code';
+import { confineToWorkspace } from './commonplace-code-git';
 import { buildCodeCapabilities, buildCommonPlaceCodeStatus, type GitRunner } from './commonplace-code-server';
 
 describe('commonplace code contract', () => {
@@ -130,6 +134,7 @@ describe('commonplace code server status', () => {
     expect(status.git.changedFiles).toHaveLength(1);
     expect(status.git.lastCommit?.subject).toBe('latest work');
     expect(status.capabilities.runChannel.available).toBe(false);
+    expect(status.capabilities.commitPush.available).toBe(true);
     expect(status.sources).toEqual([]);
   });
 
@@ -146,5 +151,31 @@ describe('commonplace code server status', () => {
     expect(capabilities.terminal.available).toBe(true);
     expect(capabilities.connectorRegistry.available).toBe(true);
     expect(capabilities.commitPush.available).toBe(false);
+  });
+
+  it('marks commit and push available when git is available', () => {
+    const capabilities = buildCodeCapabilities({}, true);
+    expect(capabilities.commitPush.available).toBe(true);
+  });
+});
+
+describe('commonplace code workspace confinement', () => {
+  it('rejects symlink targets outside the workspace for existing files and creates', () => {
+    const root = mkdtempSync(path.join(tmpdir(), 'cp_code_root_'));
+    const outside = mkdtempSync(path.join(tmpdir(), 'cp_code_outside_'));
+    try {
+      mkdirSync(path.join(root, 'safe'));
+      writeFileSync(path.join(root, 'safe', 'kept.txt'), 'inside');
+      writeFileSync(path.join(outside, 'secret.txt'), 'outside');
+      symlinkSync(outside, path.join(root, 'out'));
+
+      expect(confineToWorkspace(root, 'safe/new.txt')?.rel).toBe('safe/new.txt');
+      expect(confineToWorkspace(root, 'safe/kept.txt')?.rel).toBe('safe/kept.txt');
+      expect(confineToWorkspace(root, 'out/secret.txt')).toBeNull();
+      expect(confineToWorkspace(root, 'out/new.txt')).toBeNull();
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+      rmSync(outside, { recursive: true, force: true });
+    }
   });
 });

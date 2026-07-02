@@ -4,6 +4,7 @@ import { mkdir, open, readFile, stat, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { promisify } from 'node:util';
 import { auth } from '@/lib/auth';
+import { confineToWorkspace } from '@/lib/commonplace-code-git';
 
 /**
  * CommonPlace code workspace file API (HANDOFF-CODE-SURFACE-UI D7 seam).
@@ -34,8 +35,8 @@ export async function GET(request: Request) {
 
   const rel = new URL(request.url).searchParams.get('path') ?? '';
   const root = resolveWorkspaceRoot();
-  const abs = resolveInsideRoot(root, rel);
-  if (!abs) {
+  const confined = confineToWorkspace(root, rel);
+  if (!confined) {
     return Response.json(
       { ok: false, error: 'Path must stay inside the workspace root.' },
       { status: 400, headers: NO_STORE },
@@ -43,7 +44,7 @@ export async function GET(request: Request) {
   }
 
   try {
-    const stats = await stat(abs);
+    const stats = await stat(confined.abs);
     if (!stats.isFile()) {
       return Response.json(
         { ok: false, error: 'Path is not a regular file.' },
@@ -53,14 +54,14 @@ export async function GET(request: Request) {
 
     if (stats.size > MAX_READ_BYTES) {
       // Refuse the full read: hand back only the first budgeted bytes and flag it.
-      const handle = await open(abs, 'r');
+      const handle = await open(confined.abs, 'r');
       try {
         const buffer = Buffer.alloc(MAX_READ_BYTES);
         const { bytesRead } = await handle.read(buffer, 0, MAX_READ_BYTES, 0);
         return Response.json(
           {
             ok: true,
-            path: path.relative(root, abs),
+            path: confined.rel,
             content: buffer.subarray(0, bytesRead).toString('utf8'),
             truncated: true,
           },
@@ -71,9 +72,9 @@ export async function GET(request: Request) {
       }
     }
 
-    const content = await readFile(abs, 'utf8');
+    const content = await readFile(confined.abs, 'utf8');
     return Response.json(
-      { ok: true, path: path.relative(root, abs), content, truncated: false },
+      { ok: true, path: confined.rel, content, truncated: false },
       { headers: NO_STORE },
     );
   } catch (error) {
@@ -101,8 +102,8 @@ export async function PUT(request: Request) {
   const rel = typeof body.path === 'string' ? body.path : '';
   const content = typeof body.content === 'string' ? body.content : null;
   const root = resolveWorkspaceRoot();
-  const abs = resolveInsideRoot(root, rel);
-  if (!abs || content === null) {
+  const confined = confineToWorkspace(root, rel);
+  if (!confined || content === null) {
     return Response.json(
       { ok: false, error: 'Path must stay inside the workspace root and content must be a string.' },
       { status: 400, headers: NO_STORE },
@@ -110,13 +111,11 @@ export async function PUT(request: Request) {
   }
 
   try {
-    await mkdir(path.dirname(abs), { recursive: true });
+    await mkdir(path.dirname(confined.abs), { recursive: true });
     // This write IS the notify re-ingest trigger: the desktop runtime watcher
     // sees the file change on disk. No extra ingest call belongs here.
-    await writeFile(abs, content, 'utf8');
-    const relFromRoot = path.relative(root, abs);
     return Response.json(
-      { ok: true, path: relFromRoot, gitStatus: await gitShortStatusLine(root, relFromRoot) },
+      { ok: true, path: confined.rel, gitStatus: await gitShortStatusLine(root, confined.rel) },
       { headers: NO_STORE },
     );
   } catch (error) {
@@ -143,15 +142,6 @@ function resolveWorkspaceRoot(): string {
   const candidate = configured || process.cwd();
   if (!existsSync(candidate)) return candidate;
   return realpathSync(candidate);
-}
-
-/** Resolve + prefix check: reject anything escaping the workspace root. */
-function resolveInsideRoot(root: string, rel: string): string | null {
-  if (!rel.trim() || rel.includes('\0')) return null;
-  const resolved = path.resolve(root, rel);
-  if (resolved === root) return null;
-  if (!resolved.startsWith(root + path.sep)) return null;
-  return resolved;
 }
 
 /** The refreshed `git status --porcelain=v1` line for one file ('' = clean). */
