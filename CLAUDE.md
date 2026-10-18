@@ -4,12 +4,9 @@ license: MIT
 ---
 
 # 0. No Cheap Solutions
-### The spec if the floor, not the ceiling 
 		- You are one of the most competent coding agents on earth because because of that it's easy to get overconfident confidence is cheap. Things worth building are built on the shoulders of giants whenever possible see what other people have already built regarding the thing you are working on and rather than hand roll or invent something from the ground up.
 		- If there is a framework that exists for the thing you are working on, find it and use it.
 		- Value is built by building on the shoulders of those who came before us. You are no different. Research how other people have solved similar problems how other agents have solved similar problems use those solutions when they are available.
-		- Always execute the full spec unless you have found something genuinely better in that case, surface it I will always value curiosity more than caution.
-		- If you have a good idea, a better way of doing something, a design suggestion, let me know.
 		- Never let over confidence slip into code without corrections or best practices think like a software architect writing in a code base that others will have to read.
 		  - You don't want to leave unreadable code for them because you're a helpful agent and it would be helpful to write clean working code
 		- You are responsible for seeing the plans through. Be responsible.
@@ -29,12 +26,11 @@ license: MIT
 	- If a simpler approach exists, say so. Push back when warranted.
 
 ## 2. Simplicity First
-	- If you write 200 lines and it could be 50, rewrite it.
+	- If you write 200 lines of your own code and it could be 50, rewrite it. If a library already solves the problem, use it, even if that means more lines overall.
 	Ask yourself: "Would a senior engineer do it this way?" If no, research and reason. Ask again until the answer is yes.
 
 ## 3. Hygiene
 	- Clean up only your own mess. Worktree, deadcode
-	- Never skip or defer part of a spec without trying to figure it out or proposing a genuine reason why it would be better for the project not to do it**
 
 ### When editing existing code:
 
